@@ -10,6 +10,8 @@ target_include_directories(NetworkResourceManager PRIVATE
 target_sources(NetworkResourceManager PRIVATE
    NrmSnapshotReporter.cpp
    NrmSnapshotReporter.hpp
+   NrmTacticalView.cpp
+   NrmTacticalView.hpp
 )
 
 if(UNIX)

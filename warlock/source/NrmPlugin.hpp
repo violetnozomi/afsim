@@ -4,6 +4,7 @@
 #include "NrmDataContainer.hpp"
 #include "NrmDockWidget.hpp"
 #include "NrmSimInterface.hpp"
+#include "NrmTacticalView.hpp"
 #include "WkPlugin.hpp"
 
 namespace WkNrm
@@ -21,8 +22,8 @@ protected:
 private:
    DataContainer mData;
    DockWidget*   mDockWidgetPtr;
+   TacticalView* mTacticalViewPtr;
 };
 } // namespace WkNrm
 
 #endif
-

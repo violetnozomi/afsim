@@ -40,6 +40,8 @@ network nrm_link16_red WSF_COMM_NETWORK_GENERIC
    comm_list
       member l16_fighter comm
       member l16_command comm
+      member red_fighter_1 comm
+      member red_fighter_2 comm
    end_comm_list
    comm_link_list
       link l16_fighter comm l16_command comm
@@ -70,6 +72,8 @@ network nrm_cdl_green WSF_COMM_NETWORK_GENERIC
 end_network
 
 platform_type NRM_LINK11_NODE WSF_PLATFORM
+   icon Ground_Radar
+   side blue
    add comm comm NRM_LINK11_COMM
       internal_link processor
    end_comm
@@ -77,6 +81,12 @@ platform_type NRM_LINK11_NODE WSF_PLATFORM
 end_platform_type
 
 platform_type NRM_LINK16_NODE WSF_PLATFORM
+   icon F-18E
+   side blue
+   mover WSF_AIR_MOVER
+      update_interval 1 s
+      at_end_of_path stop
+   end_mover
    add comm comm NRM_LINK16_COMM
       internal_link processor
    end_comm
@@ -84,6 +94,8 @@ platform_type NRM_LINK16_NODE WSF_PLATFORM
 end_platform_type
 
 platform_type NRM_SATCOM_NODE WSF_PLATFORM
+   icon Satellite
+   side blue
    add comm comm NRM_SATCOM_COMM
       internal_link processor
    end_comm
@@ -91,7 +103,26 @@ platform_type NRM_SATCOM_NODE WSF_PLATFORM
 end_platform_type
 
 platform_type NRM_CDL_NODE WSF_PLATFORM
+   icon F-18E
+   side blue
+   mover WSF_AIR_MOVER
+      update_interval 1 s
+      at_end_of_path stop
+   end_mover
    add comm comm NRM_CDL_COMM
+      internal_link processor
+   end_comm
+   add processor processor NRM_MESSAGE_PROCESSOR end_processor
+end_platform_type
+
+platform_type NRM_RED_FIGHTER WSF_PLATFORM
+   icon F-15
+   side red
+   mover WSF_AIR_MOVER
+      update_interval 1 s
+      at_end_of_path stop
+   end_mover
+   add comm comm NRM_LINK16_COMM
       internal_link processor
    end_comm
    add processor processor NRM_MESSAGE_PROCESSOR end_processor
@@ -105,9 +136,14 @@ platform l11_member NRM_LINK11_NODE
 end_platform
 
 platform l16_fighter NRM_LINK16_NODE
-   position 35.200n 120.000e altitude 6000 m
+   route
+      position 35.200n 119.800e altitude 6000 m speed 420 kts
+      position 35.350n 120.150e altitude 6500 m speed 420 kts
+   end_route
 end_platform
 platform l16_command NRM_LINK16_NODE
+   icon Ground_Radar
+   delete mover
    position 35.300n 120.050e altitude 20 m
 end_platform
 
@@ -119,10 +155,29 @@ platform sat_gateway NRM_SATCOM_NODE
 end_platform
 
 platform cdl_sensor NRM_CDL_NODE
-   position 35.500n 120.000e altitude 8000 m
+   route
+      position 35.500n 119.750e altitude 8000 m speed 260 kts
+      position 35.600n 120.200e altitude 8000 m speed 260 kts
+   end_route
 end_platform
 platform cdl_station NRM_CDL_NODE
+   icon Ground_Radar
+   delete mover
    position 35.600n 120.050e altitude 20 m
+end_platform
+
+platform red_fighter_1 NRM_RED_FIGHTER
+   route
+      position 35.650n 120.300e altitude 7000 m speed 430 kts
+      position 35.350n 119.900e altitude 7000 m speed 430 kts
+   end_route
+end_platform
+
+platform red_fighter_2 NRM_RED_FIGHTER
+   route
+      position 35.720n 120.260e altitude 7200 m speed 430 kts
+      position 35.400n 119.850e altitude 7200 m speed 430 kts
+   end_route
 end_platform
 
 execute at_time 1 s absolute
@@ -157,4 +212,36 @@ execute at_time 4 s absolute
       message, WsfSimulation.FindPlatform("cdl_station").Comm("comm"));
 end_execute
 
-end_time 6 s
+execute at_time 20 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK16_TRACK");
+   message.SetSizeInBits(1024);
+   WsfSimulation.FindPlatform("l16_fighter").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("l16_command").Comm("comm"));
+end_execute
+
+execute at_time 30 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("CDL_ISR");
+   message.SetSizeInBits(1000000);
+   WsfSimulation.FindPlatform("cdl_sensor").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("cdl_station").Comm("comm"));
+end_execute
+
+execute at_time 40 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK11_STATUS");
+   message.SetSizeInBits(512);
+   WsfSimulation.FindPlatform("l11_control").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("l11_member").Comm("comm"));
+end_execute
+
+execute at_time 50 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("SATCOM_COMMAND");
+   message.SetSizeInBits(4096);
+   WsfSimulation.FindPlatform("sat_terminal").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("sat_gateway").Comm("comm"));
+end_execute
+
+end_time 120 s
