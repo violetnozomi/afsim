@@ -6,7 +6,6 @@
 class QLabel;
 class QComboBox;
 class QDoubleSpinBox;
-class QLineEdit;
 class QTableWidget;
 class QTextEdit;
 
@@ -24,6 +23,7 @@ public:
 private:
    void Refresh();
    void EvaluateTask();
+   void RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnapshot);
    static QString RuntimeStateText(nrm::RuntimeState aState);
    static void SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText);
 
@@ -41,8 +41,8 @@ private:
    QTableWidget*  mMetricsTablePtr;
    QTableWidget*  mEndpointTablePtr;
    QTableWidget*  mLinkTablePtr;
-   QLineEdit*      mSourceEditPtr;
-   QLineEdit*      mDestinationEditPtr;
+   QComboBox*      mSourceSelectorPtr;
+   QComboBox*      mDestinationSelectorPtr;
    QComboBox*      mAllowedNetworkPtr;
    QDoubleSpinBox* mBandwidthKbpsPtr;
    QDoubleSpinBox* mMaximumDelayMsPtr;

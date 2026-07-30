@@ -1,6 +1,7 @@
 #include "NrmDockWidget.hpp"
 
 #include <cmath>
+#include <map>
 #include <vector>
 
 #include <QAbstractItemView>
@@ -11,8 +12,8 @@
 #include <QFormLayout>
 #include <QHeaderView>
 #include <QLabel>
-#include <QLineEdit>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QTextEdit>
@@ -92,8 +93,8 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mMetricsTablePtr(nullptr)
    , mEndpointTablePtr(nullptr)
    , mLinkTablePtr(nullptr)
-   , mSourceEditPtr(nullptr)
-   , mDestinationEditPtr(nullptr)
+   , mSourceSelectorPtr(nullptr)
+   , mDestinationSelectorPtr(nullptr)
    , mAllowedNetworkPtr(nullptr)
    , mBandwidthKbpsPtr(nullptr)
    , mMaximumDelayMsPtr(nullptr)
@@ -138,8 +139,10 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    QWidget* assessmentPagePtr = new QWidget(tabsPtr);
    QVBoxLayout* assessmentLayoutPtr = new QVBoxLayout(assessmentPagePtr);
    QFormLayout* taskFormPtr = new QFormLayout();
-   mSourceEditPtr = new QLineEdit("l11_control", assessmentPagePtr);
-   mDestinationEditPtr = new QLineEdit("l11_member", assessmentPagePtr);
+   mSourceSelectorPtr = new QComboBox(assessmentPagePtr);
+   mDestinationSelectorPtr = new QComboBox(assessmentPagePtr);
+   mSourceSelectorPtr->setMinimumContentsLength(24);
+   mDestinationSelectorPtr->setMinimumContentsLength(24);
    mAllowedNetworkPtr = new QComboBox(assessmentPagePtr);
    mAllowedNetworkPtr->addItems({"ALL", "LINK11", "LINK16", "SATCOM", "CDL"});
    mBandwidthKbpsPtr = new QDoubleSpinBox(assessmentPagePtr);
@@ -154,8 +157,8 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mMinimumPdrPtr->setRange(0.0, 100.0);
    mMinimumPdrPtr->setValue(90.0);
    mMinimumPdrPtr->setSuffix(" %");
-   taskFormPtr->addRow("Source platform", mSourceEditPtr);
-   taskFormPtr->addRow("Destination platform", mDestinationEditPtr);
+   taskFormPtr->addRow("Source platform", mSourceSelectorPtr);
+   taskFormPtr->addRow("Destination platform", mDestinationSelectorPtr);
    taskFormPtr->addRow("Allowed network", mAllowedNetworkPtr);
    taskFormPtr->addRow("Required bandwidth", mBandwidthKbpsPtr);
    taskFormPtr->addRow("Maximum delay", mMaximumDelayMsPtr);
@@ -174,6 +177,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    tabsPtr->addTab(mEndpointTablePtr, "Members");
    tabsPtr->addTab(mLinkTablePtr, "Links");
    tabsPtr->addTab(assessmentPagePtr, "Task assessment");
+   tabsPtr->setCurrentWidget(assessmentPagePtr);
    rootLayoutPtr->addWidget(tabsPtr);
 
    setWidget(contentPtr);
@@ -187,8 +191,18 @@ void WkNrm::DockWidget::EvaluateTask()
 {
    nrm::AssessmentTask task;
    task.taskId              = "GUI-" + std::to_string(mData.GetSnapshot().snapshotVersion);
-   task.sourcePlatform      = mSourceEditPtr->text().trimmed().toStdString();
-   task.destinationPlatform = mDestinationEditPtr->text().trimmed().toStdString();
+   task.sourcePlatform      = mSourceSelectorPtr->currentData().toString().toStdString();
+   task.destinationPlatform = mDestinationSelectorPtr->currentData().toString().toStdString();
+   if (task.sourcePlatform.empty() || task.destinationPlatform.empty())
+   {
+      mAssessmentResultPtr->setPlainText("Select both a source platform and a destination platform.");
+      return;
+   }
+   if (task.sourcePlatform == task.destinationPlatform)
+   {
+      mAssessmentResultPtr->setPlainText("Source and destination must be different platforms.");
+      return;
+   }
    task.requiredBandwidthBps = mBandwidthKbpsPtr->value() * 1000.0;
    task.maximumDelayMs       = mMaximumDelayMsPtr->value();
    task.minimumPdrPercent    = mMinimumPdrPtr->value();
@@ -254,6 +268,7 @@ void WkNrm::DockWidget::EvaluateTask()
 void WkNrm::DockWidget::Refresh()
 {
    const nrm::FrameworkSnapshot& snapshot = mData.GetSnapshot();
+   RefreshNodeSelectors(snapshot);
    mVersionValuePtr->setText(nrm::cVERSION);
    mStateValuePtr->setText(RuntimeStateText(snapshot.runtimeState));
    mSimTimeValuePtr->setText(QString::number(snapshot.simTime, 'f', 2) + " s");
@@ -351,6 +366,80 @@ void WkNrm::DockWidget::Refresh()
       SetTableText(mLinkTablePtr, row, 9, MetricText(link.snrDb));
       SetTableText(mLinkTablePtr, row, 10, MetricText(link.ber, 6));
    }
+}
+
+void WkNrm::DockWidget::RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnapshot)
+{
+   struct PlatformChoice
+   {
+      std::string platformName;
+      std::string networkType;
+      std::string address;
+   };
+
+   std::map<std::string, PlatformChoice> choicesByPlatform;
+   for (const nrm::EndpointSnapshot& endpoint : aSnapshot.endpoints)
+   {
+      PlatformChoice& choice = choicesByPlatform[endpoint.platformName];
+      choice.platformName = endpoint.platformName;
+      if (choice.networkType.empty())
+      {
+         choice.networkType = nrm::ToString(endpoint.networkType);
+         choice.address = endpoint.address;
+      }
+      else if (choice.networkType.find(nrm::ToString(endpoint.networkType)) == std::string::npos)
+      {
+         choice.networkType += "/";
+         choice.networkType += nrm::ToString(endpoint.networkType);
+      }
+   }
+
+   auto refreshSelector = [&choicesByPlatform](QComboBox* aSelectorPtr, const QString& aPreferredPlatform)
+   {
+      QString currentPlatform = aSelectorPtr->currentData().toString();
+      if (currentPlatform.isEmpty())
+      {
+         currentPlatform = aPreferredPlatform;
+      }
+
+      bool unchanged = aSelectorPtr->count() == static_cast<int>(choicesByPlatform.size());
+      int index = 0;
+      for (const auto& entry : choicesByPlatform)
+      {
+         if (!unchanged ||
+             aSelectorPtr->itemData(index).toString() != QString::fromStdString(entry.first))
+         {
+            unchanged = false;
+            break;
+         }
+         ++index;
+      }
+      if (unchanged)
+      {
+         return;
+      }
+
+      const QSignalBlocker blocker(aSelectorPtr);
+      aSelectorPtr->clear();
+      for (const auto& entry : choicesByPlatform)
+      {
+         const PlatformChoice& choice = entry.second;
+         const QString label =
+            QString("%1 [%2 | %3]")
+               .arg(QString::fromStdString(choice.platformName),
+                    QString::fromStdString(choice.networkType),
+                    QString::fromStdString(choice.address));
+         aSelectorPtr->addItem(label, QString::fromStdString(choice.platformName));
+      }
+      const int restoredIndex = aSelectorPtr->findData(currentPlatform);
+      if (restoredIndex >= 0)
+      {
+         aSelectorPtr->setCurrentIndex(restoredIndex);
+      }
+   };
+
+   refreshSelector(mSourceSelectorPtr, "l11_control");
+   refreshSelector(mDestinationSelectorPtr, "l11_member");
 }
 
 void WkNrm::DockWidget::SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText)
