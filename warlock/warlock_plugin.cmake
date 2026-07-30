@@ -1,0 +1,4 @@
+set(WARLOCK_PLUGIN_NAME NetworkResourceManager)
+set(WARLOCK_PLUGIN_SOURCE_PATH source)
+set(WARLOCK_PLUGIN_BUILD TRUE)
+
