@@ -73,6 +73,19 @@ struct MessageStatistics
    std::size_t   queueDepth     = 0;
 };
 
+struct WindowMetrics
+{
+   double              windowS = 0.0;
+   MessageStatistics   messages;
+   std::uint64_t       transmittedBits = 0;
+   MetricValue<double> throughputBps;
+   MetricValue<double> pdrPercent;
+   MetricValue<double> averageQueueDelayMs;
+   MetricValue<double> averageTransportDelayMs;
+   MetricValue<double> onlineRatioPercent;
+   MetricValue<double> utilizationPercent;
+};
+
 struct NetworkSnapshot
 {
    std::string       networkId;
@@ -84,6 +97,7 @@ struct NetworkSnapshot
    std::size_t       onlineCount   = 0;
    std::size_t       activeLinks   = 0;
    MessageStatistics messages;
+   std::vector<WindowMetrics> windows;
 };
 
 struct EndpointSnapshot
@@ -118,6 +132,7 @@ struct LinkSnapshot
    MetricValue<double> rssiDbm;
    MetricValue<double> snrDb;
    MetricValue<double> ber;
+   std::vector<WindowMetrics> windows;
 };
 
 struct ResourceSnapshot

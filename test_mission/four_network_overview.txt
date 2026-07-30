@@ -128,6 +128,7 @@ end_platform
 execute at_time 1 s absolute
    WsfMessage message = WsfMessage();
    message.SetType("LINK11_STATUS");
+   message.SetSizeInBits(512);
    WsfSimulation.FindPlatform("l11_control").Comm("comm").SendMessage(
       message, WsfSimulation.FindPlatform("l11_member").Comm("comm"));
 end_execute
@@ -135,6 +136,7 @@ end_execute
 execute at_time 2 s absolute
    WsfMessage message = WsfMessage();
    message.SetType("LINK16_TRACK");
+   message.SetSizeInBits(1024);
    WsfSimulation.FindPlatform("l16_fighter").Comm("comm").SendMessage(
       message, WsfSimulation.FindPlatform("l16_command").Comm("comm"));
 end_execute
@@ -142,6 +144,7 @@ end_execute
 execute at_time 3 s absolute
    WsfMessage message = WsfMessage();
    message.SetType("SATCOM_COMMAND");
+   message.SetSizeInBits(4096);
    WsfSimulation.FindPlatform("sat_terminal").Comm("comm").SendMessage(
       message, WsfSimulation.FindPlatform("sat_gateway").Comm("comm"));
 end_execute
@@ -149,6 +152,7 @@ end_execute
 execute at_time 4 s absolute
    WsfMessage message = WsfMessage();
    message.SetType("CDL_ISR");
+   message.SetSizeInBits(1000000);
    WsfSimulation.FindPlatform("cdl_sensor").Comm("comm").SendMessage(
       message, WsfSimulation.FindPlatform("cdl_station").Comm("comm"));
 end_execute

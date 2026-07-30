@@ -1,5 +1,8 @@
 #include "NrmDockWidget.hpp"
 
+#include <cmath>
+#include <vector>
+
 #include <QAbstractItemView>
 #include <QBrush>
 #include <QColor>
@@ -40,6 +43,18 @@ QString MetricText(const nrm::MetricValue<double>& aMetric, int aPrecision = 2)
                         : QString::fromUtf8("—");
 }
 
+const nrm::WindowMetrics* FindWindow(const std::vector<nrm::WindowMetrics>& aWindows, double aWindowS)
+{
+   for (const nrm::WindowMetrics& window : aWindows)
+   {
+      if (std::abs(window.windowS - aWindowS) < 0.01)
+      {
+         return &window;
+      }
+   }
+   return nullptr;
+}
+
 QTableWidget* CreateTable(const QStringList& aHeaders, QWidget* aParentPtr)
 {
    QTableWidget* tablePtr = new QTableWidget(aParentPtr);
@@ -68,6 +83,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mHopValuePtr(new QLabel(this))
    , mDiscardedValuePtr(new QLabel(this))
    , mNetworkTablePtr(nullptr)
+   , mMetricsTablePtr(nullptr)
    , mEndpointTablePtr(nullptr)
    , mLinkTablePtr(nullptr)
 {
@@ -88,11 +104,26 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    QTabWidget* tabsPtr = new QTabWidget(contentPtr);
    mNetworkTablePtr = CreateTable(
       {"Type", "Network", "Model", "Members", "Online", "Links", "Tx", "Rx", "Dropped"}, tabsPtr);
+   mMetricsTablePtr = CreateTable(
+      {"Type", "Network", "Window", "Throughput", "PDR", "Online ratio", "Queue delay", "Transport delay"},
+      tabsPtr);
    mEndpointTablePtr =
       CreateTable({"Type", "Platform", "Comm", "Address", "State", "Latitude", "Longitude", "Altitude"}, tabsPtr);
-   mLinkTablePtr =
-      CreateTable({"Type", "Source", "Destination", "State", "Distance", "RSSI", "SNR", "BER"}, tabsPtr);
+   mLinkTablePtr = CreateTable(
+      {"Type",
+       "Source",
+       "Destination",
+       "State",
+       "Distance",
+       "Bandwidth",
+       "10 s throughput",
+       "Utilization",
+       "RSSI",
+       "SNR",
+       "BER"},
+      tabsPtr);
    tabsPtr->addTab(mNetworkTablePtr, "Four-network overview");
+   tabsPtr->addTab(mMetricsTablePtr, "Window metrics");
    tabsPtr->addTab(mEndpointTablePtr, "Members");
    tabsPtr->addTab(mLinkTablePtr, "Links");
    rootLayoutPtr->addWidget(tabsPtr);
@@ -139,6 +170,30 @@ void WkNrm::DockWidget::Refresh()
                    QString::number(network.messages.discarded + network.messages.routingFailed));
    }
 
+   std::size_t metricsRowCount = 0;
+   for (const nrm::NetworkSnapshot& network : snapshot.networks)
+   {
+      metricsRowCount += network.windows.size();
+   }
+   mMetricsTablePtr->setRowCount(static_cast<int>(metricsRowCount));
+   int metricsRow = 0;
+   for (const nrm::NetworkSnapshot& network : snapshot.networks)
+   {
+      for (const nrm::WindowMetrics& window : network.windows)
+      {
+         SetTableText(mMetricsTablePtr, metricsRow, 0, nrm::ToString(network.networkType));
+         mMetricsTablePtr->item(metricsRow, 0)->setForeground(QBrush(NetworkColor(network.networkType)));
+         SetTableText(mMetricsTablePtr, metricsRow, 1, QString::fromStdString(network.networkName));
+         SetTableText(mMetricsTablePtr, metricsRow, 2, QString::number(window.windowS, 'f', 0) + " s");
+         SetTableText(mMetricsTablePtr, metricsRow, 3, MetricText(window.throughputBps, 1));
+         SetTableText(mMetricsTablePtr, metricsRow, 4, MetricText(window.pdrPercent, 1));
+         SetTableText(mMetricsTablePtr, metricsRow, 5, MetricText(window.onlineRatioPercent, 1));
+         SetTableText(mMetricsTablePtr, metricsRow, 6, MetricText(window.averageQueueDelayMs, 3));
+         SetTableText(mMetricsTablePtr, metricsRow, 7, MetricText(window.averageTransportDelayMs, 3));
+         ++metricsRow;
+      }
+   }
+
    mEndpointTablePtr->setRowCount(static_cast<int>(snapshot.endpoints.size()));
    for (std::size_t index = 0; index < snapshot.endpoints.size(); ++index)
    {
@@ -166,9 +221,19 @@ void WkNrm::DockWidget::Refresh()
       SetTableText(mLinkTablePtr, row, 2, QString::fromStdString(link.destinationPlatform));
       SetTableText(mLinkTablePtr, row, 3, nrm::ToString(link.state));
       SetTableText(mLinkTablePtr, row, 4, MetricText(link.distanceM, 1));
-      SetTableText(mLinkTablePtr, row, 5, MetricText(link.rssiDbm));
-      SetTableText(mLinkTablePtr, row, 6, MetricText(link.snrDb));
-      SetTableText(mLinkTablePtr, row, 7, MetricText(link.ber, 6));
+      SetTableText(mLinkTablePtr, row, 5, MetricText(link.bandwidthBps, 1));
+      const nrm::WindowMetrics* window10s = FindWindow(link.windows, 10.0);
+      SetTableText(mLinkTablePtr,
+                   row,
+                   6,
+                   window10s == nullptr ? QString::fromUtf8("—") : MetricText(window10s->throughputBps, 1));
+      SetTableText(mLinkTablePtr,
+                   row,
+                   7,
+                   window10s == nullptr ? QString::fromUtf8("—") : MetricText(window10s->utilizationPercent, 1));
+      SetTableText(mLinkTablePtr, row, 8, MetricText(link.rssiDbm));
+      SetTableText(mLinkTablePtr, row, 9, MetricText(link.snrDb));
+      SetTableText(mLinkTablePtr, row, 10, MetricText(link.ber, 6));
    }
 }
 

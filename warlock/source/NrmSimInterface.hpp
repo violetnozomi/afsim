@@ -7,6 +7,7 @@
 #include "NrmSimEvents.hpp"
 #include "UtCallbackHolder.hpp"
 #include "WkSimInterface.hpp"
+#include "nrm/RollingMetrics.hpp"
 
 class WsfSimulation;
 class WsfMessage;
@@ -36,16 +37,30 @@ protected:
    void SimulationComplete(const WsfSimulation& aSimulation) override;
 
 private:
+   struct LinkRadioState
+   {
+      nrm::MetricValue<double> bandwidthBps;
+      nrm::MetricValue<double> rssiDbm;
+      nrm::MetricValue<double> snrDb;
+      nrm::MetricValue<double> ber;
+   };
+
    void PublishSnapshot(const WsfSimulation& aSimulation, nrm::RuntimeState aState);
    void BuildResourceState(const WsfSimulation& aSimulation);
    void RegisterCallbacks(const WsfSimulation& aSimulation);
    void CountMessage(wsf::comm::Comm* aCommPtr, std::uint64_t nrm::MessageStatistics::*aCounter);
+   void PruneCorrelations(double aSimTime);
    static nrm::NetworkType GetNetworkType(const wsf::comm::Comm* aCommPtr);
 
-   UtCallbackHolder                           mCallbacks;
-   nrm::ResourceSnapshot                      mSnapshot;
+   UtCallbackHolder                              mCallbacks;
+   nrm::ResourceSnapshot                         mSnapshot;
    std::map<std::string, nrm::MessageStatistics> mMessagesByNetwork;
-   double                                     mLastPublishTime = -1.0;
+   std::map<std::string, nrm::RollingMetrics>     mMetricsByNetwork;
+   std::map<std::string, nrm::RollingMetrics>     mMetricsByLink;
+   std::map<std::string, LinkRadioState>          mRadioByLink;
+   std::map<unsigned int, double>                 mQueuedTimes;
+   std::map<unsigned int, double>                 mTransmittedTimes;
+   double                                        mLastPublishTime = -1.0;
 };
 } // namespace WkNrm
 

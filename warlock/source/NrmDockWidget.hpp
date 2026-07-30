@@ -33,6 +33,7 @@ private:
    QLabel*        mHopValuePtr;
    QLabel*        mDiscardedValuePtr;
    QTableWidget*  mNetworkTablePtr;
+   QTableWidget*  mMetricsTablePtr;
    QTableWidget*  mEndpointTablePtr;
    QTableWidget*  mLinkTablePtr;
 };

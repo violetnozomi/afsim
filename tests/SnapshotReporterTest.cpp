@@ -21,6 +21,12 @@ int main()
    network.networkType   = nrm::NetworkType::cLINK16;
    network.endpointCount = 2;
    network.onlineCount   = 2;
+   nrm::WindowMetrics window;
+   window.windowS             = 10.0;
+   window.throughputBps.value = 1000.0;
+   window.throughputBps.valid = true;
+   window.throughputBps.unit  = "bit/s";
+   network.windows.push_back(window);
    snapshot.networks.push_back(network);
 
    nrm::EndpointSnapshot endpoint;
@@ -44,10 +50,12 @@ int main()
    assert(json.find("\"snapshot_version\":7") != std::string::npos);
    assert(json.find("\"type\":\"LINK16\"") != std::string::npos);
    assert(json.find("\"platform\":\"fighter\"") != std::string::npos);
+   assert(json.find("\"throughput_bps\"") != std::string::npos);
 
    std::ifstream csvInput(outputDirectory + "/network_summary.csv");
    std::stringstream csvBuffer;
    csvBuffer << csvInput.rdbuf();
    assert(csvBuffer.str().find("nrm_link16_test") != std::string::npos);
+   assert(csvBuffer.str().find("1000.000") != std::string::npos);
    return 0;
 }

@@ -5,6 +5,7 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/NetworkResourceTypes.hpp
       include/nrm/InputProvider.hpp
       include/nrm/NetworkTypeUtils.hpp
+      include/nrm/RollingMetrics.hpp
       include/nrm/Version.hpp
       source/WsfNetworkResourceManagerPlugin.hpp
    SRCS

@@ -1,6 +1,7 @@
 #include "NrmSimInterface.hpp"
 
 #include <cmath>
+#include <iterator>
 #include <map>
 #include <set>
 #include <string>
@@ -11,6 +12,8 @@
 #include "WsfCommNetwork.hpp"
 #include "WsfCommNetworkManager.hpp"
 #include "WsfCommObserver.hpp"
+#include "WsfCommResult.hpp"
+#include "WsfMessage.hpp"
 #include "WsfPlatform.hpp"
 #include "WsfSimulation.hpp"
 #include "nrm/NetworkTypeUtils.hpp"
@@ -55,6 +58,26 @@ void SetPositionMetric(nrm::MetricValue<double>& aMetric,
    aMetric.confidence = nrm::Confidence::cHIGH;
    aMetric.sampleTime = aSimTime;
 }
+
+void SetDirectMetric(nrm::MetricValue<double>& aMetric,
+                     double                    aValue,
+                     const char*               aUnit,
+                     double                    aSimTime)
+{
+   aMetric.value      = aValue;
+   aMetric.unit       = aUnit;
+   aMetric.valid      = true;
+   aMetric.origin     = nrm::DataOrigin::cAFSIM_INTERNAL;
+   aMetric.confidence = nrm::Confidence::cHIGH;
+   aMetric.sampleTime = aSimTime;
+}
+
+std::string LinkId(const wsf::comm::Comm* aSourcePtr, const wsf::comm::Comm* aDestinationPtr)
+{
+   return EndpointId(aSourcePtr) + "->" + EndpointId(aDestinationPtr);
+}
+
+const double cWINDOWS_S[] = {1.0, 10.0, 60.0};
 } // namespace
 
 WkNrm::SimInterface::SimInterface(const QString& aPluginName)
@@ -67,6 +90,11 @@ void WkNrm::SimInterface::SimulationInitializing(const WsfSimulation& aSimulatio
    mCallbacks.Clear();
    mSnapshot         = nrm::ResourceSnapshot();
    mMessagesByNetwork.clear();
+   mMetricsByNetwork.clear();
+   mMetricsByLink.clear();
+   mRadioByLink.clear();
+   mQueuedTimes.clear();
+   mTransmittedTimes.clear();
    mLastPublishTime = -1.0;
    RegisterCallbacks(aSimulation);
 
@@ -100,6 +128,7 @@ void WkNrm::SimInterface::PublishSnapshot(const WsfSimulation& aSimulation, nrm:
    mSnapshot.origin       = nrm::DataOrigin::cAFSIM_INTERNAL;
    mSnapshot.providerId   = "afsim-internal";
    BuildResourceState(aSimulation);
+   PruneCorrelations(mSnapshot.simTime);
    mLastPublishTime = mSnapshot.simTime;
 
    AddSimEvent(ut::make_unique<SnapshotEvent>(mSnapshot));
@@ -108,9 +137,13 @@ void WkNrm::SimInterface::PublishSnapshot(const WsfSimulation& aSimulation, nrm:
 void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
 {
    mCallbacks.Add(WsfObserver::MessageQueued(&aSimulation)
-                     .Connect([this](double, wsf::comm::Comm* aCommPtr, const WsfMessage&, size_t aQueueDepth)
+                     .Connect([this](double             aSimTime,
+                                     wsf::comm::Comm*   aCommPtr,
+                                     const WsfMessage& aMessage,
+                                     size_t             aQueueDepth)
                               {
                                  CountMessage(aCommPtr, &nrm::MessageStatistics::queued);
+                                 mQueuedTimes[aMessage.GetSerialNumber()] = aSimTime;
                                  mSnapshot.messages.queueDepth = aQueueDepth;
                                  if (aCommPtr != nullptr)
                                  {
@@ -118,24 +151,107 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                  }
                               }));
    mCallbacks.Add(WsfObserver::MessageTransmitted(&aSimulation)
-                     .Connect([this](double, wsf::comm::Comm* aCommPtr, const WsfMessage&)
-                              { CountMessage(aCommPtr, &nrm::MessageStatistics::transmitted); }));
+                     .Connect([this](double             aSimTime,
+                                     wsf::comm::Comm*   aCommPtr,
+                                     const WsfMessage& aMessage)
+                              {
+                                 CountMessage(aCommPtr, &nrm::MessageStatistics::transmitted);
+                                 double queueDelayMs = -1.0;
+                                 const auto queuedIt = mQueuedTimes.find(aMessage.GetSerialNumber());
+                                 if (queuedIt != mQueuedTimes.end())
+                                 {
+                                    queueDelayMs = 1000.0 * (aSimTime - queuedIt->second);
+                                    mQueuedTimes.erase(queuedIt);
+                                 }
+                                 mTransmittedTimes[aMessage.GetSerialNumber()] = aSimTime;
+                                 if (aCommPtr != nullptr)
+                                 {
+                                    mMetricsByNetwork[aCommPtr->GetNetwork()].RecordTransmit(
+                                       aSimTime,
+                                       static_cast<std::uint64_t>(std::max(0, aMessage.GetSizeBits())),
+                                       queueDelayMs);
+                                 }
+                              }));
    mCallbacks.Add(WsfObserver::MessageReceived(&aSimulation)
-                     .Connect([this](double,
-                                     wsf::comm::Comm* aReceiverPtr,
-                                     wsf::comm::Comm*,
-                                     const WsfMessage&,
-                                     wsf::comm::Result&)
-                              { CountMessage(aReceiverPtr, &nrm::MessageStatistics::received); }));
+                     .Connect([this](double             aSimTime,
+                                     wsf::comm::Comm*   aReceiverPtr,
+                                     wsf::comm::Comm*   aSenderPtr,
+                                     const WsfMessage& aMessage,
+                                     wsf::comm::Result& aResult)
+                              {
+                                 CountMessage(aReceiverPtr, &nrm::MessageStatistics::received);
+                                 double transportDelayMs = -1.0;
+                                 const auto transmittedIt = mTransmittedTimes.find(aMessage.GetSerialNumber());
+                                 if (transmittedIt != mTransmittedTimes.end())
+                                 {
+                                    transportDelayMs = 1000.0 * (aSimTime - transmittedIt->second);
+                                    mTransmittedTimes.erase(transmittedIt);
+                                 }
+                                 const std::uint64_t bits =
+                                    static_cast<std::uint64_t>(std::max(0, aMessage.GetSizeBits()));
+                                 if (aReceiverPtr != nullptr)
+                                 {
+                                    mMetricsByNetwork[aReceiverPtr->GetNetwork()].RecordReceive(
+                                       aSimTime, bits, transportDelayMs);
+                                 }
+                                 if (aSenderPtr != nullptr && aReceiverPtr != nullptr)
+                                 {
+                                    const std::string linkId = LinkId(aSenderPtr, aReceiverPtr);
+                                    mMetricsByLink[linkId].RecordTransmit(aSimTime, bits);
+                                    mMetricsByLink[linkId].RecordReceive(aSimTime, bits, transportDelayMs);
+                                    LinkRadioState& radio = mRadioByLink[linkId];
+                                    if (aResult.mDataRate > 0.0)
+                                    {
+                                       SetDirectMetric(
+                                          radio.bandwidthBps, aResult.mDataRate, "bit/s", aSimTime);
+                                    }
+                                    if (aResult.mRcvdPower > 0.0)
+                                    {
+                                       SetDirectMetric(radio.rssiDbm,
+                                                       10.0 * std::log10(aResult.mRcvdPower * 1000.0),
+                                                       "dBm",
+                                                       aSimTime);
+                                    }
+                                    if (aResult.mSignalToNoise > 0.0)
+                                    {
+                                       SetDirectMetric(radio.snrDb,
+                                                       10.0 * std::log10(aResult.mSignalToNoise),
+                                                       "dB",
+                                                       aSimTime);
+                                    }
+                                    if (aResult.mBitErrorRate >= 0.0)
+                                    {
+                                       SetDirectMetric(radio.ber, aResult.mBitErrorRate, "ratio", aSimTime);
+                                    }
+                                 }
+                              }));
    mCallbacks.Add(WsfObserver::MessageHop(&aSimulation)
                      .Connect([this](double, wsf::comm::Comm* aReceiverPtr, wsf::comm::Comm*, const WsfMessage&)
                               { CountMessage(aReceiverPtr, &nrm::MessageStatistics::hops); }));
    mCallbacks.Add(WsfObserver::MessageDiscarded(&aSimulation)
-                     .Connect([this](double, wsf::comm::Comm* aCommPtr, const WsfMessage&, const std::string&)
-                              { CountMessage(aCommPtr, &nrm::MessageStatistics::discarded); }));
+                     .Connect([this](double             aSimTime,
+                                     wsf::comm::Comm*   aCommPtr,
+                                     const WsfMessage&,
+                                     const std::string&)
+                              {
+                                 CountMessage(aCommPtr, &nrm::MessageStatistics::discarded);
+                                 if (aCommPtr != nullptr)
+                                 {
+                                    mMetricsByNetwork[aCommPtr->GetNetwork()].RecordDiscard(aSimTime);
+                                 }
+                              }));
    mCallbacks.Add(WsfObserver::MessageFailedRouting(&aSimulation)
-                     .Connect([this](double, wsf::comm::Comm* aCommPtr, WsfPlatform*, const WsfMessage&)
-                              { CountMessage(aCommPtr, &nrm::MessageStatistics::routingFailed); }));
+                     .Connect([this](double           aSimTime,
+                                     wsf::comm::Comm* aCommPtr,
+                                     WsfPlatform*,
+                                     const WsfMessage&)
+                              {
+                                 CountMessage(aCommPtr, &nrm::MessageStatistics::routingFailed);
+                                 if (aCommPtr != nullptr)
+                                 {
+                                    mMetricsByNetwork[aCommPtr->GetNetwork()].RecordRoutingFailure(aSimTime);
+                                 }
+                              }));
 }
 
 void WkNrm::SimInterface::CountMessage(wsf::comm::Comm*                         aCommPtr,
@@ -145,6 +261,19 @@ void WkNrm::SimInterface::CountMessage(wsf::comm::Comm*                         
    if (aCommPtr != nullptr)
    {
       ++(mMessagesByNetwork[aCommPtr->GetNetwork()].*aCounter);
+   }
+}
+
+void WkNrm::SimInterface::PruneCorrelations(double aSimTime)
+{
+   const double oldestAllowed = aSimTime - nrm::RollingMetrics::cMAX_WINDOW_S;
+   for (auto it = mQueuedTimes.begin(); it != mQueuedTimes.end();)
+   {
+      it = it->second <= oldestAllowed ? mQueuedTimes.erase(it) : std::next(it);
+   }
+   for (auto it = mTransmittedTimes.begin(); it != mTransmittedTimes.end();)
+   {
+      it = it->second <= oldestAllowed ? mTransmittedTimes.erase(it) : std::next(it);
    }
 }
 
@@ -248,6 +377,18 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
    for (std::size_t index = 0; index < mSnapshot.networks.size(); ++index)
    {
       networkIndexes[mSnapshot.networks[index].networkName] = index;
+      nrm::NetworkSnapshot& network = mSnapshot.networks[index];
+      const double onlineRatio =
+         network.endpointCount == 0 ? 0.0 : static_cast<double>(network.onlineCount) / network.endpointCount;
+      nrm::RollingMetrics& metrics = mMetricsByNetwork[network.networkName];
+      if (mSnapshot.runtimeState != nrm::RuntimeState::cINITIALIZING && mSnapshot.simTime > 0.0)
+      {
+         metrics.RecordOnlineRatio(mSnapshot.simTime, onlineRatio);
+      }
+      for (double windowS : cWINDOWS_S)
+      {
+         network.windows.emplace_back(metrics.Snapshot(mSnapshot.simTime, windowS));
+      }
    }
 
    wsf::comm::graph::Graph& graph = networkManagerPtr->GetGraph();
@@ -292,6 +433,28 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
             const double dz = sourceWcs[2] - destinationWcs[2];
             SetPositionMetric(link.distanceM, std::sqrt(dx * dx + dy * dy + dz * dz), "m", mSnapshot.simTime);
             link.distanceM.origin = nrm::DataOrigin::cDERIVED;
+         }
+
+         const auto radioIt = mRadioByLink.find(link.linkId);
+         double capacityBps = -1.0;
+         if (radioIt != mRadioByLink.end())
+         {
+            link.bandwidthBps = radioIt->second.bandwidthBps;
+            link.rssiDbm      = radioIt->second.rssiDbm;
+            link.snrDb        = radioIt->second.snrDb;
+            link.ber          = radioIt->second.ber;
+            if (link.bandwidthBps.valid)
+            {
+               capacityBps = link.bandwidthBps.value;
+            }
+         }
+         const auto metricsIt = mMetricsByLink.find(link.linkId);
+         for (double windowS : cWINDOWS_S)
+         {
+            link.windows.emplace_back(metricsIt == mMetricsByLink.end()
+                                         ? nrm::WindowMetrics()
+                                         : metricsIt->second.Snapshot(mSnapshot.simTime, windowS, capacityBps));
+            link.windows.back().windowS = windowS;
          }
 
          mSnapshot.links.emplace_back(link);

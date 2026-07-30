@@ -38,6 +38,46 @@ std::string EscapeJson(const std::string& aValue)
    return output.str();
 }
 
+void WriteMetric(std::ostream& aOutput, const nrm::MetricValue<double>& aMetric)
+{
+   aOutput << "{\"value\":" << aMetric.value << ",\"unit\":\"" << EscapeJson(aMetric.unit)
+           << "\",\"valid\":" << (aMetric.valid ? "true" : "false") << ",\"source\":\""
+           << nrm::ToString(aMetric.origin) << "\",\"confidence\":\""
+           << nrm::ToString(aMetric.confidence) << "\",\"sample_time\":" << aMetric.sampleTime
+           << ",\"window\":" << aMetric.window << '}';
+}
+
+void WriteWindows(std::ostream& aOutput, const std::vector<nrm::WindowMetrics>& aWindows)
+{
+   aOutput << '[';
+   for (std::size_t index = 0; index < aWindows.size(); ++index)
+   {
+      const nrm::WindowMetrics& window = aWindows[index];
+      if (index != 0)
+      {
+         aOutput << ',';
+      }
+      aOutput << "{\"window_s\":" << window.windowS << ",\"transmitted\":"
+              << window.messages.transmitted << ",\"received\":" << window.messages.received
+              << ",\"discarded\":" << window.messages.discarded << ",\"routing_failed\":"
+              << window.messages.routingFailed << ",\"transmitted_bits\":" << window.transmittedBits
+              << ",\"throughput_bps\":";
+      WriteMetric(aOutput, window.throughputBps);
+      aOutput << ",\"pdr_percent\":";
+      WriteMetric(aOutput, window.pdrPercent);
+      aOutput << ",\"online_ratio_percent\":";
+      WriteMetric(aOutput, window.onlineRatioPercent);
+      aOutput << ",\"average_queue_delay_ms\":";
+      WriteMetric(aOutput, window.averageQueueDelayMs);
+      aOutput << ",\"average_transport_delay_ms\":";
+      WriteMetric(aOutput, window.averageTransportDelayMs);
+      aOutput << ",\"utilization_percent\":";
+      WriteMetric(aOutput, window.utilizationPercent);
+      aOutput << '}';
+   }
+   aOutput << ']';
+}
+
 void WriteJsonSnapshot(std::ostream& aOutput, const nrm::ResourceSnapshot& aSnapshot)
 {
    aOutput << "{\"schema\":\"nrm.snapshot.v1\",\"snapshot_version\":" << aSnapshot.snapshotVersion
@@ -61,7 +101,9 @@ void WriteJsonSnapshot(std::ostream& aOutput, const nrm::ResourceSnapshot& aSnap
               << nrm::ToString(network.networkType) << "\",\"members\":" << network.endpointCount
               << ",\"online\":" << network.onlineCount << ",\"active_links\":" << network.activeLinks
               << ",\"transmitted\":" << network.messages.transmitted << ",\"received\":"
-              << network.messages.received << '}';
+              << network.messages.received << ",\"windows\":";
+      WriteWindows(aOutput, network.windows);
+      aOutput << '}';
    }
    aOutput << "],\"endpoints\":[";
    for (std::size_t index = 0; index < aSnapshot.endpoints.size(); ++index)
@@ -95,14 +137,19 @@ void WriteJsonSnapshot(std::ostream& aOutput, const nrm::ResourceSnapshot& aSnap
               << EscapeJson(link.sourceEndpointId) << "\",\"destination\":\""
               << EscapeJson(link.destinationEndpointId) << "\",\"network_type\":\""
               << nrm::ToString(link.networkType) << "\",\"state\":\"" << nrm::ToString(link.state)
-              << "\",\"distance_m\":{\"value\":" << link.distanceM.value << ",\"valid\":"
-              << (link.distanceM.valid ? "true" : "false") << ",\"source\":\""
-              << nrm::ToString(link.distanceM.origin) << "\",\"confidence\":\""
-              << nrm::ToString(link.distanceM.confidence) << "\"},\"rssi_dbm\":{\"value\":"
-              << link.rssiDbm.value << ",\"valid\":" << (link.rssiDbm.valid ? "true" : "false")
-              << "},\"snr_db\":{\"value\":" << link.snrDb.value << ",\"valid\":"
-              << (link.snrDb.valid ? "true" : "false") << "},\"ber\":{\"value\":" << link.ber.value
-              << ",\"valid\":" << (link.ber.valid ? "true" : "false") << "}}";
+              << "\",\"distance_m\":";
+      WriteMetric(aOutput, link.distanceM);
+      aOutput << ",\"rssi_dbm\":";
+      WriteMetric(aOutput, link.rssiDbm);
+      aOutput << ",\"snr_db\":";
+      WriteMetric(aOutput, link.snrDb);
+      aOutput << ",\"ber\":";
+      WriteMetric(aOutput, link.ber);
+      aOutput << ",\"bandwidth_bps\":";
+      WriteMetric(aOutput, link.bandwidthBps);
+      aOutput << ",\"windows\":";
+      WriteWindows(aOutput, link.windows);
+      aOutput << '}';
    }
    aOutput << "]}\n";
 }
@@ -145,7 +192,8 @@ void WkNrm::SnapshotReporter::Run()
    std::ofstream jsonOutput(mOutputDirectory + "/resource_snapshots.jsonl", std::ios::out | std::ios::trunc);
    std::ofstream csvOutput(mOutputDirectory + "/network_summary.csv", std::ios::out | std::ios::trunc);
    csvOutput << "snapshot_version,sim_time,network_type,network_name,members,online,active_links,"
-                "transmitted,received,discarded,routing_failed\n";
+                "transmitted,received,discarded,routing_failed,window_s,throughput_bps,pdr_percent,"
+                "online_ratio_percent,average_queue_delay_ms,average_transport_delay_ms\n";
 
    while (true)
    {
@@ -164,11 +212,40 @@ void WkNrm::SnapshotReporter::Run()
       WriteJsonSnapshot(jsonOutput, snapshot);
       for (const nrm::NetworkSnapshot& network : snapshot.networks)
       {
-         csvOutput << snapshot.snapshotVersion << ',' << std::fixed << std::setprecision(3) << snapshot.simTime << ','
-                   << nrm::ToString(network.networkType) << ",\"" << network.networkName << "\","
-                   << network.endpointCount << ',' << network.onlineCount << ',' << network.activeLinks << ','
-                   << network.messages.transmitted << ',' << network.messages.received << ','
-                   << network.messages.discarded << ',' << network.messages.routingFailed << '\n';
+         for (const nrm::WindowMetrics& window : network.windows)
+         {
+            csvOutput << snapshot.snapshotVersion << ',' << std::fixed << std::setprecision(3)
+                      << snapshot.simTime << ',' << nrm::ToString(network.networkType) << ",\""
+                      << network.networkName << "\"," << network.endpointCount << ',' << network.onlineCount
+                      << ',' << network.activeLinks << ',' << network.messages.transmitted << ','
+                      << network.messages.received << ',' << network.messages.discarded << ','
+                      << network.messages.routingFailed << ',' << window.windowS << ',';
+            if (window.throughputBps.valid)
+            {
+               csvOutput << window.throughputBps.value;
+            }
+            csvOutput << ',';
+            if (window.pdrPercent.valid)
+            {
+               csvOutput << window.pdrPercent.value;
+            }
+            csvOutput << ',';
+            if (window.onlineRatioPercent.valid)
+            {
+               csvOutput << window.onlineRatioPercent.value;
+            }
+            csvOutput << ',';
+            if (window.averageQueueDelayMs.valid)
+            {
+               csvOutput << window.averageQueueDelayMs.value;
+            }
+            csvOutput << ',';
+            if (window.averageTransportDelayMs.valid)
+            {
+               csvOutput << window.averageTransportDelayMs.value;
+            }
+            csvOutput << '\n';
+         }
       }
       jsonOutput.flush();
       csvOutput.flush();

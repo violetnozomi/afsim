@@ -1,5 +1,6 @@
 #include "nrm/NetworkResourceTypes.hpp"
 #include "nrm/NetworkTypeUtils.hpp"
+#include "nrm/RollingMetrics.hpp"
 
 #include <cassert>
 
@@ -35,5 +36,26 @@ int main()
    assert(nrm::ClassifyNetwork("nrm_cdl_green", "") == nrm::NetworkType::cCDL);
    assert(nrm::ClassifyNetwork("J11_messages", "") == nrm::NetworkType::cUNKNOWN);
    assert(nrm::ClassifyNetwork("", "WSF_JTIDS_TERMINAL") == nrm::NetworkType::cLINK16);
+
+   nrm::RollingMetrics metrics;
+   metrics.RecordOnlineRatio(1.0, 1.0);
+   metrics.RecordTransmit(2.0, 1000, 2.5);
+   metrics.RecordReceive(2.1, 1000, 100.0);
+   metrics.RecordDiscard(2.2);
+   const nrm::WindowMetrics window = metrics.Snapshot(3.0, 10.0, 1000.0);
+   assert(window.messages.transmitted == 1);
+   assert(window.messages.received == 1);
+   assert(window.messages.discarded == 1);
+   assert(window.throughputBps.valid && window.throughputBps.value == 100.0);
+   assert(window.pdrPercent.valid && window.pdrPercent.value == 100.0);
+   assert(window.averageQueueDelayMs.valid && window.averageQueueDelayMs.value == 2.5);
+   assert(window.averageTransportDelayMs.valid && window.averageTransportDelayMs.value == 100.0);
+   assert(window.onlineRatioPercent.valid && window.onlineRatioPercent.value == 100.0);
+   assert(window.utilizationPercent.valid && window.utilizationPercent.value == 10.0);
+
+   const nrm::WindowMetrics emptyWindow = metrics.Snapshot(70.0, 1.0);
+   assert(emptyWindow.throughputBps.valid && emptyWindow.throughputBps.value == 0.0);
+   assert(!emptyWindow.pdrPercent.valid);
+   assert(!emptyWindow.averageQueueDelayMs.valid);
    return 0;
 }
