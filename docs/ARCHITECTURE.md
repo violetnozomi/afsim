@@ -16,9 +16,10 @@ AFSIM/甲方输入
 Warlock 展示      任务评估/建议      JSONL/CSV 上报
 ```
 
-当前`0.3.0`实现第一条完整纵向路径：Warlock仿真接口监听通信事件并扫描全局通信图，生成
+当前`0.4.0`实现第一条完整纵向路径：Warlock仿真接口监听通信事件并扫描全局通信图，生成
 网络、端点、链路、位置、距离和消息值对象。GUI线程消费快照，文件工作线程异步输出JSONL
-和CSV。
+和CSV。纯C++ `AssessmentEvaluator`只读取一份不可变快照，在GUI任务提交时计算当前图
+主路由和硬约束结果；评估结果通过同一文件线程写出。
 
 ## 稳定边界
 
@@ -28,6 +29,10 @@ Warlock 展示      任务评估/建议      JSONL/CSV 上报
 - `DataContainer` 只存在于 GUI 线程，事件对象跨线程传递值，不传递裸指针。
 - `SnapshotReporter`使用有界队列和独立线程，不在仿真回调中执行文件I/O。
 - `InputProvider`冻结内部、甲方模块和回放输入的公共边界。
+- `AssessmentTypes`冻结任务、结果、裕量和原因码，`AssessmentEvaluator`不依赖AFSIM或Qt。
+
+0.4的典型图规模很小，用户点击后在GUI线程执行一次确定性Dijkstra。进入200节点压力场景
+或周期自动重评估前，必须按原方案迁移到有界评估工作队列。
 
 后续甲方提供四网模块数据时，应新增 `CustomerModuleAdapter` 实现并转换为相同公共数据契约。
 内部模型和外部模块可并存，数据的 `DataOrigin` 字段区分来源。

@@ -25,3 +25,8 @@ void WkNrm::DataContainer::SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot)
    mReporterPtr->Enqueue(mSnapshot);
    emit SnapshotChanged();
 }
+
+void WkNrm::DataContainer::StoreAssessment(const nrm::AssessmentResult& aResult)
+{
+   mReporterPtr->EnqueueAssessment(aResult);
+}

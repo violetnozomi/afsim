@@ -4,7 +4,11 @@
 #include <QDockWidget>
 
 class QLabel;
+class QComboBox;
+class QDoubleSpinBox;
+class QLineEdit;
 class QTableWidget;
+class QTextEdit;
 
 #include "NrmDataContainer.hpp"
 
@@ -19,6 +23,7 @@ public:
 
 private:
    void Refresh();
+   void EvaluateTask();
    static QString RuntimeStateText(nrm::RuntimeState aState);
    static void SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText);
 
@@ -36,6 +41,13 @@ private:
    QTableWidget*  mMetricsTablePtr;
    QTableWidget*  mEndpointTablePtr;
    QTableWidget*  mLinkTablePtr;
+   QLineEdit*      mSourceEditPtr;
+   QLineEdit*      mDestinationEditPtr;
+   QComboBox*      mAllowedNetworkPtr;
+   QDoubleSpinBox* mBandwidthKbpsPtr;
+   QDoubleSpinBox* mMaximumDelayMsPtr;
+   QDoubleSpinBox* mMinimumPdrPtr;
+   QTextEdit*      mAssessmentResultPtr;
 };
 } // namespace WkNrm
 

@@ -6,6 +6,7 @@
 #include <QObject>
 
 #include "nrm/NetworkResourceTypes.hpp"
+#include "nrm/AssessmentTypes.hpp"
 
 namespace WkNrm
 {
@@ -21,6 +22,7 @@ public:
 
    const nrm::FrameworkSnapshot& GetSnapshot() const { return mSnapshot; }
    void SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot);
+   void StoreAssessment(const nrm::AssessmentResult& aResult);
 
 signals:
    void SnapshotChanged();

@@ -3,7 +3,7 @@
 
 namespace nrm
 {
-constexpr const char* cVERSION = "0.3.0";
+constexpr const char* cVERSION = "0.4.0";
 }
 
 #endif

@@ -8,7 +8,7 @@
 #include <string>
 #include <thread>
 
-#include "nrm/NetworkResourceTypes.hpp"
+#include "nrm/AssessmentTypes.hpp"
 
 namespace WkNrm
 {
@@ -22,6 +22,7 @@ public:
    SnapshotReporter& operator=(const SnapshotReporter&) = delete;
 
    void Enqueue(const nrm::ResourceSnapshot& aSnapshot);
+   void EnqueueAssessment(const nrm::AssessmentResult& aResult);
 
 private:
    void Run();
@@ -30,6 +31,7 @@ private:
    std::mutex                        mMutex;
    std::condition_variable           mCondition;
    std::deque<nrm::ResourceSnapshot> mQueue;
+   std::deque<nrm::AssessmentResult>  mAssessmentQueue;
    std::thread                       mThread;
    bool                              mStopping = false;
    static const std::size_t          cMAX_QUEUE_SIZE = 128;

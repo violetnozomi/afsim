@@ -6,14 +6,20 @@
 #include <QAbstractItemView>
 #include <QBrush>
 #include <QColor>
+#include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
 #include <QTableWidget>
 #include <QTabWidget>
+#include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "nrm/AssessmentEvaluator.hpp"
 #include "nrm/NetworkTypeUtils.hpp"
 #include "nrm/Version.hpp"
 
@@ -86,6 +92,13 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mMetricsTablePtr(nullptr)
    , mEndpointTablePtr(nullptr)
    , mLinkTablePtr(nullptr)
+   , mSourceEditPtr(nullptr)
+   , mDestinationEditPtr(nullptr)
+   , mAllowedNetworkPtr(nullptr)
+   , mBandwidthKbpsPtr(nullptr)
+   , mMaximumDelayMsPtr(nullptr)
+   , mMinimumPdrPtr(nullptr)
+   , mAssessmentResultPtr(nullptr)
 {
    QWidget* contentPtr = new QWidget(this);
    QVBoxLayout* rootLayoutPtr = new QVBoxLayout(contentPtr);
@@ -122,10 +135,45 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        "SNR",
        "BER"},
       tabsPtr);
+   QWidget* assessmentPagePtr = new QWidget(tabsPtr);
+   QVBoxLayout* assessmentLayoutPtr = new QVBoxLayout(assessmentPagePtr);
+   QFormLayout* taskFormPtr = new QFormLayout();
+   mSourceEditPtr = new QLineEdit("l11_control", assessmentPagePtr);
+   mDestinationEditPtr = new QLineEdit("l11_member", assessmentPagePtr);
+   mAllowedNetworkPtr = new QComboBox(assessmentPagePtr);
+   mAllowedNetworkPtr->addItems({"ALL", "LINK11", "LINK16", "SATCOM", "CDL"});
+   mBandwidthKbpsPtr = new QDoubleSpinBox(assessmentPagePtr);
+   mBandwidthKbpsPtr->setRange(0.0, 100000000.0);
+   mBandwidthKbpsPtr->setDecimals(3);
+   mBandwidthKbpsPtr->setSuffix(" kbit/s");
+   mMaximumDelayMsPtr = new QDoubleSpinBox(assessmentPagePtr);
+   mMaximumDelayMsPtr->setRange(0.0, 10000000.0);
+   mMaximumDelayMsPtr->setValue(1000.0);
+   mMaximumDelayMsPtr->setSuffix(" ms");
+   mMinimumPdrPtr = new QDoubleSpinBox(assessmentPagePtr);
+   mMinimumPdrPtr->setRange(0.0, 100.0);
+   mMinimumPdrPtr->setValue(90.0);
+   mMinimumPdrPtr->setSuffix(" %");
+   taskFormPtr->addRow("Source platform", mSourceEditPtr);
+   taskFormPtr->addRow("Destination platform", mDestinationEditPtr);
+   taskFormPtr->addRow("Allowed network", mAllowedNetworkPtr);
+   taskFormPtr->addRow("Required bandwidth", mBandwidthKbpsPtr);
+   taskFormPtr->addRow("Maximum delay", mMaximumDelayMsPtr);
+   taskFormPtr->addRow("Minimum PDR", mMinimumPdrPtr);
+   assessmentLayoutPtr->addLayout(taskFormPtr);
+   QPushButton* evaluateButtonPtr = new QPushButton("Evaluate current graph", assessmentPagePtr);
+   assessmentLayoutPtr->addWidget(evaluateButtonPtr);
+   mAssessmentResultPtr = new QTextEdit(assessmentPagePtr);
+   mAssessmentResultPtr->setReadOnly(true);
+   mAssessmentResultPtr->setPlainText("Enter a task and evaluate the current enabled graph.");
+   assessmentLayoutPtr->addWidget(mAssessmentResultPtr);
+   connect(evaluateButtonPtr, &QPushButton::clicked, this, &DockWidget::EvaluateTask);
+
    tabsPtr->addTab(mNetworkTablePtr, "Four-network overview");
    tabsPtr->addTab(mMetricsTablePtr, "Window metrics");
    tabsPtr->addTab(mEndpointTablePtr, "Members");
    tabsPtr->addTab(mLinkTablePtr, "Links");
+   tabsPtr->addTab(assessmentPagePtr, "Task assessment");
    rootLayoutPtr->addWidget(tabsPtr);
 
    setWidget(contentPtr);
@@ -133,6 +181,74 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
 
    connect(&mData, &DataContainer::SnapshotChanged, this, &DockWidget::Refresh);
    Refresh();
+}
+
+void WkNrm::DockWidget::EvaluateTask()
+{
+   nrm::AssessmentTask task;
+   task.taskId              = "GUI-" + std::to_string(mData.GetSnapshot().snapshotVersion);
+   task.sourcePlatform      = mSourceEditPtr->text().trimmed().toStdString();
+   task.destinationPlatform = mDestinationEditPtr->text().trimmed().toStdString();
+   task.requiredBandwidthBps = mBandwidthKbpsPtr->value() * 1000.0;
+   task.maximumDelayMs       = mMaximumDelayMsPtr->value();
+   task.minimumPdrPercent    = mMinimumPdrPtr->value();
+   const QString allowedNetwork = mAllowedNetworkPtr->currentText();
+   if (allowedNetwork == "LINK11")
+   {
+      task.allowedNetworks.push_back(nrm::NetworkType::cLINK11);
+   }
+   else if (allowedNetwork == "LINK16")
+   {
+      task.allowedNetworks.push_back(nrm::NetworkType::cLINK16);
+   }
+   else if (allowedNetwork == "SATCOM")
+   {
+      task.allowedNetworks.push_back(nrm::NetworkType::cSATCOM);
+   }
+   else if (allowedNetwork == "CDL")
+   {
+      task.allowedNetworks.push_back(nrm::NetworkType::cCDL);
+   }
+
+   const nrm::AssessmentResult result =
+      nrm::AssessmentEvaluator().Evaluate(mData.GetSnapshot(), task);
+   mData.StoreAssessment(result);
+   QStringList route;
+   for (const std::string& platform : result.primaryRoute)
+   {
+      route.push_back(QString::fromStdString(platform));
+   }
+   QStringList reasons;
+   for (nrm::AssessmentReason reason : result.reasons)
+   {
+      reasons.push_back(nrm::ToString(reason));
+   }
+   QStringList recommendations;
+   for (const std::string& recommendation : result.recommendations)
+   {
+      recommendations.push_back(QString::fromStdString(recommendation));
+   }
+
+   QString text;
+   text += QString("Snapshot: %1 @ %2 s\n")
+              .arg(result.snapshotVersion)
+              .arg(result.simTime, 0, 'f', 3);
+   text += QString("Reachable: %1\nCan establish now: %2\nCan complete: %3\nStable: %4\n")
+              .arg(result.reachable ? "YES" : "NO")
+              .arg(result.canEstablish ? "YES" : "NO")
+              .arg(result.canComplete ? "YES" : "NO")
+              .arg(result.stable ? "YES" : "NO");
+   text += "Primary route: " + (route.isEmpty() ? QString::fromUtf8("—") : route.join(" → ")) + "\n";
+   text += "Predicted delay: " + MetricText(result.predictedDelayMs, 3) + "\n";
+   text += "Estimated PDR: " + MetricText(result.estimatedPdrPercent, 2) + "\n";
+   text += "Bottleneck bandwidth: " + MetricText(result.bottleneckBandwidthBps, 1) + "\n";
+   text += "Bandwidth margin: " + MetricText(result.bandwidthMarginBps, 1) + "\n";
+   text += "Delay margin: " + MetricText(result.delayMarginMs, 3) + "\n";
+   text += "Reliability margin: " + MetricText(result.reliabilityMarginPercent, 2) + "\n";
+   text += "Reason codes: " + (reasons.isEmpty() ? QString("NONE") : reasons.join(", ")) + "\n";
+   text += "Recommendation: " +
+           (recommendations.isEmpty() ? QString::fromUtf8("—") : recommendations.join("\n- "));
+   mAssessmentResultPtr->setPlainText(text);
 }
 
 void WkNrm::DockWidget::Refresh()

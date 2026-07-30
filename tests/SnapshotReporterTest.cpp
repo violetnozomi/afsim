@@ -41,6 +41,16 @@ int main()
    {
       WkNrm::SnapshotReporter reporter(outputDirectory);
       reporter.Enqueue(snapshot);
+      nrm::AssessmentResult assessment;
+      assessment.taskId          = "TASK-REPORT";
+      assessment.snapshotVersion = 7;
+      assessment.reachable       = true;
+      assessment.canEstablish    = true;
+      assessment.canComplete     = false;
+      assessment.reasons.push_back(nrm::AssessmentReason::cDATA_INVALID);
+      assessment.primaryRoute.push_back("fighter");
+      assessment.primaryRoute.push_back("command");
+      reporter.EnqueueAssessment(assessment);
    }
 
    std::ifstream jsonInput(outputDirectory + "/resource_snapshots.jsonl");
@@ -57,5 +67,11 @@ int main()
    csvBuffer << csvInput.rdbuf();
    assert(csvBuffer.str().find("nrm_link16_test") != std::string::npos);
    assert(csvBuffer.str().find("1000.000") != std::string::npos);
+
+   std::ifstream assessmentInput(outputDirectory + "/assessment_results.jsonl");
+   std::stringstream assessmentBuffer;
+   assessmentBuffer << assessmentInput.rdbuf();
+   assert(assessmentBuffer.str().find("\"task_id\":\"TASK-REPORT\"") != std::string::npos);
+   assert(assessmentBuffer.str().find("\"DATA_INVALID\"") != std::string::npos);
    return 0;
 }
