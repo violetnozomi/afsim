@@ -1,5 +1,12 @@
 # 变更记录
 
+## 0.1.2 - 2026-07-30
+
+- 增加 Windows 经 SSH 隧道连接的私有 TigerVNC/Openbox 远程桌面。
+- 增加 VNC 与 Warlock 用户服务、远程运行和 GDB 调试入口。
+- 修复 AFSIM 2.9 随附 Qt 5.12 在当前 glibc 上的 `QLockFile` 兼容问题。
+- 验证 Warlock 窗口及 WSF、Warlock 两类网络资源管理器插件均正常加载。
+
 ## 0.1.1 - 2026-07-30
 
 - 增加统一的运行、仿真与可视化入口手册。

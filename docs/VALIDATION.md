@@ -1,4 +1,4 @@
-# 0.1.0 验证记录
+# 0.1.2 验证记录
 
 验证日期：2026-07-30  
 AFSIM 基线：2.9.0  
@@ -20,17 +20,21 @@ AFSIM 基线：2.9.0
 6. 在 GDB 中，Warlock 的 `wkf::PluginManager::LoadPluginInitialize` 已实际调用
    `WkNrm::Plugin::Plugin` 构造函数，证明插件已经被发现、校验并实例化。
 
-## 基线环境问题
+## 远程 GUI 验证
 
-当前开发构建直接以 offscreen 模式启动 Warlock 时，在插件初始化之后发生基线运行环境的
-`buffer overflow`。禁用 `NetworkResourceManager` 后使用相同命令仍然复现，因此该异常不是
-本插件引入。异常发生前还有缺失 `wkf_plugins` 目录的 `opendir()` 错误。
+已建立仅监听服务器回环地址的 TigerVNC `:1` 桌面，并通过 Mesa llvmpipe 提供软件
+OpenGL。Warlock 已打开 `test_mission/framework_smoke.txt`，主窗口在 VNC 桌面持续运行。
+运行进程的内存映射确认同时加载：
 
-这不影响已经完成的插件发现、动态加载和实例化验证，但在后续 GUI 联调前应单独修复或补齐
-Warlock 开发运行目录。正式验收仍需完成一次有显示环境下的面板打开、场景运行和退出测试。
+- `warlock_plugins/libNetworkResourceManager_ln13m64.so`
+- `wsf_plugins/libwsf_network_resource_manager_ln13m64.so`
+
+AFSIM 2.9 随附的 Qt 5.12 在当前 glibc 下使用 `QLockFile` 时会因 fortified `readlink`
+长度不一致而中止。远程启动器通过短路径运行布局和仅注入 Warlock 的兼容层规避该问题，
+没有修改 AFSIM 核心源码。
 
 ## 当前结论
 
-框架已经接入 AFSIM 的正式扩展机制，并且没有修改 AFSIM 源文件。WSF 冒烟运行已闭环；
-Warlock 已验证到插件实例化，完整 GUI 运行验证受现有 Warlock 开发运行环境问题限制。
-
+框架已经接入 AFSIM 的正式扩展机制，并且没有修改 AFSIM 源文件。WSF 冒烟运行与 Warlock
+远程 GUI 启动均已闭环。当前面板仍是框架状态页，网络资源采集、评估和完整业务界面属于
+后续版本。

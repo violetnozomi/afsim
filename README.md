@@ -36,6 +36,8 @@ cmake --build /path/to/afsim/build \
 当前基线的实际验证结果见 [docs/VALIDATION.md](docs/VALIDATION.md)。
 日常启动、仿真和可视化入口统一记录在
 [docs/运行与可视化入口.md](docs/运行与可视化入口.md)。
+Windows 通过 SSH 隧道进行 VNC/GDB 调试的步骤见
+[docs/Windows远程调试.md](docs/Windows远程调试.md)。
 
 ## 目录
 
