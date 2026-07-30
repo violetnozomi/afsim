@@ -7,6 +7,11 @@ target_include_directories(NetworkResourceManager PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/../../include
 )
 
+target_sources(NetworkResourceManager PRIVATE
+   NrmSnapshotReporter.cpp
+   NrmSnapshotReporter.hpp
+)
+
 if(UNIX)
    add_custom_command(TARGET NetworkResourceManager POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E make_directory

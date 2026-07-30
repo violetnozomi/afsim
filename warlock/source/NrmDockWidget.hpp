@@ -4,6 +4,7 @@
 #include <QDockWidget>
 
 class QLabel;
+class QTableWidget;
 
 #include "NrmDataContainer.hpp"
 
@@ -19,6 +20,7 @@ public:
 private:
    void Refresh();
    static QString RuntimeStateText(nrm::RuntimeState aState);
+   static void SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText);
 
    DataContainer& mData;
    QLabel*        mVersionValuePtr;
@@ -29,8 +31,11 @@ private:
    QLabel*        mTransmittedValuePtr;
    QLabel*        mReceivedValuePtr;
    QLabel*        mHopValuePtr;
+   QLabel*        mDiscardedValuePtr;
+   QTableWidget*  mNetworkTablePtr;
+   QTableWidget*  mEndpointTablePtr;
+   QTableWidget*  mLinkTablePtr;
 };
 } // namespace WkNrm
 
 #endif
-

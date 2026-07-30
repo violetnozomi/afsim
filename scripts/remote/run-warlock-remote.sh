@@ -18,6 +18,7 @@ export DISPLAY="${DISPLAY:-:${NRM_VNC_DISPLAY_NUMBER}}"
 export XAUTHORITY="${XAUTHORITY:-${NRM_RUNTIME_DIR}/Xauthority}"
 export SOURCE_ROOT="${AFSIM_SOURCE}"
 export RESOURCE_PATH="${AFSIM_RESOURCE_ROOT}"
+export NRM_OUTPUT_DIR="${NRM_OUTPUT_DIR:-${NRM_SOURCE}/output}"
 export XDG_DATA_DIRS="${NRM_REMOTE_ROOT}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
 export QT_X11_NO_MITSHM=1
@@ -60,14 +61,14 @@ then
    shift
    if [[ "$#" -eq 0 ]]
    then
-      set -- "${NRM_SOURCE}/test_mission/framework_smoke.txt"
+      set -- "${NRM_SOURCE}/test_mission/four_network_overview.txt"
    fi
    exec gdb --args "${AFSIM_REMOTE_BIN}/warlock" "$@"
 fi
 
 if [[ "$#" -eq 0 ]]
 then
-   set -- "${NRM_SOURCE}/test_mission/framework_smoke.txt"
+   set -- "${NRM_SOURCE}/test_mission/four_network_overview.txt"
 fi
 
 exec "${AFSIM_REMOTE_BIN}/warlock" "$@"

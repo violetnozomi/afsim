@@ -1,25 +1,20 @@
 # AFSIM 网络资源管理器插件
 
-这是网络资源管理器的独立源码包。当前版本先建立可编译、可加载、可回退的总体框架，不修改
-AFSIM 核心源码。
+这是网络资源管理器的独立源码包。当前版本已完成可编译、可加载、可回退的总体框架和
+AFSIM内部网络资源采集最小闭环，不修改AFSIM核心源码。
 
 ## 当前能力
 
 - `wsf_network_resource_manager`：WSF 扩展入口，注册
   `network_resource_manager` 能力。
-- `NetworkResourceManager`：Warlock 插件，监听仿真内部通信事件并显示最小实时状态。
-- 公共数据类型：统一四网类型、数据来源、健康状态和资源快照。
+- `NetworkResourceManager`：Warlock插件，显示四网、成员、链路和消息实时状态。
+- 公共数据类型：统一网络、端点、链路、质量标记和输入提供者接口。
+- 异步上报：输出完整JSONL快照和CSV网络汇总。
+- 演示场景：8个端点、4类网络、8条有向链路和4类消息。
 - 外部接入点：后续可添加 AFSIM 内部适配器、甲方模块输入适配器、导航计算和环境影响模块。
 
-当前面板显示：
-
-- 插件版本和仿真状态；
-- 仿真时间；
-- 网络数量和通信端点数量；
-- 消息发送、接收和逐跳转发累计数。
-
-这些字段用于验证插件已经进入 Warlock GUI 线程和 AFSIM 仿真线程。完整资源指标、评估算法和
-四网专用适配器将在后续版本逐步加入。
+当前面板包含四网总览、成员和链路三个页签。RF质量、窗口指标、评估算法和四网专用协议
+适配器将在后续版本逐步加入。
 
 ## 接入方式
 
@@ -38,6 +33,8 @@ cmake --build /path/to/afsim/build \
 [docs/运行与可视化入口.md](docs/运行与可视化入口.md)。
 Windows 通过 SSH 隧道进行 VNC/GDB 调试的步骤见
 [docs/Windows远程调试.md](docs/Windows远程调试.md)。
+完整操作流程见[docs/功能使用手册.md](docs/功能使用手册.md)，需求完成状态见
+[docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)。
 
 ## 目录
 

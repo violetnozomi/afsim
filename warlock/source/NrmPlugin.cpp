@@ -14,11 +14,10 @@ WkNrm::Plugin::Plugin(const QString& aPluginName, size_t aUniqueId)
    , mDockWidgetPtr(new DockWidget(mData, wkfEnv.GetMainWindow()))
 {
    wkfEnv.GetMainWindow()->addDockWidget(Qt::RightDockWidgetArea, mDockWidgetPtr);
-   mDockWidgetPtr->hide();
+   mDockWidgetPtr->show();
 }
 
 void WkNrm::Plugin::GuiUpdate()
 {
    mInterfacePtr->ProcessEvents(mData);
 }
-

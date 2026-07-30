@@ -1,10 +1,59 @@
 #include "NrmDockWidget.hpp"
 
+#include <QAbstractItemView>
+#include <QBrush>
+#include <QColor>
 #include <QFormLayout>
+#include <QHeaderView>
 #include <QLabel>
+#include <QTableWidget>
+#include <QTabWidget>
+#include <QVBoxLayout>
 #include <QWidget>
 
+#include "nrm/NetworkTypeUtils.hpp"
 #include "nrm/Version.hpp"
+
+namespace
+{
+QColor NetworkColor(nrm::NetworkType aType)
+{
+   switch (aType)
+   {
+   case nrm::NetworkType::cLINK11:
+      return QColor(46, 134, 222);
+   case nrm::NetworkType::cLINK16:
+      return QColor(220, 68, 55);
+   case nrm::NetworkType::cSATCOM:
+      return QColor(145, 83, 184);
+   case nrm::NetworkType::cCDL:
+      return QColor(39, 174, 96);
+   case nrm::NetworkType::cUNKNOWN:
+   default:
+      return QColor(127, 140, 141);
+   }
+}
+
+QString MetricText(const nrm::MetricValue<double>& aMetric, int aPrecision = 2)
+{
+   return aMetric.valid ? QString::number(aMetric.value, 'f', aPrecision) + " " + QString::fromStdString(aMetric.unit)
+                        : QString::fromUtf8("—");
+}
+
+QTableWidget* CreateTable(const QStringList& aHeaders, QWidget* aParentPtr)
+{
+   QTableWidget* tablePtr = new QTableWidget(aParentPtr);
+   tablePtr->setColumnCount(aHeaders.size());
+   tablePtr->setHorizontalHeaderLabels(aHeaders);
+   tablePtr->setEditTriggers(QAbstractItemView::NoEditTriggers);
+   tablePtr->setSelectionBehavior(QAbstractItemView::SelectRows);
+   tablePtr->setAlternatingRowColors(true);
+   tablePtr->verticalHeader()->setVisible(false);
+   tablePtr->horizontalHeader()->setStretchLastSection(true);
+   tablePtr->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+   return tablePtr;
+}
+} // namespace
 
 WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    : QDockWidget("Network Resource Manager", aParentPtr)
@@ -17,18 +66,39 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mTransmittedValuePtr(new QLabel(this))
    , mReceivedValuePtr(new QLabel(this))
    , mHopValuePtr(new QLabel(this))
+   , mDiscardedValuePtr(new QLabel(this))
+   , mNetworkTablePtr(nullptr)
+   , mEndpointTablePtr(nullptr)
+   , mLinkTablePtr(nullptr)
 {
-   QWidget*     contentPtr = new QWidget(this);
-   QFormLayout* layoutPtr  = new QFormLayout(contentPtr);
-   layoutPtr->addRow("Version", mVersionValuePtr);
-   layoutPtr->addRow("Runtime state", mStateValuePtr);
-   layoutPtr->addRow("Simulation time", mSimTimeValuePtr);
-   layoutPtr->addRow("Networks", mNetworkCountValuePtr);
-   layoutPtr->addRow("Endpoints", mEndpointCountValuePtr);
-   layoutPtr->addRow("Transmitted", mTransmittedValuePtr);
-   layoutPtr->addRow("Received", mReceivedValuePtr);
-   layoutPtr->addRow("Message hops", mHopValuePtr);
+   QWidget* contentPtr = new QWidget(this);
+   QVBoxLayout* rootLayoutPtr = new QVBoxLayout(contentPtr);
+   QFormLayout* statusLayoutPtr = new QFormLayout();
+   statusLayoutPtr->addRow("Version", mVersionValuePtr);
+   statusLayoutPtr->addRow("Runtime state", mStateValuePtr);
+   statusLayoutPtr->addRow("Simulation time", mSimTimeValuePtr);
+   statusLayoutPtr->addRow("Networks", mNetworkCountValuePtr);
+   statusLayoutPtr->addRow("Endpoints", mEndpointCountValuePtr);
+   statusLayoutPtr->addRow("Transmitted", mTransmittedValuePtr);
+   statusLayoutPtr->addRow("Received", mReceivedValuePtr);
+   statusLayoutPtr->addRow("Message hops", mHopValuePtr);
+   statusLayoutPtr->addRow("Discarded / route failed", mDiscardedValuePtr);
+   rootLayoutPtr->addLayout(statusLayoutPtr);
+
+   QTabWidget* tabsPtr = new QTabWidget(contentPtr);
+   mNetworkTablePtr = CreateTable(
+      {"Type", "Network", "Model", "Members", "Online", "Links", "Tx", "Rx", "Dropped"}, tabsPtr);
+   mEndpointTablePtr =
+      CreateTable({"Type", "Platform", "Comm", "Address", "State", "Latitude", "Longitude", "Altitude"}, tabsPtr);
+   mLinkTablePtr =
+      CreateTable({"Type", "Source", "Destination", "State", "Distance", "RSSI", "SNR", "BER"}, tabsPtr);
+   tabsPtr->addTab(mNetworkTablePtr, "Four-network overview");
+   tabsPtr->addTab(mEndpointTablePtr, "Members");
+   tabsPtr->addTab(mLinkTablePtr, "Links");
+   rootLayoutPtr->addWidget(tabsPtr);
+
    setWidget(contentPtr);
+   resize(920, 620);
 
    connect(&mData, &DataContainer::SnapshotChanged, this, &DockWidget::Refresh);
    Refresh();
@@ -40,11 +110,77 @@ void WkNrm::DockWidget::Refresh()
    mVersionValuePtr->setText(nrm::cVERSION);
    mStateValuePtr->setText(RuntimeStateText(snapshot.runtimeState));
    mSimTimeValuePtr->setText(QString::number(snapshot.simTime, 'f', 2) + " s");
-   mNetworkCountValuePtr->setText(QString::number(snapshot.networkCount));
-   mEndpointCountValuePtr->setText(QString::number(snapshot.endpointCount));
-   mTransmittedValuePtr->setText(QString::number(snapshot.transmitted));
-   mReceivedValuePtr->setText(QString::number(snapshot.received));
-   mHopValuePtr->setText(QString::number(snapshot.hops));
+   mNetworkCountValuePtr->setText(QString::number(snapshot.networks.size()));
+   mEndpointCountValuePtr->setText(QString::number(snapshot.endpoints.size()));
+   mTransmittedValuePtr->setText(QString::number(snapshot.messages.transmitted));
+   mReceivedValuePtr->setText(QString::number(snapshot.messages.received));
+   mHopValuePtr->setText(QString::number(snapshot.messages.hops));
+   mDiscardedValuePtr->setText(QString("%1 / %2")
+                                 .arg(snapshot.messages.discarded)
+                                 .arg(snapshot.messages.routingFailed));
+
+   mNetworkTablePtr->setRowCount(static_cast<int>(snapshot.networks.size()));
+   for (std::size_t index = 0; index < snapshot.networks.size(); ++index)
+   {
+      const nrm::NetworkSnapshot& network = snapshot.networks[index];
+      const int row = static_cast<int>(index);
+      SetTableText(mNetworkTablePtr, row, 0, nrm::ToString(network.networkType));
+      mNetworkTablePtr->item(row, 0)->setForeground(QBrush(NetworkColor(network.networkType)));
+      SetTableText(mNetworkTablePtr, row, 1, QString::fromStdString(network.networkName));
+      SetTableText(mNetworkTablePtr, row, 2, QString::fromStdString(network.modelType));
+      SetTableText(mNetworkTablePtr, row, 3, QString::number(network.endpointCount));
+      SetTableText(mNetworkTablePtr, row, 4, QString::number(network.onlineCount));
+      SetTableText(mNetworkTablePtr, row, 5, QString::number(network.activeLinks));
+      SetTableText(mNetworkTablePtr, row, 6, QString::number(network.messages.transmitted));
+      SetTableText(mNetworkTablePtr, row, 7, QString::number(network.messages.received));
+      SetTableText(mNetworkTablePtr,
+                   row,
+                   8,
+                   QString::number(network.messages.discarded + network.messages.routingFailed));
+   }
+
+   mEndpointTablePtr->setRowCount(static_cast<int>(snapshot.endpoints.size()));
+   for (std::size_t index = 0; index < snapshot.endpoints.size(); ++index)
+   {
+      const nrm::EndpointSnapshot& endpoint = snapshot.endpoints[index];
+      const int row = static_cast<int>(index);
+      SetTableText(mEndpointTablePtr, row, 0, nrm::ToString(endpoint.networkType));
+      mEndpointTablePtr->item(row, 0)->setForeground(QBrush(NetworkColor(endpoint.networkType)));
+      SetTableText(mEndpointTablePtr, row, 1, QString::fromStdString(endpoint.platformName));
+      SetTableText(mEndpointTablePtr, row, 2, QString::fromStdString(endpoint.commName));
+      SetTableText(mEndpointTablePtr, row, 3, QString::fromStdString(endpoint.address));
+      SetTableText(mEndpointTablePtr, row, 4, nrm::ToString(endpoint.state));
+      SetTableText(mEndpointTablePtr, row, 5, MetricText(endpoint.latitudeDeg, 5));
+      SetTableText(mEndpointTablePtr, row, 6, MetricText(endpoint.longitudeDeg, 5));
+      SetTableText(mEndpointTablePtr, row, 7, MetricText(endpoint.altitudeM, 1));
+   }
+
+   mLinkTablePtr->setRowCount(static_cast<int>(snapshot.links.size()));
+   for (std::size_t index = 0; index < snapshot.links.size(); ++index)
+   {
+      const nrm::LinkSnapshot& link = snapshot.links[index];
+      const int row = static_cast<int>(index);
+      SetTableText(mLinkTablePtr, row, 0, nrm::ToString(link.networkType));
+      mLinkTablePtr->item(row, 0)->setForeground(QBrush(NetworkColor(link.networkType)));
+      SetTableText(mLinkTablePtr, row, 1, QString::fromStdString(link.sourcePlatform));
+      SetTableText(mLinkTablePtr, row, 2, QString::fromStdString(link.destinationPlatform));
+      SetTableText(mLinkTablePtr, row, 3, nrm::ToString(link.state));
+      SetTableText(mLinkTablePtr, row, 4, MetricText(link.distanceM, 1));
+      SetTableText(mLinkTablePtr, row, 5, MetricText(link.rssiDbm));
+      SetTableText(mLinkTablePtr, row, 6, MetricText(link.snrDb));
+      SetTableText(mLinkTablePtr, row, 7, MetricText(link.ber, 6));
+   }
+}
+
+void WkNrm::DockWidget::SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText)
+{
+   QTableWidgetItem* itemPtr = aTablePtr->item(aRow, aColumn);
+   if (itemPtr == nullptr)
+   {
+      itemPtr = new QTableWidgetItem();
+      aTablePtr->setItem(aRow, aColumn, itemPtr);
+   }
+   itemPtr->setText(aText);
 }
 
 QString WkNrm::DockWidget::RuntimeStateText(nrm::RuntimeState aState)
@@ -62,4 +198,3 @@ QString WkNrm::DockWidget::RuntimeStateText(nrm::RuntimeState aState)
       return "Idle";
    }
 }
-

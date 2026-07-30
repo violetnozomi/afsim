@@ -1,0 +1,156 @@
+# Network Resource Manager four-network acquisition demonstration.
+# The four network names are the explicit classification contract for this MVP.
+
+comm NRM_LINK11_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_link11_blue
+end_comm
+
+comm NRM_LINK16_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_link16_red
+end_comm
+
+comm NRM_SATCOM_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_satcom_purple
+end_comm
+
+comm NRM_CDL_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_cdl_green
+end_comm
+
+processor NRM_MESSAGE_PROCESSOR WSF_SCRIPT_PROCESSOR
+   on_message
+      script
+         writeln("NRM received on " + PLATFORM.Name());
+      end_script
+   end_on_message
+end_processor
+
+network nrm_link11_blue WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member l11_control comm
+      member l11_member comm
+   end_comm_list
+   comm_link_list
+      link l11_control comm l11_member comm
+      link l11_member comm l11_control comm
+   end_comm_link_list
+end_network
+
+network nrm_link16_red WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member l16_fighter comm
+      member l16_command comm
+   end_comm_list
+   comm_link_list
+      link l16_fighter comm l16_command comm
+      link l16_command comm l16_fighter comm
+   end_comm_link_list
+end_network
+
+network nrm_satcom_purple WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member sat_terminal comm
+      member sat_gateway comm
+   end_comm_list
+   comm_link_list
+      link sat_terminal comm sat_gateway comm
+      link sat_gateway comm sat_terminal comm
+   end_comm_link_list
+end_network
+
+network nrm_cdl_green WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member cdl_sensor comm
+      member cdl_station comm
+   end_comm_list
+   comm_link_list
+      link cdl_sensor comm cdl_station comm
+      link cdl_station comm cdl_sensor comm
+   end_comm_link_list
+end_network
+
+platform_type NRM_LINK11_NODE WSF_PLATFORM
+   add comm comm NRM_LINK11_COMM
+      internal_link processor
+   end_comm
+   add processor processor NRM_MESSAGE_PROCESSOR end_processor
+end_platform_type
+
+platform_type NRM_LINK16_NODE WSF_PLATFORM
+   add comm comm NRM_LINK16_COMM
+      internal_link processor
+   end_comm
+   add processor processor NRM_MESSAGE_PROCESSOR end_processor
+end_platform_type
+
+platform_type NRM_SATCOM_NODE WSF_PLATFORM
+   add comm comm NRM_SATCOM_COMM
+      internal_link processor
+   end_comm
+   add processor processor NRM_MESSAGE_PROCESSOR end_processor
+end_platform_type
+
+platform_type NRM_CDL_NODE WSF_PLATFORM
+   add comm comm NRM_CDL_COMM
+      internal_link processor
+   end_comm
+   add processor processor NRM_MESSAGE_PROCESSOR end_processor
+end_platform_type
+
+platform l11_control NRM_LINK11_NODE
+   position 35.000n 120.000e altitude 20 m
+end_platform
+platform l11_member NRM_LINK11_NODE
+   position 35.080n 120.000e altitude 1000 m
+end_platform
+
+platform l16_fighter NRM_LINK16_NODE
+   position 35.200n 120.000e altitude 6000 m
+end_platform
+platform l16_command NRM_LINK16_NODE
+   position 35.300n 120.050e altitude 20 m
+end_platform
+
+platform sat_terminal NRM_SATCOM_NODE
+   position 35.400n 120.000e altitude 20 m
+end_platform
+platform sat_gateway NRM_SATCOM_NODE
+   position 35.800n 120.000e altitude 35786000 m
+end_platform
+
+platform cdl_sensor NRM_CDL_NODE
+   position 35.500n 120.000e altitude 8000 m
+end_platform
+platform cdl_station NRM_CDL_NODE
+   position 35.600n 120.050e altitude 20 m
+end_platform
+
+execute at_time 1 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK11_STATUS");
+   WsfSimulation.FindPlatform("l11_control").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("l11_member").Comm("comm"));
+end_execute
+
+execute at_time 2 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK16_TRACK");
+   WsfSimulation.FindPlatform("l16_fighter").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("l16_command").Comm("comm"));
+end_execute
+
+execute at_time 3 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("SATCOM_COMMAND");
+   WsfSimulation.FindPlatform("sat_terminal").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("sat_gateway").Comm("comm"));
+end_execute
+
+execute at_time 4 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("CDL_ISR");
+   WsfSimulation.FindPlatform("cdl_sensor").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("cdl_station").Comm("comm"));
+end_execute
+
+end_time 6 s

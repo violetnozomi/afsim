@@ -170,7 +170,8 @@ Warlock 插件和资源。
 
 - VNC 仅监听 `127.0.0.1:5901` 和 `[::1]:5901`。
 - Openbox 桌面与 Mesa 软件 OpenGL 可用。
-- Warlock 能打开 `test_mission/framework_smoke.txt` 并持续运行。
+- Warlock 能打开`test_mission/four_network_overview.txt`并持续运行。
+- 网络资源管理器面板默认显示四网总览、成员和链路页签。
 - WSF 插件 `libwsf_network_resource_manager_ln13m64.so` 已加载。
 - Warlock 插件 `libNetworkResourceManager_ln13m64.so` 已加载。
 
