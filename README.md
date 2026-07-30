@@ -34,6 +34,8 @@ cmake --build /path/to/afsim/build \
 
 详细构建和回退步骤见 [docs/BUILD_AND_ROLLBACK.md](docs/BUILD_AND_ROLLBACK.md)。
 当前基线的实际验证结果见 [docs/VALIDATION.md](docs/VALIDATION.md)。
+日常启动、仿真和可视化入口统一记录在
+[docs/运行与可视化入口.md](docs/运行与可视化入口.md)。
 
 ## 目录
 
