@@ -1,6 +1,6 @@
 /**
  * @file AssessmentEvaluator.hpp
- * @brief Deterministic current-graph reachability and hard-constraint evaluator.
+ * @brief Deterministic current/candidate graph assessment with primary and backup routes.
  */
 
 #ifndef NRM_ASSESSMENT_EVALUATOR_HPP
@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <deque>
 #include <limits>
 #include <map>
 #include <queue>
@@ -30,7 +31,7 @@ public:
       result.snapshotVersion = aSnapshot.snapshotVersion;
       result.simTime         = aSnapshot.simTime;
 
-      std::map<std::string, const EndpointSnapshot*> endpoints;
+      EndpointMap endpoints;
       std::vector<std::string> sourceIds;
       std::set<std::string> destinationIds;
       bool sourceKnown = false;
@@ -40,30 +41,24 @@ public:
       for (const EndpointSnapshot& endpoint : aSnapshot.endpoints)
       {
          endpoints[endpoint.endpointId] = &endpoint;
-         if (endpoint.platformName == aTask.sourcePlatform)
-         {
-            sourceKnown = true;
-            if (endpoint.state == ResourceState::cONLINE)
-            {
-               sourceOnline = true;
-               sourceIds.push_back(endpoint.endpointId);
-            }
-         }
-         if (endpoint.platformName == aTask.destinationPlatform)
-         {
-            destinationKnown = true;
-            if (endpoint.state == ResourceState::cONLINE)
-            {
-               destinationOnline = true;
-               destinationIds.insert(endpoint.endpointId);
-            }
-         }
+         CollectTaskEndpoint(endpoint,
+                             aTask.sourcePlatform,
+                             sourceKnown,
+                             sourceOnline,
+                             &sourceIds,
+                             nullptr);
+         CollectTaskEndpoint(endpoint,
+                             aTask.destinationPlatform,
+                             destinationKnown,
+                             destinationOnline,
+                             nullptr,
+                             &destinationIds);
       }
 
       if (!sourceKnown || !destinationKnown)
       {
          AddReason(result, AssessmentReason::cNODE_NOT_FOUND);
-         result.recommendations.emplace_back("检查任务源、目的平台名称是否与Members页面一致。");
+         result.recommendations.emplace_back("检查任务源、目的平台是否仍在当前成员列表中。");
          return result;
       }
       if (!sourceOnline || !destinationOnline)
@@ -73,12 +68,128 @@ public:
          return result;
       }
 
-      struct EdgeData
+      Adjacency adjacency;
+      std::set<std::string> currentEdgeKeys;
+      BuildCurrentEdges(aSnapshot, aTask, endpoints, adjacency, currentEdgeKeys, result);
+
+      const Path currentPath = FindPath(adjacency, sourceIds, destinationIds, false, {});
+      result.reachable = currentPath.valid;
+
+      BuildCandidateEdges(aTask, endpoints, currentEdgeKeys, adjacency);
+      Path primaryPath = currentPath;
+      if (!currentPath.valid)
       {
-         const LinkSnapshot* linkPtr = nullptr;
-         double delayMs = 0.0;
-      };
-      std::map<std::string, std::vector<EdgeData>> adjacency;
+         AddReason(result, AssessmentReason::cNO_CURRENT_PATH);
+         primaryPath = FindPath(adjacency, sourceIds, destinationIds, true, {});
+         if (!primaryPath.valid)
+         {
+            AddReason(result, AssessmentReason::cLINK_NOT_ESTABLISHABLE);
+            result.recommendations.emplace_back(
+               "当前图不可达，参数化候选图中也没有满足网络类型和距离门限的路径。");
+            return result;
+         }
+         result.primaryRouteUsesCandidate = primaryPath.usesCandidate;
+         result.recommendations.emplace_back(
+            "当前尚不可达，但候选路径满足参数化建链门限；建议先建立标记的候选链路。");
+      }
+
+      result.canEstablish = primaryPath.valid;
+      PopulateRoute(primaryPath, aTask.sourcePlatform, result.primaryRoute, result.networkSequence);
+
+      std::set<std::string> primaryEdgeKeys;
+      for (const EdgeData* edgePtr : primaryPath.edges)
+      {
+         primaryEdgeKeys.insert(EdgeKey(edgePtr->sourceId, edgePtr->destinationId));
+      }
+      const Path backupPath =
+         FindPath(adjacency, sourceIds, destinationIds, true, primaryEdgeKeys);
+      if (backupPath.valid)
+      {
+         std::vector<NetworkType> backupNetworkSequence;
+         PopulateRoute(backupPath, aTask.sourcePlatform, result.backupRoute, backupNetworkSequence);
+         result.backupRouteUsesCandidate = backupPath.usesCandidate;
+      }
+
+      EvaluatePathMetrics(aSnapshot, primaryPath, result);
+      EvaluateConstraints(aSnapshot, aTask, result);
+
+      if (!result.backupRoute.empty())
+      {
+         result.recommendations.emplace_back(
+            result.backupRouteUsesCandidate
+               ? "已生成一条需要候选建链的边不重合备选路由，可作为主链路中断时的预案。"
+               : "已生成一条当前可用的边不重合备选路由。");
+      }
+      else
+      {
+         result.recommendations.emplace_back("当前没有找到与主路由边不重合的备选路径。");
+      }
+      return result;
+   }
+
+private:
+   struct EdgeData
+   {
+      std::string sourceId;
+      std::string destinationId;
+      std::string sourcePlatform;
+      std::string destinationPlatform;
+      NetworkType networkType = NetworkType::cUNKNOWN;
+      double delayMs = 0.0;
+      double pdrPercent = 0.0;
+      double bandwidthBps = 0.0;
+      bool pdrValid = false;
+      bool bandwidthValid = false;
+      bool candidate = false;
+   };
+
+   struct Path
+   {
+      std::vector<const EdgeData*> edges;
+      double cost = 0.0;
+      bool valid = false;
+      bool usesCandidate = false;
+   };
+
+   using EndpointMap = std::map<std::string, const EndpointSnapshot*>;
+   // Paths retain pointers to edges while candidate edges are appended. deque keeps
+   // existing element addresses stable across push_back, unlike vector reallocation.
+   using Adjacency = std::map<std::string, std::deque<EdgeData>>;
+
+   static void CollectTaskEndpoint(const EndpointSnapshot& endpoint,
+                                   const std::string& platformName,
+                                   bool& known,
+                                   bool& online,
+                                   std::vector<std::string>* idsPtr,
+                                   std::set<std::string>* idSetPtr)
+   {
+      if (endpoint.platformName != platformName)
+      {
+         return;
+      }
+      known = true;
+      if (endpoint.state != ResourceState::cONLINE)
+      {
+         return;
+      }
+      online = true;
+      if (idsPtr != nullptr)
+      {
+         idsPtr->push_back(endpoint.endpointId);
+      }
+      if (idSetPtr != nullptr)
+      {
+         idSetPtr->insert(endpoint.endpointId);
+      }
+   }
+
+   static void BuildCurrentEdges(const ResourceSnapshot& aSnapshot,
+                                 const AssessmentTask& aTask,
+                                 const EndpointMap& endpoints,
+                                 Adjacency& adjacency,
+                                 std::set<std::string>& currentEdgeKeys,
+                                 AssessmentResult& result)
+   {
       for (const LinkSnapshot& link : aSnapshot.links)
       {
          if (link.state != ResourceState::cONLINE || !Allowed(aTask, link.networkType))
@@ -98,18 +209,89 @@ public:
             AddReason(result, AssessmentReason::cNETWORK_TYPE_UNKNOWN);
             continue;
          }
-         double delayMs = LinkDelayMs(link);
+         const double delayMs = LinkDelayMs(link);
          if (delayMs < 0.0)
          {
             continue;
          }
-         adjacency[link.sourceEndpointId].push_back({&link, delayMs});
-      }
 
+         EdgeData edge;
+         edge.sourceId = link.sourceEndpointId;
+         edge.destinationId = link.destinationEndpointId;
+         edge.sourcePlatform = link.sourcePlatform;
+         edge.destinationPlatform = link.destinationPlatform;
+         edge.networkType = link.networkType;
+         edge.delayMs = delayMs;
+         edge.candidate = false;
+         ReadCurrentQuality(aSnapshot, link, edge);
+         adjacency[edge.sourceId].push_back(edge);
+         currentEdgeKeys.insert(EdgeKey(edge.sourceId, edge.destinationId));
+      }
+   }
+
+   static void BuildCandidateEdges(const AssessmentTask& aTask,
+                                   const EndpointMap& endpoints,
+                                   const std::set<std::string>& currentEdgeKeys,
+                                   Adjacency& adjacency)
+   {
+      for (const auto& sourceEntry : endpoints)
+      {
+         const EndpointSnapshot& source = *sourceEntry.second;
+         if (source.state != ResourceState::cONLINE || !Allowed(aTask, source.networkType) ||
+             source.networkType == NetworkType::cUNKNOWN || source.networkName.empty())
+         {
+            continue;
+         }
+         for (const auto& destinationEntry : endpoints)
+         {
+            const EndpointSnapshot& destination = *destinationEntry.second;
+            if (source.endpointId == destination.endpointId ||
+                source.platformName == destination.platformName ||
+                destination.state != ResourceState::cONLINE ||
+                source.networkType != destination.networkType ||
+                source.networkName != destination.networkName)
+            {
+               continue;
+            }
+            const std::string key = EdgeKey(source.endpointId, destination.endpointId);
+            if (currentEdgeKeys.count(key) != 0)
+            {
+               continue;
+            }
+            const double distanceM = EndpointDistanceM(source, destination);
+            if (distanceM < 0.0 || distanceM > CandidateRangeM(source.networkType))
+            {
+               continue;
+            }
+
+            EdgeData edge;
+            edge.sourceId = source.endpointId;
+            edge.destinationId = destination.endpointId;
+            edge.sourcePlatform = source.platformName;
+            edge.destinationPlatform = destination.platformName;
+            edge.networkType = source.networkType;
+            edge.delayMs = CandidateSetupDelayMs(source.networkType) +
+                           1000.0 * distanceM / 299792458.0;
+            edge.pdrPercent = CandidatePdrPercent(source.networkType);
+            edge.bandwidthBps = CandidateBandwidthBps(source.networkType);
+            edge.pdrValid = true;
+            edge.bandwidthValid = true;
+            edge.candidate = true;
+            adjacency[edge.sourceId].push_back(edge);
+         }
+      }
+   }
+
+   static Path FindPath(const Adjacency& adjacency,
+                        const std::vector<std::string>& sourceIds,
+                        const std::set<std::string>& destinationIds,
+                        bool allowCandidates,
+                        const std::set<std::string>& forbiddenEdges)
+   {
       using QueueItem = std::pair<double, std::string>;
       std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<QueueItem>> queue;
       std::map<std::string, double> distance;
-      std::map<std::string, std::pair<std::string, const LinkSnapshot*>> predecessor;
+      std::map<std::string, std::pair<std::string, const EdgeData*>> predecessor;
       for (const std::string& sourceId : sourceIds)
       {
          distance[sourceId] = 0.0;
@@ -121,8 +303,7 @@ public:
       {
          const QueueItem current = queue.top();
          queue.pop();
-         const auto distanceIt = distance.find(current.second);
-         if (distanceIt == distance.end() || current.first > distanceIt->second)
+         if (distance.count(current.second) == 0 || current.first > distance[current.second])
          {
             continue;
          }
@@ -131,51 +312,111 @@ public:
             reachedDestination = current.second;
             break;
          }
-         for (const EdgeData& edge : adjacency[current.second])
+         const auto edgesIt = adjacency.find(current.second);
+         if (edgesIt == adjacency.end())
          {
-            const std::string& next = edge.linkPtr->destinationEndpointId;
-            const double candidate = current.first + edge.delayMs;
-            if (distance.count(next) == 0 || candidate < distance[next])
+            continue;
+         }
+         for (const EdgeData& edge : edgesIt->second)
+         {
+            if ((!allowCandidates && edge.candidate) ||
+                forbiddenEdges.count(EdgeKey(edge.sourceId, edge.destinationId)) != 0)
             {
-               distance[next] = candidate;
-               predecessor[next] = {current.second, edge.linkPtr};
-               queue.push({candidate, next});
+               continue;
+            }
+            const double candidateCost = current.first + edge.delayMs +
+                                         (edge.candidate ? 1000.0 : 0.0);
+            if (distance.count(edge.destinationId) == 0 ||
+                candidateCost < distance[edge.destinationId])
+            {
+               distance[edge.destinationId] = candidateCost;
+               predecessor[edge.destinationId] = {current.second, &edge};
+               queue.push({candidateCost, edge.destinationId});
             }
          }
       }
 
+      Path path;
       if (reachedDestination.empty())
       {
-         AddReason(result, AssessmentReason::cNO_CURRENT_PATH);
-         result.recommendations.emplace_back("当前启用链路中不存在允许网络组成的路径。");
-         return result;
+         return path;
       }
-
-      std::vector<const LinkSnapshot*> routeLinks;
+      path.valid = true;
+      path.cost = distance[reachedDestination];
       std::string cursor = reachedDestination;
       while (predecessor.count(cursor) != 0)
       {
-         routeLinks.push_back(predecessor[cursor].second);
+         const EdgeData* edgePtr = predecessor[cursor].second;
+         path.edges.push_back(edgePtr);
+         path.usesCandidate = path.usesCandidate || edgePtr->candidate;
          cursor = predecessor[cursor].first;
       }
-      std::reverse(routeLinks.begin(), routeLinks.end());
+      std::reverse(path.edges.begin(), path.edges.end());
+      return path;
+   }
 
-      result.reachable    = true;
-      result.canEstablish = true;
-      result.primaryRoute.push_back(aTask.sourcePlatform);
-      for (const LinkSnapshot* linkPtr : routeLinks)
+   static void PopulateRoute(const Path& path,
+                             const std::string& sourcePlatform,
+                             std::vector<std::string>& route,
+                             std::vector<NetworkType>& networkSequence)
+   {
+      route.clear();
+      networkSequence.clear();
+      route.push_back(sourcePlatform);
+      for (const EdgeData* edgePtr : path.edges)
       {
-         if (result.primaryRoute.back() != linkPtr->destinationPlatform)
+         if (route.back() != edgePtr->destinationPlatform)
          {
-            result.primaryRoute.push_back(linkPtr->destinationPlatform);
+            route.push_back(edgePtr->destinationPlatform);
          }
-         result.networkSequence.push_back(linkPtr->networkType);
+         networkSequence.push_back(edgePtr->networkType);
       }
+   }
 
-      SetDerived(result.predictedDelayMs, distance[reachedDestination], "ms", aSnapshot);
-      EvaluateReliability(aSnapshot, routeLinks, result);
-      EvaluateBandwidth(routeLinks, result);
+   static void EvaluatePathMetrics(const ResourceSnapshot& aSnapshot,
+                                   const Path& path,
+                                   AssessmentResult& result)
+   {
+      double delayMs = 0.0;
+      double pdr = 1.0;
+      double bandwidth = std::numeric_limits<double>::max();
+      bool pdrValid = true;
+      bool bandwidthValid = true;
+      for (const EdgeData* edgePtr : path.edges)
+      {
+         delayMs += edgePtr->delayMs;
+         pdrValid = pdrValid && edgePtr->pdrValid;
+         bandwidthValid = bandwidthValid && edgePtr->bandwidthValid;
+         if (edgePtr->pdrValid)
+         {
+            pdr *= std::max(0.0, std::min(100.0, edgePtr->pdrPercent)) / 100.0;
+         }
+         if (edgePtr->bandwidthValid)
+         {
+            bandwidth = std::min(bandwidth, edgePtr->bandwidthBps);
+         }
+      }
+      SetDerived(result.predictedDelayMs, delayMs, "ms", aSnapshot);
+      if (pdrValid)
+      {
+         SetDerived(result.estimatedPdrPercent, 100.0 * pdr, "percent", aSnapshot);
+      }
+      if (bandwidthValid && !path.edges.empty())
+      {
+         SetDerived(result.bottleneckBandwidthBps, bandwidth, "bit/s", aSnapshot);
+      }
+      if (path.usesCandidate)
+      {
+         MarkParameterized(result.predictedDelayMs);
+         MarkParameterized(result.estimatedPdrPercent);
+         MarkParameterized(result.bottleneckBandwidthBps);
+      }
+   }
 
+   static void EvaluateConstraints(const ResourceSnapshot& aSnapshot,
+                                   const AssessmentTask& aTask,
+                                   AssessmentResult& result)
+   {
       bool constraintsPass = true;
       if (aTask.maximumDelayMs > 0.0)
       {
@@ -183,6 +424,7 @@ public:
                     aTask.maximumDelayMs - result.predictedDelayMs.value,
                     "ms",
                     aSnapshot);
+         InheritQuality(result.delayMarginMs, result.predictedDelayMs);
          if (result.delayMarginMs.value < 0.0)
          {
             constraintsPass = false;
@@ -202,6 +444,7 @@ public:
                        result.estimatedPdrPercent.value - aTask.minimumPdrPercent,
                        "percentage_point",
                        aSnapshot);
+            InheritQuality(result.reliabilityMarginPercent, result.estimatedPdrPercent);
             if (result.reliabilityMarginPercent.value < 0.0)
             {
                constraintsPass = false;
@@ -222,6 +465,7 @@ public:
                        result.bottleneckBandwidthBps.value - aTask.requiredBandwidthBps,
                        "bit/s",
                        aSnapshot);
+            InheritQuality(result.bandwidthMarginBps, result.bottleneckBandwidthBps);
             if (result.bandwidthMarginBps.value < 0.0)
             {
                constraintsPass = false;
@@ -229,25 +473,51 @@ public:
             }
          }
       }
-
       result.canComplete = constraintsPass;
       result.stable = constraintsPass && result.estimatedPdrPercent.valid &&
-                      result.estimatedPdrPercent.value >= 80.0;
-      if (result.canComplete)
-      {
-         result.recommendations.emplace_back("当前主路由满足已输入的硬约束，可作为建议路径。");
-      }
-      else
-      {
-         result.recommendations.emplace_back("保留当前路径但调整失败约束，或选择其他网络后重新评估。");
-      }
-      return result;
+                      result.estimatedPdrPercent.value >= 80.0 &&
+                      !result.primaryRouteUsesCandidate;
+      result.recommendations.emplace_back(
+         constraintsPass ? "建议路径满足已输入的硬约束。"
+                         : "建议调整失败约束或改选网络后重新评估。");
    }
 
-private:
-   static const WindowMetrics* Window10s(const std::vector<WindowMetrics>& aWindows)
+   static void ReadCurrentQuality(const ResourceSnapshot& aSnapshot,
+                                  const LinkSnapshot& link,
+                                  EdgeData& edge)
    {
-      for (const WindowMetrics& window : aWindows)
+      const WindowMetrics* window = Window10s(link.windows);
+      if (window != nullptr && window->pdrPercent.valid)
+      {
+         edge.pdrPercent = window->pdrPercent.value;
+         edge.pdrValid = true;
+      }
+      if (!edge.pdrValid)
+      {
+         for (const NetworkSnapshot& network : aSnapshot.networks)
+         {
+            if (network.networkName == link.networkName)
+            {
+               const WindowMetrics* networkWindow = Window10s(network.windows);
+               if (networkWindow != nullptr && networkWindow->pdrPercent.valid)
+               {
+                  edge.pdrPercent = networkWindow->pdrPercent.value;
+                  edge.pdrValid = true;
+               }
+               break;
+            }
+         }
+      }
+      if (link.bandwidthBps.valid)
+      {
+         edge.bandwidthBps = link.bandwidthBps.value;
+         edge.bandwidthValid = true;
+      }
+   }
+
+   static const WindowMetrics* Window10s(const std::vector<WindowMetrics>& windows)
+   {
+      for (const WindowMetrics& window : windows)
       {
          if (std::abs(window.windowS - 10.0) < 0.01)
          {
@@ -257,103 +527,160 @@ private:
       return nullptr;
    }
 
-   static bool Allowed(const AssessmentTask& aTask, NetworkType aType)
+   static bool Allowed(const AssessmentTask& task, NetworkType type)
    {
-      return aTask.allowedNetworks.empty() ||
-             std::find(aTask.allowedNetworks.begin(), aTask.allowedNetworks.end(), aType) !=
-                aTask.allowedNetworks.end();
+      return task.allowedNetworks.empty() ||
+             std::find(task.allowedNetworks.begin(), task.allowedNetworks.end(), type) !=
+                task.allowedNetworks.end();
    }
 
-   static double LinkDelayMs(const LinkSnapshot& aLink)
+   static double LinkDelayMs(const LinkSnapshot& link)
    {
-      const WindowMetrics* window = Window10s(aLink.windows);
+      const WindowMetrics* window = Window10s(link.windows);
       if (window != nullptr && window->averageTransportDelayMs.valid)
       {
          return std::max(0.0, window->averageTransportDelayMs.value);
       }
-      if (aLink.distanceM.valid)
-      {
-         return 1000.0 * aLink.distanceM.value / 299792458.0;
-      }
-      return -1.0;
+      return link.distanceM.valid ? 1000.0 * link.distanceM.value / 299792458.0 : -1.0;
    }
 
-   static void EvaluateReliability(const ResourceSnapshot&        aSnapshot,
-                                   const std::vector<const LinkSnapshot*>& aRoute,
-                                   AssessmentResult&              aResult)
+   static double EndpointDistanceM(const EndpointSnapshot& source,
+                                   const EndpointSnapshot& destination)
    {
-      double routePdr = 1.0;
-      for (const LinkSnapshot* linkPtr : aRoute)
+      if (!source.latitudeDeg.valid || !source.longitudeDeg.valid ||
+          !destination.latitudeDeg.valid || !destination.longitudeDeg.valid)
       {
-         const WindowMetrics* window = Window10s(linkPtr->windows);
-         const MetricValue<double>* pdrPtr =
-            window != nullptr && window->pdrPercent.valid ? &window->pdrPercent : nullptr;
-         if (pdrPtr == nullptr)
-         {
-            for (const NetworkSnapshot& network : aSnapshot.networks)
-            {
-               if (network.networkName == linkPtr->networkName)
-               {
-                  const WindowMetrics* networkWindow = Window10s(network.windows);
-                  if (networkWindow != nullptr && networkWindow->pdrPercent.valid)
-                  {
-                     pdrPtr = &networkWindow->pdrPercent;
-                  }
-                  break;
-               }
-            }
-         }
-         if (pdrPtr == nullptr)
-         {
-            return;
-         }
-         routePdr *= std::max(0.0, std::min(100.0, pdrPtr->value)) / 100.0;
+         return -1.0;
       }
-      SetDerived(aResult.estimatedPdrPercent, 100.0 * routePdr, "percent", aSnapshot);
+      constexpr double cPI = 3.14159265358979323846;
+      constexpr double cEARTH_RADIUS_M = 6371000.0;
+      const double lat1 = source.latitudeDeg.value * cPI / 180.0;
+      const double lat2 = destination.latitudeDeg.value * cPI / 180.0;
+      const double deltaLat = lat2 - lat1;
+      const double deltaLon =
+         (destination.longitudeDeg.value - source.longitudeDeg.value) * cPI / 180.0;
+      const double haversine = std::sin(deltaLat / 2.0) * std::sin(deltaLat / 2.0) +
+                               std::cos(lat1) * std::cos(lat2) *
+                                  std::sin(deltaLon / 2.0) * std::sin(deltaLon / 2.0);
+      const double groundDistance =
+         2.0 * cEARTH_RADIUS_M * std::asin(std::sqrt(std::min(1.0, haversine)));
+      const double altitudeDelta =
+         source.altitudeM.valid && destination.altitudeM.valid
+            ? destination.altitudeM.value - source.altitudeM.value
+            : 0.0;
+      return std::sqrt(groundDistance * groundDistance + altitudeDelta * altitudeDelta);
    }
 
-   static void EvaluateBandwidth(const std::vector<const LinkSnapshot*>& aRoute,
-                                 AssessmentResult& aResult)
+   static double CandidateRangeM(NetworkType type)
    {
-      double bottleneck = std::numeric_limits<double>::max();
-      for (const LinkSnapshot* linkPtr : aRoute)
+      switch (type)
       {
-         if (!linkPtr->bandwidthBps.valid)
-         {
-            return;
-         }
-         bottleneck = std::min(bottleneck, linkPtr->bandwidthBps.value);
-      }
-      if (!aRoute.empty())
-      {
-         const LinkSnapshot* first = aRoute.front();
-         aResult.bottleneckBandwidthBps.value      = bottleneck;
-         aResult.bottleneckBandwidthBps.unit       = "bit/s";
-         aResult.bottleneckBandwidthBps.valid      = true;
-         aResult.bottleneckBandwidthBps.origin     = first->bandwidthBps.origin;
-         aResult.bottleneckBandwidthBps.confidence = first->bandwidthBps.confidence;
-         aResult.bottleneckBandwidthBps.sampleTime = first->bandwidthBps.sampleTime;
+      case NetworkType::cLINK11:
+         return 300000.0;
+      case NetworkType::cLINK16:
+         return 500000.0;
+      case NetworkType::cSATCOM:
+         return 45000000.0;
+      case NetworkType::cCDL:
+         return 250000.0;
+      default:
+         return 0.0;
       }
    }
 
-   static void SetDerived(MetricValue<double>& aMetric,
-                          double               aValue,
-                          const char*          aUnit,
-                          const ResourceSnapshot& aSnapshot)
+   static double CandidateSetupDelayMs(NetworkType type)
    {
-      aMetric.value      = aValue;
-      aMetric.unit       = aUnit;
-      aMetric.valid      = true;
-      aMetric.origin     = DataOrigin::cDERIVED;
-      aMetric.confidence = Confidence::cHIGH;
-      aMetric.sampleTime = aSnapshot.simTime;
+      switch (type)
+      {
+      case NetworkType::cLINK11:
+         return 80.0;
+      case NetworkType::cLINK16:
+         return 20.0;
+      case NetworkType::cSATCOM:
+         return 40.0;
+      case NetworkType::cCDL:
+         return 10.0;
+      default:
+         return 1000.0;
+      }
    }
 
-   static void AddReason(AssessmentResult& aResult, AssessmentReason aReason)
+   static double CandidatePdrPercent(NetworkType type)
    {
-      if (std::find(aResult.reasons.begin(), aResult.reasons.end(), aReason) == aResult.reasons.end())
+      switch (type)
       {
-         aResult.reasons.push_back(aReason);
+      case NetworkType::cLINK11:
+         return 90.0;
+      case NetworkType::cLINK16:
+         return 95.0;
+      case NetworkType::cSATCOM:
+         return 92.0;
+      case NetworkType::cCDL:
+         return 96.0;
+      default:
+         return 0.0;
+      }
+   }
+
+   static double CandidateBandwidthBps(NetworkType type)
+   {
+      switch (type)
+      {
+      case NetworkType::cLINK11:
+         return 2400.0;
+      case NetworkType::cLINK16:
+         return 238000.0;
+      case NetworkType::cSATCOM:
+         return 5000000.0;
+      case NetworkType::cCDL:
+         return 45000000.0;
+      default:
+         return 0.0;
+      }
+   }
+
+   static std::string EdgeKey(const std::string& sourceId, const std::string& destinationId)
+   {
+      return sourceId + "->" + destinationId;
+   }
+
+   static void SetDerived(MetricValue<double>& metric,
+                          double value,
+                          const char* unit,
+                          const ResourceSnapshot& snapshot)
+   {
+      metric.value      = value;
+      metric.unit       = unit;
+      metric.valid      = true;
+      metric.origin     = DataOrigin::cDERIVED;
+      metric.confidence = Confidence::cHIGH;
+      metric.sampleTime = snapshot.simTime;
+   }
+
+   static void MarkParameterized(MetricValue<double>& metric)
+   {
+      if (metric.valid)
+      {
+         metric.origin = DataOrigin::cPARAMETERIZED_MODEL;
+         metric.confidence = Confidence::cLOW;
+      }
+   }
+
+   static void InheritQuality(MetricValue<double>& target,
+                              const MetricValue<double>& source)
+   {
+      if (target.valid && source.valid)
+      {
+         target.origin = source.origin;
+         target.confidence = source.confidence;
+      }
+   }
+
+   static void AddReason(AssessmentResult& result, AssessmentReason reason)
+   {
+      if (std::find(result.reasons.begin(), result.reasons.end(), reason) == result.reasons.end())
+      {
+         result.reasons.push_back(reason);
       }
    }
 };

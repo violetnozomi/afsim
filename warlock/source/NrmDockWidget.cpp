@@ -164,7 +164,8 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    taskFormPtr->addRow("Maximum delay", mMaximumDelayMsPtr);
    taskFormPtr->addRow("Minimum PDR", mMinimumPdrPtr);
    assessmentLayoutPtr->addLayout(taskFormPtr);
-   QPushButton* evaluateButtonPtr = new QPushButton("Evaluate current graph", assessmentPagePtr);
+   QPushButton* evaluateButtonPtr =
+      new QPushButton("Evaluate current / candidate graph", assessmentPagePtr);
    assessmentLayoutPtr->addWidget(evaluateButtonPtr);
    mAssessmentResultPtr = new QTextEdit(assessmentPagePtr);
    mAssessmentResultPtr->setReadOnly(true);
@@ -232,6 +233,11 @@ void WkNrm::DockWidget::EvaluateTask()
    {
       route.push_back(QString::fromStdString(platform));
    }
+   QStringList backupRoute;
+   for (const std::string& platform : result.backupRoute)
+   {
+      backupRoute.push_back(QString::fromStdString(platform));
+   }
    QStringList reasons;
    for (nrm::AssessmentReason reason : result.reasons)
    {
@@ -252,7 +258,19 @@ void WkNrm::DockWidget::EvaluateTask()
               .arg(result.canEstablish ? "YES" : "NO")
               .arg(result.canComplete ? "YES" : "NO")
               .arg(result.stable ? "YES" : "NO");
-   text += "Primary route: " + (route.isEmpty() ? QString::fromUtf8("—") : route.join(" → ")) + "\n";
+   text += "Primary route: " + (route.isEmpty() ? QString::fromUtf8("—") : route.join(" → "));
+   if (!route.isEmpty() && result.primaryRouteUsesCandidate)
+   {
+      text += "  [CANDIDATE]";
+   }
+   text += "\n";
+   text += "Backup route: " +
+           (backupRoute.isEmpty() ? QString::fromUtf8("—") : backupRoute.join(" → "));
+   if (!backupRoute.isEmpty() && result.backupRouteUsesCandidate)
+   {
+      text += "  [CANDIDATE]";
+   }
+   text += "\n";
    text += "Predicted delay: " + MetricText(result.predictedDelayMs, 3) + "\n";
    text += "Estimated PDR: " + MetricText(result.estimatedPdrPercent, 2) + "\n";
    text += "Bottleneck bandwidth: " + MetricText(result.bottleneckBandwidthBps, 1) + "\n";
@@ -438,8 +456,8 @@ void WkNrm::DockWidget::RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnap
       }
    };
 
-   refreshSelector(mSourceSelectorPtr, "l11_control");
-   refreshSelector(mDestinationSelectorPtr, "l11_member");
+   refreshSelector(mSourceSelectorPtr, "l16_fighter");
+   refreshSelector(mDestinationSelectorPtr, "l16_command");
 }
 
 void WkNrm::DockWidget::SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText)

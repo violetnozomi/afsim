@@ -20,6 +20,7 @@ enum class AssessmentReason
    cNODE_OFFLINE,
    cNETWORK_TYPE_UNKNOWN,
    cNO_CURRENT_PATH,
+   cLINK_NOT_ESTABLISHABLE,
    cBANDWIDTH_MARGIN_NEGATIVE,
    cDELAY_MARGIN_NEGATIVE,
    cRELIABILITY_MARGIN_NEGATIVE
@@ -39,6 +40,8 @@ inline const char* ToString(AssessmentReason aReason)
       return "NETWORK_TYPE_UNKNOWN";
    case AssessmentReason::cNO_CURRENT_PATH:
       return "NO_CURRENT_PATH";
+   case AssessmentReason::cLINK_NOT_ESTABLISHABLE:
+      return "LINK_NOT_ESTABLISHABLE";
    case AssessmentReason::cBANDWIDTH_MARGIN_NEGATIVE:
       return "BANDWIDTH_MARGIN_NEGATIVE";
    case AssessmentReason::cDELAY_MARGIN_NEGATIVE:
@@ -71,6 +74,9 @@ struct AssessmentResult
    bool                          canComplete      = false;
    bool                          stable           = false;
    std::vector<std::string>      primaryRoute;
+   bool                          primaryRouteUsesCandidate = false;
+   std::vector<std::string>      backupRoute;
+   bool                          backupRouteUsesCandidate = false;
    std::vector<NetworkType>      networkSequence;
    MetricValue<double>           predictedDelayMs;
    MetricValue<double>           estimatedPdrPercent;

@@ -80,7 +80,7 @@ void WriteWindows(std::ostream& aOutput, const std::vector<nrm::WindowMetrics>& 
 
 void WriteAssessment(std::ostream& aOutput, const nrm::AssessmentResult& aResult)
 {
-   aOutput << "{\"schema\":\"nrm.assessment.v1\",\"task_id\":\"" << EscapeJson(aResult.taskId)
+   aOutput << "{\"schema\":\"nrm.assessment.v2\",\"task_id\":\"" << EscapeJson(aResult.taskId)
            << "\",\"snapshot_version\":" << aResult.snapshotVersion << ",\"sim_time\":"
            << aResult.simTime << ",\"reachable\":" << (aResult.reachable ? "true" : "false")
            << ",\"can_establish\":" << (aResult.canEstablish ? "true" : "false")
@@ -94,7 +94,20 @@ void WriteAssessment(std::ostream& aOutput, const nrm::AssessmentResult& aResult
       }
       aOutput << '"' << EscapeJson(aResult.primaryRoute[index]) << '"';
    }
-   aOutput << "],\"network_sequence\":[";
+   aOutput << "],\"primary_route_uses_candidate\":"
+           << (aResult.primaryRouteUsesCandidate ? "true" : "false")
+           << ",\"backup_route\":[";
+   for (std::size_t index = 0; index < aResult.backupRoute.size(); ++index)
+   {
+      if (index != 0)
+      {
+         aOutput << ',';
+      }
+      aOutput << '"' << EscapeJson(aResult.backupRoute[index]) << '"';
+   }
+   aOutput << "],\"backup_route_uses_candidate\":"
+           << (aResult.backupRouteUsesCandidate ? "true" : "false")
+           << ",\"network_sequence\":[";
    for (std::size_t index = 0; index < aResult.networkSequence.size(); ++index)
    {
       if (index != 0)

@@ -48,6 +48,7 @@ WkNrm::TacticalView::TacticalView(DataContainer& aData, QWidget* aParentPtr)
    setMinimumSize(620, 480);
    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
    connect(&mData, &DataContainer::SnapshotChanged, this, qOverload<>(&QWidget::update));
+   connect(&mData, &DataContainer::AssessmentChanged, this, qOverload<>(&QWidget::update));
 }
 
 void WkNrm::TacticalView::paintEvent(QPaintEvent*)
@@ -151,6 +152,70 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
       painter.drawLine(sourceIt->second, destinationIt->second);
       const QPointF midpoint = (sourceIt->second + destinationIt->second) / 2.0;
       painter.drawText(midpoint + QPointF(5.0, -5.0), NetworkLabel(link.networkType));
+   }
+
+   std::map<std::string, QPointF> platformPoints;
+   for (const auto& endpointEntry : endpoints)
+   {
+      platformPoints[endpointEntry.second->platformName] = points[endpointEntry.first];
+   }
+   if (mData.HasAssessment())
+   {
+      const nrm::AssessmentResult& assessment = mData.GetAssessment();
+      auto drawRoute = [&painter, &platformPoints](const std::vector<std::string>& route,
+                                                   const QColor& color,
+                                                   bool candidate,
+                                                   const QString& label)
+      {
+         if (route.size() < 2)
+         {
+            return;
+         }
+         QPen routePen(color, label == "PRIMARY" ? 7.0 : 4.0);
+         routePen.setStyle(candidate ? Qt::DashLine : Qt::SolidLine);
+         routePen.setCapStyle(Qt::RoundCap);
+         painter.setPen(routePen);
+         for (std::size_t index = 1; index < route.size(); ++index)
+         {
+            const auto sourceIt = platformPoints.find(route[index - 1]);
+            const auto destinationIt = platformPoints.find(route[index]);
+            if (sourceIt == platformPoints.end() || destinationIt == platformPoints.end())
+            {
+               continue;
+            }
+            painter.drawLine(sourceIt->second, destinationIt->second);
+            if (index == 1)
+            {
+               const QPointF midpoint = (sourceIt->second + destinationIt->second) / 2.0;
+               painter.drawText(midpoint + QPointF(8.0, 15.0), label);
+            }
+         }
+      };
+      drawRoute(assessment.backupRoute,
+                QColor(0, 220, 255, 190),
+                assessment.backupRouteUsesCandidate,
+                "BACKUP");
+      drawRoute(assessment.primaryRoute,
+                QColor(255, 210, 35, 225),
+                assessment.primaryRouteUsesCandidate,
+                "PRIMARY");
+
+      if (!assessment.primaryRoute.empty())
+      {
+         const auto sourceIt = platformPoints.find(assessment.primaryRoute.front());
+         const auto destinationIt = platformPoints.find(assessment.primaryRoute.back());
+         painter.setBrush(Qt::NoBrush);
+         if (sourceIt != platformPoints.end())
+         {
+            painter.setPen(QPen(QColor(60, 255, 120), 4.0));
+            painter.drawEllipse(sourceIt->second, 18.0, 18.0);
+         }
+         if (destinationIt != platformPoints.end())
+         {
+            painter.setPen(QPen(QColor(255, 150, 30), 4.0));
+            painter.drawEllipse(destinationIt->second, 18.0, 18.0);
+         }
+      }
    }
 
    for (const auto& item : points)

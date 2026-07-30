@@ -28,5 +28,8 @@ void WkNrm::DataContainer::SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot)
 
 void WkNrm::DataContainer::StoreAssessment(const nrm::AssessmentResult& aResult)
 {
+   mAssessment = aResult;
+   mHasAssessment = true;
    mReporterPtr->EnqueueAssessment(aResult);
+   emit AssessmentChanged();
 }

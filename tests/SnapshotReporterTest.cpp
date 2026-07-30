@@ -50,6 +50,10 @@ int main()
       assessment.reasons.push_back(nrm::AssessmentReason::cDATA_INVALID);
       assessment.primaryRoute.push_back("fighter");
       assessment.primaryRoute.push_back("command");
+      assessment.backupRoute.push_back("fighter");
+      assessment.backupRoute.push_back("relay");
+      assessment.backupRoute.push_back("command");
+      assessment.backupRouteUsesCandidate = true;
       reporter.EnqueueAssessment(assessment);
    }
 
@@ -73,5 +77,8 @@ int main()
    assessmentBuffer << assessmentInput.rdbuf();
    assert(assessmentBuffer.str().find("\"task_id\":\"TASK-REPORT\"") != std::string::npos);
    assert(assessmentBuffer.str().find("\"DATA_INVALID\"") != std::string::npos);
+   assert(assessmentBuffer.str().find("\"backup_route\":[\"fighter\",\"relay\",\"command\"]") !=
+          std::string::npos);
+   assert(assessmentBuffer.str().find("\"backup_route_uses_candidate\":true") != std::string::npos);
    return 0;
 }
