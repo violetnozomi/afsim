@@ -23,7 +23,9 @@ enum class AssessmentReason
    cLINK_NOT_ESTABLISHABLE,
    cBANDWIDTH_MARGIN_NEGATIVE,
    cDELAY_MARGIN_NEGATIVE,
-   cRELIABILITY_MARGIN_NEGATIVE
+   cRELIABILITY_MARGIN_NEGATIVE,
+   cPROFILE_CONFIG_INVALID,
+   cPATH_SEARCH_LIMIT_REACHED
 };
 
 inline const char* ToString(AssessmentReason aReason)
@@ -46,6 +48,10 @@ inline const char* ToString(AssessmentReason aReason)
       return "BANDWIDTH_MARGIN_NEGATIVE";
    case AssessmentReason::cDELAY_MARGIN_NEGATIVE:
       return "DELAY_MARGIN_NEGATIVE";
+   case AssessmentReason::cPROFILE_CONFIG_INVALID:
+      return "PROFILE_CONFIG_INVALID";
+   case AssessmentReason::cPATH_SEARCH_LIMIT_REACHED:
+      return "PATH_SEARCH_LIMIT_REACHED";
    case AssessmentReason::cRELIABILITY_MARGIN_NEGATIVE:
       return "RELIABILITY_MARGIN_NEGATIVE";
    }
@@ -56,6 +62,8 @@ struct AssessmentTask
 {
    std::string              taskId;
    std::string              sourcePlatform;
+   std::size_t              kShortestPaths       = 8;
+   std::size_t              maximumHops          = 16;
    std::string              destinationPlatform;
    std::uint64_t            payloadBits          = 0;
    double                   requiredBandwidthBps = 0.0;
@@ -69,6 +77,13 @@ struct AssessmentResult
    std::string                   taskId;
    std::uint64_t                 snapshotVersion = 0;
    double                        simTime          = 0.0;
+   std::string                   disjointnessType = "DIRECTED_EDGE";
+   std::size_t                   consideredPathCount = 0;
+   std::size_t                   selectedPathRank = 0;
+   std::vector<std::string>      failedConstraints;
+   std::string                   configVersion;
+   std::string                   profileProviderId;
+   std::vector<std::string>      profileIds;
    bool                          reachable        = false;
    bool                          canEstablish     = false;
    bool                          canComplete      = false;

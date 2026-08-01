@@ -1,0 +1,252 @@
+schema_version: "nrm.requirement_traceability.v1"
+priority: P0
+v070_implementation_evidence:
+  status: PRE_ACCEPTANCE
+  requirement_ids: [2, 4, 5, 6, 11, 12, 16, 19, 20, 22, 24, 26, 27, 28, 30]
+  components: [NetworkProfileRepository, MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, SnapshotReporter]
+  tests: [nrm_network_profile_test, nrm_message_lifecycle_tracker_test, nrm_resource_event_ledger_test, nrm_constrained_path_selector_test, nrm_snapshot_reporter_recovery_test]
+  scenarios: [link_failure, congestion, quality_degradation]
+  limitations:
+    - "内部演示剖面和模拟故障输入，不是甲方接口最终验收。"
+    - "真实协议建链事件、组播重传语义、跨网网关和独立资源事件JSONL尚未完成。"
+requirements:
+  - requirement_id: 1
+    requirement_name: "链路名称"
+    internal_fields: ["link_name"]
+    data_source: "网络与端点配置"
+    calculation_method: "显式配置或稳定标识推导"
+    ui_location: ["四网总览", "链路明细"]
+    report_fields: ["link_name"]
+    acceptance_case: "A01"
+  - requirement_id: 2
+    requirement_name: "链路可用性"
+    internal_fields: ["effective_online_state", "service_availability"]
+    data_source: "分维度状态/业务门限"
+    calculation_method: "状态机求有效在线；按条件满足时间积分"
+    ui_location: ["四网总览", "链路明细"]
+    report_fields: ["availability_metrics"]
+    acceptance_case: "A02"
+  - requirement_id: 3
+    requirement_name: "组网规模"
+    internal_fields: ["current_member_count", "online_member_count", "max_supported_members"]
+    data_source: "WsfCommNetworkManager/模板"
+    calculation_method: "成员统计与配置上限"
+    ui_location: ["四网总览"]
+    report_fields: ["member_counts"]
+    acceptance_case: "A01"
+  - requirement_id: 4
+    requirement_name: "链路脱网时长"
+    internal_fields: ["current_offline_duration", "window_offline_duration"]
+    data_source: "状态事件"
+    calculation_method: "状态区间积分"
+    ui_location: ["链路明细", "告警"]
+    report_fields: ["offline_duration"]
+    acceptance_case: "A08"
+  - requirement_id: 5
+    requirement_name: "建链成功率"
+    internal_fields: ["establishment_success_ratio"]
+    data_source: "统一建链事件"
+    calculation_method: "成功次数/尝试次数"
+    ui_location: ["链路明细"]
+    report_fields: ["establishment_success_ratio"]
+    acceptance_case: "A07"
+  - requirement_id: 6
+    requirement_name: "建链时长"
+    internal_fields: ["establishment_delay"]
+    data_source: "统一建链事件"
+    calculation_method: "成功时间-尝试时间"
+    ui_location: ["链路明细"]
+    report_fields: ["establishment_delay"]
+    acceptance_case: "A07"
+  - requirement_id: 7
+    requirement_name: "链路工作状态"
+    internal_fields: ["state"]
+    data_source: "WsfCommObserver"
+    calculation_method: "设备/链路/协议状态聚合"
+    ui_location: ["四网总览", "拓扑"]
+    report_fields: ["link_state"]
+    acceptance_case: "A03"
+  - requirement_id: 8
+    requirement_name: "成员名称"
+    internal_fields: ["member_name"]
+    data_source: "平台/端点对象"
+    calculation_method: "直接读取"
+    ui_location: ["成员明细"]
+    report_fields: ["member_name"]
+    acceptance_case: "A01"
+  - requirement_id: 9
+    requirement_name: "成员编号"
+    internal_fields: ["member_id"]
+    data_source: "平台索引/网络地址/配置"
+    calculation_method: "版本化编号映射"
+    ui_location: ["成员明细"]
+    report_fields: ["member_id"]
+    acceptance_case: "A01"
+  - requirement_id: 10
+    requirement_name: "成员职责"
+    internal_fields: ["member_role", "role_source"]
+    data_source: "场景配置/适配器"
+    calculation_method: "显式职责映射"
+    ui_location: ["成员明细"]
+    report_fields: ["member_role"]
+    acceptance_case: "A01"
+  - requirement_id: 11
+    requirement_name: "成员在网状态"
+    internal_fields: ["online_state"]
+    data_source: "网络成员/设备状态"
+    calculation_method: "端点状态聚合"
+    ui_location: ["四网总览", "成员明细"]
+    report_fields: ["online_state"]
+    acceptance_case: "A08"
+  - requirement_id: 12
+    requirement_name: "成员在网率"
+    internal_fields: ["online_ratio"]
+    data_source: "状态区间"
+    calculation_method: "在线累计时间/窗口"
+    ui_location: ["成员明细"]
+    report_fields: ["online_ratio"]
+    acceptance_case: "A08"
+  - requirement_id: 13
+    requirement_name: "成员位置"
+    internal_fields: ["position"]
+    data_source: "AFSIM平台状态"
+    calculation_method: "LLA/WCS坐标转换"
+    ui_location: ["拓扑", "成员明细"]
+    report_fields: ["position"]
+    acceptance_case: "A01"
+  - requirement_id: 14
+    requirement_name: "传输距离"
+    internal_fields: ["distance"]
+    data_source: "WsfEM_Interaction/位置"
+    calculation_method: "直接几何或位置计算"
+    ui_location: ["链路明细"]
+    report_fields: ["distance_m"]
+    acceptance_case: "A05"
+  - requirement_id: 15
+    requirement_name: "链路应答时延"
+    internal_fields: ["ack_delay", "response_delay", "rtt"]
+    data_source: "消息事件/事务关联"
+    calculation_method: "ACK/响应/Ping-Pong关联"
+    ui_location: ["链路明细", "业务流量"]
+    report_fields: ["response_delays"]
+    acceptance_case: "A02"
+  - requirement_id: 16
+    requirement_name: "链路传输时延"
+    internal_fields: ["one_way_delay", "queue_delay"]
+    data_source: "排队/发送/接收事件"
+    calculation_method: "统一时钟作差"
+    ui_location: ["链路明细", "业务流量"]
+    report_fields: ["transmission_delays"]
+    acceptance_case: "A02"
+  - requirement_id: 17
+    requirement_name: "链路通信质量"
+    internal_fields: ["quality_index", "quality_evidence"]
+    data_source: "WsfCommResult/PDR/时延"
+    calculation_method: "有效分项加权"
+    ui_location: ["四网总览", "链路明细"]
+    report_fields: ["quality_index", "quality_evidence"]
+    acceptance_case: "A05"
+  - requirement_id: 18
+    requirement_name: "可用频段"
+    internal_fields: ["available_bands"]
+    data_source: "设备配置/外部输入"
+    calculation_method: "当前与候选频段集合"
+    ui_location: ["链路明细"]
+    report_fields: ["available_bands"]
+    acceptance_case: "A12"
+  - requirement_id: 19
+    requirement_name: "链路可用性"
+    internal_fields: ["effective_online_state", "service_availability"]
+    data_source: "同要求2"
+    calculation_method: "复用要求2内部指标"
+    ui_location: ["四网总览", "链路明细"]
+    report_fields: ["availability_metrics"]
+    acceptance_case: "A02"
+  - requirement_id: 20
+    requirement_name: "承载业务类型"
+    internal_fields: ["supported_business_types"]
+    data_source: "模板/网关/端点配置"
+    calculation_method: "业务类型集合匹配"
+    ui_location: ["链路明细", "任务评估"]
+    report_fields: ["supported_business_types"]
+    acceptance_case: "A06"
+  - requirement_id: 21
+    requirement_name: "链路应答时延"
+    internal_fields: ["ack_delay", "response_delay", "rtt"]
+    data_source: "同要求15"
+    calculation_method: "复用要求15内部指标"
+    ui_location: ["链路明细", "业务流量"]
+    report_fields: ["response_delays"]
+    acceptance_case: "A02"
+  - requirement_id: 22
+    requirement_name: "链路传输时延"
+    internal_fields: ["one_way_delay", "queue_delay"]
+    data_source: "同要求16"
+    calculation_method: "复用要求16内部指标"
+    ui_location: ["链路明细", "业务流量"]
+    report_fields: ["transmission_delays"]
+    acceptance_case: "A02"
+  - requirement_id: 23
+    requirement_name: "链路通信质量"
+    internal_fields: ["quality_index", "quality_evidence"]
+    data_source: "同要求17"
+    calculation_method: "复用要求17内部指标"
+    ui_location: ["四网总览", "链路明细"]
+    report_fields: ["quality_index", "quality_evidence"]
+    acceptance_case: "A05"
+  - requirement_id: 24
+    requirement_name: "链路资源占用率"
+    internal_fields: ["airtime_utilization", "offered_load_ratio"]
+    data_source: "忙时/时隙与入队服务需求"
+    calculation_method: "忙时积分优先；提供负载独立计算"
+    ui_location: ["四网总览", "链路明细"]
+    report_fields: ["load_metrics"]
+    acceptance_case: "A04"
+  - requirement_id: 25
+    requirement_name: "链路队列占用率"
+    internal_fields: ["queue_depth", "queue_limit", "queue_utilization"]
+    data_source: "排队回调/只读接口/配置镜像"
+    calculation_method: "深度/有效上限"
+    ui_location: ["链路明细", "告警"]
+    report_fields: ["queue_metrics"]
+    acceptance_case: "A11"
+  - requirement_id: 26
+    requirement_name: "业务流量"
+    internal_fields: ["traffic_bps", "packet_rate"]
+    data_source: "消息事件"
+    calculation_method: "按网络/链路/业务/方向聚合"
+    ui_location: ["业务流量"]
+    report_fields: ["traffic"]
+    acceptance_case: "A02"
+  - requirement_id: 27
+    requirement_name: "路由信息"
+    internal_fields: ["route_view", "actual_hops"]
+    data_source: "全局图/MessageHop"
+    calculation_method: "区分当前/实际/候选视角"
+    ui_location: ["拓扑", "任务评估"]
+    report_fields: ["route_view"]
+    acceptance_case: "A06"
+  - requirement_id: 28
+    requirement_name: "消息统计信息"
+    internal_fields: ["message_statistics"]
+    data_source: "WsfCommObserver"
+    calculation_method: "事件分类聚合"
+    ui_location: ["业务流量", "链路明细"]
+    report_fields: ["message_statistics"]
+    acceptance_case: "A02"
+  - requirement_id: 29
+    requirement_name: "链路 RSSI"
+    internal_fields: ["signal_received_power_dbm"]
+    data_source: "WsfEM_Interaction"
+    calculation_method: "有效正功率换算dBm"
+    ui_location: ["链路明细"]
+    report_fields: ["rf_evidence.signal_received_power_dbm"]
+    acceptance_case: "A05"
+  - requirement_id: 30
+    requirement_name: "链路带宽"
+    internal_fields: ["service_capacity_bps", "historical_idle_capacity_estimate_bps", "admissible_capacity_bps"]
+    data_source: "配置/结果/网络适配器"
+    calculation_method: "区分配置服务率、历史空闲估计和当前可准入估计"
+    ui_location: ["四网总览", "链路明细"]
+    report_fields: ["service_capacity_bps", "historical_idle_capacity_estimate_bps", "admissible_capacity_bps"]
+    acceptance_case: "A10"

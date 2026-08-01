@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "nrm/MetricReason.hpp"
+
 namespace nrm
 {
 enum class NetworkType
@@ -23,6 +25,7 @@ enum class DataOrigin
    cCUSTOMER_MODULE,
    cREPLAY,
    cPARAMETERIZED_MODEL,
+   cESTIMATED,
    cDERIVED
 };
 
@@ -60,6 +63,7 @@ struct MetricValue
    Confidence  confidence = Confidence::cLOW;
    double      sampleTime = 0.0;
    double      window     = 0.0;
+   MetricReason reason    = MetricReason::cNO_SAMPLES;
 };
 
 struct MessageStatistics
@@ -78,10 +82,21 @@ struct WindowMetrics
    double              windowS = 0.0;
    MessageStatistics   messages;
    std::uint64_t       transmittedBits = 0;
+   std::uint64_t       deliveredBits = 0;
+   MetricValue<double> offeredLoadBps;
+   MetricValue<double> deliveredThroughputBps;
+   MetricValue<double> deliveryRatioPercent;
+   // Deprecated compatibility field. It maps to deliveredThroughputBps.
    MetricValue<double> throughputBps;
+   // Deprecated compatibility field. It maps to deliveryRatioPercent only
+   // when transmit and terminal events share a correlated lifecycle.
    MetricValue<double> pdrPercent;
    MetricValue<double> averageQueueDelayMs;
+   MetricValue<double> p50QueueDelayMs;
+   MetricValue<double> p95QueueDelayMs;
    MetricValue<double> averageTransportDelayMs;
+   MetricValue<double> p50TransportDelayMs;
+   MetricValue<double> p95TransportDelayMs;
    MetricValue<double> onlineRatioPercent;
    MetricValue<double> utilizationPercent;
 };
@@ -115,6 +130,9 @@ struct EndpointSnapshot
    MetricValue<double> latitudeDeg;
    MetricValue<double> longitudeDeg;
    MetricValue<double> altitudeM;
+   MetricValue<double> currentOfflineDurationS;
+   MetricValue<double> windowOfflineDurationS;
+   MetricValue<double> endpointOnlineRatioPercent;
 };
 
 struct LinkSnapshot
@@ -129,6 +147,12 @@ struct LinkSnapshot
    ResourceState state      = ResourceState::cUNKNOWN;
    MetricValue<double> distanceM;
    MetricValue<double> bandwidthBps;
+   MetricValue<double> currentOfflineDurationS;
+   MetricValue<double> windowOfflineDurationS;
+   MetricValue<double> serviceAvailabilityPercent;
+   MetricValue<double> establishmentSuccessRatioPercent;
+   MetricValue<double> averageEstablishmentDelayMs;
+   std::uint64_t establishmentAttempts = 0;
    MetricValue<double> rssiDbm;
    MetricValue<double> snrDb;
    MetricValue<double> ber;
@@ -142,6 +166,9 @@ struct ResourceSnapshot
    RuntimeState  runtimeState    = RuntimeState::cIDLE;
    DataOrigin    origin          = DataOrigin::cAFSIM_INTERNAL;
    std::string   providerId      = "afsim-internal";
+   std::string   schemaVersion   = "nrm.snapshot.v2";
+   std::string   configVersion;
+   std::vector<std::string> profileIds;
    std::vector<NetworkSnapshot>  networks;
    std::vector<EndpointSnapshot> endpoints;
    std::vector<LinkSnapshot>     links;

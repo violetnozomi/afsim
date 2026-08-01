@@ -7,6 +7,8 @@
 #include "NrmSimEvents.hpp"
 #include "UtCallbackHolder.hpp"
 #include "WkSimInterface.hpp"
+#include "nrm/MessageLifecycleTracker.hpp"
+#include "nrm/ResourceEventLedger.hpp"
 #include "nrm/RollingMetrics.hpp"
 
 class WsfSimulation;
@@ -51,6 +53,8 @@ private:
    void CountMessage(wsf::comm::Comm* aCommPtr, std::uint64_t nrm::MessageStatistics::*aCounter);
    void PruneCorrelations(double aSimTime);
    static nrm::NetworkType GetNetworkType(const wsf::comm::Comm* aCommPtr);
+   nrm::MessageLifecycleTracker                  mLifecycleTracker;
+   nrm::ResourceEventLedger                      mEventLedger;
 
    UtCallbackHolder                              mCallbacks;
    nrm::ResourceSnapshot                         mSnapshot;
@@ -58,6 +62,8 @@ private:
    std::map<std::string, nrm::RollingMetrics>     mMetricsByNetwork;
    std::map<std::string, nrm::RollingMetrics>     mMetricsByLink;
    std::map<std::string, LinkRadioState>          mRadioByLink;
+   std::map<std::string, nrm::ResourceState>      mLastEndpointStates;
+   std::map<std::string, nrm::ResourceState>      mLastLinkStates;
    std::map<unsigned int, double>                 mQueuedTimes;
    std::map<unsigned int, double>                 mTransmittedTimes;
    double                                        mLastPublishTime = -1.0;

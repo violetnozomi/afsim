@@ -1,84 +1,113 @@
 #include "NrmSnapshotReporter.hpp"
 
-#include <cassert>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
-#include <sys/stat.h>
+#include <unistd.h>
+
+#define CHECK(condition) \
+   do { if (!(condition)) { std::cerr << "CHECK failed at line " << __LINE__ << "\n"; return 1; } } while (false)
+
+std::string ReadAll(const std::string& aPath)
+{
+   std::ifstream input(aPath);
+   std::stringstream buffer;
+   buffer << input.rdbuf();
+   return buffer.str();
+}
 
 int main()
 {
-   const std::string outputDirectory = "/tmp/nrm-snapshot-reporter-test";
-   mkdir(outputDirectory.c_str(), 0700);
+   const std::string outputRoot =
+      "/tmp/nrm-snapshot-reporter-test-" + std::to_string(getpid());
+   std::string runDirectory;
 
    nrm::ResourceSnapshot snapshot;
-   snapshot.snapshotVersion      = 7;
-   snapshot.simTime              = 12.5;
+   snapshot.snapshotVersion = 7;
+   snapshot.simTime = 12.5;
+   snapshot.configVersion = "test-config-v1";
    snapshot.messages.transmitted = 3;
 
    nrm::NetworkSnapshot network;
-   network.networkName   = "nrm_link16_test";
-   network.networkType   = nrm::NetworkType::cLINK16;
+   network.networkName = "nrm_link16_test";
+   network.networkType = nrm::NetworkType::cLINK16;
    network.endpointCount = 2;
-   network.onlineCount   = 2;
+   network.onlineCount = 2;
    nrm::WindowMetrics window;
-   window.windowS             = 10.0;
-   window.throughputBps.value = 1000.0;
-   window.throughputBps.valid = true;
-   window.throughputBps.unit  = "bit/s";
+   window.windowS = 10.0;
+   window.deliveredThroughputBps.value = 1000.0;
+   window.deliveredThroughputBps.valid = true;
+   window.deliveredThroughputBps.unit = "bit/s";
+   window.throughputBps = window.deliveredThroughputBps;
+   window.transmittedBits = 10000;
+   window.messages.routingFailed = 1;
    network.windows.push_back(window);
    snapshot.networks.push_back(network);
 
    nrm::EndpointSnapshot endpoint;
-   endpoint.endpointId   = "10.0.0.1";
+   endpoint.endpointId = "10.0.0.1";
    endpoint.platformName = "fighter";
-   endpoint.commName     = "link16";
-   endpoint.networkName  = network.networkName;
-   endpoint.networkType  = nrm::NetworkType::cLINK16;
-   endpoint.state        = nrm::ResourceState::cONLINE;
+   endpoint.commName = "link16";
+   endpoint.networkName = network.networkName;
+   endpoint.networkType = nrm::NetworkType::cLINK16;
+   endpoint.state = nrm::ResourceState::cONLINE;
    snapshot.endpoints.push_back(endpoint);
 
    {
-      WkNrm::SnapshotReporter reporter(outputDirectory);
+      WkNrm::SnapshotReporter reporter(outputRoot);
+      runDirectory = reporter.GetRunDirectory();
       reporter.Enqueue(snapshot);
       nrm::AssessmentResult assessment;
-      assessment.taskId          = "TASK-REPORT";
+      assessment.taskId = "TASK-REPORT";
       assessment.snapshotVersion = 7;
-      assessment.reachable       = true;
-      assessment.canEstablish    = true;
-      assessment.canComplete     = false;
+      assessment.configVersion = "test-config-v1";
+      assessment.reachable = true;
+      assessment.canEstablish = true;
+      assessment.canComplete = false;
       assessment.reasons.push_back(nrm::AssessmentReason::cDATA_INVALID);
-      assessment.primaryRoute.push_back("fighter");
-      assessment.primaryRoute.push_back("command");
-      assessment.backupRoute.push_back("fighter");
-      assessment.backupRoute.push_back("relay");
-      assessment.backupRoute.push_back("command");
+      assessment.primaryRoute = {"fighter", "command"};
+      assessment.backupRoute = {"fighter", "relay", "command"};
       assessment.backupRouteUsesCandidate = true;
       reporter.EnqueueAssessment(assessment);
    }
 
-   std::ifstream jsonInput(outputDirectory + "/resource_snapshots.jsonl");
-   std::stringstream jsonBuffer;
-   jsonBuffer << jsonInput.rdbuf();
-   const std::string json = jsonBuffer.str();
-   assert(json.find("\"snapshot_version\":7") != std::string::npos);
-   assert(json.find("\"type\":\"LINK16\"") != std::string::npos);
-   assert(json.find("\"platform\":\"fighter\"") != std::string::npos);
-   assert(json.find("\"throughput_bps\"") != std::string::npos);
+   const std::string json = ReadAll(runDirectory + "/resource_snapshots.jsonl");
+   CHECK(json.find("\"snapshot_version\":7") != std::string::npos);
+   CHECK(json.find("\"type\":\"LINK16\"") != std::string::npos);
+   CHECK(json.find("\"platform\":\"fighter\"") != std::string::npos);
+   CHECK(json.find("\"comm\":\"link16\"") != std::string::npos);
+   CHECK(json.find("\"can_send\":false") != std::string::npos);
+   CHECK(json.find("},\"currentOfflineDurationS\":") != std::string::npos);
+   CHECK(json.find("\"deliveredThroughputBps\"") != std::string::npos);
+   CHECK(json.find("\"window_s\":10") != std::string::npos);
+   CHECK(json.find("\"routing_failed\":1") != std::string::npos);
+   CHECK(json.find("\"transmitted_bits\":10000") != std::string::npos);
+   CHECK(json.find("\"throughput_bps\":{\"value\":1000") != std::string::npos);
+   CHECK(json.find("\"pdr_percent\":") != std::string::npos);
+   CHECK(json.find("\"online_ratio_percent\":") != std::string::npos);
+   CHECK(json.find("\"average_queue_delay_ms\":") != std::string::npos);
+   CHECK(json.find("\"average_transport_delay_ms\":") != std::string::npos);
+   CHECK(json.find("\"utilization_percent\":") != std::string::npos);
+   CHECK(json.find("\"runId\"") != std::string::npos);
+   CHECK(json.find("\"configVersion\":\"test-config-v1\"") != std::string::npos);
 
-   std::ifstream csvInput(outputDirectory + "/network_summary.csv");
-   std::stringstream csvBuffer;
-   csvBuffer << csvInput.rdbuf();
-   assert(csvBuffer.str().find("nrm_link16_test") != std::string::npos);
-   assert(csvBuffer.str().find("1000.000") != std::string::npos);
+   const std::string csv = ReadAll(runDirectory + "/network_summary.csv");
+   CHECK(csv.find("nrm_link16_test") != std::string::npos);
+   CHECK(csv.find("1000.000") != std::string::npos);
 
-   std::ifstream assessmentInput(outputDirectory + "/assessment_results.jsonl");
-   std::stringstream assessmentBuffer;
-   assessmentBuffer << assessmentInput.rdbuf();
-   assert(assessmentBuffer.str().find("\"task_id\":\"TASK-REPORT\"") != std::string::npos);
-   assert(assessmentBuffer.str().find("\"DATA_INVALID\"") != std::string::npos);
-   assert(assessmentBuffer.str().find("\"backup_route\":[\"fighter\",\"relay\",\"command\"]") !=
-          std::string::npos);
-   assert(assessmentBuffer.str().find("\"backup_route_uses_candidate\":true") != std::string::npos);
+   const std::string assessment =
+      ReadAll(runDirectory + "/assessment_results.jsonl");
+   CHECK(assessment.find("\"task_id\":\"TASK-REPORT\"") != std::string::npos);
+   CHECK(assessment.find("\"DATA_INVALID\"") != std::string::npos);
+   CHECK(assessment.find("\"backup_route\":[\"fighter\",\"relay\",\"command\"]") !=
+         std::string::npos);
+   CHECK(assessment.find("\"schema\":\"nrm.assessment.v3\"") != std::string::npos);
+   CHECK(assessment.find("\"network_sequence\":[]") != std::string::npos);
+   CHECK(assessment.find("\"recommendations\":[]") != std::string::npos);
+
+   const std::string manifest = ReadAll(runDirectory + "/manifest.json");
+   CHECK(manifest.find("\"complete\":true") != std::string::npos);
+   CHECK(manifest.find("\"softwareVersion\"") != std::string::npos);
    return 0;
 }

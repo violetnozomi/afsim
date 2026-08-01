@@ -1,6 +1,6 @@
 /**
  * @file AssessmentEvaluator.hpp
- * @brief Deterministic current/candidate graph assessment with primary and backup routes.
+ * @brief Deterministic bounded constrained-path assessment over current and candidate graphs.
  */
 
 #ifndef NRM_ASSESSMENT_EVALUATOR_HPP
@@ -8,28 +8,38 @@
 
 #include <algorithm>
 #include <cmath>
-#include <deque>
-#include <limits>
 #include <map>
-#include <queue>
 #include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "nrm/AssessmentTypes.hpp"
+#include "nrm/ConstrainedPathSelector.hpp"
+#include "nrm/NetworkProfileRepository.hpp"
 
 namespace nrm
 {
 class AssessmentEvaluator
 {
 public:
+   AssessmentEvaluator()
+      : mProfiles(NetworkProfileRepository::BuiltInDemo())
+   {
+   }
+
+   explicit AssessmentEvaluator(const NetworkProfileRepository& aProfiles)
+      : mProfiles(aProfiles)
+   {
+   }
+
    AssessmentResult Evaluate(const ResourceSnapshot& aSnapshot, const AssessmentTask& aTask) const
    {
       AssessmentResult result;
-      result.taskId          = aTask.taskId;
+      result.taskId = aTask.taskId;
       result.snapshotVersion = aSnapshot.snapshotVersion;
-      result.simTime         = aSnapshot.simTime;
+      result.simTime = aSnapshot.simTime;
+      result.configVersion = mProfiles.ConfigVersion();
+      result.profileProviderId = mProfiles.ProviderId();
 
       EndpointMap endpoints;
       std::vector<std::string> sourceIds;
@@ -41,18 +51,10 @@ public:
       for (const EndpointSnapshot& endpoint : aSnapshot.endpoints)
       {
          endpoints[endpoint.endpointId] = &endpoint;
-         CollectTaskEndpoint(endpoint,
-                             aTask.sourcePlatform,
-                             sourceKnown,
-                             sourceOnline,
-                             &sourceIds,
-                             nullptr);
-         CollectTaskEndpoint(endpoint,
-                             aTask.destinationPlatform,
-                             destinationKnown,
-                             destinationOnline,
-                             nullptr,
-                             &destinationIds);
+         CollectTaskEndpoint(endpoint, aTask.sourcePlatform, sourceKnown, sourceOnline,
+                             &sourceIds, nullptr);
+         CollectTaskEndpoint(endpoint, aTask.destinationPlatform, destinationKnown,
+                             destinationOnline, nullptr, &destinationIds);
       }
 
       if (!sourceKnown || !destinationKnown)
@@ -68,127 +70,182 @@ public:
          return result;
       }
 
-      Adjacency adjacency;
+      PathSelectionOptions options;
+      options.k = aTask.kShortestPaths;
+      options.maximumHops = aTask.maximumHops;
+      PathConstraintSet constraints;
+      constraints.requiredBandwidthBps = aTask.requiredBandwidthBps;
+      constraints.maximumDelayMs = aTask.maximumDelayMs;
+      constraints.minimumPdrPercent = aTask.minimumPdrPercent;
+      if (!options.Valid() || !constraints.Valid())
+      {
+         AddReason(result, AssessmentReason::cDATA_INVALID);
+         result.failedConstraints.push_back(options.Valid() ? "PATH_CONSTRAINTS_INVALID"
+                                                            : "PATH_OPTIONS_INVALID");
+         return result;
+      }
+
+      ConstrainedPathSelector::Adjacency adjacency;
       std::set<std::string> currentEdgeKeys;
       BuildCurrentEdges(aSnapshot, aTask, endpoints, adjacency, currentEdgeKeys, result);
-
-      const Path currentPath = FindPath(adjacency, sourceIds, destinationIds, false, {});
-      result.reachable = currentPath.valid;
-
-      BuildCandidateEdges(aTask, endpoints, currentEdgeKeys, adjacency);
-      Path primaryPath = currentPath;
-      if (!currentPath.valid)
+      bool profileMissing = false;
+      BuildCandidateEdges(aSnapshot, aTask, endpoints, currentEdgeKeys, adjacency, profileMissing);
+      ConstrainedPathSelector selector;
+      const PathSelectionResult current =
+         selector.Select(adjacency, sourceIds, destinationIds, constraints, options, false, false);
+      result.reachable = current.hasDiagnosticPath;
+      result.consideredPathCount = current.consideredPaths.size();
+      if (current.searchLimitReached)
       {
-         AddReason(result, AssessmentReason::cNO_CURRENT_PATH);
-         primaryPath = FindPath(adjacency, sourceIds, destinationIds, true, {});
-         if (!primaryPath.valid)
-         {
-            AddReason(result, AssessmentReason::cLINK_NOT_ESTABLISHABLE);
-            result.recommendations.emplace_back(
-               "当前图不可达，参数化候选图中也没有满足网络类型和距离门限的路径。");
-            return result;
-         }
-         result.primaryRouteUsesCandidate = primaryPath.usesCandidate;
-         result.recommendations.emplace_back(
-            "当前尚不可达，但候选路径满足参数化建链门限；建议先建立标记的候选链路。");
+         AddReason(result, AssessmentReason::cPATH_SEARCH_LIMIT_REACHED);
       }
 
-      result.canEstablish = primaryPath.valid;
-      PopulateRoute(primaryPath, aTask.sourcePlatform, result.primaryRoute, result.networkSequence);
-
-      std::set<std::string> primaryEdgeKeys;
-      for (const EdgeData* edgePtr : primaryPath.edges)
+      PathSelectionResult candidate;
+      bool candidateSearched = false;
+      const ConstrainedPath* primary = nullptr;
+      if (current.hasSelectedPath)
       {
-         primaryEdgeKeys.insert(EdgeKey(edgePtr->sourceId, edgePtr->destinationId));
-      }
-      const Path backupPath =
-         FindPath(adjacency, sourceIds, destinationIds, true, primaryEdgeKeys);
-      if (backupPath.valid)
-      {
-         std::vector<NetworkType> backupNetworkSequence;
-         PopulateRoute(backupPath, aTask.sourcePlatform, result.backupRoute, backupNetworkSequence);
-         result.backupRouteUsesCandidate = backupPath.usesCandidate;
-      }
-
-      EvaluatePathMetrics(aSnapshot, primaryPath, result);
-      EvaluateConstraints(aSnapshot, aTask, result);
-
-      if (!result.backupRoute.empty())
-      {
-         result.recommendations.emplace_back(
-            result.backupRouteUsesCandidate
-               ? "已生成一条需要候选建链的边不重合备选路由，可作为主链路中断时的预案。"
-               : "已生成一条当前可用的边不重合备选路由。");
+         primary = &current.selectedPath;
+         result.selectedPathRank = current.selectedPathRank;
       }
       else
       {
-         result.recommendations.emplace_back("当前没有找到与主路由边不重合的备选路径。");
+         candidateSearched = true;
+         candidate = selector.Select(adjacency, sourceIds, destinationIds, constraints,
+                                     options, true, true);
+         result.consideredPathCount += candidate.consideredPaths.size();
+         if (candidate.searchLimitReached)
+         {
+            AddReason(result, AssessmentReason::cPATH_SEARCH_LIMIT_REACHED);
+         }
+         if (candidate.hasSelectedPath)
+         {
+            primary = &candidate.selectedPath;
+            result.selectedPathRank = candidate.selectedPathRank;
+         }
+         else if (current.hasDiagnosticPath)
+         {
+            primary = &current.diagnosticPath;
+         }
+         else if (candidate.hasDiagnosticPath)
+         {
+            primary = &candidate.diagnosticPath;
+         }
       }
+
+      if (!result.reachable)
+      {
+         AddReason(result, AssessmentReason::cNO_CURRENT_PATH);
+      }
+      if (primary == nullptr)
+      {
+         if (profileMissing || !mProfiles.Valid())
+         {
+            AddReason(result, AssessmentReason::cPROFILE_CONFIG_INVALID);
+         }
+         AddReason(result, AssessmentReason::cLINK_NOT_ESTABLISHABLE);
+         result.recommendations.emplace_back(
+            "当前图和已验证的候选网络剖面中均没有有界可诊断路径。");
+         return result;
+      }
+
+      result.canEstablish = true;
+      result.canComplete = primary->feasible;
+      result.primaryRouteUsesCandidate = primary->candidateEdgeCount > 0;
+      PopulateRoute(*primary, aTask.sourcePlatform, result.primaryRoute, result.networkSequence);
+      PopulateMetrics(aSnapshot, *primary, result);
+      PopulateMargins(aSnapshot, aTask, result);
+      ApplyFailures(*primary, result);
+      PopulateProfiles(*primary, result);
+
+      std::set<std::string> forbiddenEdges;
+      for (const ConstrainedEdge* edge : primary->edges)
+      {
+         forbiddenEdges.insert(ConstrainedPathSelector::EdgeKey(*edge));
+      }
+      PathSelectionResult backup =
+         selector.Select(adjacency, sourceIds, destinationIds, constraints, options,
+                         false, false, forbiddenEdges);
+      if (!backup.hasSelectedPath)
+      {
+         backup = selector.Select(adjacency, sourceIds, destinationIds, constraints, options,
+                                  true, true, forbiddenEdges);
+      }
+      const ConstrainedPath* backupPath = backup.hasSelectedPath ? &backup.selectedPath : nullptr;
+      if (backupPath != nullptr)
+      {
+         std::vector<NetworkType> ignored;
+         PopulateRoute(*backupPath, aTask.sourcePlatform, result.backupRoute, ignored);
+         result.backupRouteUsesCandidate = backupPath->candidateEdgeCount > 0;
+      }
+
+      result.stable = result.canComplete && result.estimatedPdrPercent.valid &&
+                      result.estimatedPdrPercent.value >= 80.0 &&
+                      !result.primaryRouteUsesCandidate;
+      if (result.primaryRouteUsesCandidate)
+      {
+         result.recommendations.emplace_back(
+            result.reachable
+               ? "当前路径均不满足硬约束，参数化候选路径满足约束；建议人工核验后建链。"
+               : "当前尚不可达，参数化候选路径满足约束；建议人工核验后建链。");
+      }
+      else
+      {
+         result.recommendations.emplace_back(
+            result.canComplete ? "当前图路径满足已输入的硬约束。"
+                               : "当前图存在路径，但有界候选集合内没有满足全部硬约束的路径。");
+      }
+      result.recommendations.emplace_back(
+         result.backupRoute.empty()
+            ? "当前没有找到满足约束且与主路由有向边不重合的备选路径。"
+            : "已生成一条满足约束的有向边不重合备选路由。");
+      (void)candidateSearched;
       return result;
    }
 
 private:
-   struct EdgeData
-   {
-      std::string sourceId;
-      std::string destinationId;
-      std::string sourcePlatform;
-      std::string destinationPlatform;
-      NetworkType networkType = NetworkType::cUNKNOWN;
-      double delayMs = 0.0;
-      double pdrPercent = 0.0;
-      double bandwidthBps = 0.0;
-      bool pdrValid = false;
-      bool bandwidthValid = false;
-      bool candidate = false;
-   };
-
-   struct Path
-   {
-      std::vector<const EdgeData*> edges;
-      double cost = 0.0;
-      bool valid = false;
-      bool usesCandidate = false;
-   };
-
    using EndpointMap = std::map<std::string, const EndpointSnapshot*>;
-   // Paths retain pointers to edges while candidate edges are appended. deque keeps
-   // existing element addresses stable across push_back, unlike vector reallocation.
-   using Adjacency = std::map<std::string, std::deque<EdgeData>>;
 
-   static void CollectTaskEndpoint(const EndpointSnapshot& endpoint,
-                                   const std::string& platformName,
-                                   bool& known,
-                                   bool& online,
-                                   std::vector<std::string>* idsPtr,
-                                   std::set<std::string>* idSetPtr)
+   static void CollectTaskEndpoint(const EndpointSnapshot& aEndpoint,
+                                   const std::string& aPlatformName,
+                                   bool& aKnown,
+                                   bool& aOnline,
+                                   std::vector<std::string>* aIdsPtr,
+                                   std::set<std::string>* aIdSetPtr)
    {
-      if (endpoint.platformName != platformName)
+      if (aEndpoint.platformName != aPlatformName)
       {
          return;
       }
-      known = true;
-      if (endpoint.state != ResourceState::cONLINE)
+      aKnown = true;
+      if (aEndpoint.state != ResourceState::cONLINE)
       {
          return;
       }
-      online = true;
-      if (idsPtr != nullptr)
+      aOnline = true;
+      if (aIdsPtr != nullptr)
       {
-         idsPtr->push_back(endpoint.endpointId);
+         aIdsPtr->push_back(aEndpoint.endpointId);
       }
-      if (idSetPtr != nullptr)
+      if (aIdSetPtr != nullptr)
       {
-         idSetPtr->insert(endpoint.endpointId);
+         aIdSetPtr->insert(aEndpoint.endpointId);
       }
    }
 
-   static void BuildCurrentEdges(const ResourceSnapshot& aSnapshot,
+   static bool Allowed(const AssessmentTask& aTask, NetworkType aType)
+   {
+      return aTask.allowedNetworks.empty() ||
+             std::find(aTask.allowedNetworks.begin(), aTask.allowedNetworks.end(), aType) !=
+                aTask.allowedNetworks.end();
+   }
+
+   void BuildCurrentEdges(const ResourceSnapshot& aSnapshot,
                                  const AssessmentTask& aTask,
-                                 const EndpointMap& endpoints,
-                                 Adjacency& adjacency,
-                                 std::set<std::string>& currentEdgeKeys,
-                                 AssessmentResult& result)
+                                 const EndpointMap& aEndpoints,
+                                 ConstrainedPathSelector::Adjacency& aAdjacency,
+                                 std::set<std::string>& aCurrentEdgeKeys,
+                                 AssessmentResult& aResult) const
    {
       for (const LinkSnapshot& link : aSnapshot.links)
       {
@@ -196,45 +253,77 @@ private:
          {
             continue;
          }
-         const auto sourceIt = endpoints.find(link.sourceEndpointId);
-         const auto destinationIt = endpoints.find(link.destinationEndpointId);
-         if (sourceIt == endpoints.end() || destinationIt == endpoints.end() ||
-             sourceIt->second->state != ResourceState::cONLINE ||
-             destinationIt->second->state != ResourceState::cONLINE)
+         const auto source = aEndpoints.find(link.sourceEndpointId);
+         const auto destination = aEndpoints.find(link.destinationEndpointId);
+         if (source == aEndpoints.end() || destination == aEndpoints.end() ||
+             source->second->state != ResourceState::cONLINE ||
+             destination->second->state != ResourceState::cONLINE)
          {
             continue;
          }
          if (link.networkType == NetworkType::cUNKNOWN)
          {
-            AddReason(result, AssessmentReason::cNETWORK_TYPE_UNKNOWN);
-            continue;
-         }
-         const double delayMs = LinkDelayMs(link);
-         if (delayMs < 0.0)
-         {
+            AddReason(aResult, AssessmentReason::cNETWORK_TYPE_UNKNOWN);
             continue;
          }
 
-         EdgeData edge;
+         ConstrainedEdge edge;
          edge.sourceId = link.sourceEndpointId;
          edge.destinationId = link.destinationEndpointId;
          edge.sourcePlatform = link.sourcePlatform;
          edge.destinationPlatform = link.destinationPlatform;
          edge.networkType = link.networkType;
-         edge.delayMs = delayMs;
          edge.candidate = false;
-         ReadCurrentQuality(aSnapshot, link, edge);
-         adjacency[edge.sourceId].push_back(edge);
-         currentEdgeKeys.insert(EdgeKey(edge.sourceId, edge.destinationId));
+         const double delayMs = LinkDelayMs(link);
+         if (delayMs >= 0.0)
+         {
+            edge.delayMs = delayMs;
+            edge.delayValid = true;
+         }
+         const WindowMetrics* window = Window10s(link.windows);
+         if (window != nullptr)
+         {
+            const MetricValue<double>& ratio =
+               window->deliveryRatioPercent.valid ? window->deliveryRatioPercent : window->pdrPercent;
+            if (ratio.valid && std::isfinite(ratio.value) && ratio.value >= 0.0 &&
+                ratio.value <= 100.0)
+            {
+               edge.pdrPercent = ratio.value;
+               edge.pdrValid = true;
+            }
+         }
+         if (link.bandwidthBps.valid && std::isfinite(link.bandwidthBps.value) &&
+             link.bandwidthBps.value >= 0.0)
+         {
+            edge.bandwidthBps =
+               AdmissibleCapacityBps(aSnapshot, link.networkName, link.bandwidthBps.value);
+            edge.bandwidthValid = true;
+         }
+         else
+         {
+            const NetworkProfile* profile = mProfiles.Find(link.networkType);
+            if (profile != nullptr)
+            {
+               edge.bandwidthBps =
+                  AdmissibleCapacityBps(aSnapshot, link.networkName,
+                                        profile->serviceCapacityBps);
+               edge.bandwidthValid = true;
+               edge.profileId = profile->profileId;
+            }
+         }
+         aAdjacency[edge.sourceId].push_back(edge);
+         aCurrentEdgeKeys.insert(ConstrainedPathSelector::EdgeKey(edge));
       }
    }
 
-   static void BuildCandidateEdges(const AssessmentTask& aTask,
-                                   const EndpointMap& endpoints,
-                                   const std::set<std::string>& currentEdgeKeys,
-                                   Adjacency& adjacency)
+   void BuildCandidateEdges(const ResourceSnapshot& aSnapshot,
+                            const AssessmentTask& aTask,
+                            const EndpointMap& aEndpoints,
+                            const std::set<std::string>& aCurrentEdgeKeys,
+                            ConstrainedPathSelector::Adjacency& aAdjacency,
+                            bool& aProfileMissing) const
    {
-      for (const auto& sourceEntry : endpoints)
+      for (const auto& sourceEntry : aEndpoints)
       {
          const EndpointSnapshot& source = *sourceEntry.second;
          if (source.state != ResourceState::cONLINE || !Allowed(aTask, source.networkType) ||
@@ -242,7 +331,13 @@ private:
          {
             continue;
          }
-         for (const auto& destinationEntry : endpoints)
+         const NetworkProfile* profile = mProfiles.Find(source.networkType);
+         if (profile == nullptr)
+         {
+            aProfileMissing = true;
+            continue;
+         }
+         for (const auto& destinationEntry : aEndpoints)
          {
             const EndpointSnapshot& destination = *destinationEntry.second;
             if (source.endpointId == destination.endpointId ||
@@ -253,271 +348,62 @@ private:
             {
                continue;
             }
-            const std::string key = EdgeKey(source.endpointId, destination.endpointId);
-            if (currentEdgeKeys.count(key) != 0)
+            ConstrainedEdge edge;
+            edge.sourceId = source.endpointId;
+            edge.destinationId = destination.endpointId;
+            if (aCurrentEdgeKeys.count(ConstrainedPathSelector::EdgeKey(edge)) != 0)
             {
                continue;
             }
             const double distanceM = EndpointDistanceM(source, destination);
-            if (distanceM < 0.0 || distanceM > CandidateRangeM(source.networkType))
+            if (distanceM < 0.0 || distanceM > profile->maximumRangeM)
             {
                continue;
             }
-
-            EdgeData edge;
-            edge.sourceId = source.endpointId;
-            edge.destinationId = destination.endpointId;
             edge.sourcePlatform = source.platformName;
             edge.destinationPlatform = destination.platformName;
             edge.networkType = source.networkType;
-            edge.delayMs = CandidateSetupDelayMs(source.networkType) +
+            edge.delayMs = profile->establishmentDelayMs +
                            1000.0 * distanceM / 299792458.0;
-            edge.pdrPercent = CandidatePdrPercent(source.networkType);
-            edge.bandwidthBps = CandidateBandwidthBps(source.networkType);
+            edge.pdrPercent = profile->candidatePdrPercent;
+            edge.bandwidthBps =
+               AdmissibleCapacityBps(aSnapshot, source.networkName,
+                                     profile->serviceCapacityBps);
+            edge.delayValid = true;
             edge.pdrValid = true;
             edge.bandwidthValid = true;
             edge.candidate = true;
-            adjacency[edge.sourceId].push_back(edge);
+            edge.profileId = profile->profileId;
+            aAdjacency[edge.sourceId].push_back(edge);
          }
       }
    }
 
-   static Path FindPath(const Adjacency& adjacency,
-                        const std::vector<std::string>& sourceIds,
-                        const std::set<std::string>& destinationIds,
-                        bool allowCandidates,
-                        const std::set<std::string>& forbiddenEdges)
+   static double AdmissibleCapacityBps(const ResourceSnapshot& aSnapshot,
+                                       const std::string& aNetworkName,
+                                       double aServiceCapacityBps)
    {
-      using QueueItem = std::pair<double, std::string>;
-      std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<QueueItem>> queue;
-      std::map<std::string, double> distance;
-      std::map<std::string, std::pair<std::string, const EdgeData*>> predecessor;
-      for (const std::string& sourceId : sourceIds)
+      for (const NetworkSnapshot& network : aSnapshot.networks)
       {
-         distance[sourceId] = 0.0;
-         queue.push({0.0, sourceId});
-      }
-
-      std::string reachedDestination;
-      while (!queue.empty())
-      {
-         const QueueItem current = queue.top();
-         queue.pop();
-         if (distance.count(current.second) == 0 || current.first > distance[current.second])
+         if (network.networkName != aNetworkName)
          {
             continue;
          }
-         if (destinationIds.count(current.second) != 0)
+         const WindowMetrics* window = Window10s(network.windows);
+         if (window != nullptr && window->offeredLoadBps.valid &&
+             std::isfinite(window->offeredLoadBps.value) &&
+             window->offeredLoadBps.value >= 0.0)
          {
-            reachedDestination = current.second;
-            break;
+            return std::max(0.0, aServiceCapacityBps - window->offeredLoadBps.value);
          }
-         const auto edgesIt = adjacency.find(current.second);
-         if (edgesIt == adjacency.end())
-         {
-            continue;
-         }
-         for (const EdgeData& edge : edgesIt->second)
-         {
-            if ((!allowCandidates && edge.candidate) ||
-                forbiddenEdges.count(EdgeKey(edge.sourceId, edge.destinationId)) != 0)
-            {
-               continue;
-            }
-            const double candidateCost = current.first + edge.delayMs +
-                                         (edge.candidate ? 1000.0 : 0.0);
-            if (distance.count(edge.destinationId) == 0 ||
-                candidateCost < distance[edge.destinationId])
-            {
-               distance[edge.destinationId] = candidateCost;
-               predecessor[edge.destinationId] = {current.second, &edge};
-               queue.push({candidateCost, edge.destinationId});
-            }
-         }
+         break;
       }
-
-      Path path;
-      if (reachedDestination.empty())
-      {
-         return path;
-      }
-      path.valid = true;
-      path.cost = distance[reachedDestination];
-      std::string cursor = reachedDestination;
-      while (predecessor.count(cursor) != 0)
-      {
-         const EdgeData* edgePtr = predecessor[cursor].second;
-         path.edges.push_back(edgePtr);
-         path.usesCandidate = path.usesCandidate || edgePtr->candidate;
-         cursor = predecessor[cursor].first;
-      }
-      std::reverse(path.edges.begin(), path.edges.end());
-      return path;
+      return aServiceCapacityBps;
    }
 
-   static void PopulateRoute(const Path& path,
-                             const std::string& sourcePlatform,
-                             std::vector<std::string>& route,
-                             std::vector<NetworkType>& networkSequence)
+   static const WindowMetrics* Window10s(const std::vector<WindowMetrics>& aWindows)
    {
-      route.clear();
-      networkSequence.clear();
-      route.push_back(sourcePlatform);
-      for (const EdgeData* edgePtr : path.edges)
-      {
-         if (route.back() != edgePtr->destinationPlatform)
-         {
-            route.push_back(edgePtr->destinationPlatform);
-         }
-         networkSequence.push_back(edgePtr->networkType);
-      }
-   }
-
-   static void EvaluatePathMetrics(const ResourceSnapshot& aSnapshot,
-                                   const Path& path,
-                                   AssessmentResult& result)
-   {
-      double delayMs = 0.0;
-      double pdr = 1.0;
-      double bandwidth = std::numeric_limits<double>::max();
-      bool pdrValid = true;
-      bool bandwidthValid = true;
-      for (const EdgeData* edgePtr : path.edges)
-      {
-         delayMs += edgePtr->delayMs;
-         pdrValid = pdrValid && edgePtr->pdrValid;
-         bandwidthValid = bandwidthValid && edgePtr->bandwidthValid;
-         if (edgePtr->pdrValid)
-         {
-            pdr *= std::max(0.0, std::min(100.0, edgePtr->pdrPercent)) / 100.0;
-         }
-         if (edgePtr->bandwidthValid)
-         {
-            bandwidth = std::min(bandwidth, edgePtr->bandwidthBps);
-         }
-      }
-      SetDerived(result.predictedDelayMs, delayMs, "ms", aSnapshot);
-      if (pdrValid)
-      {
-         SetDerived(result.estimatedPdrPercent, 100.0 * pdr, "percent", aSnapshot);
-      }
-      if (bandwidthValid && !path.edges.empty())
-      {
-         SetDerived(result.bottleneckBandwidthBps, bandwidth, "bit/s", aSnapshot);
-      }
-      if (path.usesCandidate)
-      {
-         MarkParameterized(result.predictedDelayMs);
-         MarkParameterized(result.estimatedPdrPercent);
-         MarkParameterized(result.bottleneckBandwidthBps);
-      }
-   }
-
-   static void EvaluateConstraints(const ResourceSnapshot& aSnapshot,
-                                   const AssessmentTask& aTask,
-                                   AssessmentResult& result)
-   {
-      bool constraintsPass = true;
-      if (aTask.maximumDelayMs > 0.0)
-      {
-         SetDerived(result.delayMarginMs,
-                    aTask.maximumDelayMs - result.predictedDelayMs.value,
-                    "ms",
-                    aSnapshot);
-         InheritQuality(result.delayMarginMs, result.predictedDelayMs);
-         if (result.delayMarginMs.value < 0.0)
-         {
-            constraintsPass = false;
-            AddReason(result, AssessmentReason::cDELAY_MARGIN_NEGATIVE);
-         }
-      }
-      if (aTask.minimumPdrPercent > 0.0)
-      {
-         if (!result.estimatedPdrPercent.valid)
-         {
-            constraintsPass = false;
-            AddReason(result, AssessmentReason::cDATA_INVALID);
-         }
-         else
-         {
-            SetDerived(result.reliabilityMarginPercent,
-                       result.estimatedPdrPercent.value - aTask.minimumPdrPercent,
-                       "percentage_point",
-                       aSnapshot);
-            InheritQuality(result.reliabilityMarginPercent, result.estimatedPdrPercent);
-            if (result.reliabilityMarginPercent.value < 0.0)
-            {
-               constraintsPass = false;
-               AddReason(result, AssessmentReason::cRELIABILITY_MARGIN_NEGATIVE);
-            }
-         }
-      }
-      if (aTask.requiredBandwidthBps > 0.0)
-      {
-         if (!result.bottleneckBandwidthBps.valid)
-         {
-            constraintsPass = false;
-            AddReason(result, AssessmentReason::cDATA_INVALID);
-         }
-         else
-         {
-            SetDerived(result.bandwidthMarginBps,
-                       result.bottleneckBandwidthBps.value - aTask.requiredBandwidthBps,
-                       "bit/s",
-                       aSnapshot);
-            InheritQuality(result.bandwidthMarginBps, result.bottleneckBandwidthBps);
-            if (result.bandwidthMarginBps.value < 0.0)
-            {
-               constraintsPass = false;
-               AddReason(result, AssessmentReason::cBANDWIDTH_MARGIN_NEGATIVE);
-            }
-         }
-      }
-      result.canComplete = constraintsPass;
-      result.stable = constraintsPass && result.estimatedPdrPercent.valid &&
-                      result.estimatedPdrPercent.value >= 80.0 &&
-                      !result.primaryRouteUsesCandidate;
-      result.recommendations.emplace_back(
-         constraintsPass ? "建议路径满足已输入的硬约束。"
-                         : "建议调整失败约束或改选网络后重新评估。");
-   }
-
-   static void ReadCurrentQuality(const ResourceSnapshot& aSnapshot,
-                                  const LinkSnapshot& link,
-                                  EdgeData& edge)
-   {
-      const WindowMetrics* window = Window10s(link.windows);
-      if (window != nullptr && window->pdrPercent.valid)
-      {
-         edge.pdrPercent = window->pdrPercent.value;
-         edge.pdrValid = true;
-      }
-      if (!edge.pdrValid)
-      {
-         for (const NetworkSnapshot& network : aSnapshot.networks)
-         {
-            if (network.networkName == link.networkName)
-            {
-               const WindowMetrics* networkWindow = Window10s(network.windows);
-               if (networkWindow != nullptr && networkWindow->pdrPercent.valid)
-               {
-                  edge.pdrPercent = networkWindow->pdrPercent.value;
-                  edge.pdrValid = true;
-               }
-               break;
-            }
-         }
-      }
-      if (link.bandwidthBps.valid)
-      {
-         edge.bandwidthBps = link.bandwidthBps.value;
-         edge.bandwidthValid = true;
-      }
-   }
-
-   static const WindowMetrics* Window10s(const std::vector<WindowMetrics>& windows)
-   {
-      for (const WindowMetrics& window : windows)
+      for (const WindowMetrics& window : aWindows)
       {
          if (std::abs(window.windowS - 10.0) < 0.01)
          {
@@ -527,162 +413,208 @@ private:
       return nullptr;
    }
 
-   static bool Allowed(const AssessmentTask& task, NetworkType type)
+   static double LinkDelayMs(const LinkSnapshot& aLink)
    {
-      return task.allowedNetworks.empty() ||
-             std::find(task.allowedNetworks.begin(), task.allowedNetworks.end(), type) !=
-                task.allowedNetworks.end();
-   }
-
-   static double LinkDelayMs(const LinkSnapshot& link)
-   {
-      const WindowMetrics* window = Window10s(link.windows);
-      if (window != nullptr && window->averageTransportDelayMs.valid)
+      const WindowMetrics* window = Window10s(aLink.windows);
+      if (window != nullptr && window->averageTransportDelayMs.valid &&
+          std::isfinite(window->averageTransportDelayMs.value) &&
+          window->averageTransportDelayMs.value >= 0.0)
       {
-         return std::max(0.0, window->averageTransportDelayMs.value);
+         return window->averageTransportDelayMs.value;
       }
-      return link.distanceM.valid ? 1000.0 * link.distanceM.value / 299792458.0 : -1.0;
+      return aLink.distanceM.valid && std::isfinite(aLink.distanceM.value) &&
+                    aLink.distanceM.value >= 0.0
+                ? 1000.0 * aLink.distanceM.value / 299792458.0
+                : -1.0;
    }
 
-   static double EndpointDistanceM(const EndpointSnapshot& source,
-                                   const EndpointSnapshot& destination)
+   static double EndpointDistanceM(const EndpointSnapshot& aSource,
+                                   const EndpointSnapshot& aDestination)
    {
-      if (!source.latitudeDeg.valid || !source.longitudeDeg.valid ||
-          !destination.latitudeDeg.valid || !destination.longitudeDeg.valid)
+      if (!aSource.latitudeDeg.valid || !aSource.longitudeDeg.valid ||
+          !aDestination.latitudeDeg.valid || !aDestination.longitudeDeg.valid)
+      {
+         return -1.0;
+      }
+      if (!std::isfinite(aSource.latitudeDeg.value) ||
+          !std::isfinite(aSource.longitudeDeg.value) ||
+          !std::isfinite(aDestination.latitudeDeg.value) ||
+          !std::isfinite(aDestination.longitudeDeg.value) ||
+          (aSource.altitudeM.valid && !std::isfinite(aSource.altitudeM.value)) ||
+          (aDestination.altitudeM.valid && !std::isfinite(aDestination.altitudeM.value)))
       {
          return -1.0;
       }
       constexpr double cPI = 3.14159265358979323846;
       constexpr double cEARTH_RADIUS_M = 6371000.0;
-      const double lat1 = source.latitudeDeg.value * cPI / 180.0;
-      const double lat2 = destination.latitudeDeg.value * cPI / 180.0;
+      const double lat1 = aSource.latitudeDeg.value * cPI / 180.0;
+      const double lat2 = aDestination.latitudeDeg.value * cPI / 180.0;
       const double deltaLat = lat2 - lat1;
       const double deltaLon =
-         (destination.longitudeDeg.value - source.longitudeDeg.value) * cPI / 180.0;
+         (aDestination.longitudeDeg.value - aSource.longitudeDeg.value) * cPI / 180.0;
       const double haversine = std::sin(deltaLat / 2.0) * std::sin(deltaLat / 2.0) +
                                std::cos(lat1) * std::cos(lat2) *
                                   std::sin(deltaLon / 2.0) * std::sin(deltaLon / 2.0);
       const double groundDistance =
          2.0 * cEARTH_RADIUS_M * std::asin(std::sqrt(std::min(1.0, haversine)));
       const double altitudeDelta =
-         source.altitudeM.valid && destination.altitudeM.valid
-            ? destination.altitudeM.value - source.altitudeM.value
+         aSource.altitudeM.valid && aDestination.altitudeM.valid
+            ? aDestination.altitudeM.value - aSource.altitudeM.value
             : 0.0;
       return std::sqrt(groundDistance * groundDistance + altitudeDelta * altitudeDelta);
    }
 
-   static double CandidateRangeM(NetworkType type)
+   static void PopulateRoute(const ConstrainedPath& aPath,
+                             const std::string& aSourcePlatform,
+                             std::vector<std::string>& aRoute,
+                             std::vector<NetworkType>& aNetworkSequence)
    {
-      switch (type)
+      aRoute.clear();
+      aNetworkSequence.clear();
+      aRoute.push_back(aSourcePlatform);
+      for (const ConstrainedEdge* edge : aPath.edges)
       {
-      case NetworkType::cLINK11:
-         return 300000.0;
-      case NetworkType::cLINK16:
-         return 500000.0;
-      case NetworkType::cSATCOM:
-         return 45000000.0;
-      case NetworkType::cCDL:
-         return 250000.0;
-      default:
-         return 0.0;
+         aRoute.push_back(edge->destinationPlatform);
+         if (aNetworkSequence.empty() || aNetworkSequence.back() != edge->networkType)
+         {
+            aNetworkSequence.push_back(edge->networkType);
+         }
       }
    }
 
-   static double CandidateSetupDelayMs(NetworkType type)
+   static void PopulateProfiles(const ConstrainedPath& aPath, AssessmentResult& aResult)
    {
-      switch (type)
+      std::set<std::string> ids;
+      for (const ConstrainedEdge* edge : aPath.edges)
       {
-      case NetworkType::cLINK11:
-         return 80.0;
-      case NetworkType::cLINK16:
-         return 20.0;
-      case NetworkType::cSATCOM:
-         return 40.0;
-      case NetworkType::cCDL:
-         return 10.0;
-      default:
-         return 1000.0;
+         if (!edge->profileId.empty())
+         {
+            ids.insert(edge->profileId);
+         }
+      }
+      aResult.profileIds.assign(ids.begin(), ids.end());
+   }
+
+   static void PopulateMetrics(const ResourceSnapshot& aSnapshot,
+                               const ConstrainedPath& aPath,
+                               AssessmentResult& aResult)
+   {
+      if (aPath.delayValid)
+      {
+         SetMetric(aResult.predictedDelayMs, aPath.delayMs, "ms", aSnapshot,
+                   aPath.candidateEdgeCount > 0 ? DataOrigin::cPARAMETERIZED_MODEL
+                                                : DataOrigin::cDERIVED,
+                   aPath.candidateEdgeCount > 0 ? Confidence::cLOW : Confidence::cHIGH);
+      }
+      else
+      {
+         aResult.predictedDelayMs.reason = MetricReason::cMISSING_LIFECYCLE_CORRELATION;
+      }
+      if (aPath.pdrValid)
+      {
+         SetMetric(aResult.estimatedPdrPercent, aPath.pdrPercent, "percent", aSnapshot,
+                   aPath.candidateEdgeCount > 0 ? DataOrigin::cPARAMETERIZED_MODEL
+                                                : DataOrigin::cESTIMATED,
+                   Confidence::cLOW);
+      }
+      else
+      {
+         aResult.estimatedPdrPercent.reason = MetricReason::cMISSING_TRANSMIT_DENOMINATOR;
+      }
+      if (aPath.bandwidthValid)
+      {
+         const bool parameterizedCapacity =
+            std::any_of(aPath.edges.begin(), aPath.edges.end(),
+                        [](const ConstrainedEdge* aEdge)
+                        {
+                           return !aEdge->profileId.empty();
+                        });
+         SetMetric(aResult.bottleneckBandwidthBps, aPath.bottleneckBandwidthBps,
+                   "bit/s", aSnapshot,
+                   parameterizedCapacity ? DataOrigin::cPARAMETERIZED_MODEL
+                                         : DataOrigin::cDERIVED,
+                   parameterizedCapacity ? Confidence::cLOW : Confidence::cHIGH);
+      }
+
+   }
+
+   static void PopulateMargins(const ResourceSnapshot& aSnapshot,
+                               const AssessmentTask& aTask,
+                               AssessmentResult& aResult)
+   {
+      if (aTask.maximumDelayMs > 0.0 && aResult.predictedDelayMs.valid)
+      {
+         SetMetric(aResult.delayMarginMs,
+                   aTask.maximumDelayMs - aResult.predictedDelayMs.value,
+                   "ms", aSnapshot, aResult.predictedDelayMs.origin,
+                   aResult.predictedDelayMs.confidence);
+      }
+      if (aTask.minimumPdrPercent > 0.0 && aResult.estimatedPdrPercent.valid)
+      {
+         SetMetric(aResult.reliabilityMarginPercent,
+                   aResult.estimatedPdrPercent.value - aTask.minimumPdrPercent,
+                   "percentage_point", aSnapshot, aResult.estimatedPdrPercent.origin,
+                   aResult.estimatedPdrPercent.confidence);
+      }
+      if (aTask.requiredBandwidthBps > 0.0 && aResult.bottleneckBandwidthBps.valid)
+      {
+         SetMetric(aResult.bandwidthMarginBps,
+                   aResult.bottleneckBandwidthBps.value - aTask.requiredBandwidthBps,
+                   "bit/s", aSnapshot, aResult.bottleneckBandwidthBps.origin,
+                   aResult.bottleneckBandwidthBps.confidence);
       }
    }
 
-   static double CandidatePdrPercent(NetworkType type)
+   static void SetMetric(MetricValue<double>& aMetric,
+                         double aValue,
+                         const char* aUnit,
+                         const ResourceSnapshot& aSnapshot,
+                         DataOrigin aOrigin,
+                         Confidence aConfidence)
    {
-      switch (type)
+      aMetric.value = aValue;
+      aMetric.unit = aUnit;
+      aMetric.valid = true;
+      aMetric.origin = aOrigin;
+      aMetric.confidence = aConfidence;
+      aMetric.sampleTime = aSnapshot.simTime;
+      aMetric.reason = MetricReason::cNONE;
+   }
+
+   static void ApplyFailures(const ConstrainedPath& aPath, AssessmentResult& aResult)
+   {
+      aResult.failedConstraints = aPath.failedConstraints;
+      for (const std::string& failure : aPath.failedConstraints)
       {
-      case NetworkType::cLINK11:
-         return 90.0;
-      case NetworkType::cLINK16:
-         return 95.0;
-      case NetworkType::cSATCOM:
-         return 92.0;
-      case NetworkType::cCDL:
-         return 96.0;
-      default:
-         return 0.0;
+         if (failure == "BANDWIDTH_MARGIN_NEGATIVE")
+         {
+            AddReason(aResult, AssessmentReason::cBANDWIDTH_MARGIN_NEGATIVE);
+         }
+         else if (failure == "DELAY_MARGIN_NEGATIVE")
+         {
+            AddReason(aResult, AssessmentReason::cDELAY_MARGIN_NEGATIVE);
+         }
+         else if (failure == "RELIABILITY_MARGIN_NEGATIVE")
+         {
+            AddReason(aResult, AssessmentReason::cRELIABILITY_MARGIN_NEGATIVE);
+         }
+         else
+         {
+            AddReason(aResult, AssessmentReason::cDATA_INVALID);
+         }
       }
    }
 
-   static double CandidateBandwidthBps(NetworkType type)
+   static void AddReason(AssessmentResult& aResult, AssessmentReason aReason)
    {
-      switch (type)
+      if (std::find(aResult.reasons.begin(), aResult.reasons.end(), aReason) ==
+          aResult.reasons.end())
       {
-      case NetworkType::cLINK11:
-         return 2400.0;
-      case NetworkType::cLINK16:
-         return 238000.0;
-      case NetworkType::cSATCOM:
-         return 5000000.0;
-      case NetworkType::cCDL:
-         return 45000000.0;
-      default:
-         return 0.0;
+         aResult.reasons.push_back(aReason);
       }
    }
 
-   static std::string EdgeKey(const std::string& sourceId, const std::string& destinationId)
-   {
-      return sourceId + "->" + destinationId;
-   }
-
-   static void SetDerived(MetricValue<double>& metric,
-                          double value,
-                          const char* unit,
-                          const ResourceSnapshot& snapshot)
-   {
-      metric.value      = value;
-      metric.unit       = unit;
-      metric.valid      = true;
-      metric.origin     = DataOrigin::cDERIVED;
-      metric.confidence = Confidence::cHIGH;
-      metric.sampleTime = snapshot.simTime;
-   }
-
-   static void MarkParameterized(MetricValue<double>& metric)
-   {
-      if (metric.valid)
-      {
-         metric.origin = DataOrigin::cPARAMETERIZED_MODEL;
-         metric.confidence = Confidence::cLOW;
-      }
-   }
-
-   static void InheritQuality(MetricValue<double>& target,
-                              const MetricValue<double>& source)
-   {
-      if (target.valid && source.valid)
-      {
-         target.origin = source.origin;
-         target.confidence = source.confidence;
-      }
-   }
-
-   static void AddReason(AssessmentResult& result, AssessmentReason reason)
-   {
-      if (std::find(result.reasons.begin(), result.reasons.end(), reason) == result.reasons.end())
-      {
-         result.reasons.push_back(reason);
-      }
-   }
+   NetworkProfileRepository mProfiles;
 };
 } // namespace nrm
 

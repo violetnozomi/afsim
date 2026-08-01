@@ -82,6 +82,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mData(aData)
    , mVersionValuePtr(new QLabel(this))
    , mStateValuePtr(new QLabel(this))
+   , mReportingValuePtr(new QLabel(this))
    , mSimTimeValuePtr(new QLabel(this))
    , mNetworkCountValuePtr(new QLabel(this))
    , mEndpointCountValuePtr(new QLabel(this))
@@ -106,6 +107,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    QFormLayout* statusLayoutPtr = new QFormLayout();
    statusLayoutPtr->addRow("Version", mVersionValuePtr);
    statusLayoutPtr->addRow("Runtime state", mStateValuePtr);
+   statusLayoutPtr->addRow("Reporting", mReportingValuePtr);
    statusLayoutPtr->addRow("Simulation time", mSimTimeValuePtr);
    statusLayoutPtr->addRow("Networks", mNetworkCountValuePtr);
    statusLayoutPtr->addRow("Endpoints", mEndpointCountValuePtr);
@@ -225,8 +227,16 @@ void WkNrm::DockWidget::EvaluateTask()
       task.allowedNetworks.push_back(nrm::NetworkType::cCDL);
    }
 
+   nrm::NetworkProfileRepository profiles =
+      nrm::NetworkProfileRepository::BuiltInDemo();
+   const QByteArray profilePath = qgetenv("NRM_NETWORK_PROFILE_CONFIG");
+   if (!profilePath.isEmpty())
+   {
+      nrm::NetworkProfileValidation validation;
+      profiles.LoadFromFile(profilePath.constData(), validation);
+   }
    const nrm::AssessmentResult result =
-      nrm::AssessmentEvaluator().Evaluate(mData.GetSnapshot(), task);
+      nrm::AssessmentEvaluator(profiles).Evaluate(mData.GetSnapshot(), task);
    mData.StoreAssessment(result);
    QStringList route;
    for (const std::string& platform : result.primaryRoute)
@@ -289,6 +299,7 @@ void WkNrm::DockWidget::Refresh()
    RefreshNodeSelectors(snapshot);
    mVersionValuePtr->setText(nrm::cVERSION);
    mStateValuePtr->setText(RuntimeStateText(snapshot.runtimeState));
+   mReportingValuePtr->setText(QString::fromStdString(mData.GetReportingStatus()));
    mSimTimeValuePtr->setText(QString::number(snapshot.simTime, 'f', 2) + " s");
    mNetworkCountValuePtr->setText(QString::number(snapshot.networks.size()));
    mEndpointCountValuePtr->setText(QString::number(snapshot.endpoints.size()));

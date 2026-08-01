@@ -2,6 +2,7 @@
 #define NRM_DATA_CONTAINER_HPP
 
 #include <memory>
+#include <string>
 
 #include <QObject>
 
@@ -23,6 +24,8 @@ public:
    const nrm::FrameworkSnapshot& GetSnapshot() const { return mSnapshot; }
    const nrm::AssessmentResult& GetAssessment() const { return mAssessment; }
    bool HasAssessment() const { return mHasAssessment; }
+   bool IsReportingHealthy() const;
+   std::string GetReportingStatus() const;
    void SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot);
    void StoreAssessment(const nrm::AssessmentResult& aResult);
 

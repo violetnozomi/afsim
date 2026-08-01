@@ -1,0 +1,30 @@
+# NRM v0.7 parameterized low-quality candidate-path demonstration.
+# Launch Warlock with:
+# NRM_NETWORK_PROFILE_CONFIG=../config/network_profiles_low_quality.nrm
+include four_network_overview.txt
+
+execute at_time 100 s absolute
+   WsfPlatform source = WsfSimulation.FindPlatform("l16_fighter");
+   WsfAddress destination =
+      WsfSimulation.FindPlatform("l16_command").Comm("comm").GetAddress();
+   source.Comm("comm").DisableConnection(destination);
+   writeln("NRM_SCENARIO QUALITY_DEGRADATION ACTIVE profile=demo-low-quality-0.7.0");
+end_execute
+
+execute at_time 120 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK16_LOW_QUALITY_EVALUATION_POINT");
+   message.SetSizeInBits(1024);
+   WsfSimulation.FindPlatform("l16_fighter").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("l16_command").Comm("comm"));
+end_execute
+
+execute at_time 300 s absolute
+   WsfPlatform source = WsfSimulation.FindPlatform("l16_fighter");
+   WsfAddress destination =
+      WsfSimulation.FindPlatform("l16_command").Comm("comm").GetAddress();
+   source.Comm("comm").EnableConnection(destination);
+   writeln("NRM_SCENARIO QUALITY_DEGRADATION RECOVERED");
+end_execute
+
+end_time 450 s

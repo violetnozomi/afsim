@@ -1,0 +1,23 @@
+# NRM v0.7 64 Mbit/s offered-load versus 45 Mbit/s CDL capacity demonstration.
+include four_network_overview.txt
+
+execute at_interval_of 2.5 s
+   if (TIME_NOW >= 100.0 && TIME_NOW <= 250.0)
+   {
+      WsfMessage message = WsfMessage();
+      message.SetType("CDL_CONGESTION_BURST");
+      message.SetSizeInBits(160000000);
+      WsfSimulation.FindPlatform("cdl_sensor").Comm("comm").SendMessage(
+         message, WsfSimulation.FindPlatform("cdl_station").Comm("comm"));
+   }
+end_execute
+
+execute at_time 100 s absolute
+   writeln("NRM_SCENARIO CONGESTION ACTIVE");
+end_execute
+
+execute at_time 260 s absolute
+   writeln("NRM_SCENARIO CONGESTION RECOVERED");
+end_execute
+
+end_time 400 s

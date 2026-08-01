@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <deque>
+#include <vector>
 
 #include "nrm/NetworkResourceTypes.hpp"
 
@@ -20,6 +21,11 @@ public:
    static constexpr double cMAX_WINDOW_S = 60.0;
 
    void Clear() { mSamples.clear(); }
+
+   void SetTransmitObservationAvailable(bool aAvailable)
+   {
+      mTransmitObservationAvailable = aAvailable;
+   }
 
    void RecordTransmit(double aSimTime, std::uint64_t aBits, double aQueueDelayMs = -1.0)
    {
@@ -52,6 +58,7 @@ public:
       double      queueDelayTotalMs     = 0.0;
       double      transportDelayTotalMs = 0.0;
       double      onlineRatioTotal      = 0.0;
+      std::uint64_t deliveredBits       = 0;
       std::size_t queueDelayCount       = 0;
       std::size_t transportDelayCount   = 0;
       std::size_t onlineRatioCount      = 0;
@@ -76,6 +83,7 @@ public:
             break;
          case Kind::cRECEIVE:
             ++output.messages.received;
+            deliveredBits += sample.bits;
             if (sample.value >= 0.0)
             {
                transportDelayTotalMs += sample.value;
@@ -95,16 +103,39 @@ public:
          }
       }
 
-      SetDerived(output.throughputBps,
-                 static_cast<double>(output.transmittedBits) / aWindowS,
+      output.deliveredBits = deliveredBits;
+      if (mTransmitObservationAvailable)
+      {
+         SetDerived(output.offeredLoadBps,
+                    static_cast<double>(output.transmittedBits) / aWindowS,
+                    "bit/s",
+                    aSimTime,
+                    aWindowS);
+      }
+      else
+      {
+         MarkInvalid(output.offeredLoadBps, MetricReason::cMISSING_TRANSMIT_DENOMINATOR);
+      }
+      SetDerived(output.deliveredThroughputBps,
+                 static_cast<double>(output.deliveredBits) / aWindowS,
                  "bit/s",
                  aSimTime,
                  aWindowS);
-      if (output.messages.transmitted > 0)
+      output.throughputBps = output.deliveredThroughputBps;
+      if (mTransmitObservationAvailable && output.messages.transmitted > 0)
       {
          const double ratio =
             std::min(1.0, static_cast<double>(output.messages.received) / output.messages.transmitted);
-         SetDerived(output.pdrPercent, ratio * 100.0, "percent", aSimTime, aWindowS);
+         SetDerived(output.deliveryRatioPercent, ratio * 100.0, "percent", aSimTime, aWindowS);
+         output.pdrPercent = output.deliveryRatioPercent;
+      }
+      else
+      {
+         const MetricReason reason = mTransmitObservationAvailable
+                                        ? MetricReason::cNO_SAMPLES
+                                        : MetricReason::cMISSING_TRANSMIT_DENOMINATOR;
+         MarkInvalid(output.deliveryRatioPercent, reason);
+         MarkInvalid(output.pdrPercent, reason);
       }
       if (queueDelayCount > 0)
       {
@@ -130,7 +161,7 @@ public:
       if (aCapacityBps > 0.0)
       {
          SetDerived(output.utilizationPercent,
-                    std::min(100.0, 100.0 * output.throughputBps.value / aCapacityBps),
+                    std::min(100.0, 100.0 * output.deliveredThroughputBps.value / aCapacityBps),
                     "percent",
                     aSimTime,
                     aWindowS);
@@ -169,6 +200,13 @@ private:
       aMetric.confidence = Confidence::cHIGH;
       aMetric.sampleTime = aSimTime;
       aMetric.window     = aWindowS;
+      aMetric.reason     = MetricReason::cNONE;
+   }
+
+   static void MarkInvalid(MetricValue<double>& aMetric, MetricReason aReason)
+   {
+      aMetric.valid  = false;
+      aMetric.reason = aReason;
    }
 
    void Add(const Sample& aSample)
@@ -182,6 +220,7 @@ private:
    }
 
    std::deque<Sample> mSamples;
+   bool mTransmitObservationAvailable = true;
 };
 } // namespace nrm
 

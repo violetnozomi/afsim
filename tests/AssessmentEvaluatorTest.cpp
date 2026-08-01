@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 
 namespace
 {
@@ -104,9 +105,8 @@ int main()
    assert(passed.canComplete);
    assert(passed.stable);
    assert(passed.primaryRoute.size() == 3);
-   assert(passed.backupRoute.size() == 3);
-   assert(passed.backupRoute[1] == "backup_relay");
-   assert(!passed.backupRouteUsesCandidate);
+   assert(passed.backupRoute.size() == 2);
+   assert(passed.backupRouteUsesCandidate);
    assert(passed.predictedDelayMs.valid && passed.predictedDelayMs.value == 40.0);
    assert(passed.estimatedPdrPercent.valid);
    assert(passed.estimatedPdrPercent.value > 90.2 && passed.estimatedPdrPercent.value < 90.3);
@@ -116,13 +116,81 @@ int main()
    assert(passed.reliabilityMarginPercent.value > 0.2);
    assert(passed.reasons.empty());
 
+   nrm::AssessmentTask relaxedBackupTask = task;
+   relaxedBackupTask.maximumDelayMs = 70.0;
+   relaxedBackupTask.minimumPdrPercent = 85.0;
+   const nrm::AssessmentResult currentBackup = evaluator.Evaluate(snapshot, relaxedBackupTask);
+   assert(currentBackup.backupRoute.size() == 3);
+   assert(currentBackup.backupRoute[1] == "backup_relay");
+   assert(!currentBackup.backupRouteUsesCandidate);
+
+   nrm::ResourceSnapshot candidateBackupSnapshot = snapshot;
+   candidateBackupSnapshot.links.resize(2);
+   const nrm::AssessmentResult candidateBackup =
+      evaluator.Evaluate(candidateBackupSnapshot, task);
+   assert(candidateBackup.canComplete);
+   assert(!candidateBackup.primaryRouteUsesCandidate);
+   assert(candidateBackup.backupRouteUsesCandidate);
+   assert(!candidateBackup.backupRoute.empty());
+
+   nrm::ResourceSnapshot infeasibleBackupSnapshot = candidateBackupSnapshot;
+   for (nrm::LinkSnapshot& link : infeasibleBackupSnapshot.links)
+   {
+      link.windows[0].pdrPercent.value = 100.0;
+   }
+   nrm::AssessmentTask strictBackupTask = task;
+   strictBackupTask.minimumPdrPercent = 99.0;
+   const nrm::AssessmentResult infeasibleBackup =
+      evaluator.Evaluate(infeasibleBackupSnapshot, strictBackupTask);
+   assert(infeasibleBackup.canComplete);
+   assert(infeasibleBackup.backupRoute.empty());
+
+   nrm::AssessmentTask invalidConstraintTask = task;
+   invalidConstraintTask.maximumDelayMs = std::numeric_limits<double>::quiet_NaN();
+   const nrm::AssessmentResult invalidConstraint =
+      evaluator.Evaluate(snapshot, invalidConstraintTask);
+   assert(HasReason(invalidConstraint, nrm::AssessmentReason::cDATA_INVALID));
+   assert(invalidConstraint.failedConstraints[0] == "PATH_CONSTRAINTS_INVALID");
+
+   nrm::ResourceSnapshot profileCapacitySnapshot = snapshot;
+   for (nrm::LinkSnapshot& link : profileCapacitySnapshot.links)
+   {
+      link.bandwidthBps.valid = false;
+   }
+   const nrm::AssessmentResult profileCapacity =
+      evaluator.Evaluate(profileCapacitySnapshot, task);
+   assert(profileCapacity.canComplete);
+   assert(profileCapacity.bottleneckBandwidthBps.value == 238000.0);
+   assert(profileCapacity.bottleneckBandwidthBps.origin ==
+          nrm::DataOrigin::cPARAMETERIZED_MODEL);
+   assert(profileCapacity.bottleneckBandwidthBps.confidence == nrm::Confidence::cLOW);
+   assert(!profileCapacity.profileIds.empty());
+
    task.taskId               = "TASK-BANDWIDTH";
    task.requiredBandwidthBps = 900.0;
-   const nrm::AssessmentResult bandwidthFailed = evaluator.Evaluate(snapshot, task);
+   nrm::ResourceSnapshot noCandidateMetrics = snapshot;
+   for (nrm::EndpointSnapshot& endpoint : noCandidateMetrics.endpoints)
+   {
+      endpoint.latitudeDeg.valid = false;
+      endpoint.longitudeDeg.valid = false;
+   }
+   const nrm::AssessmentResult bandwidthFailed =
+      evaluator.Evaluate(noCandidateMetrics, task);
    assert(bandwidthFailed.reachable);
    assert(!bandwidthFailed.canComplete);
    assert(HasReason(bandwidthFailed, nrm::AssessmentReason::cBANDWIDTH_MARGIN_NEGATIVE));
    assert(bandwidthFailed.bandwidthMarginBps.value == -100.0);
+
+   task.taskId = "TASK-FEASIBLE-ALTERNATIVE";
+   task.requiredBandwidthBps = 825.0;
+   task.maximumDelayMs = 70.0;
+   task.minimumPdrPercent = 85.0;
+   const nrm::AssessmentResult feasibleAlternative = evaluator.Evaluate(snapshot, task);
+   assert(feasibleAlternative.canComplete);
+   assert(!feasibleAlternative.primaryRouteUsesCandidate);
+   assert(feasibleAlternative.primaryRoute[1] == "backup_relay");
+   assert(feasibleAlternative.predictedDelayMs.value == 60.0);
+   assert(feasibleAlternative.selectedPathRank == 2);
 
    task.allowedNetworks.clear();
    task.allowedNetworks.push_back(nrm::NetworkType::cCDL);
@@ -172,5 +240,28 @@ int main()
    assert(!differentNetwork.canEstablish);
    assert(HasReason(differentNetwork, nrm::AssessmentReason::cNO_CURRENT_PATH));
    assert(HasReason(differentNetwork, nrm::AssessmentReason::cLINK_NOT_ESTABLISHABLE));
+
+   nrm::ResourceSnapshot loadedCandidate = candidateSnapshot;
+   nrm::NetworkSnapshot loadedNetwork;
+   loadedNetwork.networkName = "nrm_link16_test";
+   loadedNetwork.networkType = nrm::NetworkType::cLINK16;
+   nrm::WindowMetrics loadWindow;
+   loadWindow.windowS = 10.0;
+   loadWindow.offeredLoadBps.value = 50000.0;
+   loadWindow.offeredLoadBps.valid = true;
+   loadedNetwork.windows.push_back(loadWindow);
+   loadedCandidate.networks.push_back(loadedNetwork);
+   candidateTask.requiredBandwidthBps = 100000.0;
+   const nrm::AssessmentResult lightLoad =
+      evaluator.Evaluate(loadedCandidate, candidateTask);
+   assert(lightLoad.canComplete);
+   assert(lightLoad.bottleneckBandwidthBps.value == 188000.0);
+
+   loadedCandidate.networks[0].windows[0].offeredLoadBps.value = 200000.0;
+   const nrm::AssessmentResult congestion =
+      evaluator.Evaluate(loadedCandidate, candidateTask);
+   assert(!congestion.canComplete);
+   assert(congestion.bottleneckBandwidthBps.value == 38000.0);
+   assert(HasReason(congestion, nrm::AssessmentReason::cBANDWIDTH_MARGIN_NEGATIVE));
    return 0;
 }

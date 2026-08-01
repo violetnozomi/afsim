@@ -1,5 +1,6 @@
 #include "NrmSimInterface.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <iterator>
 #include <map>
@@ -16,6 +17,7 @@
 #include "WsfMessage.hpp"
 #include "WsfPlatform.hpp"
 #include "WsfSimulation.hpp"
+#include "nrm/NetworkProfileRepository.hpp"
 #include "nrm/NetworkTypeUtils.hpp"
 
 namespace
@@ -88,13 +90,34 @@ WkNrm::SimInterface::SimInterface(const QString& aPluginName)
 void WkNrm::SimInterface::SimulationInitializing(const WsfSimulation& aSimulation)
 {
    mCallbacks.Clear();
-   mSnapshot         = nrm::ResourceSnapshot();
+   mSnapshot = nrm::ResourceSnapshot();
+   nrm::NetworkProfileRepository profiles =
+      nrm::NetworkProfileRepository::BuiltInDemo();
+   const char* profilePath = std::getenv("NRM_NETWORK_PROFILE_CONFIG");
+   if (profilePath != nullptr && profilePath[0] != '\0')
+   {
+      profiles = nrm::NetworkProfileRepository();
+      nrm::NetworkProfileValidation validation;
+      profiles.LoadFromFile(profilePath, validation);
+   }
+   mSnapshot.configVersion = profiles.ConfigVersion();
+   for (const nrm::NetworkProfile& profile : profiles.Profiles())
+   {
+      if (profile.valid)
+      {
+         mSnapshot.profileIds.push_back(profile.profileId);
+      }
+   }
    mMessagesByNetwork.clear();
    mMetricsByNetwork.clear();
    mMetricsByLink.clear();
    mRadioByLink.clear();
    mQueuedTimes.clear();
    mTransmittedTimes.clear();
+   mLastEndpointStates.clear();
+   mLastLinkStates.clear();
+   mLifecycleTracker.Clear();
+   mEventLedger.Clear();
    mLastPublishTime = -1.0;
    RegisterCallbacks(aSimulation);
 
@@ -127,6 +150,7 @@ void WkNrm::SimInterface::PublishSnapshot(const WsfSimulation& aSimulation, nrm:
    mSnapshot.runtimeState = aState;
    mSnapshot.origin       = nrm::DataOrigin::cAFSIM_INTERNAL;
    mSnapshot.providerId   = "afsim-internal";
+   mLifecycleTracker.Prune(mSnapshot.simTime);
    BuildResourceState(aSimulation);
    PruneCorrelations(mSnapshot.simTime);
    mLastPublishTime = mSnapshot.simTime;
@@ -142,7 +166,19 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                      const WsfMessage& aMessage,
                                      size_t             aQueueDepth)
                               {
-                                 CountMessage(aCommPtr, &nrm::MessageStatistics::queued);
+                                 nrm::MessageLifecycleRecord record;
+                                 record.messageId = aMessage.GetSerialNumber();
+                                 record.networkId = aCommPtr == nullptr ? "" : aCommPtr->GetNetwork();
+                                 record.sourceEndpointId = EndpointId(aCommPtr);
+                                 record.destinationEndpointId =
+                                    aMessage.GetDstAddr().GetAddress();
+                                 record.bits = static_cast<std::uint64_t>(
+                                    std::max(0, aMessage.GetSizeBits()));
+                                 record.queuedTime = aSimTime;
+                                 if (mLifecycleTracker.RecordQueued(record))
+                                 {
+                                    CountMessage(aCommPtr, &nrm::MessageStatistics::queued);
+                                 }
                                  mQueuedTimes[aMessage.GetSerialNumber()] = aSimTime;
                                  mSnapshot.messages.queueDepth = aQueueDepth;
                                  if (aCommPtr != nullptr)
@@ -155,22 +191,17 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                      wsf::comm::Comm*   aCommPtr,
                                      const WsfMessage& aMessage)
                               {
-                                 CountMessage(aCommPtr, &nrm::MessageStatistics::transmitted);
-                                 double queueDelayMs = -1.0;
-                                 const auto queuedIt = mQueuedTimes.find(aMessage.GetSerialNumber());
-                                 if (queuedIt != mQueuedTimes.end())
+                                 const std::uint64_t bits = static_cast<std::uint64_t>(
+                                    std::max(0, aMessage.GetSizeBits()));
+                                 if (mLifecycleTracker.RecordTransmitted(
+                                        aMessage.GetSerialNumber(), aSimTime,
+                                        aCommPtr == nullptr ? "" : aCommPtr->GetNetwork(),
+                                        EndpointId(aCommPtr), bits))
                                  {
-                                    queueDelayMs = 1000.0 * (aSimTime - queuedIt->second);
-                                    mQueuedTimes.erase(queuedIt);
+                                    CountMessage(aCommPtr, &nrm::MessageStatistics::transmitted);
                                  }
+                                 mQueuedTimes.erase(aMessage.GetSerialNumber());
                                  mTransmittedTimes[aMessage.GetSerialNumber()] = aSimTime;
-                                 if (aCommPtr != nullptr)
-                                 {
-                                    mMetricsByNetwork[aCommPtr->GetNetwork()].RecordTransmit(
-                                       aSimTime,
-                                       static_cast<std::uint64_t>(std::max(0, aMessage.GetSizeBits())),
-                                       queueDelayMs);
-                                 }
                               }));
    mCallbacks.Add(WsfObserver::MessageReceived(&aSimulation)
                      .Connect([this](double             aSimTime,
@@ -179,26 +210,35 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                      const WsfMessage& aMessage,
                                      wsf::comm::Result& aResult)
                               {
-                                 CountMessage(aReceiverPtr, &nrm::MessageStatistics::received);
+                                 const bool isFinalDestination =
+                                    aReceiverPtr != nullptr &&
+                                    aMessage.GetDstAddr() == aReceiverPtr->GetAddress();
+                                 const bool firstTerminal =
+                                    isFinalDestination && mLifecycleTracker.RecordTerminal(
+                                       aMessage.GetSerialNumber(),
+                                       nrm::MessageTerminalState::cDELIVERED,
+                                       aSimTime,
+                                       EndpointId(aReceiverPtr));
+                                 if (firstTerminal)
+                                 {
+                                    CountMessage(aReceiverPtr, &nrm::MessageStatistics::received);
+                                 }
                                  double transportDelayMs = -1.0;
-                                 const auto transmittedIt = mTransmittedTimes.find(aMessage.GetSerialNumber());
+                                 const auto transmittedIt =
+                                    mTransmittedTimes.find(aMessage.GetSerialNumber());
                                  if (transmittedIt != mTransmittedTimes.end())
                                  {
                                     transportDelayMs = 1000.0 * (aSimTime - transmittedIt->second);
                                     mTransmittedTimes.erase(transmittedIt);
                                  }
-                                 const std::uint64_t bits =
-                                    static_cast<std::uint64_t>(std::max(0, aMessage.GetSizeBits()));
-                                 if (aReceiverPtr != nullptr)
-                                 {
-                                    mMetricsByNetwork[aReceiverPtr->GetNetwork()].RecordReceive(
-                                       aSimTime, bits, transportDelayMs);
-                                 }
+                                 const std::uint64_t bits = static_cast<std::uint64_t>(
+                                    std::max(0, aMessage.GetSizeBits()));
                                  if (aSenderPtr != nullptr && aReceiverPtr != nullptr)
                                  {
                                     const std::string linkId = LinkId(aSenderPtr, aReceiverPtr);
-                                    mMetricsByLink[linkId].RecordTransmit(aSimTime, bits);
-                                    mMetricsByLink[linkId].RecordReceive(aSimTime, bits, transportDelayMs);
+                                    nrm::RollingMetrics& linkMetrics = mMetricsByLink[linkId];
+                                    linkMetrics.SetTransmitObservationAvailable(false);
+                                    linkMetrics.RecordReceive(aSimTime, bits, transportDelayMs);
                                     LinkRadioState& radio = mRadioByLink[linkId];
                                     if (aResult.mDataRate > 0.0)
                                     {
@@ -209,47 +249,51 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                     {
                                        SetDirectMetric(radio.rssiDbm,
                                                        10.0 * std::log10(aResult.mRcvdPower * 1000.0),
-                                                       "dBm",
-                                                       aSimTime);
+                                                       "dBm", aSimTime);
                                     }
                                     if (aResult.mSignalToNoise > 0.0)
                                     {
                                        SetDirectMetric(radio.snrDb,
                                                        10.0 * std::log10(aResult.mSignalToNoise),
-                                                       "dB",
-                                                       aSimTime);
+                                                       "dB", aSimTime);
                                     }
                                     if (aResult.mBitErrorRate >= 0.0)
                                     {
-                                       SetDirectMetric(radio.ber, aResult.mBitErrorRate, "ratio", aSimTime);
+                                       SetDirectMetric(radio.ber, aResult.mBitErrorRate,
+                                                       "ratio", aSimTime);
                                     }
                                  }
                               }));
    mCallbacks.Add(WsfObserver::MessageHop(&aSimulation)
-                     .Connect([this](double, wsf::comm::Comm* aReceiverPtr, wsf::comm::Comm*, const WsfMessage&)
+                     .Connect([this](double, wsf::comm::Comm* aReceiverPtr,
+                                     wsf::comm::Comm*, const WsfMessage&)
                               { CountMessage(aReceiverPtr, &nrm::MessageStatistics::hops); }));
    mCallbacks.Add(WsfObserver::MessageDiscarded(&aSimulation)
                      .Connect([this](double             aSimTime,
                                      wsf::comm::Comm*   aCommPtr,
-                                     const WsfMessage&,
+                                     const WsfMessage& aMessage,
                                      const std::string&)
                               {
-                                 CountMessage(aCommPtr, &nrm::MessageStatistics::discarded);
-                                 if (aCommPtr != nullptr)
+                                 if (mLifecycleTracker.RecordTerminal(
+                                        aMessage.GetSerialNumber(),
+                                        nrm::MessageTerminalState::cDISCARDED,
+                                        aSimTime))
                                  {
-                                    mMetricsByNetwork[aCommPtr->GetNetwork()].RecordDiscard(aSimTime);
+                                    CountMessage(aCommPtr, &nrm::MessageStatistics::discarded);
                                  }
                               }));
    mCallbacks.Add(WsfObserver::MessageFailedRouting(&aSimulation)
-                     .Connect([this](double           aSimTime,
-                                     wsf::comm::Comm* aCommPtr,
+                     .Connect([this](double             aSimTime,
+                                     wsf::comm::Comm*   aCommPtr,
                                      WsfPlatform*,
-                                     const WsfMessage&)
+                                     const WsfMessage& aMessage)
                               {
-                                 CountMessage(aCommPtr, &nrm::MessageStatistics::routingFailed);
-                                 if (aCommPtr != nullptr)
+                                 if (mLifecycleTracker.RecordTerminal(
+                                        aMessage.GetSerialNumber(),
+                                        nrm::MessageTerminalState::cROUTING_FAILED,
+                                        aSimTime))
                                  {
-                                    mMetricsByNetwork[aCommPtr->GetNetwork()].RecordRoutingFailure(aSimTime);
+                                    CountMessage(aCommPtr, &nrm::MessageStatistics::routingFailed);
                                  }
                               }));
 }
@@ -291,6 +335,11 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
    mSnapshot.networks.clear();
    mSnapshot.endpoints.clear();
    mSnapshot.links.clear();
+   const std::uint64_t hopCount = mSnapshot.messages.hops;
+   const std::size_t queueDepth = mSnapshot.messages.queueDepth;
+   mSnapshot.messages = mLifecycleTracker.Cumulative();
+   mSnapshot.messages.hops = hopCount;
+   mSnapshot.messages.queueDepth = queueDepth;
 
    wsf::comm::NetworkManager* networkManagerPtr = aSimulation.GetCommNetworkManager();
    if (networkManagerPtr == nullptr)
@@ -307,10 +356,12 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
       network.networkName = networkName.empty() ? "default" : networkName;
       network.modelType   = networkPtr == nullptr ? "" : networkPtr->GetScriptClassName();
       network.networkType = nrm::ClassifyNetwork(network.networkName, network.modelType);
+      network.messages = mLifecycleTracker.Cumulative(networkName);
       const auto messageIt = mMessagesByNetwork.find(networkName);
       if (messageIt != mMessagesByNetwork.end())
       {
-         network.messages = messageIt->second;
+         network.messages.hops = messageIt->second.hops;
+         network.messages.queueDepth = messageIt->second.queueDepth;
       }
       networkIndexes[networkName] = mSnapshot.networks.size();
       mSnapshot.networks.emplace_back(network);
@@ -335,6 +386,26 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
       endpoint.state       = CommState(commPtr);
       endpoint.canSend     = commPtr->CanSend();
       endpoint.canReceive  = commPtr->CanReceive();
+      const auto previousState = mLastEndpointStates.find(endpoint.endpointId);
+      if (previousState == mLastEndpointStates.end() || previousState->second != endpoint.state)
+      {
+         nrm::ResourceEvent event;
+         event.kind = nrm::ResourceEventKind::cENDPOINT_STATE;
+         event.simTime = mSnapshot.simTime;
+         event.endpointId = endpoint.endpointId;
+         event.networkId = endpoint.networkName;
+         event.previousState = previousState == mLastEndpointStates.end()
+                                  ? nrm::ResourceState::cUNKNOWN : previousState->second;
+         event.currentState = endpoint.state;
+         event.reasonCode = "AFSIM_COMM_STATE_CHANGED";
+         mEventLedger.Record(event);
+         mLastEndpointStates[endpoint.endpointId] = endpoint.state;
+      }
+      const nrm::ResourceStateMetrics endpointMetrics =
+         mEventLedger.EndpointMetrics(endpoint.endpointId, mSnapshot.simTime, 60.0);
+      endpoint.currentOfflineDurationS = endpointMetrics.currentOfflineDurationS;
+      endpoint.windowOfflineDurationS = endpointMetrics.windowOfflineDurationS;
+      endpoint.endpointOnlineRatioPercent = endpointMetrics.endpointOnlineRatioPercent;
       if (commPtr->GetPlatform() != nullptr)
       {
          endpoint.platformName = commPtr->GetPlatform()->GetName();
@@ -387,7 +458,12 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
       }
       for (double windowS : cWINDOWS_S)
       {
-         network.windows.emplace_back(metrics.Snapshot(mSnapshot.simTime, windowS));
+         nrm::WindowMetrics window =
+            mLifecycleTracker.Snapshot(mSnapshot.simTime, windowS, network.networkName);
+         const nrm::WindowMetrics stateWindow =
+            metrics.Snapshot(mSnapshot.simTime, windowS);
+         window.onlineRatioPercent = stateWindow.onlineRatioPercent;
+         network.windows.emplace_back(window);
       }
    }
 
@@ -421,6 +497,32 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
          link.networkName = sourcePtr->GetNetwork();
          link.networkType = GetNetworkType(sourcePtr);
          link.state       = edgePtr->IsEnabled() ? nrm::ResourceState::cONLINE : nrm::ResourceState::cDISABLED;
+         const auto previousState = mLastLinkStates.find(link.linkId);
+         if (previousState == mLastLinkStates.end() || previousState->second != link.state)
+         {
+            nrm::ResourceEvent event;
+            event.kind = nrm::ResourceEventKind::cLINK_STATE;
+            event.simTime = mSnapshot.simTime;
+            event.linkId = link.linkId;
+            event.networkId = link.networkName;
+            event.sourceEndpointId = link.sourceEndpointId;
+            event.destinationEndpointId = link.destinationEndpointId;
+            event.previousState = previousState == mLastLinkStates.end()
+                                     ? nrm::ResourceState::cUNKNOWN : previousState->second;
+            event.currentState = link.state;
+            event.reasonCode = "AFSIM_GRAPH_EDGE_STATE_CHANGED";
+            mEventLedger.Record(event);
+            mLastLinkStates[link.linkId] = link.state;
+         }
+         const nrm::ResourceStateMetrics linkMetrics =
+            mEventLedger.LinkMetrics(link.linkId, mSnapshot.simTime, 60.0);
+         link.currentOfflineDurationS = linkMetrics.currentOfflineDurationS;
+         link.windowOfflineDurationS = linkMetrics.windowOfflineDurationS;
+         link.serviceAvailabilityPercent = linkMetrics.serviceAvailabilityPercent;
+         link.establishmentAttempts = linkMetrics.establishmentAttempts;
+         link.establishmentSuccessRatioPercent =
+            linkMetrics.establishmentSuccessRatioPercent;
+         link.averageEstablishmentDelayMs = linkMetrics.averageEstablishmentDelayMs;
 
          if (sourcePtr->GetPlatform() != nullptr && destinationPtr->GetPlatform() != nullptr)
          {

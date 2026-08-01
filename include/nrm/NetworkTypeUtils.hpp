@@ -89,6 +89,8 @@ inline const char* ToString(DataOrigin aOrigin)
       return "REPLAY";
    case DataOrigin::cPARAMETERIZED_MODEL:
       return "PARAMETERIZED_MODEL";
+   case DataOrigin::cESTIMATED:
+      return "ESTIMATED";
    case DataOrigin::cDERIVED:
       return "DERIVED";
    case DataOrigin::cAFSIM_INTERNAL:

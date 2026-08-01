@@ -1,0 +1,88 @@
+schema_version: "nrm.contract_coverage.v1"
+scope: "contract_3.2.1_to_4.2"
+priority: P0
+contract_status: PENDING_SOURCE_VERIFICATION
+status_policy: "Design coverage does not imply implementation completion; PRE_ACCEPTANCE may use frozen representative samples, while VERIFIED requires contract-matched final acceptance evidence."
+requirements:
+  - requirement_id: "3.2.1"
+    requirement_name: "导航模型"
+    design_status: COVERED
+    implementation_status: NOT_IMPLEMENTED
+    scope_assumption: "甲方功能包负责导航解算；本项目解析、校验、标准化、记录和转发其结果包，待合同原文与接口文件复核。"
+    components: [NavigationPacketAdapter, NavigationPacketValidator, NavigationResultMapper, NavigationStateRepository]
+    acceptance_cases: [A17, A18, A19, A20]
+    acceptance_mode: CONDITIONAL_CUSTOMER_SAMPLE
+  - requirement_id: "3.2.2-protocol"
+    requirement_name: "数据链协议模型"
+    design_status: COVERED
+    implementation_status: PARTIAL
+    verification_status: PRE_ACCEPTANCE
+    components: [NetworkTypeAdapter, NetworkProfileRepository]
+    evidence: "四类版本化演示剖面和校验测试完成；甲方协议模块未接入。"
+    acceptance_cases: [A01, A02, A06, A07, A08]
+  - requirement_id: "3.2.2-frequency"
+    requirement_name: "不同频点传输特性"
+    design_status: COVERED
+    implementation_status: PARTIAL
+    verification_status: PRE_ACCEPTANCE
+    components: [NetworkProfile, NetworkProfileRepository, FrequencyPropagationModel]
+    evidence: "频点和传播模型字段、外部配置及校验已实现；真实频率传播计算未实现。"
+    acceptance_cases: [A21]
+  - requirement_id: "3.2.3"
+    requirement_name: "通信数据链能力模型"
+    design_status: COVERED
+    implementation_status: PARTIAL
+    verification_status: PRE_ACCEPTANCE
+    components: [MessageLifecycleTracker, NetworkProfileRepository, ConstrainedPathSelector, CommunicationCapabilityService, EnvironmentEffectAdapter]
+    evidence: "距离、容量、PDR、时延、提供负载、交付吞吐和可准入容量契约与测试完成。"
+    acceptance_cases: [A05, A22]
+  - requirement_id: "3.2.4"
+    requirement_name: "网链资源规划模型"
+    design_status: COVERED
+    implementation_status: NOT_IMPLEMENTED
+    components: [NetworkPlanningService, PlanValidator, PlanSimulationService, PlanCollaborationAdapter, PlanDistributionTransport]
+    acceptance_cases: [A23, A24, A25]
+  - requirement_id: "3.2.5"
+    requirement_name: "网链资源管理模型"
+    design_status: COVERED
+    implementation_status: PARTIAL
+    verification_status: PRE_ACCEPTANCE
+    components: [MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, LinkResourceAgent, CapabilityMatcher, PlanningRecommendationEngine]
+    evidence: "状态时长、在网率、建链契约、负载、路由和消息统计已实现；真实协议事件和自动规划未实现。"
+    acceptance_cases: [A06, A14, A26]
+  - requirement_id: "3.3"
+    requirement_name: "接口要求"
+    design_status: COVERED
+    implementation_status: NOT_IMPLEMENTED
+    components: [ContractInterfaceAdapter, ModelServiceFacade]
+    acceptance_cases: [A27]
+    acceptance_mode: CONDITIONAL_CUSTOMER_INTERFACE
+  - requirement_id: "3.4.1"
+    requirement_name: "软件运行环境"
+    design_status: COVERED
+    implementation_status: UNVERIFIED
+    components: [DeploymentProfile, PortalIntegrationAdapter]
+    acceptance_cases: [A28]
+    acceptance_mode: CONDITIONAL_TARGET_ENVIRONMENT
+  - requirement_id: "3.4.2"
+    requirement_name: "易用性与异常恢复"
+    design_status: COVERED
+    implementation_status: IMPLEMENTED
+    verification_status: PRE_ACCEPTANCE
+    components: [SnapshotReporter, ReporterStatus, OperationalRecoveryManager]
+    evidence: "runId隔离、manifest、只读失败、队列溢出、析构排空和两次启动测试完成。"
+    acceptance_cases: [A29]
+  - requirement_id: "3.5"
+    requirement_name: "兼容扩展"
+    design_status: COVERED
+    implementation_status: NOT_IMPLEMENTED
+    components: [ModelRegistry]
+    acceptance_cases: [A30]
+  - requirement_id: "4.1-4.2"
+    requirement_name: "设计原则与约束"
+    design_status: COVERED
+    implementation_status: IMPLEMENTED
+    verification_status: PRE_ACCEPTANCE
+    components: [NetworkTypeAdapter, MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, SnapshotReporter, StateRepository, ModelRegistry]
+    evidence: "公共纯C++组件与AFSIM/Qt边界分离，8项组件化测试和两插件构建通过。"
+    acceptance_cases: [A27, A28, A29, A30]

@@ -1,0 +1,36 @@
+# NRM v0.7 link failure demonstration.
+include four_network_overview.txt
+
+execute at_time 100 s absolute
+   WsfPlatform source = WsfSimulation.FindPlatform("l16_fighter");
+   WsfAddress destination =
+      WsfSimulation.FindPlatform("l16_command").Comm("comm").GetAddress();
+   source.Comm("comm").DisableConnection(destination);
+   writeln("NRM_SCENARIO LINK_FAILURE ACTIVE");
+end_execute
+
+execute at_time 120 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK16_DURING_FAILURE");
+   message.SetSizeInBits(1024);
+   WsfSimulation.FindPlatform("l16_fighter").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("l16_command").Comm("comm"));
+end_execute
+
+execute at_time 300 s absolute
+   WsfPlatform source = WsfSimulation.FindPlatform("l16_fighter");
+   WsfAddress destination =
+      WsfSimulation.FindPlatform("l16_command").Comm("comm").GetAddress();
+   source.Comm("comm").EnableConnection(destination);
+   writeln("NRM_SCENARIO LINK_FAILURE RECOVERED");
+end_execute
+
+execute at_time 320 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK16_AFTER_RECOVERY");
+   message.SetSizeInBits(1024);
+   WsfSimulation.FindPlatform("l16_fighter").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("l16_command").Comm("comm"));
+end_execute
+
+end_time 450 s

@@ -30,6 +30,7 @@ private:
    DataContainer& mData;
    QLabel*        mVersionValuePtr;
    QLabel*        mStateValuePtr;
+   QLabel*        mReportingValuePtr;
    QLabel*        mSimTimeValuePtr;
    QLabel*        mNetworkCountValuePtr;
    QLabel*        mEndpointCountValuePtr;
