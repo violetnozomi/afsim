@@ -30,9 +30,10 @@ v0.6.0已有三个回归测试：nrm_framework_types_test、nrm_snapshot_reporte
 
 ## 3. 当前开发状态
 
-v0.7已在提交`073c9b7`形成内部PRE_ACCEPTANCE稳定基线。当前分支
-`feat/v0.8-capability-service`只实施v0.8第一阶段`CommunicationCapabilityService`，
-统一输出合同3.2.3六项能力指标；环境仅预留适配接口，不实现真实传播模型。
+v0.8已在提交`7c76b9410e5d221ff92b1b8e1b94b51650d8a409`形成内部PRE_ACCEPTANCE
+稳定基线。v0.9第一阶段已在`feat/v0.9-network-plan-lifecycle`实现内部网链规划文件
+加载、卸载、编辑新修订、严格校验、只读能力推演、原子存储和本地不可变分发包，状态为
+`IMPLEMENTED / PRE_ACCEPTANCE`。甲方正式格式、专用规则、真实分发和自动网络控制未实现。
 
 ## 4. 合同主线
 

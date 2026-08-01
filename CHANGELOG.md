@@ -1,5 +1,25 @@
 # 变更记录
 
+## 0.9.0 - 2026-08-01
+
+- 新增纯 C++ `nrm.network_plan.v1`公共契约、外部`NetworkPlanAdapter`边界和完整
+  `NRM_NETWORK_PLAN_V1`严格文法。
+- 新增规划Repository，支持失败不覆盖、修订单调、严格round-trip、临时文件加原子
+  rename保存，以及显式路径或`NRM_PLAN_STORE_DIR`。
+- 新增确定性Validator，覆盖profile/频率、平台/业务引用、成员上限、重复成员、独占
+  时隙资源和动态JOIN/LEAVE冲突；甲方专用规则缺失时输出固定WARNING，不推导未提供规则。
+- 新增只读`NetworkPlanEvaluationService`，将需求无损映射到`CapabilityRequest`并复用
+  `CommunicationCapabilityService`，保留候选路径来源和置信度。
+- 实现DRAFT、REJECTED、VALIDATED和READY_FOR_DISTRIBUTION状态结果；只有校验与全部
+  需求推演通过时才生成不可覆盖的本地分发包，并以内容指纹绑定校验与推演结果。
+- 修正规划生命周期：显式卸载后允许重新加载同一文件，活动规划和已生成修订仍拒绝静默覆盖。
+- DataContainer新增规划生命周期入口；Warlock新增“资源规划”页；Reporter新增独立规划
+  校验和推演JSONL及有界队列恢复状态。
+- 新增Repository/Validator与Evaluation/Distribution两个测试，旧9项无回归，合计11项
+  测试和两个插件目标构建通过。
+- headless WSF插件在当前允许范围内没有规划服务调用入口，因此未伪造
+  `network_plan_smoke`；本阶段状态为`IMPLEMENTED / PRE_ACCEPTANCE`。
+
 ## 0.8.0 - 2026-08-01
 
 - 新增无 Qt/AFSIM 依赖的 `CommunicationCapabilityService` 和稳定公共查询契约。

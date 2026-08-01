@@ -12,13 +12,16 @@ AFSIM 内部事件 / 甲方结果包 / 回放输入
 状态与证据层
   ├── MessageLifecycleTracker：消息关联、去重、超时和严格窗口队列
   ├── ResourceEventLedger：端点/链路状态及建链事件
-  └── NetworkProfileRepository：版本化参数剖面与校验
+  ├── NetworkProfileRepository：版本化参数剖面与校验
+  └── NetworkPlanRepository：严格解析、修订存储和加载失败恢复
                  │
                  ▼
 不可变 ResourceSnapshot
   ├── Warlock 展示
   ├── AssessmentEvaluator / ConstrainedPathSelector
   ├── CommunicationCapabilityService / EnvironmentEffectAdapter
+  ├── NetworkPlanValidator / NetworkPlanEvaluationService
+  ├── NetworkPlanDistributionService（仅本地不可变包）
   └── SnapshotReporter（runId 隔离的 JSONL/CSV/manifest）
 ```
 
@@ -42,6 +45,17 @@ v0.8 第一阶段的纯 C++ `CommunicationCapabilityService` 将能力请求映�
 数据格式和样包，因此默认输出四个`valid=false / ENVIRONMENT_DATA_UNAVAILABLE`效果，
 不改变核心能力指标，也不提供默认天气或自定义衰减公式。
 
+v0.9 第一阶段以`NetworkPlanDocument`作为内部公共值对象。`NetworkPlanRepository`
+严格解析`NRM_NETWORK_PLAN_V1`，加载失败不覆盖最后一个有效规划，保存使用同目录临时
+文件和原子重命名并拒绝覆盖既有修订。`NetworkPlanValidator`只执行已定义的结构、
+引用、剖面、成员和资源冲突规则，不猜测保护带、干扰或 TDMA 复用规则。
+
+`NetworkPlanEvaluationService`先校验规划，再将每条需求无损映射为
+`CapabilityRequest`并调用既有`CommunicationCapabilityService`。它不复制构图、
+路径搜索或能力指标公式，也不修改快照、规划、剖面或实时网络。只有校验通过且所有需求
+推演为 PASS 时，`NetworkPlanDistributionService`才在显式目录生成包含正文、校验、
+推演和 manifest 的本地不可变包。
+
 ## 稳定边界
 
 - `include/nrm/` 中的公共契约和算法不依赖 AFSIM 或 Qt。
@@ -50,6 +64,7 @@ v0.8 第一阶段的纯 C++ `CommunicationCapabilityService` 将能力请求映�
 - `SnapshotReporter` 使用有界队列和独立线程，仿真回调不执行文件 I/O。
 - `InputProvider` 冻结内部、甲方模块和回放输入的公共边界。
 - `AssessmentEvaluator` 不改变 AFSIM 图，只产生评估结果和只读建议。
+- 规划服务只产生校验、推演和本地包；编辑生成新修订的`DRAFT`，不向网络下发。
 - 所有参数化候选指标标记为 `PARAMETERIZED_MODEL/LOW`；当前路径上由多链路组合得到的
   PDR 标记为 `ESTIMATED/LOW`，不会伪装为协议实测。
 
@@ -61,6 +76,10 @@ v0.8 第一阶段的纯 C++ `CommunicationCapabilityService` 将能力请求映�
 候选 PDR、容量、传播模型、成员上限和业务类型。非法枚举、负值、PDR 越界、重复 ID 或
 缺失字段会整体拒绝，不使用部分有效数据静默降级。
 
+内部规划文件路径由显式调用或`NRM_PLAN_STORE_DIR`提供。该格式用于内部预验收，
+不是甲方正式规划格式；外部格式必须经`NetworkPlanAdapter`转换。甲方规划格式、
+专用校验规则和真实分发协议未提供前，不实现猜测性适配。
+
 上报目录结构如下：
 
 ```text
@@ -70,12 +89,17 @@ ${NRM_OUTPUT_DIR}/
     ├── resource_snapshots.jsonl
     ├── assessment_results.jsonl
     ├── capability_results.jsonl
+    ├── plan_validation_results.jsonl
+    ├── plan_evaluation_results.jsonl
     ├── network_summary.csv
     └── error.log                 # 仅发生错误时创建
 ```
 
 每次进程启动创建新目录，不以截断方式覆盖旧运行。manifest 记录运行、schema、软件和配置
 版本以及完成状态；写入失败和队列丢弃通过 `ReporterStatus` 暴露给 Warlock 面板。
+
+本地分发包独立位于`<plan-store>/distribution_packages/<planId>/<revision>/`，不属于
+仿真消息下发。包中规划副本状态为`READY_FOR_DISTRIBUTION`，原规划对象保持不变。
 
 ## 有界性与线程模型
 

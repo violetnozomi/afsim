@@ -1,5 +1,60 @@
 # 验证记录
 
+## v0.9.0 网链规划文件生命周期预验收证据
+
+验证日期：2026-08-01
+开发基线：commit `7c76b9410e5d221ff92b1b8e1b94b51650d8a409`
+开发分支：`feat/v0.9-network-plan-lifecycle`
+状态：`IMPLEMENTED / PRE_ACCEPTANCE`
+
+### 基线与最终回归
+
+修改前`scripts/ai_guard.sh static`通过，`scripts/ai_guard.sh test`发现并通过原9项测试。
+完成后再次执行两个守卫命令，WSF和Warlock插件目标构建成功，CTest发现并通过11项测试；
+旧9项无回归，新增：
+
+- `nrm_network_plan_repository_test`；
+- `nrm_network_plan_evaluation_test`。
+
+### Repository与校验
+
+自动测试覆盖合法加载、卸载后重载、保存新修订、round-trip、失败加载保留当前有效规划、同一
+规划修订单调、拒绝覆盖已存在文件、错误magic、未知记录、尾随token、重复ID、NaN/Inf、
+负带宽/时延、PDR越界、非法频率、缺失profile/平台、不支持业务、成员超限、重复成员、
+时隙资源冲突和JOIN/LEAVE冲突。测试创建的临时文件和目录均在结束前清理。
+甲方专用规则缺失时，合法内部规划仍携带`CUSTOMER_RULE_UNAVAILABLE` WARNING，
+不会把内部规则静默冒充甲方完整校验。
+
+### 只读推演与本地分发包
+
+自动测试覆盖两条需求全部PASS、带宽不足、时延超限、PDR不足、无路径、离线节点、必需
+指标无效和参数化候选路径来源/置信度。结构校验失败时不调用环境/能力链路；推演前后的
+`ResourceSnapshot`、规划和剖面保持不变。
+
+只有校验通过且全部需求PASS时才生成本地包。测试解析manifest、校验JSON、推演JSON和
+规划正文，确认包内副本为`READY_FOR_DISTRIBUTION`，原规划仍为`DRAFT`，
+同一`planId/revision`包拒绝覆盖。规划、校验、推演和manifest以稳定内容指纹绑定；
+回归测试确认修改需求参数后不能复用旧结果生成分发包。
+
+Reporter测试确认独立生成`plan_validation_results.jsonl`和
+`plan_evaluation_results.jsonl`并登记manifest；恢复测试覆盖两条新增有界队列的
+溢出计数和析构排空。Warlock插件已编译并包含“资源规划”页，本轮未执行GUI人工点击或截图。
+
+### 固定场景与边界
+
+未创建或运行`network_plan_smoke`。现有headless AFSIM脚本入口只能加载WSF插件和驱动
+通信事件，不能安全调用DataContainer中的规划加载、校验和推演服务；按开发指令不以普通
+消息场景伪造规划服务证据。因此当前状态是`IMPLEMENTED / PRE_ACCEPTANCE`，不是
+`VERIFIED`或`FINAL_ACCEPTANCE`。
+
+- 规划格式是内部`NRM_NETWORK_PLAN_V1`，不是甲方正式格式；
+- 校验只执行已定义的确定性规则，不猜测保护带、干扰或TDMA复用规则；
+- 分发仅生成本地不可变目录包，不调用真实网络、OA、消息总线或AFSIM控制API；
+- 未实现导航、环境传播、自动建链、改频、时隙分配、路由修改或参数实验；
+- AFSIM核心源码零修改。
+
+---
+
 ## v0.8.0 通信能力服务预验收证据
 
 验证日期：2026-08-01

@@ -92,6 +92,26 @@ int main()
       capability.environmentEffects.push_back(terrain);
       capability.reasons.push_back(nrm::CapabilityReason::cPARAMETERIZED_CANDIDATE);
       reporter.EnqueueCapability(capability);
+
+      nrm::PlanValidationResult planValidation;
+      planValidation.planId = "PLAN-REPORT";
+      planValidation.revision = 3;
+      planValidation.passed = true;
+      reporter.EnqueuePlanValidation(planValidation);
+
+      nrm::NetworkPlanEvaluationResult planEvaluation;
+      planEvaluation.planId = "PLAN-REPORT";
+      planEvaluation.revision = 3;
+      planEvaluation.snapshotVersion = 7;
+      planEvaluation.overallStatus = nrm::PlanEvaluationStatus::cPASS;
+      planEvaluation.resultingState = nrm::NetworkPlanState::cVALIDATED;
+      planEvaluation.validation = planValidation;
+      nrm::PlanDemandEvaluation demandEvaluation;
+      demandEvaluation.demandId = "DEMAND-REPORT";
+      demandEvaluation.status = nrm::PlanEvaluationStatus::cPASS;
+      demandEvaluation.capability = capability;
+      planEvaluation.demands.push_back(demandEvaluation);
+      reporter.EnqueuePlanEvaluation(planEvaluation);
    }
 
    const std::string json = ReadAll(runDirectory + "/resource_snapshots.jsonl");
@@ -142,9 +162,27 @@ int main()
    CHECK(capability.find("ENVIRONMENT_DATA_UNAVAILABLE") != std::string::npos);
    CHECK(capability.find("PARAMETERIZED_CANDIDATE") != std::string::npos);
 
+   const std::string planValidation =
+      ReadAll(runDirectory + "/plan_validation_results.jsonl");
+   CHECK(planValidation.find("\"schemaVersion\":\"nrm.network_plan_validation.v1\"") !=
+         std::string::npos);
+   CHECK(planValidation.find("\"planId\":\"PLAN-REPORT\"") != std::string::npos);
+   CHECK(planValidation.find("\"passed\":true") != std::string::npos);
+
+   const std::string planEvaluation =
+      ReadAll(runDirectory + "/plan_evaluation_results.jsonl");
+   CHECK(planEvaluation.find("\"schemaVersion\":\"nrm.network_plan_evaluation.v1\"") !=
+         std::string::npos);
+   CHECK(planEvaluation.find("\"overallStatus\":\"PASS\"") != std::string::npos);
+   CHECK(planEvaluation.find("\"demandId\":\"DEMAND-REPORT\"") != std::string::npos);
+   CHECK(planEvaluation.find("\"usesCandidate\":true") != std::string::npos);
+   CHECK(planEvaluation.find("\"environmentEffects\":[") != std::string::npos);
+
    const std::string manifest = ReadAll(runDirectory + "/manifest.json");
    CHECK(manifest.find("\"complete\":true") != std::string::npos);
    CHECK(manifest.find("\"softwareVersion\"") != std::string::npos);
    CHECK(manifest.find("capability_results.jsonl") != std::string::npos);
+   CHECK(manifest.find("plan_validation_results.jsonl") != std::string::npos);
+   CHECK(manifest.find("plan_evaluation_results.jsonl") != std::string::npos);
    return 0;
 }

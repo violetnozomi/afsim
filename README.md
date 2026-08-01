@@ -1,8 +1,8 @@
 # AFSIM 网络资源管理器插件
 
-这是网络资源管理器的独立源码包。当前 v0.8.0 在不修改 AFSIM 核心源码的前提下，
-增加统一通信/数据链能力查询，复用版本化剖面、严格指标和有界路径选择，输出距离、速率、
-丢包率、时延、交付吞吐量、接入率及完整数据质量信息。
+这是网络资源管理器的独立源码包。当前 v0.9.0 在不修改 AFSIM 核心源码的前提下，
+增加内部网链资源规划文件的加载、编辑、严格校验、只读能力推演、版本化存储和本地
+分发包生成闭环。
 
 ## 当前能力
 
@@ -23,13 +23,18 @@
   瓶颈可准入速率、丢包率、累计时延、观测交付吞吐量和成员接入率。
 - 环境边界：`EnvironmentEffectAdapter`预留地形、气象、天象和电磁干扰输入；没有甲方
   数据时四项均保持无效并输出固定原因码，不编造传播模型。
+- 规划生命周期：严格解析内部`NRM_NETWORK_PLAN_V1`格式，支持加载、卸载、保存新修订、
+  引用与冲突校验，并将每条业务需求映射到既有通信能力服务进行只读推演。
+- 本地分发包：仅当校验和全部需求推演通过时，生成包含规划正文、校验结果、推演结果和
+  manifest 的不可变目录；不调用网络、消息总线或 AFSIM 控制接口。
 - 可恢复上报：每次运行写入独立 `runId` 目录，生成 manifest、快照 JSONL、评估 JSONL
-  能力 JSONL 和 CSV；队列溢出与写入失败可观测，退出时排空队列。
+  能力 JSONL、规划校验/推演 JSONL 和 CSV；队列溢出与写入失败可观测，退出时排空队列。
 - 演示场景：四网总览、三种故障/恢复场景和通信能力固定 smoke 场景。
 
-当前剖面和故障场景属于内部演示输入，状态为 `PRE_ACCEPTANCE`，不代表甲方四网模型或
-目标环境的最终验收。甲方 GNSS/INS 功能包仍负责导航解算；本项目后续只负责结果包解析、
-字段校验、单位与坐标标准化、状态管理、展示、记录和转发。
+当前剖面、内部规划格式和故障场景属于内部演示输入，状态为 `PRE_ACCEPTANCE`，不代表
+甲方四网模型、正式规划格式、真实分发链路或目标环境的最终验收。甲方 GNSS/INS 功能包
+仍负责导航解算；本项目后续只负责结果包解析、字段校验、单位与坐标标准化、状态管理、
+展示、记录和转发。
 
 ## 接入方式
 
@@ -53,7 +58,8 @@ export NRM_OUTPUT_DIR=/tmp/nrm-output
 详细构建和回退步骤见 [docs/BUILD_AND_ROLLBACK.md](docs/BUILD_AND_ROLLBACK.md)，
 实际验证结果见 [docs/VALIDATION.md](docs/VALIDATION.md)，通信能力口径见
 [docs/features/通信能力计算服务.md](docs/features/通信能力计算服务.md)，故障场景验收步骤见
-[docs/V070_FAILURE_SCENARIOS.md](docs/V070_FAILURE_SCENARIOS.md)。日常启动和可视化入口见
+[docs/V070_FAILURE_SCENARIOS.md](docs/V070_FAILURE_SCENARIOS.md)，规划格式和状态机见
+[docs/features/网链资源规划文件.md](docs/features/网链资源规划文件.md)。日常启动和可视化入口见
 [docs/运行与可视化入口.md](docs/运行与可视化入口.md)，需求状态见
 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)。
 

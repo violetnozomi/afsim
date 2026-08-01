@@ -9,9 +9,13 @@
 #include <QColor>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QDateTime>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QHeaderView>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QStyle>
@@ -99,6 +103,56 @@ QTableWidget* CreateTable(const QStringList& aHeaders, QWidget* aParentPtr)
    tablePtr->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
    return tablePtr;
 }
+
+QTableWidget* CreateEditableTable(const QStringList& aHeaders, QWidget* aParentPtr)
+{
+   QTableWidget* tablePtr = CreateTable(aHeaders, aParentPtr);
+   tablePtr->setEditTriggers(QAbstractItemView::DoubleClicked |
+                             QAbstractItemView::EditKeyPressed |
+                             QAbstractItemView::SelectedClicked);
+   return tablePtr;
+}
+
+nrm::NetworkType ParseNetworkType(const QString& aValue)
+{
+   if (aValue == "LINK11") return nrm::NetworkType::cLINK11;
+   if (aValue == "LINK16") return nrm::NetworkType::cLINK16;
+   if (aValue == "SATCOM") return nrm::NetworkType::cSATCOM;
+   if (aValue == "CDL") return nrm::NetworkType::cCDL;
+   return nrm::NetworkType::cUNKNOWN;
+}
+
+std::vector<std::string> SplitValues(const QString& aValue)
+{
+   std::vector<std::string> output;
+   for (const QString& item : aValue.split(',', QString::SkipEmptyParts))
+   {
+      const QString trimmed = item.trimmed();
+      if (!trimmed.isEmpty()) output.push_back(trimmed.toStdString());
+   }
+   return output;
+}
+
+QString JoinValues(const std::vector<std::string>& aValues)
+{
+   QStringList output;
+   for (const std::string& value : aValues)
+      output.push_back(QString::fromStdString(value));
+   return output.join(", ");
+}
+
+QString JoinNetworks(const std::vector<nrm::NetworkType>& aValues)
+{
+   QStringList output;
+   for (nrm::NetworkType value : aValues) output.push_back(nrm::ToString(value));
+   return output.join(", ");
+}
+
+QString CellText(const QTableWidget* aTablePtr, int aRow, int aColumn)
+{
+   const QTableWidgetItem* itemPtr = aTablePtr->item(aRow, aColumn);
+   return itemPtr == nullptr ? QString() : itemPtr->text().trimmed();
+}
 } // namespace
 
 WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
@@ -132,6 +186,12 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mCapabilityMaximumDelayMsPtr(nullptr)
    , mCapabilityMinimumPdrPtr(nullptr)
    , mCapabilityResultPtr(nullptr)
+   , mPlanSummaryPtr(new QLabel(this))
+   , mPlanOperationPtr(new QLabel(this))
+   , mPlanAllocationTablePtr(nullptr)
+   , mPlanDemandTablePtr(nullptr)
+   , mPlanIssueTablePtr(nullptr)
+   , mPlanEvaluationTablePtr(nullptr)
 {
    QWidget* contentPtr = new QWidget(this);
    QVBoxLayout* rootLayoutPtr = new QVBoxLayout(contentPtr);
@@ -242,20 +302,111 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    capabilityLayoutPtr->addWidget(mCapabilityResultPtr);
    connect(capabilityButtonPtr, &QPushButton::clicked, this, &DockWidget::QueryCapability);
 
+   QWidget* planPagePtr = new QWidget(tabsPtr);
+   QVBoxLayout* planLayoutPtr = new QVBoxLayout(planPagePtr);
+   mPlanSummaryPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   mPlanOperationPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   planLayoutPtr->addWidget(mPlanSummaryPtr);
+   planLayoutPtr->addWidget(mPlanOperationPtr);
+
+   QHBoxLayout* planFileActionsPtr = new QHBoxLayout();
+   QPushButton* loadPlanButtonPtr = new QPushButton(QString::fromUtf8("加载"), planPagePtr);
+   loadPlanButtonPtr->setIcon(style()->standardIcon(QStyle::SP_DialogOpenButton));
+   QPushButton* unloadPlanButtonPtr = new QPushButton(QString::fromUtf8("卸载"), planPagePtr);
+   unloadPlanButtonPtr->setIcon(style()->standardIcon(QStyle::SP_DialogCloseButton));
+   QPushButton* savePlanButtonPtr =
+      new QPushButton(QString::fromUtf8("保存新修订"), planPagePtr);
+   savePlanButtonPtr->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
+   planFileActionsPtr->addWidget(loadPlanButtonPtr);
+   planFileActionsPtr->addWidget(unloadPlanButtonPtr);
+   planFileActionsPtr->addWidget(savePlanButtonPtr);
+   planFileActionsPtr->addStretch();
+   planLayoutPtr->addLayout(planFileActionsPtr);
+
+   mPlanAllocationTablePtr = CreateEditableTable(
+      {"Allocation", "Network", "Type", "Profile", "Frequency Hz", "Channel",
+       "Subnet", "Slots", "Members", "Route policy", "Enabled"}, planPagePtr);
+   mPlanAllocationTablePtr->setMinimumHeight(135);
+   planLayoutPtr->addWidget(mPlanAllocationTablePtr);
+   mPlanDemandTablePtr = CreateEditableTable(
+      {"Demand", "Business", "Source", "Destination", "Payload bits",
+       "Bandwidth bit/s", "Max delay ms", "Min PDR %", "Allowed networks"},
+      planPagePtr);
+   mPlanDemandTablePtr->setMinimumHeight(120);
+   planLayoutPtr->addWidget(mPlanDemandTablePtr);
+
+   QHBoxLayout* planServiceActionsPtr = new QHBoxLayout();
+   QPushButton* validatePlanButtonPtr =
+      new QPushButton(QString::fromUtf8("校验"), planPagePtr);
+   validatePlanButtonPtr->setIcon(style()->standardIcon(QStyle::SP_DialogApplyButton));
+   QPushButton* evaluatePlanButtonPtr =
+      new QPushButton(QString::fromUtf8("只读推演"), planPagePtr);
+   evaluatePlanButtonPtr->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
+   QPushButton* packagePlanButtonPtr =
+      new QPushButton(QString::fromUtf8("生成分发包"), planPagePtr);
+   packagePlanButtonPtr->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
+   planServiceActionsPtr->addWidget(validatePlanButtonPtr);
+   planServiceActionsPtr->addWidget(evaluatePlanButtonPtr);
+   planServiceActionsPtr->addWidget(packagePlanButtonPtr);
+   planServiceActionsPtr->addStretch();
+   planLayoutPtr->addLayout(planServiceActionsPtr);
+
+   mPlanIssueTablePtr = CreateTable(
+      {"Severity", "Reason", "Field", "Record", "Description"}, planPagePtr);
+   mPlanIssueTablePtr->setMinimumHeight(105);
+   planLayoutPtr->addWidget(mPlanIssueTablePtr);
+   mPlanEvaluationTablePtr = CreateTable(
+      {"Demand", "Status", "Path source", "Rate", "Delay", "Packet loss", "Reasons"},
+      planPagePtr);
+   mPlanEvaluationTablePtr->setMinimumHeight(105);
+   planLayoutPtr->addWidget(mPlanEvaluationTablePtr);
+
+   connect(loadPlanButtonPtr, &QPushButton::clicked, this, &DockWidget::LoadNetworkPlan);
+   connect(unloadPlanButtonPtr, &QPushButton::clicked, this, &DockWidget::UnloadNetworkPlan);
+   connect(savePlanButtonPtr, &QPushButton::clicked,
+           this, &DockWidget::SaveNetworkPlanRevision);
+   connect(validatePlanButtonPtr, &QPushButton::clicked,
+           this, &DockWidget::ValidateNetworkPlan);
+   connect(evaluatePlanButtonPtr, &QPushButton::clicked,
+           this, &DockWidget::EvaluateNetworkPlan);
+   connect(packagePlanButtonPtr, &QPushButton::clicked,
+           this, &DockWidget::GenerateNetworkPlanPackage);
+   connect(mPlanAllocationTablePtr, &QTableWidget::itemChanged, this,
+           [this](QTableWidgetItem*)
+           {
+              mPlanDirty = true;
+              mPlanOperationPtr->setText(
+                 QString::fromUtf8("DRAFT：表格编辑尚未写入规划仓库"));
+           });
+   connect(mPlanDemandTablePtr, &QTableWidget::itemChanged, this,
+           [this](QTableWidgetItem*)
+           {
+              mPlanDirty = true;
+              mPlanOperationPtr->setText(
+                 QString::fromUtf8("DRAFT：表格编辑尚未写入规划仓库"));
+           });
+
    tabsPtr->addTab(mNetworkTablePtr, "Four-network overview");
    tabsPtr->addTab(mMetricsTablePtr, "Window metrics");
    tabsPtr->addTab(mEndpointTablePtr, "Members");
    tabsPtr->addTab(mLinkTablePtr, "Links");
    tabsPtr->addTab(assessmentPagePtr, "Task assessment");
    tabsPtr->addTab(capabilityPagePtr, QString::fromUtf8("通信能力"));
+   tabsPtr->addTab(planPagePtr, QString::fromUtf8("资源规划"));
    tabsPtr->setCurrentWidget(assessmentPagePtr);
    rootLayoutPtr->addWidget(tabsPtr);
 
    setWidget(contentPtr);
-   resize(920, 620);
+   resize(1120, 760);
 
    connect(&mData, &DataContainer::SnapshotChanged, this, &DockWidget::Refresh);
+   connect(&mData, &DataContainer::NetworkPlanChanged, this,
+           [this]()
+           {
+              if (!mPlanDirty) RefreshNetworkPlan();
+           });
    Refresh();
+   RefreshNetworkPlan();
 }
 
 void WkNrm::DockWidget::EvaluateTask()
@@ -405,6 +556,343 @@ void WkNrm::DockWidget::QueryCapability()
    }
    text += "Reason codes: " + (reasons.isEmpty() ? QString("NONE") : reasons.join(", "));
    mCapabilityResultPtr->setPlainText(text);
+}
+
+void WkNrm::DockWidget::LoadNetworkPlan()
+{
+   if (mPlanDirty &&
+       QMessageBox::question(this, QString::fromUtf8("未保存草案"),
+                             QString::fromUtf8("加载新规划将放弃当前表格编辑，继续吗？")) !=
+          QMessageBox::Yes)
+      return;
+   const QString path = QFileDialog::getOpenFileName(
+      this, QString::fromUtf8("加载内部规划文件"), QString(),
+      QString::fromUtf8("NRM规划文件 (*.nrm);;所有文件 (*)"));
+   if (path.isEmpty()) return;
+   mPlanDirty = false;
+   mData.LoadNetworkPlan(path.toStdString());
+   RefreshNetworkPlan();
+}
+
+void WkNrm::DockWidget::UnloadNetworkPlan()
+{
+   if (!mData.HasNetworkPlan()) return;
+   if (QMessageBox::question(this, QString::fromUtf8("卸载规划"),
+                             QString::fromUtf8("卸载只清除规划状态，不影响实时快照。继续吗？")) !=
+       QMessageBox::Yes)
+      return;
+   mPlanDirty = false;
+   mData.UnloadNetworkPlan();
+   RefreshNetworkPlan();
+}
+
+void WkNrm::DockWidget::SaveNetworkPlanRevision()
+{
+   if (!mData.HasNetworkPlan())
+   {
+      mPlanOperationPtr->setText("NO_CURRENT_PLAN");
+      return;
+   }
+   const nrm::NetworkPlanDocument* planPtr = mData.GetNetworkPlan();
+   const QString suggested = planPtr == nullptr
+                                ? QString()
+                                : QString("%1-r%2.nrm")
+                                     .arg(QString::fromStdString(planPtr->planId))
+                                     .arg(planPtr->revision + 1);
+   const QString path = QFileDialog::getSaveFileName(
+      this, QString::fromUtf8("保存内部规划新修订"), suggested,
+      QString::fromUtf8("NRM规划文件 (*.nrm);;所有文件 (*)"));
+   if (path.isEmpty()) return;
+   // Saving is an explicit new-revision operation even when table values are unchanged.
+   mPlanDirty = true;
+   if (!ApplyNetworkPlanEdits()) return;
+   mData.SaveNetworkPlanRevision(path.toStdString());
+   RefreshNetworkPlan();
+}
+
+void WkNrm::DockWidget::ValidateNetworkPlan()
+{
+   if (!ApplyNetworkPlanEdits()) return;
+   mData.ValidateNetworkPlan();
+   RefreshNetworkPlan();
+}
+
+void WkNrm::DockWidget::EvaluateNetworkPlan()
+{
+   if (!ApplyNetworkPlanEdits()) return;
+   mData.EvaluateNetworkPlan();
+   RefreshNetworkPlan();
+}
+
+void WkNrm::DockWidget::GenerateNetworkPlanPackage()
+{
+   if (!ApplyNetworkPlanEdits()) return;
+   if (!mData.HasPlanValidation() || !mData.HasPlanEvaluation())
+   {
+      mData.GenerateNetworkPlanPackage();
+      RefreshNetworkPlan();
+      return;
+   }
+   const QString directory = QFileDialog::getExistingDirectory(
+      this, QString::fromUtf8("选择本地分发包输出根目录"));
+   if (directory.isEmpty()) return;
+   mData.GenerateNetworkPlanPackage(directory.toStdString());
+   RefreshNetworkPlan();
+}
+
+bool WkNrm::DockWidget::ApplyNetworkPlanEdits()
+{
+   if (!mPlanDirty) return mData.HasNetworkPlan();
+   const nrm::NetworkPlanDocument* currentPtr = mData.GetNetworkPlan();
+   if (currentPtr == nullptr)
+   {
+      mPlanOperationPtr->setText("NO_CURRENT_PLAN");
+      return false;
+   }
+
+   nrm::NetworkPlanDocument draft = *currentPtr;
+   draft.previousPlanId = currentPtr->planId;
+   draft.previousRevision = currentPtr->revision;
+   draft.revision = currentPtr->revision + 1;
+   draft.createdTime =
+      QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toStdString();
+   draft.state = nrm::NetworkPlanState::cDRAFT;
+   draft.valid = true;
+   draft.allocations.clear();
+   draft.demands.clear();
+
+   for (int row = 0; row < mPlanAllocationTablePtr->rowCount(); ++row)
+   {
+      nrm::NetworkPlanAllocation allocation;
+      allocation.allocationId = CellText(mPlanAllocationTablePtr, row, 0).toStdString();
+      allocation.networkName = CellText(mPlanAllocationTablePtr, row, 1).toStdString();
+      allocation.networkType = ParseNetworkType(CellText(mPlanAllocationTablePtr, row, 2));
+      allocation.profileId = CellText(mPlanAllocationTablePtr, row, 3).toStdString();
+      bool frequencyOk = false;
+      allocation.frequencyHz =
+         CellText(mPlanAllocationTablePtr, row, 4).toDouble(&frequencyOk);
+      allocation.channelId = CellText(mPlanAllocationTablePtr, row, 5).toStdString();
+      allocation.subnetId = CellText(mPlanAllocationTablePtr, row, 6).toStdString();
+      allocation.slotIds = SplitValues(CellText(mPlanAllocationTablePtr, row, 7));
+      allocation.memberPlatformIds =
+         SplitValues(CellText(mPlanAllocationTablePtr, row, 8));
+      allocation.routePolicyId =
+         CellText(mPlanAllocationTablePtr, row, 9).toStdString();
+      const QString enabled = CellText(mPlanAllocationTablePtr, row, 10);
+      if (!frequencyOk || (enabled != "0" && enabled != "1"))
+      {
+         mPlanOperationPtr->setText("PARSE_ERROR [allocation numeric/enabled]");
+         return false;
+      }
+      allocation.enabled = enabled == "1";
+      draft.allocations.push_back(allocation);
+   }
+
+   for (int row = 0; row < mPlanDemandTablePtr->rowCount(); ++row)
+   {
+      nrm::NetworkPlanDemand demand;
+      demand.demandId = CellText(mPlanDemandTablePtr, row, 0).toStdString();
+      demand.businessType = CellText(mPlanDemandTablePtr, row, 1).toStdString();
+      demand.sourcePlatform = CellText(mPlanDemandTablePtr, row, 2).toStdString();
+      demand.destinationPlatform = CellText(mPlanDemandTablePtr, row, 3).toStdString();
+      bool payloadOk = false;
+      bool bandwidthOk = false;
+      bool delayOk = false;
+      bool pdrOk = false;
+      demand.payloadBits =
+         CellText(mPlanDemandTablePtr, row, 4).toULongLong(&payloadOk);
+      demand.requiredBandwidthBps =
+         CellText(mPlanDemandTablePtr, row, 5).toDouble(&bandwidthOk);
+      demand.maximumDelayMs =
+         CellText(mPlanDemandTablePtr, row, 6).toDouble(&delayOk);
+      demand.minimumPdrPercent =
+         CellText(mPlanDemandTablePtr, row, 7).toDouble(&pdrOk);
+      for (const std::string& token :
+           SplitValues(CellText(mPlanDemandTablePtr, row, 8)))
+         demand.allowedNetworks.push_back(
+            ParseNetworkType(QString::fromStdString(token)));
+      if (!payloadOk || !bandwidthOk || !delayOk || !pdrOk)
+      {
+         mPlanOperationPtr->setText("PARSE_ERROR [demand numeric]");
+         return false;
+      }
+      draft.demands.push_back(demand);
+   }
+
+   const bool replaced = mData.ReplaceNetworkPlanDraft(draft);
+   if (!replaced)
+   {
+      mPlanOperationPtr->setText(
+         QString::fromLatin1(nrm::ToString(mData.GetPlanOperation().reason)));
+      return false;
+   }
+   mPlanDirty = false;
+   RefreshNetworkPlan();
+   return true;
+}
+
+void WkNrm::DockWidget::RefreshNetworkPlan()
+{
+   if (mPlanDirty) return;
+   const nrm::NetworkPlanDocument* planPtr = mData.GetNetworkPlan();
+   if (planPtr == nullptr)
+   {
+      mPlanSummaryPtr->setText(QString::fromUtf8("当前规划：未加载"));
+      const nrm::PlanRepositoryResult& operation = mData.GetPlanOperation();
+      mPlanOperationPtr->setText(
+         operation.reason == nrm::PlanValidationReason::cNONE
+            ? QString::fromUtf8("状态：无规划")
+            : QString("reason=%1, field=%2")
+                 .arg(nrm::ToString(operation.reason),
+                      QString::fromStdString(operation.field)));
+      mPlanAllocationTablePtr->setRowCount(0);
+      mPlanDemandTablePtr->setRowCount(0);
+      mPlanIssueTablePtr->setRowCount(0);
+      mPlanEvaluationTablePtr->setRowCount(0);
+      return;
+   }
+
+   mPlanSummaryPtr->setText(
+      QString("planId=%1 | revision=%2 | state=%3 | source=%4 | confidence=%5 | config=%6")
+         .arg(QString::fromStdString(planPtr->planId))
+         .arg(planPtr->revision)
+         .arg(nrm::ToString(mData.GetNetworkPlanState()))
+         .arg(nrm::ToString(planPtr->source))
+         .arg(nrm::ToString(planPtr->confidence))
+         .arg(QString::fromStdString(planPtr->configVersion)));
+
+   QString operationText;
+   if (mData.HasDistributionPackage())
+   {
+      const nrm::DistributionPackageResult& package = mData.GetDistributionPackage();
+      operationText = package.generated
+                         ? QString("package=%1").arg(
+                              QString::fromStdString(package.outputPath))
+                         : QString("reason=%1").arg(nrm::ToString(package.reason));
+   }
+   else
+   {
+      const nrm::PlanRepositoryResult& operation = mData.GetPlanOperation();
+      operationText = operation.success
+                         ? QString("operation=OK, path=%1").arg(
+                              QString::fromStdString(operation.path))
+                         : QString("reason=%1").arg(nrm::ToString(operation.reason));
+   }
+   mPlanOperationPtr->setText(operationText);
+
+   const QSignalBlocker allocationBlocker(mPlanAllocationTablePtr);
+   const QSignalBlocker demandBlocker(mPlanDemandTablePtr);
+   mPlanAllocationTablePtr->setRowCount(
+      static_cast<int>(planPtr->allocations.size()));
+   for (std::size_t index = 0; index < planPtr->allocations.size(); ++index)
+   {
+      const int row = static_cast<int>(index);
+      const nrm::NetworkPlanAllocation& allocation = planPtr->allocations[index];
+      SetTableText(mPlanAllocationTablePtr, row, 0,
+                   QString::fromStdString(allocation.allocationId));
+      SetTableText(mPlanAllocationTablePtr, row, 1,
+                   QString::fromStdString(allocation.networkName));
+      SetTableText(mPlanAllocationTablePtr, row, 2,
+                   nrm::ToString(allocation.networkType));
+      SetTableText(mPlanAllocationTablePtr, row, 3,
+                   QString::fromStdString(allocation.profileId));
+      SetTableText(mPlanAllocationTablePtr, row, 4,
+                   QString::number(allocation.frequencyHz, 'g', 16));
+      SetTableText(mPlanAllocationTablePtr, row, 5,
+                   QString::fromStdString(allocation.channelId));
+      SetTableText(mPlanAllocationTablePtr, row, 6,
+                   QString::fromStdString(allocation.subnetId));
+      SetTableText(mPlanAllocationTablePtr, row, 7, JoinValues(allocation.slotIds));
+      SetTableText(mPlanAllocationTablePtr, row, 8,
+                   JoinValues(allocation.memberPlatformIds));
+      SetTableText(mPlanAllocationTablePtr, row, 9,
+                   QString::fromStdString(allocation.routePolicyId));
+      SetTableText(mPlanAllocationTablePtr, row, 10,
+                   allocation.enabled ? "1" : "0");
+   }
+
+   mPlanDemandTablePtr->setRowCount(static_cast<int>(planPtr->demands.size()));
+   for (std::size_t index = 0; index < planPtr->demands.size(); ++index)
+   {
+      const int row = static_cast<int>(index);
+      const nrm::NetworkPlanDemand& demand = planPtr->demands[index];
+      SetTableText(mPlanDemandTablePtr, row, 0,
+                   QString::fromStdString(demand.demandId));
+      SetTableText(mPlanDemandTablePtr, row, 1,
+                   QString::fromStdString(demand.businessType));
+      SetTableText(mPlanDemandTablePtr, row, 2,
+                   QString::fromStdString(demand.sourcePlatform));
+      SetTableText(mPlanDemandTablePtr, row, 3,
+                   QString::fromStdString(demand.destinationPlatform));
+      SetTableText(mPlanDemandTablePtr, row, 4,
+                   QString::number(demand.payloadBits));
+      SetTableText(mPlanDemandTablePtr, row, 5,
+                   QString::number(demand.requiredBandwidthBps, 'g', 16));
+      SetTableText(mPlanDemandTablePtr, row, 6,
+                   QString::number(demand.maximumDelayMs, 'g', 16));
+      SetTableText(mPlanDemandTablePtr, row, 7,
+                   QString::number(demand.minimumPdrPercent, 'g', 16));
+      SetTableText(mPlanDemandTablePtr, row, 8,
+                   JoinNetworks(demand.allowedNetworks));
+   }
+
+   mPlanIssueTablePtr->setRowCount(
+      mData.HasPlanValidation()
+         ? static_cast<int>(mData.GetPlanValidation().issues.size())
+         : 0);
+   if (mData.HasPlanValidation())
+   {
+      const std::vector<nrm::PlanValidationIssue>& issues =
+         mData.GetPlanValidation().issues;
+      for (std::size_t index = 0; index < issues.size(); ++index)
+      {
+         const int row = static_cast<int>(index);
+         SetTableText(mPlanIssueTablePtr, row, 0, nrm::ToString(issues[index].severity));
+         SetTableText(mPlanIssueTablePtr, row, 1, nrm::ToString(issues[index].reason));
+         SetTableText(mPlanIssueTablePtr, row, 2,
+                      QString::fromStdString(issues[index].field));
+         SetTableText(mPlanIssueTablePtr, row, 3,
+                      QString::fromStdString(issues[index].recordId));
+         SetTableText(mPlanIssueTablePtr, row, 4,
+                      QString::fromStdString(issues[index].description));
+      }
+   }
+
+   mPlanEvaluationTablePtr->setRowCount(
+      mData.HasPlanEvaluation()
+         ? static_cast<int>(mData.GetPlanEvaluation().demands.size())
+         : 0);
+   if (mData.HasPlanEvaluation())
+   {
+      const std::vector<nrm::PlanDemandEvaluation>& evaluations =
+         mData.GetPlanEvaluation().demands;
+      for (std::size_t index = 0; index < evaluations.size(); ++index)
+      {
+         const int row = static_cast<int>(index);
+         const nrm::PlanDemandEvaluation& evaluation = evaluations[index];
+         QStringList reasons;
+         for (nrm::PlanValidationReason reason : evaluation.reasons)
+            reasons.push_back(nrm::ToString(reason));
+         SetTableText(mPlanEvaluationTablePtr, row, 0,
+                      QString::fromStdString(evaluation.demandId));
+         SetTableText(mPlanEvaluationTablePtr, row, 1,
+                      nrm::ToString(evaluation.status));
+         SetTableText(mPlanEvaluationTablePtr, row, 2,
+                      evaluation.capability.pathAvailable
+                         ? (evaluation.capability.usesCandidate
+                               ? "PARAMETERIZED_MODEL/LOW"
+                               : "CURRENT")
+                         : "UNAVAILABLE");
+         SetTableText(mPlanEvaluationTablePtr, row, 3,
+                      MetricText(evaluation.capability.transmissionRateBps, 1));
+         SetTableText(mPlanEvaluationTablePtr, row, 4,
+                      MetricText(evaluation.capability.transmissionDelayMs, 3));
+         SetTableText(mPlanEvaluationTablePtr, row, 5,
+                      MetricText(evaluation.capability.packetLossPercent, 3));
+         SetTableText(mPlanEvaluationTablePtr, row, 6,
+                      reasons.isEmpty() ? "NONE" : reasons.join(", "));
+      }
+   }
 }
 
 void WkNrm::DockWidget::Refresh()

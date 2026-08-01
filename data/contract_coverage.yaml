@@ -39,16 +39,18 @@ requirements:
   - requirement_id: "3.2.4"
     requirement_name: "网链资源规划模型"
     design_status: COVERED
-    implementation_status: NOT_IMPLEMENTED
-    components: [NetworkPlanningService, PlanValidator, PlanSimulationService, PlanCollaborationAdapter, PlanDistributionTransport]
+    implementation_status: IMPLEMENTED
+    verification_status: PRE_ACCEPTANCE
+    components: [NetworkPlanRepository, NetworkPlanValidator, NetworkPlanEvaluationService, NetworkPlanDistributionService, NetworkPlanAdapter]
+    evidence: "v0.9第一阶段完成内部规划加载、卸载、编辑新修订、严格校验、只读能力推演、原子存储和本地不可变分发包；11项测试与两插件构建通过。甲方格式、专用规则、真实分发和规划服务固定场景尚缺。"
     acceptance_cases: [A23, A24, A25]
   - requirement_id: "3.2.5"
     requirement_name: "网链资源管理模型"
     design_status: COVERED
     implementation_status: PARTIAL
     verification_status: PRE_ACCEPTANCE
-    components: [MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, LinkResourceAgent, CapabilityMatcher, PlanningRecommendationEngine]
-    evidence: "状态时长、在网率、建链契约、负载、路由和消息统计已实现；真实协议事件和自动规划未实现。"
+    components: [MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, NetworkPlanDemand, LinkResourceAgent, CapabilityMatcher]
+    evidence: "状态时长、在网率、建链契约、负载、路由、消息统计和规划需求只读评估已实现；真实协议事件和自动网络控制未实现。"
     acceptance_cases: [A06, A14, A26]
   - requirement_id: "3.3"
     requirement_name: "接口要求"
@@ -83,6 +85,6 @@ requirements:
     design_status: COVERED
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [NetworkTypeAdapter, MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, CommunicationCapabilityService, EnvironmentEffectAdapter, SnapshotReporter, StateRepository, ModelRegistry]
-    evidence: "公共纯C++组件与AFSIM/Qt边界分离，9项组件化测试和两插件构建通过。"
+    components: [NetworkTypeAdapter, MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, CommunicationCapabilityService, EnvironmentEffectAdapter, NetworkPlanRepository, NetworkPlanValidator, NetworkPlanEvaluationService, NetworkPlanDistributionService, SnapshotReporter, StateRepository, ModelRegistry]
+    evidence: "公共纯C++组件与AFSIM/Qt边界分离，11项组件化测试和两插件构建通过。"
     acceptance_cases: [A27, A28, A29, A30]

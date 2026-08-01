@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "nrm/NetworkTypeUtils.hpp"
+#include "nrm/NetworkPlanSerialization.hpp"
 #include "nrm/Version.hpp"
 
 namespace
@@ -523,6 +524,59 @@ void WkNrm::SnapshotReporter::EnqueueCapability(const nrm::CapabilityResult& aRe
    mCondition.notify_one();
 }
 
+void WkNrm::SnapshotReporter::EnqueuePlanValidation(
+   const nrm::PlanValidationResult& aResult)
+{
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (mPlanValidationQueue.size() >= mMaximumQueueSize)
+      {
+         mPlanValidationQueue.pop_front();
+         ++mStatus.droppedPlanValidationCount;
+      }
+      mPlanValidationQueue.push_back(aResult);
+   }
+   mCondition.notify_one();
+}
+
+void WkNrm::SnapshotReporter::EnqueuePlanEvaluation(
+   const nrm::NetworkPlanEvaluationResult& aResult)
+{
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (mPlanEvaluationQueue.size() >= mMaximumQueueSize)
+      {
+         mPlanEvaluationQueue.pop_front();
+         ++mStatus.droppedPlanEvaluationCount;
+      }
+      mPlanEvaluationQueue.push_back(aResult);
+   }
+   mCondition.notify_one();
+}
+
+void WkNrm::SnapshotReporter::ReportPlanError(
+   nrm::PlanValidationReason aReason,
+   const std::string& aField)
+{
+   std::string runDirectory;
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      mStatus.healthy = false;
+      ++mStatus.writeErrorCount;
+      mStatus.lastError = nrm::ToString(aReason);
+      runDirectory = mStatus.runDirectory;
+   }
+   std::ofstream errorOutput(runDirectory + "/error.log", std::ios::out | std::ios::app);
+   if (errorOutput)
+   {
+      errorOutput << "{\"time\":\"" << UtcTimestamp(false)
+                  << "\",\"component\":\"NetworkPlan\","
+                     "\"reasonCode\":\""
+                  << nrm::ToString(aReason) << "\",\"field\":\""
+                  << EscapeJson(aField) << "\"}\n";
+   }
+}
+
 WkNrm::ReporterStatus WkNrm::SnapshotReporter::GetStatus() const
 {
    std::lock_guard<std::mutex> lock(mMutex);
@@ -578,9 +632,15 @@ void WkNrm::SnapshotReporter::WriteManifest(bool aComplete)
           << ",\"droppedSnapshotCount\":" << status.droppedSnapshotCount
           << ",\"droppedAssessmentCount\":" << status.droppedAssessmentCount
           << ",\"droppedCapabilityCount\":" << status.droppedCapabilityCount
+          << ",\"droppedPlanValidationCount\":"
+          << status.droppedPlanValidationCount
+          << ",\"droppedPlanEvaluationCount\":"
+          << status.droppedPlanEvaluationCount
           << ",\"writeErrorCount\":" << status.writeErrorCount
           << ",\"files\":[\"resource_snapshots.jsonl\",\"network_summary.csv\","
-             "\"assessment_results.jsonl\",\"capability_results.jsonl\",\"error.log\"]}\n";
+             "\"assessment_results.jsonl\",\"capability_results.jsonl\","
+             "\"plan_validation_results.jsonl\",\"plan_evaluation_results.jsonl\","
+             "\"error.log\"]}\n";
    output.flush();
    if (!output)
    {
@@ -600,10 +660,18 @@ void WkNrm::SnapshotReporter::Run()
                                   std::ios::out | std::ios::trunc);
    std::ofstream capabilityOutput(initialStatus.runDirectory + "/capability_results.jsonl",
                                   std::ios::out | std::ios::trunc);
+   std::ofstream planValidationOutput(
+      initialStatus.runDirectory + "/plan_validation_results.jsonl",
+      std::ios::out | std::ios::trunc);
+   std::ofstream planEvaluationOutput(
+      initialStatus.runDirectory + "/plan_evaluation_results.jsonl",
+      std::ios::out | std::ios::trunc);
    bool jsonHealthy = jsonOutput.is_open();
    bool csvHealthy = csvOutput.is_open();
    bool assessmentHealthy = assessmentOutput.is_open();
    bool capabilityHealthy = capabilityOutput.is_open();
+   bool planValidationHealthy = planValidationOutput.is_open();
+   bool planEvaluationHealthy = planEvaluationOutput.is_open();
    if (!jsonHealthy)
       RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
                   "resource_snapshots.jsonl");
@@ -616,6 +684,12 @@ void WkNrm::SnapshotReporter::Run()
    if (!capabilityHealthy)
       RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
                   "capability_results.jsonl");
+   if (!planValidationHealthy)
+      RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
+                  "plan_validation_results.jsonl");
+   if (!planEvaluationHealthy)
+      RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
+                  "plan_evaluation_results.jsonl");
 
    if (csvHealthy)
    {
@@ -631,17 +705,23 @@ void WkNrm::SnapshotReporter::Run()
       nrm::ResourceSnapshot snapshot;
       nrm::AssessmentResult assessment;
       nrm::CapabilityResult capability;
+      nrm::PlanValidationResult planValidation;
+      nrm::NetworkPlanEvaluationResult planEvaluation;
       bool hasSnapshot = false;
       bool hasAssessment = false;
       bool hasCapability = false;
+      bool hasPlanValidation = false;
+      bool hasPlanEvaluation = false;
       {
          std::unique_lock<std::mutex> lock(mMutex);
          mCondition.wait(lock, [this]
          {
             return mStopping || !mQueue.empty() || !mAssessmentQueue.empty() ||
-                   !mCapabilityQueue.empty();
+                   !mCapabilityQueue.empty() || !mPlanValidationQueue.empty() ||
+                   !mPlanEvaluationQueue.empty();
          });
          if (mQueue.empty() && mAssessmentQueue.empty() && mCapabilityQueue.empty() &&
+             mPlanValidationQueue.empty() && mPlanEvaluationQueue.empty() &&
              mStopping)
          {
             break;
@@ -651,6 +731,18 @@ void WkNrm::SnapshotReporter::Run()
             assessment = mAssessmentQueue.front();
             mAssessmentQueue.pop_front();
             hasAssessment = true;
+         }
+         else if (!mPlanValidationQueue.empty())
+         {
+            planValidation = mPlanValidationQueue.front();
+            mPlanValidationQueue.pop_front();
+            hasPlanValidation = true;
+         }
+         else if (!mPlanEvaluationQueue.empty())
+         {
+            planEvaluation = mPlanEvaluationQueue.front();
+            mPlanEvaluationQueue.pop_front();
+            hasPlanEvaluation = true;
          }
          else if (!mCapabilityQueue.empty())
          {
@@ -663,6 +755,34 @@ void WkNrm::SnapshotReporter::Run()
             snapshot = mQueue.front();
             mQueue.pop_front();
             hasSnapshot = true;
+         }
+      }
+
+      if (hasPlanValidation && planValidationHealthy)
+      {
+         nrm::network_plan_serialization::WriteValidation(
+            planValidationOutput, planValidation, initialStatus.runId);
+         planValidationOutput << '\n';
+         planValidationOutput.flush();
+         if (!planValidationOutput)
+         {
+            planValidationHealthy = false;
+            RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_WRITE_FAILED,
+                        "plan_validation_results.jsonl");
+         }
+      }
+
+      if (hasPlanEvaluation && planEvaluationHealthy)
+      {
+         nrm::network_plan_serialization::WriteEvaluation(
+            planEvaluationOutput, planEvaluation, initialStatus.runId);
+         planEvaluationOutput << '\n';
+         planEvaluationOutput.flush();
+         if (!planEvaluationOutput)
+         {
+            planEvaluationHealthy = false;
+            RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_WRITE_FAILED,
+                        "plan_evaluation_results.jsonl");
          }
       }
 

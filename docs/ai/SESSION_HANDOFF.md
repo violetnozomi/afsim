@@ -4,17 +4,18 @@
 
 更新时间：2026-08-01。
 
-工作区状态：v0.7已完成统一代码审查、8项固定测试和5个批准场景复验，准备形成稳定提交。
+工作区状态：v0.9第一阶段已完成内部规划文件生命周期、11项固定测试和两插件构建，等待
+用户审查；未提交。
 
-最近稳定基线：v0.6.0-candidate-routing，提交8948cd0。
+最近稳定基线：v0.8.0，提交`7c76b9410e5d221ff92b1b8e1b94b51650d8a409`。
 
-下一步唯一动作：保存v0.7稳定提交；之后等待用户明确指定下一项合同开发任务。
+下一步唯一动作：用户审查v0.9 diff并明确决定是否提交Git；不自动进入下一里程碑。
 
 已知注意事项：
 
-- v0.7仍是内部PRE_ACCEPTANCE，不代表甲方最终验收；
+- v0.9仍是内部PRE_ACCEPTANCE，不代表甲方最终验收；
 - 甲方接口、样包和目标环境尚未提供；
-- 导航、环境和规划不属于当前已完成里程碑；
+- 甲方正式规划格式、专用校验规则和真实分发协议不属于当前已实现范围；
 - 未经用户指定不得启动参数扫描或研究实验。
 
 ## 每次会话结束必须追加
@@ -97,3 +98,51 @@
 - 合同追踪键：3.2.3和4.2保持`VERIFIED / PRE_ACCEPTANCE`，不是`FINAL_ACCEPTANCE`。
 - 阻塞：Warlock通信能力页人工截图，以及甲方环境接口和样包。
 - 下一步唯一动作：保持v0.8第一阶段稳定提交，等待用户明确指定下一项合同功能。
+
+### 2026-08-01 — Codex v0.9 development instruction
+
+- 唯一目标：为其他开发AI建立v0.9网链资源规划文件生命周期的可执行指令。
+- 实际修改：将`NEXT_DEVELOPMENT_INSTRUCTIONS.md`切换为v0.9任务，明确内部规划契约、严格
+  解析、Repository、Validator、只读能力推演、状态机、本地分发包、Warlock集成、测试门
+  和禁止事项；将CURRENT_MILESTONE设为PENDING并更新长期记忆。
+- 未修改但发现：甲方规划文件格式、专用校验规则、真实分发协议和模型封装规范尚未提供。
+- 执行命令：文档与现有公共契约审查；未修改代码。
+- 测试结果：仅文档变更，运行`ai_guard.sh static`；未运行C++测试。
+- 合同追踪键：3.2.4进入开发规划状态，尚未标记IMPLEMENTED。
+- 阻塞：外部格式和真实分发接口阻止FINAL_ACCEPTANCE，不阻止内部生命周期开发。
+- 下一步唯一动作：开发AI从`7c76b94`创建`feat/v0.9-network-plan-lifecycle`并记录9项基线
+  测试。
+
+### 2026-08-01 19:41 CST — Codex v0.9 network plan lifecycle
+
+- 唯一目标：完成合同3.2.4第一阶段内部网链资源规划文件生命周期。
+- 实际修改：从`7c76b94`创建`feat/v0.9-network-plan-lifecycle`；新增严格内部
+  规划语法、公共值对象、Repository、Validator、只读Evaluation和本地Distribution服务；
+  接入DataContainer、Reporter规划JSONL与Warlock“资源规划”页；版本升至0.9.0并同步追踪。
+- 未修改但发现：现有headless AFSIM脚本不能安全调用规划服务，未伪造`network_plan_smoke`；
+  甲方规划格式、专用规则、真实分发协议和目标环境仍未提供；AFSIM核心未修改。
+- 执行命令：`scripts/ai_guard.sh status/static/test`、YAML解析、公共头依赖扫描、
+  `git diff --check`和逐文件代码审查。
+- 测试结果：修改前9/9基线通过；完成后11/11测试通过，WSF与Warlock插件构建成功；
+  Warlock资源规划页未人工点击或截图。
+- 合同追踪键：3.2.4推进为`IMPLEMENTED / PRE_ACCEPTANCE`，不是
+  `VERIFIED`或`FINAL_ACCEPTANCE`。
+- 阻塞：固定规划服务场景、甲方正式格式/规则、真实分发适配和目标环境联调。
+- 下一步唯一动作：用户审查当前diff并明确决定是否提交Git；不自动进入导航、环境、
+  自动网络控制或参数实验。
+
+### 2026-08-01 — Codex v0.9 review and stabilization
+
+- 唯一目标：审查并稳定v0.9第一阶段规划文件生命周期实现。
+- 实际修改：为规划校验、推演和分发包增加稳定内容指纹，阻止同一planId/revision
+  下复用陈旧结果；修正Repository卸载后无法重载同一文件的生命周期问题；补齐
+  回归测试、manifest字段和文档证据。
+- 未修改但发现：规划推演的snapshotVersion是可审计的点时证据；由于甲方未定义时效策略，
+  本轮没有擅自增加“实时快照更新即使规划失效”规则。
+- 执行命令：`scripts/ai_guard.sh static`、`scripts/ai_guard.sh test`、`git diff --check`、
+  编辑/队列/序列化与路径安全逐项审查。
+- 测试结果：11/11固定测试通过，WSF与Warlock插件构建成功，新增陈旧结果和卸载重载
+  回归用例通过。
+- 合同追踪键：3.2.4保持`IMPLEMENTED / PRE_ACCEPTANCE`，不是`FINAL_ACCEPTANCE`。
+- 阻塞：甲方正式规划格式、专用校验规则、真实分发协议和可调用规划服务的固定场景仍缺失。
+- 下一步唯一动作：获得用户明确Git提交授权后形成v0.9稳定提交，再单独定义下一里程碑。

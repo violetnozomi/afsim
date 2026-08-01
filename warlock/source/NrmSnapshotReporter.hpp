@@ -11,6 +11,7 @@
 
 #include "nrm/AssessmentTypes.hpp"
 #include "nrm/CommunicationCapabilityTypes.hpp"
+#include "nrm/NetworkPlanTypes.hpp"
 
 namespace WkNrm
 {
@@ -23,6 +24,8 @@ struct ReporterStatus
    std::uint64_t droppedSnapshotCount = 0;
    std::uint64_t droppedAssessmentCount = 0;
    std::uint64_t droppedCapabilityCount = 0;
+   std::uint64_t droppedPlanValidationCount = 0;
+   std::uint64_t droppedPlanEvaluationCount = 0;
    std::uint64_t writeErrorCount = 0;
    std::string lastError;
 };
@@ -43,6 +46,10 @@ public:
    void Enqueue(const nrm::ResourceSnapshot& aSnapshot);
    void EnqueueAssessment(const nrm::AssessmentResult& aResult);
    void EnqueueCapability(const nrm::CapabilityResult& aResult);
+   void EnqueuePlanValidation(const nrm::PlanValidationResult& aResult);
+   void EnqueuePlanEvaluation(const nrm::NetworkPlanEvaluationResult& aResult);
+   void ReportPlanError(nrm::PlanValidationReason aReason,
+                        const std::string& aField);
    ReporterStatus GetStatus() const;
    std::string GetRunDirectory() const;
 
@@ -62,6 +69,8 @@ private:
    std::deque<nrm::ResourceSnapshot> mQueue;
    std::deque<nrm::AssessmentResult> mAssessmentQueue;
    std::deque<nrm::CapabilityResult> mCapabilityQueue;
+   std::deque<nrm::PlanValidationResult> mPlanValidationQueue;
+   std::deque<nrm::NetworkPlanEvaluationResult> mPlanEvaluationQueue;
    std::thread                       mThread;
    bool                              mStopping = false;
    bool                              mStarted = false;

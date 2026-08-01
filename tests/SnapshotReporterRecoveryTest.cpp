@@ -69,6 +69,22 @@ int main()
    }
 
    {
+      WkNrm::SnapshotReporter reporter(root, "plan-overflow-test", 2, false);
+      for (std::uint64_t revision = 1; revision <= 5; ++revision)
+      {
+         nrm::PlanValidationResult validation;
+         validation.revision = revision;
+         reporter.EnqueuePlanValidation(validation);
+         nrm::NetworkPlanEvaluationResult evaluation;
+         evaluation.revision = revision;
+         reporter.EnqueuePlanEvaluation(evaluation);
+      }
+      CHECK(reporter.GetStatus().droppedPlanValidationCount == 3);
+      CHECK(reporter.GetStatus().droppedPlanEvaluationCount == 3);
+      reporter.Start();
+   }
+
+   {
       WkNrm::SnapshotReporter reporter(
          "/proc/nrm-output-not-writable", "failure-test", 2, false);
       CHECK(!reporter.GetStatus().healthy);

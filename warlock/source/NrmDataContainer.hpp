@@ -9,6 +9,9 @@
 #include "nrm/NetworkResourceTypes.hpp"
 #include "nrm/AssessmentTypes.hpp"
 #include "nrm/CommunicationCapabilityService.hpp"
+#include "nrm/NetworkPlanDistributionService.hpp"
+#include "nrm/NetworkPlanEvaluationService.hpp"
+#include "nrm/NetworkPlanRepository.hpp"
 
 namespace WkNrm
 {
@@ -27,6 +30,31 @@ public:
    const nrm::CapabilityResult& GetCapability() const { return mCapability; }
    bool HasAssessment() const { return mHasAssessment; }
    bool HasCapability() const { return mHasCapability; }
+   bool HasNetworkPlan() const { return mPlanRepository.HasCurrentPlan(); }
+   bool HasPlanValidation() const { return mHasPlanValidation; }
+   bool HasPlanEvaluation() const { return mHasPlanEvaluation; }
+   bool HasDistributionPackage() const { return mHasDistributionPackage; }
+   const nrm::NetworkPlanDocument* GetNetworkPlan() const
+   {
+      return mPlanRepository.GetCurrentPlan();
+   }
+   const nrm::PlanValidationResult& GetPlanValidation() const
+   {
+      return mPlanValidation;
+   }
+   const nrm::NetworkPlanEvaluationResult& GetPlanEvaluation() const
+   {
+      return mPlanEvaluation;
+   }
+   const nrm::DistributionPackageResult& GetDistributionPackage() const
+   {
+      return mDistributionPackage;
+   }
+   const nrm::PlanRepositoryResult& GetPlanOperation() const
+   {
+      return mPlanOperation;
+   }
+   nrm::NetworkPlanState GetNetworkPlanState() const;
    bool IsReportingHealthy() const;
    std::string GetReportingStatus() const;
    void SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot);
@@ -34,11 +62,21 @@ public:
    nrm::CapabilityResult QueryCapability(
       const nrm::CapabilityRequest& aRequest,
       const nrm::EnvironmentContext& aEnvironment = nrm::EnvironmentContext());
+   bool LoadNetworkPlan(const std::string& aPath);
+   bool ReplaceNetworkPlanDraft(const nrm::NetworkPlanDocument& aDocument);
+   void UnloadNetworkPlan();
+   bool SaveNetworkPlanRevision(const std::string& aPath = std::string());
+   nrm::PlanValidationResult ValidateNetworkPlan();
+   nrm::NetworkPlanEvaluationResult EvaluateNetworkPlan(
+      const nrm::EnvironmentContext& aEnvironment = nrm::EnvironmentContext());
+   nrm::DistributionPackageResult GenerateNetworkPlanPackage(
+      const std::string& aOutputRoot = std::string());
 
 signals:
    void SnapshotChanged();
    void AssessmentChanged();
    void CapabilityChanged();
+   void NetworkPlanChanged();
 
 private:
    nrm::FrameworkSnapshot            mSnapshot;
@@ -48,6 +86,17 @@ private:
    bool                              mHasCapability = false;
    nrm::NetworkProfileRepository     mProfiles;
    nrm::CommunicationCapabilityService mCapabilityService;
+   nrm::NetworkPlanRepository         mPlanRepository;
+   nrm::NetworkPlanValidator          mPlanValidator;
+   nrm::NetworkPlanEvaluationService  mPlanEvaluationService;
+   nrm::NetworkPlanDistributionService mPlanDistributionService;
+   nrm::PlanRepositoryResult          mPlanOperation;
+   nrm::PlanValidationResult          mPlanValidation;
+   nrm::NetworkPlanEvaluationResult   mPlanEvaluation;
+   nrm::DistributionPackageResult     mDistributionPackage;
+   bool                               mHasPlanValidation = false;
+   bool                               mHasPlanEvaluation = false;
+   bool                               mHasDistributionPackage = false;
    std::unique_ptr<SnapshotReporter> mReporterPtr;
 };
 } // namespace WkNrm
