@@ -44,6 +44,18 @@ v100_resource_demand_evidence:
     - "五类资源候选必须显式提供；缺少甲方候选或专用规则时固定UNAVAILABLE。"
     - "建议仅供只读分析，不自动修改规划、快照或AFSIM运行网络。"
     - "现有AFSIM脚本无安全需求匹配服务调用入口，未以普通消息场景伪造服务证据。"
+v110_model_service_evidence:
+  status: PRE_ACCEPTANCE
+  contract_requirements: ["3.3", "3.5", "4.1-4.2"]
+  components: [ModelServiceTypes, ModelServiceFacade, ModelRegistry, ContractInterfaceAdapter]
+  tests: [nrm_model_service_facade_test, nrm_model_registry_test]
+  scenario_status: NOT_CREATED_NO_SAFE_STRONGLY_TYPED_HEADLESS_ENTRY
+  schemas: [nrm.model_service.request.v1, nrm.model_service.response.v1, nrm.model_service.health.v1]
+  limitations:
+    - "仅建立进程内强类型边界，不代表甲方模型封装协议或真实网络服务完成。"
+    - "甲方接口文件、封装规范、参考模块和正式样包尚未提供，ContractInterfaceAdapter没有具体甲方实现。"
+    - "headless mission无法取得Warlock Facade和强类型快照，未以文本命令或普通消息伪造服务smoke。"
+    - "不扫描动态库，不自动修改规划、网络或AFSIM运行状态。"
 requirements:
   - requirement_id: 1
     requirement_name: "链路名称"

@@ -193,3 +193,53 @@
 - 合同追踪键：3.2.5和3.4.2保持`IMPLEMENTED / PRE_ACCEPTANCE`，未提升为`VERIFIED`。
 - 阻塞：甲方正式需求/候选格式、专用资源规则、安全服务场景入口和目标环境联调仍缺失。
 - 下一步唯一动作：用户已授权形成v0.10稳定Git提交；提交后保持基线，等待新里程碑指令。
+
+### 2026-08-01 23:37 CST — Codex v0.11 development instruction
+
+- 唯一目标：为其他开发AI建立v0.11模型服务门面与注册表的可执行开发指令。
+- 实际修改：将`NEXT_DEVELOPMENT_INSTRUCTIONS.md`切换为v0.11单一任务，定义纯C++强类型
+  `ModelServiceFacade`、确定性`ModelRegistry`、抽象`ContractInterfaceAdapter`、最小
+  DataContainer集成、测试门和T0-T8执行顺序；同步当前里程碑、长期记忆、决策和实施状态。
+- 未修改但发现：甲方模型封装规范、正式接口文件和安全headless服务入口尚未提供；不得据此
+  猜测协议或修改AFSIM核心。
+- 执行命令：文档、现有服务边界和合同追踪审查；仅文档变更。
+- 测试结果：代码未修改，不重复运行C++测试；稳定基线`d64ba74`已有13/13测试和两个插件
+  构建通过证据。本轮运行static与diff检查。
+- 合同追踪键：3.3、3.5和4.1-4.2进入内部接口边界规划状态，尚未标记IMPLEMENTED。
+- 阻塞：甲方封装/接口规范、参考模块、正式样包和官方安全headless服务调用入口。
+- 下一步唯一动作：其他开发AI从`d64ba74`创建`feat/v0.11-model-service-facade`，严格执行
+  `docs/NEXT_DEVELOPMENT_INSTRUCTIONS.md`，不进入导航、环境、自动网络控制或研究实验。
+
+### 2026-08-01 — Codex v0.11 model service facade
+
+- 唯一目标：完成纯C++进程内强类型模型服务门面、版本注册表和抽象外部接口适配边界。
+- 实际修改：从`d64ba74`创建`feat/v0.11-model-service-facade`；新增ModelServiceTypes、
+  ModelServiceFacade、ModelRegistry和ContractInterfaceAdapter；DataContainer注册唯一NRM
+  描述符并让现有能力、规划和需求入口复用Facade；版本升至0.11.0并同步文档追踪。
+- 未修改但发现：AFSIM提供Application/ScenarioExtension和脚本类型注册机制，但当前NRM
+  WSF插件没有强类型服务对象或快照绑定，headless mission无法取得Warlock DataContainer。
+- 执行命令：`scripts/ai_guard.sh status/static/test`、新增测试单独构建运行、Warlock目标
+  单独构建、headless扩展API只读审查和`git diff`审计。
+- 测试结果：修改前13/13基线通过；完成后15/15固定测试通过，WSF与Warlock插件构建成功；
+  Facade/Registry新增测试覆盖前置拒绝、单次委托、无损失败、输入不变和确定性版本查询。
+- 合同追踪键：3.3、3.5和4.1-4.2推进为`IMPLEMENTED / PRE_ACCEPTANCE`，不是
+  `FINAL_ACCEPTANCE`。
+- 阻塞：甲方封装规范、正式接口/传输协议、参考模块、正式样包和目标环境；无安全强类型
+  headless服务调用入口，未伪造规划、需求或模型服务smoke。
+- 下一步唯一动作：用户审查当前v0.11 diff并明确决定是否授权Git提交；不自动进入下一
+  里程碑。
+
+### 2026-08-02 00:17 CST — Codex v0.11 review fixes
+
+- 唯一目标：审查v0.11第一阶段实现并修复门面状态在Warlock集成中被丢弃的问题。
+- 实际修改：DataContainer仅在Facade响应`valid=true`时设置能力、规划推演、分发包和需求
+  匹配的有效状态及写入Reporter；补充无效requestTime、无效context、缺失依赖和需求侧陈旧
+  规划证据的Facade回归断言；同步验证记录。
+- 未修改但确认：领域服务正常返回的不满足/无路径等结果仍属于成功调用并保持原领域原因码；
+  未增加甲方Adapter、headless伪入口、网络控制或研究实验。
+- 执行命令：`scripts/ai_guard.sh status/static/test/check`、`git diff --check`和公共接口、
+  DataContainer、测试及合同追踪逐项审查。
+- 测试结果：15/15固定测试通过，WSF与Warlock插件构建成功，static/check通过。
+- 合同追踪键：3.3、3.5和4.1-4.2保持`IMPLEMENTED / PRE_ACCEPTANCE`，未提升验收等级。
+- 阻塞：甲方封装规范、正式接口/传输协议、参考模块、正式样包和安全强类型headless入口。
+- 下一步唯一动作：用户确认审查结果后决定是否授权提交当前v0.11；不自动进入下一里程碑。

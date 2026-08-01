@@ -1,8 +1,8 @@
 # AFSIM 网络资源管理器插件
 
-这是网络资源管理器的独立源码包。当前 v0.10.0 在不修改 AFSIM 核心源码的前提下，
-增加内部网链资源需求文件生命周期、批量需求匹配、逐项差距分析和有限显式候选集内的
-可解释规划建议闭环。
+这是网络资源管理器的独立源码包。当前 v0.11.0 在不修改 AFSIM 核心源码的前提下，
+增加纯C++进程内模型服务门面、版本化模型注册表和抽象外部契约适配边界，统一暴露已有
+通信能力、规划生命周期和资源需求匹配服务。
 
 ## 当前能力
 
@@ -31,13 +31,19 @@
   固定输出路径、网络规模、距离、带宽、业务流量、时延、PDR和业务类型八项检查。
 - 可解释建议：频率、站点、信道、子网和时隙只筛选调用方显式有限候选；路由只复用本次
   能力结果。每类均输出`AVAILABLE`或固定`UNAVAILABLE`原因，不自动应用。
+- 模型服务门面：`ModelServiceFacade`使用强类型上下文和响应统一委托五项既有领域操作；
+  schema、requestId、snapshotVersion和规划证据不一致时在下游调用前固定拒绝。
+- 模型注册表：`ModelRegistry`支持精确版本注册、查询、枚举、卸载和操作/schema能力判断，
+  列表按模型ID、语义版本和provider稳定排序，不扫描动态库。
+- 外部适配边界：`ContractInterfaceAdapter`只定义抽象外部载体与显式内部结构体间的转换，
+  不定义甲方端口、字段、二进制布局或传输协议。
 - 可恢复上报：每次运行写入独立 `runId` 目录，生成 manifest、快照 JSONL、评估 JSONL
   能力 JSONL、规划校验/推演 JSONL、需求匹配/建议 JSONL 和 CSV；队列溢出与写入失败
   可观测，退出时排空队列。
 - 演示场景：四网总览、三种故障/恢复场景和通信能力固定 smoke 场景。
 
-当前剖面、内部规划格式和故障场景属于内部演示输入，状态为 `PRE_ACCEPTANCE`，不代表
-甲方四网模型、正式规划格式、真实分发链路或目标环境的最终验收。甲方 GNSS/INS 功能包
+当前门面、剖面、内部规划格式和故障场景属于内部实现，状态为 `PRE_ACCEPTANCE`，不代表
+甲方模型封装、四网模型、正式规划格式、真实分发链路或目标环境的最终验收。甲方 GNSS/INS 功能包
 仍负责导航解算；本项目后续只负责结果包解析、字段校验、单位与坐标标准化、状态管理、
 展示、记录和转发。
 
@@ -66,7 +72,8 @@ export NRM_DEMAND_STORE_DIR=/tmp/nrm-demands
 [docs/features/通信能力计算服务.md](docs/features/通信能力计算服务.md)，故障场景验收步骤见
 [docs/V070_FAILURE_SCENARIOS.md](docs/V070_FAILURE_SCENARIOS.md)，规划格式和状态机见
 [docs/features/网链资源规划文件.md](docs/features/网链资源规划文件.md)，需求文法和匹配口径见
-[docs/features/网链资源需求匹配.md](docs/features/网链资源需求匹配.md)。日常启动和可视化入口见
+[docs/features/网链资源需求匹配.md](docs/features/网链资源需求匹配.md)，模型服务契约见
+[docs/MODEL_SERVICE_FACADE.md](docs/MODEL_SERVICE_FACADE.md)。日常启动和可视化入口见
 [docs/运行与可视化入口.md](docs/运行与可视化入口.md)，需求状态见
 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)。
 

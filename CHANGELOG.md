@@ -1,5 +1,21 @@
 # 变更记录
 
+## 0.11.0 - 2026-08-01
+
+- 新增无Qt/AFSIM依赖的`ModelServiceTypes`，固定请求/响应schema、七项操作、六类门面状态、
+  固定原因码、请求身份、软件版本和snapshotVersion证据字段。
+- 新增`ModelServiceFacade`，以显式依赖注入分别单次委托通信能力、规划校验、规划推演、
+  本地分发包和需求匹配服务；无效上下文和证据在下游调用前拒绝。
+- 新增`ModelRegistry`，支持精确语义版本注册、查询、列表、卸载和操作/schema能力判断，
+  拒绝非法或重复描述符并保持确定性排序。
+- 新增纯抽象`ContractInterfaceAdapter`外部适配边界，不定义甲方字段、端口、字节布局、
+  JSON/XML格式或传输方式，也不提供假的甲方Adapter。
+- DataContainer持有Facade和Registry并注册唯一NRM描述符；现有能力、规划和需求入口通过
+  Facade委托，GUI与Reporter保持兼容且不新增服务管理页面或无使用者日志。
+- 新增Facade与Registry两项纯C++测试，原13项无回归，合计15项；WSF和Warlock插件构建通过。
+- 当前WSF插件没有从headless mission取得Warlock Facade和强类型快照的安全入口，因此未
+  伪造规划、需求或模型服务smoke；状态为`IMPLEMENTED / PRE_ACCEPTANCE`。
+
 ## 0.10.0 - 2026-08-01
 
 - 新增纯 C++ `ResourceDemand`公共契约与严格`NRM_RESOURCE_DEMAND_V1`文法，支持失败加载

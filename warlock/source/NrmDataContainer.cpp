@@ -1,10 +1,13 @@
 #include "NrmDataContainer.hpp"
 
+#include <cmath>
+
 #include <QByteArray>
 #include <QDir>
 
 #include "NrmSnapshotReporter.hpp"
 #include "nrm/NetworkProfileRepository.hpp"
+#include "nrm/Version.hpp"
 
 namespace
 {
@@ -26,11 +29,10 @@ nrm::NetworkProfileRepository LoadProfiles()
 WkNrm::DataContainer::DataContainer(QObject* aParentPtr)
    : QObject(aParentPtr)
    , mProfiles(LoadProfiles())
-   , mCapabilityService(mProfiles)
-   , mPlanValidator(mProfiles)
-   , mPlanEvaluationService(mProfiles)
-   , mDemandMatchingService(mProfiles)
+   , mModelServiceFacade(mProfiles)
 {
+   mModelRegistration = mModelRegistry.Register(
+      nrm::ModelServiceFacade::Descriptor());
    QByteArray outputDirectory = qgetenv("NRM_OUTPUT_DIR");
    if (outputDirectory.isEmpty())
    {
@@ -65,9 +67,15 @@ nrm::CapabilityResult WkNrm::DataContainer::QueryCapability(
    const nrm::CapabilityRequest& aRequest,
    const nrm::EnvironmentContext& aEnvironment)
 {
-   mCapability = mCapabilityService.Query(mSnapshot, aRequest, aEnvironment);
-   mHasCapability = true;
-   mReporterPtr->EnqueueCapability(mCapability);
+   const nrm::CapabilityServiceResponse response =
+      mModelServiceFacade.QueryCapability(
+         MakeModelServiceContext(nrm::ModelServiceOperation::cQUERY_CAPABILITY,
+                                 mSnapshot.snapshotVersion),
+         mSnapshot, aRequest, aEnvironment);
+   mCapability = response.result;
+   mHasCapability = response.valid;
+   if (mHasCapability)
+      mReporterPtr->EnqueueCapability(mCapability);
    emit CapabilityChanged();
    return mCapability;
 }
@@ -147,14 +155,26 @@ bool WkNrm::DataContainer::SaveNetworkPlanRevision(const std::string& aPath)
 nrm::PlanValidationResult WkNrm::DataContainer::ValidateNetworkPlan()
 {
    const nrm::NetworkPlanDocument* planPtr = mPlanRepository.GetCurrentPlan();
-   mPlanValidation = planPtr == nullptr
-                        ? NoCurrentPlanValidation()
-                        : mPlanValidator.Validate(mSnapshot, *planPtr);
-   mHasPlanValidation = true;
+   if (planPtr == nullptr)
+   {
+      mPlanValidation = NoCurrentPlanValidation();
+      mHasPlanValidation = true;
+   }
+   else
+   {
+      const nrm::PlanValidationServiceResponse response =
+         mModelServiceFacade.ValidatePlan(
+            MakeModelServiceContext(nrm::ModelServiceOperation::cVALIDATE_PLAN,
+                                    mSnapshot.snapshotVersion),
+            mSnapshot, *planPtr);
+      mPlanValidation = response.result;
+      mHasPlanValidation = response.valid;
+   }
    mHasPlanEvaluation = false;
    mHasDistributionPackage = false;
    mHasDemandMatching = false;
-   mReporterPtr->EnqueuePlanValidation(mPlanValidation);
+   if (mHasPlanValidation)
+      mReporterPtr->EnqueuePlanValidation(mPlanValidation);
    emit NetworkPlanChanged();
    return mPlanValidation;
 }
@@ -169,19 +189,27 @@ nrm::NetworkPlanEvaluationResult WkNrm::DataContainer::EvaluateNetworkPlan(
       mPlanEvaluation.overallStatus = nrm::PlanEvaluationStatus::cDATA_INVALID;
       mPlanEvaluation.resultingState = nrm::NetworkPlanState::cREJECTED;
       mPlanEvaluation.validation = NoCurrentPlanValidation();
+      mHasPlanEvaluation = true;
    }
    else
    {
-      mPlanEvaluation =
-         mPlanEvaluationService.Evaluate(mSnapshot, *planPtr, aEnvironment);
+      const nrm::PlanEvaluationServiceResponse response =
+         mModelServiceFacade.EvaluatePlan(
+            MakeModelServiceContext(nrm::ModelServiceOperation::cEVALUATE_PLAN,
+                                    mSnapshot.snapshotVersion),
+            mSnapshot, *planPtr, aEnvironment);
+      mPlanEvaluation = response.result;
+      mHasPlanEvaluation = response.valid;
    }
    mPlanValidation = mPlanEvaluation.validation;
-   mHasPlanValidation = true;
-   mHasPlanEvaluation = true;
+   mHasPlanValidation = mHasPlanEvaluation;
    mHasDistributionPackage = false;
    mHasDemandMatching = false;
-   mReporterPtr->EnqueuePlanValidation(mPlanValidation);
-   mReporterPtr->EnqueuePlanEvaluation(mPlanEvaluation);
+   if (mHasPlanEvaluation)
+   {
+      mReporterPtr->EnqueuePlanValidation(mPlanValidation);
+      mReporterPtr->EnqueuePlanEvaluation(mPlanEvaluation);
+   }
    emit NetworkPlanChanged();
    return mPlanEvaluation;
 }
@@ -204,11 +232,18 @@ nrm::DistributionPackageResult WkNrm::DataContainer::GenerateNetworkPlanPackage(
    }
    else
    {
-      mDistributionPackage = mPlanDistributionService.Generate(
-         *planPtr, mPlanValidation, mPlanEvaluation, aOutputRoot);
+      const nrm::DistributionPackageServiceResponse response =
+         mModelServiceFacade.GenerateDistributionPackage(
+            MakeModelServiceContext(
+               nrm::ModelServiceOperation::cGENERATE_DISTRIBUTION_PACKAGE,
+               mPlanEvaluation.snapshotVersion),
+            *planPtr, mPlanValidation, mPlanEvaluation, aOutputRoot);
+      mDistributionPackage = response.result;
+      mHasDistributionPackage = response.valid;
    }
-   mHasDistributionPackage = true;
-   if (!mDistributionPackage.generated &&
+   if (planPtr == nullptr || !mHasPlanValidation || !mHasPlanEvaluation)
+      mHasDistributionPackage = true;
+   if (mHasDistributionPackage && !mDistributionPackage.generated &&
        (mDistributionPackage.reason == nrm::PlanValidationReason::cFILE_WRITE_FAILED ||
         mDistributionPackage.reason == nrm::PlanValidationReason::cATOMIC_RENAME_FAILED ||
         mDistributionPackage.reason == nrm::PlanValidationReason::cOUTPUT_PATH_INVALID))
@@ -289,14 +324,40 @@ nrm::ResourceDemandBatchResult WkNrm::DataContainer::EvaluateResourceDemands(
    const nrm::NetworkPlanDocument* planPtr = mPlanRepository.GetCurrentPlan();
    const nrm::NetworkPlanEvaluationResult* evaluationPtr =
       mHasPlanEvaluation ? &mPlanEvaluation : nullptr;
-   mDemandMatching = mDemandMatchingService.Evaluate(
-      mSnapshot, *demandSetPtr, planPtr, evaluationPtr, aEnvironment,
-      aCandidatesPtr);
-   mHasDemandMatching = true;
-   mReporterPtr->EnqueueDemandResults(mDemandMatching);
-   mReporterPtr->EnqueuePlanningRecommendations(mDemandMatching);
+   const nrm::ResourceDemandServiceResponse response =
+      mModelServiceFacade.MatchResourceDemands(
+         MakeModelServiceContext(
+            nrm::ModelServiceOperation::cMATCH_RESOURCE_DEMANDS,
+            mSnapshot.snapshotVersion),
+         mSnapshot, *demandSetPtr, planPtr, evaluationPtr, aEnvironment,
+         aCandidatesPtr);
+   mDemandMatching = response.result;
+   mHasDemandMatching = response.valid;
+   if (mHasDemandMatching)
+   {
+      mReporterPtr->EnqueueDemandResults(mDemandMatching);
+      mReporterPtr->EnqueuePlanningRecommendations(mDemandMatching);
+   }
    emit ResourceDemandChanged();
    return mDemandMatching;
+}
+
+nrm::ModelServiceContext WkNrm::DataContainer::MakeModelServiceContext(
+   nrm::ModelServiceOperation aOperation,
+   std::uint64_t aSnapshotVersion)
+{
+   nrm::ModelServiceContext context;
+   context.requestId = std::string("warlock-") + nrm::ToString(aOperation) + "-" +
+                       std::to_string(++mModelServiceRequestSequence);
+   context.correlationId = context.requestId;
+   context.callerId = "warlock-network-resource-manager";
+   context.softwareVersion = nrm::cVERSION;
+   context.snapshotVersion = aSnapshotVersion;
+   context.requestTime = std::isfinite(mSnapshot.simTime) ? mSnapshot.simTime : 0.0;
+   context.source = nrm::DataOrigin::cAFSIM_INTERNAL;
+   context.confidence = nrm::Confidence::cHIGH;
+   context.valid = true;
+   return context;
 }
 
 nrm::NetworkPlanState WkNrm::DataContainer::GetNetworkPlanState() const

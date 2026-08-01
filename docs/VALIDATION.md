@@ -1,5 +1,53 @@
 # 验证记录
 
+## v0.11.0 模型服务门面与注册表预验收证据
+
+验证日期：2026-08-01
+开发基线：commit `d64ba74`
+开发分支：`feat/v0.11-model-service-facade`
+状态：`IMPLEMENTED / PRE_ACCEPTANCE`
+
+### 基线与最终回归
+
+修改前`scripts/ai_guard.sh static`通过，`scripts/ai_guard.sh test`构建WSF和Warlock插件并
+通过原13项测试。实现后守卫再次构建两个插件并通过15项固定测试；新增：
+
+- `nrm_model_service_facade_test`；
+- `nrm_model_registry_test`。
+
+Facade测试使用真实领域服务覆盖正常通信能力查询、规划校验与推演、本地分发包和需求匹配。
+计数服务端口覆盖空requestId、错误schema、snapshotVersion和规划证据不匹配在下游调用前
+拒绝，并确认每项领域操作只委托一次。测试还覆盖固定下游失败结果无损传递、不可预期异常
+返回`INTERNAL_ERROR`、无效requestTime、无效context、缺失服务依赖、需求匹配侧陈旧规划
+证据、响应回传请求/关联/软件/证据版本，以及快照、规划、需求、候选和profile前后不变。
+
+Registry测试覆盖注册、精确查询、列表、卸载、重复ID+版本拒绝、同ID不同版本并存、非法
+描述符拒绝、操作/schema能力查询、语义版本稳定排序和注册失败不破坏有效项。公共头依赖
+扫描确认未包含Qt或AFSIM头。
+
+### 运行集成与headless结论
+
+DataContainer构造一个Facade和Registry，注册唯一NRM描述符；现有能力、规划和需求入口
+通过Facade委托。审查后确认DataContainer只在Facade响应`valid=true`时设置对应结果状态并
+写入Reporter，防止服务依赖缺失或内部异常被误记为有效业务结果。Warlock没有新增服务管理
+页面，Reporter没有增加无使用者调用日志。
+
+只读检查AFSIM 2.9的`WsfApplicationExtension::ScenarioCreated`、
+`WsfScenarioExtension::ProcessInput`和脚本类型注册API后确认：当前NRM WSF插件只注册空
+ApplicationExtension；Facade和资源快照只存在于Warlock DataContainer。headless mission
+既不能取得该对象，也没有NRM强类型脚本值对象绑定。文本场景命令不满足强类型请求要求，
+因此未创建`network_plan_smoke`、`resource_demand_matching_smoke`或伪造模型服务smoke。
+
+### 边界
+
+- `ContractInterfaceAdapter`仅为抽象边界，没有甲方Adapter实现；
+- 未定义HTTP、gRPC、端口、包头、字段号、字节序、JSON/XML或消息队列；
+- 未实现导航、环境传播、动态库扫描、第三方模型加载或自动网络控制；
+- AFSIM核心源码零修改；
+- 合同3.3和3.5仅推进为`IMPLEMENTED / PRE_ACCEPTANCE`，不是`FINAL_ACCEPTANCE`。
+
+---
+
 ## v0.10.0 资源需求匹配预验收证据
 
 验证日期：2026-08-01

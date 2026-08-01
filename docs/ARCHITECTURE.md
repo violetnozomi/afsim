@@ -24,6 +24,7 @@ AFSIM 内部事件 / 甲方结果包 / 回放输入
   ├── NetworkPlanValidator / NetworkPlanEvaluationService
   ├── NetworkPlanDistributionService（仅本地不可变包）
   ├── ResourceDemandMatchingService / PlanningRecommendationEngine
+  ├── ModelServiceFacade / ModelRegistry（进程内强类型边界）
   └── SnapshotReporter（runId 隔离的 JSONL/CSV/manifest）
 ```
 
@@ -67,6 +68,16 @@ v0.10 第一阶段以`ResourceDemandSet`作为内部需求值对象。匹配服�
 子网和时隙仅在调用方显式有限候选中稳定排序；路由只复用本次能力结果。所有结果均为
 只读分析，不修改规划、需求、快照或AFSIM运行网络。
 
+v0.11第一阶段增加`ModelServiceFacade`作为进程内强类型编排边界。Facade先校验
+`ModelServiceContext`的schema、请求标识和snapshotVersion，再分别单次委托现有通信能力、
+规划校验、规划推演、本地分发包或需求匹配服务。领域结果不被转换成自由文本，异常不会
+静默变为成功，输入值对象和profile保持不变。
+
+`ModelRegistry`只保存`ModelDescriptor`值对象，使用精确版本查询和确定性列表顺序，不扫描
+动态库、不拥有AFSIM对象或Qt指针。`ContractInterfaceAdapter`只冻结抽象转换职责；甲方
+规范缺失时不定义端口、字段名、字节布局或传输方式。DataContainer注册唯一NRM Facade并
+复用该门面，Warlock页面仍只消费既有领域结果。
+
 ## 稳定边界
 
 - `include/nrm/` 中的公共契约和算法不依赖 AFSIM 或 Qt。
@@ -77,6 +88,7 @@ v0.10 第一阶段以`ResourceDemandSet`作为内部需求值对象。匹配服�
 - `AssessmentEvaluator` 不改变 AFSIM 图，只产生评估结果和只读建议。
 - 规划服务只产生校验、推演和本地包；编辑生成新修订的`DRAFT`，不向网络下发。
 - 需求服务只产生匹配、差距和建议；编辑生成新需求集修订，不自动应用建议。
+- 模型服务只编排既有服务；Registry只保存描述符，外部协议只允许在抽象Adapter之外实现。
 - 所有参数化候选指标标记为 `PARAMETERIZED_MODEL/LOW`；当前路径上由多链路组合得到的
   PDR 标记为 `ESTIMATED/LOW`，不会伪装为协议实测。
 

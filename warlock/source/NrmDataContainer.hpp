@@ -8,11 +8,9 @@
 
 #include "nrm/NetworkResourceTypes.hpp"
 #include "nrm/AssessmentTypes.hpp"
-#include "nrm/CommunicationCapabilityService.hpp"
-#include "nrm/NetworkPlanDistributionService.hpp"
-#include "nrm/NetworkPlanEvaluationService.hpp"
+#include "nrm/ModelRegistry.hpp"
+#include "nrm/ModelServiceFacade.hpp"
 #include "nrm/NetworkPlanRepository.hpp"
-#include "nrm/ResourceDemandMatchingService.hpp"
 #include "nrm/ResourceDemandRepository.hpp"
 
 namespace WkNrm
@@ -70,6 +68,15 @@ public:
    {
       return mDemandOperation;
    }
+   const nrm::ModelServiceFacade& GetModelServiceFacade() const
+   {
+      return mModelServiceFacade;
+   }
+   const nrm::ModelRegistry& GetModelRegistry() const { return mModelRegistry; }
+   const nrm::ModelRegistryResult& GetModelRegistration() const
+   {
+      return mModelRegistration;
+   }
    nrm::NetworkPlanState GetNetworkPlanState() const;
    bool IsReportingHealthy() const;
    std::string GetReportingStatus() const;
@@ -103,17 +110,21 @@ signals:
    void ResourceDemandChanged();
 
 private:
+   nrm::ModelServiceContext MakeModelServiceContext(
+      nrm::ModelServiceOperation aOperation,
+      std::uint64_t aSnapshotVersion);
+
    nrm::FrameworkSnapshot            mSnapshot;
    nrm::AssessmentResult             mAssessment;
    nrm::CapabilityResult             mCapability;
    bool                              mHasAssessment = false;
    bool                              mHasCapability = false;
    nrm::NetworkProfileRepository     mProfiles;
-   nrm::CommunicationCapabilityService mCapabilityService;
+   nrm::ModelServiceFacade            mModelServiceFacade;
+   nrm::ModelRegistry                 mModelRegistry;
+   nrm::ModelRegistryResult           mModelRegistration;
+   std::uint64_t                      mModelServiceRequestSequence = 0;
    nrm::NetworkPlanRepository         mPlanRepository;
-   nrm::NetworkPlanValidator          mPlanValidator;
-   nrm::NetworkPlanEvaluationService  mPlanEvaluationService;
-   nrm::NetworkPlanDistributionService mPlanDistributionService;
    nrm::PlanRepositoryResult          mPlanOperation;
    nrm::PlanValidationResult          mPlanValidation;
    nrm::NetworkPlanEvaluationResult   mPlanEvaluation;
@@ -122,7 +133,6 @@ private:
    bool                               mHasPlanEvaluation = false;
    bool                               mHasDistributionPackage = false;
    nrm::ResourceDemandRepository      mDemandRepository;
-   nrm::ResourceDemandMatchingService mDemandMatchingService;
    nrm::ResourceDemandRepositoryResult mDemandOperation;
    nrm::ResourceDemandBatchResult     mDemandMatching;
    bool                               mHasDemandMatching = false;

@@ -2,74 +2,42 @@
 
 ## 1. 当前状态
 
-状态：`IMPLEMENTED`（内部`PRE_ACCEPTANCE`，稳定基线已形成）。
+状态：`IMPLEMENTED / PRE_ACCEPTANCE`。
 
-目标版本：`v0.10.0-demand-matching`。
+目标版本：`v0.11.0-model-service-facade`。
 
-上一稳定代码提交：`d6f9518`；v0.10稳定基线为当前分支HEAD。
+开发基线提交：`d64ba74`（v0.10.0）。
 
-建议分支：`feat/v0.10-demand-matching`。
+当前开发分支：`feat/v0.11-model-service-facade`（尚未提交）。
 
-## 2. 当前唯一目标
+## 2. 已完成的唯一目标
 
-实现合同3.2.5第一阶段的资源需求文件生命周期、批量需求匹配、逐项不满足分析，以及基于
-显式有限候选集合的频率、站点、信道、子网、时隙和路由六类可解释建议。
+在不引入网络服务框架、不猜测甲方协议的前提下，建立纯 C++、进程内、强类型的
+`ModelServiceFacade`、`ModelRegistry` 和外部接口适配抽象边界，统一暴露现有通信能力、
+规划生命周期和资源需求匹配能力。
 
-完整执行要求见`docs/NEXT_DEVELOPMENT_INSTRUCTIONS.md`。
+完整执行要求见 `docs/NEXT_DEVELOPMENT_INSTRUCTIONS.md`；本轮未扩展到其他里程碑。
 
-## 3. 必须复用
+## 3. 完成证据
 
-- `ResourceSnapshot`；
-- `CapabilityRequest / CapabilityResult`；
-- `CommunicationCapabilityService`；
-- `NetworkPlanDocument`、规划推演结果和内容指纹；
-- `NetworkProfileRepository`；
-- `SnapshotReporter`；
-- DataContainer与Warlock现有模式。
+- 新增`ModelServiceTypes`、`ModelServiceFacade`、`ModelRegistry`和抽象
+  `ContractInterfaceAdapter`；
+- Facade前置校验schema、requestId、requestTime、snapshotVersion和规划证据，每项操作
+  只委托一次既有领域服务；
+- DataContainer持有Facade和Registry，注册唯一NRM描述符并保持旧页面入口兼容；
+- 原13项测试无回归，新增两项后15/15通过，WSF与Warlock构建成功；
+- AFSIM核心零修改，公共头无Qt/AFSIM依赖；
+- headless强类型入口受阻，未伪造服务smoke。
 
-禁止复制能力公式、路径搜索和profile规则。
+## 4. 验收边界
 
-## 4. 完成门
+- 合同3.3、3.5和4.1-4.2仅为内部`IMPLEMENTED / PRE_ACCEPTANCE`；
+- 甲方封装规范、正式接口协议、参考模块和目标环境未提供，阻止`FINAL_ACCEPTANCE`；
+- 现有headless mission无法取得Warlock Facade和强类型快照；
+- 未实现导航、环境模型、动态库扫描、微服务或自动网络控制；
+- Git提交、tag和push仍需用户明确授权。
 
-- 原11项固定测试无回归；
-- 新增Demand Repository和Matching测试，总数至少13项；
-- 每项需求输出`SATISFIED / UNSATISFIED / DATA_INVALID`；
-- 每个约束输出要求值、当前值、裕量、单位和固定原因码；
-- 六类建议均输出`AVAILABLE`或明确`UNAVAILABLE`原因；
-- 规划内容指纹和snapshotVersion不一致时拒绝拼接证据；
-- 相同输入输出顺序稳定；
-- 评估不修改快照、规划、需求和AFSIM运行网络；
-- WSF与Warlock构建成功；
-- static/test/diff审计通过；
-- AFSIM核心零修改；
-- 完成后最多标记内部`PRE_ACCEPTANCE`；
-- Git提交前获得用户明确批准。
+## 5. 下一步唯一动作
 
-## 5. 明确禁止
-
-- 自动资源分配或自动下发；
-- 自研导航或猜测甲方接口；
-- 虚构频率、站点、信道、子网或时隙候选；
-- 优化器、强化学习、参数扫描和研究实验；
-- 为让匹配通过而调整演示profile；
-- 数据库、微服务或新第三方依赖。
-
-## 6. 外部阻塞
-
-- 甲方需求和规划正式格式；
-- 频率保护、信道、子网和TDMA专用规则；
-- 正式候选资源集合；
-- 模型封装与分发接口；
-- 目标环境联调资料。
-
-这些资料缺失时，内部服务必须返回来源、置信度和不可用原因，不能猜测补齐。
-
-## 7. 下一步唯一动作
-
-当前分支：`feat/v0.10-demand-matching`。
-
-当前进度：T0-T8完成；审查后已修正未启用指标污染PATH、跨网成员重复计数、混合网络
-业务支持过宽及需求异常未落日志四项问题。13/13固定测试通过，WSF与Warlock两个插件
-构建成功，static/test与diff门禁通过。无安全headless服务入口，因此未伪造
-`resource_demand_matching_smoke`。
-T9已完成审查、修正和稳定提交。保持v0.10基线，不自动进入下一里程碑。
+用户审查当前v0.11 diff并明确决定是否授权Git提交；不自动进入导航、环境模型、自动网络
+控制或参数实验。
