@@ -12,6 +12,8 @@
 #include "nrm/NetworkPlanDistributionService.hpp"
 #include "nrm/NetworkPlanEvaluationService.hpp"
 #include "nrm/NetworkPlanRepository.hpp"
+#include "nrm/ResourceDemandMatchingService.hpp"
+#include "nrm/ResourceDemandRepository.hpp"
 
 namespace WkNrm
 {
@@ -34,6 +36,8 @@ public:
    bool HasPlanValidation() const { return mHasPlanValidation; }
    bool HasPlanEvaluation() const { return mHasPlanEvaluation; }
    bool HasDistributionPackage() const { return mHasDistributionPackage; }
+   bool HasResourceDemandSet() const { return mDemandRepository.HasCurrentDemandSet(); }
+   bool HasDemandMatching() const { return mHasDemandMatching; }
    const nrm::NetworkPlanDocument* GetNetworkPlan() const
    {
       return mPlanRepository.GetCurrentPlan();
@@ -54,6 +58,18 @@ public:
    {
       return mPlanOperation;
    }
+   const nrm::ResourceDemandSet* GetResourceDemandSet() const
+   {
+      return mDemandRepository.GetCurrentDemandSet();
+   }
+   const nrm::ResourceDemandBatchResult& GetDemandMatching() const
+   {
+      return mDemandMatching;
+   }
+   const nrm::ResourceDemandRepositoryResult& GetDemandOperation() const
+   {
+      return mDemandOperation;
+   }
    nrm::NetworkPlanState GetNetworkPlanState() const;
    bool IsReportingHealthy() const;
    std::string GetReportingStatus() const;
@@ -71,12 +87,20 @@ public:
       const nrm::EnvironmentContext& aEnvironment = nrm::EnvironmentContext());
    nrm::DistributionPackageResult GenerateNetworkPlanPackage(
       const std::string& aOutputRoot = std::string());
+   bool LoadResourceDemands(const std::string& aPath);
+   bool ReplaceResourceDemandDraft(const nrm::ResourceDemandSet& aDemandSet);
+   void UnloadResourceDemands();
+   bool SaveResourceDemandRevision(const std::string& aPath = std::string());
+   nrm::ResourceDemandBatchResult EvaluateResourceDemands(
+      const nrm::EnvironmentContext& aEnvironment = nrm::EnvironmentContext(),
+      const nrm::PlanningCandidateSet* aCandidatesPtr = nullptr);
 
 signals:
    void SnapshotChanged();
    void AssessmentChanged();
    void CapabilityChanged();
    void NetworkPlanChanged();
+   void ResourceDemandChanged();
 
 private:
    nrm::FrameworkSnapshot            mSnapshot;
@@ -97,6 +121,11 @@ private:
    bool                               mHasPlanValidation = false;
    bool                               mHasPlanEvaluation = false;
    bool                               mHasDistributionPackage = false;
+   nrm::ResourceDemandRepository      mDemandRepository;
+   nrm::ResourceDemandMatchingService mDemandMatchingService;
+   nrm::ResourceDemandRepositoryResult mDemandOperation;
+   nrm::ResourceDemandBatchResult     mDemandMatching;
+   bool                               mHasDemandMatching = false;
    std::unique_ptr<SnapshotReporter> mReporterPtr;
 };
 } // namespace WkNrm

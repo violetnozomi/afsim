@@ -180,6 +180,95 @@ void WriteStringArray(std::ostream& aOutput, const std::vector<std::string>& aVa
    aOutput << ']';
 }
 
+void WriteRequirementCheck(std::ostream& aOutput,
+                           const nrm::RequirementCheck& aCheck)
+{
+   aOutput << "{\"type\":\"" << nrm::ToString(aCheck.type)
+           << "\",\"applicable\":" << (aCheck.applicable ? "true" : "false")
+           << ",\"passed\":" << (aCheck.passed ? "true" : "false")
+           << ",\"requiredValue\":";
+   WriteMetric(aOutput, aCheck.requiredValue);
+   aOutput << ",\"currentValue\":";
+   WriteMetric(aOutput, aCheck.currentValue);
+   aOutput << ",\"margin\":";
+   WriteMetric(aOutput, aCheck.margin);
+   aOutput << ",\"requiredText\":\"" << EscapeJson(aCheck.requiredText)
+           << "\",\"currentText\":\"" << EscapeJson(aCheck.currentText)
+           << "\",\"reasonCode\":\"" << nrm::ToString(aCheck.reason) << "\"}";
+}
+
+void WriteDemandResult(std::ostream& aOutput,
+                       const nrm::ResourceDemandMatchResult& aResult,
+                       const std::string& aRunId)
+{
+   aOutput << "{\"schemaVersion\":\"" << EscapeJson(aResult.schemaVersion)
+           << "\",\"runId\":\"" << EscapeJson(aRunId)
+           << "\",\"demandId\":\"" << EscapeJson(aResult.demandId)
+           << "\",\"demandSetId\":\"" << EscapeJson(aResult.demandSetId)
+           << "\",\"demandSetRevision\":" << aResult.demandSetRevision
+           << ",\"snapshotVersion\":" << aResult.snapshotVersion
+           << ",\"planId\":\"" << EscapeJson(aResult.planId)
+           << "\",\"planRevision\":" << aResult.planRevision
+           << ",\"planFingerprint\":\"" << EscapeJson(aResult.planFingerprint)
+           << "\",\"status\":\"" << nrm::ToString(aResult.status)
+           << "\",\"capability\":{\"requestId\":\""
+           << EscapeJson(aResult.capability.requestId)
+           << "\",\"requestValid\":"
+           << (aResult.capability.requestValid ? "true" : "false")
+           << ",\"pathAvailable\":"
+           << (aResult.capability.pathAvailable ? "true" : "false")
+           << ",\"usesCandidate\":"
+           << (aResult.capability.usesCandidate ? "true" : "false")
+           << ",\"route\":";
+   WriteStringArray(aOutput, aResult.capability.route);
+   aOutput << ",\"communicationDistanceM\":";
+   WriteMetric(aOutput, aResult.capability.communicationDistanceM);
+   aOutput << ",\"transmissionRateBps\":";
+   WriteMetric(aOutput, aResult.capability.transmissionRateBps);
+   aOutput << ",\"packetLossPercent\":";
+   WriteMetric(aOutput, aResult.capability.packetLossPercent);
+   aOutput << ",\"transmissionDelayMs\":";
+   WriteMetric(aOutput, aResult.capability.transmissionDelayMs);
+   aOutput << "},\"checks\":[";
+   for (std::size_t index = 0; index < aResult.checks.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      WriteRequirementCheck(aOutput, aResult.checks[index]);
+   }
+   aOutput << "],\"reasonCodes\":[";
+   for (std::size_t index = 0; index < aResult.reasons.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      aOutput << '"' << nrm::ToString(aResult.reasons[index]) << '"';
+   }
+   aOutput << "]}\n";
+}
+
+void WritePlanningRecommendation(std::ostream& aOutput,
+                                 const nrm::PlanningRecommendation& aRecommendation,
+                                 const std::string& aRunId)
+{
+   aOutput << "{\"schemaVersion\":\"nrm.planning_recommendation.v1\""
+           << ",\"runId\":\"" << EscapeJson(aRunId)
+           << "\",\"type\":\"" << nrm::ToString(aRecommendation.type)
+           << "\",\"status\":\"" << nrm::ToString(aRecommendation.status)
+           << "\",\"demandId\":\"" << EscapeJson(aRecommendation.demandId)
+           << "\",\"candidateId\":\"" << EscapeJson(aRecommendation.candidateId)
+           << "\",\"value\":\"" << EscapeJson(aRecommendation.value)
+           << "\",\"rank\":" << aRecommendation.rank
+           << ",\"snapshotVersion\":" << aRecommendation.snapshotVersion
+           << ",\"planId\":\"" << EscapeJson(aRecommendation.planId)
+           << "\",\"planRevision\":" << aRecommendation.planRevision
+           << ",\"planFingerprint\":\""
+           << EscapeJson(aRecommendation.planFingerprint)
+           << "\",\"evidence\":";
+   WriteStringArray(aOutput, aRecommendation.evidence);
+   aOutput << ",\"reasonCode\":\"" << nrm::ToString(aRecommendation.reason)
+           << "\",\"source\":\"" << nrm::ToString(aRecommendation.source)
+           << "\",\"confidence\":\"" << nrm::ToString(aRecommendation.confidence)
+           << "\"}\n";
+}
+
 void WriteAssessment(std::ostream& aOutput,
                      const nrm::AssessmentResult& aResult,
                      const std::string& aRunId,
@@ -554,6 +643,36 @@ void WkNrm::SnapshotReporter::EnqueuePlanEvaluation(
    mCondition.notify_one();
 }
 
+void WkNrm::SnapshotReporter::EnqueueDemandResults(
+   const nrm::ResourceDemandBatchResult& aResult)
+{
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (mDemandResultQueue.size() >= mMaximumQueueSize)
+      {
+         mDemandResultQueue.pop_front();
+         ++mStatus.droppedDemandResultCount;
+      }
+      mDemandResultQueue.push_back(aResult);
+   }
+   mCondition.notify_one();
+}
+
+void WkNrm::SnapshotReporter::EnqueuePlanningRecommendations(
+   const nrm::ResourceDemandBatchResult& aResult)
+{
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (mPlanningRecommendationQueue.size() >= mMaximumQueueSize)
+      {
+         mPlanningRecommendationQueue.pop_front();
+         ++mStatus.droppedPlanningRecommendationCount;
+      }
+      mPlanningRecommendationQueue.push_back(aResult);
+   }
+   mCondition.notify_one();
+}
+
 void WkNrm::SnapshotReporter::ReportPlanError(
    nrm::PlanValidationReason aReason,
    const std::string& aField)
@@ -571,6 +690,29 @@ void WkNrm::SnapshotReporter::ReportPlanError(
    {
       errorOutput << "{\"time\":\"" << UtcTimestamp(false)
                   << "\",\"component\":\"NetworkPlan\","
+                     "\"reasonCode\":\""
+                  << nrm::ToString(aReason) << "\",\"field\":\""
+                  << EscapeJson(aField) << "\"}\n";
+   }
+}
+
+void WkNrm::SnapshotReporter::ReportDemandError(
+   nrm::ResourceDemandReason aReason,
+   const std::string& aField)
+{
+   std::string runDirectory;
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      mStatus.healthy = false;
+      ++mStatus.writeErrorCount;
+      mStatus.lastError = nrm::ToString(aReason);
+      runDirectory = mStatus.runDirectory;
+   }
+   std::ofstream errorOutput(runDirectory + "/error.log", std::ios::out | std::ios::app);
+   if (errorOutput)
+   {
+      errorOutput << "{\"time\":\"" << UtcTimestamp(false)
+                  << "\",\"component\":\"ResourceDemand\","
                      "\"reasonCode\":\""
                   << nrm::ToString(aReason) << "\",\"field\":\""
                   << EscapeJson(aField) << "\"}\n";
@@ -636,10 +778,15 @@ void WkNrm::SnapshotReporter::WriteManifest(bool aComplete)
           << status.droppedPlanValidationCount
           << ",\"droppedPlanEvaluationCount\":"
           << status.droppedPlanEvaluationCount
+          << ",\"droppedDemandResultCount\":"
+          << status.droppedDemandResultCount
+          << ",\"droppedPlanningRecommendationCount\":"
+          << status.droppedPlanningRecommendationCount
           << ",\"writeErrorCount\":" << status.writeErrorCount
           << ",\"files\":[\"resource_snapshots.jsonl\",\"network_summary.csv\","
              "\"assessment_results.jsonl\",\"capability_results.jsonl\","
              "\"plan_validation_results.jsonl\",\"plan_evaluation_results.jsonl\","
+             "\"resource_demand_results.jsonl\",\"planning_recommendations.jsonl\","
              "\"error.log\"]}\n";
    output.flush();
    if (!output)
@@ -666,12 +813,20 @@ void WkNrm::SnapshotReporter::Run()
    std::ofstream planEvaluationOutput(
       initialStatus.runDirectory + "/plan_evaluation_results.jsonl",
       std::ios::out | std::ios::trunc);
+   std::ofstream demandResultOutput(
+      initialStatus.runDirectory + "/resource_demand_results.jsonl",
+      std::ios::out | std::ios::trunc);
+   std::ofstream planningRecommendationOutput(
+      initialStatus.runDirectory + "/planning_recommendations.jsonl",
+      std::ios::out | std::ios::trunc);
    bool jsonHealthy = jsonOutput.is_open();
    bool csvHealthy = csvOutput.is_open();
    bool assessmentHealthy = assessmentOutput.is_open();
    bool capabilityHealthy = capabilityOutput.is_open();
    bool planValidationHealthy = planValidationOutput.is_open();
    bool planEvaluationHealthy = planEvaluationOutput.is_open();
+   bool demandResultHealthy = demandResultOutput.is_open();
+   bool planningRecommendationHealthy = planningRecommendationOutput.is_open();
    if (!jsonHealthy)
       RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
                   "resource_snapshots.jsonl");
@@ -690,6 +845,12 @@ void WkNrm::SnapshotReporter::Run()
    if (!planEvaluationHealthy)
       RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
                   "plan_evaluation_results.jsonl");
+   if (!demandResultHealthy)
+      RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
+                  "resource_demand_results.jsonl");
+   if (!planningRecommendationHealthy)
+      RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
+                  "planning_recommendations.jsonl");
 
    if (csvHealthy)
    {
@@ -707,21 +868,27 @@ void WkNrm::SnapshotReporter::Run()
       nrm::CapabilityResult capability;
       nrm::PlanValidationResult planValidation;
       nrm::NetworkPlanEvaluationResult planEvaluation;
+      nrm::ResourceDemandBatchResult demandResults;
+      nrm::ResourceDemandBatchResult planningRecommendations;
       bool hasSnapshot = false;
       bool hasAssessment = false;
       bool hasCapability = false;
       bool hasPlanValidation = false;
       bool hasPlanEvaluation = false;
+      bool hasDemandResults = false;
+      bool hasPlanningRecommendations = false;
       {
          std::unique_lock<std::mutex> lock(mMutex);
          mCondition.wait(lock, [this]
          {
             return mStopping || !mQueue.empty() || !mAssessmentQueue.empty() ||
                    !mCapabilityQueue.empty() || !mPlanValidationQueue.empty() ||
-                   !mPlanEvaluationQueue.empty();
+                   !mPlanEvaluationQueue.empty() || !mDemandResultQueue.empty() ||
+                   !mPlanningRecommendationQueue.empty();
          });
          if (mQueue.empty() && mAssessmentQueue.empty() && mCapabilityQueue.empty() &&
              mPlanValidationQueue.empty() && mPlanEvaluationQueue.empty() &&
+             mDemandResultQueue.empty() && mPlanningRecommendationQueue.empty() &&
              mStopping)
          {
             break;
@@ -731,6 +898,18 @@ void WkNrm::SnapshotReporter::Run()
             assessment = mAssessmentQueue.front();
             mAssessmentQueue.pop_front();
             hasAssessment = true;
+         }
+         else if (!mDemandResultQueue.empty())
+         {
+            demandResults = mDemandResultQueue.front();
+            mDemandResultQueue.pop_front();
+            hasDemandResults = true;
+         }
+         else if (!mPlanningRecommendationQueue.empty())
+         {
+            planningRecommendations = mPlanningRecommendationQueue.front();
+            mPlanningRecommendationQueue.pop_front();
+            hasPlanningRecommendations = true;
          }
          else if (!mPlanValidationQueue.empty())
          {
@@ -755,6 +934,38 @@ void WkNrm::SnapshotReporter::Run()
             snapshot = mQueue.front();
             mQueue.pop_front();
             hasSnapshot = true;
+         }
+      }
+
+      if (hasDemandResults && demandResultHealthy)
+      {
+         for (const nrm::ResourceDemandMatchResult& result : demandResults.results)
+            WriteDemandResult(demandResultOutput, result, initialStatus.runId);
+         demandResultOutput.flush();
+         if (!demandResultOutput)
+         {
+            demandResultHealthy = false;
+            RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_WRITE_FAILED,
+                        "resource_demand_results.jsonl");
+         }
+      }
+
+      if (hasPlanningRecommendations && planningRecommendationHealthy)
+      {
+         for (const nrm::ResourceDemandMatchResult& result :
+              planningRecommendations.results)
+         {
+            for (const nrm::PlanningRecommendation& recommendation :
+                 result.recommendations)
+               WritePlanningRecommendation(planningRecommendationOutput,
+                                            recommendation, initialStatus.runId);
+         }
+         planningRecommendationOutput.flush();
+         if (!planningRecommendationOutput)
+         {
+            planningRecommendationHealthy = false;
+            RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_WRITE_FAILED,
+                        "planning_recommendations.jsonl");
          }
       }
 

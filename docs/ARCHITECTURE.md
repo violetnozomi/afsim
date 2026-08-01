@@ -13,7 +13,8 @@ AFSIM 内部事件 / 甲方结果包 / 回放输入
   ├── MessageLifecycleTracker：消息关联、去重、超时和严格窗口队列
   ├── ResourceEventLedger：端点/链路状态及建链事件
   ├── NetworkProfileRepository：版本化参数剖面与校验
-  └── NetworkPlanRepository：严格解析、修订存储和加载失败恢复
+  ├── NetworkPlanRepository：严格解析、修订存储和加载失败恢复
+  └── ResourceDemandRepository：需求集修订、原子存储和失败加载恢复
                  │
                  ▼
 不可变 ResourceSnapshot
@@ -22,6 +23,7 @@ AFSIM 内部事件 / 甲方结果包 / 回放输入
   ├── CommunicationCapabilityService / EnvironmentEffectAdapter
   ├── NetworkPlanValidator / NetworkPlanEvaluationService
   ├── NetworkPlanDistributionService（仅本地不可变包）
+  ├── ResourceDemandMatchingService / PlanningRecommendationEngine
   └── SnapshotReporter（runId 隔离的 JSONL/CSV/manifest）
 ```
 
@@ -56,6 +58,15 @@ v0.9 第一阶段以`NetworkPlanDocument`作为内部公共值对象。`NetworkP
 推演为 PASS 时，`NetworkPlanDistributionService`才在显式目录生成包含正文、校验、
 推演和 manifest 的本地不可变包。
 
+v0.10 第一阶段以`ResourceDemandSet`作为内部需求值对象。匹配服务先严格校验需求和证据
+身份，再把每条有效需求映射为一个`CapabilityRequest`并只调用一次现有能力服务。八项
+检查使用同一个`CapabilityResult`和当前快照，规划内容指纹或snapshotVersion不一致时
+拒绝拼接证据。
+
+`PlanningRecommendationEngine`不搜索新路径，也不生成资源候选。频率、站点、信道、
+子网和时隙仅在调用方显式有限候选中稳定排序；路由只复用本次能力结果。所有结果均为
+只读分析，不修改规划、需求、快照或AFSIM运行网络。
+
 ## 稳定边界
 
 - `include/nrm/` 中的公共契约和算法不依赖 AFSIM 或 Qt。
@@ -65,6 +76,7 @@ v0.9 第一阶段以`NetworkPlanDocument`作为内部公共值对象。`NetworkP
 - `InputProvider` 冻结内部、甲方模块和回放输入的公共边界。
 - `AssessmentEvaluator` 不改变 AFSIM 图，只产生评估结果和只读建议。
 - 规划服务只产生校验、推演和本地包；编辑生成新修订的`DRAFT`，不向网络下发。
+- 需求服务只产生匹配、差距和建议；编辑生成新需求集修订，不自动应用建议。
 - 所有参数化候选指标标记为 `PARAMETERIZED_MODEL/LOW`；当前路径上由多链路组合得到的
   PDR 标记为 `ESTIMATED/LOW`，不会伪装为协议实测。
 
@@ -80,6 +92,9 @@ v0.9 第一阶段以`NetworkPlanDocument`作为内部公共值对象。`NetworkP
 不是甲方正式规划格式；外部格式必须经`NetworkPlanAdapter`转换。甲方规划格式、
 专用校验规则和真实分发协议未提供前，不实现猜测性适配。
 
+内部需求文件路径由显式调用或`NRM_DEMAND_STORE_DIR`提供。该格式用于内部预验收；
+甲方正式需求格式和候选资源集合未提供时，不推导隐含门限或生成占位候选。
+
 上报目录结构如下：
 
 ```text
@@ -91,6 +106,8 @@ ${NRM_OUTPUT_DIR}/
     ├── capability_results.jsonl
     ├── plan_validation_results.jsonl
     ├── plan_evaluation_results.jsonl
+    ├── resource_demand_results.jsonl
+    ├── planning_recommendations.jsonl
     ├── network_summary.csv
     └── error.log                 # 仅发生错误时创建
 ```

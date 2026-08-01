@@ -112,6 +112,41 @@ int main()
       demandEvaluation.capability = capability;
       planEvaluation.demands.push_back(demandEvaluation);
       reporter.EnqueuePlanEvaluation(planEvaluation);
+
+      nrm::ResourceDemandBatchResult demandBatch;
+      demandBatch.demandSetId = "DEMAND-SET-REPORT";
+      demandBatch.revision = 2;
+      demandBatch.snapshotVersion = 7;
+      demandBatch.totalCount = 1;
+      demandBatch.unsatisfiedCount = 1;
+      nrm::ResourceDemandMatchResult demandResult;
+      demandResult.demandId = "DEMAND-REPORT";
+      demandResult.demandSetId = demandBatch.demandSetId;
+      demandResult.demandSetRevision = demandBatch.revision;
+      demandResult.snapshotVersion = 7;
+      demandResult.status = nrm::DemandMatchStatus::cUNSATISFIED;
+      demandResult.capability = capability;
+      nrm::RequirementCheck check;
+      check.type = nrm::RequirementItemType::cBANDWIDTH;
+      check.applicable = true;
+      check.reason = nrm::ResourceDemandReason::cBANDWIDTH_NOT_MET;
+      demandResult.checks.push_back(check);
+      demandResult.reasons.push_back(nrm::ResourceDemandReason::cBANDWIDTH_NOT_MET);
+      nrm::PlanningRecommendation recommendation;
+      recommendation.type = nrm::RecommendationType::cROUTE;
+      recommendation.status = nrm::RecommendationStatus::cAVAILABLE;
+      recommendation.demandId = demandResult.demandId;
+      recommendation.value = "fighter -> command";
+      recommendation.rank = 1;
+      recommendation.snapshotVersion = 7;
+      recommendation.reason = nrm::ResourceDemandReason::cNONE;
+      recommendation.source = nrm::DataOrigin::cDERIVED;
+      recommendation.confidence = nrm::Confidence::cHIGH;
+      recommendation.evidence.push_back("capabilityRequestId=CAP-REPORT");
+      demandResult.recommendations.push_back(recommendation);
+      demandBatch.results.push_back(demandResult);
+      reporter.EnqueueDemandResults(demandBatch);
+      reporter.EnqueuePlanningRecommendations(demandBatch);
    }
 
    const std::string json = ReadAll(runDirectory + "/resource_snapshots.jsonl");
@@ -178,11 +213,36 @@ int main()
    CHECK(planEvaluation.find("\"usesCandidate\":true") != std::string::npos);
    CHECK(planEvaluation.find("\"environmentEffects\":[") != std::string::npos);
 
+   const std::string demandResults =
+      ReadAll(runDirectory + "/resource_demand_results.jsonl");
+   CHECK(demandResults.find("\"demandSetId\":\"DEMAND-SET-REPORT\"") !=
+         std::string::npos);
+   CHECK(demandResults.find("\"status\":\"UNSATISFIED\"") !=
+         std::string::npos);
+   CHECK(demandResults.find("\"type\":\"BANDWIDTH\"") != std::string::npos);
+   CHECK(demandResults.find("BANDWIDTH_NOT_MET") != std::string::npos);
+   CHECK(demandResults.find("\"capability\":{") != std::string::npos);
+
+   const std::string planningRecommendations =
+      ReadAll(runDirectory + "/planning_recommendations.jsonl");
+   CHECK(planningRecommendations.find("\"type\":\"ROUTE\"") !=
+         std::string::npos);
+   CHECK(planningRecommendations.find("\"status\":\"AVAILABLE\"") !=
+         std::string::npos);
+   CHECK(planningRecommendations.find("fighter -> command") != std::string::npos);
+   CHECK(planningRecommendations.find("\"confidence\":\"HIGH\"") !=
+         std::string::npos);
+
    const std::string manifest = ReadAll(runDirectory + "/manifest.json");
    CHECK(manifest.find("\"complete\":true") != std::string::npos);
    CHECK(manifest.find("\"softwareVersion\"") != std::string::npos);
    CHECK(manifest.find("capability_results.jsonl") != std::string::npos);
    CHECK(manifest.find("plan_validation_results.jsonl") != std::string::npos);
    CHECK(manifest.find("plan_evaluation_results.jsonl") != std::string::npos);
+   CHECK(manifest.find("resource_demand_results.jsonl") != std::string::npos);
+   CHECK(manifest.find("planning_recommendations.jsonl") != std::string::npos);
+   CHECK(manifest.find("\"droppedDemandResultCount\":0") != std::string::npos);
+   CHECK(manifest.find("\"droppedPlanningRecommendationCount\":0") !=
+         std::string::npos);
    return 0;
 }

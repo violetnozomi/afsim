@@ -24,6 +24,10 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/NetworkPlanEvaluationService.hpp
       include/nrm/NetworkPlanSerialization.hpp
       include/nrm/NetworkPlanDistributionService.hpp
+      include/nrm/ResourceDemandTypes.hpp
+      include/nrm/ResourceDemandRepository.hpp
+      include/nrm/PlanningRecommendationEngine.hpp
+      include/nrm/ResourceDemandMatchingService.hpp
       include/nrm/Version.hpp
       source/WsfNetworkResourceManagerPlugin.hpp
    SRCS
@@ -138,6 +142,24 @@ target_include_directories(nrm_network_plan_evaluation_test PRIVATE
 add_test(NAME nrm_network_plan_evaluation_test
    COMMAND nrm_network_plan_evaluation_test)
 
+add_executable(nrm_resource_demand_repository_test EXCLUDE_FROM_ALL
+   tests/ResourceDemandRepositoryTest.cpp
+)
+target_include_directories(nrm_resource_demand_repository_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_resource_demand_repository_test
+   COMMAND nrm_resource_demand_repository_test)
+
+add_executable(nrm_resource_demand_matching_test EXCLUDE_FROM_ALL
+   tests/ResourceDemandMatchingTest.cpp
+)
+target_include_directories(nrm_resource_demand_matching_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_resource_demand_matching_test
+   COMMAND nrm_resource_demand_matching_test)
+
 set(NRM_TEST_TARGETS
    nrm_framework_types_test
    nrm_snapshot_reporter_test
@@ -150,6 +172,8 @@ set(NRM_TEST_TARGETS
    nrm_communication_capability_service_test
    nrm_network_plan_repository_test
    nrm_network_plan_evaluation_test
+   nrm_resource_demand_repository_test
+   nrm_resource_demand_matching_test
 )
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
    foreach(NRM_TEST_TARGET IN LISTS NRM_TEST_TARGETS)

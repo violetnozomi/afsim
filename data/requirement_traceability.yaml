@@ -31,6 +31,19 @@ v090_network_plan_evidence:
     - "使用内部NRM_NETWORK_PLAN_V1格式，不代表甲方正式规划文件格式。"
     - "仅生成本地不可变分发包，不连接真实分发协议或控制AFSIM网络。"
     - "现有AFSIM脚本无安全规划服务调用入口，未以普通消息场景伪造服务证据。"
+v100_resource_demand_evidence:
+  status: PRE_ACCEPTANCE
+  contract_requirement: "3.2.5"
+  components: [ResourceDemandRepository, ResourceDemandMatchingService, PlanningRecommendationEngine, SnapshotReporter]
+  tests: [nrm_resource_demand_repository_test, nrm_resource_demand_matching_test]
+  scenario_status: NOT_CREATED_NO_SAFE_SERVICE_ENTRY
+  schemas: [nrm.resource_demand.v1, nrm.resource_demand_set.v1, nrm.resource_demand_match.v1, nrm.resource_demand_batch.v1, nrm.planning_recommendation.v1]
+  reports: [resource_demand_results.jsonl, planning_recommendations.jsonl]
+  limitations:
+    - "使用内部NRM_RESOURCE_DEMAND_V1格式，不代表甲方正式需求格式。"
+    - "五类资源候选必须显式提供；缺少甲方候选或专用规则时固定UNAVAILABLE。"
+    - "建议仅供只读分析，不自动修改规划、快照或AFSIM运行网络。"
+    - "现有AFSIM脚本无安全需求匹配服务调用入口，未以普通消息场景伪造服务证据。"
 requirements:
   - requirement_id: 1
     requirement_name: "链路名称"

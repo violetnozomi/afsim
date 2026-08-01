@@ -1,15 +1,15 @@
 # AFSIM 网络资源管理器插件
 
-这是网络资源管理器的独立源码包。当前 v0.9.0 在不修改 AFSIM 核心源码的前提下，
-增加内部网链资源规划文件的加载、编辑、严格校验、只读能力推演、版本化存储和本地
-分发包生成闭环。
+这是网络资源管理器的独立源码包。当前 v0.10.0 在不修改 AFSIM 核心源码的前提下，
+增加内部网链资源需求文件生命周期、批量需求匹配、逐项差距分析和有限显式候选集内的
+可解释规划建议闭环。
 
 ## 当前能力
 
 - `wsf_network_resource_manager`：WSF 扩展入口，注册
   `network_resource_manager` 能力。
 - `NetworkResourceManager`：Warlock 插件，显示四网、窗口指标、成员、链路、任务评估、
-  通信能力和报告健康状态。
+  通信能力、资源规划、需求匹配和报告健康状态。
 - 公共数据契约：统一网络、端点、链路、消息生命周期、资源事件、指标原因码和输入提供者。
 - 版本化剖面：Link-11、Link-16、卫通、CDL 的候选范围、建链时延、PDR、容量、频点、
   协议模型和业务类型可由外部 `.nrm` 配置替换。
@@ -27,8 +27,13 @@
   引用与冲突校验，并将每条业务需求映射到既有通信能力服务进行只读推演。
 - 本地分发包：仅当校验和全部需求推演通过时，生成包含规划正文、校验结果、推演结果和
   manifest 的不可变目录；不调用网络、消息总线或 AFSIM 控制接口。
+- 需求匹配：严格解析内部`NRM_RESOURCE_DEMAND_V1`格式，逐需求复用一次通信能力查询，
+  固定输出路径、网络规模、距离、带宽、业务流量、时延、PDR和业务类型八项检查。
+- 可解释建议：频率、站点、信道、子网和时隙只筛选调用方显式有限候选；路由只复用本次
+  能力结果。每类均输出`AVAILABLE`或固定`UNAVAILABLE`原因，不自动应用。
 - 可恢复上报：每次运行写入独立 `runId` 目录，生成 manifest、快照 JSONL、评估 JSONL
-  能力 JSONL、规划校验/推演 JSONL 和 CSV；队列溢出与写入失败可观测，退出时排空队列。
+  能力 JSONL、规划校验/推演 JSONL、需求匹配/建议 JSONL 和 CSV；队列溢出与写入失败
+  可观测，退出时排空队列。
 - 演示场景：四网总览、三种故障/恢复场景和通信能力固定 smoke 场景。
 
 当前剖面、内部规划格式和故障场景属于内部演示输入，状态为 `PRE_ACCEPTANCE`，不代表
@@ -53,13 +58,15 @@ ctest --test-dir /path/to/afsim/build --output-on-failure -R '^nrm_'
 ```bash
 export NRM_NETWORK_PROFILE_CONFIG=/home/pyh/afsim/network_resource_manager/config/network_profiles.nrm
 export NRM_OUTPUT_DIR=/tmp/nrm-output
+export NRM_DEMAND_STORE_DIR=/tmp/nrm-demands
 ```
 
 详细构建和回退步骤见 [docs/BUILD_AND_ROLLBACK.md](docs/BUILD_AND_ROLLBACK.md)，
 实际验证结果见 [docs/VALIDATION.md](docs/VALIDATION.md)，通信能力口径见
 [docs/features/通信能力计算服务.md](docs/features/通信能力计算服务.md)，故障场景验收步骤见
 [docs/V070_FAILURE_SCENARIOS.md](docs/V070_FAILURE_SCENARIOS.md)，规划格式和状态机见
-[docs/features/网链资源规划文件.md](docs/features/网链资源规划文件.md)。日常启动和可视化入口见
+[docs/features/网链资源规划文件.md](docs/features/网链资源规划文件.md)，需求文法和匹配口径见
+[docs/features/网链资源需求匹配.md](docs/features/网链资源需求匹配.md)。日常启动和可视化入口见
 [docs/运行与可视化入口.md](docs/运行与可视化入口.md)，需求状态见
 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)。
 

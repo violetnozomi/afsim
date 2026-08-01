@@ -29,6 +29,7 @@ WkNrm::DataContainer::DataContainer(QObject* aParentPtr)
    , mCapabilityService(mProfiles)
    , mPlanValidator(mProfiles)
    , mPlanEvaluationService(mProfiles)
+   , mDemandMatchingService(mProfiles)
 {
    QByteArray outputDirectory = qgetenv("NRM_OUTPUT_DIR");
    if (outputDirectory.isEmpty())
@@ -47,6 +48,7 @@ WkNrm::DataContainer::~DataContainer() = default;
 void WkNrm::DataContainer::SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot)
 {
    mSnapshot = aSnapshot;
+   mHasDemandMatching = false;
    mReporterPtr->Enqueue(mSnapshot);
    emit SnapshotChanged();
 }
@@ -96,6 +98,7 @@ bool WkNrm::DataContainer::LoadNetworkPlan(const std::string& aPath)
       mHasPlanValidation = false;
       mHasPlanEvaluation = false;
       mHasDistributionPackage = false;
+      mHasDemandMatching = false;
    }
    emit NetworkPlanChanged();
    return loaded;
@@ -111,6 +114,7 @@ bool WkNrm::DataContainer::ReplaceNetworkPlanDraft(
       mHasPlanValidation = false;
       mHasPlanEvaluation = false;
       mHasDistributionPackage = false;
+      mHasDemandMatching = false;
    }
    emit NetworkPlanChanged();
    return replaced;
@@ -126,6 +130,7 @@ void WkNrm::DataContainer::UnloadNetworkPlan()
    mHasPlanValidation = false;
    mHasPlanEvaluation = false;
    mHasDistributionPackage = false;
+   mHasDemandMatching = false;
    emit NetworkPlanChanged();
 }
 
@@ -148,6 +153,7 @@ nrm::PlanValidationResult WkNrm::DataContainer::ValidateNetworkPlan()
    mHasPlanValidation = true;
    mHasPlanEvaluation = false;
    mHasDistributionPackage = false;
+   mHasDemandMatching = false;
    mReporterPtr->EnqueuePlanValidation(mPlanValidation);
    emit NetworkPlanChanged();
    return mPlanValidation;
@@ -173,6 +179,7 @@ nrm::NetworkPlanEvaluationResult WkNrm::DataContainer::EvaluateNetworkPlan(
    mHasPlanValidation = true;
    mHasPlanEvaluation = true;
    mHasDistributionPackage = false;
+   mHasDemandMatching = false;
    mReporterPtr->EnqueuePlanValidation(mPlanValidation);
    mReporterPtr->EnqueuePlanEvaluation(mPlanEvaluation);
    emit NetworkPlanChanged();
@@ -210,6 +217,88 @@ nrm::DistributionPackageResult WkNrm::DataContainer::GenerateNetworkPlanPackage(
    return mDistributionPackage;
 }
 
+bool WkNrm::DataContainer::LoadResourceDemands(const std::string& aPath)
+{
+   const bool loaded = mDemandRepository.LoadFromFile(aPath);
+   mDemandOperation = mDemandRepository.LastLoadResult();
+   if (!loaded)
+      mReporterPtr->ReportDemandError(mDemandOperation.reason,
+                                      mDemandOperation.field);
+   if (loaded)
+   {
+      mDemandMatching = nrm::ResourceDemandBatchResult();
+      mHasDemandMatching = false;
+   }
+   emit ResourceDemandChanged();
+   return loaded;
+}
+
+bool WkNrm::DataContainer::ReplaceResourceDemandDraft(
+   const nrm::ResourceDemandSet& aDemandSet)
+{
+   const bool replaced = mDemandRepository.ReplaceDraft(aDemandSet);
+   mDemandOperation = mDemandRepository.LastLoadResult();
+   if (!replaced)
+      mReporterPtr->ReportDemandError(mDemandOperation.reason,
+                                      mDemandOperation.field);
+   if (replaced)
+   {
+      mDemandMatching = nrm::ResourceDemandBatchResult();
+      mHasDemandMatching = false;
+   }
+   emit ResourceDemandChanged();
+   return replaced;
+}
+
+void WkNrm::DataContainer::UnloadResourceDemands()
+{
+   mDemandRepository.Unload();
+   mDemandOperation = nrm::ResourceDemandRepositoryResult();
+   mDemandMatching = nrm::ResourceDemandBatchResult();
+   mHasDemandMatching = false;
+   emit ResourceDemandChanged();
+}
+
+bool WkNrm::DataContainer::SaveResourceDemandRevision(const std::string& aPath)
+{
+   const bool saved = mDemandRepository.SaveRevision(aPath);
+   mDemandOperation = mDemandRepository.LastSaveResult();
+   if (!saved)
+      mReporterPtr->ReportDemandError(mDemandOperation.reason,
+                                      mDemandOperation.field);
+   emit ResourceDemandChanged();
+   return saved;
+}
+
+nrm::ResourceDemandBatchResult WkNrm::DataContainer::EvaluateResourceDemands(
+   const nrm::EnvironmentContext& aEnvironment,
+   const nrm::PlanningCandidateSet* aCandidatesPtr)
+{
+   const nrm::ResourceDemandSet* demandSetPtr =
+      mDemandRepository.GetCurrentDemandSet();
+   if (demandSetPtr == nullptr)
+   {
+      mDemandMatching = nrm::ResourceDemandBatchResult();
+      mDemandOperation = nrm::ResourceDemandRepositoryResult();
+      mDemandOperation.reason = nrm::ResourceDemandReason::cNO_CURRENT_DEMAND_SET;
+      mHasDemandMatching = false;
+      emit ResourceDemandChanged();
+      return mDemandMatching;
+   }
+
+   const nrm::NetworkPlanDocument* planPtr = mPlanRepository.GetCurrentPlan();
+   const nrm::NetworkPlanEvaluationResult* evaluationPtr =
+      mHasPlanEvaluation ? &mPlanEvaluation : nullptr;
+   mDemandMatching = mDemandMatchingService.Evaluate(
+      mSnapshot, *demandSetPtr, planPtr, evaluationPtr, aEnvironment,
+      aCandidatesPtr);
+   mHasDemandMatching = true;
+   mReporterPtr->EnqueueDemandResults(mDemandMatching);
+   mReporterPtr->EnqueuePlanningRecommendations(mDemandMatching);
+   emit ResourceDemandChanged();
+   return mDemandMatching;
+}
+
 nrm::NetworkPlanState WkNrm::DataContainer::GetNetworkPlanState() const
 {
    const nrm::NetworkPlanDocument* planPtr = mPlanRepository.GetCurrentPlan();
@@ -245,7 +334,9 @@ std::string WkNrm::DataContainer::GetReportingStatus() const
                                     status.droppedAssessmentCount +
                                     status.droppedCapabilityCount +
                                     status.droppedPlanValidationCount +
-                                    status.droppedPlanEvaluationCount;
+                                    status.droppedPlanEvaluationCount +
+                                    status.droppedDemandResultCount +
+                                    status.droppedPlanningRecommendationCount;
    if (allDropped > 0)
    {
       result += " dropped=" + std::to_string(allDropped);

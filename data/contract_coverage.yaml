@@ -47,10 +47,10 @@ requirements:
   - requirement_id: "3.2.5"
     requirement_name: "网链资源管理模型"
     design_status: COVERED
-    implementation_status: PARTIAL
+    implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, NetworkPlanDemand, LinkResourceAgent, CapabilityMatcher]
-    evidence: "状态时长、在网率、建链契约、负载、路由、消息统计和规划需求只读评估已实现；真实协议事件和自动网络控制未实现。"
+    components: [MessageLifecycleTracker, ResourceEventLedger, ResourceDemandRepository, ResourceDemandMatchingService, PlanningRecommendationEngine, SnapshotReporter]
+    evidence: "v0.10第一阶段完成内部需求生命周期、每需求单次能力查询、八项固定差距检查和显式有限候选内六类建议；13项测试与两插件构建通过。甲方正式需求/候选格式、专用资源规则、固定服务场景和自动网络控制尚缺。"
     acceptance_cases: [A06, A14, A26]
   - requirement_id: "3.3"
     requirement_name: "接口要求"
@@ -85,6 +85,6 @@ requirements:
     design_status: COVERED
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [NetworkTypeAdapter, MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, CommunicationCapabilityService, EnvironmentEffectAdapter, NetworkPlanRepository, NetworkPlanValidator, NetworkPlanEvaluationService, NetworkPlanDistributionService, SnapshotReporter, StateRepository, ModelRegistry]
-    evidence: "公共纯C++组件与AFSIM/Qt边界分离，11项组件化测试和两插件构建通过。"
+    components: [NetworkTypeAdapter, MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, CommunicationCapabilityService, EnvironmentEffectAdapter, NetworkPlanRepository, NetworkPlanValidator, NetworkPlanEvaluationService, NetworkPlanDistributionService, ResourceDemandRepository, ResourceDemandMatchingService, PlanningRecommendationEngine, SnapshotReporter, StateRepository, ModelRegistry]
+    evidence: "公共纯C++组件与AFSIM/Qt边界分离，13项组件化测试和两插件构建通过。"
     acceptance_cases: [A27, A28, A29, A30]

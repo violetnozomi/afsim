@@ -146,17 +146,6 @@ private:
       return false;
    }
 
-   static bool BusinessSupported(const NetworkProfile& aProfile,
-                                 const std::string& aBusinessType)
-   {
-      return std::find(aProfile.supportedBusinessTypes.begin(),
-                       aProfile.supportedBusinessTypes.end(), "*") !=
-                aProfile.supportedBusinessTypes.end() ||
-             std::find(aProfile.supportedBusinessTypes.begin(),
-                       aProfile.supportedBusinessTypes.end(), aBusinessType) !=
-                aProfile.supportedBusinessTypes.end();
-   }
-
    void ValidateAllocations(const NetworkPlanDocument& aPlan,
                             PlanValidationResult& aResult) const
    {
@@ -327,7 +316,9 @@ private:
             if (!requested) continue;
             foundAllocatedType = true;
             const NetworkProfile* profile = FindProfile(allocation.profileId);
-            if (profile != nullptr && BusinessSupported(*profile, demand.businessType))
+            if (profile != nullptr &&
+                NetworkProfileRepository::SupportsBusiness(*profile,
+                                                           demand.businessType))
                foundSupportedBusiness = true;
          }
          if (!foundAllocatedType)

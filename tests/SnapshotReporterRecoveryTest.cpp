@@ -84,6 +84,53 @@ int main()
       reporter.Start();
    }
 
+   std::string demandRun;
+   {
+      WkNrm::SnapshotReporter reporter(root, "demand-overflow-test", 2, false);
+      demandRun = reporter.GetRunDirectory();
+      for (std::uint64_t revision = 1; revision <= 5; ++revision)
+      {
+         nrm::ResourceDemandBatchResult batch;
+         batch.revision = revision;
+         nrm::ResourceDemandMatchResult result;
+         result.demandId = "demand-" + std::to_string(revision);
+         result.demandSetRevision = revision;
+         nrm::PlanningRecommendation recommendation;
+         recommendation.demandId = result.demandId;
+         recommendation.type = nrm::RecommendationType::cROUTE;
+         recommendation.reason = nrm::ResourceDemandReason::cROUTE_UNAVAILABLE;
+         result.recommendations.push_back(recommendation);
+         batch.results.push_back(result);
+         reporter.EnqueueDemandResults(batch);
+         reporter.EnqueuePlanningRecommendations(batch);
+      }
+      CHECK(reporter.GetStatus().droppedDemandResultCount == 3);
+      CHECK(reporter.GetStatus().droppedPlanningRecommendationCount == 3);
+      reporter.Start();
+   }
+   CHECK(Contains(demandRun + "/resource_demand_results.jsonl", "demand-4"));
+   CHECK(Contains(demandRun + "/resource_demand_results.jsonl", "demand-5"));
+   CHECK(Contains(demandRun + "/planning_recommendations.jsonl",
+                  "ROUTE_UNAVAILABLE"));
+   CHECK(Contains(demandRun + "/manifest.json",
+                  "\"droppedDemandResultCount\":3"));
+   CHECK(Contains(demandRun + "/manifest.json",
+                  "\"droppedPlanningRecommendationCount\":3"));
+
+   std::string demandErrorRun;
+   {
+      WkNrm::SnapshotReporter reporter(root, "demand-error-test");
+      demandErrorRun = reporter.GetRunDirectory();
+      reporter.ReportDemandError(nrm::ResourceDemandReason::cPARSE_ERROR,
+                                 "line:7");
+      CHECK(!reporter.GetStatus().healthy);
+      CHECK(reporter.GetStatus().writeErrorCount == 1);
+   }
+   CHECK(Contains(demandErrorRun + "/error.log",
+                  "\"component\":\"ResourceDemand\""));
+   CHECK(Contains(demandErrorRun + "/error.log", "PARSE_ERROR"));
+   CHECK(Contains(demandErrorRun + "/error.log", "line:7"));
+
    {
       WkNrm::SnapshotReporter reporter(
          "/proc/nrm-output-not-writable", "failure-test", 2, false);

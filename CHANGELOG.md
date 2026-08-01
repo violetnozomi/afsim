@@ -1,5 +1,22 @@
 # 变更记录
 
+## 0.10.0 - 2026-08-01
+
+- 新增纯 C++ `ResourceDemand`公共契约与严格`NRM_RESOURCE_DEMAND_V1`文法，支持失败加载
+  保护、卸载后重载、递增修订、严格round-trip和拒绝覆盖的原子保存。
+- 新增`ResourceDemandMatchingService`，每条有效需求只调用一次现有通信能力服务，固定
+  输出PATH、NETWORK_SIZE、DISTANCE、BANDWIDTH、TRAFFIC、DELAY、PDR和
+  BUSINESS_TYPE八项检查及正负裕量。
+- 规划内容指纹、修订或snapshotVersion不一致时拒绝拼接证据并输出
+  `PLAN_EVIDENCE_MISMATCH`；匹配过程不修改快照、规划、需求、profile或运行网络。
+- 新增`PlanningRecommendationEngine`，从显式有限候选中确定性筛选频率、站点、信道、
+  子网和时隙，路由仅复用本次能力结果；六类均输出明确可用状态、证据和固定原因码。
+- DataContainer新增需求生命周期和批量评估入口；Warlock新增“需求匹配”页；Reporter新增
+  `resource_demand_results.jsonl`和`planning_recommendations.jsonl`两条有界队列。
+- 新增需求Repository和Matching两个测试，Reporter测试扩展至新队列溢出、恢复与析构排空。
+- headless WSF插件在当前允许范围内没有需求匹配服务调用入口，因此未伪造
+  `resource_demand_matching_smoke`；本阶段状态为`IMPLEMENTED / PRE_ACCEPTANCE`。
+
 ## 0.9.0 - 2026-08-01
 
 - 新增纯 C++ `nrm.network_plan.v1`公共契约、外部`NetworkPlanAdapter`边界和完整

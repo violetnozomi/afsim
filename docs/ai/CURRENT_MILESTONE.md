@@ -2,11 +2,11 @@
 
 ## 1. 当前状态
 
-状态：`PENDING`。
+状态：`IMPLEMENTED`（内部`PRE_ACCEPTANCE`，稳定基线已形成）。
 
 目标版本：`v0.10.0-demand-matching`。
 
-稳定代码提交：`d6f9518`；v0.10从当前`feat/v0.9-network-plan-lifecycle`顶端开始。
+上一稳定代码提交：`d6f9518`；v0.10稳定基线为当前分支HEAD。
 
 建议分支：`feat/v0.10-demand-matching`。
 
@@ -66,5 +66,10 @@
 
 ## 7. 下一步唯一动作
 
-开发AI从当前分支顶端创建`feat/v0.10-demand-matching`，先运行并记录11项基线测试，然后只执行
-`docs/NEXT_DEVELOPMENT_INSTRUCTIONS.md`中的T1公共契约与严格需求文法工作。
+当前分支：`feat/v0.10-demand-matching`。
+
+当前进度：T0-T8完成；审查后已修正未启用指标污染PATH、跨网成员重复计数、混合网络
+业务支持过宽及需求异常未落日志四项问题。13/13固定测试通过，WSF与Warlock两个插件
+构建成功，static/test与diff门禁通过。无安全headless服务入口，因此未伪造
+`resource_demand_matching_smoke`。
+T9已完成审查、修正和稳定提交。保持v0.10基线，不自动进入下一里程碑。

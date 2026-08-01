@@ -214,6 +214,17 @@ public:
       return nullptr;
    }
 
+   static bool SupportsBusiness(const NetworkProfile& aProfile,
+                                const std::string& aBusinessType)
+   {
+      return std::find(aProfile.supportedBusinessTypes.begin(),
+                       aProfile.supportedBusinessTypes.end(), "*") !=
+                aProfile.supportedBusinessTypes.end() ||
+             std::find(aProfile.supportedBusinessTypes.begin(),
+                       aProfile.supportedBusinessTypes.end(), aBusinessType) !=
+                aProfile.supportedBusinessTypes.end();
+   }
+
    bool Valid() const { return mValid; }
    const std::string& ConfigVersion() const { return mConfigVersion; }
    const std::string& ProviderId() const { return mProviderId; }

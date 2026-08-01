@@ -1,5 +1,58 @@
 # 验证记录
 
+## v0.10.0 资源需求匹配预验收证据
+
+验证日期：2026-08-01
+开发基线：commit `047b020e77b36bc830b06c11525a318f2dc377d3`
+开发分支：`feat/v0.10-demand-matching`
+状态：`IMPLEMENTED / PRE_ACCEPTANCE`
+
+### 基线与最终回归
+
+修改前`scripts/ai_guard.sh static`通过，`scripts/ai_guard.sh test`构建两个插件并通过原
+11项测试。完成后再次执行两个守卫命令，WSF和Warlock插件目标构建成功，13项固定测试
+全部通过；新增：
+
+- `nrm_resource_demand_repository_test`；
+- `nrm_resource_demand_matching_test`。
+
+### 需求生命周期与匹配
+
+Repository测试覆盖合法加载、显式卸载后重载、round-trip、递增修订、失败加载保护、
+拒绝覆盖和原子保存，以及错误magic、未知记录、尾随token、重复ID、NaN/Inf、负值和
+PDR越界。内部格式完整文法已冻结在`docs/features/网链资源需求匹配.md`。
+
+Matching测试覆盖完全满足、无路径、网络规模不足，距离、带宽、业务流量、时延和PDR分别
+不满足，关键指标无效得到`DATA_INVALID`，以及非有限需求在能力查询前拒绝。可计数查询
+替身确认每条有效需求只经过一次能力查询链，业务流量与带宽使用两者较大值映射请求。
+边界用例另验证未启用指标缺失不污染PATH、同一平台跨网成员去重、多profile顺序无关，
+以及混合网络路径的逐类型业务支持。
+
+规划内容指纹或snapshotVersion不一致时，结果和六类建议固定返回
+`PLAN_EVIDENCE_MISMATCH`且不调用能力服务。显式候选乱序输入验证频率、站点、信道、子网
+和时隙的稳定排序；路由只复用本次能力结果。缺少候选且无路径时六类均有明确
+`UNAVAILABLE`原因。评估前后快照、规划、需求集和profile保持不变。
+
+Reporter测试确认`resource_demand_results.jsonl`和`planning_recommendations.jsonl`
+独立写出并登记manifest；恢复测试覆盖两条新增有界队列的精确溢出计数、再次运行隔离和
+析构前排空，并验证需求解析异常的结构化`error.log`落盘。Warlock插件已编译并包含“需求匹配”页，
+本轮未执行GUI人工点击或截图。
+
+### 固定场景与边界
+
+未创建或运行`resource_demand_matching_smoke`。现有headless AFSIM脚本只能加载WSF插件
+并驱动通信事件，不能安全调用Warlock DataContainer中的需求Repository和MatchingService；
+按开发指令不以普通消息交付或仅加载插件伪造服务证据。
+
+- 需求格式是内部`NRM_RESOURCE_DEMAND_V1`，不是甲方正式格式；
+- 频率、站点、信道、子网和时隙候选必须由调用方显式提供；
+- 缺少甲方候选集合或专用规则时输出固定不可用原因，不生成占位值；
+- 所有建议只读，不自动建链、改频、改信道、改子网、分配时隙或修改路由；
+- 未开发导航、环境传播、优化器、参数扫描或自动网络控制；
+- AFSIM核心源码零修改。
+
+---
+
 ## v0.9.0 网链规划文件生命周期预验收证据
 
 验证日期：2026-08-01

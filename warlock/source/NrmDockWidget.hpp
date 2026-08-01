@@ -32,6 +32,12 @@ private:
    void GenerateNetworkPlanPackage();
    bool ApplyNetworkPlanEdits();
    void RefreshNetworkPlan();
+   void LoadResourceDemands();
+   void UnloadResourceDemands();
+   void SaveResourceDemandRevision();
+   void EvaluateResourceDemands();
+   bool ApplyResourceDemandEdits();
+   void RefreshResourceDemands();
    void RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnapshot);
    static QString RuntimeStateText(nrm::RuntimeState aState);
    static void SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText);
@@ -72,6 +78,13 @@ private:
    QTableWidget*   mPlanIssueTablePtr;
    QTableWidget*   mPlanEvaluationTablePtr;
    bool            mPlanDirty = false;
+   QLabel*         mDemandSummaryPtr;
+   QLabel*         mDemandOperationPtr;
+   QTableWidget*   mDemandTablePtr;
+   QTableWidget*   mDemandMatchTablePtr;
+   QTableWidget*   mDemandGapTablePtr;
+   QTableWidget*   mDemandRecommendationTablePtr;
+   bool            mDemandDirty = false;
 };
 } // namespace WkNrm
 

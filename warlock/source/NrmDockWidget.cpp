@@ -1,6 +1,7 @@
 #include "NrmDockWidget.hpp"
 
 #include <cmath>
+#include <limits>
 #include <map>
 #include <vector>
 
@@ -192,6 +193,12 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mPlanDemandTablePtr(nullptr)
    , mPlanIssueTablePtr(nullptr)
    , mPlanEvaluationTablePtr(nullptr)
+   , mDemandSummaryPtr(new QLabel(this))
+   , mDemandOperationPtr(new QLabel(this))
+   , mDemandTablePtr(nullptr)
+   , mDemandMatchTablePtr(nullptr)
+   , mDemandGapTablePtr(nullptr)
+   , mDemandRecommendationTablePtr(nullptr)
 {
    QWidget* contentPtr = new QWidget(this);
    QVBoxLayout* rootLayoutPtr = new QVBoxLayout(contentPtr);
@@ -386,6 +393,76 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
                  QString::fromUtf8("DRAFT：表格编辑尚未写入规划仓库"));
            });
 
+   QWidget* demandPagePtr = new QWidget(tabsPtr);
+   QVBoxLayout* demandLayoutPtr = new QVBoxLayout(demandPagePtr);
+   mDemandSummaryPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   mDemandOperationPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   demandLayoutPtr->addWidget(mDemandSummaryPtr);
+   demandLayoutPtr->addWidget(mDemandOperationPtr);
+
+   QHBoxLayout* demandActionsPtr = new QHBoxLayout();
+   QPushButton* loadDemandButtonPtr =
+      new QPushButton(QString::fromUtf8("加载"), demandPagePtr);
+   loadDemandButtonPtr->setIcon(style()->standardIcon(QStyle::SP_DialogOpenButton));
+   QPushButton* unloadDemandButtonPtr =
+      new QPushButton(QString::fromUtf8("卸载"), demandPagePtr);
+   unloadDemandButtonPtr->setIcon(style()->standardIcon(QStyle::SP_DialogCloseButton));
+   QPushButton* saveDemandButtonPtr =
+      new QPushButton(QString::fromUtf8("保存新修订"), demandPagePtr);
+   saveDemandButtonPtr->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
+   QPushButton* evaluateDemandButtonPtr =
+      new QPushButton(QString::fromUtf8("执行匹配"), demandPagePtr);
+   evaluateDemandButtonPtr->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
+   demandActionsPtr->addWidget(loadDemandButtonPtr);
+   demandActionsPtr->addWidget(unloadDemandButtonPtr);
+   demandActionsPtr->addWidget(saveDemandButtonPtr);
+   demandActionsPtr->addWidget(evaluateDemandButtonPtr);
+   demandActionsPtr->addStretch();
+   demandLayoutPtr->addLayout(demandActionsPtr);
+
+   mDemandTablePtr = CreateEditableTable(
+      {"Demand", "Mission stage", "Business", "Source", "Destination",
+       "Payload bits", "Traffic bit/s", "Bandwidth bit/s", "Max delay ms",
+       "Min PDR %", "Max distance m", "Min network size", "Allowed networks"},
+      demandPagePtr);
+   mDemandTablePtr->setMinimumHeight(145);
+   demandLayoutPtr->addWidget(mDemandTablePtr);
+   mDemandMatchTablePtr = CreateTable(
+      {"Demand", "Status", "Snapshot", "Path", "Distance", "Rate", "Reasons"},
+      demandPagePtr);
+   mDemandMatchTablePtr->setMinimumHeight(105);
+   demandLayoutPtr->addWidget(mDemandMatchTablePtr);
+   mDemandGapTablePtr = CreateTable(
+      {"Demand", "Requirement", "Required", "Current", "Margin", "Reason"},
+      demandPagePtr);
+   mDemandGapTablePtr->setMinimumHeight(105);
+   demandLayoutPtr->addWidget(mDemandGapTablePtr);
+   mDemandRecommendationTablePtr = CreateTable(
+      {"Demand", "Type", "Status", "Candidate", "Value", "Rank",
+       "Source / confidence", "Reason", "Evidence"},
+      demandPagePtr);
+   mDemandRecommendationTablePtr->setMinimumHeight(120);
+   demandLayoutPtr->addWidget(mDemandRecommendationTablePtr);
+
+   connect(loadDemandButtonPtr, &QPushButton::clicked,
+           this, &DockWidget::LoadResourceDemands);
+   connect(unloadDemandButtonPtr, &QPushButton::clicked,
+           this, &DockWidget::UnloadResourceDemands);
+   connect(saveDemandButtonPtr, &QPushButton::clicked,
+           this, &DockWidget::SaveResourceDemandRevision);
+   connect(evaluateDemandButtonPtr, &QPushButton::clicked,
+           this, &DockWidget::EvaluateResourceDemands);
+   connect(mDemandTablePtr, &QTableWidget::itemChanged, this,
+           [this](QTableWidgetItem*)
+           {
+              mDemandDirty = true;
+              mDemandOperationPtr->setText(
+                 QString::fromUtf8("DRAFT：表格编辑尚未写入需求仓库，旧匹配结果已失效"));
+              mDemandMatchTablePtr->setRowCount(0);
+              mDemandGapTablePtr->setRowCount(0);
+              mDemandRecommendationTablePtr->setRowCount(0);
+           });
+
    tabsPtr->addTab(mNetworkTablePtr, "Four-network overview");
    tabsPtr->addTab(mMetricsTablePtr, "Window metrics");
    tabsPtr->addTab(mEndpointTablePtr, "Members");
@@ -393,6 +470,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    tabsPtr->addTab(assessmentPagePtr, "Task assessment");
    tabsPtr->addTab(capabilityPagePtr, QString::fromUtf8("通信能力"));
    tabsPtr->addTab(planPagePtr, QString::fromUtf8("资源规划"));
+   tabsPtr->addTab(demandPagePtr, QString::fromUtf8("需求匹配"));
    tabsPtr->setCurrentWidget(assessmentPagePtr);
    rootLayoutPtr->addWidget(tabsPtr);
 
@@ -404,9 +482,16 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
            [this]()
            {
               if (!mPlanDirty) RefreshNetworkPlan();
+              if (!mDemandDirty) RefreshResourceDemands();
+           });
+   connect(&mData, &DataContainer::ResourceDemandChanged, this,
+           [this]()
+           {
+              if (!mDemandDirty) RefreshResourceDemands();
            });
    Refresh();
    RefreshNetworkPlan();
+   RefreshResourceDemands();
 }
 
 void WkNrm::DockWidget::EvaluateTask()
@@ -895,6 +980,329 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
    }
 }
 
+void WkNrm::DockWidget::LoadResourceDemands()
+{
+   if (mDemandDirty &&
+       QMessageBox::question(this, QString::fromUtf8("未保存需求草案"),
+                             QString::fromUtf8("加载新需求集将放弃当前表格编辑，继续吗？")) !=
+          QMessageBox::Yes)
+      return;
+   const QString path = QFileDialog::getOpenFileName(
+      this, QString::fromUtf8("加载内部需求文件"), QString(),
+      QString::fromUtf8("NRM需求文件 (*.nrm *.demand);;所有文件 (*)"));
+   if (path.isEmpty()) return;
+   mDemandDirty = false;
+   mData.LoadResourceDemands(path.toStdString());
+   RefreshResourceDemands();
+}
+
+void WkNrm::DockWidget::UnloadResourceDemands()
+{
+   if (!mData.HasResourceDemandSet()) return;
+   if (QMessageBox::question(this, QString::fromUtf8("卸载需求集"),
+                             QString::fromUtf8("卸载将清除当前需求及匹配结果，继续吗？")) !=
+       QMessageBox::Yes)
+      return;
+   mDemandDirty = false;
+   mData.UnloadResourceDemands();
+   RefreshResourceDemands();
+}
+
+void WkNrm::DockWidget::SaveResourceDemandRevision()
+{
+   if (!mData.HasResourceDemandSet())
+   {
+      mDemandOperationPtr->setText("NO_CURRENT_DEMAND_SET");
+      return;
+   }
+   const nrm::ResourceDemandSet* setPtr = mData.GetResourceDemandSet();
+   const QString suggested = setPtr == nullptr
+                                ? QString()
+                                : QString("%1-r%2.demand")
+                                     .arg(QString::fromStdString(setPtr->demandSetId))
+                                     .arg(setPtr->revision + 1);
+   const QString path = QFileDialog::getSaveFileName(
+      this, QString::fromUtf8("保存内部需求新修订"), suggested,
+      QString::fromUtf8("NRM需求文件 (*.demand);;所有文件 (*)"));
+   if (path.isEmpty()) return;
+   mDemandDirty = true;
+   if (!ApplyResourceDemandEdits()) return;
+   mData.SaveResourceDemandRevision(path.toStdString());
+   RefreshResourceDemands();
+}
+
+void WkNrm::DockWidget::EvaluateResourceDemands()
+{
+   if (!ApplyResourceDemandEdits()) return;
+   mData.EvaluateResourceDemands();
+   RefreshResourceDemands();
+}
+
+bool WkNrm::DockWidget::ApplyResourceDemandEdits()
+{
+   if (!mDemandDirty) return mData.HasResourceDemandSet();
+   const nrm::ResourceDemandSet* currentPtr = mData.GetResourceDemandSet();
+   if (currentPtr == nullptr)
+   {
+      mDemandOperationPtr->setText("NO_CURRENT_DEMAND_SET");
+      return false;
+   }
+
+   nrm::ResourceDemandSet draft = *currentPtr;
+   draft.previousDemandSetId = currentPtr->demandSetId;
+   draft.previousRevision = currentPtr->revision;
+   draft.revision = currentPtr->revision + 1;
+   draft.createdTime =
+      QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toStdString();
+   draft.valid = true;
+   draft.demands.clear();
+
+   for (int row = 0; row < mDemandTablePtr->rowCount(); ++row)
+   {
+      nrm::ResourceDemand demand;
+      demand.demandId = CellText(mDemandTablePtr, row, 0).toStdString();
+      demand.demandSetId = draft.demandSetId;
+      demand.revision = draft.revision;
+      demand.missionStage = CellText(mDemandTablePtr, row, 1).toStdString();
+      demand.businessType = CellText(mDemandTablePtr, row, 2).toStdString();
+      demand.sourcePlatform = CellText(mDemandTablePtr, row, 3).toStdString();
+      demand.destinationPlatform = CellText(mDemandTablePtr, row, 4).toStdString();
+      bool payloadOk = false;
+      bool trafficOk = false;
+      bool bandwidthOk = false;
+      bool delayOk = false;
+      bool pdrOk = false;
+      bool distanceOk = false;
+      bool networkSizeOk = false;
+      demand.payloadBits = static_cast<std::uint64_t>(
+         CellText(mDemandTablePtr, row, 5).toULongLong(&payloadOk));
+      demand.businessTrafficBps =
+         CellText(mDemandTablePtr, row, 6).toDouble(&trafficOk);
+      demand.requiredBandwidthBps =
+         CellText(mDemandTablePtr, row, 7).toDouble(&bandwidthOk);
+      demand.maximumDelayMs =
+         CellText(mDemandTablePtr, row, 8).toDouble(&delayOk);
+      demand.minimumPdrPercent =
+         CellText(mDemandTablePtr, row, 9).toDouble(&pdrOk);
+      demand.maximumDistanceM =
+         CellText(mDemandTablePtr, row, 10).toDouble(&distanceOk);
+      const qulonglong networkSize =
+         CellText(mDemandTablePtr, row, 11).toULongLong(&networkSizeOk);
+      if (networkSize > std::numeric_limits<std::size_t>::max())
+         networkSizeOk = false;
+      demand.minimumNetworkSize = static_cast<std::size_t>(networkSize);
+      for (const std::string& token :
+           SplitValues(CellText(mDemandTablePtr, row, 12)))
+      {
+         const nrm::NetworkType type =
+            ParseNetworkType(QString::fromStdString(token));
+         if (type == nrm::NetworkType::cUNKNOWN)
+            networkSizeOk = false;
+         demand.allowedNetworks.push_back(type);
+      }
+      if (!payloadOk || !trafficOk || !bandwidthOk || !delayOk || !pdrOk ||
+          !distanceOk || !networkSizeOk)
+      {
+         mDemandOperationPtr->setText("PARSE_ERROR [demand numeric/network]");
+         return false;
+      }
+
+      const auto existing = std::find_if(
+         currentPtr->demands.begin(), currentPtr->demands.end(),
+         [&demand](const nrm::ResourceDemand& aExisting)
+         {
+            return aExisting.demandId == demand.demandId;
+         });
+      if (existing != currentPtr->demands.end())
+      {
+         demand.source = existing->source;
+         demand.confidence = existing->confidence;
+      }
+      else
+      {
+         demand.source = draft.source;
+         demand.confidence = draft.confidence;
+      }
+      demand.valid = true;
+      draft.demands.push_back(demand);
+   }
+
+   const bool replaced = mData.ReplaceResourceDemandDraft(draft);
+   if (!replaced)
+   {
+      const nrm::ResourceDemandRepositoryResult& operation =
+         mData.GetDemandOperation();
+      mDemandOperationPtr->setText(
+         QString("reason=%1, field=%2")
+            .arg(nrm::ToString(operation.reason),
+                 QString::fromStdString(operation.field)));
+      return false;
+   }
+   mDemandDirty = false;
+   RefreshResourceDemands();
+   return true;
+}
+
+void WkNrm::DockWidget::RefreshResourceDemands()
+{
+   if (mDemandDirty) return;
+   const nrm::ResourceDemandSet* setPtr = mData.GetResourceDemandSet();
+   if (setPtr == nullptr)
+   {
+      mDemandSummaryPtr->setText(QString::fromUtf8("当前需求集：未加载"));
+      const nrm::ResourceDemandRepositoryResult& operation =
+         mData.GetDemandOperation();
+      mDemandOperationPtr->setText(
+         operation.reason == nrm::ResourceDemandReason::cNONE
+            ? QString::fromUtf8("状态：无需求集")
+            : QString("reason=%1, field=%2")
+                 .arg(nrm::ToString(operation.reason),
+                      QString::fromStdString(operation.field)));
+      mDemandTablePtr->setRowCount(0);
+      mDemandMatchTablePtr->setRowCount(0);
+      mDemandGapTablePtr->setRowCount(0);
+      mDemandRecommendationTablePtr->setRowCount(0);
+      return;
+   }
+
+   mDemandSummaryPtr->setText(
+      QString("demandSetId=%1 | revision=%2 | demands=%3 | source=%4 | confidence=%5 | config=%6")
+         .arg(QString::fromStdString(setPtr->demandSetId))
+         .arg(setPtr->revision)
+         .arg(setPtr->demands.size())
+         .arg(nrm::ToString(setPtr->source))
+         .arg(nrm::ToString(setPtr->confidence))
+         .arg(QString::fromStdString(setPtr->configVersion)));
+   const nrm::ResourceDemandRepositoryResult& operation =
+      mData.GetDemandOperation();
+   mDemandOperationPtr->setText(
+      operation.success
+         ? QString("operation=OK, path=%1").arg(
+              QString::fromStdString(operation.path))
+         : QString("reason=%1, field=%2")
+              .arg(nrm::ToString(operation.reason),
+                   QString::fromStdString(operation.field)));
+
+   const QSignalBlocker demandBlocker(mDemandTablePtr);
+   mDemandTablePtr->setRowCount(static_cast<int>(setPtr->demands.size()));
+   for (std::size_t index = 0; index < setPtr->demands.size(); ++index)
+   {
+      const int row = static_cast<int>(index);
+      const nrm::ResourceDemand& demand = setPtr->demands[index];
+      SetTableText(mDemandTablePtr, row, 0, QString::fromStdString(demand.demandId));
+      SetTableText(mDemandTablePtr, row, 1, QString::fromStdString(demand.missionStage));
+      SetTableText(mDemandTablePtr, row, 2, QString::fromStdString(demand.businessType));
+      SetTableText(mDemandTablePtr, row, 3, QString::fromStdString(demand.sourcePlatform));
+      SetTableText(mDemandTablePtr, row, 4,
+                   QString::fromStdString(demand.destinationPlatform));
+      SetTableText(mDemandTablePtr, row, 5, QString::number(demand.payloadBits));
+      SetTableText(mDemandTablePtr, row, 6,
+                   QString::number(demand.businessTrafficBps, 'g', 16));
+      SetTableText(mDemandTablePtr, row, 7,
+                   QString::number(demand.requiredBandwidthBps, 'g', 16));
+      SetTableText(mDemandTablePtr, row, 8,
+                   QString::number(demand.maximumDelayMs, 'g', 16));
+      SetTableText(mDemandTablePtr, row, 9,
+                   QString::number(demand.minimumPdrPercent, 'g', 16));
+      SetTableText(mDemandTablePtr, row, 10,
+                   QString::number(demand.maximumDistanceM, 'g', 16));
+      SetTableText(mDemandTablePtr, row, 11,
+                   QString::number(static_cast<qulonglong>(demand.minimumNetworkSize)));
+      SetTableText(mDemandTablePtr, row, 12, JoinNetworks(demand.allowedNetworks));
+   }
+
+   if (!mData.HasDemandMatching())
+   {
+      mDemandMatchTablePtr->setRowCount(0);
+      mDemandGapTablePtr->setRowCount(0);
+      mDemandRecommendationTablePtr->setRowCount(0);
+      return;
+   }
+
+   const nrm::ResourceDemandBatchResult& batch = mData.GetDemandMatching();
+   mDemandOperationPtr->setText(
+      QString("matching: total=%1, satisfied=%2, unsatisfied=%3, dataInvalid=%4, snapshot=%5")
+         .arg(batch.totalCount)
+         .arg(batch.satisfiedCount)
+         .arg(batch.unsatisfiedCount)
+         .arg(batch.dataInvalidCount)
+         .arg(batch.snapshotVersion));
+   mDemandMatchTablePtr->setRowCount(static_cast<int>(batch.results.size()));
+   int gapRows = 0;
+   int recommendationRows = 0;
+   for (const nrm::ResourceDemandMatchResult& result : batch.results)
+   {
+      for (const nrm::RequirementCheck& check : result.checks)
+         if (check.applicable && (!check.passed || !check.currentValue.valid)) ++gapRows;
+      recommendationRows += static_cast<int>(result.recommendations.size());
+   }
+   mDemandGapTablePtr->setRowCount(gapRows);
+   mDemandRecommendationTablePtr->setRowCount(recommendationRows);
+
+   int gapRow = 0;
+   int recommendationRow = 0;
+   for (std::size_t index = 0; index < batch.results.size(); ++index)
+   {
+      const int row = static_cast<int>(index);
+      const nrm::ResourceDemandMatchResult& result = batch.results[index];
+      QStringList reasons;
+      for (nrm::ResourceDemandReason reason : result.reasons)
+         reasons.push_back(nrm::ToString(reason));
+      SetTableText(mDemandMatchTablePtr, row, 0,
+                   QString::fromStdString(result.demandId));
+      SetTableText(mDemandMatchTablePtr, row, 1, nrm::ToString(result.status));
+      SetTableText(mDemandMatchTablePtr, row, 2,
+                   QString::number(result.snapshotVersion));
+      SetTableText(mDemandMatchTablePtr, row, 3,
+                   result.capability.pathAvailable ? "AVAILABLE" : "UNAVAILABLE");
+      SetTableText(mDemandMatchTablePtr, row, 4,
+                   MetricText(result.capability.communicationDistanceM, 1));
+      SetTableText(mDemandMatchTablePtr, row, 5,
+                   MetricText(result.capability.transmissionRateBps, 1));
+      SetTableText(mDemandMatchTablePtr, row, 6,
+                   reasons.isEmpty() ? "NONE" : reasons.join(", "));
+
+      for (const nrm::RequirementCheck& check : result.checks)
+      {
+         if (!check.applicable || (check.passed && check.currentValue.valid)) continue;
+         SetTableText(mDemandGapTablePtr, gapRow, 0,
+                      QString::fromStdString(result.demandId));
+         SetTableText(mDemandGapTablePtr, gapRow, 1, nrm::ToString(check.type));
+         SetTableText(mDemandGapTablePtr, gapRow, 2, MetricText(check.requiredValue, 3));
+         SetTableText(mDemandGapTablePtr, gapRow, 3, MetricText(check.currentValue, 3));
+         SetTableText(mDemandGapTablePtr, gapRow, 4, MetricText(check.margin, 3));
+         SetTableText(mDemandGapTablePtr, gapRow, 5, nrm::ToString(check.reason));
+         ++gapRow;
+      }
+
+      for (const nrm::PlanningRecommendation& recommendation : result.recommendations)
+      {
+         SetTableText(mDemandRecommendationTablePtr, recommendationRow, 0,
+                      QString::fromStdString(recommendation.demandId));
+         SetTableText(mDemandRecommendationTablePtr, recommendationRow, 1,
+                      nrm::ToString(recommendation.type));
+         SetTableText(mDemandRecommendationTablePtr, recommendationRow, 2,
+                      nrm::ToString(recommendation.status));
+         SetTableText(mDemandRecommendationTablePtr, recommendationRow, 3,
+                      QString::fromStdString(recommendation.candidateId));
+         SetTableText(mDemandRecommendationTablePtr, recommendationRow, 4,
+                      QString::fromStdString(recommendation.value));
+         SetTableText(mDemandRecommendationTablePtr, recommendationRow, 5,
+                      recommendation.rank == 0 ? QString::fromUtf8("—")
+                                               : QString::number(recommendation.rank));
+         SetTableText(mDemandRecommendationTablePtr, recommendationRow, 6,
+                      QString("%1 / %2")
+                         .arg(nrm::ToString(recommendation.source),
+                              nrm::ToString(recommendation.confidence)));
+         SetTableText(mDemandRecommendationTablePtr, recommendationRow, 7,
+                      nrm::ToString(recommendation.reason));
+         SetTableText(mDemandRecommendationTablePtr, recommendationRow, 8,
+                      JoinValues(recommendation.evidence));
+         ++recommendationRow;
+      }
+   }
+}
+
 void WkNrm::DockWidget::Refresh()
 {
    const nrm::FrameworkSnapshot& snapshot = mData.GetSnapshot();
@@ -997,6 +1405,7 @@ void WkNrm::DockWidget::Refresh()
       SetTableText(mLinkTablePtr, row, 9, MetricText(link.snrDb));
       SetTableText(mLinkTablePtr, row, 10, MetricText(link.ber, 6));
    }
+   RefreshResourceDemands();
 }
 
 void WkNrm::DockWidget::RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnapshot)
