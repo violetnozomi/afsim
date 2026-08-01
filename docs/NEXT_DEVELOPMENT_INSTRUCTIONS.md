@@ -4,10 +4,12 @@
 
 实现合同3.2.5第一阶段的**网链资源需求管理、匹配结论、不满足项分析与可解释规划建议**。
 
-开发必须从包含v0.9稳定代码和本指令的提交`bd2efb3`开始，建议新建分支：
+开发必须从当前`feat/v0.9-network-plan-lifecycle`分支顶端开始，该顶端包含v0.9稳定代码和
+本指令。建议新建分支：
 
 ```bash
-git switch -c feat/v0.10-demand-matching bd2efb3
+git switch feat/v0.9-network-plan-lifecycle
+git switch -c feat/v0.10-demand-matching
 scripts/ai_guard.sh status
 scripts/ai_guard.sh static
 scripts/ai_guard.sh test
@@ -243,7 +245,7 @@ Matching测试至少覆盖：
 
 ## 13. 实施顺序
 
-1. T0：从`bd2efb3`建分支并记录11项基线；
+1. T0：从当前`feat/v0.9-network-plan-lifecycle`顶端建分支并记录11项基线；
 2. T1：冻结需求文法、枚举、原因码和裕量方向；
 3. T2：实现Demand Repository及非法输入测试；
 4. T3：实现MatchingService并复用CapabilityService；

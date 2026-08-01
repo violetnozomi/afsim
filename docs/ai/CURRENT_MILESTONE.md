@@ -6,7 +6,7 @@
 
 目标版本：`v0.10.0-demand-matching`。
 
-稳定代码提交：`d6f9518`；包含v0.10指令的开发起点：`bd2efb3`。
+稳定代码提交：`d6f9518`；v0.10从当前`feat/v0.9-network-plan-lifecycle`顶端开始。
 
 建议分支：`feat/v0.10-demand-matching`。
 
@@ -66,5 +66,5 @@
 
 ## 7. 下一步唯一动作
 
-开发AI从`bd2efb3`创建`feat/v0.10-demand-matching`，先运行并记录11项基线测试，然后只执行
+开发AI从当前分支顶端创建`feat/v0.10-demand-matching`，先运行并记录11项基线测试，然后只执行
 `docs/NEXT_DEVELOPMENT_INSTRUCTIONS.md`中的T1公共契约与严格需求文法工作。
