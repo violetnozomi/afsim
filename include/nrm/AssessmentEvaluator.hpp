@@ -77,6 +77,7 @@ public:
       constraints.requiredBandwidthBps = aTask.requiredBandwidthBps;
       constraints.maximumDelayMs = aTask.maximumDelayMs;
       constraints.minimumPdrPercent = aTask.minimumPdrPercent;
+      constraints.requireDelayMetric = aTask.requireDelayMetricForFeasibility;
       if (!options.Valid() || !constraints.Valid())
       {
          AddReason(result, AssessmentReason::cDATA_INVALID);
@@ -152,7 +153,8 @@ public:
       result.canEstablish = true;
       result.canComplete = primary->feasible;
       result.primaryRouteUsesCandidate = primary->candidateEdgeCount > 0;
-      PopulateRoute(*primary, aTask.sourcePlatform, result.primaryRoute, result.networkSequence);
+      PopulateRoute(*primary, aTask.sourcePlatform, result.primaryRoute,
+                    result.primaryEndpointRoute, result.networkSequence);
       PopulateMetrics(aSnapshot, *primary, result);
       PopulateMargins(aSnapshot, aTask, result);
       ApplyFailures(*primary, result);
@@ -175,7 +177,9 @@ public:
       if (backupPath != nullptr)
       {
          std::vector<NetworkType> ignored;
-         PopulateRoute(*backupPath, aTask.sourcePlatform, result.backupRoute, ignored);
+         std::vector<std::string> ignoredEndpoints;
+         PopulateRoute(*backupPath, aTask.sourcePlatform, result.backupRoute,
+                       ignoredEndpoints, ignored);
          result.backupRouteUsesCandidate = backupPath->candidateEdgeCount > 0;
       }
 
@@ -274,11 +278,34 @@ private:
          edge.destinationPlatform = link.destinationPlatform;
          edge.networkType = link.networkType;
          edge.candidate = false;
-         const double delayMs = LinkDelayMs(link);
+         double distanceM = -1.0;
+         if (link.distanceM.valid && std::isfinite(link.distanceM.value) &&
+             link.distanceM.value >= 0.0)
+         {
+            distanceM = link.distanceM.value;
+         }
+         else
+         {
+            distanceM = EndpointDistanceM(*source->second, *destination->second);
+         }
+         if (distanceM >= 0.0)
+         {
+            edge.distanceM = distanceM;
+            edge.distanceValid = true;
+            edge.distanceConfidence =
+               link.distanceM.valid ? link.distanceM.confidence
+                                    : EndpointDistanceConfidence(*source->second, *destination->second);
+         }
+         const double delayMs = LinkDelayMs(link, !aTask.requireObservedCurrentMetrics);
          if (delayMs >= 0.0)
          {
             edge.delayMs = delayMs;
             edge.delayValid = true;
+            const WindowMetrics* delayWindow = Window10s(link.windows);
+            edge.delayConfidence =
+               delayWindow != nullptr && delayWindow->averageTransportDelayMs.valid
+                  ? delayWindow->averageTransportDelayMs.confidence
+                  : edge.distanceConfidence;
          }
          const WindowMetrics* window = Window10s(link.windows);
          if (window != nullptr)
@@ -290,6 +317,7 @@ private:
             {
                edge.pdrPercent = ratio.value;
                edge.pdrValid = true;
+               edge.pdrConfidence = ratio.confidence;
             }
          }
          if (link.bandwidthBps.valid && std::isfinite(link.bandwidthBps.value) &&
@@ -298,8 +326,9 @@ private:
             edge.bandwidthBps =
                AdmissibleCapacityBps(aSnapshot, link.networkName, link.bandwidthBps.value);
             edge.bandwidthValid = true;
+            edge.bandwidthConfidence = link.bandwidthBps.confidence;
          }
-         else
+         else if (!aTask.requireObservedCurrentMetrics)
          {
             const NetworkProfile* profile = mProfiles.Find(link.networkType);
             if (profile != nullptr)
@@ -308,6 +337,7 @@ private:
                   AdmissibleCapacityBps(aSnapshot, link.networkName,
                                         profile->serviceCapacityBps);
                edge.bandwidthValid = true;
+               edge.bandwidthConfidence = Confidence::cLOW;
                edge.profileId = profile->profileId;
             }
          }
@@ -365,6 +395,7 @@ private:
             edge.networkType = source.networkType;
             edge.delayMs = profile->establishmentDelayMs +
                            1000.0 * distanceM / 299792458.0;
+            edge.distanceM = distanceM;
             edge.pdrPercent = profile->candidatePdrPercent;
             edge.bandwidthBps =
                AdmissibleCapacityBps(aSnapshot, source.networkName,
@@ -372,6 +403,11 @@ private:
             edge.delayValid = true;
             edge.pdrValid = true;
             edge.bandwidthValid = true;
+            edge.distanceValid = true;
+            edge.delayConfidence = Confidence::cLOW;
+            edge.pdrConfidence = Confidence::cLOW;
+            edge.bandwidthConfidence = Confidence::cLOW;
+            edge.distanceConfidence = EndpointDistanceConfidence(source, destination);
             edge.candidate = true;
             edge.profileId = profile->profileId;
             aAdjacency[edge.sourceId].push_back(edge);
@@ -413,7 +449,7 @@ private:
       return nullptr;
    }
 
-   static double LinkDelayMs(const LinkSnapshot& aLink)
+   static double LinkDelayMs(const LinkSnapshot& aLink, bool aAllowDistanceFallback)
    {
       const WindowMetrics* window = Window10s(aLink.windows);
       if (window != nullptr && window->averageTransportDelayMs.valid &&
@@ -422,7 +458,8 @@ private:
       {
          return window->averageTransportDelayMs.value;
       }
-      return aLink.distanceM.valid && std::isfinite(aLink.distanceM.value) &&
+      return aAllowDistanceFallback && aLink.distanceM.valid &&
+                    std::isfinite(aLink.distanceM.value) &&
                     aLink.distanceM.value >= 0.0
                 ? 1000.0 * aLink.distanceM.value / 299792458.0
                 : -1.0;
@@ -464,12 +501,35 @@ private:
       return std::sqrt(groundDistance * groundDistance + altitudeDelta * altitudeDelta);
    }
 
+   static Confidence MinConfidence(Confidence aLeft, Confidence aRight)
+   {
+      return static_cast<int>(aLeft) < static_cast<int>(aRight) ? aLeft : aRight;
+   }
+
+   static Confidence EndpointDistanceConfidence(const EndpointSnapshot& aSource,
+                                                  const EndpointSnapshot& aDestination)
+   {
+      Confidence confidence = Confidence::cHIGH;
+      confidence = MinConfidence(confidence, aSource.latitudeDeg.confidence);
+      confidence = MinConfidence(confidence, aSource.longitudeDeg.confidence);
+      confidence = MinConfidence(confidence, aDestination.latitudeDeg.confidence);
+      confidence = MinConfidence(confidence, aDestination.longitudeDeg.confidence);
+      if (aSource.altitudeM.valid && aDestination.altitudeM.valid)
+      {
+         confidence = MinConfidence(confidence, aSource.altitudeM.confidence);
+         confidence = MinConfidence(confidence, aDestination.altitudeM.confidence);
+      }
+      return confidence;
+   }
+
    static void PopulateRoute(const ConstrainedPath& aPath,
                              const std::string& aSourcePlatform,
                              std::vector<std::string>& aRoute,
+                             std::vector<std::string>& aEndpointRoute,
                              std::vector<NetworkType>& aNetworkSequence)
    {
       aRoute.clear();
+      aEndpointRoute = aPath.nodeIds;
       aNetworkSequence.clear();
       aRoute.push_back(aSourcePlatform);
       for (const ConstrainedEdge* edge : aPath.edges)
@@ -504,11 +564,19 @@ private:
          SetMetric(aResult.predictedDelayMs, aPath.delayMs, "ms", aSnapshot,
                    aPath.candidateEdgeCount > 0 ? DataOrigin::cPARAMETERIZED_MODEL
                                                 : DataOrigin::cDERIVED,
-                   aPath.candidateEdgeCount > 0 ? Confidence::cLOW : Confidence::cHIGH);
+                   aPath.candidateEdgeCount > 0 ? Confidence::cLOW
+                                                : aPath.delayConfidence);
       }
       else
       {
          aResult.predictedDelayMs.reason = MetricReason::cMISSING_LIFECYCLE_CORRELATION;
+      }
+      if (aPath.distanceValid)
+      {
+         SetMetric(aResult.pathDistanceM, aPath.totalDistanceM, "m", aSnapshot,
+                   DataOrigin::cDERIVED, aPath.distanceConfidence);
+         SetMetric(aResult.maximumHopDistanceM, aPath.maximumHopDistanceM, "m",
+                   aSnapshot, DataOrigin::cDERIVED, aPath.distanceConfidence);
       }
       if (aPath.pdrValid)
       {
@@ -533,7 +601,8 @@ private:
                    "bit/s", aSnapshot,
                    parameterizedCapacity ? DataOrigin::cPARAMETERIZED_MODEL
                                          : DataOrigin::cDERIVED,
-                   parameterizedCapacity ? Confidence::cLOW : Confidence::cHIGH);
+                   parameterizedCapacity ? Confidence::cLOW
+                                         : aPath.bandwidthConfidence);
       }
 
    }

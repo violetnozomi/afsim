@@ -10,6 +10,7 @@
 #include <thread>
 
 #include "nrm/AssessmentTypes.hpp"
+#include "nrm/CommunicationCapabilityTypes.hpp"
 
 namespace WkNrm
 {
@@ -21,6 +22,7 @@ struct ReporterStatus
    bool started = false;
    std::uint64_t droppedSnapshotCount = 0;
    std::uint64_t droppedAssessmentCount = 0;
+   std::uint64_t droppedCapabilityCount = 0;
    std::uint64_t writeErrorCount = 0;
    std::string lastError;
 };
@@ -40,6 +42,7 @@ public:
    void Start();
    void Enqueue(const nrm::ResourceSnapshot& aSnapshot);
    void EnqueueAssessment(const nrm::AssessmentResult& aResult);
+   void EnqueueCapability(const nrm::CapabilityResult& aResult);
    ReporterStatus GetStatus() const;
    std::string GetRunDirectory() const;
 
@@ -58,6 +61,7 @@ private:
    std::condition_variable           mCondition;
    std::deque<nrm::ResourceSnapshot> mQueue;
    std::deque<nrm::AssessmentResult> mAssessmentQueue;
+   std::deque<nrm::CapabilityResult> mCapabilityQueue;
    std::thread                       mThread;
    bool                              mStopping = false;
    bool                              mStarted = false;

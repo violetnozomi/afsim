@@ -1,0 +1,60 @@
+# Communication capability substrate smoke input.
+# This validates plugin loading, the current graph, and message delivery samples.
+
+comm NRM_CAPABILITY_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_capability_link16
+end_comm
+
+processor NRM_CAPABILITY_PROCESSOR WSF_SCRIPT_PROCESSOR
+   on_message
+      script
+         writeln("NRM capability smoke received on " + PLATFORM.Name());
+      end_script
+   end_on_message
+end_processor
+
+network nrm_capability_link16 WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member capability_source comm
+      member capability_destination comm
+   end_comm_list
+   comm_link_list
+      link capability_source comm capability_destination comm
+      link capability_destination comm capability_source comm
+   end_comm_link_list
+end_network
+
+platform_type NRM_CAPABILITY_NODE WSF_PLATFORM
+   icon Ground_Radar
+   side blue
+   add comm comm NRM_CAPABILITY_COMM
+      internal_link processor
+   end_comm
+   add processor processor NRM_CAPABILITY_PROCESSOR end_processor
+end_platform_type
+
+platform capability_source NRM_CAPABILITY_NODE
+   position 35.000n 120.000e altitude 100 m
+end_platform
+
+platform capability_destination NRM_CAPABILITY_NODE
+   position 35.050n 120.050e altitude 200 m
+end_platform
+
+execute at_time 1 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("CAPABILITY_QUERY_PAYLOAD");
+   message.SetSizeInBits(4096);
+   WsfSimulation.FindPlatform("capability_source").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("capability_destination").Comm("comm"));
+end_execute
+
+execute at_time 11 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("CAPABILITY_QUERY_PAYLOAD");
+   message.SetSizeInBits(4096);
+   WsfSimulation.FindPlatform("capability_source").Comm("comm").SendMessage(
+      message, WsfSimulation.FindPlatform("capability_destination").Comm("comm"));
+end_execute
+
+end_time 15 s

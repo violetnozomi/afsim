@@ -25,9 +25,15 @@ struct ConstrainedEdge
    double delayMs = 0.0;
    double pdrPercent = 0.0;
    double bandwidthBps = 0.0;
+   double distanceM = 0.0;
    bool delayValid = false;
+   Confidence delayConfidence = Confidence::cLOW;
    bool pdrValid = false;
+   Confidence pdrConfidence = Confidence::cLOW;
    bool bandwidthValid = false;
+   Confidence bandwidthConfidence = Confidence::cLOW;
+   bool distanceValid = false;
+   Confidence distanceConfidence = Confidence::cLOW;
    bool candidate = false;
    std::string profileId;
 };
@@ -37,6 +43,7 @@ struct PathConstraintSet
    double requiredBandwidthBps = 0.0;
    double maximumDelayMs = 0.0;
    double minimumPdrPercent = 0.0;
+   bool requireDelayMetric = true;
 
    bool Valid() const
    {
@@ -67,9 +74,16 @@ struct ConstrainedPath
    double delayMs = 0.0;
    double pdrPercent = 0.0;
    double bottleneckBandwidthBps = 0.0;
+   double totalDistanceM = 0.0;
+   double maximumHopDistanceM = 0.0;
    bool delayValid = false;
+   Confidence delayConfidence = Confidence::cLOW;
    bool pdrValid = false;
+   Confidence pdrConfidence = Confidence::cLOW;
    bool bandwidthValid = false;
+   Confidence bandwidthConfidence = Confidence::cLOW;
+   bool distanceValid = false;
+   Confidence distanceConfidence = Confidence::cLOW;
    bool feasible = false;
    std::size_t candidateEdgeCount = 0;
    std::vector<std::string> failedConstraints;
@@ -260,6 +274,11 @@ private:
       return aLeft.nodeIds < aRight.nodeIds;
    }
 
+   static Confidence MinConfidence(Confidence aLeft, Confidence aRight)
+   {
+      return static_cast<int>(aLeft) < static_cast<int>(aRight) ? aLeft : aRight;
+   }
+
    static ConstrainedPath Evaluate(const PartialPath& aPartial,
                                    const PathConstraintSet& aConstraints)
    {
@@ -269,6 +288,11 @@ private:
       path.delayValid = true;
       path.pdrValid = true;
       path.bandwidthValid = !path.edges.empty();
+      path.distanceValid = !path.edges.empty();
+      path.delayConfidence = Confidence::cHIGH;
+      path.pdrConfidence = Confidence::cHIGH;
+      path.bandwidthConfidence = Confidence::cHIGH;
+      path.distanceConfidence = Confidence::cHIGH;
       path.pdrPercent = 100.0;
       path.bottleneckBandwidthBps = std::numeric_limits<double>::max();
       for (const ConstrainedEdge* edge : path.edges)
@@ -277,15 +301,17 @@ private:
          {
             ++path.candidateEdgeCount;
          }
-         if (!edge->delayValid)
+         if (!edge->delayValid || !std::isfinite(edge->delayMs) || edge->delayMs < 0.0)
          {
             path.delayValid = false;
          }
          else
          {
             path.delayMs += edge->delayMs;
+            path.delayConfidence = MinConfidence(path.delayConfidence, edge->delayConfidence);
          }
-         if (!edge->pdrValid)
+         if (!edge->pdrValid || !std::isfinite(edge->pdrPercent) ||
+             edge->pdrPercent < 0.0 || edge->pdrPercent > 100.0)
          {
             path.pdrValid = false;
          }
@@ -293,8 +319,10 @@ private:
          {
             path.pdrPercent *=
                std::max(0.0, std::min(100.0, edge->pdrPercent)) / 100.0;
+            path.pdrConfidence = MinConfidence(path.pdrConfidence, edge->pdrConfidence);
          }
-         if (!edge->bandwidthValid)
+         if (!edge->bandwidthValid || !std::isfinite(edge->bandwidthBps) ||
+             edge->bandwidthBps < 0.0)
          {
             path.bandwidthValid = false;
          }
@@ -302,10 +330,24 @@ private:
          {
             path.bottleneckBandwidthBps =
                std::min(path.bottleneckBandwidthBps, edge->bandwidthBps);
+            path.bandwidthConfidence =
+               MinConfidence(path.bandwidthConfidence, edge->bandwidthConfidence);
+         }
+         if (!edge->distanceValid || !std::isfinite(edge->distanceM) || edge->distanceM < 0.0)
+         {
+            path.distanceValid = false;
+         }
+         else
+         {
+            path.totalDistanceM += edge->distanceM;
+            path.maximumHopDistanceM = std::max(path.maximumHopDistanceM, edge->distanceM);
+            path.distanceConfidence =
+               MinConfidence(path.distanceConfidence, edge->distanceConfidence);
          }
       }
 
-      if (!path.delayValid)
+      if (!path.delayValid &&
+          (aConstraints.requireDelayMetric || aConstraints.maximumDelayMs > 0.0))
       {
          path.failedConstraints.push_back("DELAY_DATA_INVALID");
       }

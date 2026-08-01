@@ -206,7 +206,9 @@ void WriteAssessment(std::ostream& aOutput,
    WriteStringArray(aOutput, aResult.primaryRoute);
    aOutput << ",\"primary_route_uses_candidate\":"
            << (aResult.primaryRouteUsesCandidate ? "true" : "false")
-           << ",\"backup_route\":";
+           << ",\"primary_endpoint_route\":";
+   WriteStringArray(aOutput, aResult.primaryEndpointRoute);
+   aOutput << ",\"backup_route\":";
    WriteStringArray(aOutput, aResult.backupRoute);
    aOutput << ",\"backup_route_uses_candidate\":"
            << (aResult.backupRouteUsesCandidate ? "true" : "false")
@@ -221,6 +223,10 @@ void WriteAssessment(std::ostream& aOutput,
    WriteStringArray(aOutput, aResult.failedConstraints);
    aOutput << ",\"predicted_delay_ms\":";
    WriteMetric(aOutput, aResult.predictedDelayMs);
+   aOutput << ",\"path_distance_m\":";
+   WriteMetric(aOutput, aResult.pathDistanceM);
+   aOutput << ",\"maximum_hop_distance_m\":";
+   WriteMetric(aOutput, aResult.maximumHopDistanceM);
    aOutput << ",\"estimated_pdr_percent\":";
    WriteMetric(aOutput, aResult.estimatedPdrPercent);
    aOutput << ",\"bottleneck_bandwidth_bps\":";
@@ -240,6 +246,81 @@ void WriteAssessment(std::ostream& aOutput,
    aOutput << "],\"recommendations\":";
    WriteStringArray(aOutput, aResult.recommendations);
    aOutput << "}\n";
+}
+
+void WriteCapability(std::ostream& aOutput,
+                     const nrm::CapabilityResult& aResult,
+                     const std::string& aRunId,
+                     const std::string& aDefaultConfigVersion)
+{
+   const std::string configVersion =
+      aResult.configVersion.empty() ? aDefaultConfigVersion : aResult.configVersion;
+   aOutput << "{\"schema\":\"nrm.capability.v1\",\"schemaVersion\":\""
+           << EscapeJson(aResult.schemaVersion) << "\",\"runId\":\""
+           << EscapeJson(aRunId) << "\",\"configVersion\":\""
+           << EscapeJson(configVersion) << "\",\"requestId\":\""
+           << EscapeJson(aResult.requestId) << "\",\"snapshotVersion\":"
+           << aResult.snapshotVersion << ",\"simTime\":" << aResult.simTime
+           << ",\"profileProviderId\":\"" << EscapeJson(aResult.profileProviderId)
+           << "\",\"profileIds\":";
+   WriteStringArray(aOutput, aResult.profileIds);
+   aOutput << ",\"requestValid\":" << (aResult.requestValid ? "true" : "false")
+           << ",\"pathAvailable\":" << (aResult.pathAvailable ? "true" : "false")
+           << ",\"usesCandidate\":" << (aResult.usesCandidate ? "true" : "false")
+           << ",\"route\":";
+   WriteStringArray(aOutput, aResult.route);
+   aOutput << ",\"endpointRoute\":";
+   WriteStringArray(aOutput, aResult.endpointRoute);
+   aOutput << ",\"networkSequence\":[";
+   for (std::size_t index = 0; index < aResult.networkSequence.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      aOutput << '\"' << nrm::ToString(aResult.networkSequence[index]) << '\"';
+   }
+   aOutput << "],\"communicationDistanceM\":";
+   WriteMetric(aOutput, aResult.communicationDistanceM);
+   aOutput << ",\"maximumHopDistanceM\":";
+   WriteMetric(aOutput, aResult.maximumHopDistanceM);
+   aOutput << ",\"transmissionRateBps\":";
+   WriteMetric(aOutput, aResult.transmissionRateBps);
+   aOutput << ",\"packetLossPercent\":";
+   WriteMetric(aOutput, aResult.packetLossPercent);
+   aOutput << ",\"transmissionDelayMs\":";
+   WriteMetric(aOutput, aResult.transmissionDelayMs);
+   aOutput << ",\"networkThroughputBps\":";
+   WriteMetric(aOutput, aResult.networkThroughputBps);
+   aOutput << ",\"accessRatioPercent\":";
+   WriteMetric(aOutput, aResult.accessRatioPercent);
+   aOutput << ",\"environmentEffects\":[";
+   for (std::size_t index = 0; index < aResult.environmentEffects.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      const nrm::EnvironmentEffect& effect = aResult.environmentEffects[index];
+      aOutput << "{\"domain\":\"" << nrm::ToString(effect.domain)
+              << "\",\"valid\":" << (effect.valid ? "true" : "false")
+              << ",\"source\":\"" << nrm::ToString(effect.origin)
+              << "\",\"confidence\":\"" << nrm::ToString(effect.confidence)
+              << "\",\"reasonCode\":\"" << nrm::ToString(effect.reason)
+              << "\",\"providerId\":\"" << EscapeJson(effect.providerId)
+              << "\",\"effectId\":\"" << EscapeJson(effect.effectId)
+              << "\",\"sampleTime\":" << effect.sampleTime
+              << ",\"pathLossDeltaDb\":";
+      WriteMetric(aOutput, effect.pathLossDeltaDb);
+      aOutput << ",\"capacityScale\":";
+      WriteMetric(aOutput, effect.capacityScale);
+      aOutput << ",\"packetLossDeltaPercent\":";
+      WriteMetric(aOutput, effect.packetLossDeltaPercent);
+      aOutput << ",\"delayDeltaMs\":";
+      WriteMetric(aOutput, effect.delayDeltaMs);
+      aOutput << '}';
+   }
+   aOutput << "],\"reasonCodes\":[";
+   for (std::size_t index = 0; index < aResult.reasons.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      aOutput << '\"' << nrm::ToString(aResult.reasons[index]) << '\"';
+   }
+   aOutput << "]}\n";
 }
 
 void WriteJsonSnapshot(std::ostream& aOutput,
@@ -428,6 +509,20 @@ void WkNrm::SnapshotReporter::EnqueueAssessment(const nrm::AssessmentResult& aRe
    mCondition.notify_one();
 }
 
+void WkNrm::SnapshotReporter::EnqueueCapability(const nrm::CapabilityResult& aResult)
+{
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (mCapabilityQueue.size() >= mMaximumQueueSize)
+      {
+         mCapabilityQueue.pop_front();
+         ++mStatus.droppedCapabilityCount;
+      }
+      mCapabilityQueue.push_back(aResult);
+   }
+   mCondition.notify_one();
+}
+
 WkNrm::ReporterStatus WkNrm::SnapshotReporter::GetStatus() const
 {
    std::lock_guard<std::mutex> lock(mMutex);
@@ -482,9 +577,10 @@ void WkNrm::SnapshotReporter::WriteManifest(bool aComplete)
           << ",\"healthy\":" << (status.healthy ? "true" : "false")
           << ",\"droppedSnapshotCount\":" << status.droppedSnapshotCount
           << ",\"droppedAssessmentCount\":" << status.droppedAssessmentCount
+          << ",\"droppedCapabilityCount\":" << status.droppedCapabilityCount
           << ",\"writeErrorCount\":" << status.writeErrorCount
           << ",\"files\":[\"resource_snapshots.jsonl\",\"network_summary.csv\","
-             "\"assessment_results.jsonl\",\"error.log\"]}\n";
+             "\"assessment_results.jsonl\",\"capability_results.jsonl\",\"error.log\"]}\n";
    output.flush();
    if (!output)
    {
@@ -502,9 +598,12 @@ void WkNrm::SnapshotReporter::Run()
                            std::ios::out | std::ios::trunc);
    std::ofstream assessmentOutput(initialStatus.runDirectory + "/assessment_results.jsonl",
                                   std::ios::out | std::ios::trunc);
+   std::ofstream capabilityOutput(initialStatus.runDirectory + "/capability_results.jsonl",
+                                  std::ios::out | std::ios::trunc);
    bool jsonHealthy = jsonOutput.is_open();
    bool csvHealthy = csvOutput.is_open();
    bool assessmentHealthy = assessmentOutput.is_open();
+   bool capabilityHealthy = capabilityOutput.is_open();
    if (!jsonHealthy)
       RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
                   "resource_snapshots.jsonl");
@@ -514,6 +613,9 @@ void WkNrm::SnapshotReporter::Run()
    if (!assessmentHealthy)
       RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
                   "assessment_results.jsonl");
+   if (!capabilityHealthy)
+      RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
+                  "capability_results.jsonl");
 
    if (csvHealthy)
    {
@@ -528,15 +630,19 @@ void WkNrm::SnapshotReporter::Run()
    {
       nrm::ResourceSnapshot snapshot;
       nrm::AssessmentResult assessment;
+      nrm::CapabilityResult capability;
       bool hasSnapshot = false;
       bool hasAssessment = false;
+      bool hasCapability = false;
       {
          std::unique_lock<std::mutex> lock(mMutex);
          mCondition.wait(lock, [this]
          {
-            return mStopping || !mQueue.empty() || !mAssessmentQueue.empty();
+            return mStopping || !mQueue.empty() || !mAssessmentQueue.empty() ||
+                   !mCapabilityQueue.empty();
          });
-         if (mQueue.empty() && mAssessmentQueue.empty() && mStopping)
+         if (mQueue.empty() && mAssessmentQueue.empty() && mCapabilityQueue.empty() &&
+             mStopping)
          {
             break;
          }
@@ -546,11 +652,29 @@ void WkNrm::SnapshotReporter::Run()
             mAssessmentQueue.pop_front();
             hasAssessment = true;
          }
+         else if (!mCapabilityQueue.empty())
+         {
+            capability = mCapabilityQueue.front();
+            mCapabilityQueue.pop_front();
+            hasCapability = true;
+         }
          else if (!mQueue.empty())
          {
             snapshot = mQueue.front();
             mQueue.pop_front();
             hasSnapshot = true;
+         }
+      }
+
+      if (hasCapability && capabilityHealthy)
+      {
+         WriteCapability(capabilityOutput, capability, initialStatus.runId, mConfigVersion);
+         capabilityOutput.flush();
+         if (!capabilityOutput)
+         {
+            capabilityHealthy = false;
+            RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_WRITE_FAILED,
+                        "capability_results.jsonl");
          }
       }
 

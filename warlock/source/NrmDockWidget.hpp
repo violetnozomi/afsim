@@ -23,6 +23,7 @@ public:
 private:
    void Refresh();
    void EvaluateTask();
+   void QueryCapability();
    void RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnapshot);
    static QString RuntimeStateText(nrm::RuntimeState aState);
    static void SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText);
@@ -49,6 +50,13 @@ private:
    QDoubleSpinBox* mMaximumDelayMsPtr;
    QDoubleSpinBox* mMinimumPdrPtr;
    QTextEdit*      mAssessmentResultPtr;
+   QComboBox*      mCapabilitySourceSelectorPtr;
+   QComboBox*      mCapabilityDestinationSelectorPtr;
+   QComboBox*      mCapabilityAllowedNetworkPtr;
+   QDoubleSpinBox* mCapabilityBandwidthKbpsPtr;
+   QDoubleSpinBox* mCapabilityMaximumDelayMsPtr;
+   QDoubleSpinBox* mCapabilityMinimumPdrPtr;
+   QTextEdit*      mCapabilityResultPtr;
 };
 } // namespace WkNrm
 

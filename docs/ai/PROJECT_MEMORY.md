@@ -30,9 +30,9 @@ v0.6.0已有三个回归测试：nrm_framework_types_test、nrm_snapshot_reporte
 
 ## 3. 当前开发状态
 
-2026-08-01观察到main工作区存在一组尚未提交、尚未完成最终验收的v0.7改动，涉及NetworkProfile、MessageLifecycleTracker、ResourceEventLedger、ConstrainedPathSelector、运行隔离上报、三个故障场景和新增测试目标。
-
-这些改动来自并行开发，不得被后续AI覆盖或回退。CHANGELOG中存在0.7.0描述不等于已经VERIFIED。当前状态以CURRENT_MILESTONE为准。
+v0.7已在提交`073c9b7`形成内部PRE_ACCEPTANCE稳定基线。当前分支
+`feat/v0.8-capability-service`只实施v0.8第一阶段`CommunicationCapabilityService`，
+统一输出合同3.2.3六项能力指标；环境仅预留适配接口，不实现真实传播模型。
 
 ## 4. 合同主线
 

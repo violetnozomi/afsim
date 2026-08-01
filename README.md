@@ -1,15 +1,15 @@
 # AFSIM 网络资源管理器插件
 
-这是网络资源管理器的独立源码包。当前 v0.7.0 在不修改 AFSIM 核心源码的前提下，
-完成了可配置候选网络剖面、严格消息生命周期指标、资源状态事件账本、有界约束路径选择
-和可恢复运行上报闭环。
+这是网络资源管理器的独立源码包。当前 v0.8.0 在不修改 AFSIM 核心源码的前提下，
+增加统一通信/数据链能力查询，复用版本化剖面、严格指标和有界路径选择，输出距离、速率、
+丢包率、时延、交付吞吐量、接入率及完整数据质量信息。
 
 ## 当前能力
 
 - `wsf_network_resource_manager`：WSF 扩展入口，注册
   `network_resource_manager` 能力。
-- `NetworkResourceManager`：Warlock 插件，显示四网、窗口指标、成员、链路、任务评估
-  和报告健康状态。
+- `NetworkResourceManager`：Warlock 插件，显示四网、窗口指标、成员、链路、任务评估、
+  通信能力和报告健康状态。
 - 公共数据契约：统一网络、端点、链路、消息生命周期、资源事件、指标原因码和输入提供者。
 - 版本化剖面：Link-11、Link-16、卫通、CDL 的候选范围、建链时延、PDR、容量、频点、
   协议模型和业务类型可由外部 `.nrm` 配置替换。
@@ -19,9 +19,13 @@
   建链尝试数、成功率和平均建链时长。
 - 任务评估：在当前图优先、候选图补充的前提下搜索有界 K 条简单路径，选择满足带宽、
   时延和可靠性硬约束的路径，并输出诊断路径、排名、失败约束和有向边不重合备路。
+- 通信能力：`CommunicationCapabilityService`复用任务评估路径，统一输出路径三维距离、
+  瓶颈可准入速率、丢包率、累计时延、观测交付吞吐量和成员接入率。
+- 环境边界：`EnvironmentEffectAdapter`预留地形、气象、天象和电磁干扰输入；没有甲方
+  数据时四项均保持无效并输出固定原因码，不编造传播模型。
 - 可恢复上报：每次运行写入独立 `runId` 目录，生成 manifest、快照 JSONL、评估 JSONL
-  和 CSV；队列溢出与写入失败可观测，退出时排空队列。
-- 演示场景：四网总览，以及链路中断、拥塞和质量下降三种故障/恢复场景。
+  能力 JSONL 和 CSV；队列溢出与写入失败可观测，退出时排空队列。
+- 演示场景：四网总览、三种故障/恢复场景和通信能力固定 smoke 场景。
 
 当前剖面和故障场景属于内部演示输入，状态为 `PRE_ACCEPTANCE`，不代表甲方四网模型或
 目标环境的最终验收。甲方 GNSS/INS 功能包仍负责导航解算；本项目后续只负责结果包解析、
@@ -47,7 +51,8 @@ export NRM_OUTPUT_DIR=/tmp/nrm-output
 ```
 
 详细构建和回退步骤见 [docs/BUILD_AND_ROLLBACK.md](docs/BUILD_AND_ROLLBACK.md)，
-实际验证结果见 [docs/VALIDATION.md](docs/VALIDATION.md)，故障场景验收步骤见
+实际验证结果见 [docs/VALIDATION.md](docs/VALIDATION.md)，通信能力口径见
+[docs/features/通信能力计算服务.md](docs/features/通信能力计算服务.md)，故障场景验收步骤见
 [docs/V070_FAILURE_SCENARIOS.md](docs/V070_FAILURE_SCENARIOS.md)。日常启动和可视化入口见
 [docs/运行与可视化入口.md](docs/运行与可视化入口.md)，需求状态见
 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)。

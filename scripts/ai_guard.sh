@@ -16,7 +16,7 @@ if [ -z "$SCENARIO_TIMEOUT_VALUE" ]; then
   SCENARIO_TIMEOUT_VALUE=120
 fi
 
-TEST_NAMES="nrm_framework_types_test nrm_snapshot_reporter_test nrm_assessment_evaluator_test nrm_network_profile_test nrm_message_lifecycle_tracker_test nrm_resource_event_ledger_test nrm_constrained_path_selector_test nrm_snapshot_reporter_recovery_test"
+TEST_NAMES="nrm_framework_types_test nrm_snapshot_reporter_test nrm_assessment_evaluator_test nrm_network_profile_test nrm_message_lifecycle_tracker_test nrm_resource_event_ledger_test nrm_constrained_path_selector_test nrm_snapshot_reporter_recovery_test nrm_communication_capability_service_test"
 
 usage() {
   printf '%s\n' \
@@ -29,7 +29,7 @@ usage() {
     "check     Run static checks and all fixed tests." \
     "scenario  Run one approved scenario once with a timeout." \
     "" \
-    "Approved scenarios: framework_smoke, four_network_overview, link_failure, congestion, quality_degradation."
+    "Approved scenarios: framework_smoke, four_network_overview, link_failure, congestion, quality_degradation, capability_service_smoke."
 }
 
 require_file() {
@@ -126,6 +126,7 @@ scenario_file() {
     link_failure) printf '%s\n' link_failure.txt ;;
     congestion) printf '%s\n' congestion.txt ;;
     quality_degradation) printf '%s\n' quality_degradation.txt ;;
+    capability_service_smoke) printf '%s\n' capability_service_smoke.txt ;;
     *)
       printf 'ERROR: scenario is not approved: %s\n' "$1" >&2
       return 1

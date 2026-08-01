@@ -57,6 +57,18 @@ int main()
    }
 
    {
+      WkNrm::SnapshotReporter reporter(root, "capability-overflow-test", 2, false);
+      for (std::uint64_t version = 1; version <= 5; ++version)
+      {
+         nrm::CapabilityResult capability;
+         capability.snapshotVersion = version;
+         reporter.EnqueueCapability(capability);
+      }
+      CHECK(reporter.GetStatus().droppedCapabilityCount == 3);
+      reporter.Start();
+   }
+
+   {
       WkNrm::SnapshotReporter reporter(
          "/proc/nrm-output-not-writable", "failure-test", 2, false);
       CHECK(!reporter.GetStatus().healthy);

@@ -64,6 +64,8 @@ struct AssessmentTask
    std::string              sourcePlatform;
    std::size_t              kShortestPaths       = 8;
    std::size_t              maximumHops          = 16;
+   bool                     requireObservedCurrentMetrics = false;
+   bool                     requireDelayMetricForFeasibility = true;
    std::string              destinationPlatform;
    std::uint64_t            payloadBits          = 0;
    double                   requiredBandwidthBps = 0.0;
@@ -89,11 +91,14 @@ struct AssessmentResult
    bool                          canComplete      = false;
    bool                          stable           = false;
    std::vector<std::string>      primaryRoute;
+   std::vector<std::string>      primaryEndpointRoute;
    bool                          primaryRouteUsesCandidate = false;
    std::vector<std::string>      backupRoute;
    bool                          backupRouteUsesCandidate = false;
    std::vector<NetworkType>      networkSequence;
    MetricValue<double>           predictedDelayMs;
+   MetricValue<double>           pathDistanceM;
+   MetricValue<double>           maximumHopDistanceM;
    MetricValue<double>           estimatedPdrPercent;
    MetricValue<double>           bottleneckBandwidthBps;
    MetricValue<double>           bandwidthMarginBps;

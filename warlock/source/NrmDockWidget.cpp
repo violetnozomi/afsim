@@ -14,6 +14,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QStyle>
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QTextEdit>
@@ -48,6 +49,29 @@ QString MetricText(const nrm::MetricValue<double>& aMetric, int aPrecision = 2)
 {
    return aMetric.valid ? QString::number(aMetric.value, 'f', aPrecision) + " " + QString::fromStdString(aMetric.unit)
                         : QString::fromUtf8("—");
+}
+
+QString CapabilityMetricText(const nrm::MetricValue<double>& aMetric, int aPrecision = 2)
+{
+   const QString metadata =
+      QString("source=%1, confidence=%2, reason=%3")
+         .arg(nrm::ToString(aMetric.origin),
+              nrm::ToString(aMetric.confidence),
+              nrm::ToString(aMetric.reason));
+   if (!aMetric.valid)
+   {
+      return "INVALID [" + metadata + "]";
+   }
+   return QString::number(aMetric.value, 'f', aPrecision) + " " +
+          QString::fromStdString(aMetric.unit) + " [" + metadata + "]";
+}
+
+void AddAllowedNetwork(const QString& aValue, std::vector<nrm::NetworkType>& aNetworks)
+{
+   if (aValue == "LINK11") aNetworks.push_back(nrm::NetworkType::cLINK11);
+   else if (aValue == "LINK16") aNetworks.push_back(nrm::NetworkType::cLINK16);
+   else if (aValue == "SATCOM") aNetworks.push_back(nrm::NetworkType::cSATCOM);
+   else if (aValue == "CDL") aNetworks.push_back(nrm::NetworkType::cCDL);
 }
 
 const nrm::WindowMetrics* FindWindow(const std::vector<nrm::WindowMetrics>& aWindows, double aWindowS)
@@ -101,6 +125,13 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mMaximumDelayMsPtr(nullptr)
    , mMinimumPdrPtr(nullptr)
    , mAssessmentResultPtr(nullptr)
+   , mCapabilitySourceSelectorPtr(nullptr)
+   , mCapabilityDestinationSelectorPtr(nullptr)
+   , mCapabilityAllowedNetworkPtr(nullptr)
+   , mCapabilityBandwidthKbpsPtr(nullptr)
+   , mCapabilityMaximumDelayMsPtr(nullptr)
+   , mCapabilityMinimumPdrPtr(nullptr)
+   , mCapabilityResultPtr(nullptr)
 {
    QWidget* contentPtr = new QWidget(this);
    QVBoxLayout* rootLayoutPtr = new QVBoxLayout(contentPtr);
@@ -175,11 +206,48 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    assessmentLayoutPtr->addWidget(mAssessmentResultPtr);
    connect(evaluateButtonPtr, &QPushButton::clicked, this, &DockWidget::EvaluateTask);
 
+   QWidget* capabilityPagePtr = new QWidget(tabsPtr);
+   QVBoxLayout* capabilityLayoutPtr = new QVBoxLayout(capabilityPagePtr);
+   QFormLayout* capabilityFormPtr = new QFormLayout();
+   mCapabilitySourceSelectorPtr = new QComboBox(capabilityPagePtr);
+   mCapabilityDestinationSelectorPtr = new QComboBox(capabilityPagePtr);
+   mCapabilitySourceSelectorPtr->setMinimumContentsLength(24);
+   mCapabilityDestinationSelectorPtr->setMinimumContentsLength(24);
+   mCapabilityAllowedNetworkPtr = new QComboBox(capabilityPagePtr);
+   mCapabilityAllowedNetworkPtr->addItems({"ALL", "LINK11", "LINK16", "SATCOM", "CDL"});
+   mCapabilityBandwidthKbpsPtr = new QDoubleSpinBox(capabilityPagePtr);
+   mCapabilityBandwidthKbpsPtr->setRange(0.0, 100000000.0);
+   mCapabilityBandwidthKbpsPtr->setDecimals(3);
+   mCapabilityBandwidthKbpsPtr->setSuffix(" kbit/s");
+   mCapabilityMaximumDelayMsPtr = new QDoubleSpinBox(capabilityPagePtr);
+   mCapabilityMaximumDelayMsPtr->setRange(0.0, 10000000.0);
+   mCapabilityMaximumDelayMsPtr->setSuffix(" ms");
+   mCapabilityMinimumPdrPtr = new QDoubleSpinBox(capabilityPagePtr);
+   mCapabilityMinimumPdrPtr->setRange(0.0, 100.0);
+   mCapabilityMinimumPdrPtr->setSuffix(" %");
+   capabilityFormPtr->addRow("Source platform", mCapabilitySourceSelectorPtr);
+   capabilityFormPtr->addRow("Destination platform", mCapabilityDestinationSelectorPtr);
+   capabilityFormPtr->addRow("Allowed network", mCapabilityAllowedNetworkPtr);
+   capabilityFormPtr->addRow("Required bandwidth", mCapabilityBandwidthKbpsPtr);
+   capabilityFormPtr->addRow("Maximum delay (0 = none)", mCapabilityMaximumDelayMsPtr);
+   capabilityFormPtr->addRow("Minimum PDR", mCapabilityMinimumPdrPtr);
+   capabilityLayoutPtr->addLayout(capabilityFormPtr);
+   QPushButton* capabilityButtonPtr = new QPushButton("Query communication capability",
+                                                      capabilityPagePtr);
+   capabilityButtonPtr->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
+   capabilityLayoutPtr->addWidget(capabilityButtonPtr);
+   mCapabilityResultPtr = new QTextEdit(capabilityPagePtr);
+   mCapabilityResultPtr->setReadOnly(true);
+   mCapabilityResultPtr->setPlainText("Select a task path and query the current snapshot.");
+   capabilityLayoutPtr->addWidget(mCapabilityResultPtr);
+   connect(capabilityButtonPtr, &QPushButton::clicked, this, &DockWidget::QueryCapability);
+
    tabsPtr->addTab(mNetworkTablePtr, "Four-network overview");
    tabsPtr->addTab(mMetricsTablePtr, "Window metrics");
    tabsPtr->addTab(mEndpointTablePtr, "Members");
    tabsPtr->addTab(mLinkTablePtr, "Links");
    tabsPtr->addTab(assessmentPagePtr, "Task assessment");
+   tabsPtr->addTab(capabilityPagePtr, QString::fromUtf8("通信能力"));
    tabsPtr->setCurrentWidget(assessmentPagePtr);
    rootLayoutPtr->addWidget(tabsPtr);
 
@@ -209,23 +277,7 @@ void WkNrm::DockWidget::EvaluateTask()
    task.requiredBandwidthBps = mBandwidthKbpsPtr->value() * 1000.0;
    task.maximumDelayMs       = mMaximumDelayMsPtr->value();
    task.minimumPdrPercent    = mMinimumPdrPtr->value();
-   const QString allowedNetwork = mAllowedNetworkPtr->currentText();
-   if (allowedNetwork == "LINK11")
-   {
-      task.allowedNetworks.push_back(nrm::NetworkType::cLINK11);
-   }
-   else if (allowedNetwork == "LINK16")
-   {
-      task.allowedNetworks.push_back(nrm::NetworkType::cLINK16);
-   }
-   else if (allowedNetwork == "SATCOM")
-   {
-      task.allowedNetworks.push_back(nrm::NetworkType::cSATCOM);
-   }
-   else if (allowedNetwork == "CDL")
-   {
-      task.allowedNetworks.push_back(nrm::NetworkType::cCDL);
-   }
+   AddAllowedNetwork(mAllowedNetworkPtr->currentText(), task.allowedNetworks);
 
    nrm::NetworkProfileRepository profiles =
       nrm::NetworkProfileRepository::BuiltInDemo();
@@ -291,6 +343,68 @@ void WkNrm::DockWidget::EvaluateTask()
    text += "Recommendation: " +
            (recommendations.isEmpty() ? QString::fromUtf8("—") : recommendations.join("\n- "));
    mAssessmentResultPtr->setPlainText(text);
+}
+
+void WkNrm::DockWidget::QueryCapability()
+{
+   nrm::CapabilityRequest request;
+   request.requestId = "GUI-CAP-" + std::to_string(mData.GetSnapshot().snapshotVersion);
+   request.sourcePlatform =
+      mCapabilitySourceSelectorPtr->currentData().toString().toStdString();
+   request.destinationPlatform =
+      mCapabilityDestinationSelectorPtr->currentData().toString().toStdString();
+   if (request.sourcePlatform.empty() || request.destinationPlatform.empty() ||
+       request.sourcePlatform == request.destinationPlatform)
+   {
+      mCapabilityResultPtr->setPlainText(
+         "Select different source and destination platforms.");
+      return;
+   }
+   request.requiredBandwidthBps = mCapabilityBandwidthKbpsPtr->value() * 1000.0;
+   request.maximumDelayMs = mCapabilityMaximumDelayMsPtr->value();
+   request.minimumPdrPercent = mCapabilityMinimumPdrPtr->value();
+   AddAllowedNetwork(mCapabilityAllowedNetworkPtr->currentText(), request.allowedNetworks);
+
+   const nrm::CapabilityResult result = mData.QueryCapability(request);
+   QStringList route;
+   for (const std::string& platform : result.route)
+   {
+      route.push_back(QString::fromStdString(platform));
+   }
+   QStringList reasons;
+   for (nrm::CapabilityReason reason : result.reasons)
+   {
+      reasons.push_back(nrm::ToString(reason));
+   }
+
+   QString text;
+   text += QString("Snapshot: %1 @ %2 s\n")
+              .arg(result.snapshotVersion)
+              .arg(result.simTime, 0, 'f', 3);
+   text += QString("Request valid: %1\nPath available: %2\nPath source: %3\n")
+              .arg(result.requestValid ? "YES" : "NO")
+              .arg(result.pathAvailable ? "YES" : "NO")
+              .arg(result.usesCandidate ? "PARAMETERIZED CANDIDATE" : "CURRENT");
+   text += "Route: " + (route.isEmpty() ? QString::fromUtf8("—") : route.join(" → ")) + "\n";
+   text += "Communication distance: " + CapabilityMetricText(result.communicationDistanceM, 1) + "\n";
+   text += "Maximum hop distance: " + CapabilityMetricText(result.maximumHopDistanceM, 1) + "\n";
+   text += "Transmission rate: " + CapabilityMetricText(result.transmissionRateBps, 1) + "\n";
+   text += "Packet loss: " + CapabilityMetricText(result.packetLossPercent, 3) + "\n";
+   text += "Transmission delay: " + CapabilityMetricText(result.transmissionDelayMs, 3) + "\n";
+   text += "Network throughput: " + CapabilityMetricText(result.networkThroughputBps, 1) + "\n";
+   text += "Access ratio: " + CapabilityMetricText(result.accessRatioPercent, 2) + "\n";
+   text += "Environment effects:\n";
+   for (const nrm::EnvironmentEffect& effect : result.environmentEffects)
+   {
+      text += QString("- %1: %2 [source=%3, confidence=%4, reason=%5]\n")
+                 .arg(nrm::ToString(effect.domain),
+                      effect.valid ? "VALID" : "INVALID",
+                      nrm::ToString(effect.origin),
+                      nrm::ToString(effect.confidence),
+                      nrm::ToString(effect.reason));
+   }
+   text += "Reason codes: " + (reasons.isEmpty() ? QString("NONE") : reasons.join(", "));
+   mCapabilityResultPtr->setPlainText(text);
 }
 
 void WkNrm::DockWidget::Refresh()
@@ -469,6 +583,8 @@ void WkNrm::DockWidget::RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnap
 
    refreshSelector(mSourceSelectorPtr, "l16_fighter");
    refreshSelector(mDestinationSelectorPtr, "l16_command");
+   refreshSelector(mCapabilitySourceSelectorPtr, "l16_fighter");
+   refreshSelector(mCapabilityDestinationSelectorPtr, "l16_command");
 }
 
 void WkNrm::DockWidget::SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText)

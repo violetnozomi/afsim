@@ -15,9 +15,11 @@ _对照《AFSIM网络资源管理器技术报告与实施方案》· 更新日�
 | 有界 K 路径硬约束选择 | 已实现，PRE_ACCEPTANCE | 0.7.0 |
 | 运行隔离与可恢复上报 | 已实现，PRE_ACCEPTANCE | 0.7.0 |
 | 三类故障场景 | 命令行已验证，Warlock 分阶段截图待人工验收 | 0.7.0 |
+| 统一通信能力查询 | 已实现，PRE_ACCEPTANCE | 0.8.0 第一阶段 |
+| 环境影响适配 | 抽象接口已实现，真实适配未开始 | 甲方格式待提供 |
 | 甲方外部模块输入 | 接口预留 | `InputProvider` |
 | 甲方 GNSS/INS 结果包适配 | 未开始 | 合同、接口和样包待核 |
-| 地形、气象、天象和电磁环境 | 未开始 | v0.8 |
+| 地形、气象、天象和电磁环境 | 接口预留 | v0.8 第二阶段，甲方格式待提供 |
 
 导航职责边界：甲方功能包完成 GNSS/INS 解算；本项目负责结果包解析、字段校验、单位与
 坐标标准化、状态管理、展示、记录和转发，不实现导航算法。
@@ -46,6 +48,23 @@ _对照《AFSIM网络资源管理器技术报告与实施方案》· 更新日�
 - [x] 链路中断、64 Mbit/s CDL 拥塞和低 PDR 剖面场景
 - [x] 8 项自动测试和 `nrm_tests` 聚合目标
 
+## v0.8 第一阶段已实现
+
+- [x] `CapabilityRequest`、`CapabilityResult`、`EnvironmentContext`、
+  `EnvironmentEffect`和固定`CapabilityReason`
+- [x] 无Qt/AFSIM依赖的`CommunicationCapabilityService`
+- [x] 复用`AssessmentEvaluator`、`NetworkProfileRepository`和
+  `ConstrainedPathSelector`，不复制路径搜索
+- [x] 路径总距离、最大单跳距离、瓶颈可准入速率、丢包率和累计时延
+- [x] 当前路径10秒观测交付吞吐量和目标网络成员接入率
+- [x] 当前链路只消费观测能力；候选能力标记`PARAMETERIZED_MODEL/LOW`
+- [x] 四类`EnvironmentEffectAdapter`抽象；缺失输入固定返回
+  `ENVIRONMENT_DATA_UNAVAILABLE`
+- [x] 环境效果固定字段、所选端点路径传递和JSONL序列化；第一阶段不应用效果
+- [x] DataContainer查询入口、Warlock只读“通信能力”页和
+  `nrm.capability.v1`独立JSONL
+- [x] 第9项能力服务测试；`capability_service_smoke`验证插件、当前图和消息交付底座
+
 ## 仍为部分完成
 
 | 需求 | 已实现 | 尚缺 |
@@ -65,7 +84,7 @@ _对照《AFSIM网络资源管理器技术报告与实施方案》· 更新日�
 
 ## 后续顺序
 
-1. v0.8：CommunicationCapabilityService 与地形、气象、天象、电磁环境适配
+1. v0.8第二阶段：仅在甲方格式到位后实现地形、气象、天象和电磁环境适配
 2. v0.9：规划文件加载、编辑、校验推演、存储和回环分发
 3. v0.10：甲方 GNSS/INS 结果包适配，仅在接口文件和样包到位后开发
 4. 最终联调：甲方模型封装、模型构建工具、OA/保密环境和第三方参考模块

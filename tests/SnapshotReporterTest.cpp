@@ -70,6 +70,28 @@ int main()
       assessment.backupRoute = {"fighter", "relay", "command"};
       assessment.backupRouteUsesCandidate = true;
       reporter.EnqueueAssessment(assessment);
+
+      nrm::CapabilityResult capability;
+      capability.requestId = "CAP-REPORT";
+      capability.snapshotVersion = 7;
+      capability.configVersion = "test-config-v1";
+      capability.requestValid = true;
+      capability.pathAvailable = true;
+      capability.usesCandidate = true;
+      capability.route = {"fighter", "command"};
+      capability.endpointRoute = {"10.0.0.1", "10.0.0.2"};
+      capability.communicationDistanceM.value = 1200.0;
+      capability.communicationDistanceM.unit = "m";
+      capability.communicationDistanceM.valid = true;
+      capability.communicationDistanceM.origin = nrm::DataOrigin::cDERIVED;
+      capability.communicationDistanceM.confidence = nrm::Confidence::cHIGH;
+      capability.communicationDistanceM.reason = nrm::MetricReason::cNONE;
+      nrm::EnvironmentEffect terrain;
+      terrain.domain = nrm::EnvironmentDomain::cTERRAIN;
+      terrain.reason = nrm::CapabilityReason::cENVIRONMENT_DATA_UNAVAILABLE;
+      capability.environmentEffects.push_back(terrain);
+      capability.reasons.push_back(nrm::CapabilityReason::cPARAMETERIZED_CANDIDATE);
+      reporter.EnqueueCapability(capability);
    }
 
    const std::string json = ReadAll(runDirectory + "/resource_snapshots.jsonl");
@@ -106,8 +128,23 @@ int main()
    CHECK(assessment.find("\"network_sequence\":[]") != std::string::npos);
    CHECK(assessment.find("\"recommendations\":[]") != std::string::npos);
 
+   const std::string capability =
+      ReadAll(runDirectory + "/capability_results.jsonl");
+   CHECK(capability.find("\"schema\":\"nrm.capability.v1\"") != std::string::npos);
+   CHECK(capability.find("\"requestId\":\"CAP-REPORT\"") != std::string::npos);
+   CHECK(capability.find("\"communicationDistanceM\":{\"value\":1200") !=
+         std::string::npos);
+   CHECK(capability.find("\"domain\":\"TERRAIN\"") != std::string::npos);
+   CHECK(capability.find("\"pathLossDeltaDb\":") != std::string::npos);
+   CHECK(capability.find("\"capacityScale\":") != std::string::npos);
+   CHECK(capability.find("\"packetLossDeltaPercent\":") != std::string::npos);
+   CHECK(capability.find("\"delayDeltaMs\":") != std::string::npos);
+   CHECK(capability.find("ENVIRONMENT_DATA_UNAVAILABLE") != std::string::npos);
+   CHECK(capability.find("PARAMETERIZED_CANDIDATE") != std::string::npos);
+
    const std::string manifest = ReadAll(runDirectory + "/manifest.json");
    CHECK(manifest.find("\"complete\":true") != std::string::npos);
    CHECK(manifest.find("\"softwareVersion\"") != std::string::npos);
+   CHECK(manifest.find("capability_results.jsonl") != std::string::npos);
    return 0;
 }

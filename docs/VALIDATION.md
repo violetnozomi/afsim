@@ -1,5 +1,53 @@
 # 验证记录
 
+## v0.8.0 通信能力服务预验收证据
+
+验证日期：2026-08-01
+开发基线：commit `073c9b7`
+开发分支：`feat/v0.8-capability-service`
+状态：内部`PRE_ACCEPTANCE`
+
+### 构建与测试
+
+```bash
+scripts/ai_guard.sh static
+scripts/ai_guard.sh test
+scripts/ai_guard.sh scenario capability_service_smoke
+```
+
+WSF和Warlock两个插件目标构建成功；守卫发现并通过9项测试。新增
+`nrm_communication_capability_service_test`覆盖：
+
+- 当前两跳路径总距离3000 m、最大单跳2000 m；
+- 瓶颈可准入速率800 bit/s、路径丢包率28%、累计时延30 ms；
+- 10秒观测交付吞吐量瓶颈500 bit/s、成员接入率100%；
+- 参数化候选路径的容量、PDR和时延来源为`PARAMETERIZED_MODEL/LOW`；
+- 当前路径缺失时延且请求未设置时延上限时，保留当前路径并仅将时延标记无效；
+- 当前链路距离、带宽和时延的输入置信度按路径最弱值传播，不被提升；
+- 环境适配器在请求校验后接收所选端点路径，四类效果字段完成单位和原因码归一化；
+- 无路径、离线端点、零成员分母、环境缺失、NaN/Inf和无吞吐观测；
+- 查询前后输入快照版本、端点、链路和观测带宽保持不变。
+
+原8项v0.7测试全部无回归。报告器测试确认独立生成`capability_results.jsonl`，schema为
+`nrm.capability.v1`，并在manifest登记；恢复测试覆盖能力队列溢出计数和析构排空。
+
+### 固定场景
+
+`capability_service_smoke`以退出码0完成。该场景用于验证插件加载、当前通信图和消息交付
+底座，不直接调用能力查询接口。AFSIM启动信息明确加载
+`libwsf_network_resource_manager`，目的端两次输出
+`NRM capability smoke received on capability_destination`，最后输出`Simulation complete`。
+
+### 边界
+
+- Warlock插件已编译并包含只读“通信能力”页，但本轮未执行GUI人工点击和截图；
+- 地形、气象、天象和电磁干扰没有甲方格式，四项固定输出
+  `valid=false / ENVIRONMENT_DATA_UNAVAILABLE`；
+- 未实现真实传播模型、规划文件、导航解析或自动资源调度；
+- 未修改AFSIM核心源码。
+
+---
+
 ## v0.7.0 开发与预验收证据
 
 验证日期：2026-08-01

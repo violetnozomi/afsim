@@ -18,6 +18,7 @@ AFSIM 内部事件 / 甲方结果包 / 回放输入
 不可变 ResourceSnapshot
   ├── Warlock 展示
   ├── AssessmentEvaluator / ConstrainedPathSelector
+  ├── CommunicationCapabilityService / EnvironmentEffectAdapter
   └── SnapshotReporter（runId 隔离的 JSONL/CSV/manifest）
 ```
 
@@ -30,6 +31,16 @@ v0.7.0 延续 v0.6.0 的纵向闭环。Warlock 仿真接口监听通信事件并
 逐条检查硬约束；当前图没有可行路径时，再搜索必须包含候选边的路径。最短路径不满足约束
 但较长路径满足时，返回较长的可行路径。备选路由禁用主路由的有向边，结果明确记录
 `directed-edge` 不重合语义。
+
+v0.8 第一阶段的纯 C++ `CommunicationCapabilityService` 将能力请求映射为既有评估任务，
+直接复用当前/候选图和有界路径结果。它只补充所选路径的距离聚合、观测交付吞吐量和目标
+网络成员接入率，不重新实现构图或路径搜索。当前链路缺少观测容量、PDR或时延时对应指标
+保持无效；候选容量、PDR和建链时延只来自`NetworkProfileRepository`，并标记
+`PARAMETERIZED_MODEL/LOW`。
+
+`EnvironmentEffectAdapter`是地形、气象、天象和电磁干扰的抽象边界。第一阶段没有甲方
+数据格式和样包，因此默认输出四个`valid=false / ENVIRONMENT_DATA_UNAVAILABLE`效果，
+不改变核心能力指标，也不提供默认天气或自定义衰减公式。
 
 ## 稳定边界
 
@@ -58,6 +69,7 @@ ${NRM_OUTPUT_DIR}/
     ├── manifest.json
     ├── resource_snapshots.jsonl
     ├── assessment_results.jsonl
+    ├── capability_results.jsonl
     ├── network_summary.csv
     └── error.log                 # 仅发生错误时创建
 ```
@@ -79,5 +91,5 @@ ${NRM_OUTPUT_DIR}/
 模型与外部模块可并存，以 `DataOrigin`、providerId、configVersion 和 profileId 区分来源。
 
 甲方 GNSS/INS 功能包负责导航解算。本项目后续仅实现其结果包适配，不实现 GNSS、INS 或
-融合算法；在接口文件和样包到位前不猜测二进制格式。地形、气象、天象和电磁环境影响
-属于 v0.8 的适配范围。
+融合算法；在接口文件和样包到位前不猜测二进制格式。地形、气象、天象和电磁环境的
+真实数据适配属于 v0.8 第二阶段，必须等待甲方格式。

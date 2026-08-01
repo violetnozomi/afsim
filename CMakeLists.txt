@@ -16,6 +16,8 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/ResourceEventTypes.hpp
       include/nrm/ResourceEventLedger.hpp
       include/nrm/ConstrainedPathSelector.hpp
+      include/nrm/CommunicationCapabilityTypes.hpp
+      include/nrm/CommunicationCapabilityService.hpp
       include/nrm/Version.hpp
       source/WsfNetworkResourceManagerPlugin.hpp
    SRCS
@@ -103,6 +105,15 @@ if(UNIX)
 endif()
 add_test(NAME nrm_snapshot_reporter_recovery_test COMMAND nrm_snapshot_reporter_recovery_test)
 
+add_executable(nrm_communication_capability_service_test EXCLUDE_FROM_ALL
+   tests/CommunicationCapabilityServiceTest.cpp
+)
+target_include_directories(nrm_communication_capability_service_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_communication_capability_service_test
+   COMMAND nrm_communication_capability_service_test)
+
 set(NRM_TEST_TARGETS
    nrm_framework_types_test
    nrm_snapshot_reporter_test
@@ -112,6 +123,7 @@ set(NRM_TEST_TARGETS
    nrm_resource_event_ledger_test
    nrm_constrained_path_selector_test
    nrm_snapshot_reporter_recovery_test
+   nrm_communication_capability_service_test
 )
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
    foreach(NRM_TEST_TARGET IN LISTS NRM_TEST_TARGETS)

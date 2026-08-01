@@ -71,3 +71,29 @@
 - 合同追踪键：3.2.2、3.2.3、3.2.5、3.4.2和4.2保持内部PRE_ACCEPTANCE。
 - 阻塞：甲方接口、样包和目标环境未提供；人工GUI证据尚未补齐。
 - 下一步唯一动作：保持本次稳定提交，等待用户明确指定下一项合同功能。
+
+### 2026-08-01 18:06 CST — Codex v0.8 capability service
+
+- 唯一目标：完成v0.8第一阶段`CommunicationCapabilityService`统一能力查询与输出闭环。
+- 实际修改：从`073c9b7`创建`feat/v0.8-capability-service`；新增能力公共契约、环境适配接口和纯C++服务；复用评估路径并补充总距离/最大单跳；接入DataContainer、Warlock只读页和独立能力JSONL；新增第9项测试与固定smoke场景；版本升至0.8.0并同步文档和合同追踪。
+- 未修改但发现：甲方环境数据格式、样包和目标环境未提供；未实现传播公式、规划、导航或自动资源调度；AFSIM核心未修改。
+- 执行命令：`scripts/ai_guard.sh status/static/test`、`scripts/ai_guard.sh scenario capability_service_smoke`、受影响目标构建、YAML/JSON格式检查和`git diff`审计。
+- 测试结果：9/9测试通过；WSF与Warlock插件构建成功；能力smoke退出码0并收到两条消息；能力JSONL序列化与队列恢复测试通过。
+- 合同追踪键：3.2.3推进为`IMPLEMENTED / PRE_ACCEPTANCE`；4.2组件化证据更新为9项测试；不是`FINAL_ACCEPTANCE`。
+- 阻塞：Warlock通信能力页尚未人工截图；环境真实适配受甲方格式和样包阻塞。
+- 下一步唯一动作：等待甲方环境格式和样包，并由用户明确启动v0.8第二阶段。
+
+### 2026-08-01 — Codex v0.8 review and stabilization
+
+- 唯一目标：审查并修正v0.8第一阶段实现，形成可提交的稳定版本。
+- 实际修改：修复缺失非约束时延导致当前路径被候选路径替换的问题；传播路径距离、带宽
+  和时延置信度；将环境适配器调用移到请求校验后并传入所选端点路径；规范化四类环境
+  效果固定字段并补齐JSONL序列化；补充对应回归测试和证据边界说明。
+- 未修改但发现：固定smoke不调用能力查询接口，只验证插件、当前图和消息交付底座；甲方
+  环境格式、样包和目标环境仍未提供；AFSIM核心未修改。
+- 执行命令：`scripts/ai_guard.sh static`、`scripts/ai_guard.sh test`、
+  `scripts/ai_guard.sh scenario capability_service_smoke`、`git diff --check`和代码逐项审查。
+- 测试结果：9/9测试通过；WSF与Warlock插件构建成功；固定smoke退出码0并收到两条消息。
+- 合同追踪键：3.2.3和4.2保持`VERIFIED / PRE_ACCEPTANCE`，不是`FINAL_ACCEPTANCE`。
+- 阻塞：Warlock通信能力页人工截图，以及甲方环境接口和样包。
+- 下一步唯一动作：保持v0.8第一阶段稳定提交，等待用户明确指定下一项合同功能。
