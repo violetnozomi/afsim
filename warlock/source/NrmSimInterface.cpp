@@ -205,11 +205,15 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                               }));
    mCallbacks.Add(WsfObserver::MessageReceived(&aSimulation)
                      .Connect([this](double             aSimTime,
+                                     wsf::comm::Comm*   aTransmitterPtr,
                                      wsf::comm::Comm*   aReceiverPtr,
-                                     wsf::comm::Comm*   aSenderPtr,
                                      const WsfMessage& aMessage,
                                      wsf::comm::Result& aResult)
                               {
+                                 // AFSIM publishes MessageReceived as (transmitter, receiver).
+                                 // Keep these names aligned with WsfComm::ReceiveActions: swapping
+                                 // them prevents successful delivery from reaching a terminal state
+                                 // and later makes the lifecycle timeout look like a discard.
                                  const bool isFinalDestination =
                                     aReceiverPtr != nullptr &&
                                     aMessage.GetDstAddr() == aReceiverPtr->GetAddress();
@@ -233,9 +237,10 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                  }
                                  const std::uint64_t bits = static_cast<std::uint64_t>(
                                     std::max(0, aMessage.GetSizeBits()));
-                                 if (aSenderPtr != nullptr && aReceiverPtr != nullptr)
+                                 if (aTransmitterPtr != nullptr && aReceiverPtr != nullptr)
                                  {
-                                    const std::string linkId = LinkId(aSenderPtr, aReceiverPtr);
+                                    const std::string linkId =
+                                       LinkId(aTransmitterPtr, aReceiverPtr);
                                     nrm::RollingMetrics& linkMetrics = mMetricsByLink[linkId];
                                     linkMetrics.SetTransmitObservationAvailable(false);
                                     linkMetrics.RecordReceive(aSimTime, bits, transportDelayMs);

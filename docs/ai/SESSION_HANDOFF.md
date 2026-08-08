@@ -243,3 +243,18 @@
 - 合同追踪键：3.3、3.5和4.1-4.2保持`IMPLEMENTED / PRE_ACCEPTANCE`，未提升验收等级。
 - 阻塞：甲方封装规范、正式接口/传输协议、参考模块、正式样包和安全强类型headless入口。
 - 下一步唯一动作：用户确认审查结果后决定是否授权提交当前v0.11；不自动进入下一里程碑。
+
+### 2026-08-08 — Codex Warlock message statistics fix
+
+- 唯一目标：修复四网场景命令行成功接收8条消息，但Warlock显示接收0、丢弃8的问题。
+- 实际修改：按AFSIM `MessageReceived(transmitter, receiver, message, result)`契约修正
+  `NrmSimInterface`回调参数语义和链路方向；同步验证记录、四网实测数量和当前里程碑。
+- 未修改但发现：通用直连网络没有`MessageHop`回调，现有`hops=0`符合AFSIM事件语义；
+  AFSIM核心、统计公式、合同阈值和systemd服务文件均未修改。
+- 执行命令：`scripts/ai_guard.sh status`、受影响Warlock目标构建、
+  `scripts/ai_guard.sh test`、远程Warlock固定四网场景一次、最终快照JSON核对。
+- 测试结果：15/15固定测试通过；33.2秒为6/6/0，86秒和120秒为8/8/0；四类网络
+  分别2发送/2接收/0丢弃，Warlock服务保持active。
+- 合同追踪键：3.2.2、3.4.2和4.2保持内部`PRE_ACCEPTANCE`，未提升为最终验收。
+- 阻塞：甲方接口、正式四网模块/参数、样包和目标环境仍未提供。
+- 下一步唯一动作：用户在VNC核对修复后的总览数值，并决定是否授权提交该修复。

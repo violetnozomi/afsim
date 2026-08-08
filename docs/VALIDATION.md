@@ -1,5 +1,27 @@
 # 验证记录
 
+## 2026-08-08 Warlock接收/丢弃统计修复
+
+远程四网场景曾出现命令行目的端成功接收8条消息，但Warlock最终快照显示
+`transmitted=8, received=0, discarded=8`。只读核对AFSIM 2.9源码确认
+`WsfObserver::MessageReceived`的参数顺序为`(transmitter, receiver)`，插件回调却按
+`(receiver, sender)`解释，导致目的端判定始终失败；待定生命周期记录在60秒后被标记为
+`EXPIRED`，进而计入丢弃。
+
+修复仅调整`warlock/source/NrmSimInterface.cpp`的回调参数语义和链路方向，不修改AFSIM
+核心、统计公式或合同阈值。验证结果：
+
+- `scripts/ai_guard.sh test`：15/15固定测试通过，两个插件目标构建成功；
+- 远程Warlock加载重新构建的插件并自动运行`four_network_overview.txt`；
+- 仿真33.2秒快照为`6发送/6接收/0丢弃`；
+- 仿真86.0秒快照为`8发送/8接收/0丢弃`，超过首批消息60秒超时边界后未反转；
+- 仿真120.0秒最终快照为`8发送/8接收/0丢弃/0路由失败`；
+- Link-11、Link-16、卫通和CDL分别为`2发送/2接收/0丢弃`。
+
+最终证据位于本机运行目录
+`output/run-20260808T054112Z-3859270-1786167672839-0/resource_snapshots.jsonl`，该运行产物
+不纳入Git。
+
 ## v0.11.0 模型服务门面与注册表预验收证据
 
 验证日期：2026-08-01
