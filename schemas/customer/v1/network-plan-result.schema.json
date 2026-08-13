@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/network-plan-result.schema.json",
+  "title": "网链资源规划处理结果",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.network_plan_result.v1"}, "messageId": {"$ref": "common.schema.json#/$defs/identifier"}, "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"}, "source": {"const": "NRM"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["planId", "revision", "validationPassed", "evaluationStatus", "state", "reasonCodes"],
+      "properties": {
+        "planId": {"$ref": "common.schema.json#/$defs/identifier"}, "revision": {"type": "integer", "minimum": 1}, "validationPassed": {"type": "boolean"}, "evaluationStatus": {"enum": ["PASS", "FAIL", "DATA_INVALID", "NOT_EVALUATED"]}, "state": {"enum": ["DRAFT", "VALIDATED", "REJECTED", "READY_FOR_DISTRIBUTION"]}, "reasonCodes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "packagePath": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

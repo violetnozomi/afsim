@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/assessment-request.schema.json",
+  "title": "任务评估请求",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.assessment_request.v1"},
+    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
+    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "source": {"$ref": "common.schema.json#/$defs/source"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["taskId", "sourcePlatformId", "destinationPlatformId", "businessType", "requiredBandwidthBps", "maximumDelayMs", "minimumPdrPercent", "allowedNetworks"],
+      "properties": {
+        "taskId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "sourcePlatformId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "destinationPlatformId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "businessType": {"type": "string", "minLength": 1, "maxLength": 64},
+        "requiredBandwidthBps": {"type": "number", "minimum": 0},
+        "maximumDelayMs": {"type": "number", "minimum": 0},
+        "minimumPdrPercent": {"type": "number", "minimum": 0, "maximum": 100},
+        "allowedNetworks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/networkType"}}
+      }
+    }
+  }
+}

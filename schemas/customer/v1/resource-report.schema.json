@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/resource-report.schema.json",
+  "title": "四网通信资源完整快照",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.resource_report.v1"},
+    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
+    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "source": {"$ref": "common.schema.json#/$defs/source"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runId", "simTime", "networks", "members", "links"],
+      "properties": {
+        "runId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "simTime": {"type": "number", "minimum": 0},
+        "networks": {"type": "array", "items": {"$ref": "#/$defs/network"}},
+        "members": {"type": "array", "items": {"$ref": "#/$defs/member"}},
+        "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}
+      }
+    }
+  },
+  "$defs": {
+    "network": {
+      "type": "object", "additionalProperties": false,
+      "required": ["networkId", "networkType", "name"],
+      "properties": {"networkId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkType": {"$ref": "common.schema.json#/$defs/networkType"}, "name": {"type": "string", "minLength": 1, "maxLength": 128}}
+    },
+    "member": {
+      "type": "object", "additionalProperties": false,
+      "required": ["memberId", "platformId", "networkId", "state", "position"],
+      "properties": {
+        "memberId": {"$ref": "common.schema.json#/$defs/identifier"}, "platformId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "state": {"enum": ["ONLINE", "OFFLINE", "DISABLED", "FAILED"]}, "position": {"$ref": "common.schema.json#/$defs/position"}, "role": {"type": "string", "maxLength": 64}
+      }
+    },
+    "link": {
+      "type": "object", "additionalProperties": false,
+      "required": ["linkId", "networkId", "sourceMemberId", "destinationMemberId", "state"],
+      "properties": {
+        "linkId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkId": {"$ref": "common.schema.json#/$defs/identifier"}, "sourceMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "destinationMemberId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "state": {"enum": ["ONLINE", "OFFLINE", "DISABLED", "FAILED"]},
+        "bandwidthBps": {"type": "number", "minimum": 0}, "delayMs": {"type": "number", "minimum": 0}, "pdrPercent": {"type": "number", "minimum": 0, "maximum": 100},
+        "rssiDbm": {"type": "number"}, "snrDb": {"type": "number"}, "berRatio": {"type": "number", "minimum": 0, "maximum": 1}, "queuePercent": {"type": "number", "minimum": 0, "maximum": 100}, "trafficBps": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}

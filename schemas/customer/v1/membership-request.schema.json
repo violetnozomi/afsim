@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/membership-request.schema.json",
+  "title": "动态入退网申请",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.membership_request.v1"},
+    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
+    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "source": {"$ref": "common.schema.json#/$defs/source"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["requestId", "planId", "allocationId", "platformId", "action"],
+      "properties": {
+        "requestId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "planId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "allocationId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "platformId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "action": {"enum": ["JOIN", "LEAVE"]}
+      }
+    }
+  }
+}

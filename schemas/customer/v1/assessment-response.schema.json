@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/assessment-response.schema.json",
+  "title": "任务评估结果",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.assessment_response.v1"},
+    "messageId": {"$ref": "common.schema.json#/$defs/identifier"}, "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"}, "source": {"const": "NRM"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["taskId", "reachable", "canEstablish", "canComplete", "reasonCodes", "recommendations"],
+      "properties": {
+        "taskId": {"$ref": "common.schema.json#/$defs/identifier"}, "reachable": {"type": "boolean"}, "canEstablish": {"type": "boolean"}, "canComplete": {"type": "boolean"},
+        "primaryRoute": {"type": "array", "minItems": 2, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "backupRoute": {"type": "array", "minItems": 2, "items": {"$ref": "common.schema.json#/$defs/identifier"}},
+        "bandwidthMarginBps": {"type": "number"}, "delayMarginMs": {"type": "number"}, "pdrMarginPercent": {"type": "number"},
+        "reasonCodes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "recommendations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  }
+}

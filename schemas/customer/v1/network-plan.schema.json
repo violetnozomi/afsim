@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/network-plan.schema.json",
+  "title": "网链资源规划输入",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.network_plan.v1"}, "messageId": {"$ref": "common.schema.json#/$defs/identifier"}, "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"}, "source": {"$ref": "common.schema.json#/$defs/source"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["planId", "revision", "allocations", "demands"],
+      "properties": {
+        "planId": {"$ref": "common.schema.json#/$defs/identifier"}, "revision": {"type": "integer", "minimum": 1},
+        "allocations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/allocation"}},
+        "demands": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/demand"}}
+      }
+    }
+  },
+  "$defs": {
+    "allocation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allocationId", "networkName", "networkType", "profileId", "frequencyHz", "channelId", "subnetId", "members", "routePolicyId", "enabled"],
+      "properties": {
+        "allocationId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkName": {"type": "string", "minLength": 1}, "networkType": {"$ref": "common.schema.json#/$defs/networkType"}, "profileId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "frequencyHz": {"type": "number", "minimum": 0}, "channelId": {"$ref": "common.schema.json#/$defs/identifier"}, "subnetId": {"$ref": "common.schema.json#/$defs/identifier"}, "members": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "slots": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "routePolicyId": {"$ref": "common.schema.json#/$defs/identifier"}, "enabled": {"type": "boolean"}
+      }
+    },
+    "demand": {
+      "type": "object", "additionalProperties": false,
+      "required": ["demandId", "businessType", "sourcePlatformId", "destinationPlatformId", "payloadBits", "requiredBandwidthBps", "maximumDelayMs", "minimumPdrPercent", "allowedNetworks"],
+      "properties": {
+        "demandId": {"$ref": "common.schema.json#/$defs/identifier"}, "businessType": {"type": "string", "minLength": 1}, "sourcePlatformId": {"$ref": "common.schema.json#/$defs/identifier"}, "destinationPlatformId": {"$ref": "common.schema.json#/$defs/identifier"}, "payloadBits": {"type": "integer", "minimum": 0}, "requiredBandwidthBps": {"type": "number", "minimum": 0}, "maximumDelayMs": {"type": "number", "minimum": 0}, "minimumPdrPercent": {"type": "number", "minimum": 0, "maximum": 100}, "allowedNetworks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/networkType"}}
+      }
+    }
+  }
+}

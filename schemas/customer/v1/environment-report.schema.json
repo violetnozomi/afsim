@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/environment-report.schema.json",
+  "title": "环境状态输入",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.environment_report.v1"},
+    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
+    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "source": {"$ref": "common.schema.json#/$defs/source"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runId", "simTime", "regionId", "applicationMode"],
+      "properties": {
+        "runId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "simTime": {"type": "number", "minimum": 0},
+        "regionId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "applicationMode": {"enum": ["INFORMATION_ONLY", "ALREADY_INCLUDED", "CANDIDATE_ADJUSTMENT"]},
+        "terrain": {"type": "object", "additionalProperties": false, "required": ["enabled"], "properties": {"enabled": {"type": "boolean"}, "blockedLinkIds": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}}},
+        "weather": {"type": "object", "additionalProperties": false, "properties": {"windSpeedMps": {"type": "number", "minimum": 0}, "rainRateMmPerHour": {"type": "number", "minimum": 0}, "cloudPercent": {"type": "number", "minimum": 0, "maximum": 100}}},
+        "astronomy": {"type": "object", "additionalProperties": false, "properties": {"julianDate": {"type": "number"}, "sunElevationDeg": {"type": "number", "minimum": -90, "maximum": 90}}},
+        "interference": {"type": "object", "additionalProperties": false, "properties": {"affectedLinkIds": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "maximumPowerDbm": {"type": "number"}, "capacityScale": {"type": "number", "minimum": 0, "maximum": 1}}}
+      },
+      "anyOf": [{"required": ["terrain"]}, {"required": ["weather"]}, {"required": ["astronomy"]}, {"required": ["interference"]}]
+    }
+  }
+}

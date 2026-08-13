@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/navigation-report.schema.json",
+  "title": "导航结果输入",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.navigation_report.v1"},
+    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
+    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "source": {"$ref": "common.schema.json#/$defs/source"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runId", "simTime", "platformId", "navigationType", "truthPosition", "perceivedPosition", "positionErrorM"],
+      "properties": {
+        "runId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "simTime": {"type": "number", "minimum": 0},
+        "platformId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "navigationType": {"enum": ["GNSS", "INS", "INTEGRATED"]},
+        "truthPosition": {"$ref": "common.schema.json#/$defs/position"},
+        "perceivedPosition": {"$ref": "common.schema.json#/$defs/position"},
+        "positionErrorM": {
+          "type": "object", "additionalProperties": false,
+          "required": ["inTrack", "crossTrack", "vertical"],
+          "properties": {"inTrack": {"type": "number"}, "crossTrack": {"type": "number"}, "vertical": {"type": "number"}}
+        },
+        "status": {"type": "string", "minLength": 1, "maxLength": 32},
+        "confidence": {"enum": ["LOW", "MEDIUM", "HIGH"]}
+      }
+    }
+  }
+}
