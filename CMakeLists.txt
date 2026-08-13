@@ -74,6 +74,15 @@ target_include_directories(nrm_assessment_evaluator_test PRIVATE
 )
 add_test(NAME nrm_assessment_evaluator_test COMMAND nrm_assessment_evaluator_test)
 
+add_executable(nrm_concurrent_task_assessment_test EXCLUDE_FROM_ALL
+   tests/ConcurrentTaskAssessmentTest.cpp
+)
+target_include_directories(nrm_concurrent_task_assessment_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_concurrent_task_assessment_test
+   COMMAND nrm_concurrent_task_assessment_test)
+
 add_executable(nrm_network_profile_test EXCLUDE_FROM_ALL
    tests/NetworkProfileTest.cpp
 )
@@ -239,6 +248,7 @@ target_include_directories(nrm_navigation_packet_tool PRIVATE
 )
 
 set(NRM_TEST_TARGETS
+   nrm_concurrent_task_assessment_test
    nrm_framework_types_test
    nrm_snapshot_reporter_test
    nrm_assessment_evaluator_test

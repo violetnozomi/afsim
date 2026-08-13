@@ -13,7 +13,7 @@ readonly RESULT_FILE="${RUN_DIR}/results.tsv"
 readonly REPORT_FILE="${RUN_DIR}/PREACCEPTANCE_REPORT.md"
 readonly GUI_SUMMARY_FILE="${RUN_DIR}/gui_snapshot_summary.json"
 readonly LATEST_STATUS_FILE="${OUTPUT_ROOT}/latest_status.json"
-readonly FIXED_TEST_COUNT=19
+readonly FIXED_TEST_COUNT=20
 readonly SCENARIOS=(
    framework_smoke
    four_network_overview

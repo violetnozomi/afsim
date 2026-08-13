@@ -295,6 +295,23 @@ nrm::NetworkPlanEvaluationResult WkNrm::DataContainer::EvaluateNetworkPlan(
             mSnapshot, *planPtr, EffectiveEnvironment(aEnvironment));
       mPlanEvaluation = response.result;
       mHasPlanEvaluation = response.valid;
+      std::vector<nrm::AssessmentTask> tasks;
+      for (const nrm::NetworkPlanDemand& demand : planPtr->demands)
+      {
+         nrm::AssessmentTask task;
+         task.taskId = demand.demandId;
+         task.sourcePlatform = demand.sourcePlatform;
+         task.destinationPlatform = demand.destinationPlatform;
+         task.businessType = demand.businessType;
+         task.payloadBits = demand.payloadBits;
+         task.requiredBandwidthBps = demand.requiredBandwidthBps;
+         task.maximumDelayMs = demand.maximumDelayMs;
+         task.minimumPdrPercent = demand.minimumPdrPercent;
+         task.allowedNetworks = demand.allowedNetworks;
+         tasks.push_back(task);
+      }
+      mConcurrentAssessment = nrm::ConcurrentTaskAssessment(mProfiles).Evaluate(
+         mSnapshot, tasks);
    }
    mPlanValidation = mPlanEvaluation.validation;
    mHasPlanValidation = mHasPlanEvaluation;

@@ -1,11 +1,18 @@
 # 验证记录
 
+## 2026-08-13 并发通信任务联合评估
+
+- 新增 `ConcurrentTaskAssessment`，按规划需求顺序执行确定性链路带宽预留。
+- 覆盖共享瓶颈、互不相交路径、输入快照不变、冲突归因、重复编号拒绝和确定性重跑。
+- `./scripts/ai_guard.sh test`：20/20 固定 C++ 测试通过，Warlock 插件构建成功。
+- 第一版仅联合计算链路带宽；Link-16 时隙、Link-11 轮询、卫通波束和 CDL 信道竞争属于后续精化边界。
+
 ## 2026-08-13 甲方 AFSIM JSON 接口基线
 
 - 验证提交基线：`ff3eb18`（验证后的门禁与文档提交另计）。
 - `./scripts/ai_guard.sh static`：通过。
 - `./scripts/ai_guard.sh contract`：9 个合法示例通过，5 个非法示例按预期拒绝。
-- `./scripts/ai_guard.sh test`：19/19 固定 C++ 测试通过，WSF 与 Warlock 插件构建成功。
+- `./scripts/ai_guard.sh test`：当时的 19/19 固定 C++ 测试通过，WSF 与 Warlock 插件构建成功。
 - `./scripts/ai_guard.sh scenario four_network_overview`：退出码 0，四类网络消息均到达并输出 `Simulation complete`。
 - 边界：尚未在甲方修改版 AFSIM 源码树重新构建，也未接入甲方真实模块数据，故状态为内部 `PRE_ACCEPTANCE`，不是最终验收。
 

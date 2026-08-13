@@ -583,7 +583,8 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mPlanIssueTablePtr->setMinimumHeight(105);
    planLayoutPtr->addWidget(mPlanIssueTablePtr);
    mPlanEvaluationTablePtr = CreateTable(
-      {QString::fromUtf8("需求编号"), QString::fromUtf8("状态"), QString::fromUtf8("路径来源"),
+      {QString::fromUtf8("需求编号"), QString::fromUtf8("状态"), QString::fromUtf8("并发结果"),
+       QString::fromUtf8("冲突任务"), QString::fromUtf8("路径来源"),
        QString::fromUtf8("速率"), QString::fromUtf8("时延"), QString::fromUtf8("丢包率"),
        QString::fromUtf8("原因码")},
       planPagePtr);
@@ -1314,19 +1315,33 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
                       QString::fromStdString(evaluation.demandId));
          SetTableText(mPlanEvaluationTablePtr, row, 1,
                       nrm::ToString(evaluation.status));
+         const nrm::ConcurrentAssessmentResult& concurrent =
+            mData.GetConcurrentAssessment();
+         const nrm::ConcurrentTaskResult* concurrentPtr =
+            index < concurrent.tasks.size() ? &concurrent.tasks[index] : nullptr;
          SetTableText(mPlanEvaluationTablePtr, row, 2,
+                      concurrentPtr == nullptr ? QString::fromUtf8("未评估")
+                      : concurrentPtr->allocated ? QString::fromUtf8("可并发")
+                                                 : QString::fromUtf8("资源冲突"));
+         QStringList conflicts;
+         if (concurrentPtr != nullptr)
+            for (const std::string& taskId : concurrentPtr->conflictingTaskIds)
+               conflicts.push_back(QString::fromStdString(taskId));
+         SetTableText(mPlanEvaluationTablePtr, row, 3,
+                      conflicts.isEmpty() ? QString::fromUtf8("—") : conflicts.join(", "));
+         SetTableText(mPlanEvaluationTablePtr, row, 4,
                       evaluation.capability.pathAvailable
                          ? (evaluation.capability.usesCandidate
                                ? QString::fromUtf8("参数化模型 / 低置信度")
                                : QString::fromUtf8("当前网络"))
                          : QString::fromUtf8("不可用"));
-         SetTableText(mPlanEvaluationTablePtr, row, 3,
-                      MetricText(evaluation.capability.transmissionRateBps, 1));
-         SetTableText(mPlanEvaluationTablePtr, row, 4,
-                      MetricText(evaluation.capability.transmissionDelayMs, 3));
          SetTableText(mPlanEvaluationTablePtr, row, 5,
-                      MetricText(evaluation.capability.packetLossPercent, 3));
+                      MetricText(evaluation.capability.transmissionRateBps, 1));
          SetTableText(mPlanEvaluationTablePtr, row, 6,
+                      MetricText(evaluation.capability.transmissionDelayMs, 3));
+         SetTableText(mPlanEvaluationTablePtr, row, 7,
+                      MetricText(evaluation.capability.packetLossPercent, 3));
+         SetTableText(mPlanEvaluationTablePtr, row, 8,
                       reasons.isEmpty() ? QString::fromUtf8("无") : reasons.join(", "));
       }
    }

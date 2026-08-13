@@ -8,6 +8,7 @@
 
 #include "nrm/NetworkResourceTypes.hpp"
 #include "nrm/AssessmentTypes.hpp"
+#include "nrm/ConcurrentTaskAssessment.hpp"
 #include "nrm/BuiltInEnvironmentEffectAdapter.hpp"
 #include "nrm/ModelRegistry.hpp"
 #include "nrm/ModelServiceFacade.hpp"
@@ -49,6 +50,10 @@ public:
    const nrm::NetworkPlanEvaluationResult& GetPlanEvaluation() const
    {
       return mPlanEvaluation;
+   }
+   const nrm::ConcurrentAssessmentResult& GetConcurrentAssessment() const
+   {
+      return mConcurrentAssessment;
    }
    const nrm::DistributionPackageResult& GetDistributionPackage() const
    {
@@ -139,6 +144,7 @@ private:
    nrm::PlanRepositoryResult          mPlanOperation;
    nrm::PlanValidationResult          mPlanValidation;
    nrm::NetworkPlanEvaluationResult   mPlanEvaluation;
+   nrm::ConcurrentAssessmentResult    mConcurrentAssessment;
    nrm::DistributionPackageResult     mDistributionPackage;
    bool                               mHasPlanValidation = false;
    bool                               mHasPlanEvaluation = false;
