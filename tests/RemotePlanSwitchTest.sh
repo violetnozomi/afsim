@@ -6,6 +6,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SWITCH_SCRIPT="${ROOT}/scripts/remote/switch-warlock-plan.sh"
 LAUNCH_SCRIPT="${ROOT}/scripts/remote/run-warlock-remote.sh"
 BINDING_FILE="${ROOT}/data/network_plans/operational_25node_complex-r1.nrm.scenario"
+INTERACTIVE_SCENARIO="${ROOT}/test_mission/operational_strike_demo/interactive.txt"
 
 grep -q 'NRM_SYSTEMCTL_COMMAND' "${SWITCH_SCRIPT}"
 grep -q 'NRM_SWITCH_REQUEST_FILE' "${SWITCH_SCRIPT}"
@@ -17,6 +18,9 @@ then
 fi
 grep -q 'NRM_SWITCH_REQUEST_FILE' "${LAUNCH_SCRIPT}"
 grep -qx 'test_mission/operational_strike_demo/interactive.txt' "${BINDING_FILE}"
+grep -Eq '^realtime[[:space:]]*$' "${INTERACTIVE_SCENARIO}"
+grep -Eq '^clock_rate[[:space:]]+1([.]0)?[[:space:]]*$' "${INTERACTIVE_SCENARIO}"
+grep -q 'WsfSimulation.SetClockRate(0.0001)' "${INTERACTIVE_SCENARIO}"
 
 TEMP_ROOT=$(mktemp -d)
 trap 'rm -rf "${TEMP_ROOT}"' EXIT

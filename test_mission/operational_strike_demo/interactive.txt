@@ -6,4 +6,18 @@ include platform_types.txt
 include laydown.txt
 include events.txt
 
+# Warlock remembers the operator's previous speed multiplier.  Force this
+# interactive entry point to start at wall-clock speed so that a loaded plan
+# cannot finish before the remote user sees the restarted window.
+realtime
+clock_rate 1
+
+# The deterministic workload finishes at 175 s.  Keep the resulting topology
+# and assessment state available for inspection without producing a busy
+# full-speed simulation for the remainder of the remote debugging session.
+execute at_time 180 s absolute
+   WsfSimulation.SetClockRate(0.0001);
+   writeln("NRM_OPERATIONAL PHASE INTERACTIVE_HOLD");
+end_execute
+
 end_time 3600 s
