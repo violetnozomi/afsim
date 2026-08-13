@@ -1325,8 +1325,12 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
                                                  : QString::fromUtf8("资源冲突"));
          QStringList conflicts;
          if (concurrentPtr != nullptr)
+         {
+            if (concurrentPtr->resourceReason != nrm::ConcurrentResourceReason::cNONE)
+               conflicts.push_back(nrm::ToString(concurrentPtr->resourceReason));
             for (const std::string& taskId : concurrentPtr->conflictingTaskIds)
                conflicts.push_back(QString::fromStdString(taskId));
+         }
          SetTableText(mPlanEvaluationTablePtr, row, 3,
                       conflicts.isEmpty() ? QString::fromUtf8("—") : conflicts.join(", "));
          SetTableText(mPlanEvaluationTablePtr, row, 4,

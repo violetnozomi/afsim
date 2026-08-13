@@ -15,6 +15,53 @@
 
 namespace nrm
 {
+enum class ConcurrentResourceReason
+{
+   cNONE,
+   cBANDWIDTH_EXHAUSTED,
+   cPOLLING_UNIT_EXHAUSTED,
+   cTIMESLOT_EXHAUSTED,
+   cSATCOM_RESOURCE_EXHAUSTED,
+   cCDL_RESOURCE_EXHAUSTED
+};
+
+inline const char* ToString(ConcurrentResourceReason aReason)
+{
+   switch (aReason)
+   {
+   case ConcurrentResourceReason::cNONE: return "NONE";
+   case ConcurrentResourceReason::cBANDWIDTH_EXHAUSTED: return "BANDWIDTH_EXHAUSTED";
+   case ConcurrentResourceReason::cPOLLING_UNIT_EXHAUSTED: return "POLLING_UNIT_EXHAUSTED";
+   case ConcurrentResourceReason::cTIMESLOT_EXHAUSTED: return "TIMESLOT_EXHAUSTED";
+   case ConcurrentResourceReason::cSATCOM_RESOURCE_EXHAUSTED: return "SATCOM_RESOURCE_EXHAUSTED";
+   case ConcurrentResourceReason::cCDL_RESOURCE_EXHAUSTED: return "CDL_RESOURCE_EXHAUSTED";
+   }
+   return "NONE";
+}
+
+struct ProtocolResourceDefaults
+{
+   std::size_t link11PollingUnits = 8;
+   std::size_t link16Slots = 16;
+   std::size_t satcomBeams = 4;
+   std::size_t satcomChannelsPerBeam = 2;
+   std::size_t cdlConcurrentLinks = 4;
+   std::size_t cdlChannels = 8;
+
+   static ProtocolResourceDefaults AcceptanceDefaults()
+   {
+      return ProtocolResourceDefaults();
+   }
+};
+
+struct ProtocolResourceAllocation
+{
+   std::string kind;
+   std::size_t capacity = 0;
+   std::size_t used = 0;
+   std::size_t remaining = 0;
+};
+
 struct ConcurrentTaskResult
 {
    std::string taskId;
@@ -23,6 +70,8 @@ struct ConcurrentTaskResult
    AssessmentResult concurrent;
    bool allocated = false;
    double reservedBandwidthBps = 0.0;
+   ConcurrentResourceReason resourceReason = ConcurrentResourceReason::cNONE;
+   ProtocolResourceAllocation protocolResource;
    std::vector<std::string> conflictingTaskIds;
 };
 
@@ -51,6 +100,13 @@ public:
    {
    }
 
+   ConcurrentTaskAssessment(const NetworkProfileRepository& aProfiles,
+                            const ProtocolResourceDefaults& aDefaults)
+      : mEvaluator(aProfiles)
+      , mDefaults(aDefaults)
+   {
+   }
+
    ConcurrentAssessmentResult Evaluate(
       const ResourceSnapshot& aSnapshot,
       const std::vector<AssessmentTask>& aTasks) const
@@ -69,6 +125,7 @@ public:
 
       ResourceSnapshot working = aSnapshot;
       std::vector<Reservation> reservations;
+      std::map<NetworkType, std::vector<std::string>> protocolOwners;
       for (std::size_t index = 0; index < aTasks.size(); ++index)
       {
          const AssessmentTask& task = aTasks[index];
@@ -78,17 +135,40 @@ public:
          item.independent = mEvaluator.Evaluate(aSnapshot, task);
          item.concurrent = mEvaluator.Evaluate(working, task);
          item.allocated = item.concurrent.canComplete;
+         const NetworkType resourceType = item.concurrent.networkSequence.empty()
+                                             ? NetworkType::cUNKNOWN
+                                             : item.concurrent.networkSequence.front();
+         if (item.allocated)
+         {
+            item.protocolResource = ResourceStateFor(
+               resourceType, protocolOwners[resourceType].size());
+            if (item.protocolResource.capacity > 0 &&
+                item.protocolResource.used >= item.protocolResource.capacity)
+            {
+               item.allocated = false;
+               item.concurrent.canComplete = false;
+               item.resourceReason = ExhaustionReason(resourceType);
+               item.conflictingTaskIds = protocolOwners[resourceType];
+            }
+         }
          if (item.allocated)
          {
             item.reservedBandwidthBps = task.requiredBandwidthBps;
             Reserve(working, item.concurrent.primaryEndpointRoute,
                     task.requiredBandwidthBps, task.taskId, reservations);
+            protocolOwners[resourceType].push_back(task.taskId);
+            item.protocolResource = ResourceStateFor(
+               resourceType, protocolOwners[resourceType].size());
             ++batch.allocatedCount;
          }
          else
          {
-            item.conflictingTaskIds = Conflicts(
-               item.independent.primaryEndpointRoute, reservations);
+            if (item.conflictingTaskIds.empty())
+               item.conflictingTaskIds = Conflicts(
+                  item.independent.primaryEndpointRoute, reservations);
+            if (item.resourceReason == ConcurrentResourceReason::cNONE &&
+                item.independent.canComplete && !item.concurrent.canComplete)
+               item.resourceReason = ConcurrentResourceReason::cBANDWIDTH_EXHAUSTED;
             ++batch.rejectedCount;
          }
          batch.tasks.push_back(item);
@@ -104,6 +184,51 @@ private:
       std::string destinationId;
       std::string taskId;
    };
+
+   ProtocolResourceAllocation ResourceStateFor(NetworkType aType,
+                                                std::size_t aUsed) const
+   {
+      ProtocolResourceAllocation resource;
+      switch (aType)
+      {
+      case NetworkType::cLINK11:
+         resource.kind = "POLLING_UNIT";
+         resource.capacity = mDefaults.link11PollingUnits;
+         break;
+      case NetworkType::cLINK16:
+         resource.kind = "TIMESLOT";
+         resource.capacity = mDefaults.link16Slots;
+         break;
+      case NetworkType::cSATCOM:
+         resource.kind = "BEAM_CHANNEL";
+         resource.capacity = mDefaults.satcomBeams * mDefaults.satcomChannelsPerBeam;
+         break;
+      case NetworkType::cCDL:
+         resource.kind = "CHANNEL_LINK";
+         resource.capacity = std::min(mDefaults.cdlConcurrentLinks,
+                                      mDefaults.cdlChannels);
+         break;
+      case NetworkType::cUNKNOWN:
+         break;
+      }
+      resource.used = aUsed;
+      resource.remaining = resource.capacity > resource.used
+                              ? resource.capacity - resource.used : 0;
+      return resource;
+   }
+
+   static ConcurrentResourceReason ExhaustionReason(NetworkType aType)
+   {
+      switch (aType)
+      {
+      case NetworkType::cLINK11: return ConcurrentResourceReason::cPOLLING_UNIT_EXHAUSTED;
+      case NetworkType::cLINK16: return ConcurrentResourceReason::cTIMESLOT_EXHAUSTED;
+      case NetworkType::cSATCOM: return ConcurrentResourceReason::cSATCOM_RESOURCE_EXHAUSTED;
+      case NetworkType::cCDL: return ConcurrentResourceReason::cCDL_RESOURCE_EXHAUSTED;
+      case NetworkType::cUNKNOWN: return ConcurrentResourceReason::cNONE;
+      }
+      return ConcurrentResourceReason::cNONE;
+   }
 
    static void Reserve(ResourceSnapshot& aSnapshot,
                        const std::vector<std::string>& aEndpointRoute,
@@ -148,6 +273,7 @@ private:
    }
 
    AssessmentEvaluator mEvaluator;
+   ProtocolResourceDefaults mDefaults = ProtocolResourceDefaults::AcceptanceDefaults();
 };
 } // namespace nrm
 

@@ -111,5 +111,38 @@ int main()
                  Task("same", "source-c", "sink-d", 1.0)});
    assert(!duplicate.valid);
    assert(duplicate.tasks.empty());
+
+   nrm::ResourceSnapshot link11Snapshot = Snapshot();
+   for (auto& endpoint : link11Snapshot.endpoints)
+      endpoint.networkType = nrm::NetworkType::cLINK11;
+   for (auto& link : link11Snapshot.links)
+   {
+      link.networkType = nrm::NetworkType::cLINK11;
+      link.bandwidthBps.value = 1000000.0;
+   }
+   std::vector<nrm::AssessmentTask> pollingTasks;
+   for (int index = 0; index < 9; ++index)
+   {
+      nrm::AssessmentTask task = Task(
+         ("poll-" + std::to_string(index)).c_str(), "source-a", "sink", 1.0);
+      task.allowedNetworks = {nrm::NetworkType::cLINK11};
+      pollingTasks.push_back(task);
+   }
+   const auto polling = evaluator.Evaluate(link11Snapshot, pollingTasks);
+   assert(polling.allocatedCount == 8);
+   assert(!polling.tasks[8].allocated);
+   assert(polling.tasks[8].resourceReason ==
+          nrm::ConcurrentResourceReason::cPOLLING_UNIT_EXHAUSTED);
+   assert(polling.tasks[0].protocolResource.kind == "POLLING_UNIT");
+   assert(polling.tasks[0].protocolResource.capacity == 8);
+   assert(polling.tasks[0].protocolResource.remaining == 7);
+
+   const nrm::ProtocolResourceDefaults defaults =
+      nrm::ProtocolResourceDefaults::AcceptanceDefaults();
+   assert(defaults.link16Slots == 16);
+   assert(defaults.satcomBeams == 4);
+   assert(defaults.satcomChannelsPerBeam == 2);
+   assert(defaults.cdlConcurrentLinks == 4);
+   assert(defaults.cdlChannels == 8);
    return 0;
 }
