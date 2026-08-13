@@ -1079,10 +1079,14 @@ void WkNrm::DockWidget::LoadNetworkPlan()
       QString::fromUtf8("资源规划文件 (*.json *.nrm);;甲方JSON (*.json);;内部NRM规划 (*.nrm)"));
    if (path.isEmpty()) return;
    mPlanDirty = false;
+   bool planLoaded = false;
    if (path.endsWith(".json", Qt::CaseInsensitive))
    {
       mData.LoadCustomerJson(path.toStdString());
       const CustomerJsonDecodeResult& result = mData.LastCustomerJsonResult();
+      planLoaded = result.valid &&
+                   result.envelope.schema == "nrm.customer.network_plan.v1" &&
+                   mData.HasNetworkPlan();
       if (!result.valid && !result.errors.empty())
          mPlanOperationPtr->setText(QString::fromUtf8("甲方JSON加载失败：%1 %2")
             .arg(QString::fromStdString(result.errors.front().code),
@@ -1090,10 +1094,14 @@ void WkNrm::DockWidget::LoadNetworkPlan()
    }
    else
    {
-      mData.LoadNetworkPlan(path.toStdString());
+      planLoaded = mData.LoadNetworkPlan(path.toStdString());
+   }
+
+   if (planLoaded)
+   {
       const QString scenario = BoundScenarioPath(path);
       const QString current = CurrentMissionPath();
-      if (mData.HasNetworkPlan() && !scenario.isEmpty() && scenario != current)
+      if (!scenario.isEmpty() && scenario != current)
       {
          const QString switchScript =
             QString::fromLocal8Bit(qgetenv("NRM_SOURCE")) +
@@ -1112,7 +1120,20 @@ void WkNrm::DockWidget::LoadNetworkPlan()
          }
          mPlanOperationPtr->setText(
             QString::fromUtf8("场景自动切换失败，请检查systemd临时单元和切换脚本权限。"));
+         return;
       }
+      RefreshNetworkPlan();
+      if (scenario.isEmpty())
+      {
+         mPlanOperationPtr->setText(
+            QString::fromUtf8("规划加载成功；该文件未绑定演示场景，继续使用当前AFSIM场景。"));
+      }
+      else if (scenario == current)
+      {
+         mPlanOperationPtr->setText(
+            QString::fromUtf8("规划加载成功；当前已经是绑定场景，无需再次重启。"));
+      }
+      return;
    }
    RefreshNetworkPlan();
 }

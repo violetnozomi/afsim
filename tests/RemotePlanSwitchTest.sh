@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SWITCH_SCRIPT="${ROOT}/scripts/remote/switch-warlock-plan.sh"
 LAUNCH_SCRIPT="${ROOT}/scripts/remote/run-warlock-remote.sh"
+BINDING_FILE="${ROOT}/data/network_plans/operational_25node_complex-r1.nrm.scenario"
 
 grep -q 'NRM_SYSTEMCTL_COMMAND' "${SWITCH_SCRIPT}"
 grep -q 'NRM_SWITCH_REQUEST_FILE' "${SWITCH_SCRIPT}"
@@ -15,6 +16,7 @@ then
    exit 1
 fi
 grep -q 'NRM_SWITCH_REQUEST_FILE' "${LAUNCH_SCRIPT}"
+grep -qx 'test_mission/operational_strike_demo/interactive.txt' "${BINDING_FILE}"
 
 TEMP_ROOT=$(mktemp -d)
 trap 'rm -rf "${TEMP_ROOT}"' EXIT
