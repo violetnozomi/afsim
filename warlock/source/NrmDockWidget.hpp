@@ -7,6 +7,7 @@ class QLabel;
 class QComboBox;
 class QDoubleSpinBox;
 class QTableWidget;
+class QTabWidget;
 class QTextEdit;
 
 #include "NrmDataContainer.hpp"
@@ -81,6 +82,7 @@ private:
    QTableWidget*   mPlanDemandTablePtr;
    QTableWidget*   mPlanIssueTablePtr;
    QTableWidget*   mPlanEvaluationTablePtr;
+   QTabWidget*     mPlanDetailTabsPtr;
    bool            mPlanDirty = false;
    QLabel*         mDemandSummaryPtr;
    QLabel*         mDemandOperationPtr;

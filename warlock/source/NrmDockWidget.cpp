@@ -353,6 +353,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mPlanDemandTablePtr(nullptr)
    , mPlanIssueTablePtr(nullptr)
    , mPlanEvaluationTablePtr(nullptr)
+   , mPlanDetailTabsPtr(nullptr)
    , mDemandSummaryPtr(new QLabel(this))
    , mDemandOperationPtr(new QLabel(this))
    , mDemandTablePtr(nullptr)
@@ -392,9 +393,15 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    heroTextPtr->addWidget(heroSubtitlePtr);
    heroLayoutPtr->addLayout(heroTextPtr);
    heroLayoutPtr->addStretch();
+   QPushButton* statusTogglePtr =
+      new QPushButton(QString::fromUtf8("展开运行概况"), heroPtr);
+   statusTogglePtr->setCheckable(true);
+   statusTogglePtr->setChecked(false);
+   heroLayoutPtr->addWidget(statusTogglePtr);
    rootLayoutPtr->addWidget(heroPtr);
 
-   QGridLayout* statusLayoutPtr = new QGridLayout();
+   QWidget* statusPanelPtr = new QWidget(contentPtr);
+   QGridLayout* statusLayoutPtr = new QGridLayout(statusPanelPtr);
    statusLayoutPtr->setContentsMargins(0, 0, 0, 0);
    statusLayoutPtr->setHorizontalSpacing(8);
    statusLayoutPtr->setVerticalSpacing(8);
@@ -406,7 +413,17 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("已接收"), mReceivedValuePtr, contentPtr), 2, 1);
    statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("转发跳数"), mHopValuePtr, contentPtr), 3, 0);
    statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("丢弃 / 路由失败"), mDiscardedValuePtr, contentPtr), 3, 1);
-   rootLayoutPtr->addLayout(statusLayoutPtr);
+   rootLayoutPtr->addWidget(statusPanelPtr);
+   statusPanelPtr->setVisible(false);
+   connect(statusTogglePtr, &QPushButton::toggled, statusPanelPtr,
+           &QWidget::setVisible);
+   connect(statusTogglePtr, &QPushButton::toggled, this,
+           [statusTogglePtr](bool aExpanded)
+           {
+              statusTogglePtr->setText(
+                 aExpanded ? QString::fromUtf8("收起运行概况")
+                           : QString::fromUtf8("展开运行概况"));
+           });
 
    // 版本与端点总数仍保留在数据模型中，合并显示以减少顶部信息噪声。
    mVersionValuePtr->hide();
@@ -551,16 +568,12 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        QString::fromUtf8("配置模板"), QString::fromUtf8("频率（Hz）"), QString::fromUtf8("信道"),
        QString::fromUtf8("子网"), QString::fromUtf8("时隙"), QString::fromUtf8("成员"),
        QString::fromUtf8("路由策略"), QString::fromUtf8("启用")}, planPagePtr);
-   mPlanAllocationTablePtr->setMinimumHeight(135);
-   planLayoutPtr->addWidget(mPlanAllocationTablePtr);
    mPlanDemandTablePtr = CreateEditableTable(
       {QString::fromUtf8("需求编号"), QString::fromUtf8("业务类型"), QString::fromUtf8("源平台"),
        QString::fromUtf8("目的平台"), QString::fromUtf8("载荷（bit）"),
        QString::fromUtf8("带宽（bit/s）"), QString::fromUtf8("最大时延（ms）"),
        QString::fromUtf8("最低PDR（%）"), QString::fromUtf8("允许网络")},
       planPagePtr);
-   mPlanDemandTablePtr->setMinimumHeight(120);
-   planLayoutPtr->addWidget(mPlanDemandTablePtr);
 
    QHBoxLayout* planServiceActionsPtr = new QHBoxLayout();
    QPushButton* validatePlanButtonPtr =
@@ -581,16 +594,19 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mPlanIssueTablePtr = CreateTable(
       {QString::fromUtf8("严重程度"), QString::fromUtf8("原因码"), QString::fromUtf8("字段"),
        QString::fromUtf8("记录"), QString::fromUtf8("说明")}, planPagePtr);
-   mPlanIssueTablePtr->setMinimumHeight(105);
-   planLayoutPtr->addWidget(mPlanIssueTablePtr);
    mPlanEvaluationTablePtr = CreateTable(
       {QString::fromUtf8("需求编号"), QString::fromUtf8("状态"), QString::fromUtf8("并发结果"),
        QString::fromUtf8("冲突任务"), QString::fromUtf8("路径来源"),
        QString::fromUtf8("速率"), QString::fromUtf8("时延"), QString::fromUtf8("丢包率"),
        QString::fromUtf8("原因码")},
       planPagePtr);
-   mPlanEvaluationTablePtr->setMinimumHeight(105);
-   planLayoutPtr->addWidget(mPlanEvaluationTablePtr);
+   mPlanDetailTabsPtr = new QTabWidget(planPagePtr);
+   mPlanDetailTabsPtr->setDocumentMode(true);
+   mPlanDetailTabsPtr->addTab(mPlanAllocationTablePtr, QString::fromUtf8("资源分配"));
+   mPlanDetailTabsPtr->addTab(mPlanDemandTablePtr, QString::fromUtf8("业务需求"));
+   mPlanDetailTabsPtr->addTab(mPlanIssueTablePtr, QString::fromUtf8("校验问题"));
+   mPlanDetailTabsPtr->addTab(mPlanEvaluationTablePtr, QString::fromUtf8("推演结果"));
+   planLayoutPtr->addWidget(mPlanDetailTabsPtr, 1);
 
    connect(loadPlanButtonPtr, &QPushButton::clicked, this, &DockWidget::LoadNetworkPlan);
    connect(unloadPlanButtonPtr, &QPushButton::clicked, this, &DockWidget::UnloadNetworkPlan);
@@ -743,7 +759,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    rootLayoutPtr->addWidget(tabsPtr);
 
    setWidget(contentPtr);
-   resize(1120, 760);
+   resize(720, 620);
 
    connect(&mData, &DataContainer::SnapshotChanged, this, &DockWidget::Refresh);
    connect(&mData, &DataContainer::NetworkPlanChanged, this,
@@ -1054,6 +1070,7 @@ void WkNrm::DockWidget::ValidateNetworkPlan()
    if (!ApplyNetworkPlanEdits()) return;
    mData.ValidateNetworkPlan();
    RefreshNetworkPlan();
+   mPlanDetailTabsPtr->setCurrentIndex(2);
 }
 
 void WkNrm::DockWidget::EvaluateNetworkPlan()
@@ -1061,6 +1078,7 @@ void WkNrm::DockWidget::EvaluateNetworkPlan()
    if (!ApplyNetworkPlanEdits()) return;
    mData.EvaluateNetworkPlan();
    RefreshNetworkPlan();
+   mPlanDetailTabsPtr->setCurrentIndex(3);
 }
 
 void WkNrm::DockWidget::GenerateNetworkPlanPackage()
