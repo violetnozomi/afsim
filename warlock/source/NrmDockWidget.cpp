@@ -9,8 +9,11 @@
 #include <QBrush>
 #include <QColor>
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QDoubleSpinBox>
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QFrame>
@@ -20,11 +23,13 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QProcess>
 #include <QSignalBlocker>
 #include <QStyle>
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QTextEdit>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -312,6 +317,29 @@ QString CellText(const QTableWidget* aTablePtr, int aRow, int aColumn)
    const QTableWidgetItem* itemPtr = aTablePtr->item(aRow, aColumn);
    return itemPtr == nullptr ? QString() : itemPtr->text().trimmed();
 }
+
+QString CurrentMissionPath()
+{
+   const QStringList arguments = QCoreApplication::arguments();
+   for (int index = arguments.size() - 1; index > 0; --index)
+   {
+      const QFileInfo candidate(arguments[index]);
+      if (candidate.exists() && candidate.isFile()) return candidate.canonicalFilePath();
+   }
+   return QString();
+}
+
+QString BoundScenarioPath(const QString& aPlanPath)
+{
+   QFile binding(aPlanPath + ".scenario");
+   if (!binding.open(QIODevice::ReadOnly | QIODevice::Text)) return QString();
+   const QString value = QString::fromUtf8(binding.readLine()).trimmed();
+   if (value.isEmpty()) return QString();
+   const QFileInfo candidate(QDir::isAbsolutePath(value)
+                                ? value
+                                : QDir(QString::fromLocal8Bit(qgetenv("NRM_SOURCE"))).filePath(value));
+   return candidate.exists() ? candidate.canonicalFilePath() : QString();
+}
 } // namespace
 
 WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
@@ -354,6 +382,8 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mPlanIssueTablePtr(nullptr)
    , mPlanEvaluationTablePtr(nullptr)
    , mPlanDetailTabsPtr(nullptr)
+   , mMainTabsPtr(nullptr)
+   , mPlanPagePtr(nullptr)
    , mDemandSummaryPtr(new QLabel(this))
    , mDemandOperationPtr(new QLabel(this))
    , mDemandTablePtr(nullptr)
@@ -430,6 +460,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mEndpointCountValuePtr->hide();
 
    QTabWidget* tabsPtr = new QTabWidget(contentPtr);
+   mMainTabsPtr = tabsPtr;
    mNetworkTablePtr = CreateTable(
       {QString::fromUtf8("类型"), QString::fromUtf8("网络"), QString::fromUtf8("模型"),
        QString::fromUtf8("成员数"), QString::fromUtf8("在线数"), QString::fromUtf8("链路数"),
@@ -543,6 +574,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    connect(capabilityButtonPtr, &QPushButton::clicked, this, &DockWidget::QueryCapability);
 
    QWidget* planPagePtr = new QWidget(tabsPtr);
+   mPlanPagePtr = planPagePtr;
    QVBoxLayout* planLayoutPtr = new QVBoxLayout(planPagePtr);
    mPlanSummaryPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
    mPlanOperationPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -780,6 +812,13 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    Refresh();
    RefreshNetworkPlan();
    RefreshResourceDemands();
+}
+
+void WkNrm::DockWidget::ShowNetworkPlan()
+{
+   if (mMainTabsPtr != nullptr && mPlanPagePtr != nullptr)
+      mMainTabsPtr->setCurrentWidget(mPlanPagePtr);
+   RefreshNetworkPlan();
 }
 
 void WkNrm::DockWidget::RefreshPreacceptance(const PreacceptanceStatus& aStatus)
@@ -1025,7 +1064,28 @@ void WkNrm::DockWidget::LoadNetworkPlan()
                  QString::fromStdString(result.errors.front().path)));
    }
    else
+   {
       mData.LoadNetworkPlan(path.toStdString());
+      const QString scenario = BoundScenarioPath(path);
+      const QString current = CurrentMissionPath();
+      if (mData.HasNetworkPlan() && !scenario.isEmpty() && scenario != current)
+      {
+         const QString switchScript =
+            QString::fromLocal8Bit(qgetenv("NRM_SOURCE")) +
+            "/scripts/remote/switch-warlock-plan.sh";
+         const bool started = QProcess::startDetached(
+            switchScript,
+            {QString::number(QCoreApplication::applicationPid()), scenario, path});
+         if (started)
+         {
+            mPlanOperationPtr->setText(
+               QString::fromUtf8("规划绑定场景与当前场景不同，正在重启并自动恢复规划……"));
+            QTimer::singleShot(100, QCoreApplication::instance(), &QCoreApplication::quit);
+            return;
+         }
+         mPlanOperationPtr->setText(QString::fromUtf8("场景自动切换失败，请检查切换脚本权限。"));
+      }
+   }
    RefreshNetworkPlan();
 }
 

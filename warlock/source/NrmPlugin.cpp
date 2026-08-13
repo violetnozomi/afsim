@@ -4,6 +4,7 @@
 #include "WkfMainWindow.hpp"
 
 #include <QDockWidget>
+#include <QByteArray>
 #include <QMainWindow>
 
 WKF_PLUGIN_DEFINE_SYMBOLS(
@@ -19,6 +20,14 @@ WkNrm::Plugin::Plugin(const QString& aPluginName, size_t aUniqueId)
 {
    wkfEnv.GetMainWindow()->addDockWidget(Qt::RightDockWidgetArea, mDockWidgetPtr);
    mDockWidgetPtr->show();
+
+   const QByteArray autoPlan = qgetenv("NRM_AUTO_PLAN_FILE");
+   if (!autoPlan.isEmpty())
+   {
+      mData.LoadNetworkPlan(autoPlan.constData());
+      mDockWidgetPtr->ShowNetworkPlan();
+      qunsetenv("NRM_AUTO_PLAN_FILE");
+   }
 
    QMainWindow* centralDockerPtr = wkfEnv.GetMainWindow()->centralWidget();
    if (centralDockerPtr != nullptr)

@@ -21,6 +21,7 @@ class DockWidget : public QDockWidget
 
 public:
    explicit DockWidget(DataContainer& aData, QWidget* aParentPtr = nullptr);
+   void ShowNetworkPlan();
 
 private:
    void Refresh();
@@ -83,6 +84,8 @@ private:
    QTableWidget*   mPlanIssueTablePtr;
    QTableWidget*   mPlanEvaluationTablePtr;
    QTabWidget*     mPlanDetailTabsPtr;
+   QTabWidget*     mMainTabsPtr;
+   QWidget*        mPlanPagePtr;
    bool            mPlanDirty = false;
    QLabel*         mDemandSummaryPtr;
    QLabel*         mDemandOperationPtr;
