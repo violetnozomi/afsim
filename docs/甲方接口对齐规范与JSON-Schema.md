@@ -1,5 +1,15 @@
 # 网络资源管理器甲方接口对齐规范与 JSON Schema
 
+> 部署形态：本项目是安装进甲方修改版 AFSIM 的 WSF 扩展与 Warlock 插件，不是独立服务端。
+> 甲方模块优先在同一进程传递公共 C++ 值对象；需要文件交换时，按本项目定义的精简
+> UTF-8 JSON v1 对齐。
+
+机器校验 Schema 位于 `schemas/customer/v1/`，中文可注释示例位于
+`schemas/customer/v1/customer-interface-v1.annotated.jsonc`。当前支持导航、环境、四网资源、
+任务评估、网络规划、规划结果、成员入退网和统一错误。执行
+`./scripts/ai_guard.sh contract` 可验证全部示例。内部解析已达 `PRE_ACCEPTANCE`；甲方 AFSIM
+目标树重编译、真实模块数据和安全策略仍需现场联调。
+
 > Schema 内已使用标准 `title`/`description` 添加中文注解；另提供 [`JSONC 中文注释版`](../schemas/customer/v1/nrm-customer-interface-v1.annotated.jsonc) 供人工评审。正式传输和程序校验仍使用无注释 JSON，字段中文速查见 [`schemas/customer/v1/README.md`](../schemas/customer/v1/README.md)。
 
 _接口基线草案 V1 · 2026-08-11 · 适用于 AFSIM 2.9 网络资源管理器_

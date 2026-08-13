@@ -1,5 +1,14 @@
 # 验证记录
 
+## 2026-08-13 甲方 AFSIM JSON 接口基线
+
+- 验证提交基线：`ff3eb18`（验证后的门禁与文档提交另计）。
+- `./scripts/ai_guard.sh static`：通过。
+- `./scripts/ai_guard.sh contract`：9 个合法示例通过，5 个非法示例按预期拒绝。
+- `./scripts/ai_guard.sh test`：19/19 固定 C++ 测试通过，WSF 与 Warlock 插件构建成功。
+- `./scripts/ai_guard.sh scenario four_network_overview`：退出码 0，四类网络消息均到达并输出 `Simulation complete`。
+- 边界：尚未在甲方修改版 AFSIM 源码树重新构建，也未接入甲方真实模块数据，故状态为内部 `PRE_ACCEPTANCE`，不是最终验收。
+
 ## 2026-08-11 甲方接口JSON Schema基线
 
 新增Draft 2020-12统一Schema，覆盖提供方握手、四网资源、导航、环境、评估请求、评估响应、
