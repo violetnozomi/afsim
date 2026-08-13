@@ -5,7 +5,10 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
+#include <vector>
 
+#include <QLinearGradient>
 #include <QPainter>
 #include <QPaintEvent>
 
@@ -18,15 +21,15 @@ QColor NetworkColor(nrm::NetworkType aType)
    switch (aType)
    {
    case nrm::NetworkType::cLINK11:
-      return QColor(45, 135, 255);
+      return QColor("#4c9aff");
    case nrm::NetworkType::cLINK16:
-      return QColor(255, 70, 80);
+      return QColor("#ff6b6b");
    case nrm::NetworkType::cSATCOM:
-      return QColor(185, 90, 255);
+      return QColor("#b983ff");
    case nrm::NetworkType::cCDL:
-      return QColor(40, 210, 120);
+      return QColor("#39d98a");
    default:
-      return QColor(160, 170, 185);
+      return QColor("#91a4ba");
    }
 }
 
@@ -55,10 +58,27 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
 {
    QPainter painter(this);
    painter.setRenderHint(QPainter::Antialiasing, true);
-   painter.fillRect(rect(), QColor(10, 20, 32));
+   painter.setRenderHint(QPainter::TextAntialiasing, true);
+   QLinearGradient background(0.0, 0.0, 0.0, height());
+   background.setColorAt(0.0, QColor("#091321"));
+   background.setColorAt(1.0, QColor("#060d18"));
+   painter.fillRect(rect(), background);
 
-   const QRectF plotRect = QRectF(rect()).adjusted(46.0, 62.0, -32.0, -54.0);
-   painter.setPen(QPen(QColor(34, 61, 78), 1.0));
+   const auto& snapshot = mData.GetSnapshot();
+   std::set<std::string> platformNames;
+   for (const auto& endpoint : snapshot.endpoints)
+   {
+      platformNames.insert(endpoint.platformName);
+   }
+
+   const QRectF plotRect = QRectF(rect()).adjusted(24.0, 72.0, -24.0, -58.0);
+   painter.setPen(QPen(QColor("#21344b"), 1.0));
+   painter.setBrush(QColor("#0a1625"));
+   painter.drawRoundedRect(plotRect, 12.0, 12.0);
+
+   painter.save();
+   painter.setClipRect(plotRect.adjusted(1.0, 1.0, -1.0, -1.0));
+   painter.setPen(QPen(QColor(42, 66, 91, 115), 1.0));
    for (int i = 0; i <= 10; ++i)
    {
       const qreal x = plotRect.left() + plotRect.width() * i / 10.0;
@@ -66,29 +86,41 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
       painter.drawLine(QPointF(x, plotRect.top()), QPointF(x, plotRect.bottom()));
       painter.drawLine(QPointF(plotRect.left(), y), QPointF(plotRect.right(), y));
    }
+   painter.restore();
 
-   const auto& snapshot = mData.GetSnapshot();
-   painter.setPen(QColor(225, 235, 245));
+   painter.setPen(QColor("#f3f8ff"));
    QFont titleFont = painter.font();
-   titleFont.setPointSize(14);
+   titleFont.setPointSize(16);
    titleFont.setBold(true);
    painter.setFont(titleFont);
-   painter.drawText(QPointF(22.0, 30.0), "AFSIM Operational Network View");
+   painter.drawText(QPointF(24.0, 29.0), QString::fromUtf8("综合通信资源态势"));
 
    QFont normalFont = painter.font();
    normalFont.setPointSize(9);
    normalFont.setBold(false);
    painter.setFont(normalFont);
-   painter.setPen(QColor(145, 170, 190));
-   painter.drawText(QPointF(22.0, 50.0),
-                    QString("Live AFSIM snapshot  v%1  T=%2 s  •  aircraft / satellite / ground station / links")
+   painter.setPen(QColor("#88a0bc"));
+   painter.drawText(QPointF(24.0, 51.0),
+                    QString::fromUtf8("AFSIM 实时快照  ·  v%1  ·  T=%2秒  ·  协作平台与四网链路")
                        .arg(snapshot.snapshotVersion)
                        .arg(snapshot.simTime, 0, 'f', 1));
 
+   const QString summary = QString::fromUtf8("%1 网络   %2 平台   %3 链路")
+                              .arg(snapshot.networks.size())
+                              .arg(platformNames.size())
+                              .arg(snapshot.links.size());
+   const qreal summaryWidth = painter.fontMetrics().horizontalAdvance(summary) + 24.0;
+   const QRectF summaryRect(width() - summaryWidth - 24.0, 16.0, summaryWidth, 30.0);
+   painter.setPen(QPen(QColor("#29435f"), 1.0));
+   painter.setBrush(QColor("#102238"));
+   painter.drawRoundedRect(summaryRect, 15.0, 15.0);
+   painter.setPen(QColor("#9edcff"));
+   painter.drawText(summaryRect, Qt::AlignCenter, summary);
+
    if (snapshot.endpoints.empty())
    {
-      painter.setPen(QColor(210, 220, 230));
-      painter.drawText(plotRect, Qt::AlignCenter, "Waiting for AFSIM platform state...");
+      painter.setPen(QColor("#a8b9cc"));
+      painter.drawText(plotRect, Qt::AlignCenter, QString::fromUtf8("正在等待AFSIM平台状态……"));
       return;
    }
 
@@ -108,10 +140,14 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
    }
    const double rawLatSpan = std::max(0.05, maxLat - minLat);
    const double rawLonSpan = std::max(0.05, maxLon - minLon);
-   minLat -= rawLatSpan * 0.06;
-   maxLat += rawLatSpan * 0.06;
-   minLon -= rawLonSpan * 0.08;
-   maxLon += rawLonSpan * 0.08;
+   // Leave additional vertical breathing room so north/south outliers and their
+   // labels do not stretch the operational view to the full widget height.
+   // This changes presentation only; the reported geographic coordinates stay
+   // untouched.
+   minLat -= rawLatSpan * 0.22;
+   maxLat += rawLatSpan * 0.22;
+   minLon -= rawLonSpan * 0.10;
+   maxLon += rawLonSpan * 0.10;
    const double latSpan = maxLat - minLat;
    const double lonSpan = maxLon - minLon;
 
@@ -139,7 +175,10 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
       {
          continue;
       }
-      QPen linkPen(NetworkColor(link.networkType), link.networkType == nrm::NetworkType::cCDL ? 3.0 : 2.0);
+      QColor linkColor = NetworkColor(link.networkType);
+      linkColor.setAlpha(155);
+      QPen linkPen(linkColor, link.networkType == nrm::NetworkType::cCDL ? 2.8 : 1.8);
+      linkPen.setCapStyle(Qt::RoundCap);
       if (link.networkType == nrm::NetworkType::cLINK11)
       {
          linkPen.setStyle(Qt::DashLine);
@@ -150,14 +189,19 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
       }
       painter.setPen(linkPen);
       painter.drawLine(sourceIt->second, destinationIt->second);
-      const QPointF midpoint = (sourceIt->second + destinationIt->second) / 2.0;
-      painter.drawText(midpoint + QPointF(5.0, -5.0), NetworkLabel(link.networkType));
    }
 
    std::map<std::string, QPointF> platformPoints;
+   std::map<std::string, std::vector<nrm::NetworkType>> platformNetworks;
    for (const auto& endpointEntry : endpoints)
    {
       platformPoints[endpointEntry.second->platformName] = points[endpointEntry.first];
+      auto& networkTypes = platformNetworks[endpointEntry.second->platformName];
+      if (std::find(networkTypes.begin(), networkTypes.end(), endpointEntry.second->networkType) ==
+          networkTypes.end())
+      {
+         networkTypes.push_back(endpointEntry.second->networkType);
+      }
    }
    if (mData.HasAssessment())
    {
@@ -171,7 +215,7 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
          {
             return;
          }
-         QPen routePen(color, label == "PRIMARY" ? 7.0 : 4.0);
+         QPen routePen(color, label == QString::fromUtf8("主路由") ? 7.0 : 4.0);
          routePen.setStyle(candidate ? Qt::DashLine : Qt::SolidLine);
          routePen.setCapStyle(Qt::RoundCap);
          painter.setPen(routePen);
@@ -194,11 +238,11 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
       drawRoute(assessment.backupRoute,
                 QColor(0, 220, 255, 190),
                 assessment.backupRouteUsesCandidate,
-                "BACKUP");
+                QString::fromUtf8("备选路由"));
       drawRoute(assessment.primaryRoute,
                 QColor(255, 210, 35, 225),
                 assessment.primaryRouteUsesCandidate,
-                "PRIMARY");
+                QString::fromUtf8("主路由"));
 
       if (!assessment.primaryRoute.empty())
       {
@@ -218,19 +262,32 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
       }
    }
 
-   for (const auto& item : points)
+   std::vector<QRectF> occupiedLabels;
+   for (const auto& platformEntry : platformPoints)
    {
-      const auto* endpointPtr = endpoints[item.first];
-      const QPointF point = item.second;
-      const QColor color = NetworkColor(endpointPtr->networkType);
-      painter.setPen(QPen(color, 2.0));
-      painter.setBrush(QColor(color.red(), color.green(), color.blue(), 85));
+      const std::string& platformName = platformEntry.first;
+      const QPointF point = platformEntry.second;
+      const std::vector<nrm::NetworkType>& networks = platformNetworks[platformName];
+      const nrm::NetworkType primaryType =
+         networks.empty() ? nrm::NetworkType::cUNKNOWN : networks.front();
+      const QColor color = NetworkColor(primaryType);
 
-      const bool isSatellite = Contains(endpointPtr->platformName, "sat_");
-      const bool isGround = Contains(endpointPtr->platformName, "control") ||
-                            Contains(endpointPtr->platformName, "command") ||
-                            Contains(endpointPtr->platformName, "station") ||
-                            Contains(endpointPtr->platformName, "terminal");
+      QColor glowColor = color;
+      glowColor.setAlpha(34);
+      painter.setPen(Qt::NoPen);
+      painter.setBrush(glowColor);
+      painter.drawEllipse(point, 17.0, 17.0);
+      painter.setPen(QPen(color, 2.0));
+      painter.setBrush(QColor(color.red(), color.green(), color.blue(), 105));
+
+      const bool isSatellite = Contains(platformName, "sat_") || Contains(platformName, "satellite");
+      const bool isGround = Contains(platformName, "control") ||
+                            Contains(platformName, "command") ||
+                            Contains(platformName, "station") ||
+                            Contains(platformName, "terminal") ||
+                            Contains(platformName, "center") ||
+                            Contains(platformName, "service") ||
+                            Contains(platformName, "sensor");
       if (isSatellite)
       {
          QPolygonF diamond;
@@ -250,24 +307,94 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
          painter.drawPolygon(aircraft);
       }
 
-      painter.setPen(QColor(235, 240, 245));
-      painter.drawText(point + QPointF(14.0, -11.0),
-                       QString::fromStdString(endpointPtr->platformName));
+      const QString displayName = QString::fromStdString(platformName);
+      QStringList networkLabels;
+      for (nrm::NetworkType network : networks)
+      {
+         networkLabels.push_back(NetworkLabel(network));
+      }
+      const QString networkText = networkLabels.join(" · ");
+      const int labelWidth = std::max(painter.fontMetrics().horizontalAdvance(displayName),
+                                      painter.fontMetrics().horizontalAdvance(networkText)) + 14;
+      const qreal labelHeight = 32.0;
+      const std::vector<QPointF> labelOffsets = {
+         QPointF(14.0, -19.0),
+         QPointF(14.0, 5.0),
+         QPointF(-labelWidth - 14.0, -19.0),
+         QPointF(-labelWidth - 14.0, 5.0),
+         QPointF(-labelWidth / 2.0, -48.0),
+         QPointF(-labelWidth / 2.0, 19.0)};
+      QRectF labelRect;
+      bool labelVisible = false;
+      for (const QPointF& offset : labelOffsets)
+      {
+         const QRectF candidate(point + offset, QSizeF(labelWidth, labelHeight));
+         if (!plotRect.adjusted(4.0, 4.0, -4.0, -4.0).contains(candidate))
+         {
+            continue;
+         }
+         bool overlaps = false;
+         for (const QRectF& occupied : occupiedLabels)
+         {
+            if (occupied.adjusted(-3.0, -3.0, 3.0, 3.0).intersects(candidate))
+            {
+               overlaps = true;
+               break;
+            }
+         }
+         if (!overlaps)
+         {
+            labelRect = candidate;
+            labelVisible = true;
+            occupiedLabels.push_back(candidate);
+            break;
+         }
+      }
+
+      qreal badgeX = point.x() - 5.0 * static_cast<qreal>(networks.size() - 1);
+      for (nrm::NetworkType network : networks)
+      {
+         painter.setPen(QPen(QColor("#07111d"), 1.0));
+         painter.setBrush(NetworkColor(network));
+         painter.drawEllipse(QPointF(badgeX, point.y() + 14.0), 3.5, 3.5);
+         badgeX += 10.0;
+      }
+
+      if (!labelVisible)
+      {
+         continue;
+      }
+      painter.setPen(QPen(QColor(42, 59, 80, 210), 1.0));
+      painter.setBrush(QColor(6, 14, 25, 220));
+      painter.drawRoundedRect(labelRect, 5.0, 5.0);
+      painter.setPen(QColor("#edf5ff"));
+      painter.drawText(labelRect.adjusted(7.0, 2.0, -4.0, -14.0),
+                       Qt::AlignLeft | Qt::AlignVCenter,
+                       displayName);
       painter.setPen(color);
-      painter.drawText(point + QPointF(14.0, 4.0), NetworkLabel(endpointPtr->networkType));
+      painter.drawText(labelRect.adjusted(7.0, 15.0, -4.0, -2.0),
+                       Qt::AlignLeft | Qt::AlignVCenter,
+                       networkText);
    }
 
-   qreal legendX = 22.0;
-   const qreal legendY = height() - 20.0;
+   qreal legendX = 24.0;
+   const qreal legendY = height() - 27.0;
    for (const auto type : {nrm::NetworkType::cLINK11,
                            nrm::NetworkType::cLINK16,
                            nrm::NetworkType::cSATCOM,
                            nrm::NetworkType::cCDL})
    {
-      painter.setPen(QPen(NetworkColor(type), 3.0));
-      painter.drawLine(QPointF(legendX, legendY), QPointF(legendX + 26.0, legendY));
-      painter.setPen(QColor(205, 215, 225));
-      painter.drawText(QPointF(legendX + 32.0, legendY + 4.0), NetworkLabel(type));
-      legendX += 115.0;
+      const QRectF legendRect(legendX, legendY - 12.0, 98.0, 25.0);
+      painter.setPen(QPen(QColor("#263a53"), 1.0));
+      painter.setBrush(QColor("#0d1929"));
+      painter.drawRoundedRect(legendRect, 12.0, 12.0);
+      painter.setPen(Qt::NoPen);
+      painter.setBrush(NetworkColor(type));
+      painter.drawEllipse(QPointF(legendX + 14.0, legendY), 4.0, 4.0);
+      painter.setPen(QColor("#cad8e8"));
+      painter.drawText(QRectF(legendX + 24.0, legendY - 10.0, 68.0, 20.0),
+                       Qt::AlignLeft | Qt::AlignVCenter,
+                       NetworkLabel(type));
+      legendX += 106.0;
    }
 }

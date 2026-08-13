@@ -111,6 +111,7 @@ public:
          AddReason(result, CapabilityReason::cPARAMETERIZED_CANDIDATE);
       }
       PopulateEnvironment(aSnapshot, aRequest, result.endpointRoute, aEnvironment, result);
+      ApplyEnvironmentEffects(aSnapshot, result);
       if (!result.communicationDistanceM.valid || !result.maximumHopDistanceM.valid ||
           !result.transmissionRateBps.valid || !result.packetLossPercent.valid ||
           !result.transmissionDelayMs.valid)
@@ -378,7 +379,10 @@ private:
          EnvironmentDomain::cWEATHER,
          EnvironmentDomain::cCELESTIAL,
          EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE};
-      const bool contextUsable = aContext.valid && std::isfinite(aContext.sampleTime) &&
+      EnvironmentContext effectiveContext = aContext;
+      effectiveContext.applyParameterizedEffects = aResult.usesCandidate;
+      const bool contextUsable = effectiveContext.valid &&
+                                 std::isfinite(effectiveContext.sampleTime) &&
                                  mEnvironmentAdapterPtr != nullptr;
       for (EnvironmentDomain domain : domains)
       {
@@ -388,7 +392,7 @@ private:
          if (contextUsable)
          {
             effect = mEnvironmentAdapterPtr->Evaluate(
-               domain, aSnapshot, aRequest, aEndpointRoute, aContext);
+               domain, aSnapshot, aRequest, aEndpointRoute, effectiveContext);
             effect.domain = domain;
             if (!std::isfinite(effect.sampleTime))
             {
@@ -408,6 +412,63 @@ private:
             AddReason(aResult, CapabilityReason::cENVIRONMENT_DATA_UNAVAILABLE);
          }
       }
+   }
+
+   static void ApplyEnvironmentEffects(const ResourceSnapshot& aSnapshot,
+                                       CapabilityResult& aResult)
+   {
+      bool hardBlocked = false;
+      double capacityScale = 1.0;
+      double packetLossDelta = 0.0;
+      double delayDelta = 0.0;
+      Confidence confidence = Confidence::cHIGH;
+      bool hasApplicableEffect = false;
+      DataOrigin appliedOrigin = DataOrigin::cPARAMETERIZED_MODEL;
+      for (const EnvironmentEffect& effect : aResult.environmentEffects)
+      {
+         if (!effect.valid) continue;
+         hardBlocked = hardBlocked || effect.hardBlocked;
+         hasApplicableEffect = hasApplicableEffect ||
+                               effect.origin != DataOrigin::cAFSIM_INTERNAL;
+         if (effect.origin == DataOrigin::cCUSTOMER_MODULE)
+            appliedOrigin = DataOrigin::cCUSTOMER_MODULE;
+         if (effect.capacityScale.valid)
+            capacityScale *= std::max(0.0, std::min(1.0, effect.capacityScale.value));
+         if (effect.packetLossDeltaPercent.valid)
+            packetLossDelta += std::max(0.0, effect.packetLossDeltaPercent.value);
+         if (effect.delayDeltaMs.valid)
+            delayDelta += std::max(0.0, effect.delayDeltaMs.value);
+         if (static_cast<int>(effect.confidence) < static_cast<int>(confidence))
+            confidence = effect.confidence;
+      }
+      if (hardBlocked)
+      {
+         aResult.pathAvailable = false;
+         AddReason(aResult, CapabilityReason::cENVIRONMENT_HARD_BLOCKED);
+         SetPathMetricReasons(aResult, MetricReason::cNO_PATH);
+         return;
+      }
+      if (!aResult.usesCandidate || !hasApplicableEffect) return;
+      if (aResult.transmissionRateBps.valid)
+      {
+         aResult.transmissionRateBps.value *= capacityScale;
+         aResult.transmissionRateBps.origin = appliedOrigin;
+         aResult.transmissionRateBps.confidence = confidence;
+      }
+      if (aResult.packetLossPercent.valid)
+      {
+         aResult.packetLossPercent.value = std::min(
+            100.0, aResult.packetLossPercent.value + packetLossDelta);
+         aResult.packetLossPercent.origin = appliedOrigin;
+         aResult.packetLossPercent.confidence = confidence;
+      }
+      if (aResult.transmissionDelayMs.valid)
+      {
+         aResult.transmissionDelayMs.value += delayDelta;
+         aResult.transmissionDelayMs.origin = appliedOrigin;
+         aResult.transmissionDelayMs.confidence = confidence;
+      }
+      (void)aSnapshot;
    }
 
    static void MapAssessmentReasons(const AssessmentResult& aAssessment,

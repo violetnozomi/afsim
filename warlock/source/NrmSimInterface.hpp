@@ -8,6 +8,7 @@
 #include "UtCallbackHolder.hpp"
 #include "WkSimInterface.hpp"
 #include "nrm/MessageLifecycleTracker.hpp"
+#include "nrm/EnvironmentConfigRepository.hpp"
 #include "nrm/ResourceEventLedger.hpp"
 #include "nrm/RollingMetrics.hpp"
 
@@ -45,6 +46,9 @@ private:
       nrm::MetricValue<double> rssiDbm;
       nrm::MetricValue<double> snrDb;
       nrm::MetricValue<double> ber;
+      nrm::MetricValue<double> interferencePowerDbm;
+      nrm::MetricValue<double> interferenceFactorPercent;
+      nrm::MetricValue<double> atmosphericTransmittancePercent;
    };
 
    void PublishSnapshot(const WsfSimulation& aSimulation, nrm::RuntimeState aState);
@@ -55,6 +59,7 @@ private:
    static nrm::NetworkType GetNetworkType(const wsf::comm::Comm* aCommPtr);
    nrm::MessageLifecycleTracker                  mLifecycleTracker;
    nrm::ResourceEventLedger                      mEventLedger;
+   nrm::EnvironmentConfigRepository              mEnvironmentConfig;
 
    UtCallbackHolder                              mCallbacks;
    nrm::ResourceSnapshot                         mSnapshot;

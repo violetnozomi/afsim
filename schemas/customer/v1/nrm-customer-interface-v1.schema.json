@@ -1,0 +1,638 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nrm:customer-interface:v1",
+  "title": "AFSIM 网络资源管理器甲方接口 V1",
+  "description": "甲方业务模块与网络资源管理器之间交换的传输无关消息。中文说明使用 JSON Schema 标准 title/description，不使用 JSON 不支持的行注释。",
+  "oneOf": [
+    {"$ref": "#/$defs/providerHello"},
+    {"$ref": "#/$defs/resourceReport"},
+    {"$ref": "#/$defs/navigationReport"},
+    {"$ref": "#/$defs/environmentReport"},
+    {"$ref": "#/$defs/assessmentRequest"},
+    {"$ref": "#/$defs/assessmentResponse"},
+    {"$ref": "#/$defs/ingestAck"},
+    {"$ref": "#/$defs/errorResponse"}
+  ],
+  "$defs": {
+    "identifier": {
+      "title": "统一标识符",
+      "description": "平台、端点、网络、链路、消息、任务等对象使用的稳定唯一标识；同一 runId 内不得改变含义。",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$"
+    },
+    "networkType": {
+      "title": "网络类型（含未知类型）",
+      "description": "通信网络分类。UNKNOWN 仅用于输入暂不能识别的端点或网络，不参与限定网络类型的路径计算。",
+      "enum": ["LINK11", "LINK16", "SATCOM", "CDL", "UNKNOWN"]
+    },
+    "operationalNetworkType": {
+      "title": "可参与评估的网络类型",
+      "description": "允许进入通信任务可达性评估和路由推荐的四类网络。",
+      "enum": ["LINK11", "LINK16", "SATCOM", "CDL"]
+    },
+    "dataOrigin": {
+      "title": "数据来源",
+      "description": "说明字段来自 AFSIM 内部、甲方模块、回放、参数化模型、估计或推导计算。",
+      "enum": ["AFSIM_INTERNAL", "CUSTOMER_MODULE", "REPLAY", "PARAMETERIZED_MODEL", "ESTIMATED", "DERIVED"]
+    },
+    "confidence": {
+      "title": "数据置信度",
+      "description": "对测量值或推导值可靠程度的定性分级。",
+      "enum": ["LOW", "MEDIUM", "HIGH"]
+    },
+    "resourceState": {
+      "title": "资源状态",
+      "description": "网络、通信端点或链路的当前工作状态。",
+      "enum": ["UNKNOWN", "OFFLINE", "ONLINE", "DISABLED", "FAILED"]
+    },
+    "metric": {
+      "title": "带质量信息的度量值",
+      "description": "统一数值包装结构。valid=false 时不得用 value=0 冒充测量值，并应通过 reasonCode 说明原因。",
+      "type": "object",
+      "required": ["valid", "unit", "source", "confidence", "sampleTime", "reasonCode"],
+      "properties": {
+        "value": {"type": "number", "description": "度量数值；仅当 valid=true 时必填。"},
+        "unit": {"type": "string", "maxLength": 32, "description": "单位，采用本文约定的 SI/工程单位字符串，如 bit/s、ms、dB、percent。"},
+        "valid": {"type": "boolean", "description": "当前数值是否可用于显示和评估。"},
+        "source": {"$ref": "#/$defs/dataOrigin", "description": "数值来源。"},
+        "confidence": {"$ref": "#/$defs/confidence", "description": "数值置信度。"},
+        "sampleTime": {"type": "number", "minimum": 0, "description": "AFSIM 仿真时间，单位秒。"},
+        "window": {"type": "number", "minimum": 0, "default": 0, "description": "统计窗口长度，单位秒；瞬时值填写 0。"},
+        "reasonCode": {"type": "string", "minLength": 1, "maxLength": 96, "description": "有效性或降级原因码；有效值通常填写 OK。"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"valid": {"const": true}}},
+          "then": {"required": ["value"]}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "position": {
+      "title": "WGS-84 大地坐标",
+      "description": "平台真实位置或导航感知位置，采用纬度、经度和海拔高度。",
+      "type": "object",
+      "required": ["latitudeDeg", "longitudeDeg", "altitudeM"],
+      "properties": {
+        "latitudeDeg": {"type": "number", "minimum": -90, "maximum": 90, "description": "纬度，北纬为正，单位度。"},
+        "longitudeDeg": {"type": "number", "minimum": -180, "maximum": 180, "description": "经度，东经为正，单位度。"},
+        "altitudeM": {"type": "number", "description": "海拔高度，单位米。"},
+        "coordinateSystem": {"const": "WGS84_LLA", "description": "固定为 WGS-84 纬经高坐标系。"}
+      },
+      "additionalProperties": false
+    },
+    "messageStatistics": {
+      "title": "消息统计",
+      "description": "指定快照或统计窗口内的通信消息计数。",
+      "type": "object",
+      "required": ["queued", "transmitted", "received", "hops", "discarded", "routingFailed"],
+      "properties": {
+        "queued": {"type": "integer", "minimum": 0, "description": "进入发送队列的消息次数。"},
+        "transmitted": {"type": "integer", "minimum": 0, "description": "完成发送动作的消息次数。"},
+        "received": {"type": "integer", "minimum": 0, "description": "成功接收的消息次数。"},
+        "hops": {"type": "integer", "minimum": 0, "description": "观察到的逐跳转发次数。"},
+        "discarded": {"type": "integer", "minimum": 0, "description": "被通信模型丢弃的消息次数。"},
+        "routingFailed": {"type": "integer", "minimum": 0, "description": "因路由失败而未投递的消息次数。"},
+        "queueDepth": {"type": "integer", "minimum": 0, "description": "采样时队列深度；没有队列容量时不得解释为占用率。"}
+      },
+      "additionalProperties": false
+    },
+    "link11Details": {
+      "title": "Link-11 协议扩展信息",
+      "description": "甲方 Link-11 模块可提供的网络控制站、轮询周期、应答超时和成员角色信息；允许先按参数化近似模型提供。",
+      "type": "object",
+      "required": ["type", "netControlStationEndpointId", "pollingCycleMs", "replyTimeoutMs"],
+      "properties": {
+        "type": {"const": "LINK11", "description": "固定为 LINK11，用于联合类型校验。"},
+        "netControlStationEndpointId": {"$ref": "#/$defs/identifier", "description": "网络控制站通信端点标识。"},
+        "pollingCycleMs": {"$ref": "#/$defs/metric", "description": "完整轮询周期，单位应为 ms。"},
+        "replyTimeoutMs": {"$ref": "#/$defs/metric", "description": "成员应答超时门限，单位应为 ms。"},
+        "memberRoles": {
+          "description": "Link-11 网络成员及其协议角色。",
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "required": ["endpointId", "role"],
+            "properties": {
+              "endpointId": {"$ref": "#/$defs/identifier", "description": "成员通信端点标识。"},
+              "role": {"enum": ["NET_CONTROL_STATION", "PICKET", "PARTICIPANT", "SILENT"], "description": "网络控制站、警戒成员、普通参与成员或静默成员。"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "link16Details": {
+      "title": "Link-16 协议扩展信息",
+      "description": "甲方 Link-16 模块可提供的网络号、NPG、终端模式和时隙占用信息。",
+      "type": "object",
+      "required": ["type", "netNumber", "npgIds", "slotAllocation"],
+      "properties": {
+        "type": {"const": "LINK16", "description": "固定为 LINK16，用于联合类型校验。"},
+        "netNumber": {"type": "integer", "minimum": 0, "maximum": 127, "description": "Link-16 网络号；具体取值范围可按甲方实现进一步收敛。"},
+        "npgIds": {"type": "array", "maxItems": 512, "items": {"type": "integer", "minimum": 0}, "uniqueItems": true, "description": "参与的网络参与组（NPG）编号集合。"},
+        "terminalMode": {"enum": ["JTIDS", "MIDS", "ABSTRACT", "OTHER"], "description": "终端实现类型；无法披露或仅近似仿真时使用 ABSTRACT。"},
+        "slotAllocation": {
+          "description": "当前统计周期内的时隙总数、分配数和实际使用数。",
+          "type": "object",
+          "required": ["totalSlots", "assignedSlots", "usedSlots"],
+          "properties": {
+            "totalSlots": {"type": "integer", "minimum": 0, "description": "可统计的总时隙数。"},
+            "assignedSlots": {"type": "integer", "minimum": 0, "description": "已分配给当前网络或终端的时隙数。"},
+            "usedSlots": {"type": "integer", "minimum": 0, "description": "实际发生发送的时隙数。"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "satcomDetails": {
+      "title": "卫通协议扩展信息",
+      "description": "卫星中继平台、转发器模式及上下行频段信息。",
+      "type": "object",
+      "required": ["type", "relayPlatformIds", "transponderMode"],
+      "properties": {
+        "type": {"const": "SATCOM", "description": "固定为 SATCOM，用于联合类型校验。"},
+        "relayPlatformIds": {"type": "array", "maxItems": 1024, "items": {"$ref": "#/$defs/identifier"}, "uniqueItems": true, "description": "承担中继的卫星或平台标识集合。"},
+        "transponderMode": {"enum": ["TRANSPARENT", "REGENERATIVE", "ABSTRACT"], "description": "透明转发、再生转发或抽象近似模式。"},
+        "uplinkBandHz": {"type": "object", "description": "上行可用频段，单位 Hz。", "required": ["minimumHz", "maximumHz"], "properties": {"minimumHz": {"type": "number", "minimum": 0, "description": "频段下限。"}, "maximumHz": {"type": "number", "exclusiveMinimum": 0, "description": "频段上限。"}}, "additionalProperties": false},
+        "downlinkBandHz": {"type": "object", "description": "下行可用频段，单位 Hz。", "required": ["minimumHz", "maximumHz"], "properties": {"minimumHz": {"type": "number", "minimum": 0, "description": "频段下限。"}, "maximumHz": {"type": "number", "exclusiveMinimum": 0, "description": "频段上限。"}}, "additionalProperties": false}
+      },
+      "additionalProperties": false
+    },
+    "cdlDetails": {
+      "title": "CDL 协议扩展信息",
+      "description": "CDL 的视距约束、双工方式、信道和定向天线配置。",
+      "type": "object",
+      "required": ["type", "lineOfSightRequired", "duplexMode"],
+      "properties": {
+        "type": {"const": "CDL", "description": "固定为 CDL，用于联合类型校验。"},
+        "lineOfSightRequired": {"type": "boolean", "description": "是否必须满足视距条件才能建链。"},
+        "duplexMode": {"enum": ["SIMPLEX", "HALF_DUPLEX", "FULL_DUPLEX"], "description": "单工、半双工或全双工工作方式。"},
+        "channelId": {"type": "string", "maxLength": 64, "description": "甲方模块内部的信道标识；无固定信道时可省略。"},
+        "directionalAntenna": {"type": "boolean", "description": "是否使用定向天线及其指向约束。"}
+      },
+      "additionalProperties": false
+    },
+    "protocolDetails": {
+      "title": "分网络协议扩展信息",
+      "description": "按 networkType 选择对应的 Link-11、Link-16、卫通或 CDL 扩展结构。",
+      "oneOf": [
+        {"$ref": "#/$defs/link11Details"},
+        {"$ref": "#/$defs/link16Details"},
+        {"$ref": "#/$defs/satcomDetails"},
+        {"$ref": "#/$defs/cdlDetails"}
+      ]
+    },
+    "network": {
+      "title": "网络资源记录",
+      "description": "一张通信网络的标识、类型、状态、成员、业务统计及协议专用信息。",
+      "type": "object",
+      "required": ["networkId", "networkName", "networkType", "modelType", "state"],
+      "properties": {
+        "networkId": {"$ref": "#/$defs/identifier", "description": "网络唯一标识。"},
+        "networkName": {"type": "string", "minLength": 1, "maxLength": 128, "description": "用于界面显示的网络名称。"},
+        "networkType": {"$ref": "#/$defs/networkType", "description": "网络所属的四网类别或 UNKNOWN。"},
+        "modelType": {"type": "string", "minLength": 1, "maxLength": 128, "description": "甲方或 AFSIM 中实际使用的模型类型名称。"},
+        "protocolDetails": {"$ref": "#/$defs/protocolDetails", "description": "与 networkType 一致的协议专用信息。"},
+        "state": {"$ref": "#/$defs/resourceState", "description": "网络当前总体工作状态。"},
+        "topologyType": {"enum": ["POINT_TO_POINT", "STAR", "RING", "MESH", "BROADCAST", "OTHER"], "description": "网络拓扑形态。"},
+        "configuredBandsHz": {
+          "description": "网络配置允许使用的一个或多个频段，单位 Hz。",
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["minimumHz", "maximumHz"],
+            "properties": {
+              "minimumHz": {"type": "number", "minimum": 0},
+              "maximumHz": {"type": "number", "exclusiveMinimum": 0}
+            },
+            "additionalProperties": false
+          }
+        },
+        "memberEndpointIds": {"type": "array", "maxItems": 10000, "items": {"$ref": "#/$defs/identifier"}, "uniqueItems": true, "description": "当前属于该网络的通信端点标识集合。"},
+        "messages": {"$ref": "#/$defs/messageStatistics", "description": "网络级消息累计或窗口统计。"},
+        "offeredLoadBps": {"$ref": "#/$defs/metric", "description": "进入网络的业务负载速率。"},
+        "deliveredThroughputBps": {"$ref": "#/$defs/metric", "description": "成功交付的业务吞吐率。"},
+        "deliveryRatioPercent": {"$ref": "#/$defs/metric", "description": "端到端消息交付率。"},
+        "onlineRatioPercent": {"$ref": "#/$defs/metric", "description": "网络在统计窗口内可用时间占比。"}
+      },
+      "allOf": [
+        {"if": {"required": ["protocolDetails"], "properties": {"networkType": {"const": "LINK11"}}}, "then": {"properties": {"protocolDetails": {"$ref": "#/$defs/link11Details"}}}},
+        {"if": {"required": ["protocolDetails"], "properties": {"networkType": {"const": "LINK16"}}}, "then": {"properties": {"protocolDetails": {"$ref": "#/$defs/link16Details"}}}},
+        {"if": {"required": ["protocolDetails"], "properties": {"networkType": {"const": "SATCOM"}}}, "then": {"properties": {"protocolDetails": {"$ref": "#/$defs/satcomDetails"}}}},
+        {"if": {"required": ["protocolDetails"], "properties": {"networkType": {"const": "CDL"}}}, "then": {"properties": {"protocolDetails": {"$ref": "#/$defs/cdlDetails"}}}}
+      ],
+      "additionalProperties": false
+    },
+    "endpoint": {
+      "title": "通信端点记录",
+      "description": "平台上的单个通信设备在指定网络中的成员身份和运行状态；同一平台可以有多个端点。",
+      "type": "object",
+      "required": ["endpointId", "platformId", "platformName", "commName", "networkId", "networkType", "state", "canSend", "canReceive"],
+      "properties": {
+        "endpointId": {"$ref": "#/$defs/identifier", "description": "通信端点唯一标识。"},
+        "platformId": {"$ref": "#/$defs/identifier", "description": "端点所属平台唯一标识。"},
+        "platformName": {"type": "string", "minLength": 1, "maxLength": 128, "description": "平台显示名称。"},
+        "memberNumber": {"type": "string", "maxLength": 64, "description": "甲方网络内的成员编号或站号。"},
+        "commName": {"type": "string", "minLength": 1, "maxLength": 128, "description": "平台内通信设备实例名称。"},
+        "commType": {"type": "string", "maxLength": 128, "description": "甲方或 AFSIM 通信设备模型类型。"},
+        "networkId": {"$ref": "#/$defs/identifier", "description": "端点加入的网络标识。"},
+        "networkType": {"$ref": "#/$defs/networkType", "description": "端点所属网络类别。"},
+        "address": {"type": "string", "maxLength": 128, "description": "通信地址；保持甲方模块原始文本形式。"},
+        "state": {"$ref": "#/$defs/resourceState", "description": "端点当前在网和设备状态。"},
+        "canSend": {"type": "boolean", "description": "当前是否允许发送。"},
+        "canReceive": {"type": "boolean", "description": "当前是否允许接收。"},
+        "position": {"$ref": "#/$defs/position", "description": "端点所属平台的位置。"},
+        "currentFrequencyHz": {"$ref": "#/$defs/metric", "description": "当前工作频率。"},
+        "queueDepth": {"$ref": "#/$defs/metric", "description": "当前发送队列深度。"},
+        "queueUtilizationPercent": {"$ref": "#/$defs/metric", "description": "已知队列容量时计算的队列占用率。"},
+        "onlineRatioPercent": {"$ref": "#/$defs/metric", "description": "统计窗口内端点在线时间占比。"},
+        "supportedBusinessTypes": {"type": "array", "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 64}, "uniqueItems": true, "description": "该端点允许承载的业务类型集合。"}
+      },
+      "additionalProperties": false
+    },
+    "linkMetrics": {
+      "title": "链路指标集合",
+      "description": "一条有向链路的容量、占用、时延、可靠性、射频质量及干扰指标。",
+      "type": "object",
+      "properties": {
+        "distanceM": {"$ref": "#/$defs/metric", "description": "收发端几何距离。"},
+        "bandwidthBps": {"$ref": "#/$defs/metric", "description": "链路配置或实测总带宽。"},
+        "availableBandwidthBps": {"$ref": "#/$defs/metric", "description": "扣除当前负载后的可用带宽。"},
+        "utilizationPercent": {"$ref": "#/$defs/metric", "description": "链路资源占用率。"},
+        "queueUtilizationPercent": {"$ref": "#/$defs/metric", "description": "链路发送队列占用率。"},
+        "oneWayDelayMs": {"$ref": "#/$defs/metric", "description": "发送到接收的单向传输时延。"},
+        "ackDelayMs": {"$ref": "#/$defs/metric", "description": "数据发送到对应链路应答的时延。"},
+        "rttMs": {"$ref": "#/$defs/metric", "description": "请求与对应响应构成的往返时延。"},
+        "jitterP95Ms": {"$ref": "#/$defs/metric", "description": "时延抖动的第 95 百分位。"},
+        "pdrPercent": {"$ref": "#/$defs/metric", "description": "逐跳投递成功率。"},
+        "rssiDbm": {"$ref": "#/$defs/metric", "description": "接收信号强度，单位 dBm。"},
+        "snrDb": {"$ref": "#/$defs/metric", "description": "信噪比，单位 dB。"},
+        "ebNoDb": {"$ref": "#/$defs/metric", "description": "每比特能量与噪声谱密度比，单位 dB。"},
+        "ber": {"$ref": "#/$defs/metric", "description": "误码率，取值通常为 0 至 1。"},
+        "qualityScore": {"$ref": "#/$defs/metric", "description": "可解释分项汇总后的通信质量分数。"},
+        "availabilityScore": {"$ref": "#/$defs/metric", "description": "用于排序的链路可用性分数。"},
+        "interferencePowerDbm": {"$ref": "#/$defs/metric", "description": "接收端观察到的干扰功率，单位 dBm。"}
+      },
+      "additionalProperties": false
+    },
+    "link": {
+      "title": "有向链路记录",
+      "description": "从 sourceEndpointId 指向 destinationEndpointId 的链路状态和指标；反方向链路应单独上报。",
+      "type": "object",
+      "required": ["linkId", "sourceEndpointId", "destinationEndpointId", "networkId", "networkType", "state", "metrics"],
+      "properties": {
+        "linkId": {"$ref": "#/$defs/identifier", "description": "有向链路唯一标识。"},
+        "sourceEndpointId": {"$ref": "#/$defs/identifier", "description": "发送端点标识。"},
+        "destinationEndpointId": {"$ref": "#/$defs/identifier", "description": "接收端点标识。"},
+        "sourcePlatformId": {"$ref": "#/$defs/identifier", "description": "发送端平台标识。"},
+        "destinationPlatformId": {"$ref": "#/$defs/identifier", "description": "接收端平台标识。"},
+        "networkId": {"$ref": "#/$defs/identifier", "description": "链路所属网络标识。"},
+        "networkType": {"$ref": "#/$defs/networkType", "description": "链路所属网络类别。"},
+        "state": {"$ref": "#/$defs/resourceState", "description": "链路当前工作状态。"},
+        "linkAddedTime": {"type": "number", "minimum": 0, "description": "链路加入拓扑的 AFSIM 仿真时间，单位秒，不等同于协议建链耗时。"},
+        "linkEnabledTime": {"type": "number", "minimum": 0, "description": "链路首次启用的 AFSIM 仿真时间，单位秒。"},
+        "protocolEstablishmentDelayMs": {"$ref": "#/$defs/metric", "description": "协议建链尝试到成功的耗时；无法观测时必须标记无效。"},
+        "businessTypes": {"type": "array", "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 64}, "uniqueItems": true, "description": "当前链路允许或已观察到承载的业务类型。"},
+        "metrics": {"$ref": "#/$defs/linkMetrics", "description": "链路量化指标集合。"},
+        "messages": {"$ref": "#/$defs/messageStatistics", "description": "链路级消息统计。"}
+      },
+      "additionalProperties": false
+    },
+    "routeRecord": {
+      "title": "路由记录",
+      "description": "当前实际路径、候选路径或失败路径；perspective 明确数据属于全局真值还是本地路由器认知。",
+      "type": "object",
+      "required": ["routeId", "sourcePlatformId", "destinationPlatformId", "endpointRoute", "networkSequence", "status", "perspective"],
+      "properties": {
+        "routeId": {"$ref": "#/$defs/identifier"},
+        "sourcePlatformId": {"$ref": "#/$defs/identifier"},
+        "destinationPlatformId": {"$ref": "#/$defs/identifier"},
+        "endpointRoute": {"type": "array", "minItems": 2, "maxItems": 65, "items": {"$ref": "#/$defs/identifier"}},
+        "networkSequence": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/$defs/networkType"}},
+        "status": {"enum": ["ACTIVE", "CANDIDATE", "FAILED"]},
+        "perspective": {"enum": ["GLOBAL_TRUTH", "LOCAL_ROUTER"]},
+        "reasonCode": {"type": "string", "maxLength": 96}
+      },
+      "additionalProperties": false
+    },
+    "businessFlow": {
+      "title": "业务流记录",
+      "description": "一项业务从源平台到一个或多个目的平台的传输状态和端到端指标。",
+      "type": "object",
+      "required": ["flowId", "businessType", "sourcePlatformId", "destinationPlatformIds", "state"],
+      "properties": {
+        "flowId": {"$ref": "#/$defs/identifier"},
+        "transactionId": {"$ref": "#/$defs/identifier"},
+        "businessType": {"type": "string", "minLength": 1, "maxLength": 64},
+        "sourcePlatformId": {"$ref": "#/$defs/identifier"},
+        "destinationPlatformIds": {"type": "array", "minItems": 1, "maxItems": 1024, "items": {"$ref": "#/$defs/identifier"}, "uniqueItems": true},
+        "priority": {"type": "integer", "minimum": 0, "maximum": 255},
+        "state": {"enum": ["QUEUED", "TRANSMITTING", "COMPLETED", "FAILED", "EXPIRED"]},
+        "payloadBits": {"type": "integer", "minimum": 0},
+        "trafficBps": {"$ref": "#/$defs/metric"},
+        "endToEndDelayMs": {"$ref": "#/$defs/metric"},
+        "deliveryRatioPercent": {"$ref": "#/$defs/metric"}
+      },
+      "additionalProperties": false
+    },
+    "gatewayCapability": {
+      "title": "跨网网关能力",
+      "description": "显式声明平台在两个网络之间进行协议转换和业务转发的能力；未声明时不得推断可跨网。",
+      "type": "object",
+      "required": ["gatewayId", "platformId", "ingressNetworkId", "egressNetworkId", "enabled", "supportedBusinessTypes", "protocolConversion"],
+      "properties": {
+        "gatewayId": {"$ref": "#/$defs/identifier"},
+        "platformId": {"$ref": "#/$defs/identifier"},
+        "ingressNetworkId": {"$ref": "#/$defs/identifier"},
+        "egressNetworkId": {"$ref": "#/$defs/identifier"},
+        "enabled": {"type": "boolean"},
+        "supportedBusinessTypes": {"type": "array", "minItems": 1, "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 64}, "uniqueItems": true},
+        "protocolConversion": {"type": "string", "minLength": 1, "maxLength": 128},
+        "policyId": {"type": "string", "maxLength": 128},
+        "processingDelayMs": {"$ref": "#/$defs/metric"},
+        "capacityBps": {"$ref": "#/$defs/metric"},
+        "lossPercent": {"$ref": "#/$defs/metric"}
+      },
+      "additionalProperties": false
+    },
+    "providerHello": {
+      "title": "数据提供方能力声明",
+      "description": "甲方模块连接后首先发送的能力协商消息，用于声明支持的 Schema、网络类型和上报能力。",
+      "type": "object",
+      "required": ["schemaVersion", "messageId", "providerId", "generatedAt", "supportedSchemas", "supportedNetworkTypes", "reportMode"],
+      "properties": {
+        "schemaVersion": {"const": "nrm.customer.provider_hello.v1"},
+        "messageId": {"$ref": "#/$defs/identifier"},
+        "providerId": {"$ref": "#/$defs/identifier"},
+        "generatedAt": {"type": "string", "format": "date-time"},
+        "adapterVersion": {"type": "string", "minLength": 1, "maxLength": 32},
+        "supportedSchemas": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "supportedNetworkTypes": {"type": "array", "minItems": 1, "maxItems": 5, "items": {"$ref": "#/$defs/networkType"}, "uniqueItems": true},
+        "reportMode": {"const": "FULL_SNAPSHOT"},
+        "minimumReportIntervalMs": {"type": "integer", "minimum": 100, "maximum": 60000},
+        "maximumEndpoints": {"type": "integer", "minimum": 1, "maximum": 100000},
+        "extensions": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "resourceReport": {
+      "title": "通信网络资源全量快照",
+      "description": "甲方通信模块或本系统向资源管理器上报的完整资源快照；V1 只接受 fullSnapshot=true。",
+      "type": "object",
+      "required": ["schemaVersion", "messageId", "providerId", "runId", "sequence", "snapshotVersion", "simTime", "generatedAt", "fullSnapshot", "networks", "endpoints", "links", "gatewayCapabilities"],
+      "properties": {
+        "schemaVersion": {"const": "nrm.customer.resource_report.v1"},
+        "messageId": {"$ref": "#/$defs/identifier"},
+        "providerId": {"$ref": "#/$defs/identifier"},
+        "runId": {"$ref": "#/$defs/identifier"},
+        "sequence": {"type": "integer", "minimum": 0},
+        "snapshotVersion": {"type": "integer", "minimum": 0},
+        "simTime": {"type": "number", "minimum": 0},
+        "generatedAt": {"type": "string", "format": "date-time"},
+        "fullSnapshot": {"const": true},
+        "configVersion": {"type": "string", "maxLength": 128},
+        "networks": {"type": "array", "maxItems": 1024, "items": {"$ref": "#/$defs/network"}},
+        "endpoints": {"type": "array", "maxItems": 10000, "items": {"$ref": "#/$defs/endpoint"}},
+        "links": {"type": "array", "maxItems": 100000, "items": {"$ref": "#/$defs/link"}},
+        "gatewayCapabilities": {"type": "array", "maxItems": 10000, "items": {"$ref": "#/$defs/gatewayCapability"}},
+        "routes": {"type": "array", "maxItems": 100000, "items": {"$ref": "#/$defs/routeRecord"}},
+        "businessFlows": {"type": "array", "maxItems": 100000, "items": {"$ref": "#/$defs/businessFlow"}},
+        "messages": {"$ref": "#/$defs/messageStatistics"},
+        "extensions": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "navigationRecord": {
+      "title": "单平台导航记录",
+      "description": "解析 AFSIM 导航数据包后得到的平台导航状态、真值位置、感知位置及误差指标。",
+      "type": "object",
+      "required": ["platformId", "platformName", "rawStatus", "mode", "statusCode", "valid", "source", "confidence", "sampleTime"],
+      "properties": {
+        "platformId": {"$ref": "#/$defs/identifier"},
+        "platformName": {"type": "string", "minLength": 1, "maxLength": 128},
+        "rawStatus": {"anyOf": [{"enum": ["PERFECT", "GPS1", "GPS2", "GPS3"]}, {"type": "string", "pattern": "^INS[1-9][0-9]*$"}]},
+        "mode": {"enum": ["PERFECT", "GPS_ACTIVE", "GPS_DEGRADED", "GPS_EXTERNAL", "INS", "UNKNOWN"]},
+        "statusCode": {"type": "integer", "maximum": 3},
+        "valid": {"type": "boolean"},
+        "source": {"$ref": "#/$defs/dataOrigin"},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "sampleTime": {"type": "number", "minimum": 0},
+        "truthPosition": {"$ref": "#/$defs/position"},
+        "perceivedPosition": {"$ref": "#/$defs/position"},
+        "headingDeg": {"$ref": "#/$defs/metric"},
+        "inTrackErrorM": {"$ref": "#/$defs/metric"},
+        "crossTrackErrorM": {"$ref": "#/$defs/metric"},
+        "verticalErrorM": {"$ref": "#/$defs/metric"},
+        "totalPositionErrorM": {"$ref": "#/$defs/metric"}
+      },
+      "additionalProperties": false
+    },
+    "navigationReport": {
+      "title": "导航数据报告",
+      "description": "携带一个或多个平台导航记录，并通过 packetFormat 标识原始 AFSIM 数据包或归一化 JSON 格式。",
+      "type": "object",
+      "required": ["schemaVersion", "messageId", "providerId", "runId", "sequence", "simTime", "generatedAt", "packetFormat", "records"],
+      "properties": {
+        "schemaVersion": {"const": "nrm.customer.navigation_report.v1"},
+        "messageId": {"$ref": "#/$defs/identifier"},
+        "providerId": {"$ref": "#/$defs/identifier"},
+        "runId": {"$ref": "#/$defs/identifier"},
+        "sequence": {"type": "integer", "minimum": 0},
+        "simTime": {"type": "number", "minimum": 0},
+        "generatedAt": {"type": "string", "format": "date-time"},
+        "packetFormat": {"enum": ["AFSIM_NAVIGATION_ERROR_HISTORY_NEH", "AFSIM_NAVIGATION_ERRORS_REALTIME", "NRM_NORMALIZED_JSON"]},
+        "records": {"type": "array", "minItems": 1, "maxItems": 10000, "items": {"$ref": "#/$defs/navigationRecord"}},
+        "extensions": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "environmentEffect": {
+      "title": "环境影响记录",
+      "description": "地形、气象、天象或电磁干扰对指定链路产生的阻断或定量修正。applicationMode 用于防止重复施加影响。",
+      "type": "object",
+      "required": ["effectId", "domain", "valid", "source", "confidence", "sampleTime", "hardBlocked", "applicationMode", "reasonCode"],
+      "properties": {
+        "effectId": {"$ref": "#/$defs/identifier"},
+        "domain": {"enum": ["TERRAIN", "WEATHER", "CELESTIAL", "ELECTROMAGNETIC_INTERFERENCE"]},
+        "valid": {"type": "boolean"},
+        "source": {"$ref": "#/$defs/dataOrigin"},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "sampleTime": {"type": "number", "minimum": 0},
+        "hardBlocked": {"type": "boolean"},
+        "applicationMode": {"enum": ["ALREADY_INCLUDED_IN_RESOURCE_METRICS", "CANDIDATE_ADJUSTMENT", "INFORMATION_ONLY"]},
+        "reasonCode": {"type": "string", "minLength": 1, "maxLength": 96},
+        "appliesToLinkIds": {"type": "array", "maxItems": 100000, "items": {"$ref": "#/$defs/identifier"}, "uniqueItems": true},
+        "pathLossDeltaDb": {"$ref": "#/$defs/metric"},
+        "capacityScale": {"$ref": "#/$defs/metric"},
+        "packetLossDeltaPercent": {"$ref": "#/$defs/metric"},
+        "delayDeltaMs": {"$ref": "#/$defs/metric"},
+        "evidence": {"type": "array", "maxItems": 128, "items": {"type": "string", "maxLength": 256}}
+      },
+      "additionalProperties": false
+    },
+    "environmentObservations": {
+      "title": "环境观测值",
+      "description": "场景级地形开关、系统时间/儒略日、风、雨、云和沙尘等自然环境观测。",
+      "type": "object",
+      "properties": {
+        "terrainEnabled": {"type": "boolean"},
+        "usesSystemTime": {"type": "boolean"},
+        "julianDate": {"$ref": "#/$defs/metric"},
+        "windSpeedMps": {"$ref": "#/$defs/metric"},
+        "windDirectionDeg": {"$ref": "#/$defs/metric"},
+        "rainRateMmPerHour": {"$ref": "#/$defs/metric"},
+        "cloudLowerAltitudeM": {"$ref": "#/$defs/metric"},
+        "cloudUpperAltitudeM": {"$ref": "#/$defs/metric"},
+        "cloudWaterDensityKgPerM3": {"$ref": "#/$defs/metric"},
+        "dustVisibilityM": {"$ref": "#/$defs/metric"}
+      },
+      "additionalProperties": false
+    },
+    "environmentReport": {
+      "title": "环境数据报告",
+      "description": "向资源管理器输入自然环境和电磁干扰观测及其对通信链路的影响。",
+      "type": "object",
+      "required": ["schemaVersion", "messageId", "providerId", "runId", "sequence", "simTime", "generatedAt", "effects"],
+      "properties": {
+        "schemaVersion": {"const": "nrm.customer.environment_report.v1"},
+        "messageId": {"$ref": "#/$defs/identifier"},
+        "providerId": {"$ref": "#/$defs/identifier"},
+        "runId": {"$ref": "#/$defs/identifier"},
+        "sequence": {"type": "integer", "minimum": 0},
+        "simTime": {"type": "number", "minimum": 0},
+        "generatedAt": {"type": "string", "format": "date-time"},
+        "observations": {"$ref": "#/$defs/environmentObservations"},
+        "effects": {"type": "array", "minItems": 1, "maxItems": 100000, "items": {"$ref": "#/$defs/environmentEffect"}},
+        "extensions": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "assessmentRequest": {
+      "title": "通信任务评估请求",
+      "description": "指定源、目的、业务和 QoS 约束，请求系统评估可达性、可建链性、完成能力和稳定性。",
+      "type": "object",
+      "required": ["schemaVersion", "messageId", "providerId", "runId", "requestId", "simTime", "generatedAt", "sourcePlatformId", "destinationPlatformIds", "businessType", "payloadBits", "requiredBandwidthBps", "maximumDelayMs", "minimumPdrPercent", "allowedNetworks"],
+      "properties": {
+        "schemaVersion": {"const": "nrm.customer.assessment_request.v1"},
+        "messageId": {"$ref": "#/$defs/identifier"},
+        "providerId": {"$ref": "#/$defs/identifier"},
+        "runId": {"$ref": "#/$defs/identifier"},
+        "requestId": {"$ref": "#/$defs/identifier"},
+        "simTime": {"type": "number", "minimum": 0},
+        "generatedAt": {"type": "string", "format": "date-time"},
+        "snapshotVersion": {"type": "integer", "minimum": 0},
+        "sourcePlatformId": {"$ref": "#/$defs/identifier"},
+        "destinationPlatformIds": {"type": "array", "minItems": 1, "maxItems": 1024, "items": {"$ref": "#/$defs/identifier"}, "uniqueItems": true},
+        "businessType": {"type": "string", "minLength": 1, "maxLength": 64},
+        "payloadBits": {"type": "integer", "minimum": 0},
+        "requiredBandwidthBps": {"type": "number", "minimum": 0},
+        "maximumDelayMs": {"type": "number", "minimum": 0},
+        "minimumPdrPercent": {"type": "number", "minimum": 0, "maximum": 100},
+        "allowedNetworks": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"$ref": "#/$defs/operationalNetworkType"}, "uniqueItems": true},
+        "kShortestPaths": {"type": "integer", "minimum": 1, "maximum": 32, "default": 8},
+        "maximumHops": {"type": "integer", "minimum": 1, "maximum": 64, "default": 16},
+        "recommendationOnly": {"const": true},
+        "extensions": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "assessmentResult": {
+      "title": "单目的评估结果",
+      "description": "针对一个目的平台给出的四项结论、主备路径、数值裕量、原因码和只读建议。",
+      "type": "object",
+      "required": ["destinationPlatformId", "reachable", "canEstablish", "canComplete", "stable", "primaryRoute", "backupRoute", "networkSequence", "reasonCodes", "recommendations"],
+      "properties": {
+        "destinationPlatformId": {"$ref": "#/$defs/identifier"},
+        "reachable": {"type": "boolean"},
+        "canEstablish": {"type": "boolean"},
+        "canComplete": {"type": "boolean"},
+        "stable": {"type": "boolean"},
+        "usesCandidate": {"type": "boolean"},
+        "primaryRoute": {"type": "array", "maxItems": 65, "items": {"$ref": "#/$defs/identifier"}},
+        "backupRoute": {"type": "array", "maxItems": 65, "items": {"$ref": "#/$defs/identifier"}},
+        "networkSequence": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/operationalNetworkType"}},
+        "communicationDistanceM": {"$ref": "#/$defs/metric"},
+        "transmissionRateBps": {"$ref": "#/$defs/metric"},
+        "packetLossPercent": {"$ref": "#/$defs/metric"},
+        "transmissionDelayMs": {"$ref": "#/$defs/metric"},
+        "bandwidthMarginBps": {"$ref": "#/$defs/metric"},
+        "delayMarginMs": {"$ref": "#/$defs/metric"},
+        "reliabilityMarginPercent": {"$ref": "#/$defs/metric"},
+        "stabilityScore": {"$ref": "#/$defs/metric"},
+        "reasonCodes": {"type": "array", "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 96}, "uniqueItems": true},
+        "recommendations": {"type": "array", "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 512}}
+      },
+      "additionalProperties": false
+    },
+    "assessmentResponse": {
+      "title": "通信任务评估响应",
+      "description": "与 requestId 对应的评估结果集合；系统只输出建议，不自动修改建链、频率或路由。",
+      "type": "object",
+      "required": ["schemaVersion", "messageId", "providerId", "runId", "requestId", "snapshotVersion", "simTime", "generatedAt", "status", "results"],
+      "properties": {
+        "schemaVersion": {"const": "nrm.customer.assessment_response.v1"},
+        "messageId": {"$ref": "#/$defs/identifier"},
+        "providerId": {"$ref": "#/$defs/identifier"},
+        "runId": {"$ref": "#/$defs/identifier"},
+        "requestId": {"$ref": "#/$defs/identifier"},
+        "snapshotVersion": {"type": "integer", "minimum": 0},
+        "simTime": {"type": "number", "minimum": 0},
+        "generatedAt": {"type": "string", "format": "date-time"},
+        "status": {"enum": ["SUCCESS", "PARTIAL", "REJECTED"]},
+        "results": {"type": "array", "minItems": 1, "maxItems": 1024, "items": {"$ref": "#/$defs/assessmentResult"}},
+        "extensions": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "ingestAck": {
+      "title": "数据接收确认",
+      "description": "确认某一快照消息已接收、重复或因过期而忽略，并回传系统采用的快照版本。",
+      "type": "object",
+      "required": ["schemaVersion", "messageId", "providerId", "runId", "acceptedMessageId", "acceptedSchemaVersion", "acceptedSequence", "snapshotVersion", "simTime", "generatedAt", "status", "reasonCode"],
+      "properties": {
+        "schemaVersion": {"const": "nrm.customer.ingest_ack.v1"},
+        "messageId": {"$ref": "#/$defs/identifier"},
+        "providerId": {"$ref": "#/$defs/identifier"},
+        "runId": {"$ref": "#/$defs/identifier"},
+        "acceptedMessageId": {"$ref": "#/$defs/identifier"},
+        "acceptedSchemaVersion": {"type": "string", "minLength": 1, "maxLength": 96},
+        "acceptedSequence": {"type": "integer", "minimum": 0},
+        "snapshotVersion": {"type": "integer", "minimum": 0},
+        "simTime": {"type": "number", "minimum": 0},
+        "generatedAt": {"type": "string", "format": "date-time"},
+        "status": {"enum": ["ACCEPTED", "DUPLICATE", "IGNORED_STALE"]},
+        "reasonCode": {"type": "string", "minLength": 1, "maxLength": 96},
+        "extensions": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "errorResponse": {
+      "title": "接口错误响应",
+      "description": "当 JSON 解析、Schema 校验、对象引用或内部处理失败时返回的结构化错误。",
+      "type": "object",
+      "required": ["schemaVersion", "messageId", "providerId", "generatedAt", "status", "reasonCode", "message", "retryable"],
+      "properties": {
+        "schemaVersion": {"const": "nrm.customer.error.v1"},
+        "messageId": {"$ref": "#/$defs/identifier"},
+        "providerId": {"$ref": "#/$defs/identifier"},
+        "runId": {"$ref": "#/$defs/identifier"},
+        "requestId": {"$ref": "#/$defs/identifier"},
+        "generatedAt": {"type": "string", "format": "date-time"},
+        "status": {"const": "ERROR"},
+        "reasonCode": {"enum": ["INVALID_JSON", "SCHEMA_UNSUPPORTED", "SCHEMA_VALIDATION_FAILED", "SEQUENCE_STALE", "RUN_ID_MISMATCH", "REFERENCE_NOT_FOUND", "DATA_INVALID", "DATA_STALE", "EVALUATION_BUSY", "INTERNAL_ERROR"]},
+        "message": {"type": "string", "minLength": 1, "maxLength": 512},
+        "fieldPath": {"type": "string", "maxLength": 256},
+        "retryable": {"type": "boolean"},
+        "extensions": {"type": "object"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

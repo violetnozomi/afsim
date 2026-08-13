@@ -28,6 +28,19 @@ int main()
    snapshot.simTime = 12.5;
    snapshot.configVersion = "test-config-v1";
    snapshot.messages.transmitted = 3;
+   snapshot.navigation.valid = true;
+   snapshot.navigation.sampleTime = 12.5;
+   nrm::NavigationSample navigation;
+   navigation.platformName = "fighter";
+   navigation.rawStatus = "GPS1";
+   navigation.mode = nrm::NavigationMode::cGPS_ACTIVE;
+   navigation.statusCode = 1;
+   navigation.valid = true;
+   navigation.sampleTime = 12.5;
+   navigation.totalPositionErrorM.value = 8.775;
+   navigation.totalPositionErrorM.unit = "m";
+   navigation.totalPositionErrorM.valid = true;
+   snapshot.navigation.platforms.push_back(navigation);
 
    nrm::NetworkSnapshot network;
    network.networkName = "nrm_link16_test";
@@ -168,6 +181,12 @@ int main()
    CHECK(json.find("\"utilization_percent\":") != std::string::npos);
    CHECK(json.find("\"runId\"") != std::string::npos);
    CHECK(json.find("\"configVersion\":\"test-config-v1\"") != std::string::npos);
+   CHECK(json.find("\"packetFormat\":\"AFSIM_NAVIGATION_ERROR_HISTORY_NEH\"") !=
+         std::string::npos);
+   CHECK(json.find("\"rawStatus\":\"GPS1\"") != std::string::npos);
+   CHECK(json.find("\"mode\":\"GPS_ACTIVE\"") != std::string::npos);
+   CHECK(json.find("\"totalPositionErrorM\":{\"value\":8.775") !=
+         std::string::npos);
 
    const std::string csv = ReadAll(runDirectory + "/network_summary.csv");
    CHECK(csv.find("nrm_link16_test") != std::string::npos);

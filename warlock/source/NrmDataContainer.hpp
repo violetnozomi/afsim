@@ -8,6 +8,7 @@
 
 #include "nrm/NetworkResourceTypes.hpp"
 #include "nrm/AssessmentTypes.hpp"
+#include "nrm/BuiltInEnvironmentEffectAdapter.hpp"
 #include "nrm/ModelRegistry.hpp"
 #include "nrm/ModelServiceFacade.hpp"
 #include "nrm/NetworkPlanRepository.hpp"
@@ -113,6 +114,8 @@ private:
    nrm::ModelServiceContext MakeModelServiceContext(
       nrm::ModelServiceOperation aOperation,
       std::uint64_t aSnapshotVersion);
+   nrm::EnvironmentContext EffectiveEnvironment(
+      const nrm::EnvironmentContext& aEnvironment) const;
 
    nrm::FrameworkSnapshot            mSnapshot;
    nrm::AssessmentResult             mAssessment;
@@ -120,6 +123,8 @@ private:
    bool                              mHasAssessment = false;
    bool                              mHasCapability = false;
    nrm::NetworkProfileRepository     mProfiles;
+   nrm::EnvironmentConfigRepository  mEnvironmentConfig;
+   nrm::BuiltInEnvironmentEffectAdapter mEnvironmentAdapter;
    nrm::ModelServiceFacade            mModelServiceFacade;
    nrm::ModelRegistry                 mModelRegistry;
    nrm::ModelRegistryResult           mModelRegistration;

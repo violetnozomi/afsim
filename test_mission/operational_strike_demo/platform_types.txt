@@ -1,0 +1,105 @@
+# Generic, cooperative platform types for the network-resource demonstration.
+# No platform carries a weapon and no opposing side is created.
+
+platform_type NRM_OP_GROUND_BASE WSF_PLATFORM
+   add processor message_processor NRM_OP_MESSAGE_PROCESSOR end_processor
+end_platform_type
+
+platform_type NRM_OP_LINK11_GROUND NRM_OP_GROUND_BASE
+   side blue
+   add comm link11 NRM_OP_LINK11_COMM
+      internal_link message_processor
+   end_comm
+end_platform_type
+
+platform_type NRM_OP_LINK11_SENSOR NRM_OP_LINK11_GROUND
+   icon Ground_Radar
+end_platform_type
+
+platform_type NRM_OP_LINK11_SERVICE NRM_OP_LINK11_GROUND
+   icon Command_Post
+end_platform_type
+
+platform_type NRM_OP_MULTI_NETWORK_COMMAND NRM_OP_GROUND_BASE
+   icon Command_Post
+   side blue
+   add comm link16 NRM_OP_LINK16_COMM
+      internal_link message_processor
+   end_comm
+   add comm satcom NRM_OP_SATCOM_COMM
+      internal_link message_processor
+   end_comm
+end_platform_type
+
+platform_type NRM_OP_THEATER_COMMAND NRM_OP_GROUND_BASE
+   icon Command_Post
+   side blue
+   add comm satcom NRM_OP_SATCOM_COMM
+      internal_link message_processor
+   end_comm
+end_platform_type
+
+platform_type NRM_OP_SATELLITE NRM_OP_GROUND_BASE
+   icon Satellite
+   side blue
+   add comm satcom NRM_OP_SATCOM_COMM
+      internal_link message_processor
+   end_comm
+end_platform_type
+
+platform_type NRM_OP_EXPLOITATION NRM_OP_GROUND_BASE
+   icon Ground_Radar
+   side blue
+   add comm cdl NRM_OP_CDL_COMM
+      internal_link message_processor
+   end_comm
+   add comm satcom NRM_OP_SATCOM_COMM
+      internal_link message_processor
+   end_comm
+end_platform_type
+
+platform_type NRM_OP_LINK16_AIR WSF_PLATFORM
+   icon F-18E
+   side blue
+   mover WSF_AIR_MOVER
+      update_interval 1 sec
+      at_end_of_path stop
+   end_mover
+   add comm link16 NRM_OP_LINK16_COMM
+      internal_link message_processor
+   end_comm
+   add processor message_processor NRM_OP_MESSAGE_PROCESSOR end_processor
+end_platform_type
+
+platform_type NRM_OP_AWACS NRM_OP_LINK16_AIR
+   icon E-3
+end_platform_type
+
+platform_type NRM_OP_MISSION_AIRCRAFT NRM_OP_LINK16_AIR
+end_platform_type
+
+platform_type NRM_OP_ISR_UAV WSF_PLATFORM
+   icon Global_Hawk
+   side blue
+   mover WSF_AIR_MOVER
+      update_interval 1 sec
+      at_end_of_path stop
+   end_mover
+   add comm cdl NRM_OP_CDL_COMM
+      internal_link message_processor
+   end_comm
+   add processor message_processor NRM_OP_MESSAGE_PROCESSOR end_processor
+end_platform_type
+
+platform_type NRM_OP_LINK11_AIR WSF_PLATFORM
+   icon F-15
+   side blue
+   mover WSF_AIR_MOVER
+      update_interval 1 sec
+      at_end_of_path stop
+   end_mover
+   add comm link11 NRM_OP_LINK11_COMM
+      internal_link message_processor
+   end_comm
+   add processor message_processor NRM_OP_MESSAGE_PROCESSOR end_processor
+end_platform_type

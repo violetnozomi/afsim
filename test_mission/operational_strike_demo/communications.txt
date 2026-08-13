@@ -1,0 +1,142 @@
+# Four-network communication layer for the cooperative operational demonstration.
+
+comm NRM_OP_LINK11_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_link11_coordination
+end_comm
+
+comm NRM_OP_LINK16_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_link16_tactical
+end_comm
+
+comm NRM_OP_SATCOM_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_satcom_command
+end_comm
+
+comm NRM_OP_CDL_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_cdl_isr
+end_comm
+
+processor NRM_OP_MESSAGE_PROCESSOR WSF_SCRIPT_PROCESSOR
+   on_message
+      script
+         writeln("NRM_OPERATIONAL MESSAGE_RECEIVED " + PLATFORM.Name());
+      end_script
+   end_on_message
+end_processor
+
+network nrm_link11_coordination WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member link11_control_station link11
+      member link11_sensor_hub link11
+      member link11_service_node link11
+      member link11_relay_north link11
+      member link11_relay_south link11
+      member link11_station_north link11
+      member link11_station_south link11
+      member link11_air_relay link11
+   end_comm_list
+   comm_link_list
+      link link11_sensor_hub link11 link11_control_station link11
+      link link11_control_station link11 link11_sensor_hub link11
+      link link11_control_station link11 link11_service_node link11
+      link link11_service_node link11 link11_control_station link11
+      link link11_sensor_hub link11 link11_relay_north link11
+      link link11_relay_north link11 link11_sensor_hub link11
+      link link11_relay_north link11 link11_station_north link11
+      link link11_station_north link11 link11_relay_north link11
+      link link11_control_station link11 link11_relay_south link11
+      link link11_relay_south link11 link11_control_station link11
+      link link11_relay_south link11 link11_station_south link11
+      link link11_station_south link11 link11_relay_south link11
+      link link11_control_station link11 link11_air_relay link11
+      link link11_air_relay link11 link11_control_station link11
+   end_comm_link_list
+end_network
+
+network nrm_link16_tactical WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member network_control_center link16
+      member airborne_relay link16
+      member mission_aircraft_1 link16
+      member mission_aircraft_2 link16
+      member relay_aircraft_1 link16
+      member relay_aircraft_2 link16
+      member spectrum_monitor_aircraft link16
+      member support_aircraft link16
+      member mobile_command link16
+   end_comm_list
+   comm_link_list
+      link network_control_center link16 airborne_relay link16
+      link airborne_relay link16 network_control_center link16
+      link network_control_center link16 mission_aircraft_1 link16
+      link mission_aircraft_1 link16 network_control_center link16
+      link network_control_center link16 mission_aircraft_2 link16
+      link mission_aircraft_2 link16 network_control_center link16
+      link airborne_relay link16 mission_aircraft_1 link16
+      link mission_aircraft_1 link16 airborne_relay link16
+      link airborne_relay link16 mission_aircraft_2 link16
+      link mission_aircraft_2 link16 airborne_relay link16
+      link network_control_center link16 relay_aircraft_1 link16
+      link relay_aircraft_1 link16 network_control_center link16
+      link network_control_center link16 relay_aircraft_2 link16
+      link relay_aircraft_2 link16 network_control_center link16
+      link airborne_relay link16 relay_aircraft_1 link16
+      link relay_aircraft_1 link16 airborne_relay link16
+      link airborne_relay link16 relay_aircraft_2 link16
+      link relay_aircraft_2 link16 airborne_relay link16
+      link airborne_relay link16 spectrum_monitor_aircraft link16
+      link spectrum_monitor_aircraft link16 airborne_relay link16
+      link airborne_relay link16 support_aircraft link16
+      link support_aircraft link16 airborne_relay link16
+      link network_control_center link16 mobile_command link16
+      link mobile_command link16 network_control_center link16
+   end_comm_link_list
+end_network
+
+network nrm_satcom_command WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member regional_command satcom
+      member sat_relay_1 satcom
+      member network_control_center satcom
+      member data_processing_center satcom
+      member sat_relay_2 satcom
+      member mobile_command satcom
+      member backup_processing_center satcom
+   end_comm_list
+   comm_link_list
+      link regional_command satcom sat_relay_1 satcom
+      link sat_relay_1 satcom regional_command satcom
+      link sat_relay_1 satcom network_control_center satcom
+      link network_control_center satcom sat_relay_1 satcom
+      link sat_relay_1 satcom data_processing_center satcom
+      link data_processing_center satcom sat_relay_1 satcom
+      link sat_relay_1 satcom sat_relay_2 satcom
+      link sat_relay_2 satcom sat_relay_1 satcom
+      link sat_relay_2 satcom mobile_command satcom
+      link mobile_command satcom sat_relay_2 satcom
+      link sat_relay_2 satcom backup_processing_center satcom
+      link backup_processing_center satcom sat_relay_2 satcom
+   end_comm_link_list
+end_network
+
+network nrm_cdl_isr WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member survey_uav_1 cdl
+      member data_processing_center cdl
+      member survey_uav_2 cdl
+      member survey_uav_3 cdl
+      member backup_processing_center cdl
+   end_comm_list
+   comm_link_list
+      link survey_uav_1 cdl data_processing_center cdl
+      link data_processing_center cdl survey_uav_1 cdl
+      link data_processing_center cdl survey_uav_2 cdl
+      link survey_uav_2 cdl data_processing_center cdl
+      link data_processing_center cdl survey_uav_3 cdl
+      link survey_uav_3 cdl data_processing_center cdl
+      link backup_processing_center cdl survey_uav_2 cdl
+      link survey_uav_2 cdl backup_processing_center cdl
+      link backup_processing_center cdl survey_uav_3 cdl
+      link survey_uav_3 cdl backup_processing_center cdl
+   end_comm_link_list
+end_network

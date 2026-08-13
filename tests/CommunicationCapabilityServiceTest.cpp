@@ -345,6 +345,22 @@ int main()
       assert(effect.delayDeltaMs.valid);
       assert(effect.delayDeltaMs.unit == "ms");
    }
+   // Current AFSIM paths only carry environment evidence. Their RF-derived
+   // metrics must not be degraded a second time.
+   assert(withEnvironment.transmissionRateBps.value == current.transmissionRateBps.value);
+   assert(withEnvironment.packetLossPercent.value == current.packetLossPercent.value);
+   assert(withEnvironment.transmissionDelayMs.value == current.transmissionDelayMs.value);
+
+   const nrm::CapabilityResult candidateWithEnvironment =
+      environmentService.Query(candidateSnapshot, candidateRequest, environmentContext);
+   assert(candidateWithEnvironment.usesCandidate);
+   assert(candidateWithEnvironment.transmissionRateBps.valid);
+   assert(candidateWithEnvironment.transmissionRateBps.value <
+          candidate.transmissionRateBps.value);
+   assert(candidateWithEnvironment.packetLossPercent.value >
+          candidate.packetLossPercent.value);
+   assert(candidateWithEnvironment.transmissionDelayMs.value >
+          candidate.transmissionDelayMs.value);
 
    const std::size_t callsBeforeInvalidRequest = environmentAdapter.callCount;
    nrm::CapabilityRequest invalidEnvironmentRequest = request;

@@ -53,6 +53,30 @@ enum class RuntimeState
    cCOMPLETE
 };
 
+enum class NavigationMode
+{
+   cUNKNOWN,
+   cPERFECT,
+   cGPS_ACTIVE,
+   cGPS_DEGRADED,
+   cGPS_EXTERNAL,
+   cINS
+};
+
+inline const char* ToString(NavigationMode aMode)
+{
+   switch (aMode)
+   {
+   case NavigationMode::cPERFECT: return "PERFECT";
+   case NavigationMode::cGPS_ACTIVE: return "GPS_ACTIVE";
+   case NavigationMode::cGPS_DEGRADED: return "GPS_DEGRADED";
+   case NavigationMode::cGPS_EXTERNAL: return "GPS_EXTERNAL";
+   case NavigationMode::cINS: return "INS";
+   case NavigationMode::cUNKNOWN: return "UNKNOWN";
+   }
+   return "UNKNOWN";
+}
+
 template<typename T>
 struct MetricValue
 {
@@ -156,7 +180,97 @@ struct LinkSnapshot
    MetricValue<double> rssiDbm;
    MetricValue<double> snrDb;
    MetricValue<double> ber;
+   MetricValue<double> interferencePowerDbm;
+   MetricValue<double> interferenceFactorPercent;
+   MetricValue<double> atmosphericTransmittancePercent;
+   MetricValue<double> terrainBlockedFlag;
    std::vector<WindowMetrics> windows;
+};
+
+struct TerrainEnvironmentState
+{
+   bool available = false;
+   bool enabled = false;
+   std::size_t evaluatedLinkCount = 0;
+   std::size_t blockedLinkCount = 0;
+};
+
+struct WeatherEnvironmentState
+{
+   bool available = false;
+   MetricValue<double> windSpeedMps;
+   MetricValue<double> windDirectionDeg;
+   MetricValue<double> rainRateMmPerHour;
+   MetricValue<double> rainUpperAltitudeM;
+   MetricValue<double> cloudLowerAltitudeM;
+   MetricValue<double> cloudUpperAltitudeM;
+   MetricValue<double> cloudWaterDensityKgPerM3;
+   MetricValue<double> dustVisibilityM;
+};
+
+struct CelestialEnvironmentState
+{
+   bool available = false;
+   bool usesSystemTime = false;
+   MetricValue<double> julianDate;
+};
+
+struct InterferenceEnvironmentState
+{
+   bool available = false;
+   std::size_t observedLinkCount = 0;
+   MetricValue<double> maximumPowerDbm;
+   MetricValue<double> maximumFactorPercent;
+};
+
+struct EnvironmentSnapshot
+{
+   std::string schemaVersion = "nrm.environment_snapshot.v1";
+   std::string configVersion;
+   std::string providerId = "afsim-internal";
+   DataOrigin origin = DataOrigin::cAFSIM_INTERNAL;
+   Confidence confidence = Confidence::cHIGH;
+   double sampleTime = 0.0;
+   bool valid = false;
+   TerrainEnvironmentState terrain;
+   WeatherEnvironmentState weather;
+   CelestialEnvironmentState celestial;
+   InterferenceEnvironmentState interference;
+};
+
+struct NavigationSample
+{
+   std::string platformName;
+   std::string rawStatus;
+   NavigationMode mode = NavigationMode::cUNKNOWN;
+   int statusCode = 0;
+   bool valid = false;
+   DataOrigin origin = DataOrigin::cAFSIM_INTERNAL;
+   Confidence confidence = Confidence::cHIGH;
+   double sampleTime = 0.0;
+   MetricValue<double> truthLatitudeDeg;
+   MetricValue<double> truthLongitudeDeg;
+   MetricValue<double> truthAltitudeM;
+   MetricValue<double> perceivedLatitudeDeg;
+   MetricValue<double> perceivedLongitudeDeg;
+   MetricValue<double> perceivedAltitudeM;
+   MetricValue<double> headingDeg;
+   MetricValue<double> inTrackErrorM;
+   MetricValue<double> crossTrackErrorM;
+   MetricValue<double> verticalErrorM;
+   MetricValue<double> totalPositionErrorM;
+};
+
+struct NavigationSnapshot
+{
+   std::string schemaVersion = "nrm.navigation_snapshot.v1";
+   std::string packetFormat = "AFSIM_NAVIGATION_ERROR_HISTORY_NEH";
+   std::string providerId = "afsim-internal";
+   DataOrigin origin = DataOrigin::cAFSIM_INTERNAL;
+   Confidence confidence = Confidence::cHIGH;
+   double sampleTime = 0.0;
+   bool valid = false;
+   std::vector<NavigationSample> platforms;
 };
 
 struct ResourceSnapshot
@@ -173,6 +287,8 @@ struct ResourceSnapshot
    std::vector<EndpointSnapshot> endpoints;
    std::vector<LinkSnapshot>     links;
    MessageStatistics             messages;
+   EnvironmentSnapshot           environment;
+   NavigationSnapshot            navigation;
 };
 
 using FrameworkSnapshot = ResourceSnapshot;

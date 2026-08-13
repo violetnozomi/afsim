@@ -16,20 +16,21 @@ if [ -z "$SCENARIO_TIMEOUT_VALUE" ]; then
   SCENARIO_TIMEOUT_VALUE=120
 fi
 
-TEST_NAMES="nrm_framework_types_test nrm_snapshot_reporter_test nrm_assessment_evaluator_test nrm_network_profile_test nrm_message_lifecycle_tracker_test nrm_resource_event_ledger_test nrm_constrained_path_selector_test nrm_snapshot_reporter_recovery_test nrm_communication_capability_service_test nrm_network_plan_repository_test nrm_network_plan_evaluation_test nrm_resource_demand_repository_test nrm_resource_demand_matching_test nrm_model_service_facade_test nrm_model_registry_test"
+TEST_NAMES="nrm_framework_types_test nrm_snapshot_reporter_test nrm_assessment_evaluator_test nrm_network_profile_test nrm_message_lifecycle_tracker_test nrm_resource_event_ledger_test nrm_constrained_path_selector_test nrm_snapshot_reporter_recovery_test nrm_communication_capability_service_test nrm_network_plan_repository_test nrm_network_plan_evaluation_test nrm_resource_demand_repository_test nrm_resource_demand_matching_test nrm_model_service_facade_test nrm_model_registry_test nrm_environment_config_repository_test nrm_environment_effect_adapter_test nrm_afsim_navigation_packet_parser_test"
 
 usage() {
   printf '%s\n' \
-    "Usage: scripts/ai_guard.sh <status|static|build|test|check|scenario> [scenario-name]" \
+    "Usage: scripts/ai_guard.sh <status|static|build|test|check|contract|scenario> [scenario-name]" \
     "" \
     "status    Show branch, worktree and active milestone." \
     "static    Run non-destructive repository consistency checks." \
     "build     Build the two plugins and all registered NRM tests." \
     "test      Build and run all fixed NRM tests exactly once." \
     "check     Run static checks and all fixed tests." \
+    "contract  Validate the proposed customer JSON Schema and all examples." \
     "scenario  Run one approved scenario once with a timeout." \
     "" \
-    "Approved scenarios: framework_smoke, four_network_overview, link_failure, congestion, quality_degradation, capability_service_smoke."
+    "Approved scenarios: framework_smoke, four_network_overview, link_failure, congestion, quality_degradation, capability_service_smoke, operational_strike_demo, environment_weather, navigation_errors."
 }
 
 require_file() {
@@ -127,6 +128,9 @@ scenario_file() {
     congestion) printf '%s\n' congestion.txt ;;
     quality_degradation) printf '%s\n' quality_degradation.txt ;;
     capability_service_smoke) printf '%s\n' capability_service_smoke.txt ;;
+    operational_strike_demo) printf '%s\n' operational_strike_demo/validation.txt ;;
+    environment_weather) printf '%s\n' environment_weather.txt ;;
+    navigation_errors) printf '%s\n' navigation_errors.txt ;;
     *)
       printf 'ERROR: scenario is not approved: %s\n' "$1" >&2
       return 1
@@ -147,6 +151,9 @@ scenario_cmd() {
     return 1
   fi
   require_file "$input_path"
+  if [ "$1" = navigation_errors ]; then
+    mkdir -p /tmp/nrm-navigation-history
+  fi
   printf 'Running approved scenario once: %s\n' "$1"
   timeout "$SCENARIO_TIMEOUT_VALUE" "$mission_path" "$input_path"
 }
@@ -167,6 +174,7 @@ case "$command_name" in
     static_cmd
     test_cmd
     ;;
+  contract) "$ROOT/scripts/validate_customer_interface.sh" ;;
   scenario) scenario_cmd "$@" ;;
   help|-h|--help) usage ;;
   *)

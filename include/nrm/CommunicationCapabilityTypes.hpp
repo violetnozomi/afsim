@@ -24,7 +24,8 @@ enum class CapabilityReason
    cPARAMETERIZED_CANDIDATE,
    cTHROUGHPUT_NOT_OBSERVED,
    cACCESS_DENOMINATOR_ZERO,
-   cENVIRONMENT_DATA_UNAVAILABLE
+   cENVIRONMENT_DATA_UNAVAILABLE,
+   cENVIRONMENT_HARD_BLOCKED
 };
 
 inline const char* ToString(CapabilityReason aReason)
@@ -45,6 +46,8 @@ inline const char* ToString(CapabilityReason aReason)
    case CapabilityReason::cACCESS_DENOMINATOR_ZERO: return "ACCESS_DENOMINATOR_ZERO";
    case CapabilityReason::cENVIRONMENT_DATA_UNAVAILABLE:
       return "ENVIRONMENT_DATA_UNAVAILABLE";
+   case CapabilityReason::cENVIRONMENT_HARD_BLOCKED:
+      return "ENVIRONMENT_HARD_BLOCKED";
    }
    return "INVALID_REQUEST";
 }
@@ -79,6 +82,7 @@ struct EnvironmentContext
    DataOrigin origin = DataOrigin::cCUSTOMER_MODULE;
    Confidence confidence = Confidence::cLOW;
    bool valid = false;
+   bool applyParameterizedEffects = false;
 };
 
 struct EnvironmentEffect
@@ -90,6 +94,8 @@ struct EnvironmentEffect
    CapabilityReason reason = CapabilityReason::cENVIRONMENT_DATA_UNAVAILABLE;
    std::string providerId;
    std::string effectId;
+   bool hardBlocked = false;
+   std::vector<std::string> evidence;
    double sampleTime = 0.0;
    MetricValue<double> pathLossDeltaDb;
    MetricValue<double> capacityScale;

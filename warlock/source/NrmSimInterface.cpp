@@ -14,9 +14,13 @@
 #include "WsfCommNetworkManager.hpp"
 #include "WsfCommObserver.hpp"
 #include "WsfCommResult.hpp"
+#include "WsfEnvironment.hpp"
 #include "WsfMessage.hpp"
+#include "WsfNavigationErrors.hpp"
 #include "WsfPlatform.hpp"
 #include "WsfSimulation.hpp"
+#include "WsfTerrain.hpp"
+#include "UtMath.hpp"
 #include "nrm/NetworkProfileRepository.hpp"
 #include "nrm/NetworkTypeUtils.hpp"
 
@@ -59,6 +63,7 @@ void SetPositionMetric(nrm::MetricValue<double>& aMetric,
    aMetric.origin     = nrm::DataOrigin::cAFSIM_INTERNAL;
    aMetric.confidence = nrm::Confidence::cHIGH;
    aMetric.sampleTime = aSimTime;
+   aMetric.reason     = nrm::MetricReason::cNONE;
 }
 
 void SetDirectMetric(nrm::MetricValue<double>& aMetric,
@@ -72,6 +77,7 @@ void SetDirectMetric(nrm::MetricValue<double>& aMetric,
    aMetric.origin     = nrm::DataOrigin::cAFSIM_INTERNAL;
    aMetric.confidence = nrm::Confidence::cHIGH;
    aMetric.sampleTime = aSimTime;
+   aMetric.reason     = nrm::MetricReason::cNONE;
 }
 
 std::string LinkId(const wsf::comm::Comm* aSourcePtr, const wsf::comm::Comm* aDestinationPtr)
@@ -80,6 +86,32 @@ std::string LinkId(const wsf::comm::Comm* aSourcePtr, const wsf::comm::Comm* aDe
 }
 
 const double cWINDOWS_S[] = {1.0, 10.0, 60.0};
+
+nrm::NavigationMode NavigationModeFromStatus(WsfNavigationErrors::GPS_Status aStatus)
+{
+   switch (aStatus)
+   {
+   case WsfNavigationErrors::cGPS_PERFECT: return nrm::NavigationMode::cPERFECT;
+   case WsfNavigationErrors::cGPS_ACTIVE: return nrm::NavigationMode::cGPS_ACTIVE;
+   case WsfNavigationErrors::cGPS_DEGRADED: return nrm::NavigationMode::cGPS_DEGRADED;
+   case WsfNavigationErrors::cGPS_EXTERNAL: return nrm::NavigationMode::cGPS_EXTERNAL;
+   case WsfNavigationErrors::cGPS_INACTIVE: return nrm::NavigationMode::cINS;
+   }
+   return nrm::NavigationMode::cUNKNOWN;
+}
+
+std::string RawNavigationStatus(WsfNavigationErrors::GPS_Status aStatus)
+{
+   switch (aStatus)
+   {
+   case WsfNavigationErrors::cGPS_PERFECT: return "PERFECT";
+   case WsfNavigationErrors::cGPS_ACTIVE: return "GPS1";
+   case WsfNavigationErrors::cGPS_DEGRADED: return "GPS2";
+   case WsfNavigationErrors::cGPS_EXTERNAL: return "GPS3";
+   case WsfNavigationErrors::cGPS_INACTIVE: return "INS1";
+   }
+   return "UNKNOWN";
+}
 } // namespace
 
 WkNrm::SimInterface::SimInterface(const QString& aPluginName)
@@ -107,6 +139,15 @@ void WkNrm::SimInterface::SimulationInitializing(const WsfSimulation& aSimulatio
       {
          mSnapshot.profileIds.push_back(profile.profileId);
       }
+   }
+   mEnvironmentConfig = nrm::EnvironmentConfigRepository::BuiltInDemo();
+   const char* environmentPath = std::getenv("NRM_ENVIRONMENT_CONFIG");
+   if (environmentPath != nullptr && environmentPath[0] != '\0')
+   {
+      nrm::EnvironmentConfigRepository external;
+      nrm::EnvironmentConfigValidation validation;
+      if (external.LoadFromFile(environmentPath, validation))
+         mEnvironmentConfig = external;
    }
    mMessagesByNetwork.clear();
    mMetricsByNetwork.clear();
@@ -267,6 +308,25 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                        SetDirectMetric(radio.ber, aResult.mBitErrorRate,
                                                        "ratio", aSimTime);
                                     }
+                                    if (aResult.mInterferencePower > 0.0)
+                                    {
+                                       SetDirectMetric(
+                                          radio.interferencePowerDbm,
+                                          10.0 * std::log10(aResult.mInterferencePower * 1000.0),
+                                          "dBm", aSimTime);
+                                    }
+                                    if (aResult.mInterferenceFactor >= 0.0)
+                                    {
+                                       SetDirectMetric(radio.interferenceFactorPercent,
+                                                       100.0 * aResult.mInterferenceFactor,
+                                                       "percent", aSimTime);
+                                    }
+                                    if (aResult.mAbsorptionFactor > 0.0)
+                                    {
+                                       SetDirectMetric(radio.atmosphericTransmittancePercent,
+                                                       100.0 * aResult.mAbsorptionFactor,
+                                                       "percent", aSimTime);
+                                    }
                                  }
                               }));
    mCallbacks.Add(WsfObserver::MessageHop(&aSimulation)
@@ -340,6 +400,98 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
    mSnapshot.networks.clear();
    mSnapshot.endpoints.clear();
    mSnapshot.links.clear();
+   mSnapshot.navigation = nrm::NavigationSnapshot();
+   mSnapshot.navigation.sampleTime = mSnapshot.simTime;
+   for (std::size_t platformIndex = 0;
+        platformIndex < aSimulation.GetPlatformCount(); ++platformIndex)
+   {
+      WsfPlatform* platformPtr = aSimulation.GetPlatformEntry(platformIndex);
+      if (platformPtr == nullptr) continue;
+      WsfNavigationErrors* navigationPtr = WsfNavigationErrors::Find(*platformPtr);
+      if (navigationPtr == nullptr) continue;
+      const WsfNavigationErrors::GPS_Status status = navigationPtr->GetGPS_Status();
+      const double updateTime = navigationPtr->GetLastUpdateTime();
+      if (updateTime < 0.0 && status != WsfNavigationErrors::cGPS_PERFECT) continue;
+
+      nrm::NavigationSample sample;
+      sample.platformName = platformPtr->GetName();
+      sample.rawStatus = RawNavigationStatus(status);
+      sample.mode = NavigationModeFromStatus(status);
+      sample.statusCode = static_cast<int>(status);
+      sample.valid = sample.mode != nrm::NavigationMode::cUNKNOWN;
+      sample.sampleTime = updateTime >= 0.0 ? updateTime : mSnapshot.simTime;
+      double truthLat = 0.0;
+      double truthLon = 0.0;
+      double truthAlt = 0.0;
+      double perceivedLat = 0.0;
+      double perceivedLon = 0.0;
+      double perceivedAlt = 0.0;
+      platformPtr->GetLocationLLA(truthLat, truthLon, truthAlt);
+      navigationPtr->GetPerceivedLocationLLA(
+         perceivedLat, perceivedLon, perceivedAlt);
+      SetDirectMetric(sample.truthLatitudeDeg, truthLat, "deg", sample.sampleTime);
+      SetDirectMetric(sample.truthLongitudeDeg, truthLon, "deg", sample.sampleTime);
+      SetDirectMetric(sample.truthAltitudeM, truthAlt, "m", sample.sampleTime);
+      SetDirectMetric(sample.perceivedLatitudeDeg, perceivedLat, "deg", sample.sampleTime);
+      SetDirectMetric(sample.perceivedLongitudeDeg, perceivedLon, "deg", sample.sampleTime);
+      SetDirectMetric(sample.perceivedAltitudeM, perceivedAlt, "m", sample.sampleTime);
+      double heading = 0.0;
+      double pitch = 0.0;
+      double roll = 0.0;
+      platformPtr->GetOrientationNED(heading, pitch, roll);
+      SetDirectMetric(sample.headingDeg,
+                      UtMath::NormalizeAngle0_360(heading * UtMath::cDEG_PER_RAD),
+                      "deg", sample.sampleTime);
+      const ut::coords::RSCS error = navigationPtr->GetLocationErrorRSCS();
+      SetDirectMetric(sample.inTrackErrorM, error[0], "m", sample.sampleTime);
+      SetDirectMetric(sample.crossTrackErrorM, error[1], "m", sample.sampleTime);
+      SetDirectMetric(sample.verticalErrorM, error[2], "m", sample.sampleTime);
+      SetDirectMetric(sample.totalPositionErrorM, error.Magnitude(), "m", sample.sampleTime);
+      mSnapshot.navigation.platforms.push_back(sample);
+   }
+   mSnapshot.navigation.valid = !mSnapshot.navigation.platforms.empty();
+   mSnapshot.environment = nrm::EnvironmentSnapshot();
+   mSnapshot.environment.sampleTime = mSnapshot.simTime;
+   mSnapshot.environment.providerId = "afsim-internal";
+   mSnapshot.environment.configVersion = mEnvironmentConfig.ConfigVersion();
+   mSnapshot.environment.valid = true;
+
+   WsfEnvironment& environment = aSimulation.GetEnvironment();
+   nrm::WeatherEnvironmentState& weather = mSnapshot.environment.weather;
+   weather.available = true;
+   SetDirectMetric(weather.windSpeedMps, environment.GetWindSpeed(),
+                   "m/s", mSnapshot.simTime);
+   SetDirectMetric(weather.windDirectionDeg,
+                   environment.GetWindDirection() * UtMath::cDEG_PER_RAD,
+                   "deg", mSnapshot.simTime);
+   SetDirectMetric(weather.rainRateMmPerHour,
+                   environment.GetRainRate() * 3600000.0,
+                   "mm/h", mSnapshot.simTime);
+   SetDirectMetric(weather.rainUpperAltitudeM, environment.GetRainUpperLevel(),
+                   "m", mSnapshot.simTime);
+   double cloudLower = 0.0;
+   double cloudUpper = 0.0;
+   environment.GetCloudLevel(cloudLower, cloudUpper);
+   SetDirectMetric(weather.cloudLowerAltitudeM, cloudLower, "m", mSnapshot.simTime);
+   SetDirectMetric(weather.cloudUpperAltitudeM, cloudUpper, "m", mSnapshot.simTime);
+   SetDirectMetric(weather.cloudWaterDensityKgPerM3,
+                   environment.GetCloudWaterDensity(), "kg/m^3", mSnapshot.simTime);
+   SetDirectMetric(weather.dustVisibilityM, environment.GetDustStormVisibility(),
+                   "m", mSnapshot.simTime);
+
+   nrm::CelestialEnvironmentState& celestial = mSnapshot.environment.celestial;
+   celestial.available = true;
+   celestial.usesSystemTime = aSimulation.GetDateTime().UsingSystemTime();
+   SetDirectMetric(celestial.julianDate,
+                   aSimulation.GetDateTime().GetStartJulianDate() +
+                      mSnapshot.simTime / 86400.0,
+                   "julian_day", mSnapshot.simTime);
+
+   nrm::TerrainEnvironmentState& terrain = mSnapshot.environment.terrain;
+   wsf::TerrainInterface* terrainPtr = aSimulation.GetTerrainInterface();
+   terrain.available = terrainPtr != nullptr;
+   terrain.enabled = terrainPtr != nullptr && terrainPtr->IsEnabled();
+   mSnapshot.environment.interference.available = true;
    const std::uint64_t hopCount = mSnapshot.messages.hops;
    const std::size_t queueDepth = mSnapshot.messages.queueDepth;
    mSnapshot.messages = mLifecycleTracker.Cumulative();
@@ -550,11 +702,54 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
             link.rssiDbm      = radioIt->second.rssiDbm;
             link.snrDb        = radioIt->second.snrDb;
             link.ber          = radioIt->second.ber;
+            link.interferencePowerDbm = radioIt->second.interferencePowerDbm;
+            link.interferenceFactorPercent = radioIt->second.interferenceFactorPercent;
+            link.atmosphericTransmittancePercent =
+               radioIt->second.atmosphericTransmittancePercent;
             if (link.bandwidthBps.valid)
             {
                capacityBps = link.bandwidthBps.value;
             }
          }
+
+         if (terrain.enabled && sourcePtr->GetPlatform() != nullptr &&
+             destinationPtr->GetPlatform() != nullptr)
+         {
+            double sourceLat = 0.0;
+            double sourceLon = 0.0;
+            double sourceAlt = 0.0;
+            double destinationLat = 0.0;
+            double destinationLon = 0.0;
+            double destinationAlt = 0.0;
+            sourcePtr->GetPlatform()->GetLocationLLA(sourceLat, sourceLon, sourceAlt);
+            destinationPtr->GetPlatform()->GetLocationLLA(
+               destinationLat, destinationLon, destinationAlt);
+            const bool blocked = terrainPtr->MaskedByTerrain(
+               sourceLat, sourceLon, sourceAlt, destinationLat, destinationLon,
+               destinationAlt, 0.0);
+            SetDirectMetric(link.terrainBlockedFlag, blocked ? 1.0 : 0.0,
+                            "boolean", mSnapshot.simTime);
+            ++terrain.evaluatedLinkCount;
+            if (blocked) ++terrain.blockedLinkCount;
+         }
+
+         nrm::InterferenceEnvironmentState& interference =
+            mSnapshot.environment.interference;
+         if (link.interferencePowerDbm.valid || link.interferenceFactorPercent.valid)
+         {
+            ++interference.observedLinkCount;
+         }
+         if (link.interferencePowerDbm.valid)
+         {
+            if (!interference.maximumPowerDbm.valid ||
+                link.interferencePowerDbm.value > interference.maximumPowerDbm.value)
+               interference.maximumPowerDbm = link.interferencePowerDbm;
+         }
+         if (link.interferenceFactorPercent.valid &&
+             (!interference.maximumFactorPercent.valid ||
+              link.interferenceFactorPercent.value >
+                 interference.maximumFactorPercent.value))
+            interference.maximumFactorPercent = link.interferenceFactorPercent;
          const auto metricsIt = mMetricsByLink.find(link.linkId);
          for (double windowS : cWINDOWS_S)
          {

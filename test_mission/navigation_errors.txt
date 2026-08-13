@@ -1,0 +1,50 @@
+# Fixed scenario for AFSIM built-in satellite/inertial navigation error data.
+random_seed 20260811
+
+platform nav_aircraft WSF_PLATFORM
+   position 35:00:00.000n 118:00:00.000e altitude 1000 m
+   heading 90 deg
+
+   add mover WSF_AIR_MOVER
+      update_interval 1 sec
+   end_mover
+
+   navigation_errors
+      gps_status -1
+      gps_in_track_error 8 m
+      gps_cross_track_error 2 m
+      gps_vertical_error 3 m
+      ins_x_errors
+         coefficient 1 exponent 1
+      end_ins_x_errors
+      ins_y_errors
+         coefficient 2 exponent 1
+      end_ins_y_errors
+      ins_z_errors
+         coefficient 3 exponent 1
+      end_ins_z_errors
+      randomness off
+      show_status_changes true
+      time_history_path /tmp/nrm-navigation-history
+   end_navigation_errors
+
+   script void ReportINS()
+      writeln("NRM_NAVIGATION MODE INS");
+   end_script
+   script void ReportPerfect()
+      writeln("NRM_NAVIGATION MODE PERFECT");
+   end_script
+   script void ReportGPS()
+      writeln("NRM_NAVIGATION MODE GPS1");
+   end_script
+   script void ReportDegraded()
+      writeln("NRM_NAVIGATION MODE GPS2");
+   end_script
+
+   execute at_time 1 sec absolute ReportINS(); end_execute
+   execute at_time 10 sec absolute SetGPS_Status(0); ReportPerfect(); end_execute
+   execute at_time 20 sec absolute SetGPS_Status(1); ReportGPS(); end_execute
+   execute at_time 30 sec absolute SetGPS_Status(2); ReportDegraded(); end_execute
+end_platform
+
+end_time 40 sec

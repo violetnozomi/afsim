@@ -49,6 +49,40 @@ ssh -N -L 5901:127.0.0.1:5901 pyh@服务器地址
 127.0.0.1:5901
 ```
 
+## Windows一键预验收
+
+VNC隧道只用于观看；完整测试可在另一个Windows PowerShell窗口用一条命令触发，不需要
+点击Warlock：
+
+```powershell
+ssh -F NUL pyh@10.129.10.207 'cd /home/pyh/afsim/network_resource_manager && ./scripts/run_preacceptance.sh'
+```
+
+脚本运行约两分钟。成功时末尾显示：
+
+```text
+warlock-final-snapshot           PASS - 120 s snapshot is 8 transmitted / 8 received / 0 discarded
+Overall: PASS
+Report: /home/pyh/afsim/network_resource_manager/output/preacceptance/.../PREACCEPTANCE_REPORT.md
+```
+
+查看最新报告：
+
+```powershell
+ssh -F NUL pyh@10.129.10.207 'latest=$(find /home/pyh/afsim/network_resource_manager/output/preacceptance -mindepth 1 -maxdepth 1 -type d | sort | tail -1); cat "$latest/PREACCEPTANCE_REPORT.md"'
+```
+
+如果命令返回非零，使用末尾打印的`Report`路径查看失败项；每一项的完整输出保存在同一
+目录的`logs/`中。脚本会重启已有Warlock用户服务一次，但不修改服务配置。
+
+Warlock重新出现后，点击右侧面板页签栏的右箭头并打开`预验收状态`。该页没有启动按钮，
+会自动显示`RUNNING`，随后更新为`PASS`或`FAIL`，并列出15项测试、六个场景、最终快照、
+Git修订和报告路径。若不想打开VNC，也可直接查看机器可读状态：
+
+```powershell
+ssh -F NUL pyh@10.129.10.207 'jq . /home/pyh/afsim/network_resource_manager/output/preacceptance/latest_status.json'
+```
+
 如果 Viewer 提示 VNC 本身未加密，可以确认继续，因为整个 VNC 流量已经封装在 SSH 加密
 隧道内。
 
@@ -111,7 +145,7 @@ ss -ltn | grep 5901
 Warlock 中打开：
 
 ```text
-View → Network Resource Manager
+View → 网络资源管理器
 ```
 
 如果 Warlock 已由用户服务启动，修改代码并重新构建后用下列命令重新载入：

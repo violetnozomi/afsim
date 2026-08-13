@@ -1,5 +1,113 @@
 # 验证记录
 
+## 2026-08-11 甲方接口JSON Schema基线
+
+新增Draft 2020-12统一Schema，覆盖提供方握手、四网资源、导航、环境、评估请求、评估响应、
+接收ACK和统一错误8类消息。系统`jsonschema 4.10.3`校验全部8个正例通过，故意缺失公共字段
+的资源包被拒绝。Schema仅作为`BASELINE_DRAFT`，实时TCP Adapter、安全认证和甲方专用字段
+尚未实现或签字确认。
+
+## 2026-08-11 综合通信协同场景25节点验证
+
+综合场景包含区域/网络控制中心、Link-11控制与服务节点、空中中继、任务与支援飞机、
+巡查无人机、数据处理中心和双卫星中继，共25个同一体系的协作平台。场景不包含敌方、
+异方side、目标航迹、武器模型、武器事件或攻击任务。AFSIM完整180秒命令行场景通过；
+现有Warlock采集基线为4种网络、25个唯一通信平台、29个通信端点和60条有向链路。分布为
+Link-11 8/14、Link-16 9/24、卫通7/12、CDL 5/10（成员/有向链路）。
+
+固定验证检查25条`PLATFORM_ADDED`、关键四网消息收件人、链路故障/恢复和高速CDL阶段，
+同时显式断言不存在`WEAPON_FIRED/HIT/MISSED/TERMINATED`事件。
+
+Link-16同时具备`relay_aircraft_1 → network_control_center → relay_aircraft_2`和
+`relay_aircraft_1 → airborne_relay → relay_aircraft_2`两条有向边不重合多跳路径，可用于主备路由
+可视化验证。
+
+## 2026-08-11 AFSIM内置导航数据第一版
+
+在不修改AFSIM核心的前提下，新增`WsfNavigationErrors`实时状态采集、原生`.neh`严格解析、
+`nrm.navigation_snapshot.v1`快照输出和中文“导航状态”页。固定场景完成
+`INS1 → PERFECT → GPS1 → GPS2`状态切换，由AFSIM自身生成40秒导航时序文件；命令行工具
+成功将该文件转换为`nrm.navigation_sample.v1` JSONL。解析测试覆盖合法度分秒、状态映射、
+未知状态和时间倒退。静态门禁通过，WSF/Warlock/工具构建通过，18/18固定测试通过。
+
+远程Warlock短时冒烟在`sim_time=11.1 s`取得有效导航快照：1个平台、平台名
+`nav_aircraft`、原生状态`PERFECT`、总位置误差`0 m`；随后已恢复默认四网用户服务。
+
+能力边界：这是AFSIM感知位置误差数据适配，不是GNSS/INS算法或真实装备精度终验；甲方不同
+格式仍需后续Adapter和目标环境联调。
+
+## 2026-08-11 环境影响第一版实现
+
+在不修改AFSIM核心的前提下，实现地形、气象、天象/时间和电磁干扰四域环境快照。Warlock
+仿真线程读取`TerrainInterface`、`WsfEnvironment`、`WsfDateTime`和通信接收结果中的干扰/
+大气字段，复制为纯C++值对象；Reporter把`nrm.environment_snapshot.v1`作为
+`nrm.snapshot.v2.environment`写入JSONL，中文界面新增只读“环境状态”页。
+
+候选链路使用严格`NRM_ENVIRONMENT_V1`配置；非法配置原子失败并保留最后有效修订。现有
+AFSIM链路只附加环境证据，不二次修改RF结果；候选链路才调整容量、丢包与时延并标记
+`PARAMETERIZED_MODEL/LOW`。验证结果：
+
+- WSF与Warlock目标编译、链接成功；
+- 17/17固定测试通过，覆盖合法/非法配置、原子回退、当前链路不重复修正、候选修正、
+  地形硬阻断、降雨和干扰开关；
+- `environment_weather`使用AFSIM内置日期时间、风、雨、云和沙尘配置，完成8条四网消息收发；
+- 重载`nrm-warlock.service`后，运行快照包含四域环境对象；实测4网络、10端点、8链路，
+  电磁域记录4条已观测链路和0%最大干扰因子，字段原因码为`NONE`；服务保持`active`。
+
+边界：默认四网场景未启用地形数据库且未布设RF jammer，因此地形显示“可用但未启用”、
+干扰功率无样本是正确结果；真实DTED/GeoTIFF、干扰机参数和甲方格式仍待后续联调。
+
+## 2026-08-11 综合突防/IADS作战场景第一轮验证（历史，已被协同场景替代）
+
+以下内容只记录早期原型验证，当前场景已删除全部敌对、目标航迹和武器元素。在不修改AFSIM核心和原始内置场景的前提下，早期曾参考Warlock自带
+`data/task_management/run_strike.txt`的突防/IADS组织方式和`effects_test`的显式武器模式，
+建立项目自有`test_mission/operational_strike_demo/`。场景包含红蓝双方12个初始平台、
+几何传感器、航迹处理、SAM/空空武器、四种网络、链路故障恢复和高速ISR业务。
+
+固定命令`./scripts/validate_operational_strike_demo.sh`通过：
+
+- 13个固定作战阶段标记及`Simulation complete`全部存在；
+- 情报站、战区指挥所、前进指挥所、蓝方突击机、红方IADS指挥所和SAM均有消息接收证据；
+- AFSIM事件文件记录2条`WEAPON_FIRED`，分别为140.5秒红方SAM对蓝方突击机和145.5秒
+  蓝方突击机对红方截击机；
+- 非实时命令行仿真完成，实时`mission -rt`成功初始化并进入运行；
+- Warlock短时冒烟推进至19.1秒，资源插件采集到4网络、13端点、22链路、1发送、1接收、
+  0丢弃、0路由失败，四网类型齐全；随后默认四网服务恢复为`active`。
+
+首次Warlock诊断发现相对`event_output`在短运行目录中无法创建导致初始化失败，已将
+`main.txt`可视化入口与`validation.txt`事件证据覆盖层分离。完整180秒Warlock运行、链路
+故障前/中/后快照以及武器飞行/命中画面尚未执行，因此状态为内部`PRE_ACCEPTANCE`。
+
+## 2026-08-09 Warlock预验收状态页
+
+在既有一键预验收入口上增加机器可读的`nrm.preacceptance_status.v1`状态契约和Warlock
+只读“预验收状态”页。脚本使用临时文件加同目录`mv`原子发布`RUNNING / PASS / FAIL`，
+页面通过独立Qt工作线程约每2秒读取，仿真回调和GUI线程均不执行文件读取或JSON解析。
+页面没有执行、重启或网络控制按钮。
+
+构建验证：`bash -n scripts/run_preacceptance.sh`与`scripts/ai_guard.sh static`通过；
+`NetworkResourceManager`连同Qt MOC重新编译、链接成功。随后完整运行一键预验收，10/10
+检查、15/15固定测试、6/6批准场景和Warlock最终快照全部`PASS`；最终快照为4网络、
+10端点、8链路、8发送、8接收、0丢弃、0路由失败。报告位于
+`output/preacceptance/20260808T173041Z-281748/PREACCEPTANCE_REPORT.md`，机器状态文件已正确
+发布`overallStatus=PASS`及相同计数。
+
+## 2026-08-08 一键内部预验收入口
+
+新增`scripts/run_preacceptance.sh`，将环境预检、静态门禁、15项固定测试、六个批准场景和
+一次Warlock 120秒最终快照核对收敛为单一命令。首次完整运行结果全部为`PASS`：
+
+- `static`与`test`通过；
+- `framework_smoke`、`four_network_overview`、`link_failure`、`congestion`、
+  `quality_degradation`和`capability_service_smoke`的退出码及固定标记通过；
+- 新Warlock运行最终快照为4网络、10端点、8链路、8发送、8接收、0丢弃、0路由失败；
+- 四类网络分别为2发送、2接收、0丢弃；
+- Markdown报告、逐项日志和精简快照证据生成成功。
+
+本次报告位于
+`output/preacceptance/20260808T055629Z-3872066/PREACCEPTANCE_REPORT.md`。输出目录被Git
+忽略；该结果是内部`PRE_ACCEPTANCE`证据，不替代甲方正式接口、样包和目标环境终验。
+
 ## 2026-08-08 Warlock接收/丢弃统计修复
 
 远程四网场景曾出现命令行目的端成功接收8条消息，但Warlock最终快照显示
@@ -416,7 +524,7 @@ JSONL包含网络、端点、链路、消息、三档窗口以及指标有效性
 | 任务 | `l16_fighter → l16_command` |
 | `reachable/can_establish/can_complete/stable` | `true/true/true/true` |
 | 主路由 | `l16_fighter → l16_command`，当前边 |
-| 备选路由 | `l16_fighter → red_fighter_1 → l16_command`，候选边 |
+| 备选路由 | `l16_fighter → l16_relay_1 → l16_command`，候选边 |
 | 预测时延 | 约0.085 ms |
 | 估计PDR | 100% |
 | 时延裕量 | 约999.915 ms |
@@ -435,3 +543,37 @@ JSONL包含网络、端点、链路、消息、三档窗口以及指标有效性
 远程GUI、网络资源采集、基础窗口指标、当前/候选图评估、主备路由上报和中央高亮闭环均
 已完成。RF值在通信模型提供有效结果时采集；业务级严格PDR、显式跨网网关、配置化候选
 参数和完整K最短路仍属于后续版本。
+
+## 2026-08-11 甲方接口中文注解验证
+
+统一接口 Schema 已使用 Draft 2020-12 标准的 `title` 和 `description` 补充中文说明，并另行
+提供允许 `//` 中文注释的 JSONC 人工评审版。检查结果为 33 个 `$defs` 全部具有中文说明；
+JSONC 去除注释后内含的八类消息、正式目录中的八类接口正例均通过 Schema 校验，缺少必填
+字段的反例被拒绝，静态检查和 `git diff --check` 通过。中文字段速查位于
+`schemas/customer/v1/README.md`。
+
+## 2026-08-11 前端中文化验证
+
+网络资源管理器自研界面已统一为中文，包括插件名称、中央作战通信态势标题、顶部运行状态、
+九个页签、全部表头和表单、按钮、输入提示、任务评估结果、通信能力结果以及预验收状态说明。
+`LINK11`、`LINK16`、`SATCOM`、`CDL`、`PDR`、`RSSI`、`SNR`、`BER`和固定原因码继续保留
+原始技术标识，保证配置解析、结果追踪和接口契约不变。AFSIM/Warlock原生菜单不在插件修改
+范围内。
+
+构建入口为`./scripts/ai_guard.sh build`；中文化修改后Warlock插件重新编译和链接成功，
+`./scripts/ai_guard.sh test`的15项固定测试全部通过。重启`nrm-warlock.service`后，远程
+Warlock在4.2秒快照显示4个网络、10个端点、4条已发送和4条已接收消息；中央标题、实时
+快照说明、右侧状态、页签、任务表单、按钮和提示均为中文且无乱码。核对截图保存在
+`output/ui_validation/chinese_frontend.png`。
+
+## 2026-08-11 现代化前端视觉验证
+
+网络资源管理器自研界面完成现代深色视觉升级：右侧增加标题区和八张实时指标卡片，统一页签、
+表格、输入控件、按钮、滚动条、焦点和选中状态；中央态势图改用渐变背景、圆角绘图区、状态
+摘要胶囊、柔和网格、节点光晕和图例胶囊。平台按名称聚合，同平台多通信端点不再重复绘制，
+多网归属使用彩色徽点表达，链路中点的重复网络文字被移除。
+
+Qt 5.12 Release构建通过，18/18固定测试及静态门禁通过。远程VNC实机截图分别验证默认
+10平台/8链路和综合25平台/60链路场景；高密度场景启用六方向标签避碰，服务重载后保持
+`active`。截图保存在`output/ui_validation/modern_frontend.png`和
+`output/ui_validation/modern_frontend_25_nodes_final.png`。

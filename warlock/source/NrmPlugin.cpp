@@ -8,8 +8,8 @@
 
 WKF_PLUGIN_DEFINE_SYMBOLS(
    WkNrm::Plugin,
-   "Network Resource Manager",
-   "Displays the framework status for AFSIM communication resource collection, assessment, and recommendation.",
+   "网络资源管理器",
+   "显示AFSIM通信资源采集、评估与建议功能的运行状态。",
    "warlock")
 
 WkNrm::Plugin::Plugin(const QString& aPluginName, size_t aUniqueId)
@@ -23,7 +23,7 @@ WkNrm::Plugin::Plugin(const QString& aPluginName, size_t aUniqueId)
    QMainWindow* centralDockerPtr = wkfEnv.GetMainWindow()->centralWidget();
    if (centralDockerPtr != nullptr)
    {
-      auto* tacticalDockPtr = new QDockWidget("AFSIM Operational Network View", centralDockerPtr);
+      auto* tacticalDockPtr = new QDockWidget(QString::fromUtf8("AFSIM通信资源态势"), centralDockerPtr);
       tacticalDockPtr->setObjectName("NrmTacticalViewDockWidget");
       tacticalDockPtr->setFeatures(QDockWidget::NoDockWidgetFeatures);
       tacticalDockPtr->setWidget(mTacticalViewPtr);

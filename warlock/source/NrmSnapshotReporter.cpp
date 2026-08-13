@@ -394,6 +394,10 @@ void WriteCapability(std::ostream& aOutput,
               << "\",\"providerId\":\"" << EscapeJson(effect.providerId)
               << "\",\"effectId\":\"" << EscapeJson(effect.effectId)
               << "\",\"sampleTime\":" << effect.sampleTime
+              << ",\"hardBlocked\":" << (effect.hardBlocked ? "true" : "false")
+              << ",\"evidence\":";
+      WriteStringArray(aOutput, effect.evidence);
+      aOutput
               << ",\"pathLossDeltaDb\":";
       WriteMetric(aOutput, effect.pathLossDeltaDb);
       aOutput << ",\"capacityScale\":";
@@ -503,6 +507,14 @@ void WriteJsonSnapshot(std::ostream& aOutput,
       WriteMetric(aOutput, link.snrDb);
       aOutput << ",\"ber\":";
       WriteMetric(aOutput, link.ber);
+      aOutput << ",\"interference_power_dbm\":";
+      WriteMetric(aOutput, link.interferencePowerDbm);
+      aOutput << ",\"interference_factor_percent\":";
+      WriteMetric(aOutput, link.interferenceFactorPercent);
+      aOutput << ",\"atmospheric_transmittance_percent\":";
+      WriteMetric(aOutput, link.atmosphericTransmittancePercent);
+      aOutput << ",\"terrain_blocked\":";
+      WriteMetric(aOutput, link.terrainBlockedFlag);
       aOutput << ",\"serviceAvailabilityPercent\":";
       WriteMetric(aOutput, link.serviceAvailabilityPercent);
       aOutput << ",\"establishmentAttempts\":" << link.establishmentAttempts
@@ -514,7 +526,88 @@ void WriteJsonSnapshot(std::ostream& aOutput,
       WriteWindows(aOutput, link.windows);
       aOutput << '}';
    }
-   aOutput << "]}\n";
+   const nrm::EnvironmentSnapshot& environment = aSnapshot.environment;
+   aOutput << "],\"environment\":{\"schemaVersion\":\""
+           << EscapeJson(environment.schemaVersion)
+           << "\",\"configVersion\":\"" << EscapeJson(environment.configVersion)
+           << "\",\"providerId\":\"" << EscapeJson(environment.providerId)
+           << "\",\"valid\":" << (environment.valid ? "true" : "false")
+           << ",\"sampleTime\":" << environment.sampleTime
+           << ",\"terrain\":{\"available\":"
+           << (environment.terrain.available ? "true" : "false")
+           << ",\"enabled\":" << (environment.terrain.enabled ? "true" : "false")
+           << ",\"evaluatedLinks\":" << environment.terrain.evaluatedLinkCount
+           << ",\"blockedLinks\":" << environment.terrain.blockedLinkCount
+           << "},\"weather\":{\"available\":"
+           << (environment.weather.available ? "true" : "false")
+           << ",\"windSpeedMps\":";
+   WriteMetric(aOutput, environment.weather.windSpeedMps);
+   aOutput << ",\"windDirectionDeg\":";
+   WriteMetric(aOutput, environment.weather.windDirectionDeg);
+   aOutput << ",\"rainRateMmPerHour\":";
+   WriteMetric(aOutput, environment.weather.rainRateMmPerHour);
+   aOutput << ",\"cloudWaterDensityKgPerM3\":";
+   WriteMetric(aOutput, environment.weather.cloudWaterDensityKgPerM3);
+   aOutput << ",\"dustVisibilityM\":";
+   WriteMetric(aOutput, environment.weather.dustVisibilityM);
+   aOutput << "},\"celestial\":{\"available\":"
+           << (environment.celestial.available ? "true" : "false")
+           << ",\"usesSystemTime\":"
+           << (environment.celestial.usesSystemTime ? "true" : "false")
+           << ",\"julianDate\":";
+   WriteMetric(aOutput, environment.celestial.julianDate);
+   aOutput << "},\"interference\":{\"available\":"
+           << (environment.interference.available ? "true" : "false")
+           << ",\"observedLinks\":" << environment.interference.observedLinkCount
+           << ",\"maximumPowerDbm\":";
+   WriteMetric(aOutput, environment.interference.maximumPowerDbm);
+   aOutput << ",\"maximumFactorPercent\":";
+   WriteMetric(aOutput, environment.interference.maximumFactorPercent);
+   const nrm::NavigationSnapshot& navigation = aSnapshot.navigation;
+   aOutput << "}},\"navigation\":{\"schemaVersion\":\""
+           << EscapeJson(navigation.schemaVersion)
+           << "\",\"packetFormat\":\"" << EscapeJson(navigation.packetFormat)
+           << "\",\"providerId\":\"" << EscapeJson(navigation.providerId)
+           << "\",\"valid\":" << (navigation.valid ? "true" : "false")
+           << ",\"sampleTime\":" << navigation.sampleTime
+           << ",\"platforms\":[";
+   for (std::size_t index = 0; index < navigation.platforms.size(); ++index)
+   {
+      const nrm::NavigationSample& sample = navigation.platforms[index];
+      if (index != 0) aOutput << ',';
+      aOutput << "{\"platformName\":\"" << EscapeJson(sample.platformName)
+              << "\",\"rawStatus\":\"" << EscapeJson(sample.rawStatus)
+              << "\",\"mode\":\"" << nrm::ToString(sample.mode)
+              << "\",\"statusCode\":" << sample.statusCode
+              << ",\"valid\":" << (sample.valid ? "true" : "false")
+              << ",\"source\":\"" << nrm::ToString(sample.origin)
+              << "\",\"confidence\":\"" << nrm::ToString(sample.confidence)
+              << "\",\"sampleTime\":" << sample.sampleTime
+              << ",\"truthLatitudeDeg\":";
+      WriteMetric(aOutput, sample.truthLatitudeDeg);
+      aOutput << ",\"truthLongitudeDeg\":";
+      WriteMetric(aOutput, sample.truthLongitudeDeg);
+      aOutput << ",\"truthAltitudeM\":";
+      WriteMetric(aOutput, sample.truthAltitudeM);
+      aOutput << ",\"perceivedLatitudeDeg\":";
+      WriteMetric(aOutput, sample.perceivedLatitudeDeg);
+      aOutput << ",\"perceivedLongitudeDeg\":";
+      WriteMetric(aOutput, sample.perceivedLongitudeDeg);
+      aOutput << ",\"perceivedAltitudeM\":";
+      WriteMetric(aOutput, sample.perceivedAltitudeM);
+      aOutput << ",\"headingDeg\":";
+      WriteMetric(aOutput, sample.headingDeg);
+      aOutput << ",\"inTrackErrorM\":";
+      WriteMetric(aOutput, sample.inTrackErrorM);
+      aOutput << ",\"crossTrackErrorM\":";
+      WriteMetric(aOutput, sample.crossTrackErrorM);
+      aOutput << ",\"verticalErrorM\":";
+      WriteMetric(aOutput, sample.verticalErrorM);
+      aOutput << ",\"totalPositionErrorM\":";
+      WriteMetric(aOutput, sample.totalPositionErrorM);
+      aOutput << '}';
+   }
+   aOutput << "]}}\n";
 }
 } // namespace
 

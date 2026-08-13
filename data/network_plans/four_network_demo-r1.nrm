@@ -1,0 +1,46 @@
+# NRM 四网资源规划加载测试文件
+# 适用场景：test_mission/four_network_overview.txt
+# 说明：这是内部开发和预验收格式，不代表甲方最终接口格式，也不会自动改变AFSIM网络状态。
+NRM_NETWORK_PLAN_V1 "four-network-demo" 1 "demo-0.7.0" "nrm-internal-sample" "2026-08-11T10:00:00+08:00" DRAFT PARAMETERIZED_MODEL LOW 1 "" 0
+
+# Link-11：控制站与成员节点，低速指控业务。
+ALLOCATION "allocation-link11" "nrm_link11_blue" LINK11 "demo-link11-v1" 225000000 "L11-DEMO" "L11-A" "controlled-star" 1
+MEMBER "allocation-link11" "l11_control"
+MEMBER "allocation-link11" "l11_member"
+SLOT "allocation-link11" "poll-01"
+SLOT "allocation-link11" "poll-02"
+
+# Link-16：战术节点与两个中继节点。
+ALLOCATION "allocation-link16" "nrm_link16_tactical" LINK16 "demo-link16-v1" 1000000000 "L16-DEMO" "L16-A" "shortest-stable" 1
+MEMBER "allocation-link16" "l16_fighter"
+MEMBER "allocation-link16" "l16_command"
+MEMBER "allocation-link16" "l16_relay_1"
+MEMBER "allocation-link16" "l16_relay_2"
+SLOT "allocation-link16" "slot-001"
+SLOT "allocation-link16" "slot-002"
+SLOT "allocation-link16" "slot-003"
+
+# 卫通：终端与卫星网关。
+ALLOCATION "allocation-satcom" "nrm_satcom_purple" SATCOM "demo-satcom-v1" 20000000000 "SAT-DEMO" "SAT-A" "satellite-relay" 1
+MEMBER "allocation-satcom" "sat_terminal"
+MEMBER "allocation-satcom" "sat_gateway"
+SLOT "allocation-satcom" "beam-01"
+
+# CDL：传感器与地面站高速视距链路。
+ALLOCATION "allocation-cdl" "nrm_cdl_green" CDL "demo-cdl-v1" 15000000000 "CDL-DEMO" "CDL-A" "direct-high-rate" 1
+MEMBER "allocation-cdl" "cdl_sensor"
+MEMBER "allocation-cdl" "cdl_station"
+SLOT "allocation-cdl" "channel-01"
+
+# 四类典型业务需求：载荷bit、带宽bit/s、最大时延ms、最低PDR百分比。
+DEMAND "demand-link11-c2" "C2" "l11_control" "l11_member" 1024 1200 500 85
+DEMAND_NETWORK "demand-link11-c2" LINK11
+
+DEMAND "demand-link16-track" "TRACK" "l16_fighter" "l16_command" 8192 64000 300 90
+DEMAND_NETWORK "demand-link16-track" LINK16
+
+DEMAND "demand-satcom-command" "COMMAND" "sat_terminal" "sat_gateway" 65536 128000 1000 90
+DEMAND_NETWORK "demand-satcom-command" SATCOM
+
+DEMAND "demand-cdl-isr" "ISR_VIDEO" "cdl_sensor" "cdl_station" 50000000 5000000 2000 90
+DEMAND_NETWORK "demand-cdl-isr" CDL

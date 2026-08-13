@@ -10,6 +10,7 @@ class QTableWidget;
 class QTextEdit;
 
 #include "NrmDataContainer.hpp"
+#include "NrmPreacceptanceStatusMonitor.hpp"
 
 namespace WkNrm
 {
@@ -38,6 +39,7 @@ private:
    void EvaluateResourceDemands();
    bool ApplyResourceDemandEdits();
    void RefreshResourceDemands();
+   void RefreshPreacceptance(const PreacceptanceStatus& aStatus);
    void RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnapshot);
    static QString RuntimeStateText(nrm::RuntimeState aState);
    static void SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText);
@@ -57,6 +59,8 @@ private:
    QTableWidget*  mMetricsTablePtr;
    QTableWidget*  mEndpointTablePtr;
    QTableWidget*  mLinkTablePtr;
+   QTableWidget*  mEnvironmentTablePtr;
+   QTableWidget*  mNavigationTablePtr;
    QComboBox*      mSourceSelectorPtr;
    QComboBox*      mDestinationSelectorPtr;
    QComboBox*      mAllowedNetworkPtr;
@@ -85,6 +89,16 @@ private:
    QTableWidget*   mDemandGapTablePtr;
    QTableWidget*   mDemandRecommendationTablePtr;
    bool            mDemandDirty = false;
+   QLabel*         mPreacceptanceStatusPtr;
+   QLabel*         mPreacceptanceTimePtr;
+   QLabel*         mPreacceptanceChecksPtr;
+   QLabel*         mPreacceptanceTestsPtr;
+   QLabel*         mPreacceptanceScenariosPtr;
+   QLabel*         mPreacceptanceSnapshotPtr;
+   QLabel*         mPreacceptanceRevisionPtr;
+   QLabel*         mPreacceptanceReportPtr;
+   QLabel*         mPreacceptanceNoticePtr;
+   PreacceptanceStatusMonitor* mPreacceptanceMonitorPtr;
 };
 } // namespace WkNrm
 

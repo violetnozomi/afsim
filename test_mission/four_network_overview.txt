@@ -6,7 +6,7 @@ comm NRM_LINK11_COMM WSF_COMM_TRANSCEIVER
 end_comm
 
 comm NRM_LINK16_COMM WSF_COMM_TRANSCEIVER
-   network_name nrm_link16_red
+   network_name nrm_link16_tactical
 end_comm
 
 comm NRM_SATCOM_COMM WSF_COMM_TRANSCEIVER
@@ -36,12 +36,12 @@ network nrm_link11_blue WSF_COMM_NETWORK_GENERIC
    end_comm_link_list
 end_network
 
-network nrm_link16_red WSF_COMM_NETWORK_GENERIC
+network nrm_link16_tactical WSF_COMM_NETWORK_GENERIC
    comm_list
       member l16_fighter comm
       member l16_command comm
-      member red_fighter_1 comm
-      member red_fighter_2 comm
+      member l16_relay_1 comm
+      member l16_relay_2 comm
    end_comm_list
    comm_link_list
       link l16_fighter comm l16_command comm
@@ -115,9 +115,9 @@ platform_type NRM_CDL_NODE WSF_PLATFORM
    add processor processor NRM_MESSAGE_PROCESSOR end_processor
 end_platform_type
 
-platform_type NRM_RED_FIGHTER WSF_PLATFORM
+platform_type NRM_LINK16_RELAY WSF_PLATFORM
    icon F-15
-   side red
+   side blue
    mover WSF_AIR_MOVER
       update_interval 1 s
       at_end_of_path stop
@@ -166,14 +166,14 @@ platform cdl_station NRM_CDL_NODE
    position 35.600n 120.050e altitude 20 m
 end_platform
 
-platform red_fighter_1 NRM_RED_FIGHTER
+platform l16_relay_1 NRM_LINK16_RELAY
    route
       position 35.650n 120.300e altitude 7000 m speed 430 kts
       position 35.350n 119.900e altitude 7000 m speed 430 kts
    end_route
 end_platform
 
-platform red_fighter_2 NRM_RED_FIGHTER
+platform l16_relay_2 NRM_LINK16_RELAY
    route
       position 35.720n 120.260e altitude 7200 m speed 430 kts
       position 35.400n 119.850e altitude 7200 m speed 430 kts

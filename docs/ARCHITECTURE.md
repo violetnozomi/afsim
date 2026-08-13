@@ -45,8 +45,10 @@ v0.8 第一阶段的纯 C++ `CommunicationCapabilityService` 将能力请求映�
 `PARAMETERIZED_MODEL/LOW`。
 
 `EnvironmentEffectAdapter`是地形、气象、天象和电磁干扰的抽象边界。第一阶段没有甲方
-数据格式和样包，因此默认输出四个`valid=false / ENVIRONMENT_DATA_UNAVAILABLE`效果，
-不改变核心能力指标，也不提供默认天气或自定义衰减公式。
+数据格式和样包，因此默认输出四个`valid=false / ENVIRONMENT_DATA_UNAVAILABLE`效果。
+第二阶段按`环境影响简要设计.md`复用AFSIM地形、场景环境、仿真历元和EM交互结果，并用
+严格的`NRM_ENVIRONMENT_V1`配置补充候选链路估计。当前RF结果只附加环境证据，不重复扣减；
+参数化效果只作用于候选链路并固定标记低置信度。
 
 v0.9 第一阶段以`NetworkPlanDocument`作为内部公共值对象。`NetworkPlanRepository`
 严格解析`NRM_NETWORK_PLAN_V1`，加载失败不覆盖最后一个有效规划，保存使用同目录临时
@@ -143,6 +145,8 @@ ${NRM_OUTPUT_DIR}/
 甲方四网模块到位后，应新增 `CustomerModuleAdapter` 并转换为相同公共数据契约。内部
 模型与外部模块可并存，以 `DataOrigin`、providerId、configVersion 和 profileId 区分来源。
 
-甲方 GNSS/INS 功能包负责导航解算。本项目后续仅实现其结果包适配，不实现 GNSS、INS 或
-融合算法；在接口文件和样包到位前不猜测二进制格式。地形、气象、天象和电磁环境的
-真实数据适配属于 v0.8 第二阶段，必须等待甲方格式。
+导航第一版直接消费AFSIM `WsfNavigationErrors`实时对象和其内置`.neh`时序格式，输出统一
+`NavigationSnapshot`；不实现GNSS、INS或融合算法。甲方以后提供不同格式时新增
+`CustomerNavigationAdapter`，不替换公共值对象。地形、气象、天象和电磁环境第二
+阶段先实现AFSIM内置状态与内部严格配置；甲方真实数据后续通过
+`CustomerEnvironmentAdapter`转换到相同值对象，不修改评估核心。

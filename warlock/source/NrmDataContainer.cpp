@@ -24,12 +24,31 @@ nrm::NetworkProfileRepository LoadProfiles()
    }
    return profiles;
 }
+
+nrm::EnvironmentConfigRepository LoadEnvironmentConfig()
+{
+   nrm::EnvironmentConfigRepository config =
+      nrm::EnvironmentConfigRepository::BuiltInDemo();
+   const QByteArray configPath = qgetenv("NRM_ENVIRONMENT_CONFIG");
+   if (!configPath.isEmpty())
+   {
+      nrm::EnvironmentConfigRepository external;
+      nrm::EnvironmentConfigValidation validation;
+      if (external.LoadFromFile(configPath.constData(), validation))
+      {
+         config = external;
+      }
+   }
+   return config;
+}
 } // namespace
 
 WkNrm::DataContainer::DataContainer(QObject* aParentPtr)
    : QObject(aParentPtr)
    , mProfiles(LoadProfiles())
-   , mModelServiceFacade(mProfiles)
+   , mEnvironmentConfig(LoadEnvironmentConfig())
+   , mEnvironmentAdapter(mEnvironmentConfig)
+   , mModelServiceFacade(mProfiles, &mEnvironmentAdapter)
 {
    mModelRegistration = mModelRegistry.Register(
       nrm::ModelServiceFacade::Descriptor());
@@ -71,7 +90,7 @@ nrm::CapabilityResult WkNrm::DataContainer::QueryCapability(
       mModelServiceFacade.QueryCapability(
          MakeModelServiceContext(nrm::ModelServiceOperation::cQUERY_CAPABILITY,
                                  mSnapshot.snapshotVersion),
-         mSnapshot, aRequest, aEnvironment);
+         mSnapshot, aRequest, EffectiveEnvironment(aEnvironment));
    mCapability = response.result;
    mHasCapability = response.valid;
    if (mHasCapability)
@@ -197,7 +216,7 @@ nrm::NetworkPlanEvaluationResult WkNrm::DataContainer::EvaluateNetworkPlan(
          mModelServiceFacade.EvaluatePlan(
             MakeModelServiceContext(nrm::ModelServiceOperation::cEVALUATE_PLAN,
                                     mSnapshot.snapshotVersion),
-            mSnapshot, *planPtr, aEnvironment);
+            mSnapshot, *planPtr, EffectiveEnvironment(aEnvironment));
       mPlanEvaluation = response.result;
       mHasPlanEvaluation = response.valid;
    }
@@ -329,7 +348,8 @@ nrm::ResourceDemandBatchResult WkNrm::DataContainer::EvaluateResourceDemands(
          MakeModelServiceContext(
             nrm::ModelServiceOperation::cMATCH_RESOURCE_DEMANDS,
             mSnapshot.snapshotVersion),
-         mSnapshot, *demandSetPtr, planPtr, evaluationPtr, aEnvironment,
+         mSnapshot, *demandSetPtr, planPtr, evaluationPtr,
+         EffectiveEnvironment(aEnvironment),
          aCandidatesPtr);
    mDemandMatching = response.result;
    mHasDemandMatching = response.valid;
@@ -357,6 +377,22 @@ nrm::ModelServiceContext WkNrm::DataContainer::MakeModelServiceContext(
    context.source = nrm::DataOrigin::cAFSIM_INTERNAL;
    context.confidence = nrm::Confidence::cHIGH;
    context.valid = true;
+   return context;
+}
+
+nrm::EnvironmentContext WkNrm::DataContainer::EffectiveEnvironment(
+   const nrm::EnvironmentContext& aEnvironment) const
+{
+   if (aEnvironment.valid) return aEnvironment;
+   nrm::EnvironmentContext context;
+   context.contextId = "afsim-environment-snapshot-" +
+                       std::to_string(mSnapshot.snapshotVersion);
+   context.schemaVersion = mSnapshot.environment.schemaVersion;
+   context.providerId = mSnapshot.environment.providerId;
+   context.sampleTime = mSnapshot.environment.sampleTime;
+   context.origin = mSnapshot.environment.origin;
+   context.confidence = mSnapshot.environment.confidence;
+   context.valid = mSnapshot.environment.valid;
    return context;
 }
 

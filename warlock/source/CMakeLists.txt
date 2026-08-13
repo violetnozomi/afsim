@@ -8,6 +8,8 @@ target_include_directories(NetworkResourceManager PRIVATE
 )
 
 target_sources(NetworkResourceManager PRIVATE
+   NrmPreacceptanceStatusMonitor.cpp
+   NrmPreacceptanceStatusMonitor.hpp
    NrmSnapshotReporter.cpp
    NrmSnapshotReporter.hpp
    NrmTacticalView.cpp

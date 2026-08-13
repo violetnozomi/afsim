@@ -13,6 +13,8 @@
 #include <QDateTime>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QFrame>
+#include <QGridLayout>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -32,6 +34,143 @@
 
 namespace
 {
+QString ModernStyleSheet()
+{
+   return QString::fromUtf8(R"QSS(
+      QWidget#NrmRoot {
+         background: #0b1220;
+         color: #dce7f5;
+         font-family: "Noto Sans CJK SC", "Microsoft YaHei UI", sans-serif;
+         font-size: 10pt;
+      }
+      QFrame#NrmHero {
+         background: #111d30;
+         border: 1px solid #24344e;
+         border-radius: 10px;
+      }
+      QLabel#NrmHeroTitle {
+         color: #f5f9ff;
+         font-size: 17pt;
+         font-weight: 700;
+      }
+      QLabel#NrmHeroSubtitle {
+         color: #8fa8c5;
+         font-size: 9pt;
+      }
+      QFrame#NrmMetricCard {
+         background: #101a2b;
+         border: 1px solid #22324a;
+         border-radius: 8px;
+      }
+      QLabel#NrmMetricTitle {
+         color: #7f96b2;
+         font-size: 8pt;
+      }
+      QLabel#NrmMetricValue {
+         color: #f2f7ff;
+         font-size: 11pt;
+         font-weight: 650;
+      }
+      QTabWidget::pane {
+         background: #0f1929;
+         border: 1px solid #22324a;
+         border-radius: 8px;
+         top: -1px;
+      }
+      QTabBar::tab {
+         background: transparent;
+         color: #8fa3bd;
+         border: none;
+         border-bottom: 2px solid transparent;
+         padding: 9px 13px;
+         margin-right: 2px;
+      }
+      QTabBar::tab:hover { color: #dbeafe; background: #142238; }
+      QTabBar::tab:selected {
+         color: #66c7ff;
+         background: #132238;
+         border-bottom: 2px solid #38bdf8;
+         font-weight: 600;
+      }
+      QTableWidget {
+         background: #0d1726;
+         alternate-background-color: #111d2e;
+         color: #d8e4f2;
+         border: none;
+         border-radius: 6px;
+         gridline-color: transparent;
+         selection-background-color: #164e73;
+         selection-color: #ffffff;
+      }
+      QHeaderView::section {
+         background: #16243a;
+         color: #9fb4ce;
+         border: none;
+         border-right: 1px solid #243650;
+         border-bottom: 1px solid #2a3d59;
+         padding: 7px 8px;
+         font-weight: 600;
+      }
+      QTableCornerButton::section { background: #16243a; border: none; }
+      QLineEdit, QComboBox, QDoubleSpinBox, QTextEdit {
+         background: #0b1524;
+         color: #edf5ff;
+         border: 1px solid #2a3d59;
+         border-radius: 6px;
+         padding: 6px 8px;
+         selection-background-color: #1479b8;
+      }
+      QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {
+         border: 1px solid #38bdf8;
+      }
+      QComboBox::drop-down { border: none; width: 24px; }
+      QPushButton {
+         background: #1479b8;
+         color: #ffffff;
+         border: 1px solid #2998d2;
+         border-radius: 6px;
+         min-height: 24px;
+         padding: 6px 14px;
+         font-weight: 600;
+      }
+      QPushButton:hover { background: #188aca; border-color: #5bc7f4; }
+      QPushButton:pressed { background: #0f6398; }
+      QPushButton:disabled { background: #253247; color: #71839a; border-color: #34445b; }
+      QLabel { color: #d7e3f2; }
+      QScrollBar:vertical {
+         background: #0b1422;
+         width: 10px;
+         margin: 0;
+      }
+      QScrollBar::handle:vertical {
+         background: #334a67;
+         border-radius: 5px;
+         min-height: 28px;
+      }
+      QScrollBar::handle:vertical:hover { background: #456381; }
+      QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+   )QSS");
+}
+
+QFrame* CreateMetricCard(const QString& aTitle,
+                         QLabel*       aValuePtr,
+                         QWidget*      aParentPtr)
+{
+   QFrame* cardPtr = new QFrame(aParentPtr);
+   cardPtr->setObjectName("NrmMetricCard");
+   cardPtr->setMinimumHeight(54);
+   QVBoxLayout* layoutPtr = new QVBoxLayout(cardPtr);
+   layoutPtr->setContentsMargins(10, 7, 10, 7);
+   layoutPtr->setSpacing(2);
+   QLabel* titlePtr = new QLabel(aTitle, cardPtr);
+   titlePtr->setObjectName("NrmMetricTitle");
+   aValuePtr->setObjectName("NrmMetricValue");
+   aValuePtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   layoutPtr->addWidget(titlePtr);
+   layoutPtr->addWidget(aValuePtr);
+   return cardPtr;
+}
+
 QColor NetworkColor(nrm::NetworkType aType)
 {
    switch (aType)
@@ -56,19 +195,33 @@ QString MetricText(const nrm::MetricValue<double>& aMetric, int aPrecision = 2)
                         : QString::fromUtf8("—");
 }
 
+QString NavigationModeText(nrm::NavigationMode aMode)
+{
+   switch (aMode)
+   {
+   case nrm::NavigationMode::cPERFECT: return QString::fromUtf8("理想导航");
+   case nrm::NavigationMode::cGPS_ACTIVE: return QString::fromUtf8("卫星导航");
+   case nrm::NavigationMode::cGPS_DEGRADED: return QString::fromUtf8("卫导降级");
+   case nrm::NavigationMode::cGPS_EXTERNAL: return QString::fromUtf8("外部导航输入");
+   case nrm::NavigationMode::cINS: return QString::fromUtf8("惯性导航");
+   case nrm::NavigationMode::cUNKNOWN: return QString::fromUtf8("未知");
+   }
+   return QString::fromUtf8("未知");
+}
+
 QString CapabilityMetricText(const nrm::MetricValue<double>& aMetric, int aPrecision = 2)
 {
    const QString metadata =
-      QString("source=%1, confidence=%2, reason=%3")
+      QString::fromUtf8("来源=%1，置信度=%2，原因=%3")
          .arg(nrm::ToString(aMetric.origin),
               nrm::ToString(aMetric.confidence),
               nrm::ToString(aMetric.reason));
    if (!aMetric.valid)
    {
-      return "INVALID [" + metadata + "]";
+      return QString::fromUtf8("无效［") + metadata + QString::fromUtf8("］");
    }
    return QString::number(aMetric.value, 'f', aPrecision) + " " +
-          QString::fromStdString(aMetric.unit) + " [" + metadata + "]";
+          QString::fromStdString(aMetric.unit) + QString::fromUtf8("［") + metadata + QString::fromUtf8("］");
 }
 
 void AddAllowedNetwork(const QString& aValue, std::vector<nrm::NetworkType>& aNetworks)
@@ -98,8 +251,13 @@ QTableWidget* CreateTable(const QStringList& aHeaders, QWidget* aParentPtr)
    tablePtr->setHorizontalHeaderLabels(aHeaders);
    tablePtr->setEditTriggers(QAbstractItemView::NoEditTriggers);
    tablePtr->setSelectionBehavior(QAbstractItemView::SelectRows);
+   tablePtr->setSelectionMode(QAbstractItemView::SingleSelection);
    tablePtr->setAlternatingRowColors(true);
+   tablePtr->setShowGrid(false);
+   tablePtr->setWordWrap(false);
    tablePtr->verticalHeader()->setVisible(false);
+   tablePtr->verticalHeader()->setDefaultSectionSize(30);
+   tablePtr->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
    tablePtr->horizontalHeader()->setStretchLastSection(true);
    tablePtr->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
    return tablePtr;
@@ -157,7 +315,7 @@ QString CellText(const QTableWidget* aTablePtr, int aRow, int aColumn)
 } // namespace
 
 WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
-   : QDockWidget("Network Resource Manager", aParentPtr)
+   : QDockWidget(QString::fromUtf8("网络资源管理器"), aParentPtr)
    , mData(aData)
    , mVersionValuePtr(new QLabel(this))
    , mStateValuePtr(new QLabel(this))
@@ -173,6 +331,8 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mMetricsTablePtr(nullptr)
    , mEndpointTablePtr(nullptr)
    , mLinkTablePtr(nullptr)
+   , mEnvironmentTablePtr(nullptr)
+   , mNavigationTablePtr(nullptr)
    , mSourceSelectorPtr(nullptr)
    , mDestinationSelectorPtr(nullptr)
    , mAllowedNetworkPtr(nullptr)
@@ -199,43 +359,98 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mDemandMatchTablePtr(nullptr)
    , mDemandGapTablePtr(nullptr)
    , mDemandRecommendationTablePtr(nullptr)
+   , mPreacceptanceStatusPtr(new QLabel(this))
+   , mPreacceptanceTimePtr(new QLabel(this))
+   , mPreacceptanceChecksPtr(new QLabel(this))
+   , mPreacceptanceTestsPtr(new QLabel(this))
+   , mPreacceptanceScenariosPtr(new QLabel(this))
+   , mPreacceptanceSnapshotPtr(new QLabel(this))
+   , mPreacceptanceRevisionPtr(new QLabel(this))
+   , mPreacceptanceReportPtr(new QLabel(this))
+   , mPreacceptanceNoticePtr(new QLabel(this))
+   , mPreacceptanceMonitorPtr(new PreacceptanceStatusMonitor(this))
 {
    QWidget* contentPtr = new QWidget(this);
+   contentPtr->setObjectName("NrmRoot");
+   contentPtr->setStyleSheet(ModernStyleSheet());
    QVBoxLayout* rootLayoutPtr = new QVBoxLayout(contentPtr);
-   QFormLayout* statusLayoutPtr = new QFormLayout();
-   statusLayoutPtr->addRow("Version", mVersionValuePtr);
-   statusLayoutPtr->addRow("Runtime state", mStateValuePtr);
-   statusLayoutPtr->addRow("Reporting", mReportingValuePtr);
-   statusLayoutPtr->addRow("Simulation time", mSimTimeValuePtr);
-   statusLayoutPtr->addRow("Networks", mNetworkCountValuePtr);
-   statusLayoutPtr->addRow("Endpoints", mEndpointCountValuePtr);
-   statusLayoutPtr->addRow("Transmitted", mTransmittedValuePtr);
-   statusLayoutPtr->addRow("Received", mReceivedValuePtr);
-   statusLayoutPtr->addRow("Message hops", mHopValuePtr);
-   statusLayoutPtr->addRow("Discarded / route failed", mDiscardedValuePtr);
+   rootLayoutPtr->setContentsMargins(12, 10, 12, 12);
+   rootLayoutPtr->setSpacing(10);
+
+   QFrame* heroPtr = new QFrame(contentPtr);
+   heroPtr->setObjectName("NrmHero");
+   QHBoxLayout* heroLayoutPtr = new QHBoxLayout(heroPtr);
+   heroLayoutPtr->setContentsMargins(14, 10, 14, 10);
+   QVBoxLayout* heroTextPtr = new QVBoxLayout();
+   heroTextPtr->setSpacing(1);
+   QLabel* heroTitlePtr = new QLabel(QString::fromUtf8("网络资源态势中心"), heroPtr);
+   heroTitlePtr->setObjectName("NrmHeroTitle");
+   QLabel* heroSubtitlePtr = new QLabel(
+      QString::fromUtf8("AFSIM 实时状态 · 四网资源 · 路由评估 · 导航与环境"), heroPtr);
+   heroSubtitlePtr->setObjectName("NrmHeroSubtitle");
+   heroTextPtr->addWidget(heroTitlePtr);
+   heroTextPtr->addWidget(heroSubtitlePtr);
+   heroLayoutPtr->addLayout(heroTextPtr);
+   heroLayoutPtr->addStretch();
+   rootLayoutPtr->addWidget(heroPtr);
+
+   QGridLayout* statusLayoutPtr = new QGridLayout();
+   statusLayoutPtr->setContentsMargins(0, 0, 0, 0);
+   statusLayoutPtr->setHorizontalSpacing(8);
+   statusLayoutPtr->setVerticalSpacing(8);
+   statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("运行状态"), mStateValuePtr, contentPtr), 0, 0);
+   statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("上报状态"), mReportingValuePtr, contentPtr), 0, 1);
+   statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("仿真时间"), mSimTimeValuePtr, contentPtr), 1, 0);
+   statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("网络 / 端点"), mNetworkCountValuePtr, contentPtr), 1, 1);
+   statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("已发送"), mTransmittedValuePtr, contentPtr), 2, 0);
+   statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("已接收"), mReceivedValuePtr, contentPtr), 2, 1);
+   statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("转发跳数"), mHopValuePtr, contentPtr), 3, 0);
+   statusLayoutPtr->addWidget(CreateMetricCard(QString::fromUtf8("丢弃 / 路由失败"), mDiscardedValuePtr, contentPtr), 3, 1);
    rootLayoutPtr->addLayout(statusLayoutPtr);
+
+   // 版本与端点总数仍保留在数据模型中，合并显示以减少顶部信息噪声。
+   mVersionValuePtr->hide();
+   mEndpointCountValuePtr->hide();
 
    QTabWidget* tabsPtr = new QTabWidget(contentPtr);
    mNetworkTablePtr = CreateTable(
-      {"Type", "Network", "Model", "Members", "Online", "Links", "Tx", "Rx", "Dropped"}, tabsPtr);
+      {QString::fromUtf8("类型"), QString::fromUtf8("网络"), QString::fromUtf8("模型"),
+       QString::fromUtf8("成员数"), QString::fromUtf8("在线数"), QString::fromUtf8("链路数"),
+       QString::fromUtf8("发送"), QString::fromUtf8("接收"), QString::fromUtf8("丢弃")}, tabsPtr);
    mMetricsTablePtr = CreateTable(
-      {"Type", "Network", "Window", "Throughput", "PDR", "Online ratio", "Queue delay", "Transport delay"},
+      {QString::fromUtf8("类型"), QString::fromUtf8("网络"), QString::fromUtf8("统计窗口"),
+       QString::fromUtf8("吞吐量"), "PDR", QString::fromUtf8("在网率"),
+       QString::fromUtf8("排队时延"), QString::fromUtf8("传输时延")},
       tabsPtr);
    mEndpointTablePtr =
-      CreateTable({"Type", "Platform", "Comm", "Address", "State", "Latitude", "Longitude", "Altitude"}, tabsPtr);
+      CreateTable({QString::fromUtf8("类型"), QString::fromUtf8("平台"), QString::fromUtf8("通信设备"),
+                   QString::fromUtf8("地址"), QString::fromUtf8("状态"), QString::fromUtf8("纬度"),
+                   QString::fromUtf8("经度"), QString::fromUtf8("高度")}, tabsPtr);
    mLinkTablePtr = CreateTable(
-      {"Type",
-       "Source",
-       "Destination",
-       "State",
-       "Distance",
-       "Bandwidth",
-       "10 s throughput",
-       "Utilization",
+      {QString::fromUtf8("类型"),
+       QString::fromUtf8("源平台"),
+       QString::fromUtf8("目的平台"),
+       QString::fromUtf8("状态"),
+       QString::fromUtf8("距离"),
+       QString::fromUtf8("带宽"),
+       QString::fromUtf8("10秒吞吐量"),
+       QString::fromUtf8("占用率"),
        "RSSI",
        "SNR",
        "BER"},
       tabsPtr);
+   mEnvironmentTablePtr = CreateTable(
+      {QString::fromUtf8("环境域"), QString::fromUtf8("状态"),
+       QString::fromUtf8("数据来源"), QString::fromUtf8("关键观测"),
+       QString::fromUtf8("影响说明")}, tabsPtr);
+   mNavigationTablePtr = CreateTable(
+      {QString::fromUtf8("平台"), QString::fromUtf8("导航模式"),
+       QString::fromUtf8("原生状态"), QString::fromUtf8("真实纬度"),
+       QString::fromUtf8("真实经度"), QString::fromUtf8("真实高度"),
+       QString::fromUtf8("感知纬度"), QString::fromUtf8("感知经度"),
+       QString::fromUtf8("感知高度"), QString::fromUtf8("纵向误差"),
+       QString::fromUtf8("横向误差"), QString::fromUtf8("垂直误差"),
+       QString::fromUtf8("总位置误差"), QString::fromUtf8("更新时间")}, tabsPtr);
    QWidget* assessmentPagePtr = new QWidget(tabsPtr);
    QVBoxLayout* assessmentLayoutPtr = new QVBoxLayout(assessmentPagePtr);
    QFormLayout* taskFormPtr = new QFormLayout();
@@ -244,7 +459,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mSourceSelectorPtr->setMinimumContentsLength(24);
    mDestinationSelectorPtr->setMinimumContentsLength(24);
    mAllowedNetworkPtr = new QComboBox(assessmentPagePtr);
-   mAllowedNetworkPtr->addItems({"ALL", "LINK11", "LINK16", "SATCOM", "CDL"});
+   mAllowedNetworkPtr->addItems({QString::fromUtf8("全部网络"), "LINK11", "LINK16", "SATCOM", "CDL"});
    mBandwidthKbpsPtr = new QDoubleSpinBox(assessmentPagePtr);
    mBandwidthKbpsPtr->setRange(0.0, 100000000.0);
    mBandwidthKbpsPtr->setDecimals(3);
@@ -257,19 +472,19 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mMinimumPdrPtr->setRange(0.0, 100.0);
    mMinimumPdrPtr->setValue(90.0);
    mMinimumPdrPtr->setSuffix(" %");
-   taskFormPtr->addRow("Source platform", mSourceSelectorPtr);
-   taskFormPtr->addRow("Destination platform", mDestinationSelectorPtr);
-   taskFormPtr->addRow("Allowed network", mAllowedNetworkPtr);
-   taskFormPtr->addRow("Required bandwidth", mBandwidthKbpsPtr);
-   taskFormPtr->addRow("Maximum delay", mMaximumDelayMsPtr);
-   taskFormPtr->addRow("Minimum PDR", mMinimumPdrPtr);
+   taskFormPtr->addRow(QString::fromUtf8("源平台"), mSourceSelectorPtr);
+   taskFormPtr->addRow(QString::fromUtf8("目的平台"), mDestinationSelectorPtr);
+   taskFormPtr->addRow(QString::fromUtf8("允许使用的网络"), mAllowedNetworkPtr);
+   taskFormPtr->addRow(QString::fromUtf8("所需带宽"), mBandwidthKbpsPtr);
+   taskFormPtr->addRow(QString::fromUtf8("最大时延"), mMaximumDelayMsPtr);
+   taskFormPtr->addRow(QString::fromUtf8("最低PDR"), mMinimumPdrPtr);
    assessmentLayoutPtr->addLayout(taskFormPtr);
    QPushButton* evaluateButtonPtr =
-      new QPushButton("Evaluate current / candidate graph", assessmentPagePtr);
+      new QPushButton(QString::fromUtf8("评估当前网络与候选网络"), assessmentPagePtr);
    assessmentLayoutPtr->addWidget(evaluateButtonPtr);
    mAssessmentResultPtr = new QTextEdit(assessmentPagePtr);
    mAssessmentResultPtr->setReadOnly(true);
-   mAssessmentResultPtr->setPlainText("Enter a task and evaluate the current enabled graph.");
+   mAssessmentResultPtr->setPlainText(QString::fromUtf8("请选择通信任务的源平台、目的平台和约束条件，然后执行评估。"));
    assessmentLayoutPtr->addWidget(mAssessmentResultPtr);
    connect(evaluateButtonPtr, &QPushButton::clicked, this, &DockWidget::EvaluateTask);
 
@@ -281,7 +496,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mCapabilitySourceSelectorPtr->setMinimumContentsLength(24);
    mCapabilityDestinationSelectorPtr->setMinimumContentsLength(24);
    mCapabilityAllowedNetworkPtr = new QComboBox(capabilityPagePtr);
-   mCapabilityAllowedNetworkPtr->addItems({"ALL", "LINK11", "LINK16", "SATCOM", "CDL"});
+   mCapabilityAllowedNetworkPtr->addItems({QString::fromUtf8("全部网络"), "LINK11", "LINK16", "SATCOM", "CDL"});
    mCapabilityBandwidthKbpsPtr = new QDoubleSpinBox(capabilityPagePtr);
    mCapabilityBandwidthKbpsPtr->setRange(0.0, 100000000.0);
    mCapabilityBandwidthKbpsPtr->setDecimals(3);
@@ -292,20 +507,20 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mCapabilityMinimumPdrPtr = new QDoubleSpinBox(capabilityPagePtr);
    mCapabilityMinimumPdrPtr->setRange(0.0, 100.0);
    mCapabilityMinimumPdrPtr->setSuffix(" %");
-   capabilityFormPtr->addRow("Source platform", mCapabilitySourceSelectorPtr);
-   capabilityFormPtr->addRow("Destination platform", mCapabilityDestinationSelectorPtr);
-   capabilityFormPtr->addRow("Allowed network", mCapabilityAllowedNetworkPtr);
-   capabilityFormPtr->addRow("Required bandwidth", mCapabilityBandwidthKbpsPtr);
-   capabilityFormPtr->addRow("Maximum delay (0 = none)", mCapabilityMaximumDelayMsPtr);
-   capabilityFormPtr->addRow("Minimum PDR", mCapabilityMinimumPdrPtr);
+   capabilityFormPtr->addRow(QString::fromUtf8("源平台"), mCapabilitySourceSelectorPtr);
+   capabilityFormPtr->addRow(QString::fromUtf8("目的平台"), mCapabilityDestinationSelectorPtr);
+   capabilityFormPtr->addRow(QString::fromUtf8("允许使用的网络"), mCapabilityAllowedNetworkPtr);
+   capabilityFormPtr->addRow(QString::fromUtf8("所需带宽"), mCapabilityBandwidthKbpsPtr);
+   capabilityFormPtr->addRow(QString::fromUtf8("最大时延（0表示不限制）"), mCapabilityMaximumDelayMsPtr);
+   capabilityFormPtr->addRow(QString::fromUtf8("最低PDR"), mCapabilityMinimumPdrPtr);
    capabilityLayoutPtr->addLayout(capabilityFormPtr);
-   QPushButton* capabilityButtonPtr = new QPushButton("Query communication capability",
+   QPushButton* capabilityButtonPtr = new QPushButton(QString::fromUtf8("查询通信能力"),
                                                       capabilityPagePtr);
    capabilityButtonPtr->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
    capabilityLayoutPtr->addWidget(capabilityButtonPtr);
    mCapabilityResultPtr = new QTextEdit(capabilityPagePtr);
    mCapabilityResultPtr->setReadOnly(true);
-   mCapabilityResultPtr->setPlainText("Select a task path and query the current snapshot.");
+   mCapabilityResultPtr->setPlainText(QString::fromUtf8("请选择源平台和目的平台，然后查询当前快照中的通信能力。"));
    capabilityLayoutPtr->addWidget(mCapabilityResultPtr);
    connect(capabilityButtonPtr, &QPushButton::clicked, this, &DockWidget::QueryCapability);
 
@@ -331,13 +546,17 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    planLayoutPtr->addLayout(planFileActionsPtr);
 
    mPlanAllocationTablePtr = CreateEditableTable(
-      {"Allocation", "Network", "Type", "Profile", "Frequency Hz", "Channel",
-       "Subnet", "Slots", "Members", "Route policy", "Enabled"}, planPagePtr);
+      {QString::fromUtf8("分配编号"), QString::fromUtf8("网络"), QString::fromUtf8("类型"),
+       QString::fromUtf8("配置模板"), QString::fromUtf8("频率（Hz）"), QString::fromUtf8("信道"),
+       QString::fromUtf8("子网"), QString::fromUtf8("时隙"), QString::fromUtf8("成员"),
+       QString::fromUtf8("路由策略"), QString::fromUtf8("启用")}, planPagePtr);
    mPlanAllocationTablePtr->setMinimumHeight(135);
    planLayoutPtr->addWidget(mPlanAllocationTablePtr);
    mPlanDemandTablePtr = CreateEditableTable(
-      {"Demand", "Business", "Source", "Destination", "Payload bits",
-       "Bandwidth bit/s", "Max delay ms", "Min PDR %", "Allowed networks"},
+      {QString::fromUtf8("需求编号"), QString::fromUtf8("业务类型"), QString::fromUtf8("源平台"),
+       QString::fromUtf8("目的平台"), QString::fromUtf8("载荷（bit）"),
+       QString::fromUtf8("带宽（bit/s）"), QString::fromUtf8("最大时延（ms）"),
+       QString::fromUtf8("最低PDR（%）"), QString::fromUtf8("允许网络")},
       planPagePtr);
    mPlanDemandTablePtr->setMinimumHeight(120);
    planLayoutPtr->addWidget(mPlanDemandTablePtr);
@@ -359,11 +578,14 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    planLayoutPtr->addLayout(planServiceActionsPtr);
 
    mPlanIssueTablePtr = CreateTable(
-      {"Severity", "Reason", "Field", "Record", "Description"}, planPagePtr);
+      {QString::fromUtf8("严重程度"), QString::fromUtf8("原因码"), QString::fromUtf8("字段"),
+       QString::fromUtf8("记录"), QString::fromUtf8("说明")}, planPagePtr);
    mPlanIssueTablePtr->setMinimumHeight(105);
    planLayoutPtr->addWidget(mPlanIssueTablePtr);
    mPlanEvaluationTablePtr = CreateTable(
-      {"Demand", "Status", "Path source", "Rate", "Delay", "Packet loss", "Reasons"},
+      {QString::fromUtf8("需求编号"), QString::fromUtf8("状态"), QString::fromUtf8("路径来源"),
+       QString::fromUtf8("速率"), QString::fromUtf8("时延"), QString::fromUtf8("丢包率"),
+       QString::fromUtf8("原因码")},
       planPagePtr);
    mPlanEvaluationTablePtr->setMinimumHeight(105);
    planLayoutPtr->addWidget(mPlanEvaluationTablePtr);
@@ -421,25 +643,32 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    demandLayoutPtr->addLayout(demandActionsPtr);
 
    mDemandTablePtr = CreateEditableTable(
-      {"Demand", "Mission stage", "Business", "Source", "Destination",
-       "Payload bits", "Traffic bit/s", "Bandwidth bit/s", "Max delay ms",
-       "Min PDR %", "Max distance m", "Min network size", "Allowed networks"},
+      {QString::fromUtf8("需求编号"), QString::fromUtf8("任务阶段"), QString::fromUtf8("业务类型"),
+       QString::fromUtf8("源平台"), QString::fromUtf8("目的平台"), QString::fromUtf8("载荷（bit）"),
+       QString::fromUtf8("业务流量（bit/s）"), QString::fromUtf8("带宽（bit/s）"),
+       QString::fromUtf8("最大时延（ms）"), QString::fromUtf8("最低PDR（%）"),
+       QString::fromUtf8("最大距离（m）"), QString::fromUtf8("最小网络规模"),
+       QString::fromUtf8("允许网络")},
       demandPagePtr);
    mDemandTablePtr->setMinimumHeight(145);
    demandLayoutPtr->addWidget(mDemandTablePtr);
    mDemandMatchTablePtr = CreateTable(
-      {"Demand", "Status", "Snapshot", "Path", "Distance", "Rate", "Reasons"},
+      {QString::fromUtf8("需求编号"), QString::fromUtf8("状态"), QString::fromUtf8("快照版本"),
+       QString::fromUtf8("路径"), QString::fromUtf8("距离"), QString::fromUtf8("速率"),
+       QString::fromUtf8("原因码")},
       demandPagePtr);
    mDemandMatchTablePtr->setMinimumHeight(105);
    demandLayoutPtr->addWidget(mDemandMatchTablePtr);
    mDemandGapTablePtr = CreateTable(
-      {"Demand", "Requirement", "Required", "Current", "Margin", "Reason"},
+      {QString::fromUtf8("需求编号"), QString::fromUtf8("约束项"), QString::fromUtf8("要求值"),
+       QString::fromUtf8("当前值"), QString::fromUtf8("裕量"), QString::fromUtf8("原因码")},
       demandPagePtr);
    mDemandGapTablePtr->setMinimumHeight(105);
    demandLayoutPtr->addWidget(mDemandGapTablePtr);
    mDemandRecommendationTablePtr = CreateTable(
-      {"Demand", "Type", "Status", "Candidate", "Value", "Rank",
-       "Source / confidence", "Reason", "Evidence"},
+      {QString::fromUtf8("需求编号"), QString::fromUtf8("建议类型"), QString::fromUtf8("状态"),
+       QString::fromUtf8("候选对象"), QString::fromUtf8("建议值"), QString::fromUtf8("排序"),
+       QString::fromUtf8("来源 / 置信度"), QString::fromUtf8("原因码"), QString::fromUtf8("依据")},
       demandPagePtr);
    mDemandRecommendationTablePtr->setMinimumHeight(120);
    demandLayoutPtr->addWidget(mDemandRecommendationTablePtr);
@@ -463,14 +692,51 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
               mDemandRecommendationTablePtr->setRowCount(0);
            });
 
-   tabsPtr->addTab(mNetworkTablePtr, "Four-network overview");
-   tabsPtr->addTab(mMetricsTablePtr, "Window metrics");
-   tabsPtr->addTab(mEndpointTablePtr, "Members");
-   tabsPtr->addTab(mLinkTablePtr, "Links");
-   tabsPtr->addTab(assessmentPagePtr, "Task assessment");
+   QWidget* preacceptancePagePtr = new QWidget(tabsPtr);
+   QVBoxLayout* preacceptanceLayoutPtr = new QVBoxLayout(preacceptancePagePtr);
+   QLabel* preacceptanceIntroPtr = new QLabel(
+      QString::fromUtf8(
+         "本页只读显示最近一次命令行预验收结果；它不会从界面启动、停止或重启AFSIM。"
+         "结果文件由 scripts/run_preacceptance.sh 原子更新，页面约每2秒自动刷新。"),
+      preacceptancePagePtr);
+   preacceptanceIntroPtr->setWordWrap(true);
+   preacceptanceLayoutPtr->addWidget(preacceptanceIntroPtr);
+
+   QFormLayout* preacceptanceFormPtr = new QFormLayout();
+   preacceptanceFormPtr->addRow(QString::fromUtf8("总体结果"), mPreacceptanceStatusPtr);
+   preacceptanceFormPtr->addRow(QString::fromUtf8("执行时间（UTC）"), mPreacceptanceTimePtr);
+   preacceptanceFormPtr->addRow(QString::fromUtf8("检查项"), mPreacceptanceChecksPtr);
+   preacceptanceFormPtr->addRow(QString::fromUtf8("固定测试"), mPreacceptanceTestsPtr);
+   preacceptanceFormPtr->addRow(QString::fromUtf8("批准场景"), mPreacceptanceScenariosPtr);
+   preacceptanceFormPtr->addRow(QString::fromUtf8("最终快照"), mPreacceptanceSnapshotPtr);
+   preacceptanceFormPtr->addRow(QString::fromUtf8("Git修订"), mPreacceptanceRevisionPtr);
+   preacceptanceFormPtr->addRow(QString::fromUtf8("报告路径"), mPreacceptanceReportPtr);
+   preacceptanceLayoutPtr->addLayout(preacceptanceFormPtr);
+
+   mPreacceptanceRevisionPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   mPreacceptanceSnapshotPtr->setWordWrap(true);
+   mPreacceptanceReportPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   mPreacceptanceReportPtr->setWordWrap(true);
+   mPreacceptanceNoticePtr->setWordWrap(true);
+   mPreacceptanceNoticePtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   mPreacceptanceNoticePtr->setText(QString::fromUtf8(
+      "Windows远程测试：在VNC中观察本页，同时在SSH终端执行\n"
+      "cd /home/pyh/afsim/network_resource_manager && ./scripts/run_preacceptance.sh\n"
+      "脚本会重启Warlock一次，重新连接后本页将显示“运行中（RUNNING）”，完成后更新为“通过（PASS）”或“失败（FAIL）”。"));
+   preacceptanceLayoutPtr->addWidget(mPreacceptanceNoticePtr);
+   preacceptanceLayoutPtr->addStretch();
+
+   tabsPtr->addTab(mNetworkTablePtr, QString::fromUtf8("四网总览"));
+   tabsPtr->addTab(mMetricsTablePtr, QString::fromUtf8("窗口指标"));
+   tabsPtr->addTab(mEndpointTablePtr, QString::fromUtf8("网络成员"));
+   tabsPtr->addTab(mLinkTablePtr, QString::fromUtf8("通信链路"));
+   tabsPtr->addTab(mEnvironmentTablePtr, QString::fromUtf8("环境状态"));
+   tabsPtr->addTab(mNavigationTablePtr, QString::fromUtf8("导航状态"));
+   tabsPtr->addTab(assessmentPagePtr, QString::fromUtf8("任务评估"));
    tabsPtr->addTab(capabilityPagePtr, QString::fromUtf8("通信能力"));
    tabsPtr->addTab(planPagePtr, QString::fromUtf8("资源规划"));
    tabsPtr->addTab(demandPagePtr, QString::fromUtf8("需求匹配"));
+   tabsPtr->addTab(preacceptancePagePtr, QString::fromUtf8("预验收状态"));
    tabsPtr->setCurrentWidget(assessmentPagePtr);
    rootLayoutPtr->addWidget(tabsPtr);
 
@@ -489,9 +755,85 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
            {
               if (!mDemandDirty) RefreshResourceDemands();
            });
+   connect(mPreacceptanceMonitorPtr, &PreacceptanceStatusMonitor::StatusChanged,
+           this, &DockWidget::RefreshPreacceptance);
+   RefreshPreacceptance(PreacceptanceStatus());
+   mPreacceptanceMonitorPtr->start();
    Refresh();
    RefreshNetworkPlan();
    RefreshResourceDemands();
+}
+
+void WkNrm::DockWidget::RefreshPreacceptance(const PreacceptanceStatus& aStatus)
+{
+   const QString statusCode = aStatus.overallStatus;
+   QString statusText = statusCode;
+   QString statusColor = "#7f8c8d";
+   if (statusCode == "PASS")
+   {
+      statusColor = "#27ae60";
+      statusText = QString::fromUtf8("通过（PASS）");
+   }
+   else if (statusCode == "FAIL")
+   {
+      statusColor = "#c0392b";
+      statusText = QString::fromUtf8("失败（FAIL）");
+   }
+   else if (statusCode == "RUNNING")
+   {
+      statusColor = "#d68910";
+      statusText = QString::fromUtf8("运行中（RUNNING）");
+   }
+
+   if (!aStatus.available)
+   {
+      statusText = QString::fromUtf8("尚无结果");
+      mPreacceptanceTimePtr->setText(QString::fromUtf8("—"));
+      mPreacceptanceChecksPtr->setText(QString::fromUtf8("—"));
+      mPreacceptanceTestsPtr->setText(QString::fromUtf8("—"));
+      mPreacceptanceScenariosPtr->setText(QString::fromUtf8("—"));
+      mPreacceptanceSnapshotPtr->setText(QString::fromUtf8("—"));
+      mPreacceptanceRevisionPtr->setText(QString::fromUtf8("—"));
+      mPreacceptanceReportPtr->setText(aStatus.error.isEmpty() ? QString::fromUtf8("—")
+                                                               : aStatus.error);
+   }
+   else
+   {
+      mPreacceptanceTimePtr->setText(aStatus.generatedAtUtc);
+      mPreacceptanceChecksPtr->setText(
+         QString("%1 / %2").arg(aStatus.passedChecks).arg(aStatus.completedChecks));
+      mPreacceptanceTestsPtr->setText(
+         QString("%1 / %2").arg(aStatus.passedTestCount).arg(aStatus.fixedTestCount));
+      mPreacceptanceScenariosPtr->setText(
+         QString("%1 / %2").arg(aStatus.passedScenarioCount).arg(aStatus.fixedScenarioCount));
+      if (aStatus.guiSnapshotValid)
+      {
+         mPreacceptanceSnapshotPtr->setText(
+            QString::fromUtf8("T=%1秒 | %2个网络 / %3个端点 / %4条链路 | 发送 %5 / 接收 %6 / 丢弃 %7 / 路由失败 %8")
+               .arg(aStatus.simTime, 0, 'f', 1)
+               .arg(aStatus.networkCount)
+               .arg(aStatus.endpointCount)
+               .arg(aStatus.linkCount)
+               .arg(aStatus.transmitted)
+               .arg(aStatus.received)
+               .arg(aStatus.discarded)
+               .arg(aStatus.routingFailed));
+      }
+      else
+      {
+         mPreacceptanceSnapshotPtr->setText(
+            statusCode == "RUNNING" ? QString::fromUtf8("等待最终120秒快照")
+                                     : QString::fromUtf8("最终快照无效或未生成"));
+      }
+      const QString revision = aStatus.branch.isEmpty()
+                                  ? aStatus.revision
+                                  : aStatus.branch + " @ " + aStatus.revision;
+      mPreacceptanceRevisionPtr->setText(revision);
+      mPreacceptanceReportPtr->setText(aStatus.reportPath);
+   }
+   mPreacceptanceStatusPtr->setText(statusText);
+   mPreacceptanceStatusPtr->setStyleSheet(
+      QString("font-weight: bold; color: %1;").arg(statusColor));
 }
 
 void WkNrm::DockWidget::EvaluateTask()
@@ -502,12 +844,12 @@ void WkNrm::DockWidget::EvaluateTask()
    task.destinationPlatform = mDestinationSelectorPtr->currentData().toString().toStdString();
    if (task.sourcePlatform.empty() || task.destinationPlatform.empty())
    {
-      mAssessmentResultPtr->setPlainText("Select both a source platform and a destination platform.");
+      mAssessmentResultPtr->setPlainText(QString::fromUtf8("请选择源平台和目的平台。"));
       return;
    }
    if (task.sourcePlatform == task.destinationPlatform)
    {
-      mAssessmentResultPtr->setPlainText("Source and destination must be different platforms.");
+      mAssessmentResultPtr->setPlainText(QString::fromUtf8("源平台和目的平台不能相同。"));
       return;
    }
    task.requiredBandwidthBps = mBandwidthKbpsPtr->value() * 1000.0;
@@ -548,35 +890,35 @@ void WkNrm::DockWidget::EvaluateTask()
    }
 
    QString text;
-   text += QString("Snapshot: %1 @ %2 s\n")
+   text += QString::fromUtf8("快照：%1 @ %2秒\n")
               .arg(result.snapshotVersion)
               .arg(result.simTime, 0, 'f', 3);
-   text += QString("Reachable: %1\nCan establish now: %2\nCan complete: %3\nStable: %4\n")
-              .arg(result.reachable ? "YES" : "NO")
-              .arg(result.canEstablish ? "YES" : "NO")
-              .arg(result.canComplete ? "YES" : "NO")
-              .arg(result.stable ? "YES" : "NO");
-   text += "Primary route: " + (route.isEmpty() ? QString::fromUtf8("—") : route.join(" → "));
+   text += QString::fromUtf8("当前可达：%1\n当前可建链：%2\n业务可完成：%3\n通信稳定：%4\n")
+              .arg(result.reachable ? QString::fromUtf8("是") : QString::fromUtf8("否"))
+              .arg(result.canEstablish ? QString::fromUtf8("是") : QString::fromUtf8("否"))
+              .arg(result.canComplete ? QString::fromUtf8("是") : QString::fromUtf8("否"))
+              .arg(result.stable ? QString::fromUtf8("是") : QString::fromUtf8("否"));
+   text += QString::fromUtf8("主路由：") + (route.isEmpty() ? QString::fromUtf8("—") : route.join(" → "));
    if (!route.isEmpty() && result.primaryRouteUsesCandidate)
    {
-      text += "  [CANDIDATE]";
+      text += QString::fromUtf8("  ［候选链路］");
    }
    text += "\n";
-   text += "Backup route: " +
+   text += QString::fromUtf8("备选路由：") +
            (backupRoute.isEmpty() ? QString::fromUtf8("—") : backupRoute.join(" → "));
    if (!backupRoute.isEmpty() && result.backupRouteUsesCandidate)
    {
-      text += "  [CANDIDATE]";
+      text += QString::fromUtf8("  ［候选链路］");
    }
    text += "\n";
-   text += "Predicted delay: " + MetricText(result.predictedDelayMs, 3) + "\n";
-   text += "Estimated PDR: " + MetricText(result.estimatedPdrPercent, 2) + "\n";
-   text += "Bottleneck bandwidth: " + MetricText(result.bottleneckBandwidthBps, 1) + "\n";
-   text += "Bandwidth margin: " + MetricText(result.bandwidthMarginBps, 1) + "\n";
-   text += "Delay margin: " + MetricText(result.delayMarginMs, 3) + "\n";
-   text += "Reliability margin: " + MetricText(result.reliabilityMarginPercent, 2) + "\n";
-   text += "Reason codes: " + (reasons.isEmpty() ? QString("NONE") : reasons.join(", ")) + "\n";
-   text += "Recommendation: " +
+   text += QString::fromUtf8("预测时延：") + MetricText(result.predictedDelayMs, 3) + "\n";
+   text += QString::fromUtf8("估算PDR：") + MetricText(result.estimatedPdrPercent, 2) + "\n";
+   text += QString::fromUtf8("瓶颈带宽：") + MetricText(result.bottleneckBandwidthBps, 1) + "\n";
+   text += QString::fromUtf8("带宽裕量：") + MetricText(result.bandwidthMarginBps, 1) + "\n";
+   text += QString::fromUtf8("时延裕量：") + MetricText(result.delayMarginMs, 3) + "\n";
+   text += QString::fromUtf8("可靠性裕量：") + MetricText(result.reliabilityMarginPercent, 2) + "\n";
+   text += QString::fromUtf8("原因码：") + (reasons.isEmpty() ? QString::fromUtf8("无") : reasons.join(", ")) + "\n";
+   text += QString::fromUtf8("建议：") +
            (recommendations.isEmpty() ? QString::fromUtf8("—") : recommendations.join("\n- "));
    mAssessmentResultPtr->setPlainText(text);
 }
@@ -593,7 +935,7 @@ void WkNrm::DockWidget::QueryCapability()
        request.sourcePlatform == request.destinationPlatform)
    {
       mCapabilityResultPtr->setPlainText(
-         "Select different source and destination platforms.");
+         QString::fromUtf8("请选择不同的源平台和目的平台。"));
       return;
    }
    request.requiredBandwidthBps = mCapabilityBandwidthKbpsPtr->value() * 1000.0;
@@ -614,32 +956,32 @@ void WkNrm::DockWidget::QueryCapability()
    }
 
    QString text;
-   text += QString("Snapshot: %1 @ %2 s\n")
+   text += QString::fromUtf8("快照：%1 @ %2秒\n")
               .arg(result.snapshotVersion)
               .arg(result.simTime, 0, 'f', 3);
-   text += QString("Request valid: %1\nPath available: %2\nPath source: %3\n")
-              .arg(result.requestValid ? "YES" : "NO")
-              .arg(result.pathAvailable ? "YES" : "NO")
-              .arg(result.usesCandidate ? "PARAMETERIZED CANDIDATE" : "CURRENT");
-   text += "Route: " + (route.isEmpty() ? QString::fromUtf8("—") : route.join(" → ")) + "\n";
-   text += "Communication distance: " + CapabilityMetricText(result.communicationDistanceM, 1) + "\n";
-   text += "Maximum hop distance: " + CapabilityMetricText(result.maximumHopDistanceM, 1) + "\n";
-   text += "Transmission rate: " + CapabilityMetricText(result.transmissionRateBps, 1) + "\n";
-   text += "Packet loss: " + CapabilityMetricText(result.packetLossPercent, 3) + "\n";
-   text += "Transmission delay: " + CapabilityMetricText(result.transmissionDelayMs, 3) + "\n";
-   text += "Network throughput: " + CapabilityMetricText(result.networkThroughputBps, 1) + "\n";
-   text += "Access ratio: " + CapabilityMetricText(result.accessRatioPercent, 2) + "\n";
-   text += "Environment effects:\n";
+   text += QString::fromUtf8("请求有效：%1\n存在可用路径：%2\n路径来源：%3\n")
+              .arg(result.requestValid ? QString::fromUtf8("是") : QString::fromUtf8("否"))
+              .arg(result.pathAvailable ? QString::fromUtf8("是") : QString::fromUtf8("否"))
+              .arg(result.usesCandidate ? QString::fromUtf8("参数化候选模型") : QString::fromUtf8("当前网络"));
+   text += QString::fromUtf8("路由：") + (route.isEmpty() ? QString::fromUtf8("—") : route.join(" → ")) + "\n";
+   text += QString::fromUtf8("通信距离：") + CapabilityMetricText(result.communicationDistanceM, 1) + "\n";
+   text += QString::fromUtf8("最大单跳距离：") + CapabilityMetricText(result.maximumHopDistanceM, 1) + "\n";
+   text += QString::fromUtf8("传输速率：") + CapabilityMetricText(result.transmissionRateBps, 1) + "\n";
+   text += QString::fromUtf8("丢包率：") + CapabilityMetricText(result.packetLossPercent, 3) + "\n";
+   text += QString::fromUtf8("传输时延：") + CapabilityMetricText(result.transmissionDelayMs, 3) + "\n";
+   text += QString::fromUtf8("网络吞吐量：") + CapabilityMetricText(result.networkThroughputBps, 1) + "\n";
+   text += QString::fromUtf8("接入率：") + CapabilityMetricText(result.accessRatioPercent, 2) + "\n";
+   text += QString::fromUtf8("环境影响：\n");
    for (const nrm::EnvironmentEffect& effect : result.environmentEffects)
    {
-      text += QString("- %1: %2 [source=%3, confidence=%4, reason=%5]\n")
+      text += QString::fromUtf8("- %1：%2［来源=%3，置信度=%4，原因=%5］\n")
                  .arg(nrm::ToString(effect.domain),
-                      effect.valid ? "VALID" : "INVALID",
+                      effect.valid ? QString::fromUtf8("有效") : QString::fromUtf8("无效"),
                       nrm::ToString(effect.origin),
                       nrm::ToString(effect.confidence),
                       nrm::ToString(effect.reason));
    }
-   text += "Reason codes: " + (reasons.isEmpty() ? QString("NONE") : reasons.join(", "));
+   text += QString::fromUtf8("原因码：") + (reasons.isEmpty() ? QString::fromUtf8("无") : reasons.join(", "));
    mCapabilityResultPtr->setPlainText(text);
 }
 
@@ -675,7 +1017,7 @@ void WkNrm::DockWidget::SaveNetworkPlanRevision()
 {
    if (!mData.HasNetworkPlan())
    {
-      mPlanOperationPtr->setText("NO_CURRENT_PLAN");
+      mPlanOperationPtr->setText(QString::fromUtf8("当前没有可保存的规划［NO_CURRENT_PLAN］"));
       return;
    }
    const nrm::NetworkPlanDocument* planPtr = mData.GetNetworkPlan();
@@ -731,7 +1073,7 @@ bool WkNrm::DockWidget::ApplyNetworkPlanEdits()
    const nrm::NetworkPlanDocument* currentPtr = mData.GetNetworkPlan();
    if (currentPtr == nullptr)
    {
-      mPlanOperationPtr->setText("NO_CURRENT_PLAN");
+      mPlanOperationPtr->setText(QString::fromUtf8("当前没有可编辑的规划［NO_CURRENT_PLAN］"));
       return false;
    }
 
@@ -766,7 +1108,7 @@ bool WkNrm::DockWidget::ApplyNetworkPlanEdits()
       const QString enabled = CellText(mPlanAllocationTablePtr, row, 10);
       if (!frequencyOk || (enabled != "0" && enabled != "1"))
       {
-         mPlanOperationPtr->setText("PARSE_ERROR [allocation numeric/enabled]");
+         mPlanOperationPtr->setText(QString::fromUtf8("解析错误：分配表的数值或启用字段无效［PARSE_ERROR］"));
          return false;
       }
       allocation.enabled = enabled == "1";
@@ -798,7 +1140,7 @@ bool WkNrm::DockWidget::ApplyNetworkPlanEdits()
             ParseNetworkType(QString::fromStdString(token)));
       if (!payloadOk || !bandwidthOk || !delayOk || !pdrOk)
       {
-         mPlanOperationPtr->setText("PARSE_ERROR [demand numeric]");
+         mPlanOperationPtr->setText(QString::fromUtf8("解析错误：需求表数值字段无效［PARSE_ERROR］"));
          return false;
       }
       draft.demands.push_back(demand);
@@ -827,7 +1169,7 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
       mPlanOperationPtr->setText(
          operation.reason == nrm::PlanValidationReason::cNONE
             ? QString::fromUtf8("状态：无规划")
-            : QString("reason=%1, field=%2")
+            : QString::fromUtf8("原因=%1，字段=%2")
                  .arg(nrm::ToString(operation.reason),
                       QString::fromStdString(operation.field)));
       mPlanAllocationTablePtr->setRowCount(0);
@@ -838,7 +1180,7 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
    }
 
    mPlanSummaryPtr->setText(
-      QString("planId=%1 | revision=%2 | state=%3 | source=%4 | confidence=%5 | config=%6")
+      QString::fromUtf8("规划编号=%1 | 修订=%2 | 状态=%3 | 来源=%4 | 置信度=%5 | 配置=%6")
          .arg(QString::fromStdString(planPtr->planId))
          .arg(planPtr->revision)
          .arg(nrm::ToString(mData.GetNetworkPlanState()))
@@ -851,17 +1193,17 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
    {
       const nrm::DistributionPackageResult& package = mData.GetDistributionPackage();
       operationText = package.generated
-                         ? QString("package=%1").arg(
+                         ? QString::fromUtf8("分发包=%1").arg(
                               QString::fromStdString(package.outputPath))
-                         : QString("reason=%1").arg(nrm::ToString(package.reason));
+                         : QString::fromUtf8("原因=%1").arg(nrm::ToString(package.reason));
    }
    else
    {
       const nrm::PlanRepositoryResult& operation = mData.GetPlanOperation();
       operationText = operation.success
-                         ? QString("operation=OK, path=%1").arg(
+                         ? QString::fromUtf8("操作=成功，路径=%1").arg(
                               QString::fromStdString(operation.path))
-                         : QString("reason=%1").arg(nrm::ToString(operation.reason));
+                         : QString::fromUtf8("原因=%1").arg(nrm::ToString(operation.reason));
    }
    mPlanOperationPtr->setText(operationText);
 
@@ -965,9 +1307,9 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          SetTableText(mPlanEvaluationTablePtr, row, 2,
                       evaluation.capability.pathAvailable
                          ? (evaluation.capability.usesCandidate
-                               ? "PARAMETERIZED_MODEL/LOW"
-                               : "CURRENT")
-                         : "UNAVAILABLE");
+                               ? QString::fromUtf8("参数化模型 / 低置信度")
+                               : QString::fromUtf8("当前网络"))
+                         : QString::fromUtf8("不可用"));
          SetTableText(mPlanEvaluationTablePtr, row, 3,
                       MetricText(evaluation.capability.transmissionRateBps, 1));
          SetTableText(mPlanEvaluationTablePtr, row, 4,
@@ -975,7 +1317,7 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          SetTableText(mPlanEvaluationTablePtr, row, 5,
                       MetricText(evaluation.capability.packetLossPercent, 3));
          SetTableText(mPlanEvaluationTablePtr, row, 6,
-                      reasons.isEmpty() ? "NONE" : reasons.join(", "));
+                      reasons.isEmpty() ? QString::fromUtf8("无") : reasons.join(", "));
       }
    }
 }
@@ -1012,7 +1354,7 @@ void WkNrm::DockWidget::SaveResourceDemandRevision()
 {
    if (!mData.HasResourceDemandSet())
    {
-      mDemandOperationPtr->setText("NO_CURRENT_DEMAND_SET");
+      mDemandOperationPtr->setText(QString::fromUtf8("当前没有可保存的需求集［NO_CURRENT_DEMAND_SET］"));
       return;
    }
    const nrm::ResourceDemandSet* setPtr = mData.GetResourceDemandSet();
@@ -1044,7 +1386,7 @@ bool WkNrm::DockWidget::ApplyResourceDemandEdits()
    const nrm::ResourceDemandSet* currentPtr = mData.GetResourceDemandSet();
    if (currentPtr == nullptr)
    {
-      mDemandOperationPtr->setText("NO_CURRENT_DEMAND_SET");
+      mDemandOperationPtr->setText(QString::fromUtf8("当前没有可编辑的需求集［NO_CURRENT_DEMAND_SET］"));
       return false;
    }
 
@@ -1103,7 +1445,7 @@ bool WkNrm::DockWidget::ApplyResourceDemandEdits()
       if (!payloadOk || !trafficOk || !bandwidthOk || !delayOk || !pdrOk ||
           !distanceOk || !networkSizeOk)
       {
-         mDemandOperationPtr->setText("PARSE_ERROR [demand numeric/network]");
+         mDemandOperationPtr->setText(QString::fromUtf8("解析错误：需求数值或网络字段无效［PARSE_ERROR］"));
          return false;
       }
 
@@ -1133,7 +1475,7 @@ bool WkNrm::DockWidget::ApplyResourceDemandEdits()
       const nrm::ResourceDemandRepositoryResult& operation =
          mData.GetDemandOperation();
       mDemandOperationPtr->setText(
-         QString("reason=%1, field=%2")
+         QString::fromUtf8("原因=%1，字段=%2")
             .arg(nrm::ToString(operation.reason),
                  QString::fromStdString(operation.field)));
       return false;
@@ -1155,7 +1497,7 @@ void WkNrm::DockWidget::RefreshResourceDemands()
       mDemandOperationPtr->setText(
          operation.reason == nrm::ResourceDemandReason::cNONE
             ? QString::fromUtf8("状态：无需求集")
-            : QString("reason=%1, field=%2")
+            : QString::fromUtf8("原因=%1，字段=%2")
                  .arg(nrm::ToString(operation.reason),
                       QString::fromStdString(operation.field)));
       mDemandTablePtr->setRowCount(0);
@@ -1166,7 +1508,7 @@ void WkNrm::DockWidget::RefreshResourceDemands()
    }
 
    mDemandSummaryPtr->setText(
-      QString("demandSetId=%1 | revision=%2 | demands=%3 | source=%4 | confidence=%5 | config=%6")
+      QString::fromUtf8("需求集编号=%1 | 修订=%2 | 需求数=%3 | 来源=%4 | 置信度=%5 | 配置=%6")
          .arg(QString::fromStdString(setPtr->demandSetId))
          .arg(setPtr->revision)
          .arg(setPtr->demands.size())
@@ -1177,9 +1519,9 @@ void WkNrm::DockWidget::RefreshResourceDemands()
       mData.GetDemandOperation();
    mDemandOperationPtr->setText(
       operation.success
-         ? QString("operation=OK, path=%1").arg(
+         ? QString::fromUtf8("操作=成功，路径=%1").arg(
               QString::fromStdString(operation.path))
-         : QString("reason=%1, field=%2")
+         : QString::fromUtf8("原因=%1，字段=%2")
               .arg(nrm::ToString(operation.reason),
                    QString::fromStdString(operation.field)));
 
@@ -1221,7 +1563,7 @@ void WkNrm::DockWidget::RefreshResourceDemands()
 
    const nrm::ResourceDemandBatchResult& batch = mData.GetDemandMatching();
    mDemandOperationPtr->setText(
-      QString("matching: total=%1, satisfied=%2, unsatisfied=%3, dataInvalid=%4, snapshot=%5")
+      QString::fromUtf8("匹配结果：总数=%1，满足=%2，不满足=%3，数据无效=%4，快照=%5")
          .arg(batch.totalCount)
          .arg(batch.satisfiedCount)
          .arg(batch.unsatisfiedCount)
@@ -1254,13 +1596,13 @@ void WkNrm::DockWidget::RefreshResourceDemands()
       SetTableText(mDemandMatchTablePtr, row, 2,
                    QString::number(result.snapshotVersion));
       SetTableText(mDemandMatchTablePtr, row, 3,
-                   result.capability.pathAvailable ? "AVAILABLE" : "UNAVAILABLE");
+                   result.capability.pathAvailable ? QString::fromUtf8("可用") : QString::fromUtf8("不可用"));
       SetTableText(mDemandMatchTablePtr, row, 4,
                    MetricText(result.capability.communicationDistanceM, 1));
       SetTableText(mDemandMatchTablePtr, row, 5,
                    MetricText(result.capability.transmissionRateBps, 1));
       SetTableText(mDemandMatchTablePtr, row, 6,
-                   reasons.isEmpty() ? "NONE" : reasons.join(", "));
+                   reasons.isEmpty() ? QString::fromUtf8("无") : reasons.join(", "));
 
       for (const nrm::RequirementCheck& check : result.checks)
       {
@@ -1309,9 +1651,19 @@ void WkNrm::DockWidget::Refresh()
    RefreshNodeSelectors(snapshot);
    mVersionValuePtr->setText(nrm::cVERSION);
    mStateValuePtr->setText(RuntimeStateText(snapshot.runtimeState));
-   mReportingValuePtr->setText(QString::fromStdString(mData.GetReportingStatus()));
+   mStateValuePtr->setStyleSheet(
+      snapshot.runtimeState == nrm::RuntimeState::cRUNNING
+         ? "color: #39d98a;"
+         : "color: #f2f7ff;");
+   const QString reportingStatus = QString::fromStdString(mData.GetReportingStatus());
+   mReportingValuePtr->setText(reportingStatus == "OK"
+                                  ? QString::fromUtf8("正常（OK）")
+                                  : reportingStatus);
+   mReportingValuePtr->setStyleSheet(
+      reportingStatus == "OK" ? "color: #39d98a;" : "color: #ffb454;");
    mSimTimeValuePtr->setText(QString::number(snapshot.simTime, 'f', 2) + " s");
-   mNetworkCountValuePtr->setText(QString::number(snapshot.networks.size()));
+   mNetworkCountValuePtr->setText(
+      QString("%1 / %2").arg(snapshot.networks.size()).arg(snapshot.endpoints.size()));
    mEndpointCountValuePtr->setText(QString::number(snapshot.endpoints.size()));
    mTransmittedValuePtr->setText(QString::number(snapshot.messages.transmitted));
    mReceivedValuePtr->setText(QString::number(snapshot.messages.received));
@@ -1404,6 +1756,86 @@ void WkNrm::DockWidget::Refresh()
       SetTableText(mLinkTablePtr, row, 8, MetricText(link.rssiDbm));
       SetTableText(mLinkTablePtr, row, 9, MetricText(link.snrDb));
       SetTableText(mLinkTablePtr, row, 10, MetricText(link.ber, 6));
+   }
+
+   const nrm::EnvironmentSnapshot& environment = snapshot.environment;
+   mEnvironmentTablePtr->setRowCount(4);
+   const QString provider = QString::fromStdString(environment.providerId);
+   SetTableText(mEnvironmentTablePtr, 0, 0, QString::fromUtf8("地形"));
+   SetTableText(mEnvironmentTablePtr, 0, 1,
+                environment.terrain.available
+                   ? (environment.terrain.enabled ? QString::fromUtf8("已启用")
+                                                  : QString::fromUtf8("可用但未启用"))
+                   : QString::fromUtf8("不可用"));
+   SetTableText(mEnvironmentTablePtr, 0, 2, provider);
+   SetTableText(mEnvironmentTablePtr, 0, 3,
+                QString::fromUtf8("已检查 %1 条，遮挡 %2 条")
+                   .arg(environment.terrain.evaluatedLinkCount)
+                   .arg(environment.terrain.blockedLinkCount));
+   SetTableText(mEnvironmentTablePtr, 0, 4,
+                QString::fromUtf8("遮挡为硬约束；当前RF结果不重复修正"));
+
+   SetTableText(mEnvironmentTablePtr, 1, 0, QString::fromUtf8("气象"));
+   SetTableText(mEnvironmentTablePtr, 1, 1,
+                environment.weather.available ? QString::fromUtf8("正常")
+                                              : QString::fromUtf8("不可用"));
+   SetTableText(mEnvironmentTablePtr, 1, 2, provider);
+   SetTableText(mEnvironmentTablePtr, 1, 3,
+                QString::fromUtf8("降雨 %1；风速 %2；云水密度 %3")
+                   .arg(MetricText(environment.weather.rainRateMmPerHour, 2))
+                   .arg(MetricText(environment.weather.windSpeedMps, 2))
+                   .arg(MetricText(environment.weather.cloudWaterDensityKgPerM3, 6)));
+   SetTableText(mEnvironmentTablePtr, 1, 4,
+                QString::fromUtf8("候选链路采用低置信度参数化衰减"));
+
+   SetTableText(mEnvironmentTablePtr, 2, 0, QString::fromUtf8("天象/时间"));
+   SetTableText(mEnvironmentTablePtr, 2, 1,
+                environment.celestial.available ? QString::fromUtf8("正常")
+                                                : QString::fromUtf8("不可用"));
+   SetTableText(mEnvironmentTablePtr, 2, 2, provider);
+   SetTableText(mEnvironmentTablePtr, 2, 3,
+                QString::fromUtf8("儒略日 %1；时间基准 %2")
+                   .arg(MetricText(environment.celestial.julianDate, 6))
+                   .arg(environment.celestial.usesSystemTime
+                           ? QString::fromUtf8("系统时间")
+                           : QString::fromUtf8("场景时间")));
+   SetTableText(mEnvironmentTablePtr, 2, 4,
+                QString::fromUtf8("为导航和后续日照计算提供统一时标"));
+
+   SetTableText(mEnvironmentTablePtr, 3, 0, QString::fromUtf8("电磁干扰"));
+   SetTableText(mEnvironmentTablePtr, 3, 1,
+                environment.interference.available ? QString::fromUtf8("正常")
+                                                   : QString::fromUtf8("不可用"));
+   SetTableText(mEnvironmentTablePtr, 3, 2, provider);
+   SetTableText(mEnvironmentTablePtr, 3, 3,
+                QString::fromUtf8("观测链路 %1；最大功率 %2；最大影响 %3")
+                   .arg(environment.interference.observedLinkCount)
+                   .arg(MetricText(environment.interference.maximumPowerDbm, 2))
+                   .arg(MetricText(environment.interference.maximumFactorPercent, 2)));
+   SetTableText(mEnvironmentTablePtr, 3, 4,
+                QString::fromUtf8("实测结果只作为证据；候选链路使用参数化影响"));
+
+   const nrm::NavigationSnapshot& navigation = snapshot.navigation;
+   mNavigationTablePtr->setRowCount(static_cast<int>(navigation.platforms.size()));
+   for (std::size_t index = 0; index < navigation.platforms.size(); ++index)
+   {
+      const nrm::NavigationSample& sample = navigation.platforms[index];
+      const int row = static_cast<int>(index);
+      SetTableText(mNavigationTablePtr, row, 0, QString::fromStdString(sample.platformName));
+      SetTableText(mNavigationTablePtr, row, 1, NavigationModeText(sample.mode));
+      SetTableText(mNavigationTablePtr, row, 2, QString::fromStdString(sample.rawStatus));
+      SetTableText(mNavigationTablePtr, row, 3, MetricText(sample.truthLatitudeDeg, 6));
+      SetTableText(mNavigationTablePtr, row, 4, MetricText(sample.truthLongitudeDeg, 6));
+      SetTableText(mNavigationTablePtr, row, 5, MetricText(sample.truthAltitudeM, 2));
+      SetTableText(mNavigationTablePtr, row, 6, MetricText(sample.perceivedLatitudeDeg, 6));
+      SetTableText(mNavigationTablePtr, row, 7, MetricText(sample.perceivedLongitudeDeg, 6));
+      SetTableText(mNavigationTablePtr, row, 8, MetricText(sample.perceivedAltitudeM, 2));
+      SetTableText(mNavigationTablePtr, row, 9, MetricText(sample.inTrackErrorM, 3));
+      SetTableText(mNavigationTablePtr, row, 10, MetricText(sample.crossTrackErrorM, 3));
+      SetTableText(mNavigationTablePtr, row, 11, MetricText(sample.verticalErrorM, 3));
+      SetTableText(mNavigationTablePtr, row, 12, MetricText(sample.totalPositionErrorM, 3));
+      SetTableText(mNavigationTablePtr, row, 13,
+                   QString::number(sample.sampleTime, 'f', 3) + " s");
    }
    RefreshResourceDemands();
 }
@@ -1500,13 +1932,13 @@ QString WkNrm::DockWidget::RuntimeStateText(nrm::RuntimeState aState)
    switch (aState)
    {
    case nrm::RuntimeState::cINITIALIZING:
-      return "Initializing";
+      return QString::fromUtf8("初始化中");
    case nrm::RuntimeState::cRUNNING:
-      return "Running";
+      return QString::fromUtf8("运行中");
    case nrm::RuntimeState::cCOMPLETE:
-      return "Complete";
+      return QString::fromUtf8("已完成");
    case nrm::RuntimeState::cIDLE:
    default:
-      return "Idle";
+      return QString::fromUtf8("空闲");
    }
 }

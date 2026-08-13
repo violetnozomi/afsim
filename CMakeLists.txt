@@ -18,6 +18,9 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/ConstrainedPathSelector.hpp
       include/nrm/CommunicationCapabilityTypes.hpp
       include/nrm/CommunicationCapabilityService.hpp
+      include/nrm/EnvironmentConfigRepository.hpp
+      include/nrm/BuiltInEnvironmentEffectAdapter.hpp
+      include/nrm/AfsimNavigationPacketParser.hpp
       include/nrm/NetworkPlanTypes.hpp
       include/nrm/NetworkPlanRepository.hpp
       include/nrm/NetworkPlanValidator.hpp
@@ -134,6 +137,9 @@ add_executable(nrm_network_plan_repository_test EXCLUDE_FROM_ALL
 target_include_directories(nrm_network_plan_repository_test PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+target_compile_definitions(nrm_network_plan_repository_test PRIVATE
+   NRM_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
 add_test(NAME nrm_network_plan_repository_test
    COMMAND nrm_network_plan_repository_test)
 
@@ -182,6 +188,40 @@ target_include_directories(nrm_model_registry_test PRIVATE
 add_test(NAME nrm_model_registry_test
    COMMAND nrm_model_registry_test)
 
+add_executable(nrm_environment_config_repository_test EXCLUDE_FROM_ALL
+   tests/EnvironmentConfigRepositoryTest.cpp
+)
+target_include_directories(nrm_environment_config_repository_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_environment_config_repository_test
+   COMMAND nrm_environment_config_repository_test)
+
+add_executable(nrm_environment_effect_adapter_test EXCLUDE_FROM_ALL
+   tests/EnvironmentEffectAdapterTest.cpp
+)
+target_include_directories(nrm_environment_effect_adapter_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_environment_effect_adapter_test
+   COMMAND nrm_environment_effect_adapter_test)
+
+add_executable(nrm_afsim_navigation_packet_parser_test EXCLUDE_FROM_ALL
+   tests/AfsimNavigationPacketParserTest.cpp
+)
+target_include_directories(nrm_afsim_navigation_packet_parser_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_afsim_navigation_packet_parser_test
+   COMMAND nrm_afsim_navigation_packet_parser_test)
+
+add_executable(nrm_navigation_packet_tool EXCLUDE_FROM_ALL
+   tools/NrmNavigationPacketTool.cpp
+)
+target_include_directories(nrm_navigation_packet_tool PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
 set(NRM_TEST_TARGETS
    nrm_framework_types_test
    nrm_snapshot_reporter_test
@@ -198,10 +238,13 @@ set(NRM_TEST_TARGETS
    nrm_resource_demand_matching_test
    nrm_model_service_facade_test
    nrm_model_registry_test
+   nrm_environment_config_repository_test
+   nrm_environment_effect_adapter_test
+   nrm_afsim_navigation_packet_parser_test
 )
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
    foreach(NRM_TEST_TARGET IN LISTS NRM_TEST_TARGETS)
       target_compile_options(${NRM_TEST_TARGET} PRIVATE -UNDEBUG)
    endforeach()
 endif()
-add_custom_target(nrm_tests DEPENDS ${NRM_TEST_TARGETS})
+add_custom_target(nrm_tests DEPENDS ${NRM_TEST_TARGETS} nrm_navigation_packet_tool)

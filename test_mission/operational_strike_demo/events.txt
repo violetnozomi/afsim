@@ -1,0 +1,131 @@
+# Deterministic cooperative mission timeline and communication workload.
+
+execute at_time 1 s absolute
+   writeln("NRM_OPERATIONAL PHASE SCENARIO_START");
+end_execute
+
+execute at_time 10 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("CDL_ISR_IMAGE");
+   message.SetSizeInBits(8000000);
+   WsfSimulation.FindPlatform("survey_uav_1").Comm("cdl").SendMessage(
+      message, WsfSimulation.FindPlatform("data_processing_center").Comm("cdl"));
+   writeln("NRM_OPERATIONAL PHASE ISR_COLLECTED");
+end_execute
+
+execute at_time 20 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("SATCOM_SURVEY_SUMMARY");
+   message.SetSizeInBits(64000);
+   WsfSimulation.FindPlatform("data_processing_center").Comm("satcom").SendMessage(
+      message, WsfSimulation.FindPlatform("regional_command").Comm("satcom"));
+   writeln("NRM_OPERATIONAL PHASE SURVEY_SUMMARY_REPORTED");
+end_execute
+
+execute at_time 30 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("SATCOM_MISSION_PLAN");
+   message.SetSizeInBits(4096);
+   WsfSimulation.FindPlatform("regional_command").Comm("satcom").SendMessage(
+      message, WsfSimulation.FindPlatform("network_control_center").Comm("satcom"));
+end_execute
+
+execute at_time 35 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK16_MISSION_COMMAND");
+   message.SetSizeInBits(4096);
+   WsfSimulation.FindPlatform("network_control_center").Comm("link16").SendMessage(
+      message, WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16"));
+   writeln("NRM_OPERATIONAL PHASE MISSION_PLAN_DISTRIBUTED");
+end_execute
+
+execute at_time 45 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK11_MEMBER_STATUS");
+   message.SetSizeInBits(1024);
+   WsfSimulation.FindPlatform("link11_sensor_hub").Comm("link11").SendMessage(
+      message, WsfSimulation.FindPlatform("link11_control_station").Comm("link11"));
+   writeln("NRM_OPERATIONAL PHASE LINK11_STATUS_REPORTED");
+end_execute
+
+execute at_time 50 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK11_SERVICE_ASSIGNMENT");
+   message.SetSizeInBits(2048);
+   WsfSimulation.FindPlatform("link11_control_station").Comm("link11").SendMessage(
+      message, WsfSimulation.FindPlatform("link11_service_node").Comm("link11"));
+end_execute
+
+execute at_time 60 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK16_ROUTE_UPDATE");
+   message.SetSizeInBits(2048);
+   WsfSimulation.FindPlatform("airborne_relay").Comm("link16").SendMessage(
+      message, WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16"));
+end_execute
+
+execute at_time 70 s absolute
+   WsfPlatform command = WsfSimulation.FindPlatform("network_control_center");
+   WsfAddress destination =
+      WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16").GetAddress();
+   command.Comm("link16").DisableConnection(destination);
+   writeln("NRM_OPERATIONAL PHASE LINK16_DIRECT_FAILURE");
+end_execute
+
+execute at_time 75 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK16_RETASK_VIA_RELAY");
+   message.SetSizeInBits(4096);
+   WsfSimulation.FindPlatform("network_control_center").Comm("link16").SendMessage(
+      message, WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16"));
+   writeln("NRM_OPERATIONAL PHASE RELAY_ROUTE_REQUESTED");
+end_execute
+
+execute at_time 105 s absolute
+   WsfPlatform command = WsfSimulation.FindPlatform("network_control_center");
+   WsfAddress destination =
+      WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16").GetAddress();
+   command.Comm("link16").EnableConnection(destination);
+   writeln("NRM_OPERATIONAL PHASE LINK16_DIRECT_RECOVERED");
+end_execute
+
+execute at_interval_of 2 s
+   if (TIME_NOW >= 110.0 && TIME_NOW <= 130.0)
+   {
+      WsfMessage message = WsfMessage();
+      message.SetType("CDL_ISR_VIDEO");
+      message.SetSizeInBits(12000000);
+      WsfSimulation.FindPlatform("survey_uav_1").Comm("cdl").SendMessage(
+         message, WsfSimulation.FindPlatform("data_processing_center").Comm("cdl"));
+   }
+end_execute
+
+execute at_time 110 s absolute
+   writeln("NRM_OPERATIONAL PHASE CDL_HIGH_RATE_ACTIVE");
+end_execute
+
+execute at_time 132 s absolute
+   writeln("NRM_OPERATIONAL PHASE CDL_HIGH_RATE_COMPLETE");
+end_execute
+
+execute at_time 140 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK11_RESOURCE_STATUS");
+   message.SetSizeInBits(2048);
+   WsfSimulation.FindPlatform("link11_station_north").Comm("link11").SendMessage(
+      message, WsfSimulation.FindPlatform("link11_sensor_hub").Comm("link11"));
+   writeln("NRM_OPERATIONAL PHASE LINK11_RESOURCE_STATUS_REPORTED");
+end_execute
+
+execute at_time 145 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("LINK16_MISSION_STATUS");
+   message.SetSizeInBits(4096);
+   WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16").SendMessage(
+      message, WsfSimulation.FindPlatform("network_control_center").Comm("link16"));
+   writeln("NRM_OPERATIONAL PHASE MISSION_STATUS_REPORTED");
+end_execute
+
+execute at_time 175 s absolute
+   writeln("NRM_OPERATIONAL PHASE SCENARIO_COMPLETE");
+end_execute

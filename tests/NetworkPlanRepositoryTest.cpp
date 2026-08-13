@@ -264,6 +264,21 @@ int main()
    const nrm::NetworkProfileRepository profiles =
       nrm::NetworkProfileRepository::BuiltInDemo();
    const nrm::NetworkPlanValidator validator(profiles);
+
+   // The distributable four-network sample must remain loadable by the same
+   // strict repository and validator used by the Warlock planning page.
+   nrm::NetworkPlanRepository sampleRepository;
+   const std::string samplePath =
+      std::string(NRM_SOURCE_DIR) + "/data/network_plans/four_network_demo-r1.nrm";
+   assert(sampleRepository.LoadFromFile(samplePath));
+   nrm::ResourceSnapshot sampleSnapshot;
+   const nrm::PlanValidationResult sampleResult =
+      validator.Validate(sampleSnapshot, *sampleRepository.GetCurrentPlan());
+   assert(sampleResult.passed);
+   assert(sampleResult.issues.size() == 1);
+   assert(sampleResult.issues.front().reason ==
+          nrm::PlanValidationReason::cCUSTOMER_RULE_UNAVAILABLE);
+
    const nrm::PlanValidationResult validResult =
       validator.Validate(validationSnapshot, ValidPlan());
    assert(validResult.passed);
