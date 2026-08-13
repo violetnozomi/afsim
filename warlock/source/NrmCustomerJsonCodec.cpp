@@ -85,6 +85,27 @@ void Metric(nrm::MetricValue<double>& aMetric, double aValue, const char* aUnit,
    aMetric.confidence = aConfidence;
    aMetric.reason = nrm::MetricReason::cNONE;
 }
+
+QJsonArray Strings(const std::vector<std::string>& aValues)
+{
+   QJsonArray result;
+   for (const std::string& value : aValues)
+      result.push_back(QString::fromStdString(value));
+   return result;
+}
+
+QJsonObject ResponseRoot(const char* aSchema,
+                         const WkNrm::CustomerJsonEnvelope& aEnvelope,
+                         const QJsonObject& aData)
+{
+   QJsonObject root;
+   root.insert("schema", aSchema);
+   root.insert("messageId", QString::fromStdString(aEnvelope.messageId));
+   root.insert("timestamp", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+   root.insert("source", "NRM");
+   root.insert("data", aData);
+   return root;
+}
 }
 
 WkNrm::CustomerJsonDecodeResult
@@ -357,4 +378,185 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeResources(
    }
    aSnapshot = snapshot;
    return result;
+}
+
+WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeAssessment(
+   const QByteArray& aJson, nrm::AssessmentTask& aTask) const
+{
+   CustomerJsonDecodeResult result = Inspect(aJson);
+   if (!result.valid || result.envelope.schema != "nrm.customer.assessment_request.v1")
+      return result.valid ? Failure("SCHEMA_UNSUPPORTED", "/schema", "不是任务评估请求") : result;
+   const QJsonObject data = DataObject(aJson);
+   const QString source = data.value("sourcePlatformId").toString();
+   const QString destination = data.value("destinationPlatformId").toString();
+   if (data.value("taskId").toString().isEmpty() || source.isEmpty() ||
+       destination.isEmpty() || source == destination ||
+       data.value("businessType").toString().isEmpty() ||
+       !data.value("requiredBandwidthBps").isDouble() ||
+       !data.value("maximumDelayMs").isDouble() ||
+       !data.value("minimumPdrPercent").isDouble() ||
+       !data.value("allowedNetworks").isArray())
+      return Failure("SCHEMA_VALIDATION_FAILED", "/data", "任务评估字段无效");
+
+   nrm::AssessmentTask task;
+   task.taskId = data.value("taskId").toString().toStdString();
+   task.sourcePlatform = source.toStdString();
+   task.destinationPlatform = destination.toStdString();
+   task.businessType = data.value("businessType").toString().toStdString();
+   task.requiredBandwidthBps = data.value("requiredBandwidthBps").toDouble();
+   task.maximumDelayMs = data.value("maximumDelayMs").toDouble();
+   task.minimumPdrPercent = data.value("minimumPdrPercent").toDouble();
+   for (const QJsonValue& value : data.value("allowedNetworks").toArray())
+   {
+      const nrm::NetworkType type = NetworkType(value.toString());
+      if (type == nrm::NetworkType::cUNKNOWN)
+         return Failure("SCHEMA_VALIDATION_FAILED", "/data/allowedNetworks",
+                        "包含未知网络类型");
+      task.allowedNetworks.push_back(type);
+   }
+   if (task.requiredBandwidthBps < 0.0 || task.maximumDelayMs <= 0.0 ||
+       task.minimumPdrPercent < 0.0 || task.minimumPdrPercent > 100.0 ||
+       task.allowedNetworks.empty())
+      return Failure("SCHEMA_VALIDATION_FAILED", "/data", "任务约束超出允许范围");
+   aTask = task;
+   return result;
+}
+
+WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeNetworkPlan(
+   const QByteArray& aJson, nrm::NetworkPlanDocument& aPlan) const
+{
+   CustomerJsonDecodeResult result = Inspect(aJson);
+   if (!result.valid || result.envelope.schema != "nrm.customer.network_plan.v1")
+      return result.valid ? Failure("SCHEMA_UNSUPPORTED", "/schema", "不是网络规划消息") : result;
+   const QJsonObject data = DataObject(aJson);
+   if (data.value("planId").toString().isEmpty() ||
+       data.value("revision").toInt() < 1 || !data.value("allocations").isArray() ||
+       !data.value("demands").isArray())
+      return Failure("SCHEMA_VALIDATION_FAILED", "/data", "网络规划字段无效");
+
+   nrm::NetworkPlanDocument plan;
+   plan.planId = data.value("planId").toString().toStdString();
+   plan.revision = static_cast<std::uint64_t>(data.value("revision").toInt());
+   plan.configVersion = "customer-json-v1";
+   plan.providerId = result.envelope.source;
+   plan.createdTime = result.envelope.timestamp;
+   for (const QJsonValue& value : data.value("allocations").toArray())
+   {
+      const QJsonObject object = value.toObject();
+      nrm::NetworkPlanAllocation allocation;
+      allocation.allocationId = object.value("allocationId").toString().toStdString();
+      allocation.networkName = object.value("networkName").toString().toStdString();
+      allocation.networkType = NetworkType(object.value("networkType").toString());
+      allocation.profileId = object.value("profileId").toString().toStdString();
+      allocation.frequencyHz = object.value("frequencyHz").toDouble();
+      allocation.channelId = object.value("channelId").toString().toStdString();
+      allocation.subnetId = object.value("subnetId").toString().toStdString();
+      allocation.routePolicyId = object.value("routePolicyId").toString().toStdString();
+      allocation.enabled = object.value("enabled").toBool(true);
+      for (const QJsonValue& member : object.value("members").toArray())
+         allocation.memberPlatformIds.push_back(member.toString().toStdString());
+      for (const QJsonValue& slot : object.value("slots").toArray())
+         allocation.slotIds.push_back(slot.toString().toStdString());
+      if (allocation.allocationId.empty() || allocation.networkName.empty() ||
+          allocation.networkType == nrm::NetworkType::cUNKNOWN ||
+          allocation.profileId.empty() || allocation.memberPlatformIds.empty())
+         return Failure("SCHEMA_VALIDATION_FAILED", "/data/allocations",
+                        "资源分配记录字段无效");
+      plan.allocations.push_back(allocation);
+   }
+   for (const QJsonValue& value : data.value("demands").toArray())
+   {
+      const QJsonObject object = value.toObject();
+      nrm::NetworkPlanDemand demand;
+      demand.demandId = object.value("demandId").toString().toStdString();
+      demand.businessType = object.value("businessType").toString().toStdString();
+      demand.sourcePlatform = object.value("sourcePlatformId").toString().toStdString();
+      demand.destinationPlatform = object.value("destinationPlatformId").toString().toStdString();
+      demand.payloadBits = static_cast<std::uint64_t>(object.value("payloadBits").toDouble());
+      demand.requiredBandwidthBps = object.value("requiredBandwidthBps").toDouble();
+      demand.maximumDelayMs = object.value("maximumDelayMs").toDouble();
+      demand.minimumPdrPercent = object.value("minimumPdrPercent").toDouble();
+      for (const QJsonValue& network : object.value("allowedNetworks").toArray())
+         demand.allowedNetworks.push_back(NetworkType(network.toString()));
+      if (demand.demandId.empty() || demand.businessType.empty() ||
+          demand.sourcePlatform.empty() || demand.destinationPlatform.empty() ||
+          demand.sourcePlatform == demand.destinationPlatform ||
+          demand.allowedNetworks.empty())
+         return Failure("SCHEMA_VALIDATION_FAILED", "/data/demands",
+                        "业务需求记录字段无效");
+      for (const nrm::NetworkType type : demand.allowedNetworks)
+         if (type == nrm::NetworkType::cUNKNOWN)
+            return Failure("SCHEMA_VALIDATION_FAILED", "/data/demands/allowedNetworks",
+                           "包含未知网络类型");
+      plan.demands.push_back(demand);
+   }
+   plan.valid = !plan.allocations.empty();
+   aPlan = plan;
+   return result;
+}
+
+WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeMembership(
+   const QByteArray& aJson, nrm::NetworkPlanChange& aChange) const
+{
+   CustomerJsonDecodeResult result = Inspect(aJson);
+   if (!result.valid || result.envelope.schema != "nrm.customer.membership_request.v1")
+      return result.valid ? Failure("SCHEMA_UNSUPPORTED", "/schema", "不是成员变更请求") : result;
+   const QJsonObject data = DataObject(aJson);
+   const QString action = data.value("action").toString();
+   nrm::NetworkPlanChange change;
+   change.changeId = data.value("requestId").toString().toStdString();
+   change.allocationId = data.value("allocationId").toString().toStdString();
+   change.platformId = data.value("platformId").toString().toStdString();
+   change.changeType = action == "LEAVE" ? nrm::PlanChangeType::cLEAVE : nrm::PlanChangeType::cJOIN;
+   if (change.changeId.empty() || data.value("planId").toString().isEmpty() ||
+       change.allocationId.empty() || change.platformId.empty() ||
+       (action != "JOIN" && action != "LEAVE"))
+      return Failure("SCHEMA_VALIDATION_FAILED", "/data", "成员变更字段无效");
+   aChange = change;
+   return result;
+}
+
+QByteArray WkNrm::CustomerJsonCodec::EncodeAssessment(
+   const CustomerJsonEnvelope& aEnvelope, const nrm::AssessmentResult& aResult) const
+{
+   QJsonObject data;
+   data.insert("taskId", QString::fromStdString(aResult.taskId));
+   data.insert("reachable", aResult.reachable);
+   data.insert("canEstablish", aResult.canEstablish);
+   data.insert("canComplete", aResult.canComplete);
+   if (aResult.primaryRoute.size() >= 2) data.insert("primaryRoute", Strings(aResult.primaryRoute));
+   if (aResult.backupRoute.size() >= 2) data.insert("backupRoute", Strings(aResult.backupRoute));
+   if (aResult.bandwidthMarginBps.valid) data.insert("bandwidthMarginBps", aResult.bandwidthMarginBps.value);
+   if (aResult.delayMarginMs.valid) data.insert("delayMarginMs", aResult.delayMarginMs.value);
+   if (aResult.reliabilityMarginPercent.valid) data.insert("pdrMarginPercent", aResult.reliabilityMarginPercent.value);
+   QJsonArray reasons;
+   for (const nrm::AssessmentReason reason : aResult.reasons) reasons.push_back(nrm::ToString(reason));
+   data.insert("reasonCodes", reasons);
+   data.insert("recommendations", Strings(aResult.recommendations));
+   return QJsonDocument(ResponseRoot("nrm.customer.assessment_response.v1", aEnvelope, data))
+      .toJson(QJsonDocument::Compact);
+}
+
+QByteArray WkNrm::CustomerJsonCodec::EncodePlanResult(
+   const CustomerJsonEnvelope& aEnvelope,
+   const nrm::NetworkPlanEvaluationResult& aResult,
+   const nrm::DistributionPackageResult* aPackage) const
+{
+   QJsonObject data;
+   data.insert("planId", QString::fromStdString(aResult.planId));
+   data.insert("revision", static_cast<qint64>(aResult.revision));
+   data.insert("validationPassed", aResult.validation.passed);
+   data.insert("evaluationStatus", nrm::ToString(aResult.overallStatus));
+   data.insert("state", nrm::ToString(aResult.resultingState));
+   QJsonArray reasons;
+   for (const nrm::PlanValidationIssue& issue : aResult.validation.issues)
+      reasons.push_back(nrm::ToString(issue.reason));
+   for (const nrm::PlanDemandEvaluation& demand : aResult.demands)
+      for (const nrm::PlanValidationReason reason : demand.reasons)
+         reasons.push_back(nrm::ToString(reason));
+   data.insert("reasonCodes", reasons);
+   if (aPackage && aPackage->generated && !aPackage->outputPath.empty())
+      data.insert("packagePath", QString::fromStdString(aPackage->outputPath));
+   return QJsonDocument(ResponseRoot("nrm.customer.network_plan_result.v1", aEnvelope, data))
+      .toJson(QJsonDocument::Compact);
 }

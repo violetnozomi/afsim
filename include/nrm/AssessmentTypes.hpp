@@ -67,6 +67,7 @@ struct AssessmentTask
    bool                     requireObservedCurrentMetrics = false;
    bool                     requireDelayMetricForFeasibility = true;
    std::string              destinationPlatform;
+   std::string              businessType;
    std::uint64_t            payloadBits          = 0;
    double                   requiredBandwidthBps = 0.0;
    double                   maximumDelayMs       = 0.0;

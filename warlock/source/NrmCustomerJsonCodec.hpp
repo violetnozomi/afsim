@@ -10,6 +10,8 @@
 #include <QByteArray>
 
 #include "nrm/CommunicationCapabilityTypes.hpp"
+#include "nrm/AssessmentTypes.hpp"
+#include "nrm/NetworkPlanTypes.hpp"
 
 namespace WkNrm
 {
@@ -48,6 +50,17 @@ public:
                                               nrm::EnvironmentContext& aContext) const;
    CustomerJsonDecodeResult DecodeResources(const QByteArray& aJson,
                                             nrm::ResourceSnapshot& aSnapshot) const;
+   CustomerJsonDecodeResult DecodeAssessment(const QByteArray& aJson,
+                                             nrm::AssessmentTask& aTask) const;
+   CustomerJsonDecodeResult DecodeNetworkPlan(const QByteArray& aJson,
+                                              nrm::NetworkPlanDocument& aPlan) const;
+   CustomerJsonDecodeResult DecodeMembership(const QByteArray& aJson,
+                                             nrm::NetworkPlanChange& aChange) const;
+   QByteArray EncodeAssessment(const CustomerJsonEnvelope& aEnvelope,
+                               const nrm::AssessmentResult& aResult) const;
+   QByteArray EncodePlanResult(const CustomerJsonEnvelope& aEnvelope,
+                               const nrm::NetworkPlanEvaluationResult& aResult,
+                               const nrm::DistributionPackageResult* aPackage = nullptr) const;
 
 private:
    static bool IsSupportedSchema(const QString& aSchema);

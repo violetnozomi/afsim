@@ -1,5 +1,7 @@
 #include "NrmCustomerJsonCodec.hpp"
 
+#include "nrm/NetworkPlanRepository.hpp"
+
 #include <cassert>
 #include <fstream>
 #include <sstream>
@@ -102,5 +104,68 @@ int main()
    assert(resources.networks.size() == preserved.networks.size());
    assert(resources.endpoints.size() == preserved.endpoints.size());
    assert(resources.links.size() == preserved.links.size());
+
+   nrm::AssessmentTask task;
+   assert(codec.DecodeAssessment(ReadFixture("assessment-request.example.json"),
+                                 task).valid);
+   assert(task.taskId == "task-001");
+   assert(task.sourcePlatform == "fighter-01");
+   assert(task.destinationPlatform == "command-01");
+   assert(task.businessType == "C2");
+   assert(task.requiredBandwidthBps == 64000.0);
+   assert(task.maximumDelayMs == 300.0);
+   assert(task.minimumPdrPercent == 90.0);
+   assert(task.allowedNetworks.size() == 1);
+   assert(task.allowedNetworks.front() == nrm::NetworkType::cLINK16);
+
+   const nrm::AssessmentTask preservedTask = task;
+   assert(!codec.DecodeAssessment(
+      R"({"schema":"nrm.customer.assessment_request.v1","messageId":"bad-task","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{"taskId":"bad","sourcePlatformId":"same","destinationPlatformId":"same","businessType":"C2","requiredBandwidthBps":1,"maximumDelayMs":1,"minimumPdrPercent":90,"allowedNetworks":["LINK16"]}})",
+      task).valid);
+   assert(task.taskId == preservedTask.taskId);
+
+   nrm::NetworkPlanDocument plan;
+   assert(codec.DecodeNetworkPlan(ReadFixture("network-plan.example.json"), plan).valid);
+   assert(plan.planId == "four-network-demo");
+   assert(plan.revision == 1);
+   assert(plan.allocations.size() == 4);
+   assert(plan.demands.size() == 1);
+   assert(plan.valid);
+
+   nrm::NetworkPlanChange change;
+   assert(codec.DecodeMembership(ReadFixture("membership-request.example.json"),
+                                 change).valid);
+   assert(change.changeId == "join-001");
+   assert(change.changeType == nrm::PlanChangeType::cJOIN);
+   assert(change.allocationId == "allocation-link16");
+   assert(change.platformId == "l16_relay_1");
+
+   nrm::AssessmentResult assessment;
+   assessment.taskId = "task-001";
+   assessment.reachable = true;
+   assessment.canEstablish = true;
+   assessment.canComplete = false;
+   assessment.primaryRoute = {"fighter-01", "relay-01", "command-01"};
+   assessment.bandwidthMarginBps.value = -1000.0;
+   assessment.bandwidthMarginBps.unit = "bit/s";
+   assessment.bandwidthMarginBps.valid = true;
+   assessment.reasons = {nrm::AssessmentReason::cBANDWIDTH_MARGIN_NEGATIVE};
+   assessment.recommendations = {"改用备用链路"};
+   const QJsonObject assessmentRoot = QJsonDocument::fromJson(
+      codec.EncodeAssessment(valid.envelope, assessment)).object();
+   assert(assessmentRoot.value("schema") == "nrm.customer.assessment_response.v1");
+   assert(assessmentRoot.value("data").toObject().value("taskId") == "task-001");
+   assert(assessmentRoot.value("data").toObject().value("reasonCodes").toArray().size() == 1);
+
+   nrm::NetworkPlanEvaluationResult evaluation;
+   evaluation.planId = plan.planId;
+   evaluation.revision = plan.revision;
+   evaluation.validation.passed = true;
+   evaluation.overallStatus = nrm::PlanEvaluationStatus::cPASS;
+   evaluation.resultingState = nrm::NetworkPlanState::cVALIDATED;
+   const QJsonObject planResultRoot = QJsonDocument::fromJson(
+      codec.EncodePlanResult(valid.envelope, evaluation)).object();
+   assert(planResultRoot.value("schema") == "nrm.customer.network_plan_result.v1");
+   assert(planResultRoot.value("data").toObject().value("validationPassed").toBool());
    return 0;
 }
