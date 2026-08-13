@@ -25,6 +25,7 @@
 #include <QPushButton>
 #include <QProcess>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QStyle>
 #include <QTableWidget>
 #include <QTabWidget>
@@ -36,6 +37,7 @@
 #include "nrm/AssessmentEvaluator.hpp"
 #include "nrm/NetworkTypeUtils.hpp"
 #include "nrm/Version.hpp"
+#include "NrmUiText.hpp"
 
 namespace
 {
@@ -214,13 +216,30 @@ QString NavigationModeText(nrm::NavigationMode aMode)
    return QString::fromUtf8("未知");
 }
 
+QString DisplayCode(const std::string& aCode)
+{
+   return QString::fromStdString(WkNrm::UiText::TranslateCodeWithRaw(aCode));
+}
+
+QString DisplayCode(const char* aCode)
+{
+   return DisplayCode(std::string(aCode == nullptr ? "" : aCode));
+}
+
+QString DisplayCodeList(const std::vector<std::string>& aCodes)
+{
+   QStringList output;
+   for (const std::string& code : aCodes) output.push_back(DisplayCode(code));
+   return output.join(QString::fromUtf8("、"));
+}
+
 QString CapabilityMetricText(const nrm::MetricValue<double>& aMetric, int aPrecision = 2)
 {
    const QString metadata =
       QString::fromUtf8("来源=%1，置信度=%2，原因=%3")
-         .arg(nrm::ToString(aMetric.origin),
-              nrm::ToString(aMetric.confidence),
-              nrm::ToString(aMetric.reason));
+         .arg(DisplayCode(nrm::ToString(aMetric.origin)),
+              DisplayCode(nrm::ToString(aMetric.confidence)),
+              DisplayCode(nrm::ToString(aMetric.reason)));
    if (!aMetric.valid)
    {
       return QString::fromUtf8("无效［") + metadata + QString::fromUtf8("］");
@@ -260,11 +279,18 @@ QTableWidget* CreateTable(const QStringList& aHeaders, QWidget* aParentPtr)
    tablePtr->setAlternatingRowColors(true);
    tablePtr->setShowGrid(false);
    tablePtr->setWordWrap(false);
+   tablePtr->setTextElideMode(Qt::ElideRight);
+   tablePtr->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+   tablePtr->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+   tablePtr->setMinimumSize(0, 0);
+   tablePtr->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Expanding);
    tablePtr->verticalHeader()->setVisible(false);
    tablePtr->verticalHeader()->setDefaultSectionSize(30);
    tablePtr->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-   tablePtr->horizontalHeader()->setStretchLastSection(true);
-   tablePtr->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+   tablePtr->horizontalHeader()->setStretchLastSection(false);
+   tablePtr->horizontalHeader()->setMinimumSectionSize(56);
+   tablePtr->horizontalHeader()->setDefaultSectionSize(126);
+   tablePtr->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
    return tablePtr;
 }
 
@@ -578,6 +604,8 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    QVBoxLayout* planLayoutPtr = new QVBoxLayout(planPagePtr);
    mPlanSummaryPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
    mPlanOperationPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   mPlanSummaryPtr->setWordWrap(true);
+   mPlanOperationPtr->setWordWrap(true);
    planLayoutPtr->addWidget(mPlanSummaryPtr);
    planLayoutPtr->addWidget(mPlanOperationPtr);
 
@@ -655,20 +683,22 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
            {
               mPlanDirty = true;
               mPlanOperationPtr->setText(
-                 QString::fromUtf8("DRAFT：表格编辑尚未写入规划仓库"));
+                 QString::fromUtf8("草案：表格编辑尚未写入规划仓库"));
            });
    connect(mPlanDemandTablePtr, &QTableWidget::itemChanged, this,
            [this](QTableWidgetItem*)
            {
               mPlanDirty = true;
               mPlanOperationPtr->setText(
-                 QString::fromUtf8("DRAFT：表格编辑尚未写入规划仓库"));
+                 QString::fromUtf8("草案：表格编辑尚未写入规划仓库"));
            });
 
    QWidget* demandPagePtr = new QWidget(tabsPtr);
    QVBoxLayout* demandLayoutPtr = new QVBoxLayout(demandPagePtr);
    mDemandSummaryPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
    mDemandOperationPtr->setTextInteractionFlags(Qt::TextSelectableByMouse);
+   mDemandSummaryPtr->setWordWrap(true);
+   mDemandOperationPtr->setWordWrap(true);
    demandLayoutPtr->addWidget(mDemandSummaryPtr);
    demandLayoutPtr->addWidget(mDemandOperationPtr);
 
@@ -700,27 +730,23 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        QString::fromUtf8("最大距离（m）"), QString::fromUtf8("最小网络规模"),
        QString::fromUtf8("允许网络")},
       demandPagePtr);
-   mDemandTablePtr->setMinimumHeight(145);
    demandLayoutPtr->addWidget(mDemandTablePtr);
    mDemandMatchTablePtr = CreateTable(
       {QString::fromUtf8("需求编号"), QString::fromUtf8("状态"), QString::fromUtf8("快照版本"),
        QString::fromUtf8("路径"), QString::fromUtf8("距离"), QString::fromUtf8("速率"),
        QString::fromUtf8("原因码")},
       demandPagePtr);
-   mDemandMatchTablePtr->setMinimumHeight(105);
    demandLayoutPtr->addWidget(mDemandMatchTablePtr);
    mDemandGapTablePtr = CreateTable(
       {QString::fromUtf8("需求编号"), QString::fromUtf8("约束项"), QString::fromUtf8("要求值"),
        QString::fromUtf8("当前值"), QString::fromUtf8("裕量"), QString::fromUtf8("原因码")},
       demandPagePtr);
-   mDemandGapTablePtr->setMinimumHeight(105);
    demandLayoutPtr->addWidget(mDemandGapTablePtr);
    mDemandRecommendationTablePtr = CreateTable(
       {QString::fromUtf8("需求编号"), QString::fromUtf8("建议类型"), QString::fromUtf8("状态"),
        QString::fromUtf8("候选对象"), QString::fromUtf8("建议值"), QString::fromUtf8("排序"),
        QString::fromUtf8("来源 / 置信度"), QString::fromUtf8("原因码"), QString::fromUtf8("依据")},
       demandPagePtr);
-   mDemandRecommendationTablePtr->setMinimumHeight(120);
    demandLayoutPtr->addWidget(mDemandRecommendationTablePtr);
 
    connect(loadDemandButtonPtr, &QPushButton::clicked,
@@ -736,7 +762,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
            {
               mDemandDirty = true;
               mDemandOperationPtr->setText(
-                 QString::fromUtf8("DRAFT：表格编辑尚未写入需求仓库，旧匹配结果已失效"));
+                 QString::fromUtf8("草案：表格编辑尚未写入需求仓库，旧匹配结果已失效"));
               mDemandMatchTablePtr->setRowCount(0);
               mDemandGapTablePtr->setRowCount(0);
               mDemandRecommendationTablePtr->setRowCount(0);
@@ -938,7 +964,7 @@ void WkNrm::DockWidget::EvaluateTask()
    QStringList reasons;
    for (nrm::AssessmentReason reason : result.reasons)
    {
-      reasons.push_back(nrm::ToString(reason));
+      reasons.push_back(DisplayCode(nrm::ToString(reason)));
    }
    QStringList recommendations;
    for (const std::string& recommendation : result.recommendations)
@@ -1009,7 +1035,7 @@ void WkNrm::DockWidget::QueryCapability()
    QStringList reasons;
    for (nrm::CapabilityReason reason : result.reasons)
    {
-      reasons.push_back(nrm::ToString(reason));
+      reasons.push_back(DisplayCode(nrm::ToString(reason)));
    }
 
    QString text;
@@ -1032,11 +1058,11 @@ void WkNrm::DockWidget::QueryCapability()
    for (const nrm::EnvironmentEffect& effect : result.environmentEffects)
    {
       text += QString::fromUtf8("- %1：%2［来源=%3，置信度=%4，原因=%5］\n")
-                 .arg(nrm::ToString(effect.domain),
+                 .arg(DisplayCode(nrm::ToString(effect.domain)),
                       effect.valid ? QString::fromUtf8("有效") : QString::fromUtf8("无效"),
-                      nrm::ToString(effect.origin),
-                      nrm::ToString(effect.confidence),
-                      nrm::ToString(effect.reason));
+                      DisplayCode(nrm::ToString(effect.origin)),
+                      DisplayCode(nrm::ToString(effect.confidence)),
+                      DisplayCode(nrm::ToString(effect.reason)));
    }
    text += QString::fromUtf8("原因码：") + (reasons.isEmpty() ? QString::fromUtf8("无") : reasons.join(", "));
    mCapabilityResultPtr->setPlainText(text);
@@ -1240,7 +1266,7 @@ bool WkNrm::DockWidget::ApplyNetworkPlanEdits()
    if (!replaced)
    {
       mPlanOperationPtr->setText(
-         QString::fromLatin1(nrm::ToString(mData.GetPlanOperation().reason)));
+         DisplayCode(nrm::ToString(mData.GetPlanOperation().reason)));
       return false;
    }
    mPlanDirty = false;
@@ -1260,8 +1286,8 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          operation.reason == nrm::PlanValidationReason::cNONE
             ? QString::fromUtf8("状态：无规划")
             : QString::fromUtf8("原因=%1，字段=%2")
-                 .arg(nrm::ToString(operation.reason),
-                      QString::fromStdString(operation.field)));
+                 .arg(DisplayCode(nrm::ToString(operation.reason)),
+                      DisplayCode(operation.field)));
       mPlanAllocationTablePtr->setRowCount(0);
       mPlanDemandTablePtr->setRowCount(0);
       mPlanIssueTablePtr->setRowCount(0);
@@ -1273,9 +1299,9 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
       QString::fromUtf8("规划编号=%1 | 修订=%2 | 状态=%3 | 来源=%4 | 置信度=%5 | 配置=%6")
          .arg(QString::fromStdString(planPtr->planId))
          .arg(planPtr->revision)
-         .arg(nrm::ToString(mData.GetNetworkPlanState()))
-         .arg(nrm::ToString(planPtr->source))
-         .arg(nrm::ToString(planPtr->confidence))
+         .arg(DisplayCode(nrm::ToString(mData.GetNetworkPlanState())))
+         .arg(DisplayCode(nrm::ToString(planPtr->source)))
+         .arg(DisplayCode(nrm::ToString(planPtr->confidence)))
          .arg(QString::fromStdString(planPtr->configVersion)));
 
    QString operationText;
@@ -1285,7 +1311,7 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
       operationText = package.generated
                          ? QString::fromUtf8("分发包=%1").arg(
                               QString::fromStdString(package.outputPath))
-                         : QString::fromUtf8("原因=%1").arg(nrm::ToString(package.reason));
+                         : QString::fromUtf8("原因=%1").arg(DisplayCode(nrm::ToString(package.reason)));
    }
    else
    {
@@ -1293,23 +1319,19 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
       operationText = operation.success
                          ? QString::fromUtf8("操作=成功，路径=%1").arg(
                               QString::fromStdString(operation.path))
-                         : QString::fromUtf8("原因=%1").arg(nrm::ToString(operation.reason));
+                         : QString::fromUtf8("原因=%1").arg(DisplayCode(nrm::ToString(operation.reason)));
    }
    if (mData.HasPlanEvaluation())
    {
       const nrm::DegradationStatus& degradation =
          mData.GetConcurrentAssessment().degradation;
-      QStringList defaults;
-      for (const std::string& value : degradation.usedDefaults)
-         defaults.push_back(QString::fromStdString(value));
-      QStringList missing;
-      for (const std::string& value : degradation.missingFields)
-         missing.push_back(QString::fromStdString(value));
+      const QString defaults = DisplayCodeList(degradation.usedDefaults);
+      const QString missing = DisplayCodeList(degradation.missingFields);
       operationText += QString::fromUtf8(" | 降级等级=%1，数据覆盖=%2%，默认值=%3，缺失=%4")
-         .arg(nrm::ToString(degradation.level))
+         .arg(DisplayCode(nrm::ToString(degradation.level)))
          .arg(degradation.dataCoveragePercent, 0, 'f', 1)
-         .arg(defaults.isEmpty() ? QString::fromUtf8("无") : defaults.join(","))
-         .arg(missing.isEmpty() ? QString::fromUtf8("无") : missing.join(","));
+         .arg(defaults.isEmpty() ? QString::fromUtf8("无") : defaults)
+         .arg(missing.isEmpty() ? QString::fromUtf8("无") : missing);
    }
    mPlanOperationPtr->setText(operationText);
 
@@ -1380,10 +1402,10 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
       for (std::size_t index = 0; index < issues.size(); ++index)
       {
          const int row = static_cast<int>(index);
-         SetTableText(mPlanIssueTablePtr, row, 0, nrm::ToString(issues[index].severity));
-         SetTableText(mPlanIssueTablePtr, row, 1, nrm::ToString(issues[index].reason));
+         SetTableText(mPlanIssueTablePtr, row, 0, DisplayCode(nrm::ToString(issues[index].severity)));
+         SetTableText(mPlanIssueTablePtr, row, 1, DisplayCode(nrm::ToString(issues[index].reason)));
          SetTableText(mPlanIssueTablePtr, row, 2,
-                      QString::fromStdString(issues[index].field));
+                      DisplayCode(issues[index].field));
          SetTableText(mPlanIssueTablePtr, row, 3,
                       QString::fromStdString(issues[index].recordId));
          SetTableText(mPlanIssueTablePtr, row, 4,
@@ -1405,11 +1427,11 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          const nrm::PlanDemandEvaluation& evaluation = evaluations[index];
          QStringList reasons;
          for (nrm::PlanValidationReason reason : evaluation.reasons)
-            reasons.push_back(nrm::ToString(reason));
+            reasons.push_back(DisplayCode(nrm::ToString(reason)));
          SetTableText(mPlanEvaluationTablePtr, row, 0,
                       QString::fromStdString(evaluation.demandId));
          SetTableText(mPlanEvaluationTablePtr, row, 1,
-                      nrm::ToString(evaluation.status));
+                      DisplayCode(nrm::ToString(evaluation.status)));
          const nrm::ConcurrentAssessmentResult& concurrent =
             mData.GetConcurrentAssessment();
          const nrm::ConcurrentTaskResult* concurrentPtr =
@@ -1422,7 +1444,7 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          if (concurrentPtr != nullptr)
          {
             if (concurrentPtr->resourceReason != nrm::ConcurrentResourceReason::cNONE)
-               conflicts.push_back(nrm::ToString(concurrentPtr->resourceReason));
+               conflicts.push_back(DisplayCode(nrm::ToString(concurrentPtr->resourceReason)));
             for (const std::string& taskId : concurrentPtr->conflictingTaskIds)
                conflicts.push_back(QString::fromStdString(taskId));
          }
@@ -1600,8 +1622,8 @@ bool WkNrm::DockWidget::ApplyResourceDemandEdits()
          mData.GetDemandOperation();
       mDemandOperationPtr->setText(
          QString::fromUtf8("原因=%1，字段=%2")
-            .arg(nrm::ToString(operation.reason),
-                 QString::fromStdString(operation.field)));
+            .arg(DisplayCode(nrm::ToString(operation.reason)),
+                 DisplayCode(operation.field)));
       return false;
    }
    mDemandDirty = false;
@@ -1622,8 +1644,8 @@ void WkNrm::DockWidget::RefreshResourceDemands()
          operation.reason == nrm::ResourceDemandReason::cNONE
             ? QString::fromUtf8("状态：无需求集")
             : QString::fromUtf8("原因=%1，字段=%2")
-                 .arg(nrm::ToString(operation.reason),
-                      QString::fromStdString(operation.field)));
+                 .arg(DisplayCode(nrm::ToString(operation.reason)),
+                      DisplayCode(operation.field)));
       mDemandTablePtr->setRowCount(0);
       mDemandMatchTablePtr->setRowCount(0);
       mDemandGapTablePtr->setRowCount(0);
@@ -1636,8 +1658,8 @@ void WkNrm::DockWidget::RefreshResourceDemands()
          .arg(QString::fromStdString(setPtr->demandSetId))
          .arg(setPtr->revision)
          .arg(setPtr->demands.size())
-         .arg(nrm::ToString(setPtr->source))
-         .arg(nrm::ToString(setPtr->confidence))
+         .arg(DisplayCode(nrm::ToString(setPtr->source)))
+         .arg(DisplayCode(nrm::ToString(setPtr->confidence)))
          .arg(QString::fromStdString(setPtr->configVersion)));
    const nrm::ResourceDemandRepositoryResult& operation =
       mData.GetDemandOperation();
@@ -1646,8 +1668,8 @@ void WkNrm::DockWidget::RefreshResourceDemands()
          ? QString::fromUtf8("操作=成功，路径=%1").arg(
               QString::fromStdString(operation.path))
          : QString::fromUtf8("原因=%1，字段=%2")
-              .arg(nrm::ToString(operation.reason),
-                   QString::fromStdString(operation.field)));
+              .arg(DisplayCode(nrm::ToString(operation.reason)),
+                   DisplayCode(operation.field)));
 
    const QSignalBlocker demandBlocker(mDemandTablePtr);
    mDemandTablePtr->setRowCount(static_cast<int>(setPtr->demands.size()));
@@ -1713,10 +1735,10 @@ void WkNrm::DockWidget::RefreshResourceDemands()
       const nrm::ResourceDemandMatchResult& result = batch.results[index];
       QStringList reasons;
       for (nrm::ResourceDemandReason reason : result.reasons)
-         reasons.push_back(nrm::ToString(reason));
+         reasons.push_back(DisplayCode(nrm::ToString(reason)));
       SetTableText(mDemandMatchTablePtr, row, 0,
                    QString::fromStdString(result.demandId));
-      SetTableText(mDemandMatchTablePtr, row, 1, nrm::ToString(result.status));
+      SetTableText(mDemandMatchTablePtr, row, 1, DisplayCode(nrm::ToString(result.status)));
       SetTableText(mDemandMatchTablePtr, row, 2,
                    QString::number(result.snapshotVersion));
       SetTableText(mDemandMatchTablePtr, row, 3,
@@ -1733,11 +1755,11 @@ void WkNrm::DockWidget::RefreshResourceDemands()
          if (!check.applicable || (check.passed && check.currentValue.valid)) continue;
          SetTableText(mDemandGapTablePtr, gapRow, 0,
                       QString::fromStdString(result.demandId));
-         SetTableText(mDemandGapTablePtr, gapRow, 1, nrm::ToString(check.type));
+         SetTableText(mDemandGapTablePtr, gapRow, 1, DisplayCode(nrm::ToString(check.type)));
          SetTableText(mDemandGapTablePtr, gapRow, 2, MetricText(check.requiredValue, 3));
          SetTableText(mDemandGapTablePtr, gapRow, 3, MetricText(check.currentValue, 3));
          SetTableText(mDemandGapTablePtr, gapRow, 4, MetricText(check.margin, 3));
-         SetTableText(mDemandGapTablePtr, gapRow, 5, nrm::ToString(check.reason));
+         SetTableText(mDemandGapTablePtr, gapRow, 5, DisplayCode(nrm::ToString(check.reason)));
          ++gapRow;
       }
 
@@ -1746,9 +1768,9 @@ void WkNrm::DockWidget::RefreshResourceDemands()
          SetTableText(mDemandRecommendationTablePtr, recommendationRow, 0,
                       QString::fromStdString(recommendation.demandId));
          SetTableText(mDemandRecommendationTablePtr, recommendationRow, 1,
-                      nrm::ToString(recommendation.type));
+                      DisplayCode(nrm::ToString(recommendation.type)));
          SetTableText(mDemandRecommendationTablePtr, recommendationRow, 2,
-                      nrm::ToString(recommendation.status));
+                      DisplayCode(nrm::ToString(recommendation.status)));
          SetTableText(mDemandRecommendationTablePtr, recommendationRow, 3,
                       QString::fromStdString(recommendation.candidateId));
          SetTableText(mDemandRecommendationTablePtr, recommendationRow, 4,
@@ -1758,10 +1780,10 @@ void WkNrm::DockWidget::RefreshResourceDemands()
                                                : QString::number(recommendation.rank));
          SetTableText(mDemandRecommendationTablePtr, recommendationRow, 6,
                       QString("%1 / %2")
-                         .arg(nrm::ToString(recommendation.source),
-                              nrm::ToString(recommendation.confidence)));
+                         .arg(DisplayCode(nrm::ToString(recommendation.source)),
+                              DisplayCode(nrm::ToString(recommendation.confidence))));
          SetTableText(mDemandRecommendationTablePtr, recommendationRow, 7,
-                      nrm::ToString(recommendation.reason));
+                      DisplayCode(nrm::ToString(recommendation.reason)));
          SetTableText(mDemandRecommendationTablePtr, recommendationRow, 8,
                       JoinValues(recommendation.evidence));
          ++recommendationRow;
@@ -1801,7 +1823,7 @@ void WkNrm::DockWidget::Refresh()
    {
       const nrm::NetworkSnapshot& network = snapshot.networks[index];
       const int row = static_cast<int>(index);
-      SetTableText(mNetworkTablePtr, row, 0, nrm::ToString(network.networkType));
+      SetTableText(mNetworkTablePtr, row, 0, DisplayCode(nrm::ToString(network.networkType)));
       mNetworkTablePtr->item(row, 0)->setForeground(QBrush(NetworkColor(network.networkType)));
       SetTableText(mNetworkTablePtr, row, 1, QString::fromStdString(network.networkName));
       SetTableText(mNetworkTablePtr, row, 2, QString::fromStdString(network.modelType));
@@ -1827,7 +1849,7 @@ void WkNrm::DockWidget::Refresh()
    {
       for (const nrm::WindowMetrics& window : network.windows)
       {
-         SetTableText(mMetricsTablePtr, metricsRow, 0, nrm::ToString(network.networkType));
+         SetTableText(mMetricsTablePtr, metricsRow, 0, DisplayCode(nrm::ToString(network.networkType)));
          mMetricsTablePtr->item(metricsRow, 0)->setForeground(QBrush(NetworkColor(network.networkType)));
          SetTableText(mMetricsTablePtr, metricsRow, 1, QString::fromStdString(network.networkName));
          SetTableText(mMetricsTablePtr, metricsRow, 2, QString::number(window.windowS, 'f', 0) + " s");
@@ -1848,13 +1870,13 @@ void WkNrm::DockWidget::Refresh()
    {
       const nrm::EndpointSnapshot& endpoint = snapshot.endpoints[index];
       const int row = static_cast<int>(index);
-      SetTableText(mEndpointTablePtr, row, 0, nrm::ToString(endpoint.networkType));
+      SetTableText(mEndpointTablePtr, row, 0, DisplayCode(nrm::ToString(endpoint.networkType)));
       mEndpointTablePtr->item(row, 0)->setForeground(QBrush(NetworkColor(endpoint.networkType)));
       SetTableText(mEndpointTablePtr, row, 1, QString::fromStdString(endpoint.platformName));
       SetTableText(mEndpointTablePtr, row, 2, QString::fromStdString(endpoint.commName));
       SetTableText(mEndpointTablePtr, row, 3, QString::fromStdString(endpoint.address));
       SetTableText(mEndpointTablePtr, row, 4, QString::fromStdString(endpoint.memberRole));
-      SetTableText(mEndpointTablePtr, row, 5, nrm::ToString(endpoint.state));
+      SetTableText(mEndpointTablePtr, row, 5, DisplayCode(nrm::ToString(endpoint.state)));
       SetTableText(mEndpointTablePtr, row, 6, MetricText(endpoint.latitudeDeg, 5));
       SetTableText(mEndpointTablePtr, row, 7, MetricText(endpoint.longitudeDeg, 5));
       SetTableText(mEndpointTablePtr, row, 8, MetricText(endpoint.altitudeM, 1));
@@ -1865,11 +1887,11 @@ void WkNrm::DockWidget::Refresh()
    {
       const nrm::LinkSnapshot& link = snapshot.links[index];
       const int row = static_cast<int>(index);
-      SetTableText(mLinkTablePtr, row, 0, nrm::ToString(link.networkType));
+      SetTableText(mLinkTablePtr, row, 0, DisplayCode(nrm::ToString(link.networkType)));
       mLinkTablePtr->item(row, 0)->setForeground(QBrush(NetworkColor(link.networkType)));
       SetTableText(mLinkTablePtr, row, 1, QString::fromStdString(link.sourcePlatform));
       SetTableText(mLinkTablePtr, row, 2, QString::fromStdString(link.destinationPlatform));
-      SetTableText(mLinkTablePtr, row, 3, nrm::ToString(link.state));
+      SetTableText(mLinkTablePtr, row, 3, DisplayCode(nrm::ToString(link.state)));
       SetTableText(mLinkTablePtr, row, 4, MetricText(link.distanceM, 1));
       SetTableText(mLinkTablePtr, row, 5, MetricText(link.bandwidthBps, 1));
       const nrm::WindowMetrics* window10s = FindWindow(link.windows, 10.0);
@@ -2053,6 +2075,7 @@ void WkNrm::DockWidget::SetTableText(QTableWidget* aTablePtr, int aRow, int aCol
       aTablePtr->setItem(aRow, aColumn, itemPtr);
    }
    itemPtr->setText(aText);
+   itemPtr->setToolTip(aText);
 }
 
 QString WkNrm::DockWidget::RuntimeStateText(nrm::RuntimeState aState)

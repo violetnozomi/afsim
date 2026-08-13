@@ -8,6 +8,8 @@ target_include_directories(NetworkResourceManager PRIVATE
 )
 
 target_sources(NetworkResourceManager PRIVATE
+   NrmUiText.cpp
+   NrmUiText.hpp
    NrmCustomerJsonCodec.cpp
    NrmCustomerJsonCodec.hpp
    NrmPreacceptanceStatusMonitor.cpp

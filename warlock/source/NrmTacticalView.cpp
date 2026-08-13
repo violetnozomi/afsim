@@ -48,7 +48,7 @@ WkNrm::TacticalView::TacticalView(DataContainer& aData, QWidget* aParentPtr)
    : QWidget(aParentPtr)
    , mData(aData)
 {
-   setMinimumSize(620, 480);
+   setMinimumSize(0, 0);
    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
    connect(&mData, &DataContainer::SnapshotChanged, this, qOverload<>(&QWidget::update));
    connect(&mData, &DataContainer::AssessmentChanged, this, qOverload<>(&QWidget::update));

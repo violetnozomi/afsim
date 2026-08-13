@@ -56,6 +56,15 @@ target_include_directories(nrm_framework_types_test PRIVATE
 )
 add_test(NAME nrm_framework_types_test COMMAND nrm_framework_types_test)
 
+add_executable(nrm_ui_text_test EXCLUDE_FROM_ALL
+   tests/UiTextTest.cpp
+   warlock/source/NrmUiText.cpp
+)
+target_include_directories(nrm_ui_text_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+add_test(NAME nrm_ui_text_test COMMAND nrm_ui_text_test)
+
 add_executable(nrm_snapshot_reporter_test EXCLUDE_FROM_ALL
    tests/SnapshotReporterTest.cpp
    warlock/source/NrmSnapshotReporter.cpp
@@ -271,6 +280,7 @@ set(NRM_TEST_TARGETS
    nrm_concurrent_task_assessment_test
    nrm_degradation_policy_test
    nrm_framework_types_test
+   nrm_ui_text_test
    nrm_snapshot_reporter_test
    nrm_assessment_evaluator_test
    nrm_network_profile_test
