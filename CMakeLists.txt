@@ -215,6 +215,19 @@ target_include_directories(nrm_afsim_navigation_packet_parser_test PRIVATE
 add_test(NAME nrm_afsim_navigation_packet_parser_test
    COMMAND nrm_afsim_navigation_packet_parser_test)
 
+find_package(Qt5Core REQUIRED)
+add_executable(nrm_customer_json_codec_test EXCLUDE_FROM_ALL
+   tests/CustomerJsonCodecTest.cpp
+   warlock/source/NrmCustomerJsonCodec.cpp
+)
+target_include_directories(nrm_customer_json_codec_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+target_link_libraries(nrm_customer_json_codec_test PRIVATE Qt5::Core)
+add_test(NAME nrm_customer_json_codec_test
+   COMMAND nrm_customer_json_codec_test)
+
 add_executable(nrm_navigation_packet_tool EXCLUDE_FROM_ALL
    tools/NrmNavigationPacketTool.cpp
 )
@@ -241,6 +254,7 @@ set(NRM_TEST_TARGETS
    nrm_environment_config_repository_test
    nrm_environment_effect_adapter_test
    nrm_afsim_navigation_packet_parser_test
+   nrm_customer_json_codec_test
 )
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
    foreach(NRM_TEST_TARGET IN LISTS NRM_TEST_TARGETS)
