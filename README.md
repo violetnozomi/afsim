@@ -50,7 +50,7 @@
 - 演示场景：四网总览、三种故障/恢复场景和通信能力固定 smoke 场景。
 - 综合作战场景：基于AFSIM内置突防/IADS和显式武器示例重构项目自有25节点场景，包含红蓝双方、
   多部雷达/SAM、截击机、突击与护航编队、ISR、指挥链、四网业务、主备路由、链路故障和两次武器发射。
-- 一键内部预验收：`scripts/run_preacceptance.sh`自动执行20项测试、八个批准场景和Warlock
+- 一键内部预验收：`scripts/run_preacceptance.sh`自动执行21项测试、八个批准场景和Warlock
   最终快照核对，在忽略的`output/preacceptance/`目录生成Markdown报告与原始日志，并以
   `latest_status.json`向Warlock只读“预验收状态”页发布最新进度和结果。
 

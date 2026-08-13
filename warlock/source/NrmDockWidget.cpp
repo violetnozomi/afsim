@@ -1216,6 +1216,22 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
                               QString::fromStdString(operation.path))
                          : QString::fromUtf8("原因=%1").arg(nrm::ToString(operation.reason));
    }
+   if (mData.HasPlanEvaluation())
+   {
+      const nrm::DegradationStatus& degradation =
+         mData.GetConcurrentAssessment().degradation;
+      QStringList defaults;
+      for (const std::string& value : degradation.usedDefaults)
+         defaults.push_back(QString::fromStdString(value));
+      QStringList missing;
+      for (const std::string& value : degradation.missingFields)
+         missing.push_back(QString::fromStdString(value));
+      operationText += QString::fromUtf8(" | 降级等级=%1，数据覆盖=%2%，默认值=%3，缺失=%4")
+         .arg(nrm::ToString(degradation.level))
+         .arg(degradation.dataCoveragePercent, 0, 'f', 1)
+         .arg(defaults.isEmpty() ? QString::fromUtf8("无") : defaults.join(","))
+         .arg(missing.isEmpty() ? QString::fromUtf8("无") : missing.join(","));
+   }
    mPlanOperationPtr->setText(operationText);
 
    const QSignalBlocker allocationBlocker(mPlanAllocationTablePtr);

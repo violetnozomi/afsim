@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "nrm/AssessmentEvaluator.hpp"
+#include "nrm/DegradationPolicy.hpp"
 
 namespace nrm
 {
@@ -81,6 +82,7 @@ struct ConcurrentAssessmentResult
    std::uint64_t snapshotVersion = 0;
    double simTime = 0.0;
    bool valid = false;
+   DegradationStatus degradation;
    std::size_t totalCount = 0;
    std::size_t allocatedCount = 0;
    std::size_t rejectedCount = 0;
@@ -115,6 +117,7 @@ public:
       batch.snapshotVersion = aSnapshot.snapshotVersion;
       batch.simTime = aSnapshot.simTime;
       batch.totalCount = aTasks.size();
+      batch.degradation = DegradationPolicy().Evaluate(aSnapshot, true);
       std::set<std::string> ids;
       for (const AssessmentTask& task : aTasks)
       {
