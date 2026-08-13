@@ -279,6 +279,25 @@ int main()
    assert(sampleResult.issues.front().reason ==
           nrm::PlanValidationReason::cCUSTOMER_RULE_UNAVAILABLE);
 
+   // The 25-node operational sample exercises multiple allocations per
+   // network, twelve concurrent demands, and valid JOIN/LEAVE requests.
+   nrm::NetworkPlanRepository complexRepository;
+   const std::string complexPath =
+      std::string(NRM_SOURCE_DIR) +
+      "/data/network_plans/operational_25node_complex-r1.nrm";
+   assert(complexRepository.LoadFromFile(complexPath));
+   const nrm::NetworkPlanDocument& complexPlan =
+      *complexRepository.GetCurrentPlan();
+   assert(complexPlan.allocations.size() == 8);
+   assert(complexPlan.demands.size() == 12);
+   assert(complexPlan.changes.size() == 2);
+   const nrm::PlanValidationResult complexResult =
+      validator.Validate(sampleSnapshot, complexPlan);
+   assert(complexResult.passed);
+   assert(complexResult.issues.size() == 1);
+   assert(complexResult.issues.front().reason ==
+          nrm::PlanValidationReason::cCUSTOMER_RULE_UNAVAILABLE);
+
    const nrm::PlanValidationResult validResult =
       validator.Validate(validationSnapshot, ValidPlan());
    assert(validResult.passed);
