@@ -420,11 +420,12 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mMetricsTablePtr = CreateTable(
       {QString::fromUtf8("类型"), QString::fromUtf8("网络"), QString::fromUtf8("统计窗口"),
        QString::fromUtf8("吞吐量"), "PDR", QString::fromUtf8("在网率"),
-       QString::fromUtf8("排队时延"), QString::fromUtf8("传输时延")},
+       QString::fromUtf8("排队时延"), QString::fromUtf8("传输时延"),
+       QString::fromUtf8("队列占用率"), "ACK", "RTT"},
       tabsPtr);
    mEndpointTablePtr =
       CreateTable({QString::fromUtf8("类型"), QString::fromUtf8("平台"), QString::fromUtf8("通信设备"),
-                   QString::fromUtf8("地址"), QString::fromUtf8("状态"), QString::fromUtf8("纬度"),
+                   QString::fromUtf8("地址"), QString::fromUtf8("职责"), QString::fromUtf8("状态"), QString::fromUtf8("纬度"),
                    QString::fromUtf8("经度"), QString::fromUtf8("高度")}, tabsPtr);
    mLinkTablePtr = CreateTable(
       {QString::fromUtf8("类型"),
@@ -1757,6 +1758,9 @@ void WkNrm::DockWidget::Refresh()
          SetTableText(mMetricsTablePtr, metricsRow, 5, MetricText(window.onlineRatioPercent, 1));
          SetTableText(mMetricsTablePtr, metricsRow, 6, MetricText(window.averageQueueDelayMs, 3));
          SetTableText(mMetricsTablePtr, metricsRow, 7, MetricText(window.averageTransportDelayMs, 3));
+         SetTableText(mMetricsTablePtr, metricsRow, 8, MetricText(window.queueUtilizationPercent, 1));
+         SetTableText(mMetricsTablePtr, metricsRow, 9, MetricText(window.ackDelayMs, 3));
+         SetTableText(mMetricsTablePtr, metricsRow, 10, MetricText(window.rttMs, 3));
          ++metricsRow;
       }
    }
@@ -1771,10 +1775,11 @@ void WkNrm::DockWidget::Refresh()
       SetTableText(mEndpointTablePtr, row, 1, QString::fromStdString(endpoint.platformName));
       SetTableText(mEndpointTablePtr, row, 2, QString::fromStdString(endpoint.commName));
       SetTableText(mEndpointTablePtr, row, 3, QString::fromStdString(endpoint.address));
-      SetTableText(mEndpointTablePtr, row, 4, nrm::ToString(endpoint.state));
-      SetTableText(mEndpointTablePtr, row, 5, MetricText(endpoint.latitudeDeg, 5));
-      SetTableText(mEndpointTablePtr, row, 6, MetricText(endpoint.longitudeDeg, 5));
-      SetTableText(mEndpointTablePtr, row, 7, MetricText(endpoint.altitudeM, 1));
+      SetTableText(mEndpointTablePtr, row, 4, QString::fromStdString(endpoint.memberRole));
+      SetTableText(mEndpointTablePtr, row, 5, nrm::ToString(endpoint.state));
+      SetTableText(mEndpointTablePtr, row, 6, MetricText(endpoint.latitudeDeg, 5));
+      SetTableText(mEndpointTablePtr, row, 7, MetricText(endpoint.longitudeDeg, 5));
+      SetTableText(mEndpointTablePtr, row, 8, MetricText(endpoint.altitudeM, 1));
    }
 
    mLinkTablePtr->setRowCount(static_cast<int>(snapshot.links.size()));

@@ -123,6 +123,10 @@ struct WindowMetrics
    MetricValue<double> p95TransportDelayMs;
    MetricValue<double> onlineRatioPercent;
    MetricValue<double> utilizationPercent;
+   MetricValue<double> queueUtilizationPercent;
+   MetricValue<double> ackDelayMs;
+   MetricValue<double> responseDelayMs;
+   MetricValue<double> rttMs;
 };
 
 struct NetworkSnapshot
@@ -151,6 +155,9 @@ struct EndpointSnapshot
    ResourceState state      = ResourceState::cUNKNOWN;
    bool canSend             = false;
    bool canReceive          = false;
+   std::string memberRole;
+   DataOrigin memberRoleOrigin = DataOrigin::cESTIMATED;
+   Confidence memberRoleConfidence = Confidence::cLOW;
    MetricValue<double> latitudeDeg;
    MetricValue<double> longitudeDeg;
    MetricValue<double> altitudeM;
@@ -184,6 +191,10 @@ struct LinkSnapshot
    MetricValue<double> interferenceFactorPercent;
    MetricValue<double> atmosphericTransmittancePercent;
    MetricValue<double> terrainBlockedFlag;
+   std::vector<double> availableFrequenciesHz;
+   DataOrigin availableFrequenciesOrigin = DataOrigin::cPARAMETERIZED_MODEL;
+   Confidence availableFrequenciesConfidence = Confidence::cLOW;
+   std::size_t queueLimit = 0;
    std::vector<WindowMetrics> windows;
 };
 

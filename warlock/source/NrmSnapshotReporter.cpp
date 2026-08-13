@@ -108,6 +108,17 @@ void WriteMetric(std::ostream& aOutput, const nrm::MetricValue<double>& aMetric)
            << aMetric.sampleTime << ",\"window\":" << aMetric.window << '}';
 }
 
+void WriteNumberArray(std::ostream& aOutput, const std::vector<double>& aValues)
+{
+   aOutput << '[';
+   for (std::size_t index = 0; index < aValues.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      aOutput << aValues[index];
+   }
+   aOutput << ']';
+}
+
 void WriteWindows(std::ostream& aOutput, const std::vector<nrm::WindowMetrics>& aWindows)
 {
    aOutput << '[';
@@ -148,6 +159,14 @@ void WriteWindows(std::ostream& aOutput, const std::vector<nrm::WindowMetrics>& 
       WriteMetric(aOutput, window.onlineRatioPercent);
       aOutput << ",\"utilizationPercent\":";
       WriteMetric(aOutput, window.utilizationPercent);
+      aOutput << ",\"queueUtilizationPercent\":";
+      WriteMetric(aOutput, window.queueUtilizationPercent);
+      aOutput << ",\"ackDelayMs\":";
+      WriteMetric(aOutput, window.ackDelayMs);
+      aOutput << ",\"responseDelayMs\":";
+      WriteMetric(aOutput, window.responseDelayMs);
+      aOutput << ",\"rttMs\":";
+      WriteMetric(aOutput, window.rttMs);
       // Preserve the v0.6 window contract while v0.7 consumers migrate to camelCase.
       aOutput << ",\"window_s\":" << window.windowS
               << ",\"routing_failed\":" << window.messages.routingFailed
@@ -479,7 +498,9 @@ void WriteJsonSnapshot(std::ostream& aOutput,
               << ",\"valid\":"
               << (endpoint.latitudeDeg.valid && endpoint.longitudeDeg.valid && endpoint.altitudeM.valid
                      ? "true" : "false") << '}'
-              << ",\"currentOfflineDurationS\":";
+              << ",\"memberRole\":\"" << EscapeJson(endpoint.memberRole)
+              << "\",\"memberRoleOrigin\":\"" << nrm::ToString(endpoint.memberRoleOrigin)
+              << "\",\"currentOfflineDurationS\":";
       WriteMetric(aOutput, endpoint.currentOfflineDurationS);
       aOutput << ",\"windowOfflineDurationS\":";
       WriteMetric(aOutput, endpoint.windowOfflineDurationS);
@@ -501,6 +522,9 @@ void WriteJsonSnapshot(std::ostream& aOutput,
       WriteMetric(aOutput, link.distanceM);
       aOutput << ",\"bandwidth_bps\":";
       WriteMetric(aOutput, link.bandwidthBps);
+      aOutput << ",\"availableFrequenciesHz\":";
+      WriteNumberArray(aOutput, link.availableFrequenciesHz);
+      aOutput << ",\"queueLimit\":" << link.queueLimit;
       aOutput << ",\"rssi_dbm\":";
       WriteMetric(aOutput, link.rssiDbm);
       aOutput << ",\"snr_db\":";

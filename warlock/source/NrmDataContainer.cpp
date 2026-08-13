@@ -8,6 +8,7 @@
 #include <QFileInfo>
 
 #include "NrmSnapshotReporter.hpp"
+#include "nrm/ContractMetricEnricher.hpp"
 #include "nrm/NetworkProfileRepository.hpp"
 #include "nrm/Version.hpp"
 
@@ -71,6 +72,7 @@ WkNrm::DataContainer::~DataContainer() = default;
 void WkNrm::DataContainer::SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot)
 {
    mSnapshot = aSnapshot;
+   nrm::ContractMetricEnricher(mProfiles).Apply(mSnapshot);
    mHasDemandMatching = false;
    mReporterPtr->Enqueue(mSnapshot);
    emit SnapshotChanged();

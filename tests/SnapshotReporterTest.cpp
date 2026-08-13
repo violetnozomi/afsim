@@ -168,7 +168,8 @@ int main()
    CHECK(json.find("\"platform\":\"fighter\"") != std::string::npos);
    CHECK(json.find("\"comm\":\"link16\"") != std::string::npos);
    CHECK(json.find("\"can_send\":false") != std::string::npos);
-   CHECK(json.find("},\"currentOfflineDurationS\":") != std::string::npos);
+   CHECK(json.find("\"memberRole\":") != std::string::npos);
+   CHECK(json.find("\"currentOfflineDurationS\":") != std::string::npos);
    CHECK(json.find("\"deliveredThroughputBps\"") != std::string::npos);
    CHECK(json.find("\"window_s\":10") != std::string::npos);
    CHECK(json.find("\"routing_failed\":1") != std::string::npos);

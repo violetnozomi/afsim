@@ -7,6 +7,7 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/AssessmentEvaluator.hpp
       include/nrm/ConcurrentTaskAssessment.hpp
       include/nrm/DegradationPolicy.hpp
+      include/nrm/ContractMetricEnricher.hpp
       include/nrm/InputProvider.hpp
       include/nrm/NetworkTypeUtils.hpp
       include/nrm/RollingMetrics.hpp
@@ -92,6 +93,14 @@ target_include_directories(nrm_degradation_policy_test PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 add_test(NAME nrm_degradation_policy_test COMMAND nrm_degradation_policy_test)
+
+add_executable(nrm_contract_metric_enricher_test EXCLUDE_FROM_ALL
+   tests/ContractMetricEnricherTest.cpp
+)
+target_include_directories(nrm_contract_metric_enricher_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_contract_metric_enricher_test COMMAND nrm_contract_metric_enricher_test)
 
 add_executable(nrm_network_profile_test EXCLUDE_FROM_ALL
    tests/NetworkProfileTest.cpp
@@ -258,6 +267,7 @@ target_include_directories(nrm_navigation_packet_tool PRIVATE
 )
 
 set(NRM_TEST_TARGETS
+   nrm_contract_metric_enricher_test
    nrm_concurrent_task_assessment_test
    nrm_degradation_policy_test
    nrm_framework_types_test
