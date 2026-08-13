@@ -58,6 +58,12 @@ public:
                         const std::string& aField);
    void ReportDemandError(nrm::ResourceDemandReason aReason,
                           const std::string& aField);
+   void ReportCustomerInterfaceEvent(const std::string& aSchema,
+                                     const std::string& aMessageId,
+                                     const std::string& aFileName,
+                                     bool aAccepted,
+                                     const std::string& aErrorCode,
+                                     const std::string& aErrorPath);
    ReporterStatus GetStatus() const;
    std::string GetRunDirectory() const;
 

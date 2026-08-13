@@ -13,6 +13,7 @@
 #include "nrm/ModelServiceFacade.hpp"
 #include "nrm/NetworkPlanRepository.hpp"
 #include "nrm/ResourceDemandRepository.hpp"
+#include "NrmCustomerJsonCodec.hpp"
 
 namespace WkNrm
 {
@@ -87,6 +88,11 @@ public:
       const nrm::CapabilityRequest& aRequest,
       const nrm::EnvironmentContext& aEnvironment = nrm::EnvironmentContext());
    bool LoadNetworkPlan(const std::string& aPath);
+   bool LoadCustomerJson(const std::string& aPath);
+   const CustomerJsonDecodeResult& LastCustomerJsonResult() const
+   {
+      return mLastCustomerJsonResult;
+   }
    bool ReplaceNetworkPlanDraft(const nrm::NetworkPlanDocument& aDocument);
    void UnloadNetworkPlan();
    bool SaveNetworkPlanRevision(const std::string& aPath = std::string());
@@ -142,6 +148,8 @@ private:
    nrm::ResourceDemandBatchResult     mDemandMatching;
    bool                               mHasDemandMatching = false;
    std::unique_ptr<SnapshotReporter> mReporterPtr;
+   CustomerJsonCodec                 mCustomerJsonCodec;
+   CustomerJsonDecodeResult          mLastCustomerJsonResult;
 };
 } // namespace WkNrm
 

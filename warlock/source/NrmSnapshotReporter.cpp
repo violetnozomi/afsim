@@ -812,6 +812,24 @@ void WkNrm::SnapshotReporter::ReportDemandError(
    }
 }
 
+void WkNrm::SnapshotReporter::ReportCustomerInterfaceEvent(
+   const std::string& aSchema, const std::string& aMessageId,
+   const std::string& aFileName, bool aAccepted,
+   const std::string& aErrorCode, const std::string& aErrorPath)
+{
+   const std::string runDirectory = GetRunDirectory();
+   std::ofstream output(runDirectory + "/customer_interface_events.jsonl",
+                        std::ios::out | std::ios::app);
+   if (!output) return;
+   output << "{\"time\":\"" << UtcTimestamp(false)
+          << "\",\"schema\":\"" << EscapeJson(aSchema)
+          << "\",\"messageId\":\"" << EscapeJson(aMessageId)
+          << "\",\"fileName\":\"" << EscapeJson(aFileName)
+          << "\",\"result\":\"" << (aAccepted ? "ACCEPTED" : "REJECTED")
+          << "\",\"errorCode\":\"" << EscapeJson(aErrorCode)
+          << "\",\"errorPath\":\"" << EscapeJson(aErrorPath) << "\"}\n";
+}
+
 WkNrm::ReporterStatus WkNrm::SnapshotReporter::GetStatus() const
 {
    std::lock_guard<std::mutex> lock(mMutex);

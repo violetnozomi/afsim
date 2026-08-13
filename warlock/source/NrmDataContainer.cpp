@@ -4,6 +4,8 @@
 
 #include <QByteArray>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 
 #include "NrmSnapshotReporter.hpp"
 #include "nrm/NetworkProfileRepository.hpp"
@@ -129,6 +131,80 @@ bool WkNrm::DataContainer::LoadNetworkPlan(const std::string& aPath)
    }
    emit NetworkPlanChanged();
    return loaded;
+}
+
+bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
+{
+   QFile input(QString::fromStdString(aPath));
+   if (!input.open(QIODevice::ReadOnly))
+   {
+      mLastCustomerJsonResult = CustomerJsonDecodeResult();
+      mLastCustomerJsonResult.errors.push_back(
+         {"FILE_OPEN_FAILED", "/", "无法打开甲方JSON文件"});
+   }
+   else
+   {
+      const QByteArray json = input.readAll();
+      mLastCustomerJsonResult = mCustomerJsonCodec.Inspect(json);
+      if (mLastCustomerJsonResult.valid)
+      {
+         const std::string& schema = mLastCustomerJsonResult.envelope.schema;
+         if (schema == "nrm.customer.network_plan.v1")
+         {
+            nrm::NetworkPlanDocument plan;
+            mLastCustomerJsonResult = mCustomerJsonCodec.DecodeNetworkPlan(json, plan);
+            if (mLastCustomerJsonResult.valid) ReplaceNetworkPlanDraft(plan);
+         }
+         else if (schema == "nrm.customer.navigation_report.v1")
+         {
+            nrm::NavigationSample sample;
+            mLastCustomerJsonResult = mCustomerJsonCodec.DecodeNavigation(json, sample);
+            if (mLastCustomerJsonResult.valid)
+            {
+               nrm::FrameworkSnapshot snapshot = mSnapshot;
+               snapshot.navigation.valid = true;
+               snapshot.navigation.providerId = mLastCustomerJsonResult.envelope.source;
+               snapshot.navigation.origin = sample.origin;
+               snapshot.navigation.sampleTime = sample.sampleTime;
+               snapshot.navigation.platforms = {sample};
+               SetSnapshot(snapshot);
+            }
+         }
+         else if (schema == "nrm.customer.environment_report.v1")
+         {
+            nrm::EnvironmentSnapshot environment;
+            nrm::EnvironmentContext context;
+            mLastCustomerJsonResult = mCustomerJsonCodec.DecodeEnvironment(json, environment, context);
+            if (mLastCustomerJsonResult.valid)
+            {
+               nrm::FrameworkSnapshot snapshot = mSnapshot;
+               snapshot.environment = environment;
+               SetSnapshot(snapshot);
+            }
+         }
+         else if (schema == "nrm.customer.resource_report.v1")
+         {
+            nrm::ResourceSnapshot snapshot;
+            mLastCustomerJsonResult = mCustomerJsonCodec.DecodeResources(json, snapshot);
+            if (mLastCustomerJsonResult.valid) SetSnapshot(snapshot);
+         }
+         else
+         {
+            mLastCustomerJsonResult.valid = false;
+            mLastCustomerJsonResult.errors.push_back(
+               {"SCHEMA_UNSUPPORTED", "/schema", "该消息不能通过文件加载入口执行"});
+         }
+      }
+   }
+   const CustomerJsonError error = mLastCustomerJsonResult.errors.empty()
+                                      ? CustomerJsonError()
+                                      : mLastCustomerJsonResult.errors.front();
+   mReporterPtr->ReportCustomerInterfaceEvent(
+      mLastCustomerJsonResult.envelope.schema,
+      mLastCustomerJsonResult.envelope.messageId,
+      QFileInfo(QString::fromStdString(aPath)).fileName().toStdString(),
+      mLastCustomerJsonResult.valid, error.code, error.path);
+   return mLastCustomerJsonResult.valid;
 }
 
 bool WkNrm::DataContainer::ReplaceNetworkPlanDraft(

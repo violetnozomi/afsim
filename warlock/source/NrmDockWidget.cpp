@@ -993,11 +993,21 @@ void WkNrm::DockWidget::LoadNetworkPlan()
           QMessageBox::Yes)
       return;
    const QString path = QFileDialog::getOpenFileName(
-      this, QString::fromUtf8("加载内部规划文件"), QString(),
-      QString::fromUtf8("NRM规划文件 (*.nrm);;所有文件 (*)"));
+      this, QString::fromUtf8("加载资源规划文件"), QString(),
+      QString::fromUtf8("资源规划文件 (*.json *.nrm);;甲方JSON (*.json);;内部NRM规划 (*.nrm)"));
    if (path.isEmpty()) return;
    mPlanDirty = false;
-   mData.LoadNetworkPlan(path.toStdString());
+   if (path.endsWith(".json", Qt::CaseInsensitive))
+   {
+      mData.LoadCustomerJson(path.toStdString());
+      const CustomerJsonDecodeResult& result = mData.LastCustomerJsonResult();
+      if (!result.valid && !result.errors.empty())
+         mPlanOperationPtr->setText(QString::fromUtf8("甲方JSON加载失败：%1 %2")
+            .arg(QString::fromStdString(result.errors.front().code),
+                 QString::fromStdString(result.errors.front().path)));
+   }
+   else
+      mData.LoadNetworkPlan(path.toStdString());
    RefreshNetworkPlan();
 }
 
