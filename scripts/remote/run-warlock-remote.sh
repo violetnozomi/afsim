@@ -125,4 +125,12 @@ then
    set -- "${NRM_SOURCE}/test_mission/four_network_overview.txt"
 fi
 
+# Resolve project-relative mission paths before Warlock starts.  Warlock may
+# change its working directory to the short runtime tree, where a relative
+# test_mission/... path no longer identifies the source-tree file.
+if [[ "${1}" != /* && -f "${NRM_SOURCE}/${1}" ]]
+then
+   set -- "${NRM_SOURCE}/${1}" "${@:2}"
+fi
+
 exec "${AFSIM_REMOTE_BIN}/warlock" "$@"
