@@ -20,4 +20,15 @@ execute at_time 180 s absolute
    writeln("NRM_OPERATIONAL PHASE INTERACTIVE_HOLD");
 end_execute
 
-end_time 3600 s
+# NRM_OPERATIONAL CLOCK_RATE_GUARD: Warlock's simulation controller can apply
+# an operator clock multiplier after the scenario script.  Reassert the hold
+# whenever simulation time advances so the interactive scene cannot silently
+# race to completion and fall back to the default service scenario.
+execute at_interval_of 1 s
+   if (TIME_NOW >= 180.0)
+   {
+      WsfSimulation.SetClockRate(0.0001);
+   }
+end_execute
+
+end_time 31536000 s

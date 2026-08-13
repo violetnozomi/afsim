@@ -29,6 +29,7 @@ readonly -a DISABLED_REMOTE_VISUAL_PLUGINS=(
 
 export DISPLAY="${DISPLAY:-:${NRM_VNC_DISPLAY_NUMBER}}"
 export XAUTHORITY="${XAUTHORITY:-${NRM_RUNTIME_DIR}/Xauthority}"
+export NRM_SOURCE
 export SOURCE_ROOT="${AFSIM_SOURCE}"
 # WKF MapDisplay profiles expand paths such as
 # $RESOURCE_PATH/bluemarble_db/bmng.earth, so this variable must point to the

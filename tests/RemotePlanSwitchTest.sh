@@ -17,10 +17,13 @@ then
    exit 1
 fi
 grep -q 'NRM_SWITCH_REQUEST_FILE' "${LAUNCH_SCRIPT}"
+grep -Eq '^export NRM_SOURCE$' "${LAUNCH_SCRIPT}"
 grep -qx 'test_mission/operational_strike_demo/interactive.txt' "${BINDING_FILE}"
 grep -Eq '^realtime[[:space:]]*$' "${INTERACTIVE_SCENARIO}"
 grep -Eq '^clock_rate[[:space:]]+1([.]0)?[[:space:]]*$' "${INTERACTIVE_SCENARIO}"
 grep -q 'WsfSimulation.SetClockRate(0.0001)' "${INTERACTIVE_SCENARIO}"
+grep -q 'NRM_OPERATIONAL CLOCK_RATE_GUARD' "${INTERACTIVE_SCENARIO}"
+grep -Eq '^end_time[[:space:]]+31536000[[:space:]]+s[[:space:]]*$' "${INTERACTIVE_SCENARIO}"
 
 TEMP_ROOT=$(mktemp -d)
 trap 'rm -rf "${TEMP_ROOT}"' EXIT
