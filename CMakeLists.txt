@@ -65,6 +65,10 @@ target_include_directories(nrm_ui_text_test PRIVATE
 )
 add_test(NAME nrm_ui_text_test COMMAND nrm_ui_text_test)
 
+add_test(NAME nrm_remote_plan_switch_test
+   COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/RemotePlanSwitchTest.sh
+)
+
 add_executable(nrm_snapshot_reporter_test EXCLUDE_FROM_ALL
    tests/SnapshotReporterTest.cpp
    warlock/source/NrmSnapshotReporter.cpp

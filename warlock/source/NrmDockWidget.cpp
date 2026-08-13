@@ -30,7 +30,6 @@
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QTextEdit>
-#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -1100,16 +1099,19 @@ void WkNrm::DockWidget::LoadNetworkPlan()
             QString::fromLocal8Bit(qgetenv("NRM_SOURCE")) +
             "/scripts/remote/switch-warlock-plan.sh";
          const bool started = QProcess::startDetached(
-            switchScript,
-            {QString::number(QCoreApplication::applicationPid()), scenario, path});
+            "systemd-run",
+            {"--quiet", "--user", "--collect",
+             QString("--unit=nrm-warlock-plan-switch-%1")
+                .arg(QCoreApplication::applicationPid()),
+             switchScript, scenario, path});
          if (started)
          {
             mPlanOperationPtr->setText(
                QString::fromUtf8("规划绑定场景与当前场景不同，正在重启并自动恢复规划……"));
-            QTimer::singleShot(100, QCoreApplication::instance(), &QCoreApplication::quit);
             return;
          }
-         mPlanOperationPtr->setText(QString::fromUtf8("场景自动切换失败，请检查切换脚本权限。"));
+         mPlanOperationPtr->setText(
+            QString::fromUtf8("场景自动切换失败，请检查systemd临时单元和切换脚本权限。"));
       }
    }
    RefreshNetworkPlan();

@@ -13,6 +13,7 @@ readonly QT_COMPAT_SOURCE="${NRM_SOURCE}/scripts/remote/qt512_readlink_compat.c"
 readonly QT_COMPAT_LIBRARY="${AFSIM_REMOTE_ROOT}/lib/libnrm_qt512_readlink_compat.so"
 readonly NRM_VNC_DISPLAY_NUMBER="${NRM_VNC_DISPLAY_NUMBER:-1}"
 readonly NRM_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/nrm-vnc"
+readonly NRM_SWITCH_REQUEST_FILE="${NRM_SWITCH_REQUEST_FILE:-${NRM_RUNTIME_DIR}/plan-switch.request}"
 readonly -a WARLOCK_VISUAL_PLUGINS=(
    CommVis
 )
@@ -38,6 +39,23 @@ export XDG_DATA_DIRS="${NRM_REMOTE_ROOT}/usr/share:${XDG_DATA_DIRS:-/usr/local/s
 export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
 export QT_X11_NO_MITSHM=1
 unset QT_QPA_PLATFORM
+
+# A plan-triggered scenario switch is handed back to the managed service as a
+# one-shot request.  Consuming it here keeps the replacement Warlock process
+# inside nrm-warlock.service instead of an orphaned Qt child process.
+if [[ -f "${NRM_SWITCH_REQUEST_FILE}" ]]
+then
+   mapfile -t switch_request <"${NRM_SWITCH_REQUEST_FILE}"
+   if [[ "${#switch_request[@]}" -ne 2 || ! -f "${switch_request[0]}" ||
+         ! -f "${switch_request[1]}" ]]
+   then
+      echo "Invalid Warlock plan switch request: ${NRM_SWITCH_REQUEST_FILE}" >&2
+      exit 1
+   fi
+   set -- "${switch_request[0]}"
+   export NRM_AUTO_PLAN_FILE="${switch_request[1]}"
+   rm -f "${NRM_SWITCH_REQUEST_FILE}"
+fi
 
 export LD_LIBRARY_PATH="${NRM_REMOTE_ROOT}/usr/lib/x86_64-linux-gnu:\
 ${AFSIM_BUILD}:\

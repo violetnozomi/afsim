@@ -2,25 +2,26 @@
 
 set -euo pipefail
 
-readonly ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-readonly OLD_PID="$1"
-readonly SCENARIO="$2"
-readonly PLAN="$3"
+readonly SCENARIO="$1"
+readonly PLAN="$2"
+readonly SYSTEMCTL_COMMAND="${NRM_SYSTEMCTL_COMMAND:-systemctl}"
+readonly RUNTIME_ROOT="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/nrm-vnc"
+readonly REQUEST_FILE="${NRM_SWITCH_REQUEST_FILE:-${RUNTIME_ROOT}/plan-switch.request}"
 
-for _ in $(seq 1 100)
-do
-   if ! kill -0 "$OLD_PID" 2>/dev/null
-   then
-      break
-   fi
-   sleep 0.1
-done
-
-if kill -0 "$OLD_PID" 2>/dev/null
+if [[ ! -f "${SCENARIO}" ]]
 then
-   echo "Old Warlock process did not exit: $OLD_PID" >&2
+   echo "Scenario does not exist: ${SCENARIO}" >&2
+   exit 1
+fi
+if [[ ! -f "${PLAN}" ]]
+then
+   echo "Plan does not exist: ${PLAN}" >&2
    exit 1
 fi
 
-export NRM_AUTO_PLAN_FILE="$PLAN"
-exec "$ROOT/scripts/remote/run-warlock-remote.sh" "$SCENARIO"
+mkdir -p "$(dirname "${REQUEST_FILE}")"
+request_temp="${REQUEST_FILE}.tmp.$$"
+printf '%s\n%s\n' "${SCENARIO}" "${PLAN}" >"${request_temp}"
+mv -f "${request_temp}" "${REQUEST_FILE}"
+
+exec "${SYSTEMCTL_COMMAND}" --user restart nrm-warlock.service
