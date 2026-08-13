@@ -224,6 +224,9 @@ target_include_directories(nrm_customer_json_codec_test PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/include
    ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
 )
+target_compile_definitions(nrm_customer_json_codec_test PRIVATE
+   NRM_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
 target_link_libraries(nrm_customer_json_codec_test PRIVATE Qt5::Core)
 add_test(NAME nrm_customer_json_codec_test
    COMMAND nrm_customer_json_codec_test)

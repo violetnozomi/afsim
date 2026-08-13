@@ -91,6 +91,19 @@ public:
    virtual ContractAdapterResult Validate(
       const ContractInterfaceRequest& aExternalRequest) const = 0;
 
+   virtual ContractAdapterResult DecodeNavigationReport(
+      const ContractInterfaceRequest& aExternalRequest,
+      NavigationSample& aSample) const = 0;
+
+   virtual ContractAdapterResult DecodeEnvironmentReport(
+      const ContractInterfaceRequest& aExternalRequest,
+      EnvironmentSnapshot& aSnapshot,
+      EnvironmentContext& aContext) const = 0;
+
+   virtual ContractAdapterResult DecodeResourceReport(
+      const ContractInterfaceRequest& aExternalRequest,
+      ResourceSnapshot& aSnapshot) const = 0;
+
    virtual ContractAdapterResult DecodeCapabilityRequest(
       const ContractInterfaceRequest& aExternalRequest,
       ModelServiceContext& aContext,

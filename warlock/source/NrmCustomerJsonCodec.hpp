@@ -9,6 +9,8 @@
 
 #include <QByteArray>
 
+#include "nrm/CommunicationCapabilityTypes.hpp"
+
 namespace WkNrm
 {
 struct CustomerJsonError
@@ -39,6 +41,13 @@ public:
    CustomerJsonDecodeResult Inspect(const QByteArray& aJson) const;
    QByteArray EncodeError(const CustomerJsonEnvelope& aEnvelope,
                           const std::vector<CustomerJsonError>& aErrors) const;
+   CustomerJsonDecodeResult DecodeNavigation(const QByteArray& aJson,
+                                             nrm::NavigationSample& aSample) const;
+   CustomerJsonDecodeResult DecodeEnvironment(const QByteArray& aJson,
+                                              nrm::EnvironmentSnapshot& aSnapshot,
+                                              nrm::EnvironmentContext& aContext) const;
+   CustomerJsonDecodeResult DecodeResources(const QByteArray& aJson,
+                                            nrm::ResourceSnapshot& aSnapshot) const;
 
 private:
    static bool IsSupportedSchema(const QString& aSchema);

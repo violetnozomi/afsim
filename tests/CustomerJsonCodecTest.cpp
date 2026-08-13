@@ -1,6 +1,8 @@
 #include "NrmCustomerJsonCodec.hpp"
 
 #include <cassert>
+#include <fstream>
+#include <sstream>
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -11,6 +13,16 @@ namespace
 QByteArray ValidEnvelope()
 {
    return R"({"schema":"nrm.customer.assessment_request.v1","messageId":"msg-001","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{}})";
+}
+
+QByteArray ReadFixture(const char* aName)
+{
+   std::ifstream input(std::string(NRM_SOURCE_DIR) +
+                       "/schemas/customer/v1/examples/" + aName);
+   std::ostringstream text;
+   text << input.rdbuf();
+   assert(input.good() || input.eof());
+   return QByteArray::fromStdString(text.str());
 }
 
 void ExpectFirstError(const WkNrm::CustomerJsonDecodeResult& aResult,
@@ -55,5 +67,40 @@ int main()
    const QJsonArray errors = root.value("data").toObject().value("errors").toArray();
    assert(errors.size() == 1);
    assert(errors.at(0).toObject().value("path").toString() == "/data/platformId");
+
+   nrm::NavigationSample navigation;
+   assert(codec.DecodeNavigation(ReadFixture("navigation-report.example.json"),
+                                 navigation).valid);
+   assert(navigation.platformName == "aircraft-01");
+   assert(navigation.mode == nrm::NavigationMode::cGPS_ACTIVE);
+   assert(navigation.truthLatitudeDeg.valid);
+   assert(navigation.truthLatitudeDeg.unit == "deg");
+   assert(navigation.totalPositionErrorM.valid);
+
+   nrm::EnvironmentSnapshot environment;
+   nrm::EnvironmentContext environmentContext;
+   assert(codec.DecodeEnvironment(ReadFixture("environment-report.example.json"),
+                                  environment, environmentContext).valid);
+   assert(environment.valid);
+   assert(environment.weather.available);
+   assert(environment.weather.windSpeedMps.value == 8.0);
+   assert(environmentContext.applyParameterizedEffects);
+
+   nrm::ResourceSnapshot resources;
+   assert(codec.DecodeResources(ReadFixture("resource-report.example.json"),
+                                resources).valid);
+   assert(resources.networks.size() == 1);
+   assert(resources.endpoints.size() == 2);
+   assert(resources.links.size() == 1);
+   assert(resources.links.front().bandwidthBps.value == 238000.0);
+
+   const nrm::ResourceSnapshot preserved = resources;
+   const auto invalidResource = codec.DecodeResources(
+      R"({"schema":"nrm.customer.resource_report.v1","messageId":"x","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{"runId":"r","simTime":1,"networks":[],"members":[],"links":[{"linkId":"l","networkId":"missing","sourceMemberId":"a","destinationMemberId":"b","state":"ONLINE"}]}})",
+      resources);
+   assert(!invalidResource.valid);
+   assert(resources.networks.size() == preserved.networks.size());
+   assert(resources.endpoints.size() == preserved.endpoints.size());
+   assert(resources.links.size() == preserved.links.size());
    return 0;
 }
