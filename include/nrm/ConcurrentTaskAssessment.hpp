@@ -13,6 +13,7 @@
 
 #include "nrm/AssessmentEvaluator.hpp"
 #include "nrm/DegradationPolicy.hpp"
+#include "nrm/ProtocolResourceModel.hpp"
 
 namespace nrm
 {
@@ -40,28 +41,7 @@ inline const char* ToString(ConcurrentResourceReason aReason)
    return "NONE";
 }
 
-struct ProtocolResourceDefaults
-{
-   std::size_t link11PollingUnits = 8;
-   std::size_t link16Slots = 16;
-   std::size_t satcomBeams = 4;
-   std::size_t satcomChannelsPerBeam = 2;
-   std::size_t cdlConcurrentLinks = 4;
-   std::size_t cdlChannels = 8;
-
-   static ProtocolResourceDefaults AcceptanceDefaults()
-   {
-      return ProtocolResourceDefaults();
-   }
-};
-
-struct ProtocolResourceAllocation
-{
-   std::string kind;
-   std::size_t capacity = 0;
-   std::size_t used = 0;
-   std::size_t remaining = 0;
-};
+using ProtocolResourceAllocation = ProtocolResourceState;
 
 struct ConcurrentTaskResult
 {
@@ -105,7 +85,7 @@ public:
    ConcurrentTaskAssessment(const NetworkProfileRepository& aProfiles,
                             const ProtocolResourceDefaults& aDefaults)
       : mEvaluator(aProfiles)
-      , mDefaults(aDefaults)
+      , mProtocolModel(aDefaults)
    {
    }
 
@@ -143,10 +123,11 @@ public:
                                              : item.concurrent.networkSequence.front();
          if (item.allocated)
          {
-            item.protocolResource = ResourceStateFor(
-               resourceType, protocolOwners[resourceType].size());
-            if (item.protocolResource.capacity > 0 &&
-                item.protocolResource.used >= item.protocolResource.capacity)
+            const ProtocolResourceEvaluation protocol = mProtocolModel.Evaluate(
+               resourceType, protocolOwners[resourceType].size(),
+               task.requiredBandwidthBps);
+            item.protocolResource = protocol.state;
+            if (!protocol.available)
             {
                item.allocated = false;
                item.concurrent.canComplete = false;
@@ -160,8 +141,6 @@ public:
             Reserve(working, item.concurrent.primaryEndpointRoute,
                     task.requiredBandwidthBps, task.taskId, reservations);
             protocolOwners[resourceType].push_back(task.taskId);
-            item.protocolResource = ResourceStateFor(
-               resourceType, protocolOwners[resourceType].size());
             ++batch.allocatedCount;
          }
          else
@@ -193,38 +172,6 @@ private:
       std::string destinationId;
       std::string taskId;
    };
-
-   ProtocolResourceAllocation ResourceStateFor(NetworkType aType,
-                                                std::size_t aUsed) const
-   {
-      ProtocolResourceAllocation resource;
-      switch (aType)
-      {
-      case NetworkType::cLINK11:
-         resource.kind = "POLLING_UNIT";
-         resource.capacity = mDefaults.link11PollingUnits;
-         break;
-      case NetworkType::cLINK16:
-         resource.kind = "TIMESLOT";
-         resource.capacity = mDefaults.link16Slots;
-         break;
-      case NetworkType::cSATCOM:
-         resource.kind = "BEAM_CHANNEL";
-         resource.capacity = mDefaults.satcomBeams * mDefaults.satcomChannelsPerBeam;
-         break;
-      case NetworkType::cCDL:
-         resource.kind = "CHANNEL_LINK";
-         resource.capacity = std::min(mDefaults.cdlConcurrentLinks,
-                                      mDefaults.cdlChannels);
-         break;
-      case NetworkType::cUNKNOWN:
-         break;
-      }
-      resource.used = aUsed;
-      resource.remaining = resource.capacity > resource.used
-                              ? resource.capacity - resource.used : 0;
-      return resource;
-   }
 
    static ConcurrentResourceReason ExhaustionReason(NetworkType aType)
    {
@@ -315,7 +262,7 @@ private:
    }
 
    AssessmentEvaluator mEvaluator;
-   ProtocolResourceDefaults mDefaults = ProtocolResourceDefaults::AcceptanceDefaults();
+   ProtocolResourceModel mProtocolModel;
 };
 } // namespace nrm
 

@@ -8,6 +8,8 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/ConcurrentTaskAssessment.hpp
       include/nrm/DegradationPolicy.hpp
       include/nrm/ContractMetricEnricher.hpp
+      include/nrm/FrequencyCharacteristicRepository.hpp
+      include/nrm/ProtocolResourceModel.hpp
       include/nrm/InputProvider.hpp
       include/nrm/NetworkTypeUtils.hpp
       include/nrm/RollingMetrics.hpp
@@ -125,6 +127,25 @@ target_compile_definitions(nrm_network_profile_test PRIVATE
    NRM_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_test(NAME nrm_network_profile_test COMMAND nrm_network_profile_test)
+
+add_executable(nrm_frequency_characteristic_test EXCLUDE_FROM_ALL
+   tests/FrequencyCharacteristicRepositoryTest.cpp
+)
+target_include_directories(nrm_frequency_characteristic_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_compile_definitions(nrm_frequency_characteristic_test PRIVATE
+   NRM_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+add_test(NAME nrm_frequency_characteristic_test COMMAND nrm_frequency_characteristic_test)
+
+add_executable(nrm_protocol_resource_model_test EXCLUDE_FROM_ALL
+   tests/ProtocolResourceModelTest.cpp
+)
+target_include_directories(nrm_protocol_resource_model_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_protocol_resource_model_test COMMAND nrm_protocol_resource_model_test)
 
 add_executable(nrm_message_lifecycle_tracker_test EXCLUDE_FROM_ALL
    tests/MessageLifecycleTrackerTest.cpp
@@ -288,6 +309,8 @@ set(NRM_TEST_TARGETS
    nrm_snapshot_reporter_test
    nrm_assessment_evaluator_test
    nrm_network_profile_test
+   nrm_frequency_characteristic_test
+   nrm_protocol_resource_model_test
    nrm_message_lifecycle_tracker_test
    nrm_resource_event_ledger_test
    nrm_constrained_path_selector_test
