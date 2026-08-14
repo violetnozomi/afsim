@@ -220,6 +220,7 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeNavigation(
       return Failure("SCHEMA_VALIDATION_FAILED", "/data", "导航数据字段无效");
    nrm::NavigationSample sample;
    sample.platformName = data.value("platformId").toString().toStdString();
+   sample.navigationType = type.toStdString();
    sample.rawStatus = status.isEmpty() ? type.toStdString() : status.toStdString();
    sample.mode = type == "INS" ? nrm::NavigationMode::cINS : nrm::NavigationMode::cGPS_ACTIVE;
    sample.statusCode = type == "INS" ? -1 : 1;

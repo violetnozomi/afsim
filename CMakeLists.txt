@@ -307,6 +307,33 @@ target_include_directories(nrm_afsim_navigation_packet_parser_test PRIVATE
 add_test(NAME nrm_afsim_navigation_packet_parser_test
    COMMAND nrm_afsim_navigation_packet_parser_test)
 
+add_executable(nrm_navigation_accuracy_model_test EXCLUDE_FROM_ALL
+   tests/NavigationAccuracyModelTest.cpp
+)
+target_include_directories(nrm_navigation_accuracy_model_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_navigation_accuracy_model_test
+   COMMAND nrm_navigation_accuracy_model_test)
+
+add_executable(nrm_recovery_state_store_test EXCLUDE_FROM_ALL
+   tests/RecoveryStateStoreTest.cpp
+)
+target_include_directories(nrm_recovery_state_store_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_recovery_state_store_test
+   COMMAND nrm_recovery_state_store_test)
+
+add_executable(nrm_reference_model_adapter_test EXCLUDE_FROM_ALL
+   tests/ReferenceModelAdapterTest.cpp
+)
+target_include_directories(nrm_reference_model_adapter_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_reference_model_adapter_test
+   COMMAND nrm_reference_model_adapter_test)
+
 find_package(Qt5Core REQUIRED)
 add_executable(nrm_customer_json_codec_test EXCLUDE_FROM_ALL
    tests/CustomerJsonCodecTest.cpp
@@ -358,6 +385,9 @@ set(NRM_TEST_TARGETS
    nrm_environment_effect_adapter_test
    nrm_operational_environment_evaluator_test
    nrm_afsim_navigation_packet_parser_test
+   nrm_navigation_accuracy_model_test
+   nrm_recovery_state_store_test
+   nrm_reference_model_adapter_test
    nrm_customer_json_codec_test
 )
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

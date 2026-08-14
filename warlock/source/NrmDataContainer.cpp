@@ -10,6 +10,7 @@
 
 #include "NrmSnapshotReporter.hpp"
 #include "nrm/ContractMetricEnricher.hpp"
+#include "nrm/NavigationAccuracyModel.hpp"
 #include "nrm/NetworkProfileRepository.hpp"
 #include "nrm/Version.hpp"
 
@@ -73,6 +74,11 @@ WkNrm::DataContainer::~DataContainer() = default;
 void WkNrm::DataContainer::SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot)
 {
    mSnapshot = aSnapshot;
+   const nrm::NavigationAccuracyModel navigationAccuracy;
+   for (nrm::NavigationSample& sample : mSnapshot.navigation.platforms)
+   {
+      navigationAccuracy.Enrich(sample, sample.navigationType);
+   }
    nrm::ContractMetricEnricher(mProfiles).Apply(mSnapshot);
    mHasDemandMatching = false;
    mReporterPtr->Enqueue(mSnapshot);

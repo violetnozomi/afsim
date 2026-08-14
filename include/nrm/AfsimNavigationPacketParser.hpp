@@ -81,6 +81,8 @@ public:
             return result;
          }
          sample.platformName = aPlatformName;
+         sample.navigationType =
+            sample.mode == NavigationMode::cINS ? "INS" : "GNSS";
          sample.valid = true;
          sample.origin = DataOrigin::cREPLAY;
          sample.confidence = Confidence::cHIGH;

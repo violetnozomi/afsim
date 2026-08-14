@@ -417,6 +417,11 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
       sample.platformName = platformPtr->GetName();
       sample.rawStatus = RawNavigationStatus(status);
       sample.mode = NavigationModeFromStatus(status);
+      sample.navigationType = sample.mode == nrm::NavigationMode::cINS
+                                 ? "INS"
+                                 : (sample.mode == nrm::NavigationMode::cPERFECT
+                                       ? "INTEGRATED"
+                                       : "GNSS");
       sample.statusCode = static_cast<int>(status);
       sample.valid = sample.mode != nrm::NavigationMode::cUNKNOWN;
       sample.sampleTime = updateTime >= 0.0 ? updateTime : mSnapshot.simTime;

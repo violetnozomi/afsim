@@ -361,6 +361,7 @@ struct EnvironmentSnapshot
 struct NavigationSample
 {
    std::string platformName;
+   std::string navigationType;
    std::string rawStatus;
    NavigationMode mode = NavigationMode::cUNKNOWN;
    int statusCode = 0;
@@ -379,6 +380,10 @@ struct NavigationSample
    MetricValue<double> crossTrackErrorM;
    MetricValue<double> verticalErrorM;
    MetricValue<double> totalPositionErrorM;
+   // Parameterized 1-sigma accuracy is kept separate from observed errors.
+   MetricValue<double> horizontalAccuracySigmaM;
+   MetricValue<double> verticalAccuracySigmaM;
+   MetricValue<double> headingAccuracySigmaDeg;
 };
 
 struct NavigationSnapshot
