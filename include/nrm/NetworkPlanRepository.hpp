@@ -115,6 +115,15 @@ inline bool ParseChangeType(const std::string& aToken, PlanChangeType& aType)
    return true;
 }
 
+inline bool ParsePlanningDomain(const std::string& aToken, PlanningDomain& aDomain)
+{
+   if (aToken == "AIRBORNE") aDomain = PlanningDomain::cAIRBORNE;
+   else if (aToken == "GROUND") aDomain = PlanningDomain::cGROUND;
+   else if (aToken == "JOINT") aDomain = PlanningDomain::cJOINT;
+   else return false;
+   return true;
+}
+
 inline PlanRepositoryResult Failure(PlanValidationReason aReason,
                                     const std::string& aPath,
                                     const std::string& aField,
@@ -261,6 +270,7 @@ inline void WriteDocument(std::ostream& aOutput, const NetworkPlanDocument& aDoc
            << ToString(aDocument.source) << ' ' << ToString(aDocument.confidence) << ' '
            << (aDocument.valid ? 1 : 0) << ' ' << std::quoted(aDocument.previousPlanId)
            << ' ' << aDocument.previousRevision << '\n';
+   aOutput << "DOMAIN " << ToString(aDocument.planningDomain) << '\n';
    for (const NetworkPlanAllocation& allocation : aDocument.allocations)
    {
       aOutput << "ALLOCATION " << std::quoted(allocation.allocationId) << ' '
@@ -522,7 +532,16 @@ private:
             continue;
          }
 
-         if (recordType == "ALLOCATION")
+         if (recordType == "DOMAIN")
+         {
+            std::string domain;
+            if (!(record >> domain) ||
+                !network_plan_detail::ParsePlanningDomain(domain, parsed.planningDomain) ||
+                network_plan_detail::HasTrailingToken(record))
+               return network_plan_detail::Failure(
+                  PlanValidationReason::cPARSE_ERROR, aPath, field, &parsed);
+         }
+         else if (recordType == "ALLOCATION")
          {
             NetworkPlanAllocation allocation;
             std::string networkType;

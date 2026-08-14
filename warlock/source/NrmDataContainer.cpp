@@ -268,6 +268,29 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
             CustomerProviderHello hello;
             mLastCustomerJsonResult = mCustomerJsonCodec.DecodeProviderHello(json, hello);
          }
+         else if (schema == "nrm.customer.membership_request.v1")
+         {
+            nrm::NetworkPlanChange change;
+            mLastCustomerJsonResult = mCustomerJsonCodec.DecodeMembership(json, change);
+            const nrm::NetworkPlanDocument* current = mPlanRepository.GetCurrentPlan();
+            if (mLastCustomerJsonResult.valid && current != nullptr)
+            {
+               const nrm::PlanCoordinationResult coordination =
+                  mPlanCoordinationService.ApplyMembership(*current, change);
+               if (!coordination.success || !ReplaceNetworkPlanDraft(coordination.revisedPlan))
+               {
+                  mLastCustomerJsonResult.valid = false;
+                  mLastCustomerJsonResult.errors.push_back(
+                     {"MEMBERSHIP_REJECTED", "/data", ToString(coordination.reason)});
+               }
+            }
+            else if (mLastCustomerJsonResult.valid)
+            {
+               mLastCustomerJsonResult.valid = false;
+               mLastCustomerJsonResult.errors.push_back(
+                  {"NO_CURRENT_PLAN", "/data/planId", "当前没有可变更的资源规划"});
+            }
+         }
          else
          {
             mLastCustomerJsonResult.valid = false;

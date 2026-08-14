@@ -13,6 +13,7 @@
 #include "nrm/ModelRegistry.hpp"
 #include "nrm/ModelServiceFacade.hpp"
 #include "nrm/NetworkPlanRepository.hpp"
+#include "nrm/NetworkPlanCoordinationService.hpp"
 #include "nrm/ResourceDemandRepository.hpp"
 #include "NrmCustomerJsonCodec.hpp"
 
@@ -141,6 +142,7 @@ private:
    nrm::ModelRegistryResult           mModelRegistration;
    std::uint64_t                      mModelServiceRequestSequence = 0;
    nrm::NetworkPlanRepository         mPlanRepository;
+   nrm::NetworkPlanCoordinationService mPlanCoordinationService;
    nrm::PlanRepositoryResult          mPlanOperation;
    nrm::PlanValidationResult          mPlanValidation;
    nrm::NetworkPlanEvaluationResult   mPlanEvaluation;

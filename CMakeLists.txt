@@ -29,6 +29,7 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/AfsimNavigationPacketParser.hpp
       include/nrm/NetworkPlanTypes.hpp
       include/nrm/NetworkPlanRepository.hpp
+      include/nrm/NetworkPlanCoordinationService.hpp
       include/nrm/NetworkPlanValidator.hpp
       include/nrm/NetworkPlanEvaluationService.hpp
       include/nrm/NetworkPlanSerialization.hpp
@@ -215,6 +216,15 @@ target_include_directories(nrm_network_plan_evaluation_test PRIVATE
 add_test(NAME nrm_network_plan_evaluation_test
    COMMAND nrm_network_plan_evaluation_test)
 
+add_executable(nrm_network_plan_coordination_test EXCLUDE_FROM_ALL
+   tests/NetworkPlanCoordinationServiceTest.cpp
+)
+target_include_directories(nrm_network_plan_coordination_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_network_plan_coordination_test
+   COMMAND nrm_network_plan_coordination_test)
+
 add_executable(nrm_resource_demand_repository_test EXCLUDE_FROM_ALL
    tests/ResourceDemandRepositoryTest.cpp
 )
@@ -328,6 +338,7 @@ set(NRM_TEST_TARGETS
    nrm_communication_capability_service_test
    nrm_network_plan_repository_test
    nrm_network_plan_evaluation_test
+   nrm_network_plan_coordination_test
    nrm_resource_demand_repository_test
    nrm_resource_demand_matching_test
    nrm_model_service_facade_test

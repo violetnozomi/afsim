@@ -18,6 +18,24 @@ enum class NetworkPlanState
    cREADY_FOR_DISTRIBUTION
 };
 
+enum class PlanningDomain
+{
+   cAIRBORNE,
+   cGROUND,
+   cJOINT
+};
+
+inline const char* ToString(PlanningDomain aDomain)
+{
+   switch (aDomain)
+   {
+   case PlanningDomain::cAIRBORNE: return "AIRBORNE";
+   case PlanningDomain::cGROUND: return "GROUND";
+   case PlanningDomain::cJOINT: return "JOINT";
+   }
+   return "JOINT";
+}
+
 inline const char* ToString(NetworkPlanState aState)
 {
    switch (aState)
@@ -81,7 +99,8 @@ enum class PlanValidationReason
    cOUTPUT_PATH_INVALID,
    cPACKAGE_ALREADY_EXISTS,
    cNO_CURRENT_PLAN,
-   cADAPTER_UNAVAILABLE
+   cADAPTER_UNAVAILABLE,
+   cACK_MISMATCH
 };
 
 inline const char* ToString(PlanValidationReason aReason)
@@ -140,6 +159,7 @@ inline const char* ToString(PlanValidationReason aReason)
    case PlanValidationReason::cPACKAGE_ALREADY_EXISTS: return "PACKAGE_ALREADY_EXISTS";
    case PlanValidationReason::cNO_CURRENT_PLAN: return "NO_CURRENT_PLAN";
    case PlanValidationReason::cADAPTER_UNAVAILABLE: return "ADAPTER_UNAVAILABLE";
+   case PlanValidationReason::cACK_MISMATCH: return "ACK_MISMATCH";
    }
    return "PARSE_ERROR";
 }
@@ -217,6 +237,7 @@ struct NetworkPlanDemand
 struct NetworkPlanChange
 {
    std::string changeId;
+   std::string planId;
    PlanChangeType changeType = PlanChangeType::cJOIN;
    std::string allocationId;
    std::string platformId;
@@ -230,6 +251,7 @@ struct NetworkPlanDocument
    std::string configVersion;
    std::string providerId;
    std::string createdTime;
+   PlanningDomain planningDomain = PlanningDomain::cJOINT;
    NetworkPlanState state = NetworkPlanState::cDRAFT;
    std::vector<NetworkPlanAllocation> allocations;
    std::vector<NetworkPlanDemand> demands;
@@ -300,6 +322,7 @@ struct DistributionPackageResult
    std::string outputPath;
    std::string planId;
    std::uint64_t revision = 0;
+   std::string planFingerprint;
    NetworkPlanState resultingState = NetworkPlanState::cVALIDATED;
    PlanValidationReason reason = PlanValidationReason::cPLAN_NOT_VALIDATED;
 };

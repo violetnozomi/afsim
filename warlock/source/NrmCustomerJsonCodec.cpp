@@ -633,6 +633,11 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeNetworkPlan(
    plan.configVersion = "customer-json-v1";
    plan.providerId = result.envelope.source;
    plan.createdTime = result.envelope.timestamp;
+   const QString planningDomain = data.value("planningDomain").toString("JOINT");
+   if (planningDomain == "AIRBORNE") plan.planningDomain = nrm::PlanningDomain::cAIRBORNE;
+   else if (planningDomain == "GROUND") plan.planningDomain = nrm::PlanningDomain::cGROUND;
+   else if (planningDomain == "JOINT") plan.planningDomain = nrm::PlanningDomain::cJOINT;
+   else return Failure("SCHEMA_VALIDATION_FAILED", "/data/planningDomain", "规划域无效");
    for (const QJsonValue& value : data.value("allocations").toArray())
    {
       const QJsonObject object = value.toObject();
@@ -698,6 +703,7 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeMembership(
    const QString action = data.value("action").toString();
    nrm::NetworkPlanChange change;
    change.changeId = data.value("requestId").toString().toStdString();
+   change.planId = data.value("planId").toString().toStdString();
    change.allocationId = data.value("allocationId").toString().toStdString();
    change.platformId = data.value("platformId").toString().toStdString();
    change.changeType = action == "LEAVE" ? nrm::PlanChangeType::cLEAVE : nrm::PlanChangeType::cJOIN;

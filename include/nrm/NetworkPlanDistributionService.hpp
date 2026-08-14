@@ -29,6 +29,7 @@ public:
       DistributionPackageResult result;
       result.planId = aPlan.planId;
       result.revision = aPlan.revision;
+      result.planFingerprint = network_plan_detail::PlanContentFingerprint(aPlan);
       if (!network_plan_detail::IsSafePlanId(aPlan.planId) || aPlan.revision == 0)
       {
          result.reason = PlanValidationReason::cOUTPUT_PATH_INVALID;
