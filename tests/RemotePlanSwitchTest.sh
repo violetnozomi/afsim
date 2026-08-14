@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SWITCH_SCRIPT="${ROOT}/scripts/remote/switch-warlock-plan.sh"
 LAUNCH_SCRIPT="${ROOT}/scripts/remote/run-warlock-remote.sh"
+PREACCEPTANCE_SCRIPT="${ROOT}/scripts/run_preacceptance.sh"
 BINDING_FILE="${ROOT}/data/network_plans/operational_25node_complex-r1.nrm.scenario"
 INTERACTIVE_SCENARIO="${ROOT}/test_mission/operational_strike_demo/interactive.txt"
 
@@ -48,3 +49,16 @@ mapfile -t REQUEST_LINES <"${REQUEST}"
 [[ "${REQUEST_LINES[0]}" == "${SCENARIO}" ]]
 [[ "${REQUEST_LINES[1]}" == "${PLAN}" ]]
 grep -qx -- '--user restart nrm-warlock.service' "${SYSTEMCTL_LOG}"
+
+# The pre-acceptance runner may execute from an isolated worktree while the
+# managed Warlock service writes to the main checkout.  It must discover the
+# service process output directory instead of assuming its own ROOT/output.
+export NRM_PREACCEPTANCE_LIBRARY_ONLY=1
+export NRM_OUTPUT_DIR="${TEMP_ROOT}/worktree-output"
+export NRM_PREACCEPTANCE_OUTPUT_DIR="${TEMP_ROOT}/preacceptance-output"
+# shellcheck source=../scripts/run_preacceptance.sh
+source "${PREACCEPTANCE_SCRIPT}"
+SERVICE_ENVIRON="${TEMP_ROOT}/service.environ"
+printf 'DISPLAY=:1\0NRM_OUTPUT_DIR=%s\0' "${TEMP_ROOT}/service-output" >"${SERVICE_ENVIRON}"
+[[ "$(resolve_warlock_output_root "${SERVICE_ENVIRON}")" == "${TEMP_ROOT}/service-output" ]]
+[[ "$(resolve_warlock_output_root "${TEMP_ROOT}/missing.environ")" == "${NRM_OUTPUT_DIR}" ]]

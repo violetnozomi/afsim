@@ -4,58 +4,50 @@
 
 状态：`IMPLEMENTED / PRE_ACCEPTANCE`。
 
-目标版本：`v0.11.0-model-service-facade`。
+目标版本：`v0.12.0-contract-gap-closure`。
 
-开发基线提交：`d64ba74`（v0.10.0）。
+开发分支：`feat/contract-gap-closure`。
 
-当前开发分支：`feat/v0.11-model-service-facade`；Warlock统计修复提交为`3c1f2b2`，
-一键预验收脚本、只读状态页和文档尚未提交。
+AFSIM核心修改数：`0`。实现范围仅限独立`network_resource_manager`扩展、Warlock插件、
+场景、脚本和文档。
 
-## 2. 已完成的唯一目标
+## 2. 本里程碑目标
 
-在不引入网络服务框架、不猜测甲方协议的前提下，建立纯 C++、进程内、强类型的
-`ModelServiceFacade`、`ModelRegistry` 和外部接口适配抽象边界，统一暴露现有通信能力、
-规划生命周期和资源需求匹配能力。
+以“合同有对应项、界面可见、结果可解释、命令可复验”为目标，用最小实现补齐当前合同追踪
+表中能在本地完成的指标，不等待甲方给出字段；甲方AFSIM改造模块后续通过现有Adapter和
+11类JSON Schema对齐本插件，不改变领域服务和界面。
 
-完整执行要求见 `docs/NEXT_DEVELOPMENT_INSTRUCTIONS.md`；本轮未扩展到其他里程碑。
+## 3. 已完成内容
 
-## 3. 完成证据
+- 统一资源状态覆盖网络、成员、链路、频率、协议资源、队列、流量、路由、业务、网关、代理、
+  告警、导航和环境；缺失字段显式无效并给出原因码。
+- 11类甲方接口Schema、正反例、中文注释JSONC、提供方握手、接收ACK和错误响应已固定。
+- 四网频率与协议资源、地形/气象/时间/航向/电磁干扰近似约束进入能力评估。
+- 规划域、动态成员、分发包指纹ACK、并发需求评估、调整建议、需求反馈历史和推荐闭环已实现。
+- 导航支持AFSIM原生导航误差包解析、GNSS/INS/组合导航精度证据和恢复数据原子保留。
+- Reporter和Warlock中文页面均可查看新增证据；部署自检脚本可区分本地完成项与甲方阻塞项。
 
-- 新增`ModelServiceTypes`、`ModelServiceFacade`、`ModelRegistry`和抽象
-  `ContractInterfaceAdapter`；
-- Facade前置校验schema、requestId、requestTime、snapshotVersion和规划证据，每项操作
-  只委托一次既有领域服务；
-- DataContainer持有Facade和Registry，注册唯一NRM描述符并保持旧页面入口兼容；
-- 原15项测试无回归，新增环境配置、环境效果和导航包解析测试后18/18通过；WSF与Warlock构建成功；
-- AFSIM核心零修改，公共头无Qt/AFSIM依赖；
-- headless强类型入口受阻，未伪造服务smoke。
-- Warlock `MessageReceived`发送端/接收端参数语义已修正；四网120秒最终快照为
-  `8发送/8接收/0丢弃`，15/15固定测试无回归。
-- `scripts/run_preacceptance.sh`已将静态门禁、18项测试、八个批准场景和Warlock最终快照
-  固定为一条命令，并生成逐项Markdown报告；2026-08-08首次完整运行总体为`PASS`。
-- Warlock新增只读“预验收状态”页；脚本原子发布版本化JSON状态，独立工作线程自动读取，
-  不在仿真回调或GUI线程中执行文件I/O，也不提供从界面重启验收的按钮。
-- 综合场景已调整为25个同一体系的协作通信平台，保留4网络、29端点、60链路和主备多跳
-  路由；敌方、阵营对抗、目标航迹、武器和交战事件已删除，完整180秒命令行验证通过。
-- 自研Warlock前端已统一中文化；协议名、RF缩写和原因码保留原始技术标识，AFSIM核心和
-  Warlock原生菜单未修改；插件已重新编译链接成功。
-- 自研Warlock前端已升级为现代深色卡片式视觉；中央态势图按平台去重、显示多网徽点并执行
-  标签避碰。默认10平台和综合25平台远程VNC截图均已复核，18/18测试无回归。
-- 环境影响第一版已实现：AFSIM内置地形/气象/历元/EM结果进入版本化快照与中文页面，
-  `NRM_ENVIRONMENT_V1`严格配置仅修正候选链路，当前RF结果不重复应用；环境里程碑当时17/17测试通过，
-  `environment_weather`固定场景完成8条四网消息收发。
-- 资源规划失败建议已补齐：逐需求评估、并发冲突、Warlock“调整建议”页、规划JSONL和
-  甲方规划响应使用同一建议数据；23/23固定测试、Schema校验和Warlock插件构建通过。
+## 4. 当前固定验证基线
 
-## 4. 验收边界
+- `scripts/ai_guard.sh static`：通过。
+- `scripts/ai_guard.sh contract`：11个合法样例通过，5个非法样例按预期拒绝。
+- `scripts/ai_guard.sh test`：31/31固定C++测试通过，WSF和Warlock插件构建通过。
+- `scripts/ai_guard.sh scenario operational_strike_demo`：25节点同体系协同场景通过并正常结束。
+- `scripts/check_deployment_contract.sh`：部署JSON有效，4项甲方依赖正确标为`CUSTOMER_BLOCKED`。
+- `scripts/run_preacceptance.sh`：31/31测试、9/9场景和Warlock 120秒最终快照全部通过，
+  总体结果为`PASS`。
 
-- 合同3.3、3.5和4.1-4.2仅为内部`IMPLEMENTED / PRE_ACCEPTANCE`；
-- 甲方封装规范、正式接口协议、参考模块和目标环境未提供，阻止`FINAL_ACCEPTANCE`；
-- 现有headless mission无法取得Warlock Facade和强类型快照；
-- 已实现AFSIM内置导航实时采集与`.neh`解析；未实现甲方专用二进制导航包、复杂区域气象/频谱网格、微服务或自动网络控制；
-- Git提交、tag和push仍需用户明确授权。
+以上均为内部预验收证据，不代表甲方目标环境最终验收。
 
-## 5. 下一步唯一动作
+## 5. 仍需甲方提供或现场确认
 
-用户在复杂25节点规划执行“只读推演”，核对自动打开的“调整建议”页；确认后再决定是否
-授权Git提交。不自动进入甲方专用格式或自动网络控制。
+- 甲方改造版AFSIM的正式模块ABI、加载方式和目标环境构建结果。
+- Link-11、Link-16、卫通、CDL真实字段映射、设备参数和正式样包。
+- 正式安全认证、传输协议、端口、证书和网络部署策略。
+- 正式导航/环境数据样包以及合同参数阈值签字确认。
+
+上述内容不阻塞本地演示：缺失输入按照L0-L3降级契约处理，保持低置信度或`valid=false`。
+
+## 6. 下一步唯一动作
+
+冻结`v0.12.0`回退点；随后只进行甲方环境适配和字段映射，不再扩张本地模型范围。

@@ -1,5 +1,25 @@
 # 验证记录
 
+## 2026-08-14 合同指标补缺发布候选
+
+- 版本：`0.12.0`；分支：`feat/contract-gap-closure`；AFSIM核心修改数为0。
+- 静态门禁通过；甲方接口11个合法样例通过、5个非法样例按预期拒绝。
+- 31/31固定C++测试通过，WSF与Warlock插件均完成编译和链接。
+- 25节点同体系协同场景`operational_strike_demo`通过，固定阶段、四网消息和
+  `Simulation complete`证据齐全。
+- 部署契约自检生成有效JSON，并将目标AFSIM ABI、真实四网模块数据、正式安全传输和正式
+  导航/环境样包4项正确标为`CUSTOMER_BLOCKED`。
+- 完整`scripts/run_preacceptance.sh`最终结果为`Overall: PASS`：31/31测试、9/9批准场景及
+  Warlock 120秒快照全部通过；快照为4网络、10端点、8链路、8发送、8接收、0丢弃、
+  0路由失败。报告位于
+  `output/preacceptance/20260814T050018Z-881952/PREACCEPTANCE_REPORT.md`。
+- 首次从隔离工作树运行时发现脚本错误查找工作树输出目录，虽然服务已按时生成正确快照仍
+  被误报超时；新增服务进程`NRM_OUTPUT_DIR`发现和回归测试后复跑通过。
+- 回退顺序按提交从新到旧执行：`d8cf1f2`、`b8190c3`、`5faabba`、`cf17572`、`e667f46`、
+  `f0d766c`、`be37266`、`3c25598`；每个提交均只修改插件工程，可独立`git revert`。
+- 结论：本地合同对应功能达到`IMPLEMENTED / PRE_ACCEPTANCE`；未在甲方目标系统验证的项目
+  不提升为`FINAL_ACCEPTANCE`。
+
 ## 2026-08-13 简化甲方实现自动降级
 
 - 自动判定 `UNAVAILABLE/L0/L1/L2/L3`，输出数据覆盖率、缺失字段、默认值和置信度。

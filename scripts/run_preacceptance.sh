@@ -150,8 +150,31 @@ run_scenario() {
    fi
 }
 
+resolve_warlock_output_root() {
+   local process_environ=${1:-}
+   local service_output_root=""
+   if [[ -n "$process_environ" && -r "$process_environ" ]]
+   then
+      service_output_root=$(tr '\0' '\n' <"$process_environ" |
+         sed -n 's/^NRM_OUTPUT_DIR=//p' | head -n 1)
+   fi
+   printf '%s\n' "${service_output_root:-${RUNTIME_OUTPUT_ROOT}}"
+}
+
+warlock_output_root() {
+   local main_pid
+   main_pid=$(systemctl --user show nrm-warlock.service --property MainPID --value 2>/dev/null || true)
+   if [[ "$main_pid" =~ ^[1-9][0-9]*$ ]]
+   then
+      resolve_warlock_output_root "/proc/${main_pid}/environ"
+   else
+      resolve_warlock_output_root ""
+   fi
+}
+
 latest_snapshot_file() {
-   find "${RUNTIME_OUTPUT_ROOT}" -mindepth 2 -maxdepth 2 -type f \
+   local snapshot_root=${1:-${RUNTIME_OUTPUT_ROOT}}
+   find "${snapshot_root}" -mindepth 2 -maxdepth 2 -type f \
       -name resource_snapshots.jsonl -printf '%T@ %p\n' 2>/dev/null |
       sort -nr | head -n 1 | cut -d' ' -f2-
 }
@@ -298,8 +321,10 @@ write_gui_summary() {
 run_gui_validation() {
    local previous_snapshot
    local candidate
+   local gui_output_root
    local elapsed=0
-   previous_snapshot=$(latest_snapshot_file)
+   gui_output_root=$(warlock_output_root)
+   previous_snapshot=$(latest_snapshot_file "$gui_output_root")
    if ! systemctl --user restart nrm-warlock.service >"${LOG_DIR}/warlock-service.log" 2>&1
    then
       record_result "warlock-final-snapshot" FAIL "${LOG_DIR}/warlock-service.log" \
@@ -311,7 +336,8 @@ run_gui_validation() {
    do
       sleep 2
       elapsed=$((elapsed + 2))
-      candidate=$(latest_snapshot_file)
+      gui_output_root=$(warlock_output_root)
+      candidate=$(latest_snapshot_file "$gui_output_root")
       if [[ -z "$candidate" || "$candidate" == "$previous_snapshot" || ! -s "$candidate" ]]
       then
          continue
@@ -395,4 +421,7 @@ main() {
    [[ "$overall_status" == PASS ]]
 }
 
-main "$@"
+if [[ "${NRM_PREACCEPTANCE_LIBRARY_ONLY:-0}" != 1 ]]
+then
+   main "$@"
+fi
