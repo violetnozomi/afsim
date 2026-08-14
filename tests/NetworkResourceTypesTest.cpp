@@ -12,6 +12,10 @@ int main()
    assert(snapshot.networks.empty());
    assert(snapshot.endpoints.empty());
    assert(snapshot.links.empty());
+   assert(snapshot.operationalArea.points.empty());
+   assert(snapshot.platformAttitudes.empty());
+   assert(snapshot.alarms.empty());
+   assert(snapshot.resourceProxies.empty());
    assert(snapshot.messages.transmitted == 0);
    assert(snapshot.messages.received == 0);
    assert(snapshot.messages.hops == 0);
@@ -57,5 +61,39 @@ int main()
    assert(emptyWindow.throughputBps.valid && emptyWindow.throughputBps.value == 0.0);
    assert(!emptyWindow.pdrPercent.valid);
    assert(!emptyWindow.averageQueueDelayMs.valid);
+
+   nrm::OperationalArea area;
+   area.areaId = "training-area";
+   area.validFrom = 5.0;
+   area.validUntil = 65.0;
+   area.points.push_back({30.0, 110.0, 1000.0});
+   area.points.push_back({31.0, 110.0, 1000.0});
+   area.points.push_back({31.0, 111.0, 1000.0});
+   snapshot.operationalArea = area;
+   assert(snapshot.operationalArea.points.size() == 3);
+
+   nrm::PlatformAttitude attitude;
+   attitude.platformName = "airborne-relay";
+   attitude.headingDeg = 90.0;
+   attitude.pitchDeg = 3.0;
+   attitude.rollDeg = -1.0;
+   attitude.valid = true;
+   snapshot.platformAttitudes.push_back(attitude);
+   assert(snapshot.platformAttitudes[0].valid);
+
+   nrm::ResourceAlarm alarm;
+   alarm.alarmId = "alarm:link-1:LINK_OFFLINE";
+   alarm.objectId = "link-1";
+   alarm.reasonCode = "LINK_OFFLINE";
+   alarm.active = true;
+   snapshot.alarms.push_back(alarm);
+   assert(snapshot.alarms[0].reasonCode == "LINK_OFFLINE");
+
+   nrm::ResourceProxyState proxy;
+   proxy.proxyId = "customer-link16-adapter";
+   proxy.resourceType = "LINK16";
+   proxy.online = true;
+   snapshot.resourceProxies.push_back(proxy);
+   assert(snapshot.resourceProxies[0].online);
    return 0;
 }

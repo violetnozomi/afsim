@@ -166,6 +166,72 @@ struct EndpointSnapshot
    MetricValue<double> endpointOnlineRatioPercent;
 };
 
+// Lightweight contract-facing geometry. Coordinates use WGS-84 degrees/metres.
+struct GeoPoint
+{
+   double latitudeDeg = 0.0;
+   double longitudeDeg = 0.0;
+   double altitudeM = 0.0;
+};
+
+struct OperationalArea
+{
+   std::string areaId;
+   double validFrom = 0.0;
+   double validUntil = 0.0;
+   std::vector<GeoPoint> points;
+};
+
+struct PlatformAttitude
+{
+   std::string platformName;
+   double headingDeg = 0.0;
+   double pitchDeg = 0.0;
+   double rollDeg = 0.0;
+   double sampleTime = 0.0;
+   bool valid = false;
+   DataOrigin origin = DataOrigin::cAFSIM_INTERNAL;
+   Confidence confidence = Confidence::cHIGH;
+};
+
+struct ProtocolResourceState
+{
+   // LINK11=POLLING_UNIT, LINK16=TIMESLOT, SATCOM=BEAM_CHANNEL, CDL=CHANNEL.
+   std::string kind;
+   std::size_t capacity = 0;
+   std::size_t used = 0;
+   std::size_t remaining = 0;
+   bool valid = false;
+   MetricValue<double> utilizationPercent;
+};
+
+struct CoverageState
+{
+   MetricValue<double> maximumRangeM;
+   MetricValue<double> rangeMarginM;
+   bool insideCoverage = false;
+   bool valid = false;
+};
+
+struct ResourceAlarm
+{
+   std::string alarmId;
+   std::string severity = "WARNING";
+   std::string objectId;
+   std::string reasonCode;
+   double startTime = 0.0;
+   bool active = false;
+};
+
+struct ResourceProxyState
+{
+   std::string proxyId;
+   std::string resourceType;
+   std::string providerId;
+   bool online = false;
+   double lastUpdateTime = 0.0;
+};
+
 struct LinkSnapshot
 {
    std::string linkId;
@@ -194,6 +260,12 @@ struct LinkSnapshot
    std::vector<double> availableFrequenciesHz;
    DataOrigin availableFrequenciesOrigin = DataOrigin::cPARAMETERIZED_MODEL;
    Confidence availableFrequenciesConfidence = Confidence::cLOW;
+   std::vector<std::string> supportedBusinessTypes;
+   MetricValue<double> communicationQualityPercent;
+   std::string subnetId;
+   ProtocolResourceState protocolResource;
+   CoverageState coverage;
+   std::vector<std::string> activeAlarmIds;
    std::size_t queueLimit = 0;
    std::vector<WindowMetrics> windows;
 };
@@ -297,6 +369,10 @@ struct ResourceSnapshot
    std::vector<NetworkSnapshot>  networks;
    std::vector<EndpointSnapshot> endpoints;
    std::vector<LinkSnapshot>     links;
+   OperationalArea               operationalArea;
+   std::vector<PlatformAttitude> platformAttitudes;
+   std::vector<ResourceAlarm>    alarms;
+   std::vector<ResourceProxyState> resourceProxies;
    MessageStatistics             messages;
    EnvironmentSnapshot           environment;
    NavigationSnapshot            navigation;
