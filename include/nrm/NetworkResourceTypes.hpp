@@ -327,10 +327,20 @@ struct CelestialEnvironmentState
 
 struct InterferenceEnvironmentState
 {
+   struct Band
+   {
+      std::string bandId;
+      double centerFrequencyHz = 0.0;
+      double bandwidthHz = 0.0;
+      double powerDbm = 0.0;
+      bool active = false;
+   };
+
    bool available = false;
    std::size_t observedLinkCount = 0;
    MetricValue<double> maximumPowerDbm;
    MetricValue<double> maximumFactorPercent;
+   std::vector<Band> bands;
 };
 
 struct EnvironmentSnapshot

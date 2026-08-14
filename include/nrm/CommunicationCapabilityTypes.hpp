@@ -25,7 +25,10 @@ enum class CapabilityReason
    cTHROUGHPUT_NOT_OBSERVED,
    cACCESS_DENOMINATOR_ZERO,
    cENVIRONMENT_DATA_UNAVAILABLE,
-   cENVIRONMENT_HARD_BLOCKED
+   cENVIRONMENT_HARD_BLOCKED,
+   cOPERATIONAL_AREA_OUTSIDE,
+   cATTITUDE_MISMATCH,
+   cINTERFERENCE_CONFLICT
 };
 
 inline const char* ToString(CapabilityReason aReason)
@@ -48,6 +51,9 @@ inline const char* ToString(CapabilityReason aReason)
       return "ENVIRONMENT_DATA_UNAVAILABLE";
    case CapabilityReason::cENVIRONMENT_HARD_BLOCKED:
       return "ENVIRONMENT_HARD_BLOCKED";
+   case CapabilityReason::cOPERATIONAL_AREA_OUTSIDE: return "OPERATIONAL_AREA_OUTSIDE";
+   case CapabilityReason::cATTITUDE_MISMATCH: return "ATTITUDE_MISMATCH";
+   case CapabilityReason::cINTERFERENCE_CONFLICT: return "INTERFERENCE_CONFLICT";
    }
    return "INVALID_REQUEST";
 }
@@ -83,6 +89,8 @@ struct EnvironmentContext
    Confidence confidence = Confidence::cLOW;
    bool valid = false;
    bool applyParameterizedEffects = false;
+   double validFrom = 0.0;
+   double validUntil = 0.0;
 };
 
 struct EnvironmentEffect
@@ -116,6 +124,12 @@ struct CapabilityRequest
    std::size_t kShortestPaths = 8;
    std::size_t maximumHops = 16;
    std::vector<NetworkType> allowedNetworks;
+   double taskStartTime = 0.0;
+   double taskEndTime = 0.0;
+   double frequencyHz = 0.0;
+   double occupiedBandwidthHz = 0.0;
+   bool directionalAntenna = false;
+   double headingToleranceDeg = 30.0;
 };
 
 struct CapabilityResult

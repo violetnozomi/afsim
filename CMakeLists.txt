@@ -10,6 +10,7 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/ContractMetricEnricher.hpp
       include/nrm/FrequencyCharacteristicRepository.hpp
       include/nrm/ProtocolResourceModel.hpp
+      include/nrm/OperationalEnvironmentEvaluator.hpp
       include/nrm/InputProvider.hpp
       include/nrm/NetworkTypeUtils.hpp
       include/nrm/RollingMetrics.hpp
@@ -268,6 +269,15 @@ target_include_directories(nrm_environment_effect_adapter_test PRIVATE
 add_test(NAME nrm_environment_effect_adapter_test
    COMMAND nrm_environment_effect_adapter_test)
 
+add_executable(nrm_operational_environment_evaluator_test EXCLUDE_FROM_ALL
+   tests/OperationalEnvironmentEvaluatorTest.cpp
+)
+target_include_directories(nrm_operational_environment_evaluator_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_operational_environment_evaluator_test
+   COMMAND nrm_operational_environment_evaluator_test)
+
 add_executable(nrm_afsim_navigation_packet_parser_test EXCLUDE_FROM_ALL
    tests/AfsimNavigationPacketParserTest.cpp
 )
@@ -324,6 +334,7 @@ set(NRM_TEST_TARGETS
    nrm_model_registry_test
    nrm_environment_config_repository_test
    nrm_environment_effect_adapter_test
+   nrm_operational_environment_evaluator_test
    nrm_afsim_navigation_packet_parser_test
    nrm_customer_json_codec_test
 )

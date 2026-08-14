@@ -29,9 +29,15 @@ nrm::ResourceSnapshot Snapshot()
 
    nrm::EndpointSnapshot source;
    source.endpointId = "source";
+   source.platformName = "source-platform";
    source.networkType = nrm::NetworkType::cCDL;
+   Set(source.latitudeDeg, 1.0);
+   Set(source.longitudeDeg, 1.0);
+   Set(source.altitudeM, 1000.0);
    nrm::EndpointSnapshot destination = source;
    destination.endpointId = "destination";
+   destination.platformName = "destination-platform";
+   destination.longitudeDeg.value = 2.0;
    snapshot.endpoints = {source, destination};
    nrm::LinkSnapshot link;
    link.sourceEndpointId = "source";
@@ -75,5 +81,47 @@ int main()
    assert(terrain.valid);
    assert(terrain.hardBlocked);
    assert(terrain.reason == nrm::CapabilityReason::cENVIRONMENT_HARD_BLOCKED);
+
+   snapshot.links[0].terrainBlockedFlag.value = 0.0;
+   snapshot.operationalArea.areaId = "demo-area";
+   snapshot.operationalArea.points = {{0.0, 0.0, 0.0}, {0.0, 3.0, 0.0},
+                                      {3.0, 3.0, 0.0}, {3.0, 0.0, 0.0}};
+   nrm::EnvironmentEffect inside = adapter.Evaluate(
+      nrm::EnvironmentDomain::cTERRAIN, snapshot, request, route, context);
+   assert(!inside.hardBlocked);
+   snapshot.endpoints[1].longitudeDeg.value = 4.0;
+   nrm::EnvironmentEffect outside = adapter.Evaluate(
+      nrm::EnvironmentDomain::cTERRAIN, snapshot, request, route, context);
+   assert(outside.hardBlocked);
+   assert(outside.evidence.front() == "OPERATIONAL_AREA_OUTSIDE");
+   snapshot.endpoints[1].longitudeDeg.value = 2.0;
+
+   nrm::CapabilityRequest timedRequest;
+   timedRequest.taskStartTime = 12.0;
+   timedRequest.taskEndTime = 20.0;
+   context.validFrom = 10.0;
+   context.validUntil = 30.0;
+   nrm::EnvironmentEffect coveredWeather = adapter.Evaluate(
+      nrm::EnvironmentDomain::cWEATHER, snapshot, timedRequest, route, context);
+   assert(coveredWeather.origin == nrm::DataOrigin::cPARAMETERIZED_MODEL);
+   timedRequest.taskStartTime = 5.0;
+   nrm::EnvironmentEffect uncoveredWeather = adapter.Evaluate(
+      nrm::EnvironmentDomain::cWEATHER, snapshot, timedRequest, route, context);
+   assert(uncoveredWeather.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
+
+   snapshot.environment.interference.bands.push_back(
+      {"jammer-1", 1000000000.0, 2000000.0, -40.0, true});
+   nrm::CapabilityRequest frequencyRequest;
+   frequencyRequest.frequencyHz = 1000000000.0;
+   frequencyRequest.occupiedBandwidthHz = 2000000.0;
+   nrm::EnvironmentEffect overlapped = adapter.Evaluate(
+      nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE,
+      snapshot, frequencyRequest, route, context);
+   assert(overlapped.origin == nrm::DataOrigin::cPARAMETERIZED_MODEL);
+   frequencyRequest.frequencyHz = 1010000000.0;
+   nrm::EnvironmentEffect clear = adapter.Evaluate(
+      nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE,
+      snapshot, frequencyRequest, route, context);
+   assert(clear.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
    return 0;
 }
