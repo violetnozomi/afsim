@@ -276,6 +276,7 @@ struct PlanDemandEvaluation
    PlanEvaluationStatus status = PlanEvaluationStatus::cNOT_EVALUATED;
    CapabilityResult capability;
    std::vector<PlanValidationReason> reasons;
+   std::vector<std::string> recommendations;
 };
 
 struct NetworkPlanEvaluationResult

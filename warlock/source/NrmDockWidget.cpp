@@ -406,6 +406,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mPlanDemandTablePtr(nullptr)
    , mPlanIssueTablePtr(nullptr)
    , mPlanEvaluationTablePtr(nullptr)
+   , mPlanRecommendationTablePtr(nullptr)
    , mPlanDetailTabsPtr(nullptr)
    , mMainTabsPtr(nullptr)
    , mPlanPagePtr(nullptr)
@@ -659,12 +660,18 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        QString::fromUtf8("速率"), QString::fromUtf8("时延"), QString::fromUtf8("丢包率"),
        QString::fromUtf8("原因码")},
       planPagePtr);
+   mPlanRecommendationTablePtr = CreateTable(
+      {QString::fromUtf8("需求编号"), QString::fromUtf8("状态"),
+       QString::fromUtf8("主要原因"), QString::fromUtf8("调整建议")},
+      planPagePtr);
+   mPlanRecommendationTablePtr->setColumnWidth(3, 620);
    mPlanDetailTabsPtr = new QTabWidget(planPagePtr);
    mPlanDetailTabsPtr->setDocumentMode(true);
    mPlanDetailTabsPtr->addTab(mPlanAllocationTablePtr, QString::fromUtf8("资源分配"));
    mPlanDetailTabsPtr->addTab(mPlanDemandTablePtr, QString::fromUtf8("业务需求"));
    mPlanDetailTabsPtr->addTab(mPlanIssueTablePtr, QString::fromUtf8("校验问题"));
    mPlanDetailTabsPtr->addTab(mPlanEvaluationTablePtr, QString::fromUtf8("推演结果"));
+   mPlanDetailTabsPtr->addTab(mPlanRecommendationTablePtr, QString::fromUtf8("调整建议"));
    planLayoutPtr->addWidget(mPlanDetailTabsPtr, 1);
 
    connect(loadPlanButtonPtr, &QPushButton::clicked, this, &DockWidget::LoadNetworkPlan);
@@ -1187,7 +1194,8 @@ void WkNrm::DockWidget::EvaluateNetworkPlan()
    if (!ApplyNetworkPlanEdits()) return;
    mData.EvaluateNetworkPlan();
    RefreshNetworkPlan();
-   mPlanDetailTabsPtr->setCurrentIndex(3);
+   mPlanDetailTabsPtr->setCurrentIndex(
+      mData.GetPlanEvaluation().overallStatus == nrm::PlanEvaluationStatus::cPASS ? 3 : 4);
 }
 
 void WkNrm::DockWidget::GenerateNetworkPlanPackage()
@@ -1315,6 +1323,7 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
       mPlanDemandTablePtr->setRowCount(0);
       mPlanIssueTablePtr->setRowCount(0);
       mPlanEvaluationTablePtr->setRowCount(0);
+      mPlanRecommendationTablePtr->setRowCount(0);
       return;
    }
 
@@ -1462,7 +1471,9 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          SetTableText(mPlanEvaluationTablePtr, row, 2,
                       concurrentPtr == nullptr ? QString::fromUtf8("未评估")
                       : concurrentPtr->allocated ? QString::fromUtf8("可并发")
-                                                 : QString::fromUtf8("资源冲突"));
+                      : concurrentPtr->independent.canComplete
+                           ? QString::fromUtf8("资源冲突")
+                           : QString::fromUtf8("独立评估未通过"));
          QStringList conflicts;
          if (concurrentPtr != nullptr)
          {
@@ -1488,6 +1499,37 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          SetTableText(mPlanEvaluationTablePtr, row, 8,
                       reasons.isEmpty() ? QString::fromUtf8("无") : reasons.join(", "));
       }
+   }
+
+   std::vector<const nrm::PlanDemandEvaluation*> recommendations;
+   if (mData.HasPlanEvaluation())
+   {
+      for (const nrm::PlanDemandEvaluation& evaluation :
+           mData.GetPlanEvaluation().demands)
+      {
+         if (!evaluation.recommendations.empty())
+            recommendations.push_back(&evaluation);
+      }
+   }
+   mPlanRecommendationTablePtr->setRowCount(
+      static_cast<int>(recommendations.size()));
+   for (std::size_t index = 0; index < recommendations.size(); ++index)
+   {
+      const int row = static_cast<int>(index);
+      const nrm::PlanDemandEvaluation& evaluation = *recommendations[index];
+      QStringList reasons;
+      for (nrm::PlanValidationReason reason : evaluation.reasons)
+         reasons.push_back(DisplayCode(nrm::ToString(reason)));
+      QStringList advice;
+      for (const std::string& recommendation : evaluation.recommendations)
+         advice.push_back(QString::fromStdString(recommendation));
+      SetTableText(mPlanRecommendationTablePtr, row, 0,
+                   QString::fromStdString(evaluation.demandId));
+      SetTableText(mPlanRecommendationTablePtr, row, 1,
+                   DisplayCode(nrm::ToString(evaluation.status)));
+      SetTableText(mPlanRecommendationTablePtr, row, 2,
+                   reasons.isEmpty() ? QString::fromUtf8("无") : reasons.join(", "));
+      SetTableText(mPlanRecommendationTablePtr, row, 3, advice.join("；"));
    }
 }
 

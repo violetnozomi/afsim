@@ -83,6 +83,7 @@ private:
    QTableWidget*   mPlanDemandTablePtr;
    QTableWidget*   mPlanIssueTablePtr;
    QTableWidget*   mPlanEvaluationTablePtr;
+   QTableWidget*   mPlanRecommendationTablePtr;
    QTabWidget*     mPlanDetailTabsPtr;
    QTabWidget*     mMainTabsPtr;
    QWidget*        mPlanPagePtr;

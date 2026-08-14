@@ -92,6 +92,9 @@ int main()
    assert(!shared.tasks[1].concurrent.canComplete);
    assert(shared.tasks[1].conflictingTaskIds.size() == 1);
    assert(shared.tasks[1].conflictingTaskIds.front() == "high");
+   assert(!shared.tasks[1].concurrent.recommendations.empty());
+   assert(shared.tasks[1].concurrent.recommendations.back().find("并发") !=
+          std::string::npos);
    assert(snapshot.links.front().bandwidthBps.value == 1000.0);
 
    const auto disjoint = evaluator.Evaluate(
@@ -133,6 +136,8 @@ int main()
    assert(!polling.tasks[8].allocated);
    assert(polling.tasks[8].resourceReason ==
           nrm::ConcurrentResourceReason::cPOLLING_UNIT_EXHAUSTED);
+   assert(polling.tasks[8].concurrent.recommendations.back().find("轮询") !=
+          std::string::npos);
    assert(polling.tasks[0].protocolResource.kind == "POLLING_UNIT");
    assert(polling.tasks[0].protocolResource.capacity == 8);
    assert(polling.tasks[0].protocolResource.remaining == 7);

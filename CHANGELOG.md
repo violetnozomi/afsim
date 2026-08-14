@@ -15,6 +15,8 @@
 - 新增Facade与Registry两项纯C++测试，原13项无回归，合计15项；WSF和Warlock插件构建通过。
 - 当前WSF插件没有从headless mission取得Warlock Facade和强类型快照的安全入口，因此未
   伪造规划、需求或模型服务smoke；状态为`IMPLEMENTED / PRE_ACCEPTANCE`。
+- 修复资源规划拒绝时无建议的问题：逐需求结果新增中文调整建议，覆盖带宽、时延、PDR、
+  无路径、离线、数据无效和并发资源冲突；Warlock独立建议页、规划JSONL和甲方规划响应同步输出。
 
 ## 0.10.0 - 2026-08-01
 

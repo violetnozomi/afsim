@@ -15,7 +15,7 @@
     // 资源规划：本例故意只放一个网络分配，四网完整样例见独立示例文件。
     {"schema":"nrm.customer.network_plan.v1","messageId":"plan-001","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{"planId":"simple-plan","revision":1,"allocations":[{"allocationId":"a-l16","networkName":"nrm_link16","networkType":"LINK16","profileId":"demo-link16-v1","frequencyHz":1000000000,"channelId":"L16-DEMO","subnetId":"L16-A","members":["fighter-01","command-01"],"slots":["slot-001"],"routePolicyId":"shortest-stable","enabled":true}],"demands":[{"demandId":"d-1","businessType":"C2","sourcePlatformId":"fighter-01","destinationPlatformId":"command-01","payloadBits":8192,"requiredBandwidthBps":64000,"maximumDelayMs":300,"minimumPdrPercent":90,"allowedNetworks":["LINK16"]}]}},
     // 规划结果：校验、推演和状态；只有生成成功时才提供packagePath。
-    {"schema":"nrm.customer.network_plan_result.v1","messageId":"plan-001","timestamp":"2026-08-13T10:00:01+08:00","source":"NRM","data":{"planId":"simple-plan","revision":1,"validationPassed":true,"evaluationStatus":"PASS","state":"VALIDATED","reasonCodes":["CUSTOMER_RULE_UNAVAILABLE"]}},
+    {"schema":"nrm.customer.network_plan_result.v1","messageId":"plan-001","timestamp":"2026-08-13T10:00:01+08:00","source":"NRM","data":{"planId":"simple-plan","revision":1,"validationPassed":true,"evaluationStatus":"FAIL","state":"REJECTED","reasonCodes":["PDR_NOT_MET"],"recommendations":["改用PDR更高的备用链路或质量更好的中继路径。"]}},
     // 动态入网申请：成功处理后形成新的规划修订，不直接修改已校验版本。
     {"schema":"nrm.customer.membership_request.v1","messageId":"member-001","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{"requestId":"join-001","planId":"simple-plan","allocationId":"a-l16","platformId":"relay-01","action":"JOIN"}},
     // 统一错误：path使用JSON Pointer，便于甲方直接定位字段。

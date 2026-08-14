@@ -174,6 +174,12 @@ public:
                item.resourceReason = ConcurrentResourceReason::cBANDWIDTH_EXHAUSTED;
             ++batch.rejectedCount;
          }
+         if (!item.allocated &&
+             (item.independent.canComplete ||
+              item.resourceReason != ConcurrentResourceReason::cNONE))
+         {
+            AddConcurrentRecommendation(item);
+         }
          batch.tasks.push_back(item);
       }
       batch.valid = true;
@@ -231,6 +237,39 @@ private:
       case NetworkType::cUNKNOWN: return ConcurrentResourceReason::cNONE;
       }
       return ConcurrentResourceReason::cNONE;
+   }
+
+   static void AddConcurrentRecommendation(ConcurrentTaskResult& aResult)
+   {
+      std::string recommendation;
+      switch (aResult.resourceReason)
+      {
+      case ConcurrentResourceReason::cPOLLING_UNIT_EXHAUSTED:
+         recommendation =
+            "并发Link-11轮询资源不足；建议增加轮询单元、降低低优先级任务并发量或错峰执行。";
+         break;
+      case ConcurrentResourceReason::cTIMESLOT_EXHAUSTED:
+         recommendation =
+            "并发Link-16时隙资源不足；建议分配备用时隙组或错峰执行低优先级任务。";
+         break;
+      case ConcurrentResourceReason::cSATCOM_RESOURCE_EXHAUSTED:
+         recommendation =
+            "并发卫通波束/信道资源不足；建议切换备用波束、信道或错峰执行。";
+         break;
+      case ConcurrentResourceReason::cCDL_RESOURCE_EXHAUSTED:
+         recommendation =
+            "并发CDL信道资源不足；建议启用备用信道、备用链路或错峰执行。";
+         break;
+      case ConcurrentResourceReason::cBANDWIDTH_EXHAUSTED:
+      case ConcurrentResourceReason::cNONE:
+         recommendation =
+            "检测到并发带宽资源冲突；建议释放低优先级任务带宽、迁移到备用网络或错峰执行。";
+         break;
+      }
+      if (std::find(aResult.concurrent.recommendations.begin(),
+                    aResult.concurrent.recommendations.end(), recommendation) ==
+          aResult.concurrent.recommendations.end())
+         aResult.concurrent.recommendations.push_back(recommendation);
    }
 
    static void Reserve(ResourceSnapshot& aSnapshot,

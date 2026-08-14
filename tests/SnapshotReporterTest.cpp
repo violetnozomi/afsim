@@ -121,8 +121,9 @@ int main()
       planEvaluation.validation = planValidation;
       nrm::PlanDemandEvaluation demandEvaluation;
       demandEvaluation.demandId = "DEMAND-REPORT";
-      demandEvaluation.status = nrm::PlanEvaluationStatus::cPASS;
+      demandEvaluation.status = nrm::PlanEvaluationStatus::cFAIL;
       demandEvaluation.capability = capability;
+      demandEvaluation.recommendations.push_back("切换到备用链路后重新推演。");
       planEvaluation.demands.push_back(demandEvaluation);
       reporter.EnqueuePlanEvaluation(planEvaluation);
 
@@ -232,6 +233,8 @@ int main()
    CHECK(planEvaluation.find("\"demandId\":\"DEMAND-REPORT\"") != std::string::npos);
    CHECK(planEvaluation.find("\"usesCandidate\":true") != std::string::npos);
    CHECK(planEvaluation.find("\"environmentEffects\":[") != std::string::npos);
+   CHECK(planEvaluation.find("\"recommendations\":[\"切换到备用链路后重新推演。\"]") !=
+         std::string::npos);
 
    const std::string demandResults =
       ReadAll(runDirectory + "/resource_demand_results.jsonl");

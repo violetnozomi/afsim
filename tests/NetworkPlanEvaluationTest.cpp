@@ -138,6 +138,17 @@ bool HasReason(const nrm::PlanDemandEvaluation& aEvaluation,
           aEvaluation.reasons.end();
 }
 
+bool HasRecommendationContaining(const nrm::PlanDemandEvaluation& aEvaluation,
+                                 const std::string& aText)
+{
+   return std::any_of(
+      aEvaluation.recommendations.begin(), aEvaluation.recommendations.end(),
+      [&aText](const std::string& aRecommendation)
+      {
+         return aRecommendation.find(aText) != std::string::npos;
+      });
+}
+
 class CountingEnvironmentAdapter : public nrm::EnvironmentEffectAdapter
 {
 public:
@@ -274,6 +285,14 @@ int main()
    assert(bandwidth.demands[0].status == nrm::PlanEvaluationStatus::cFAIL);
    assert(HasReason(bandwidth.demands[0], nrm::PlanValidationReason::cNO_PATH) ||
           HasReason(bandwidth.demands[0], nrm::PlanValidationReason::cBANDWIDTH_NOT_MET));
+   assert(!bandwidth.demands[0].recommendations.empty());
+   assert(HasRecommendationContaining(bandwidth.demands[0], "带宽") ||
+          HasRecommendationContaining(bandwidth.demands[0], "路径"));
+   std::ostringstream bandwidthJson;
+   nrm::network_plan_serialization::WriteEvaluation(bandwidthJson, bandwidth);
+   assert(bandwidthJson.str().find("\"recommendations\":[") != std::string::npos);
+   assert(bandwidthJson.str().find("带宽") != std::string::npos ||
+          bandwidthJson.str().find("路径") != std::string::npos);
    const nrm::DistributionPackageResult rejectedPackage =
       distributionService.Generate(
          bandwidthPlan, bandwidth.validation, bandwidth,
@@ -287,12 +306,14 @@ int main()
    delayPlan.demands[0].maximumDelayMs = 5.0;
    const nrm::NetworkPlanEvaluationResult delay = service.Evaluate(snapshot, delayPlan);
    assert(delay.overallStatus == nrm::PlanEvaluationStatus::cFAIL);
+   assert(HasRecommendationContaining(delay.demands[0], "时延"));
 
    nrm::NetworkPlanDocument pdrPlan = Plan();
    pdrPlan.demands.resize(1);
    pdrPlan.demands[0].minimumPdrPercent = 99.0;
    const nrm::NetworkPlanEvaluationResult pdr = service.Evaluate(snapshot, pdrPlan);
    assert(pdr.overallStatus == nrm::PlanEvaluationStatus::cFAIL);
+   assert(HasRecommendationContaining(pdr.demands[0], "PDR"));
 
    nrm::ResourceSnapshot noPathSnapshot = snapshot;
    noPathSnapshot.links.clear();
@@ -305,6 +326,8 @@ int main()
       service.Evaluate(noPathSnapshot, Plan());
    assert(noPath.overallStatus == nrm::PlanEvaluationStatus::cFAIL);
    assert(HasReason(noPath.demands[0], nrm::PlanValidationReason::cNO_PATH));
+   assert(HasRecommendationContaining(noPath.demands[0], "中继") ||
+          HasRecommendationContaining(noPath.demands[0], "备用"));
 
    nrm::ResourceSnapshot offlineSnapshot = snapshot;
    offlineSnapshot.endpoints[1].state = nrm::ResourceState::cOFFLINE;
@@ -312,6 +335,7 @@ int main()
       service.Evaluate(offlineSnapshot, Plan());
    assert(offline.overallStatus == nrm::PlanEvaluationStatus::cFAIL);
    assert(HasReason(offline.demands[0], nrm::PlanValidationReason::cNODE_OFFLINE));
+   assert(HasRecommendationContaining(offline.demands[0], "在线"));
 
    nrm::ResourceSnapshot invalidMetricSnapshot = noPathSnapshot;
    invalidMetricSnapshot.links.push_back(Link(1000.0, 10.0, 95.0));
@@ -321,6 +345,7 @@ int main()
    const nrm::NetworkPlanEvaluationResult invalidMetric =
       service.Evaluate(invalidMetricSnapshot, invalidMetricPlan);
    assert(invalidMetric.overallStatus == nrm::PlanEvaluationStatus::cDATA_INVALID);
+   assert(HasRecommendationContaining(invalidMetric.demands[0], "参数化"));
 
    nrm::ResourceSnapshot candidateSnapshot = snapshot;
    candidateSnapshot.links.clear();
@@ -349,6 +374,7 @@ int main()
    assert(!invalid.validation.passed);
    assert(invalid.overallStatus == nrm::PlanEvaluationStatus::cDATA_INVALID);
    assert(invalid.demands[0].status == nrm::PlanEvaluationStatus::cNOT_EVALUATED);
+   assert(HasRecommendationContaining(invalid.demands[0], "校验"));
    assert(adapter.calls == 0);
 
    std::remove((package.outputPath + "/network_plan.nrm").c_str());

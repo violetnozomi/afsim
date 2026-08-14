@@ -190,6 +190,14 @@ inline void WriteEvaluation(std::ostream& aOutput,
          if (reasonIndex != 0) aOutput << ',';
          aOutput << '"' << ToString(demand.reasons[reasonIndex]) << '"';
       }
+      aOutput << "],\"recommendations\":[";
+      for (std::size_t recommendationIndex = 0;
+           recommendationIndex < demand.recommendations.size();
+           ++recommendationIndex)
+      {
+         if (recommendationIndex != 0) aOutput << ',';
+         aOutput << '"' << EscapeJson(demand.recommendations[recommendationIndex]) << '"';
+      }
       aOutput << "],\"capability\":";
       WriteCapability(aOutput, demand.capability);
       aOutput << '}';

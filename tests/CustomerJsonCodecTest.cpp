@@ -161,11 +161,18 @@ int main()
    evaluation.planId = plan.planId;
    evaluation.revision = plan.revision;
    evaluation.validation.passed = true;
-   evaluation.overallStatus = nrm::PlanEvaluationStatus::cPASS;
-   evaluation.resultingState = nrm::NetworkPlanState::cVALIDATED;
+   evaluation.overallStatus = nrm::PlanEvaluationStatus::cFAIL;
+   evaluation.resultingState = nrm::NetworkPlanState::cREJECTED;
+   nrm::PlanDemandEvaluation failedDemand;
+   failedDemand.demandId = "demand-001";
+   failedDemand.status = nrm::PlanEvaluationStatus::cFAIL;
+   failedDemand.reasons.push_back(nrm::PlanValidationReason::cPDR_NOT_MET);
+   failedDemand.recommendations.push_back("改用PDR更高的备用链路。");
+   evaluation.demands.push_back(failedDemand);
    const QJsonObject planResultRoot = QJsonDocument::fromJson(
       codec.EncodePlanResult(valid.envelope, evaluation)).object();
    assert(planResultRoot.value("schema") == "nrm.customer.network_plan_result.v1");
    assert(planResultRoot.value("data").toObject().value("validationPassed").toBool());
+   assert(planResultRoot.value("data").toObject().value("recommendations").toArray().size() == 1);
    return 0;
 }

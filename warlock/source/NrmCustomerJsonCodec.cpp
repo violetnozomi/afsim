@@ -549,12 +549,18 @@ QByteArray WkNrm::CustomerJsonCodec::EncodePlanResult(
    data.insert("evaluationStatus", nrm::ToString(aResult.overallStatus));
    data.insert("state", nrm::ToString(aResult.resultingState));
    QJsonArray reasons;
+   QJsonArray recommendations;
    for (const nrm::PlanValidationIssue& issue : aResult.validation.issues)
       reasons.push_back(nrm::ToString(issue.reason));
    for (const nrm::PlanDemandEvaluation& demand : aResult.demands)
+   {
       for (const nrm::PlanValidationReason reason : demand.reasons)
          reasons.push_back(nrm::ToString(reason));
+      for (const std::string& recommendation : demand.recommendations)
+         recommendations.push_back(QString::fromStdString(recommendation));
+   }
    data.insert("reasonCodes", reasons);
+   data.insert("recommendations", recommendations);
    if (aPackage && aPackage->generated && !aPackage->outputPath.empty())
       data.insert("packagePath", QString::fromStdString(aPackage->outputPath));
    return QJsonDocument(ResponseRoot("nrm.customer.network_plan_result.v1", aEnvelope, data))

@@ -66,6 +66,8 @@ JSON 对象与 `ResourceSnapshot`、`NavigationSnapshot`、`EnvironmentContext`�
 | `nrm.customer.environment_report.v1` | 甲方 → NRM | 地形、气象、天象和干扰观测/影响 | 映射`EnvironmentContext/Effect` |
 | `nrm.customer.assessment_request.v1` | 甲方 → NRM | 提交通信任务约束 | 映射`AssessmentTask/CapabilityRequest` |
 | `nrm.customer.assessment_response.v1` | NRM → 甲方 | 返回可达性、差距、主备路由和建议 | 来自评估与能力服务 |
+| `nrm.customer.network_plan.v1` | 甲方 → NRM | 提交精简网链资源规划 | 映射`NetworkPlanDocument` |
+| `nrm.customer.network_plan_result.v1` | NRM → 甲方 | 返回规划状态、原因码和调整建议 | 来自规划校验与只读推演 |
 | `nrm.customer.ingest_ack.v1` | NRM → 甲方 | 确认输入被接受、去重或忽略 | 待外部Adapter |
 | `nrm.customer.error.v1` | NRM → 甲方 | 返回固定错误原因和字段路径 | 待外部Adapter |
 
@@ -240,7 +242,17 @@ JSON Schema无法表达的语义校验必须由Adapter执行：
 示例：[`assessment-request.example.json`](../schemas/customer/v1/examples/assessment-request.example.json)和
 [`assessment-response.example.json`](../schemas/customer/v1/examples/assessment-response.example.json)。
 
-## 9. ACK、错误与重试
+## 9. 网链资源规划结果
+
+`nrm.customer.network_plan_result.v1`返回规划校验、只读推演和可选分发包结果。V1固定包含
+`planId`、`revision`、`validationPassed`、`evaluationStatus`、`state`、`reasonCodes`和
+`recommendations`。当规划未通过时，`recommendations`汇总逐需求中文调整建议；通过时
+允许为空数组。建议只用于展示、存档和甲方模块读取，不执行建链、改频、调时隙或切路由。
+
+内部详细结果的`demands[].recommendations`保留逐需求对应关系；精简甲方响应只汇总建议，
+保持接口简单。示例见[`network-plan-result.example.json`](../schemas/customer/v1/examples/network-plan-result.example.json)。
+
+## 10. ACK、错误与重试
 
 资源、导航和环境上报成功后返回`nrm.customer.ingest_ack.v1`：
 
@@ -256,16 +268,16 @@ JSON Schema无法表达的语义校验必须由Adapter执行：
 示例：[`ingest-ack.example.json`](../schemas/customer/v1/examples/ingest-ack.example.json)和
 [`error-response.example.json`](../schemas/customer/v1/examples/error-response.example.json)。
 
-## 10. 推荐传输协议
+## 11. 推荐传输协议
 
-### 10.1 第一阶段文件联调
+### 11.1 第一阶段文件联调
 
 - 一个`.json`文件保存一个完整消息，或JSONL每行一个完整消息。
 - 文件写入采用“临时文件写完后原子改名”，避免读取半包。
 - `.neh`导航文件保持AFSIM原生格式，不嵌入JSON字符串。
 - 文件联调通过后再进入实时传输，不改变消息载荷。
 
-### 10.2 第二阶段实时联调建议
+### 11.2 第二阶段实时联调建议
 
 - 甲方作为客户端，NRM Adapter作为服务端；监听地址和端口由部署配置提供，禁止写死。
 - 每帧为4字节网络字节序无符号长度，加一段UTF-8 JSON；最大长度默认16 MiB。
@@ -276,7 +288,7 @@ JSON Schema无法表达的语义校验必须由Adapter执行：
 
 实时传输尚未在当前源码中实现，因此以上属于**推荐联调协议**，不能写入“已完成”验收项。
 
-## 11. 版本兼容规则
+## 12. 版本兼容规则
 
 - `*.v1`内容一旦双方签字冻结，不删除字段、不改变语义、不扩大已有枚举含义。
 - 新的可选业务需求也发布新Schema文件和新`schemaVersion`，不静默覆盖当前文件。
@@ -285,7 +297,7 @@ JSON Schema无法表达的语义校验必须由Adapter执行：
 - Adapter必须允许多个Schema版本并存，内部统一转换为同一强类型对象。
 - 每次交付保存Schema文件SHA-256、示例包、校验日志和双方签字版本号。
 
-## 12. 本地校验
+## 13. 本地校验
 
 执行：
 
@@ -294,10 +306,10 @@ cd /home/pyh/afsim/network_resource_manager
 ./scripts/validate_customer_interface.sh
 ```
 
-脚本使用Draft 2020-12校验Schema和全部8个正例，并确认一个缺字段的资源包会被拒绝。
+脚本使用Draft 2020-12校验Schema和全部9个正例，并确认缺字段的负例会被拒绝。
 若目标机没有`/usr/bin/jsonschema`，可通过`NRM_JSONSCHEMA_COMMAND`指定兼容工具。
 
-## 13. 需要甲方书面确认的项目
+## 14. 需要甲方书面确认的项目
 
 | 编号 | 待确认内容 | 本方案默认值 |
 | ---: | --- | --- |
@@ -316,7 +328,7 @@ cd /home/pyh/afsim/network_resource_manager
 | 13 | ACK超时、重试、断线重连 | 甲方确认部署参数 |
 | 14 | 是否要求增量事件流 | V1不支持；有需要发布V2 |
 
-## 14. 联调通过标准
+## 15. 联调通过标准
 
 1. 甲方`provider_hello`与双方冻结Schema版本一致。
 2. 甲方提供四网、导航、环境各至少一个合法样包和三个非法样包。

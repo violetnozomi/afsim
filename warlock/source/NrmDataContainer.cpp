@@ -1,5 +1,6 @@
 #include "NrmDataContainer.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 #include <QByteArray>
@@ -115,6 +116,78 @@ nrm::PlanValidationResult NoCurrentPlanValidation()
    issue.description = "No network plan is loaded.";
    validation.issues.push_back(issue);
    return validation;
+}
+
+void AddPlanReason(nrm::PlanDemandEvaluation& aEvaluation,
+                   nrm::PlanValidationReason aReason)
+{
+   if (std::find(aEvaluation.reasons.begin(), aEvaluation.reasons.end(), aReason) ==
+       aEvaluation.reasons.end())
+      aEvaluation.reasons.push_back(aReason);
+}
+
+void AddPlanRecommendation(nrm::PlanDemandEvaluation& aEvaluation,
+                           const std::string& aRecommendation)
+{
+   if (!aRecommendation.empty() &&
+       std::find(aEvaluation.recommendations.begin(),
+                 aEvaluation.recommendations.end(), aRecommendation) ==
+          aEvaluation.recommendations.end())
+      aEvaluation.recommendations.push_back(aRecommendation);
+}
+
+void MergeConcurrentAssessment(
+   nrm::NetworkPlanEvaluationResult& aEvaluation,
+   const nrm::ConcurrentAssessmentResult& aConcurrent)
+{
+   if (!aConcurrent.valid) return;
+   for (const nrm::ConcurrentTaskResult& task : aConcurrent.tasks)
+   {
+      if (task.allocated) continue;
+      auto found = std::find_if(
+         aEvaluation.demands.begin(), aEvaluation.demands.end(),
+         [&task](const nrm::PlanDemandEvaluation& demand)
+         {
+            return demand.demandId == task.taskId;
+         });
+      if (found == aEvaluation.demands.end() ||
+          found->status == nrm::PlanEvaluationStatus::cNOT_EVALUATED)
+         continue;
+
+      if (task.independent.canComplete && !task.concurrent.canComplete)
+         AddPlanReason(*found, nrm::PlanValidationReason::cRESOURCE_CONFLICT);
+      else
+         AddPlanReason(*found, nrm::PlanValidationReason::cEVALUATION_FAILED);
+      if (found->status != nrm::PlanEvaluationStatus::cDATA_INVALID)
+         found->status = nrm::PlanEvaluationStatus::cFAIL;
+      for (const std::string& recommendation : task.concurrent.recommendations)
+         AddPlanRecommendation(*found, recommendation);
+      if (found->recommendations.empty())
+      {
+         AddPlanRecommendation(
+            *found,
+            "当前任务未能分配并发资源；请按失败原因调整链路资源或业务约束后重新推演。");
+      }
+   }
+
+   bool hasInvalid = false;
+   bool hasFailure = false;
+   for (const nrm::PlanDemandEvaluation& demand : aEvaluation.demands)
+   {
+      hasInvalid = hasInvalid ||
+                   demand.status == nrm::PlanEvaluationStatus::cDATA_INVALID;
+      hasFailure = hasFailure || demand.status == nrm::PlanEvaluationStatus::cFAIL;
+   }
+   if (hasInvalid)
+      aEvaluation.overallStatus = nrm::PlanEvaluationStatus::cDATA_INVALID;
+   else if (hasFailure)
+      aEvaluation.overallStatus = nrm::PlanEvaluationStatus::cFAIL;
+   else
+      aEvaluation.overallStatus = nrm::PlanEvaluationStatus::cPASS;
+   aEvaluation.resultingState =
+      aEvaluation.overallStatus == nrm::PlanEvaluationStatus::cPASS
+         ? nrm::NetworkPlanState::cVALIDATED
+         : nrm::NetworkPlanState::cREJECTED;
 }
 }
 
@@ -314,6 +387,7 @@ nrm::NetworkPlanEvaluationResult WkNrm::DataContainer::EvaluateNetworkPlan(
       }
       mConcurrentAssessment = nrm::ConcurrentTaskAssessment(mProfiles).Evaluate(
          mSnapshot, tasks);
+      MergeConcurrentAssessment(mPlanEvaluation, mConcurrentAssessment);
    }
    mPlanValidation = mPlanEvaluation.validation;
    mHasPlanValidation = mHasPlanEvaluation;

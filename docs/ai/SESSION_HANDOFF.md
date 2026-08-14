@@ -379,3 +379,23 @@
 - 测试结果：17/17固定测试通过；气象场景8条四网消息全部接收；实际Warlock快照包含
   `nrm.environment_snapshot.v1`四域数据，服务为active。
 - 下一步唯一动作：用户在VNC核对“环境状态”页，再决定是否运行完整一键预验收和提交Git。
+
+### 2026-08-14 — Codex network-plan rejection recommendations
+
+- 唯一目标：修复资源规划只读推演未通过时没有可见调整建议的问题。
+- 实际修改：`PlanDemandEvaluation`新增逐需求建议；规划评估覆盖无路径、节点离线、带宽、
+  时延、PDR和数据无效，并发评估补充带宽/轮询/时隙/卫通/CDL冲突建议；DataContainer将
+  并发结果合并回规划状态；Warlock新增独立“调整建议”页并区分资源冲突与独立评估失败；
+  规划JSONL、甲方规划响应、Schema、示例和使用文档同步更新。
+- 未修改但发现：`planning_recommendations.jsonl`仍专用于需求匹配页的六类结构化候选建议；
+  规划级建议写入`plan_evaluation_results.jsonl`，两者不混用。AFSIM核心与systemd未修改。
+- 执行命令：四个受影响目标RED/GREEN测试、`scripts/ai_guard.sh static/test`、
+  `scripts/validate_customer_interface.sh`、Warlock `NetworkResourceManager`目标构建和二进制
+  中文字段核对。
+- 测试结果：23/23固定测试通过；9个Schema正例通过且5个负例按预期拒绝；Warlock插件
+  编译链接成功，生成库包含“调整建议”“独立评估未通过”和并发建议文本。
+- 合同追踪键：3.2.4规划推演与3.2.5评估建议保持`IMPLEMENTED / PRE_ACCEPTANCE`，增加
+  失败建议闭环证据，不提升为`FINAL_ACCEPTANCE`。
+- 阻塞：当前Warlock进程早于最终“调整建议”页构建，需要重启用户服务后才能加载最终UI；
+  甲方正式规划规则、四网模块数据和目标环境仍未提供。
+- 下一步唯一动作：重启Warlock，在复杂规划中执行一次“只读推演”，核对自动打开的建议页。
