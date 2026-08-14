@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/ingest-ack.schema.json",
+  "title": "资源输入确认",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.ingest_ack.v1"},
+    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
+    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "source": {"const": "NRM"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "originalMessageId", "detail"],
+      "properties": {
+        "status": {"enum": ["ACCEPTED", "DUPLICATE", "STALE", "REJECTED"]},
+        "originalMessageId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "detail": {"type": "string", "maxLength": 512}
+      }
+    }
+  }
+}

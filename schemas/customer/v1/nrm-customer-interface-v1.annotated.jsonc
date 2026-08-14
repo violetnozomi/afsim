@@ -18,6 +18,10 @@
     {"schema":"nrm.customer.network_plan_result.v1","messageId":"plan-001","timestamp":"2026-08-13T10:00:01+08:00","source":"NRM","data":{"planId":"simple-plan","revision":1,"validationPassed":true,"evaluationStatus":"FAIL","state":"REJECTED","reasonCodes":["PDR_NOT_MET"],"recommendations":["改用PDR更高的备用链路或质量更好的中继路径。"]}},
     // 动态入网申请：成功处理后形成新的规划修订，不直接修改已校验版本。
     {"schema":"nrm.customer.membership_request.v1","messageId":"member-001","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{"requestId":"join-001","planId":"simple-plan","allocationId":"a-l16","platformId":"relay-01","action":"JOIN"}},
+    // 提供方握手：甲方AFSIM模块声明自身版本、可发送Schema和网络类型。
+    {"schema":"nrm.customer.provider_hello.v1","messageId":"hello-001","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{"providerId":"customer-afsim-link-adapter","softwareVersion":"1.0.0","supportedSchemas":["nrm.customer.resource_report.v1","nrm.customer.navigation_report.v1"],"supportedNetworkTypes":["LINK11","LINK16"]}},
+    // 输入确认：NRM回显原消息编号，并明确接收、重复、过期或拒绝状态。
+    {"schema":"nrm.customer.ingest_ack.v1","messageId":"resource-001","timestamp":"2026-08-13T10:00:01+08:00","source":"NRM","data":{"status":"ACCEPTED","originalMessageId":"resource-001","detail":"资源快照已接收"}},
     // 统一错误：path使用JSON Pointer，便于甲方直接定位字段。
     {"schema":"nrm.customer.error.v1","messageId":"bad-001","timestamp":"2026-08-13T10:00:01+08:00","source":"NRM","data":{"success":false,"errors":[{"code":"REQUIRED_FIELD_MISSING","path":"/data/platformId","message":"缺少平台编号"}]}}
   ]

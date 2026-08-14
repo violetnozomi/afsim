@@ -1,1 +1,55 @@
-{"schema":"nrm.customer.resource_report.v1","messageId":"resource-001","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{"runId":"run-demo","simTime":10.0,"networks":[{"networkId":"net-l16","networkType":"LINK16","name":"Link16演示网"}],"members":[{"memberId":"ep-1","platformId":"fighter-01","networkId":"net-l16","state":"ONLINE","position":{"latitudeDeg":34.0,"longitudeDeg":108.8,"altitudeM":8000}},{"memberId":"ep-2","platformId":"command-01","networkId":"net-l16","state":"ONLINE","position":{"latitudeDeg":34.2,"longitudeDeg":109.0,"altitudeM":0}}],"links":[{"linkId":"link-l16-1","networkId":"net-l16","sourceMemberId":"ep-1","destinationMemberId":"ep-2","state":"ONLINE","bandwidthBps":238000,"delayMs":20,"pdrPercent":96,"rssiDbm":-75,"snrDb":12,"berRatio":0.000001,"queuePercent":10,"trafficBps":64000}]}}
+{
+  "schema": "nrm.customer.resource_report.v1",
+  "messageId": "resource-001",
+  "timestamp": "2026-08-13T10:00:00+08:00",
+  "source": "CUSTOMER",
+  "data": {
+    "runId": "run-demo",
+    "simTime": 10.0,
+    "operationalArea": {
+      "areaId": "demo-area",
+      "validFrom": 0.0,
+      "validUntil": 120.0,
+      "points": [
+        {"latitudeDeg": 33.8, "longitudeDeg": 108.6, "altitudeM": 0},
+        {"latitudeDeg": 34.4, "longitudeDeg": 108.6, "altitudeM": 0},
+        {"latitudeDeg": 34.4, "longitudeDeg": 109.2, "altitudeM": 0},
+        {"latitudeDeg": 33.8, "longitudeDeg": 109.2, "altitudeM": 0}
+      ]
+    },
+    "networks": [
+      {"networkId": "net-l16", "networkType": "LINK16", "name": "Link16演示网"}
+    ],
+    "members": [
+      {"memberId": "ep-1", "platformId": "fighter-01", "networkId": "net-l16", "state": "ONLINE", "position": {"latitudeDeg": 34.0, "longitudeDeg": 108.8, "altitudeM": 8000}},
+      {"memberId": "ep-2", "platformId": "command-01", "networkId": "net-l16", "state": "ONLINE", "position": {"latitudeDeg": 34.2, "longitudeDeg": 109.0, "altitudeM": 0}}
+    ],
+    "attitudes": [
+      {"platformId": "fighter-01", "headingDeg": 90, "pitchDeg": 2, "rollDeg": -1, "sampleTime": 10}
+    ],
+    "links": [
+      {
+        "linkId": "link-l16-1", "networkId": "net-l16", "sourceMemberId": "ep-1", "destinationMemberId": "ep-2", "state": "ONLINE",
+        "subnetId": "L16-A", "supportedBusinessTypes": ["C2", "TRACK"],
+        "bandwidthBps": 238000, "delayMs": 20, "pdrPercent": 96, "rssiDbm": -75, "snrDb": 12, "berRatio": 0.000001, "queuePercent": 10, "trafficBps": 64000,
+        "protocolResource": {"kind": "TIMESLOT", "capacity": 16, "used": 4},
+        "coverage": {"maximumRangeM": 500000}
+      }
+    ],
+    "routes": [
+      {"routeId": "route-1", "sourceMemberId": "ep-1", "destinationMemberId": "ep-2", "hops": ["ep-1", "ep-2"], "active": true}
+    ],
+    "flows": [
+      {"flowId": "flow-1", "businessType": "C2", "sourceMemberId": "ep-1", "destinationMemberId": "ep-2", "trafficBps": 64000}
+    ],
+    "gateways": [
+      {"gatewayId": "gateway-1", "platformId": "command-01", "ingressNetworkId": "net-l16", "egressNetworkId": "net-l16", "enabled": true}
+    ],
+    "resourceProxies": [
+      {"proxyId": "proxy-link16", "resourceType": "LINK16", "providerId": "customer-afsim-link-adapter", "online": true, "lastUpdateTime": 10}
+    ],
+    "alarms": [
+      {"alarmId": "alarm-queue-1", "objectId": "link-l16-1", "reasonCode": "QUEUE_HIGH", "severity": "WARNING", "startTime": 9.5, "active": true}
+    ]
+  }
+}

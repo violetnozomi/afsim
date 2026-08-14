@@ -95,6 +95,42 @@ int main()
    assert(resources.endpoints.size() == 2);
    assert(resources.links.size() == 1);
    assert(resources.links.front().bandwidthBps.value == 238000.0);
+   assert(resources.operationalArea.areaId == "demo-area");
+   assert(resources.operationalArea.points.size() == 4);
+   assert(resources.platformAttitudes.size() == 1);
+   assert(resources.platformAttitudes.front().platformName == "fighter-01");
+   assert(resources.links.front().protocolResource.kind == "TIMESLOT");
+   assert(resources.links.front().protocolResource.capacity == 16);
+   assert(resources.links.front().protocolResource.used == 4);
+   assert(resources.links.front().coverage.maximumRangeM.value == 500000.0);
+   assert(resources.links.front().supportedBusinessTypes.size() == 2);
+   assert(resources.alarms.size() == 1);
+   assert(resources.alarms.front().reasonCode == "QUEUE_HIGH");
+   assert(resources.resourceProxies.size() == 1);
+   assert(resources.resourceProxies.front().proxyId == "proxy-link16");
+   assert(resources.routes.size() == 1);
+   assert(resources.routes.front().hops.size() == 2);
+   assert(resources.flows.size() == 1);
+   assert(resources.flows.front().businessType == "C2");
+   assert(resources.gateways.size() == 1);
+   assert(resources.gateways.front().platformId == "command-01");
+
+   WkNrm::CustomerProviderHello hello;
+   assert(codec.DecodeProviderHello(ReadFixture("provider-hello.example.json"),
+                                    hello).valid);
+   assert(hello.providerId == "customer-afsim-link-adapter");
+   assert(hello.softwareVersion == "1.0.0");
+   assert(hello.supportedSchemas.size() == 2);
+   assert(hello.supportedNetworkTypes.size() == 2);
+
+   WkNrm::CustomerJsonEnvelope ackEnvelope;
+   ackEnvelope.messageId = "resource-001";
+   const QJsonObject ackRoot = QJsonDocument::fromJson(
+      codec.EncodeIngestAck(ackEnvelope, WkNrm::CustomerIngestStatus::cACCEPTED,
+                            "资源快照已接收")).object();
+   assert(ackRoot.value("schema") == "nrm.customer.ingest_ack.v1");
+   assert(ackRoot.value("messageId") == "resource-001");
+   assert(ackRoot.value("data").toObject().value("status") == "ACCEPTED");
 
    const nrm::ResourceSnapshot preserved = resources;
    const auto invalidResource = codec.DecodeResources(

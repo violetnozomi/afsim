@@ -263,6 +263,11 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
             mLastCustomerJsonResult = mCustomerJsonCodec.DecodeResources(json, snapshot);
             if (mLastCustomerJsonResult.valid) SetSnapshot(snapshot);
          }
+         else if (schema == "nrm.customer.provider_hello.v1")
+         {
+            CustomerProviderHello hello;
+            mLastCustomerJsonResult = mCustomerJsonCodec.DecodeProviderHello(json, hello);
+         }
          else
          {
             mLastCustomerJsonResult.valid = false;

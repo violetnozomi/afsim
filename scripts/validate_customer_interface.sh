@@ -7,7 +7,7 @@ readonly SCHEMA_ROOT="${ROOT}/schemas/customer/v1"
 readonly ANNOTATED_EXAMPLES="${SCHEMA_ROOT}/nrm-customer-interface-v1.annotated.jsonc"
 readonly EXAMPLE_DIR="${ROOT}/schemas/customer/v1/examples"
 readonly INVALID_DIR="${ROOT}/schemas/customer/v1/invalid"
-readonly CONTRACTS="navigation-report environment-report resource-report assessment-request assessment-response network-plan network-plan-result membership-request error"
+readonly CONTRACTS="navigation-report environment-report resource-report assessment-request assessment-response network-plan network-plan-result membership-request provider-hello ingest-ack error"
 
 for contract in $CONTRACTS
 do
@@ -54,8 +54,8 @@ if bundle.get("documentType") != "NRM_CUSTOMER_INTERFACE_ANNOTATED_EXAMPLES_V1":
     raise SystemExit("ERROR: annotated JSONC documentType is invalid")
 
 messages = bundle.get("messages")
-if not isinstance(messages, list) or len(messages) != 9:
-    raise SystemExit("ERROR: annotated JSONC must contain exactly nine messages")
+if not isinstance(messages, list) or len(messages) != 11:
+    raise SystemExit("ERROR: annotated JSONC must contain exactly eleven messages")
 
 for index, message in enumerate(messages, start=1):
     schema_name = message["schema"].removeprefix("nrm.customer.").removesuffix(".v1").replace("_", "-")
@@ -68,7 +68,7 @@ for index, message in enumerate(messages, start=1):
             f"ERROR: annotated JSONC message {index} failed at {field_path}: {error.message}"
         )
 
-print("PASS annotated JSONC syntax and 9 embedded messages")
+print("PASS annotated JSONC syntax and 11 embedded messages")
 
 validated = 0
 for example_path in sorted(example_root.glob("*.example.json")):

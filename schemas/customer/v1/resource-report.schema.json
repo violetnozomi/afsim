@@ -2,7 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nrm.local/schema/customer/v1/resource-report.schema.json",
   "title": "四网通信资源完整快照",
-  "type": "object", "additionalProperties": false,
+  "type": "object",
+  "additionalProperties": false,
   "required": ["schema", "messageId", "timestamp", "source", "data"],
   "properties": {
     "schema": {"const": "nrm.customer.resource_report.v1"},
@@ -10,14 +11,22 @@
     "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
     "source": {"$ref": "common.schema.json#/$defs/source"},
     "data": {
-      "type": "object", "additionalProperties": false,
+      "type": "object",
+      "additionalProperties": false,
       "required": ["runId", "simTime", "networks", "members", "links"],
       "properties": {
         "runId": {"$ref": "common.schema.json#/$defs/identifier"},
         "simTime": {"type": "number", "minimum": 0},
+        "operationalArea": {"$ref": "#/$defs/operationalArea"},
         "networks": {"type": "array", "items": {"$ref": "#/$defs/network"}},
         "members": {"type": "array", "items": {"$ref": "#/$defs/member"}},
-        "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}
+        "attitudes": {"type": "array", "items": {"$ref": "#/$defs/attitude"}},
+        "links": {"type": "array", "items": {"$ref": "#/$defs/link"}},
+        "routes": {"type": "array", "items": {"$ref": "#/$defs/route"}},
+        "flows": {"type": "array", "items": {"$ref": "#/$defs/flow"}},
+        "gateways": {"type": "array", "items": {"$ref": "#/$defs/gateway"}},
+        "resourceProxies": {"type": "array", "items": {"$ref": "#/$defs/proxy"}},
+        "alarms": {"type": "array", "items": {"$ref": "#/$defs/alarm"}}
       }
     }
   },
@@ -30,20 +39,27 @@
     "member": {
       "type": "object", "additionalProperties": false,
       "required": ["memberId", "platformId", "networkId", "state", "position"],
-      "properties": {
-        "memberId": {"$ref": "common.schema.json#/$defs/identifier"}, "platformId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "state": {"enum": ["ONLINE", "OFFLINE", "DISABLED", "FAILED"]}, "position": {"$ref": "common.schema.json#/$defs/position"}, "role": {"type": "string", "maxLength": 64}
-      }
+      "properties": {"memberId": {"$ref": "common.schema.json#/$defs/identifier"}, "platformId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkId": {"$ref": "common.schema.json#/$defs/identifier"}, "state": {"enum": ["ONLINE", "OFFLINE", "DISABLED", "FAILED"]}, "position": {"$ref": "common.schema.json#/$defs/position"}, "role": {"type": "string", "maxLength": 64}}
     },
     "link": {
       "type": "object", "additionalProperties": false,
       "required": ["linkId", "networkId", "sourceMemberId", "destinationMemberId", "state"],
       "properties": {
         "linkId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkId": {"$ref": "common.schema.json#/$defs/identifier"}, "sourceMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "destinationMemberId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "state": {"enum": ["ONLINE", "OFFLINE", "DISABLED", "FAILED"]},
-        "bandwidthBps": {"type": "number", "minimum": 0}, "delayMs": {"type": "number", "minimum": 0}, "pdrPercent": {"type": "number", "minimum": 0, "maximum": 100},
-        "rssiDbm": {"type": "number"}, "snrDb": {"type": "number"}, "berRatio": {"type": "number", "minimum": 0, "maximum": 1}, "queuePercent": {"type": "number", "minimum": 0, "maximum": 100}, "trafficBps": {"type": "number", "minimum": 0}
+        "state": {"enum": ["ONLINE", "OFFLINE", "DISABLED", "FAILED"]}, "subnetId": {"type": "string", "maxLength": 64}, "supportedBusinessTypes": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "bandwidthBps": {"type": "number", "minimum": 0}, "delayMs": {"type": "number", "minimum": 0}, "pdrPercent": {"type": "number", "minimum": 0, "maximum": 100}, "rssiDbm": {"type": "number"}, "snrDb": {"type": "number"}, "berRatio": {"type": "number", "minimum": 0, "maximum": 1}, "queuePercent": {"type": "number", "minimum": 0, "maximum": 100}, "trafficBps": {"type": "number", "minimum": 0},
+        "protocolResource": {"$ref": "#/$defs/protocolResource"}, "coverage": {"$ref": "#/$defs/coverage"}
       }
-    }
+    },
+    "geoPoint": {"type": "object", "additionalProperties": false, "required": ["latitudeDeg", "longitudeDeg", "altitudeM"], "properties": {"latitudeDeg": {"type": "number", "minimum": -90, "maximum": 90}, "longitudeDeg": {"type": "number", "minimum": -180, "maximum": 180}, "altitudeM": {"type": "number"}}},
+    "operationalArea": {"type": "object", "additionalProperties": false, "required": ["areaId", "validFrom", "validUntil", "points"], "properties": {"areaId": {"$ref": "common.schema.json#/$defs/identifier"}, "validFrom": {"type": "number", "minimum": 0}, "validUntil": {"type": "number", "minimum": 0}, "points": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/geoPoint"}}}},
+    "attitude": {"type": "object", "additionalProperties": false, "required": ["platformId", "headingDeg", "pitchDeg", "rollDeg", "sampleTime"], "properties": {"platformId": {"$ref": "common.schema.json#/$defs/identifier"}, "headingDeg": {"type": "number", "minimum": 0, "maximum": 360}, "pitchDeg": {"type": "number", "minimum": -90, "maximum": 90}, "rollDeg": {"type": "number", "minimum": -180, "maximum": 180}, "sampleTime": {"type": "number", "minimum": 0}}},
+    "protocolResource": {"type": "object", "additionalProperties": false, "required": ["kind", "capacity", "used"], "properties": {"kind": {"enum": ["POLLING_UNIT", "TIMESLOT", "BEAM_CHANNEL", "CHANNEL"]}, "capacity": {"type": "integer", "minimum": 0}, "used": {"type": "integer", "minimum": 0}}},
+    "coverage": {"type": "object", "additionalProperties": false, "required": ["maximumRangeM"], "properties": {"maximumRangeM": {"type": "number", "minimum": 0}}},
+    "route": {"type": "object", "additionalProperties": false, "required": ["routeId", "sourceMemberId", "destinationMemberId", "hops", "active"], "properties": {"routeId": {"$ref": "common.schema.json#/$defs/identifier"}, "sourceMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "destinationMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "hops": {"type": "array", "minItems": 2, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "active": {"type": "boolean"}}},
+    "flow": {"type": "object", "additionalProperties": false, "required": ["flowId", "businessType", "sourceMemberId", "destinationMemberId"], "properties": {"flowId": {"$ref": "common.schema.json#/$defs/identifier"}, "businessType": {"type": "string", "minLength": 1}, "sourceMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "destinationMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "trafficBps": {"type": "number", "minimum": 0}}},
+    "gateway": {"type": "object", "additionalProperties": false, "required": ["gatewayId", "platformId", "ingressNetworkId", "egressNetworkId", "enabled"], "properties": {"gatewayId": {"$ref": "common.schema.json#/$defs/identifier"}, "platformId": {"$ref": "common.schema.json#/$defs/identifier"}, "ingressNetworkId": {"$ref": "common.schema.json#/$defs/identifier"}, "egressNetworkId": {"$ref": "common.schema.json#/$defs/identifier"}, "enabled": {"type": "boolean"}}},
+    "proxy": {"type": "object", "additionalProperties": false, "required": ["proxyId", "resourceType", "providerId", "online", "lastUpdateTime"], "properties": {"proxyId": {"$ref": "common.schema.json#/$defs/identifier"}, "resourceType": {"type": "string", "minLength": 1}, "providerId": {"$ref": "common.schema.json#/$defs/identifier"}, "online": {"type": "boolean"}, "lastUpdateTime": {"type": "number", "minimum": 0}}},
+    "alarm": {"type": "object", "additionalProperties": false, "required": ["alarmId", "objectId", "reasonCode", "severity", "startTime", "active"], "properties": {"alarmId": {"$ref": "common.schema.json#/$defs/identifier"}, "objectId": {"$ref": "common.schema.json#/$defs/identifier"}, "reasonCode": {"type": "string", "minLength": 1}, "severity": {"enum": ["INFO", "WARNING", "ERROR"]}, "startTime": {"type": "number", "minimum": 0}, "active": {"type": "boolean"}}}
   }
 }

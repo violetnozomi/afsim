@@ -37,6 +37,22 @@ struct CustomerJsonDecodeResult
    std::vector<CustomerJsonError> errors;
 };
 
+struct CustomerProviderHello
+{
+   std::string providerId;
+   std::string softwareVersion;
+   std::vector<std::string> supportedSchemas;
+   std::vector<nrm::NetworkType> supportedNetworkTypes;
+};
+
+enum class CustomerIngestStatus
+{
+   cACCEPTED,
+   cDUPLICATE,
+   cSTALE,
+   cREJECTED
+};
+
 class CustomerJsonCodec
 {
 public:
@@ -56,6 +72,11 @@ public:
                                               nrm::NetworkPlanDocument& aPlan) const;
    CustomerJsonDecodeResult DecodeMembership(const QByteArray& aJson,
                                              nrm::NetworkPlanChange& aChange) const;
+   CustomerJsonDecodeResult DecodeProviderHello(const QByteArray& aJson,
+                                                CustomerProviderHello& aHello) const;
+   QByteArray EncodeIngestAck(const CustomerJsonEnvelope& aEnvelope,
+                              CustomerIngestStatus aStatus,
+                              const std::string& aDetail) const;
    QByteArray EncodeAssessment(const CustomerJsonEnvelope& aEnvelope,
                                const nrm::AssessmentResult& aResult) const;
    QByteArray EncodePlanResult(const CustomerJsonEnvelope& aEnvelope,

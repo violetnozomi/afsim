@@ -232,6 +232,33 @@ struct ResourceProxyState
    double lastUpdateTime = 0.0;
 };
 
+struct RouteResourceState
+{
+   std::string routeId;
+   std::string sourceMemberId;
+   std::string destinationMemberId;
+   std::vector<std::string> hops;
+   bool active = false;
+};
+
+struct BusinessFlowState
+{
+   std::string flowId;
+   std::string businessType;
+   std::string sourceMemberId;
+   std::string destinationMemberId;
+   MetricValue<double> trafficBps;
+};
+
+struct GatewayResourceState
+{
+   std::string gatewayId;
+   std::string platformId;
+   std::string ingressNetworkId;
+   std::string egressNetworkId;
+   bool enabled = false;
+};
+
 struct LinkSnapshot
 {
    std::string linkId;
@@ -373,6 +400,9 @@ struct ResourceSnapshot
    std::vector<PlatformAttitude> platformAttitudes;
    std::vector<ResourceAlarm>    alarms;
    std::vector<ResourceProxyState> resourceProxies;
+   std::vector<RouteResourceState> routes;
+   std::vector<BusinessFlowState> flows;
+   std::vector<GatewayResourceState> gateways;
    MessageStatistics             messages;
    EnvironmentSnapshot           environment;
    NavigationSnapshot            navigation;

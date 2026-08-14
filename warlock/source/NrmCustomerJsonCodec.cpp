@@ -196,6 +196,8 @@ bool WkNrm::CustomerJsonCodec::IsSupportedSchema(const QString& aSchema)
       "nrm.customer.network_plan.v1",
       "nrm.customer.network_plan_result.v1",
       "nrm.customer.membership_request.v1",
+      "nrm.customer.provider_hello.v1",
+      "nrm.customer.ingest_ack.v1",
       "nrm.customer.error.v1"};
    return schemas.count(aSchema) != 0;
 }
@@ -358,6 +360,9 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeResources(
       link.networkName = networkId.toStdString();
       link.networkType = networks[networkId];
       link.state = State(object.value("state").toString());
+      link.subnetId = object.value("subnetId").toString().toStdString();
+      for (const QJsonValue& business : object.value("supportedBusinessTypes").toArray())
+         link.supportedBusinessTypes.push_back(business.toString().toStdString());
       if (object.contains("bandwidthBps")) Metric(link.bandwidthBps, object.value("bandwidthBps").toDouble(), "bit/s", snapshot.simTime, snapshot.origin);
       if (object.contains("rssiDbm")) Metric(link.rssiDbm, object.value("rssiDbm").toDouble(), "dBm", snapshot.simTime, snapshot.origin);
       if (object.contains("snrDb")) Metric(link.snrDb, object.value("snrDb").toDouble(), "dB", snapshot.simTime, snapshot.origin);
@@ -367,9 +372,143 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeResources(
       if (object.contains("delayMs")) Metric(window.averageTransportDelayMs, object.value("delayMs").toDouble(), "ms", snapshot.simTime, snapshot.origin);
       if (object.contains("pdrPercent")) Metric(window.deliveryRatioPercent, object.value("pdrPercent").toDouble(), "percent", snapshot.simTime, snapshot.origin);
       if (object.contains("trafficBps")) Metric(window.deliveredThroughputBps, object.value("trafficBps").toDouble(), "bit/s", snapshot.simTime, snapshot.origin);
-      if (object.contains("queuePercent")) { window.utilizationPercent.valid = false; }
+      if (object.contains("queuePercent")) Metric(window.queueUtilizationPercent, object.value("queuePercent").toDouble(), "percent", snapshot.simTime, snapshot.origin);
+      const QJsonObject protocol = object.value("protocolResource").toObject();
+      if (!protocol.isEmpty())
+      {
+         link.protocolResource.kind = protocol.value("kind").toString().toStdString();
+         link.protocolResource.capacity = static_cast<std::size_t>(protocol.value("capacity").toInt());
+         link.protocolResource.used = static_cast<std::size_t>(protocol.value("used").toInt());
+         link.protocolResource.remaining = link.protocolResource.capacity > link.protocolResource.used
+                                              ? link.protocolResource.capacity - link.protocolResource.used : 0;
+         link.protocolResource.valid = true;
+         if (link.protocolResource.capacity > 0)
+            Metric(link.protocolResource.utilizationPercent,
+                   100.0 * link.protocolResource.used / link.protocolResource.capacity,
+                   "percent", snapshot.simTime, snapshot.origin);
+         else
+            link.protocolResource.utilizationPercent.reason = nrm::MetricReason::cZERO_DENOMINATOR;
+      }
+      const QJsonObject coverage = object.value("coverage").toObject();
+      if (!coverage.isEmpty())
+      {
+         Metric(link.coverage.maximumRangeM, coverage.value("maximumRangeM").toDouble(),
+                "m", snapshot.simTime, snapshot.origin);
+         link.coverage.valid = true;
+      }
       link.windows.push_back(window);
       snapshot.links.push_back(link);
+   }
+   if (data.contains("operationalArea"))
+   {
+      const QJsonObject area = data.value("operationalArea").toObject();
+      snapshot.operationalArea.areaId = area.value("areaId").toString().toStdString();
+      snapshot.operationalArea.validFrom = area.value("validFrom").toDouble();
+      snapshot.operationalArea.validUntil = area.value("validUntil").toDouble();
+      for (const QJsonValue& value : area.value("points").toArray())
+      {
+         const QJsonObject point = value.toObject();
+         snapshot.operationalArea.points.push_back(
+            {point.value("latitudeDeg").toDouble(), point.value("longitudeDeg").toDouble(),
+             point.value("altitudeM").toDouble()});
+      }
+      if (snapshot.operationalArea.areaId.empty() ||
+          snapshot.operationalArea.points.size() < 3 ||
+          snapshot.operationalArea.validUntil < snapshot.operationalArea.validFrom)
+         return Failure("DATA_INVALID", "/data/operationalArea", "作战区域字段无效");
+   }
+   std::set<QString> attitudePlatforms;
+   for (const QJsonValue& value : data.value("attitudes").toArray())
+   {
+      const QJsonObject object = value.toObject();
+      const QString platformId = object.value("platformId").toString();
+      if (platformId.isEmpty() || !attitudePlatforms.insert(platformId).second)
+         return Failure("DATA_INVALID", "/data/attitudes", "平台姿态重复或无平台编号");
+      nrm::PlatformAttitude attitude;
+      attitude.platformName = platformId.toStdString();
+      attitude.headingDeg = object.value("headingDeg").toDouble();
+      attitude.pitchDeg = object.value("pitchDeg").toDouble();
+      attitude.rollDeg = object.value("rollDeg").toDouble();
+      attitude.sampleTime = object.value("sampleTime").toDouble(snapshot.simTime);
+      attitude.origin = snapshot.origin;
+      attitude.valid = true;
+      snapshot.platformAttitudes.push_back(attitude);
+   }
+   std::set<QString> alarmIds;
+   for (const QJsonValue& value : data.value("alarms").toArray())
+   {
+      const QJsonObject object = value.toObject();
+      const QString alarmId = object.value("alarmId").toString();
+      if (alarmId.isEmpty() || !alarmIds.insert(alarmId).second)
+         return Failure("DATA_INVALID", "/data/alarms", "告警编号重复或为空");
+      nrm::ResourceAlarm alarm;
+      alarm.alarmId = alarmId.toStdString();
+      alarm.objectId = object.value("objectId").toString().toStdString();
+      alarm.reasonCode = object.value("reasonCode").toString().toStdString();
+      alarm.severity = object.value("severity").toString().toStdString();
+      alarm.startTime = object.value("startTime").toDouble();
+      alarm.active = object.value("active").toBool();
+      snapshot.alarms.push_back(alarm);
+   }
+   std::set<QString> proxyIds;
+   for (const QJsonValue& value : data.value("resourceProxies").toArray())
+   {
+      const QJsonObject object = value.toObject();
+      const QString proxyId = object.value("proxyId").toString();
+      if (proxyId.isEmpty() || !proxyIds.insert(proxyId).second)
+         return Failure("DATA_INVALID", "/data/resourceProxies", "资源代理编号重复或为空");
+      nrm::ResourceProxyState proxy;
+      proxy.proxyId = proxyId.toStdString();
+      proxy.resourceType = object.value("resourceType").toString().toStdString();
+      proxy.providerId = object.value("providerId").toString().toStdString();
+      proxy.online = object.value("online").toBool();
+      proxy.lastUpdateTime = object.value("lastUpdateTime").toDouble();
+      snapshot.resourceProxies.push_back(proxy);
+   }
+   for (const QJsonValue& value : data.value("routes").toArray())
+   {
+      const QJsonObject object = value.toObject();
+      nrm::RouteResourceState route;
+      route.routeId = object.value("routeId").toString().toStdString();
+      route.sourceMemberId = object.value("sourceMemberId").toString().toStdString();
+      route.destinationMemberId = object.value("destinationMemberId").toString().toStdString();
+      route.active = object.value("active").toBool();
+      for (const QJsonValue& hop : object.value("hops").toArray())
+         route.hops.push_back(hop.toString().toStdString());
+      if (route.routeId.empty() || endpoints.count(QString::fromStdString(route.sourceMemberId)) == 0 ||
+          endpoints.count(QString::fromStdString(route.destinationMemberId)) == 0 || route.hops.empty())
+         return Failure("REFERENCE_NOT_FOUND", "/data/routes", "路由引用不存在");
+      snapshot.routes.push_back(route);
+   }
+   for (const QJsonValue& value : data.value("flows").toArray())
+   {
+      const QJsonObject object = value.toObject();
+      nrm::BusinessFlowState flow;
+      flow.flowId = object.value("flowId").toString().toStdString();
+      flow.businessType = object.value("businessType").toString().toStdString();
+      flow.sourceMemberId = object.value("sourceMemberId").toString().toStdString();
+      flow.destinationMemberId = object.value("destinationMemberId").toString().toStdString();
+      if (flow.flowId.empty() || endpoints.count(QString::fromStdString(flow.sourceMemberId)) == 0 ||
+          endpoints.count(QString::fromStdString(flow.destinationMemberId)) == 0)
+         return Failure("REFERENCE_NOT_FOUND", "/data/flows", "业务流引用不存在");
+      if (object.contains("trafficBps"))
+         Metric(flow.trafficBps, object.value("trafficBps").toDouble(), "bit/s",
+                snapshot.simTime, snapshot.origin);
+      snapshot.flows.push_back(flow);
+   }
+   for (const QJsonValue& value : data.value("gateways").toArray())
+   {
+      const QJsonObject object = value.toObject();
+      nrm::GatewayResourceState gateway;
+      gateway.gatewayId = object.value("gatewayId").toString().toStdString();
+      gateway.platformId = object.value("platformId").toString().toStdString();
+      gateway.ingressNetworkId = object.value("ingressNetworkId").toString().toStdString();
+      gateway.egressNetworkId = object.value("egressNetworkId").toString().toStdString();
+      gateway.enabled = object.value("enabled").toBool();
+      if (gateway.gatewayId.empty() || networks.count(QString::fromStdString(gateway.ingressNetworkId)) == 0 ||
+          networks.count(QString::fromStdString(gateway.egressNetworkId)) == 0)
+         return Failure("REFERENCE_NOT_FOUND", "/data/gateways", "网关网络引用不存在");
+      snapshot.gateways.push_back(gateway);
    }
    for (nrm::NetworkSnapshot& network : snapshot.networks)
    {
@@ -378,6 +517,60 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeResources(
    }
    aSnapshot = snapshot;
    return result;
+}
+
+WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeProviderHello(
+   const QByteArray& aJson, CustomerProviderHello& aHello) const
+{
+   CustomerJsonDecodeResult result = Inspect(aJson);
+   if (!result.valid || result.envelope.schema != "nrm.customer.provider_hello.v1")
+      return result.valid ? Failure("SCHEMA_UNSUPPORTED", "/schema", "不是提供方握手消息") : result;
+   const QJsonObject data = DataObject(aJson);
+   if (data.value("providerId").toString().isEmpty() ||
+       data.value("softwareVersion").toString().isEmpty() ||
+       !data.value("supportedSchemas").isArray() ||
+       !data.value("supportedNetworkTypes").isArray())
+      return Failure("SCHEMA_VALIDATION_FAILED", "/data", "提供方握手字段无效");
+   CustomerProviderHello hello;
+   hello.providerId = data.value("providerId").toString().toStdString();
+   hello.softwareVersion = data.value("softwareVersion").toString().toStdString();
+   for (const QJsonValue& value : data.value("supportedSchemas").toArray())
+   {
+      if (!value.isString() || value.toString().isEmpty())
+         return Failure("SCHEMA_VALIDATION_FAILED", "/data/supportedSchemas", "Schema列表无效");
+      hello.supportedSchemas.push_back(value.toString().toStdString());
+   }
+   for (const QJsonValue& value : data.value("supportedNetworkTypes").toArray())
+   {
+      const nrm::NetworkType type = NetworkType(value.toString());
+      if (type == nrm::NetworkType::cUNKNOWN)
+         return Failure("SCHEMA_VALIDATION_FAILED", "/data/supportedNetworkTypes", "网络类型无效");
+      hello.supportedNetworkTypes.push_back(type);
+   }
+   if (hello.supportedSchemas.empty() || hello.supportedNetworkTypes.empty())
+      return Failure("SCHEMA_VALIDATION_FAILED", "/data", "能力列表不能为空");
+   aHello = hello;
+   return result;
+}
+
+QByteArray WkNrm::CustomerJsonCodec::EncodeIngestAck(
+   const CustomerJsonEnvelope& aEnvelope, CustomerIngestStatus aStatus,
+   const std::string& aDetail) const
+{
+   const char* status = "REJECTED";
+   switch (aStatus)
+   {
+   case CustomerIngestStatus::cACCEPTED: status = "ACCEPTED"; break;
+   case CustomerIngestStatus::cDUPLICATE: status = "DUPLICATE"; break;
+   case CustomerIngestStatus::cSTALE: status = "STALE"; break;
+   case CustomerIngestStatus::cREJECTED: status = "REJECTED"; break;
+   }
+   QJsonObject data;
+   data.insert("status", status);
+   data.insert("originalMessageId", QString::fromStdString(aEnvelope.messageId));
+   data.insert("detail", QString::fromStdString(aDetail));
+   return QJsonDocument(ResponseRoot("nrm.customer.ingest_ack.v1", aEnvelope, data))
+      .toJson(QJsonDocument::Compact);
 }
 
 WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeAssessment(
