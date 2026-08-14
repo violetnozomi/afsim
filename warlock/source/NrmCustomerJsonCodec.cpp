@@ -215,7 +215,8 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeNavigation(
    const QString type = data.value("navigationType").toString();
    const QString status = data.value("status").toString();
    if (data.value("platformId").toString().isEmpty() || !data.value("simTime").isDouble() ||
-       truth.size() != 3 || perceived.size() != 3 || error.size() != 3 ||
+       truth.size() != 3 || perceived.size() != 3 ||
+       (!error.isEmpty() && error.size() != 3) ||
        (type != "GNSS" && type != "INS" && type != "INTEGRATED"))
       return Failure("SCHEMA_VALIDATION_FAILED", "/data", "导航数据字段无效");
    nrm::NavigationSample sample;
@@ -234,13 +235,16 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeNavigation(
    Metric(sample.perceivedLatitudeDeg, perceived.value("latitudeDeg").toDouble(), "deg", sample.sampleTime, sample.origin, sample.confidence);
    Metric(sample.perceivedLongitudeDeg, perceived.value("longitudeDeg").toDouble(), "deg", sample.sampleTime, sample.origin, sample.confidence);
    Metric(sample.perceivedAltitudeM, perceived.value("altitudeM").toDouble(), "m", sample.sampleTime, sample.origin, sample.confidence);
-   const double inTrack = error.value("inTrack").toDouble();
-   const double crossTrack = error.value("crossTrack").toDouble();
-   const double vertical = error.value("vertical").toDouble();
-   Metric(sample.inTrackErrorM, inTrack, "m", sample.sampleTime, sample.origin, sample.confidence);
-   Metric(sample.crossTrackErrorM, crossTrack, "m", sample.sampleTime, sample.origin, sample.confidence);
-   Metric(sample.verticalErrorM, vertical, "m", sample.sampleTime, sample.origin, sample.confidence);
-   Metric(sample.totalPositionErrorM, std::sqrt(inTrack * inTrack + crossTrack * crossTrack + vertical * vertical), "m", sample.sampleTime, sample.origin, sample.confidence);
+   if (!error.isEmpty())
+   {
+      const double inTrack = error.value("inTrack").toDouble();
+      const double crossTrack = error.value("crossTrack").toDouble();
+      const double vertical = error.value("vertical").toDouble();
+      Metric(sample.inTrackErrorM, inTrack, "m", sample.sampleTime, sample.origin, sample.confidence);
+      Metric(sample.crossTrackErrorM, crossTrack, "m", sample.sampleTime, sample.origin, sample.confidence);
+      Metric(sample.verticalErrorM, vertical, "m", sample.sampleTime, sample.origin, sample.confidence);
+      Metric(sample.totalPositionErrorM, std::sqrt(inTrack * inTrack + crossTrack * crossTrack + vertical * vertical), "m", sample.sampleTime, sample.origin, sample.confidence);
+   }
    aSample = sample;
    return result;
 }

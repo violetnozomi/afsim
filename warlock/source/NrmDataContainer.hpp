@@ -39,6 +39,7 @@ public:
    bool HasPlanValidation() const { return mHasPlanValidation; }
    bool HasPlanEvaluation() const { return mHasPlanEvaluation; }
    bool HasDistributionPackage() const { return mHasDistributionPackage; }
+   bool HasPlanCoordination() const { return mHasPlanCoordination; }
    bool HasResourceDemandSet() const { return mDemandRepository.HasCurrentDemandSet(); }
    bool HasDemandMatching() const { return mHasDemandMatching; }
    const nrm::NetworkPlanDocument* GetNetworkPlan() const
@@ -64,6 +65,10 @@ public:
    const nrm::PlanRepositoryResult& GetPlanOperation() const
    {
       return mPlanOperation;
+   }
+   const nrm::PlanCoordinationEvidence& GetPlanCoordination() const
+   {
+      return mPlanCoordination;
    }
    const nrm::ResourceDemandSet* GetResourceDemandSet() const
    {
@@ -112,6 +117,7 @@ public:
       const nrm::EnvironmentContext& aEnvironment = nrm::EnvironmentContext());
    nrm::DistributionPackageResult GenerateNetworkPlanPackage(
       const std::string& aOutputRoot = std::string());
+   bool AcknowledgeNetworkPlanPackage(const std::string& aAckPath);
    bool LoadResourceDemands(const std::string& aPath);
    bool ReplaceResourceDemandDraft(const nrm::ResourceDemandSet& aDemandSet);
    void UnloadResourceDemands();
@@ -153,9 +159,11 @@ private:
    nrm::NetworkPlanEvaluationResult   mPlanEvaluation;
    nrm::ConcurrentAssessmentResult    mConcurrentAssessment;
    nrm::DistributionPackageResult     mDistributionPackage;
+   nrm::PlanCoordinationEvidence       mPlanCoordination;
    bool                               mHasPlanValidation = false;
    bool                               mHasPlanEvaluation = false;
    bool                               mHasDistributionPackage = false;
+   bool                               mHasPlanCoordination = false;
    nrm::ResourceDemandRepository      mDemandRepository;
    nrm::ResourceDemandRepositoryResult mDemandOperation;
    nrm::ResourceDemandBatchResult     mDemandMatching;

@@ -13,7 +13,7 @@ readonly RESULT_FILE="${RUN_DIR}/results.tsv"
 readonly REPORT_FILE="${RUN_DIR}/PREACCEPTANCE_REPORT.md"
 readonly GUI_SUMMARY_FILE="${RUN_DIR}/gui_snapshot_summary.json"
 readonly LATEST_STATUS_FILE="${OUTPUT_ROOT}/latest_status.json"
-readonly FIXED_TEST_COUNT=22
+readonly FIXED_TEST_COUNT=31
 readonly SCENARIOS=(
    framework_smoke
    four_network_overview
@@ -23,6 +23,7 @@ readonly SCENARIOS=(
    capability_service_smoke
    environment_weather
    navigation_errors
+   operational_strike_demo
 )
 
 overall_status=PASS
@@ -72,6 +73,19 @@ run_guard_step() {
    fi
 }
 
+run_deployment_check() {
+   local log_file="${LOG_DIR}/deployment.log"
+   local evidence_file="${RUN_DIR}/deployment_checks.jsonl"
+   if NRM_DEPLOYMENT_OUTPUT="$evidence_file" \
+      "${ROOT}/scripts/check_deployment_contract.sh" >"$log_file" 2>&1
+   then
+      record_result "deployment" PASS "$evidence_file" \
+         "本机可检查项通过；甲方专有项保持CUSTOMER_BLOCKED"
+   else
+      record_result "deployment" FAIL "$log_file" "本机部署检查失败"
+   fi
+}
+
 scenario_markers_valid() {
    local scenario=$1
    local log_file=$2
@@ -111,6 +125,12 @@ scenario_markers_valid() {
             grep -q '^NRM_NAVIGATION MODE GPS1$' "$log_file" &&
             grep -q '^NRM_NAVIGATION MODE GPS2$' "$log_file" &&
             [[ -s /tmp/nrm-navigation-history/nav_aircraft.neh ]]
+         ;;
+      operational_strike_demo)
+         grep -q '^NRM_OPERATIONAL PHASE SCENARIO_START$' "$log_file" &&
+            grep -q '^NRM_OPERATIONAL PHASE LINK16_DIRECT_FAILURE$' "$log_file" &&
+            grep -q '^NRM_OPERATIONAL PHASE RELAY_ROUTE_REQUESTED$' "$log_file" &&
+            grep -q '^NRM_OPERATIONAL PHASE SCENARIO_COMPLETE$' "$log_file"
          ;;
       *)
          return 1
@@ -356,6 +376,7 @@ main() {
    then
       run_guard_step static
       run_guard_step test
+      run_deployment_check
       local scenario
       for scenario in "${SCENARIOS[@]}"
       do

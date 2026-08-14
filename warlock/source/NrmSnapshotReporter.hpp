@@ -12,6 +12,7 @@
 #include "nrm/AssessmentTypes.hpp"
 #include "nrm/CommunicationCapabilityTypes.hpp"
 #include "nrm/NetworkPlanTypes.hpp"
+#include "nrm/NetworkPlanCoordinationService.hpp"
 #include "nrm/ResourceDemandTypes.hpp"
 
 namespace WkNrm
@@ -29,6 +30,8 @@ struct ReporterStatus
    std::uint64_t droppedPlanEvaluationCount = 0;
    std::uint64_t droppedDemandResultCount = 0;
    std::uint64_t droppedPlanningRecommendationCount = 0;
+   std::uint64_t droppedDemandFeedbackCount = 0;
+   std::uint64_t droppedPlanningCoordinationCount = 0;
    std::uint64_t writeErrorCount = 0;
    std::string lastError;
 };
@@ -54,6 +57,9 @@ public:
    void EnqueueDemandResults(const nrm::ResourceDemandBatchResult& aResult);
    void EnqueuePlanningRecommendations(
       const nrm::ResourceDemandBatchResult& aResult);
+   void EnqueueDemandFeedback(const nrm::ResourceDemandFeedback& aFeedback);
+   void EnqueuePlanningCoordination(
+      const nrm::PlanCoordinationEvidence& aEvidence);
    void ReportPlanError(nrm::PlanValidationReason aReason,
                         const std::string& aField);
    void ReportDemandError(nrm::ResourceDemandReason aReason,
@@ -87,6 +93,8 @@ private:
    std::deque<nrm::NetworkPlanEvaluationResult> mPlanEvaluationQueue;
    std::deque<nrm::ResourceDemandBatchResult> mDemandResultQueue;
    std::deque<nrm::ResourceDemandBatchResult> mPlanningRecommendationQueue;
+   std::deque<nrm::ResourceDemandFeedback> mDemandFeedbackQueue;
+   std::deque<nrm::PlanCoordinationEvidence> mPlanningCoordinationQueue;
    std::thread                       mThread;
    bool                              mStopping = false;
    bool                              mStarted = false;

@@ -79,6 +79,13 @@ int main()
    assert(navigation.truthLatitudeDeg.unit == "deg");
    assert(navigation.totalPositionErrorM.valid);
 
+   nrm::NavigationSample minimalNavigation;
+   const QByteArray minimalNavigationJson =
+      R"({"schema":"nrm.customer.navigation_report.v1","messageId":"nav-minimal","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{"runId":"run-demo","simTime":11.0,"platformId":"aircraft-02","navigationType":"INS","truthPosition":{"latitudeDeg":34.1,"longitudeDeg":108.9,"altitudeM":8000},"perceivedPosition":{"latitudeDeg":34.1,"longitudeDeg":108.9,"altitudeM":8000}}})";
+   assert(codec.DecodeNavigation(minimalNavigationJson, minimalNavigation).valid);
+   assert(minimalNavigation.navigationType == "INS");
+   assert(!minimalNavigation.totalPositionErrorM.valid);
+
    nrm::EnvironmentSnapshot environment;
    nrm::EnvironmentContext environmentContext;
    assert(codec.DecodeEnvironment(ReadFixture("environment-report.example.json"),

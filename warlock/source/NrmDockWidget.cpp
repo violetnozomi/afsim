@@ -512,7 +512,13 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        QString::fromUtf8("占用率"),
        "RSSI",
        "SNR",
-       "BER"},
+       "BER",
+       QString::fromUtf8("通信质量"),
+       QString::fromUtf8("覆盖裕量"),
+       QString::fromUtf8("业务类型"),
+       QString::fromUtf8("子网"),
+       QString::fromUtf8("协议资源"),
+       QString::fromUtf8("活动告警")},
       tabsPtr);
    mEnvironmentTablePtr = CreateTable(
       {QString::fromUtf8("环境域"), QString::fromUtf8("状态"),
@@ -525,7 +531,9 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        QString::fromUtf8("感知纬度"), QString::fromUtf8("感知经度"),
        QString::fromUtf8("感知高度"), QString::fromUtf8("纵向误差"),
        QString::fromUtf8("横向误差"), QString::fromUtf8("垂直误差"),
-       QString::fromUtf8("总位置误差"), QString::fromUtf8("更新时间")}, tabsPtr);
+       QString::fromUtf8("总位置误差"), QString::fromUtf8("水平1σ精度"),
+       QString::fromUtf8("垂直1σ精度"), QString::fromUtf8("航向1σ精度"),
+       QString::fromUtf8("更新时间")}, tabsPtr);
    QWidget* assessmentPagePtr = new QWidget(tabsPtr);
    QVBoxLayout* assessmentLayoutPtr = new QVBoxLayout(assessmentPagePtr);
    QFormLayout* taskFormPtr = new QFormLayout();
@@ -1328,9 +1336,10 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
    }
 
    mPlanSummaryPtr->setText(
-      QString::fromUtf8("规划编号=%1 | 修订=%2 | 状态=%3 | 来源=%4 | 置信度=%5 | 配置=%6")
+      QString::fromUtf8("规划编号=%1 | 修订=%2 | 规划域=%3 | 状态=%4 | 来源=%5 | 置信度=%6 | 配置=%7")
          .arg(QString::fromStdString(planPtr->planId))
          .arg(planPtr->revision)
+         .arg(DisplayCode(nrm::ToString(planPtr->planningDomain)))
          .arg(DisplayCode(nrm::ToString(mData.GetNetworkPlanState())))
          .arg(DisplayCode(nrm::ToString(planPtr->source)))
          .arg(DisplayCode(nrm::ToString(planPtr->confidence)))
@@ -1364,6 +1373,17 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          .arg(degradation.dataCoveragePercent, 0, 'f', 1)
          .arg(defaults.isEmpty() ? QString::fromUtf8("无") : defaults)
          .arg(missing.isEmpty() ? QString::fromUtf8("无") : missing);
+   }
+   if (mData.HasPlanCoordination())
+   {
+      const nrm::PlanCoordinationEvidence& coordination =
+         mData.GetPlanCoordination();
+      operationText += QString::fromUtf8(" | 协同操作=%1，结果=%2，修订=%3，原因=%4")
+         .arg(QString::fromStdString(coordination.operation))
+         .arg(coordination.success ? QString::fromUtf8("成功")
+                                   : QString::fromUtf8("失败"))
+         .arg(coordination.revision)
+         .arg(DisplayCode(nrm::ToString(coordination.reason)));
    }
    mPlanOperationPtr->setText(operationText);
 
@@ -1719,10 +1739,14 @@ void WkNrm::DockWidget::RefreshResourceDemands()
    }
 
    mDemandSummaryPtr->setText(
-      QString::fromUtf8("需求集编号=%1 | 修订=%2 | 需求数=%3 | 来源=%4 | 置信度=%5 | 配置=%6")
+      QString::fromUtf8("需求集编号=%1 | 修订=%2 | 需求数=%3 | 请求来源=%4 | 关联编号=%5 | 来源=%6 | 置信度=%7 | 配置=%8")
          .arg(QString::fromStdString(setPtr->demandSetId))
          .arg(setPtr->revision)
          .arg(setPtr->demands.size())
+         .arg(QString::fromStdString(setPtr->requestSource.empty()
+                                       ? setPtr->providerId : setPtr->requestSource))
+         .arg(QString::fromStdString(setPtr->correlationId.empty()
+                                       ? setPtr->demandSetId : setPtr->correlationId))
          .arg(DisplayCode(nrm::ToString(setPtr->source)))
          .arg(DisplayCode(nrm::ToString(setPtr->confidence)))
          .arg(QString::fromStdString(setPtr->configVersion)));
@@ -1774,12 +1798,14 @@ void WkNrm::DockWidget::RefreshResourceDemands()
 
    const nrm::ResourceDemandBatchResult& batch = mData.GetDemandMatching();
    mDemandOperationPtr->setText(
-      QString::fromUtf8("匹配结果：总数=%1，满足=%2，不满足=%3，数据无效=%4，快照=%5")
+      QString::fromUtf8("匹配结果：总数=%1，满足=%2，不满足=%3，数据无效=%4，快照=%5；同类历史通过率=%6%（%7次）")
          .arg(batch.totalCount)
          .arg(batch.satisfiedCount)
          .arg(batch.unsatisfiedCount)
          .arg(batch.dataInvalidCount)
-         .arg(batch.snapshotVersion));
+         .arg(batch.snapshotVersion)
+         .arg(mData.GetDemandFeedback().historicalPassRatioPercent, 0, 'f', 1)
+         .arg(mData.GetDemandFeedback().historySampleCount));
    mDemandMatchTablePtr->setRowCount(static_cast<int>(batch.results.size()));
    int gapRows = 0;
    int recommendationRows = 0;
@@ -1971,10 +1997,24 @@ void WkNrm::DockWidget::Refresh()
       SetTableText(mLinkTablePtr, row, 8, MetricText(link.rssiDbm));
       SetTableText(mLinkTablePtr, row, 9, MetricText(link.snrDb));
       SetTableText(mLinkTablePtr, row, 10, MetricText(link.ber, 6));
+      SetTableText(mLinkTablePtr, row, 11,
+                   MetricText(link.communicationQualityPercent, 1));
+      SetTableText(mLinkTablePtr, row, 12,
+                   MetricText(link.coverage.rangeMarginM, 1));
+      SetTableText(mLinkTablePtr, row, 13,
+                   JoinValues(link.supportedBusinessTypes));
+      SetTableText(mLinkTablePtr, row, 14,
+                   QString::fromStdString(link.subnetId));
+      SetTableText(mLinkTablePtr, row, 15,
+                   QString::fromUtf8("%1：%2/%3")
+                      .arg(QString::fromStdString(link.protocolResource.kind))
+                      .arg(link.protocolResource.used)
+                      .arg(link.protocolResource.capacity));
+      SetTableText(mLinkTablePtr, row, 16, JoinValues(link.activeAlarmIds));
    }
 
    const nrm::EnvironmentSnapshot& environment = snapshot.environment;
-   mEnvironmentTablePtr->setRowCount(4);
+   mEnvironmentTablePtr->setRowCount(6);
    const QString provider = QString::fromStdString(environment.providerId);
    SetTableText(mEnvironmentTablePtr, 0, 0, QString::fromUtf8("地形"));
    SetTableText(mEnvironmentTablePtr, 0, 1,
@@ -2030,6 +2070,31 @@ void WkNrm::DockWidget::Refresh()
    SetTableText(mEnvironmentTablePtr, 3, 4,
                 QString::fromUtf8("实测结果只作为证据；候选链路使用参数化影响"));
 
+   SetTableText(mEnvironmentTablePtr, 4, 0, QString::fromUtf8("作业区域/时间"));
+   SetTableText(mEnvironmentTablePtr, 4, 1,
+                snapshot.operationalArea.points.size() >= 3
+                   ? QString::fromUtf8("已配置") : QString::fromUtf8("未配置"));
+   SetTableText(mEnvironmentTablePtr, 4, 2, provider);
+   SetTableText(mEnvironmentTablePtr, 4, 3,
+                QString::fromUtf8("区域=%1；顶点=%2；有效时间=%3—%4 s")
+                   .arg(QString::fromStdString(snapshot.operationalArea.areaId))
+                   .arg(snapshot.operationalArea.points.size())
+                   .arg(snapshot.operationalArea.validFrom, 0, 'f', 1)
+                   .arg(snapshot.operationalArea.validUntil, 0, 'f', 1));
+   SetTableText(mEnvironmentTablePtr, 4, 4,
+                QString::fromUtf8("越界或超时作为候选链路硬约束"));
+
+   SetTableText(mEnvironmentTablePtr, 5, 0, QString::fromUtf8("平台姿态"));
+   SetTableText(mEnvironmentTablePtr, 5, 1,
+                snapshot.platformAttitudes.empty()
+                   ? QString::fromUtf8("不可用") : QString::fromUtf8("正常"));
+   SetTableText(mEnvironmentTablePtr, 5, 2, provider);
+   SetTableText(mEnvironmentTablePtr, 5, 3,
+                QString::fromUtf8("有效姿态记录 %1 条")
+                   .arg(snapshot.platformAttitudes.size()));
+   SetTableText(mEnvironmentTablePtr, 5, 4,
+                QString::fromUtf8("用于定向天线候选链路方位约束"));
+
    const nrm::NavigationSnapshot& navigation = snapshot.navigation;
    mNavigationTablePtr->setRowCount(static_cast<int>(navigation.platforms.size()));
    for (std::size_t index = 0; index < navigation.platforms.size(); ++index)
@@ -2050,6 +2115,12 @@ void WkNrm::DockWidget::Refresh()
       SetTableText(mNavigationTablePtr, row, 11, MetricText(sample.verticalErrorM, 3));
       SetTableText(mNavigationTablePtr, row, 12, MetricText(sample.totalPositionErrorM, 3));
       SetTableText(mNavigationTablePtr, row, 13,
+                   MetricText(sample.horizontalAccuracySigmaM, 3));
+      SetTableText(mNavigationTablePtr, row, 14,
+                   MetricText(sample.verticalAccuracySigmaM, 3));
+      SetTableText(mNavigationTablePtr, row, 15,
+                   MetricText(sample.headingAccuracySigmaDeg, 3));
+      SetTableText(mNavigationTablePtr, row, 16,
                    QString::number(sample.sampleTime, 'f', 3) + " s");
    }
    RefreshResourceDemands();

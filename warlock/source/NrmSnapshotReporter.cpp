@@ -288,6 +288,69 @@ void WritePlanningRecommendation(std::ostream& aOutput,
            << "\"}\n";
 }
 
+void WriteDemandFeedback(std::ostream& aOutput,
+                         const nrm::ResourceDemandFeedback& aFeedback,
+                         const std::string& aRunId)
+{
+   aOutput << "{\"schemaVersion\":\""
+           << EscapeJson(aFeedback.schemaVersion) << "\",\"runId\":\""
+           << EscapeJson(aRunId) << "\",\"requestSource\":\""
+           << EscapeJson(aFeedback.requestSource)
+           << "\",\"correlationId\":\""
+           << EscapeJson(aFeedback.correlationId)
+           << "\",\"classifications\":";
+   WriteStringArray(aOutput, aFeedback.classifications);
+   aOutput << ",\"demandSetId\":\""
+           << EscapeJson(aFeedback.batch.demandSetId)
+           << "\",\"revision\":" << aFeedback.batch.revision
+           << ",\"totalCount\":" << aFeedback.batch.totalCount
+           << ",\"satisfiedCount\":" << aFeedback.batch.satisfiedCount
+           << ",\"historicalPassRatioPercent\":"
+           << aFeedback.historicalPassRatioPercent
+           << ",\"historySampleCount\":" << aFeedback.historySampleCount
+           << "}\n";
+}
+
+void WritePlanningCoordination(
+   std::ostream& aOutput, const nrm::PlanCoordinationEvidence& aEvidence,
+   const std::string& aRunId)
+{
+   aOutput << "{\"schemaVersion\":\""
+           << EscapeJson(aEvidence.schemaVersion) << "\",\"runId\":\""
+           << EscapeJson(aRunId) << "\",\"operation\":\""
+           << EscapeJson(aEvidence.operation) << "\",\"requestId\":\""
+           << EscapeJson(aEvidence.requestId) << "\",\"planId\":\""
+           << EscapeJson(aEvidence.planId) << "\",\"revision\":"
+           << aEvidence.revision << ",\"packageId\":\""
+           << EscapeJson(aEvidence.packageId) << "\",\"fingerprint\":\""
+           << EscapeJson(aEvidence.fingerprint) << "\",\"success\":"
+           << (aEvidence.success ? "true" : "false")
+           << ",\"acknowledged\":"
+           << (aEvidence.acknowledged ? "true" : "false")
+           << ",\"reasonCode\":\"" << nrm::ToString(aEvidence.reason)
+           << "\"}\n";
+}
+
+void WriteResourceAlarms(std::ostream& aOutput,
+                         const nrm::ResourceSnapshot& aSnapshot,
+                         const std::string& aRunId)
+{
+   for (const nrm::ResourceAlarm& alarm : aSnapshot.alarms)
+   {
+      aOutput << "{\"schemaVersion\":\"nrm.resource_alarm.v1\""
+              << ",\"runId\":\"" << EscapeJson(aRunId)
+              << "\",\"snapshotVersion\":" << aSnapshot.snapshotVersion
+              << ",\"simTime\":" << aSnapshot.simTime
+              << ",\"alarmId\":\"" << EscapeJson(alarm.alarmId)
+              << "\",\"severity\":\"" << EscapeJson(alarm.severity)
+              << "\",\"objectId\":\"" << EscapeJson(alarm.objectId)
+              << "\",\"reasonCode\":\"" << EscapeJson(alarm.reasonCode)
+              << "\",\"startTime\":" << alarm.startTime
+              << ",\"active\":" << (alarm.active ? "true" : "false")
+              << "}\n";
+   }
+}
+
 void WriteAssessment(std::ostream& aOutput,
                      const nrm::AssessmentResult& aResult,
                      const std::string& aRunId,
@@ -460,7 +523,25 @@ void WriteJsonSnapshot(std::ostream& aOutput,
            << aSnapshot.messages.received << ",\"hops\":"
            << aSnapshot.messages.hops << ",\"discarded\":"
            << aSnapshot.messages.discarded << ",\"routing_failed\":"
-           << aSnapshot.messages.routingFailed << "},\"networks\":[";
+           << aSnapshot.messages.routingFailed
+           << "},\"operationalArea\":{\"areaId\":\""
+           << EscapeJson(aSnapshot.operationalArea.areaId)
+           << "\",\"validFrom\":" << aSnapshot.operationalArea.validFrom
+           << ",\"validUntil\":" << aSnapshot.operationalArea.validUntil
+           << ",\"pointCount\":" << aSnapshot.operationalArea.points.size()
+           << "},\"alarms\":[";
+   for (std::size_t index = 0; index < aSnapshot.alarms.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      const nrm::ResourceAlarm& alarm = aSnapshot.alarms[index];
+      aOutput << "{\"alarmId\":\"" << EscapeJson(alarm.alarmId)
+              << "\",\"severity\":\"" << EscapeJson(alarm.severity)
+              << "\",\"objectId\":\"" << EscapeJson(alarm.objectId)
+              << "\",\"reasonCode\":\"" << EscapeJson(alarm.reasonCode)
+              << "\",\"active\":" << (alarm.active ? "true" : "false")
+              << '}';
+   }
+   aOutput << "],\"networks\":[";
 
    for (std::size_t index = 0; index < aSnapshot.networks.size(); ++index)
    {
@@ -525,6 +606,30 @@ void WriteJsonSnapshot(std::ostream& aOutput,
       aOutput << ",\"availableFrequenciesHz\":";
       WriteNumberArray(aOutput, link.availableFrequenciesHz);
       aOutput << ",\"queueLimit\":" << link.queueLimit;
+      aOutput << ",\"supportedBusinessTypes\":";
+      WriteStringArray(aOutput, link.supportedBusinessTypes);
+      aOutput << ",\"communicationQualityPercent\":";
+      WriteMetric(aOutput, link.communicationQualityPercent);
+      aOutput << ",\"subnetId\":\"" << EscapeJson(link.subnetId)
+              << "\",\"protocolResource\":{\"kind\":\""
+              << EscapeJson(link.protocolResource.kind)
+              << "\",\"capacity\":" << link.protocolResource.capacity
+              << ",\"used\":" << link.protocolResource.used
+              << ",\"remaining\":" << link.protocolResource.remaining
+              << ",\"valid\":"
+              << (link.protocolResource.valid ? "true" : "false")
+              << ",\"utilizationPercent\":";
+      WriteMetric(aOutput, link.protocolResource.utilizationPercent);
+      aOutput << "},\"coverage\":{\"valid\":"
+              << (link.coverage.valid ? "true" : "false")
+              << ",\"insideCoverage\":"
+              << (link.coverage.insideCoverage ? "true" : "false")
+              << ",\"maximumRangeM\":";
+      WriteMetric(aOutput, link.coverage.maximumRangeM);
+      aOutput << ",\"rangeMarginM\":";
+      WriteMetric(aOutput, link.coverage.rangeMarginM);
+      aOutput << "},\"activeAlarmIds\":";
+      WriteStringArray(aOutput, link.activeAlarmIds);
       aOutput << ",\"rssi_dbm\":";
       WriteMetric(aOutput, link.rssiDbm);
       aOutput << ",\"snr_db\":";
@@ -587,8 +692,22 @@ void WriteJsonSnapshot(std::ostream& aOutput,
    WriteMetric(aOutput, environment.interference.maximumPowerDbm);
    aOutput << ",\"maximumFactorPercent\":";
    WriteMetric(aOutput, environment.interference.maximumFactorPercent);
+   aOutput << ",\"bands\":[";
+   for (std::size_t index = 0;
+        index < environment.interference.bands.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      const nrm::InterferenceEnvironmentState::Band& band =
+         environment.interference.bands[index];
+      aOutput << "{\"bandId\":\"" << EscapeJson(band.bandId)
+              << "\",\"centerFrequencyHz\":" << band.centerFrequencyHz
+              << ",\"bandwidthHz\":" << band.bandwidthHz
+              << ",\"powerDbm\":" << band.powerDbm
+              << ",\"active\":" << (band.active ? "true" : "false")
+              << '}';
+   }
    const nrm::NavigationSnapshot& navigation = aSnapshot.navigation;
-   aOutput << "}},\"navigation\":{\"schemaVersion\":\""
+   aOutput << "]}},\"navigation\":{\"schemaVersion\":\""
            << EscapeJson(navigation.schemaVersion)
            << "\",\"packetFormat\":\"" << EscapeJson(navigation.packetFormat)
            << "\",\"providerId\":\"" << EscapeJson(navigation.providerId)
@@ -600,6 +719,8 @@ void WriteJsonSnapshot(std::ostream& aOutput,
       const nrm::NavigationSample& sample = navigation.platforms[index];
       if (index != 0) aOutput << ',';
       aOutput << "{\"platformName\":\"" << EscapeJson(sample.platformName)
+              << "\",\"navigationType\":\""
+              << EscapeJson(sample.navigationType)
               << "\",\"rawStatus\":\"" << EscapeJson(sample.rawStatus)
               << "\",\"mode\":\"" << nrm::ToString(sample.mode)
               << "\",\"statusCode\":" << sample.statusCode
@@ -629,6 +750,12 @@ void WriteJsonSnapshot(std::ostream& aOutput,
       WriteMetric(aOutput, sample.verticalErrorM);
       aOutput << ",\"totalPositionErrorM\":";
       WriteMetric(aOutput, sample.totalPositionErrorM);
+      aOutput << ",\"horizontalAccuracySigmaM\":";
+      WriteMetric(aOutput, sample.horizontalAccuracySigmaM);
+      aOutput << ",\"verticalAccuracySigmaM\":";
+      WriteMetric(aOutput, sample.verticalAccuracySigmaM);
+      aOutput << ",\"headingAccuracySigmaDeg\":";
+      WriteMetric(aOutput, sample.headingAccuracySigmaDeg);
       aOutput << '}';
    }
    aOutput << "]}}\n";
@@ -790,6 +917,36 @@ void WkNrm::SnapshotReporter::EnqueuePlanningRecommendations(
    mCondition.notify_one();
 }
 
+void WkNrm::SnapshotReporter::EnqueueDemandFeedback(
+   const nrm::ResourceDemandFeedback& aFeedback)
+{
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (mDemandFeedbackQueue.size() >= mMaximumQueueSize)
+      {
+         mDemandFeedbackQueue.pop_front();
+         ++mStatus.droppedDemandFeedbackCount;
+      }
+      mDemandFeedbackQueue.push_back(aFeedback);
+   }
+   mCondition.notify_one();
+}
+
+void WkNrm::SnapshotReporter::EnqueuePlanningCoordination(
+   const nrm::PlanCoordinationEvidence& aEvidence)
+{
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (mPlanningCoordinationQueue.size() >= mMaximumQueueSize)
+      {
+         mPlanningCoordinationQueue.pop_front();
+         ++mStatus.droppedPlanningCoordinationCount;
+      }
+      mPlanningCoordinationQueue.push_back(aEvidence);
+   }
+   mCondition.notify_one();
+}
+
 void WkNrm::SnapshotReporter::ReportPlanError(
    nrm::PlanValidationReason aReason,
    const std::string& aField)
@@ -917,11 +1074,17 @@ void WkNrm::SnapshotReporter::WriteManifest(bool aComplete)
           << status.droppedDemandResultCount
           << ",\"droppedPlanningRecommendationCount\":"
           << status.droppedPlanningRecommendationCount
+          << ",\"droppedDemandFeedbackCount\":"
+          << status.droppedDemandFeedbackCount
+          << ",\"droppedPlanningCoordinationCount\":"
+          << status.droppedPlanningCoordinationCount
           << ",\"writeErrorCount\":" << status.writeErrorCount
           << ",\"files\":[\"resource_snapshots.jsonl\",\"network_summary.csv\","
              "\"assessment_results.jsonl\",\"capability_results.jsonl\","
              "\"plan_validation_results.jsonl\",\"plan_evaluation_results.jsonl\","
              "\"resource_demand_results.jsonl\",\"planning_recommendations.jsonl\","
+             "\"resource_alarms.jsonl\",\"demand_feedback.jsonl\","
+             "\"planning_coordination.jsonl\","
              "\"error.log\"]}\n";
    output.flush();
    if (!output)
@@ -954,6 +1117,15 @@ void WkNrm::SnapshotReporter::Run()
    std::ofstream planningRecommendationOutput(
       initialStatus.runDirectory + "/planning_recommendations.jsonl",
       std::ios::out | std::ios::trunc);
+   std::ofstream resourceAlarmOutput(
+      initialStatus.runDirectory + "/resource_alarms.jsonl",
+      std::ios::out | std::ios::trunc);
+   std::ofstream demandFeedbackOutput(
+      initialStatus.runDirectory + "/demand_feedback.jsonl",
+      std::ios::out | std::ios::trunc);
+   std::ofstream planningCoordinationOutput(
+      initialStatus.runDirectory + "/planning_coordination.jsonl",
+      std::ios::out | std::ios::trunc);
    bool jsonHealthy = jsonOutput.is_open();
    bool csvHealthy = csvOutput.is_open();
    bool assessmentHealthy = assessmentOutput.is_open();
@@ -962,6 +1134,9 @@ void WkNrm::SnapshotReporter::Run()
    bool planEvaluationHealthy = planEvaluationOutput.is_open();
    bool demandResultHealthy = demandResultOutput.is_open();
    bool planningRecommendationHealthy = planningRecommendationOutput.is_open();
+   bool resourceAlarmHealthy = resourceAlarmOutput.is_open();
+   bool demandFeedbackHealthy = demandFeedbackOutput.is_open();
+   bool planningCoordinationHealthy = planningCoordinationOutput.is_open();
    if (!jsonHealthy)
       RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
                   "resource_snapshots.jsonl");
@@ -986,6 +1161,15 @@ void WkNrm::SnapshotReporter::Run()
    if (!planningRecommendationHealthy)
       RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
                   "planning_recommendations.jsonl");
+   if (!resourceAlarmHealthy)
+      RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
+                  "resource_alarms.jsonl");
+   if (!demandFeedbackHealthy)
+      RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
+                  "demand_feedback.jsonl");
+   if (!planningCoordinationHealthy)
+      RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
+                  "planning_coordination.jsonl");
 
    if (csvHealthy)
    {
@@ -1005,6 +1189,8 @@ void WkNrm::SnapshotReporter::Run()
       nrm::NetworkPlanEvaluationResult planEvaluation;
       nrm::ResourceDemandBatchResult demandResults;
       nrm::ResourceDemandBatchResult planningRecommendations;
+      nrm::ResourceDemandFeedback demandFeedback;
+      nrm::PlanCoordinationEvidence planningCoordination;
       bool hasSnapshot = false;
       bool hasAssessment = false;
       bool hasCapability = false;
@@ -1012,6 +1198,8 @@ void WkNrm::SnapshotReporter::Run()
       bool hasPlanEvaluation = false;
       bool hasDemandResults = false;
       bool hasPlanningRecommendations = false;
+      bool hasDemandFeedback = false;
+      bool hasPlanningCoordination = false;
       {
          std::unique_lock<std::mutex> lock(mMutex);
          mCondition.wait(lock, [this]
@@ -1019,11 +1207,14 @@ void WkNrm::SnapshotReporter::Run()
             return mStopping || !mQueue.empty() || !mAssessmentQueue.empty() ||
                    !mCapabilityQueue.empty() || !mPlanValidationQueue.empty() ||
                    !mPlanEvaluationQueue.empty() || !mDemandResultQueue.empty() ||
-                   !mPlanningRecommendationQueue.empty();
+                   !mPlanningRecommendationQueue.empty() ||
+                   !mDemandFeedbackQueue.empty() ||
+                   !mPlanningCoordinationQueue.empty();
          });
          if (mQueue.empty() && mAssessmentQueue.empty() && mCapabilityQueue.empty() &&
              mPlanValidationQueue.empty() && mPlanEvaluationQueue.empty() &&
              mDemandResultQueue.empty() && mPlanningRecommendationQueue.empty() &&
+             mDemandFeedbackQueue.empty() && mPlanningCoordinationQueue.empty() &&
              mStopping)
          {
             break;
@@ -1045,6 +1236,18 @@ void WkNrm::SnapshotReporter::Run()
             planningRecommendations = mPlanningRecommendationQueue.front();
             mPlanningRecommendationQueue.pop_front();
             hasPlanningRecommendations = true;
+         }
+         else if (!mDemandFeedbackQueue.empty())
+         {
+            demandFeedback = mDemandFeedbackQueue.front();
+            mDemandFeedbackQueue.pop_front();
+            hasDemandFeedback = true;
+         }
+         else if (!mPlanningCoordinationQueue.empty())
+         {
+            planningCoordination = mPlanningCoordinationQueue.front();
+            mPlanningCoordinationQueue.pop_front();
+            hasPlanningCoordination = true;
          }
          else if (!mPlanValidationQueue.empty())
          {
@@ -1069,6 +1272,33 @@ void WkNrm::SnapshotReporter::Run()
             snapshot = mQueue.front();
             mQueue.pop_front();
             hasSnapshot = true;
+         }
+      }
+
+      if (hasDemandFeedback && demandFeedbackHealthy)
+      {
+         WriteDemandFeedback(demandFeedbackOutput, demandFeedback,
+                             initialStatus.runId);
+         demandFeedbackOutput.flush();
+         if (!demandFeedbackOutput)
+         {
+            demandFeedbackHealthy = false;
+            RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_WRITE_FAILED,
+                        "demand_feedback.jsonl");
+         }
+      }
+
+      if (hasPlanningCoordination && planningCoordinationHealthy)
+      {
+         WritePlanningCoordination(planningCoordinationOutput,
+                                   planningCoordination,
+                                   initialStatus.runId);
+         planningCoordinationOutput.flush();
+         if (!planningCoordinationOutput)
+         {
+            planningCoordinationHealthy = false;
+            RecordError("SnapshotReporter", nrm::MetricReason::cOUTPUT_WRITE_FAILED,
+                        "planning_coordination.jsonl");
          }
       }
 
@@ -1157,6 +1387,19 @@ void WkNrm::SnapshotReporter::Run()
       }
       if (hasSnapshot)
       {
+         if (resourceAlarmHealthy)
+         {
+            WriteResourceAlarms(resourceAlarmOutput, snapshot,
+                                initialStatus.runId);
+            resourceAlarmOutput.flush();
+            if (!resourceAlarmOutput)
+            {
+               resourceAlarmHealthy = false;
+               RecordError("SnapshotReporter",
+                           nrm::MetricReason::cOUTPUT_WRITE_FAILED,
+                           "resource_alarms.jsonl");
+            }
+         }
          if (jsonHealthy)
          {
             WriteJsonSnapshot(jsonOutput, snapshot, initialStatus.runId, mConfigVersion);

@@ -6,7 +6,7 @@
 
 机器校验 Schema 位于 `schemas/customer/v1/`，中文可注释示例位于
 `schemas/customer/v1/customer-interface-v1.annotated.jsonc`。当前支持导航、环境、四网资源、
-任务评估、网络规划、规划结果、成员入退网和统一错误。执行
+任务评估、网络规划、规划结果、成员入退网、提供方声明、输入确认和统一错误等11类消息。执行
 `./scripts/ai_guard.sh contract` 可验证全部示例。内部解析已达 `PRE_ACCEPTANCE`；甲方 AFSIM
 目标树重编译、真实模块数据和安全策略仍需现场联调。
 
@@ -306,7 +306,7 @@ cd /home/pyh/afsim/network_resource_manager
 ./scripts/validate_customer_interface.sh
 ```
 
-脚本使用Draft 2020-12校验Schema和全部9个正例，并确认缺字段的负例会被拒绝。
+脚本使用Draft 2020-12校验Schema和全部11个正例，并确认非法字段的负例会被拒绝。
 若目标机没有`/usr/bin/jsonschema`，可通过`NRM_JSONSCHEMA_COMMAND`指定兼容工具。
 
 ## 14. 需要甲方书面确认的项目
@@ -341,3 +341,18 @@ cd /home/pyh/afsim/network_resource_manager
 
 完成以上项目后，才能将接口状态从`BASELINE_DRAFT`升级为`INTEGRATION_ACCEPTED`；在甲方
 目标环境完成最终运行前仍不能标记为`FINAL_ACCEPTANCE`。
+
+## 16. 甲方简化实现的降级规则
+
+甲方系统同样基于AFSIM改造，因此首选同进程C++适配；甲方给不出格式时直接采用本项目V1，
+不再等待另行设计。允许的最小输入如下：
+
+- 四网资源：网络、成员、链路身份和工作状态；其余量按AFSIM观测、推导、剖面、估算顺序补齐。
+- 导航：平台、仿真时间、导航类型、真实/感知位置；三轴误差可省略，插件输出低置信度1σ精度。
+- 环境：只提供实际拥有的地形、气象、天象或干扰对象；未提供项保持无效，不阻塞其他功能。
+- 规划：规划编号、修订、规划域、资源分配和业务需求；动态入退网使用独立申请。
+- 需求：需求集、源/目的、业务、带宽、时延和PDR；请求来源和关联编号缺失时分别回退到
+  `providerId`和`demandSetId`。
+
+任何降级值都携带`PARAMETERIZED_MODEL/ESTIMATED`和`LOW`，并且永远不覆盖随后到达的有效
+甲方/AFSIM直接值。

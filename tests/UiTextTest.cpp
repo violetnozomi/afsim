@@ -15,6 +15,13 @@ int main()
    assert(TranslateCode("L0_TOPOLOGY") == "L0 拓扑降级");
    assert(TranslateCode("bandwidthBps") == "链路带宽");
    assert(TranslateCode("RF_QUALITY_UNAVAILABLE") == "射频质量不可用");
+   assert(TranslateCode("INTERFERENCE_CONFLICT") == "电磁干扰冲突");
+   assert(TranslateCode("AIRBORNE") == "空中网络规划");
+   assert(TranslateCode("GROUND") == "地面网络规划");
+   assert(TranslateCode("JOINT") == "联合网络规划");
+   assert(TranslateCode("ACK_MISMATCH") == "分发确认不匹配");
+   assert(TranslateCode("CONNECTIVITY") == "连通性");
+   assert(TranslateCode("PERFORMANCE") == "通信性能");
 
    assert(TranslateCodeWithRaw("REJECTED") == "已拒绝（REJECTED）");
    assert(TranslateCodeWithRaw("LINK16") == "Link-16");

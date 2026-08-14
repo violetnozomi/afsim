@@ -283,6 +283,18 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
             {
                const nrm::PlanCoordinationResult coordination =
                   mPlanCoordinationService.ApplyMembership(*current, change);
+               mPlanCoordination = nrm::PlanCoordinationEvidence();
+               mPlanCoordination.operation =
+                  change.changeType == nrm::PlanChangeType::cJOIN
+                     ? "MEMBERSHIP_JOIN" : "MEMBERSHIP_LEAVE";
+               mPlanCoordination.requestId = change.changeId;
+               mPlanCoordination.planId = change.planId;
+               mPlanCoordination.revision = coordination.success
+                  ? coordination.revisedPlan.revision : current->revision;
+               mPlanCoordination.success = coordination.success;
+               mPlanCoordination.reason = coordination.reason;
+               mHasPlanCoordination = true;
+               mReporterPtr->EnqueuePlanningCoordination(mPlanCoordination);
                if (!coordination.success || !ReplaceNetworkPlanDraft(coordination.revisedPlan))
                {
                   mLastCustomerJsonResult.valid = false;
@@ -474,6 +486,28 @@ nrm::DistributionPackageResult WkNrm::DataContainer::GenerateNetworkPlanPackage(
    return mDistributionPackage;
 }
 
+bool WkNrm::DataContainer::AcknowledgeNetworkPlanPackage(
+   const std::string& aAckPath)
+{
+   const nrm::PlanCoordinationResult result =
+      mPlanCoordinationService.AcknowledgeDistribution(mDistributionPackage,
+                                                       aAckPath);
+   mPlanCoordination = nrm::PlanCoordinationEvidence();
+   mPlanCoordination.operation = "DISTRIBUTION_ACK";
+   mPlanCoordination.requestId = aAckPath;
+   mPlanCoordination.planId = mDistributionPackage.planId;
+   mPlanCoordination.revision = mDistributionPackage.revision;
+   mPlanCoordination.packageId = mDistributionPackage.outputPath;
+   mPlanCoordination.fingerprint = mDistributionPackage.planFingerprint;
+   mPlanCoordination.success = result.success;
+   mPlanCoordination.acknowledged = result.acknowledged;
+   mPlanCoordination.reason = result.reason;
+   mHasPlanCoordination = true;
+   mReporterPtr->EnqueuePlanningCoordination(mPlanCoordination);
+   emit NetworkPlanChanged();
+   return result.success;
+}
+
 bool WkNrm::DataContainer::LoadResourceDemands(const std::string& aPath)
 {
    const bool loaded = mDemandRepository.LoadFromFile(aPath);
@@ -562,6 +596,7 @@ nrm::ResourceDemandBatchResult WkNrm::DataContainer::EvaluateResourceDemands(
    {
       mReporterPtr->EnqueueDemandResults(mDemandMatching);
       mReporterPtr->EnqueuePlanningRecommendations(mDemandMatching);
+      mReporterPtr->EnqueueDemandFeedback(mDemandFeedback);
    }
    emit ResourceDemandChanged();
    return mDemandMatching;

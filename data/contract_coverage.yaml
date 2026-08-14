@@ -1,94 +1,76 @@
-schema_version: "nrm.contract_coverage.v1"
+schema_version: "nrm.contract_coverage.v2"
 scope: "contract_3.2.1_to_4.2"
 priority: P0
-contract_status: PENDING_SOURCE_VERIFICATION
-status_policy: "Design coverage does not imply implementation completion; PRE_ACCEPTANCE may use frozen representative samples, while VERIFIED requires contract-matched final acceptance evidence."
+status_policy: "IMPLEMENTED means internal PRE_ACCEPTANCE only; target deployment, security and customer formal formats remain CUSTOMER_BLOCKED until supplied."
 requirements:
   - requirement_id: "3.2.1"
-    requirement_name: "导航模型"
-    design_status: COVERED
-    implementation_status: NOT_IMPLEMENTED
-    scope_assumption: "甲方功能包负责导航解算；本项目解析、校验、标准化、记录和转发其结果包，待合同原文与接口文件复核。"
-    components: [NavigationPacketAdapter, NavigationPacketValidator, NavigationResultMapper, NavigationStateRepository]
-    acceptance_cases: [A17, A18, A19, A20]
-    acceptance_mode: CONDITIONAL_CUSTOMER_SAMPLE
-  - requirement_id: "3.2.2-protocol"
-    requirement_name: "数据链协议模型"
-    design_status: COVERED
-    implementation_status: PARTIAL
+    requirement_name: "卫星导航与惯性导航计算"
+    implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [NetworkTypeAdapter, NetworkProfileRepository]
-    evidence: "四类版本化演示剖面和校验测试完成；甲方协议模块未接入。"
-    acceptance_cases: [A01, A02, A06, A07, A08]
+    components: [AfsimNavigationPacketParser, NavigationAccuracyModel, NrmSimInterface, NrmCustomerJsonCodec]
+    evidence: "AFSIM实时导航与.neh解析保留直接误差；GNSS/INS/INTEGRATED缺失精度按版本化1σ参数补齐，不实现真实导航积分。"
+    customer_blocked: "甲方专用数据包仅在不同于AFSIM/精简JSON时需要薄适配。"
+  - requirement_id: "3.2.2-protocol"
+    requirement_name: "数据链协议与协议资源"
+    implementation_status: IMPLEMENTED
+    verification_status: PRE_ACCEPTANCE
+    components: [NetworkProfileRepository, ProtocolResourceModel, ContractMetricEnricher]
+    evidence: "Link-11轮询单元、Link-16时隙、卫通信道和CDL信道统一建模并上报容量/占用/剩余。"
+    customer_blocked: "真实协议栈、保密波形和甲方专用事件需现场适配。"
   - requirement_id: "3.2.2-frequency"
     requirement_name: "不同频点传输特性"
-    design_status: COVERED
-    implementation_status: PARTIAL
+    implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [NetworkProfile, NetworkProfileRepository, FrequencyPropagationModel]
-    evidence: "频点和传播模型字段、外部配置及校验已实现；真实频率传播计算未实现。"
-    acceptance_cases: [A21]
+    components: [FrequencyCharacteristicRepository, PlanningRecommendationEngine]
+    evidence: "四网内置频点、带宽、范围、损耗、容量和PDR特性可配置；频率推荐排除占用及干扰保护带重叠。"
   - requirement_id: "3.2.3"
     requirement_name: "通信数据链能力模型"
-    design_status: COVERED
-    implementation_status: PARTIAL
+    implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [MessageLifecycleTracker, NetworkProfileRepository, ConstrainedPathSelector, CommunicationCapabilityService, EnvironmentEffectAdapter]
-    evidence: "v0.8第一阶段统一输出路径总距离/最大单跳、瓶颈可准入速率、丢包率、累计时延、观测交付吞吐和成员接入率；环境缺失固定无效。9项测试与能力smoke通过，属于内部PRE_ACCEPTANCE。"
-    acceptance_cases: [A05, A22]
+    components: [CommunicationCapabilityService, OperationalEnvironmentEvaluator, BuiltInEnvironmentEffectAdapter]
+    evidence: "输出距离、速率、丢包、时延、吞吐、接入率及地形/气象/天象/电磁影响证据。"
   - requirement_id: "3.2.4"
     requirement_name: "网链资源规划模型"
-    design_status: COVERED
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [NetworkPlanRepository, NetworkPlanValidator, NetworkPlanEvaluationService, NetworkPlanDistributionService, NetworkPlanAdapter]
-    evidence: "v0.9第一阶段完成内部规划加载、卸载、编辑新修订、严格校验、只读能力推演、原子存储和本地不可变分发包；11项测试与两插件构建通过。甲方格式、专用规则、真实分发和规划服务固定场景尚缺。"
-    acceptance_cases: [A23, A24, A25]
+    components: [NetworkPlanRepository, NetworkPlanValidator, NetworkPlanEvaluationService, NetworkPlanDistributionService, NetworkPlanCoordinationService]
+    evidence: "空中/地面/联合规划域、版本化规划、并发推演、动态入退网、本地分发包和指纹ACK。"
   - requirement_id: "3.2.5"
     requirement_name: "网链资源管理模型"
-    design_status: COVERED
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [MessageLifecycleTracker, ResourceEventLedger, ResourceDemandRepository, ResourceDemandMatchingService, PlanningRecommendationEngine, SnapshotReporter]
-    evidence: "v0.10第一阶段完成内部需求生命周期、每需求单次能力查询、八项固定差距检查和显式有限候选内六类建议；13项测试与两插件构建通过。甲方正式需求/候选格式、专用资源规则、固定服务场景和自动网络控制尚缺。"
-    acceptance_cases: [A06, A14, A26]
+    components: [ResourceDemandRepository, ResourceDemandMatchingService, ResourceDemandCoordinator, PlanningRecommendationEngine]
+    evidence: "资源状态获取、并发需求匹配、四类反馈、历史通过率及频率/站点/信道/子网/时隙/路由六类建议。"
   - requirement_id: "3.3"
     requirement_name: "接口要求"
-    design_status: COVERED
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [ContractInterfaceAdapter, ModelServiceFacade]
-    evidence: "v0.11完成进程内强类型上下文、固定状态/原因码、五项领域服务单次委托和抽象外部Adapter边界；甲方封装规范、正式协议和目标环境联调尚缺。"
-    acceptance_cases: [A27]
-    acceptance_mode: CONDITIONAL_CUSTOMER_INTERFACE
+    components: [ContractInterfaceAdapter, NrmCustomerJsonCodec, ModelServiceFacade]
+    evidence: "11类精简JSON消息、中文注释、Schema校验、Provider Hello、输入ACK及进程内强类型门面。"
+    customer_blocked: "甲方若使用不同载荷，只修改边界适配层。"
   - requirement_id: "3.4.1"
     requirement_name: "软件运行环境"
-    design_status: COVERED
-    implementation_status: UNVERIFIED
-    components: [DeploymentProfile, PortalIntegrationAdapter]
-    acceptance_cases: [A28]
-    acceptance_mode: CONDITIONAL_TARGET_ENVIRONMENT
+    implementation_status: IMPLEMENTED
+    verification_status: CONDITIONAL
+    components: [check_deployment_contract.sh]
+    evidence: "只读检查CPU、内存、磁盘、网卡、Linux、编译器、AFSIM和插件并生成nrm.deployment_check.v1。"
+    customer_blocked: "OA、保密、TLS和甲方门户规范未提供，固定标记CUSTOMER_BLOCKED。"
   - requirement_id: "3.4.2"
     requirement_name: "易用性与异常恢复"
-    design_status: COVERED
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [SnapshotReporter, ReporterStatus, OperationalRecoveryManager]
-    evidence: "runId隔离、manifest、只读失败、队列溢出、析构排空和两次启动测试完成。"
-    acceptance_cases: [A29]
+    components: [NrmDockWidget, SnapshotReporter, RecoveryStateStore]
+    evidence: "响应式中文界面、有界异步上报、runId隔离、原子恢复清单和损坏状态保护。"
   - requirement_id: "3.5"
     requirement_name: "兼容扩展"
-    design_status: COVERED
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [ModelRegistry]
-    evidence: "v0.11完成确定性、精确版本的进程内模型注册、查询、枚举、卸载和操作/schema能力判断；仅注册NRM Facade，第三方参考模块和动态加载不在本阶段。"
-    acceptance_cases: [A30]
+    components: [ModelRegistry, ReferenceModelAdapter]
+    evidence: "参考适配器可在真实注册表中注册、查询能力/Schema、健康检查并卸载。"
+    customer_blocked: "不宣称符合尚未提供的甲方正式模型封装ABI。"
   - requirement_id: "4.1-4.2"
     requirement_name: "设计原则与约束"
-    design_status: COVERED
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [NetworkTypeAdapter, MessageLifecycleTracker, ResourceEventLedger, ConstrainedPathSelector, CommunicationCapabilityService, EnvironmentEffectAdapter, NetworkPlanRepository, NetworkPlanValidator, NetworkPlanEvaluationService, NetworkPlanDistributionService, ResourceDemandRepository, ResourceDemandMatchingService, PlanningRecommendationEngine, SnapshotReporter, StateRepository, ModelRegistry]
-    evidence: "公共纯C++组件与AFSIM/Qt边界分离，Facade与Registry完成依赖注入和稳定契约，15项组件化测试和两插件构建通过。"
-    acceptance_cases: [A27, A28, A29, A30]
+    components: [ResourceSnapshot, ModelServiceFacade, SnapshotReporter, DegradationPolicy]
+    evidence: "公共纯C++核心与AFSIM/Qt边界分离；只读建议，不自动改频、建链或切换路由。"

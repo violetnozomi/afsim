@@ -23,6 +23,20 @@ struct PlanCoordinationResult
    NetworkPlanDocument revisedPlan;
 };
 
+struct PlanCoordinationEvidence
+{
+   std::string schemaVersion = "nrm.planning_coordination.v1";
+   std::string operation;
+   std::string requestId;
+   std::string planId;
+   std::uint64_t revision = 0;
+   std::string packageId;
+   std::string fingerprint;
+   bool success = false;
+   bool acknowledged = false;
+   PlanValidationReason reason = PlanValidationReason::cNONE;
+};
+
 class NetworkPlanCoordinationService
 {
 public:

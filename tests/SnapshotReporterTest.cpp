@@ -28,6 +28,16 @@ int main()
    snapshot.simTime = 12.5;
    snapshot.configVersion = "test-config-v1";
    snapshot.messages.transmitted = 3;
+   snapshot.operationalArea.areaId = "AREA-REPORT";
+   snapshot.operationalArea.validFrom = 10.0;
+   snapshot.operationalArea.validUntil = 20.0;
+   snapshot.operationalArea.points.push_back({30.0, 120.0, 0.0});
+   nrm::ResourceAlarm alarm;
+   alarm.alarmId = "ALARM-REPORT";
+   alarm.objectId = "link-report";
+   alarm.reasonCode = "RESOURCE_OFFLINE";
+   alarm.active = true;
+   snapshot.alarms.push_back(alarm);
    snapshot.navigation.valid = true;
    snapshot.navigation.sampleTime = 12.5;
    nrm::NavigationSample navigation;
@@ -161,6 +171,24 @@ int main()
       demandBatch.results.push_back(demandResult);
       reporter.EnqueueDemandResults(demandBatch);
       reporter.EnqueuePlanningRecommendations(demandBatch);
+
+      nrm::ResourceDemandFeedback feedback;
+      feedback.requestSource = "customer-planner";
+      feedback.correlationId = "correlation-report";
+      feedback.classifications = {"CONNECTIVITY", "PERFORMANCE"};
+      feedback.batch = demandBatch;
+      feedback.historicalPassRatioPercent = 75.0;
+      feedback.historySampleCount = 4;
+      reporter.EnqueueDemandFeedback(feedback);
+
+      nrm::PlanCoordinationEvidence coordination;
+      coordination.operation = "MEMBERSHIP_JOIN";
+      coordination.requestId = "join-report";
+      coordination.planId = "PLAN-REPORT";
+      coordination.revision = 4;
+      coordination.success = true;
+      coordination.reason = nrm::PlanValidationReason::cNONE;
+      reporter.EnqueuePlanningCoordination(coordination);
    }
 
    const std::string json = ReadAll(runDirectory + "/resource_snapshots.jsonl");
@@ -188,6 +216,10 @@ int main()
    CHECK(json.find("\"rawStatus\":\"GPS1\"") != std::string::npos);
    CHECK(json.find("\"mode\":\"GPS_ACTIVE\"") != std::string::npos);
    CHECK(json.find("\"totalPositionErrorM\":{\"value\":8.775") !=
+         std::string::npos);
+   CHECK(json.find("\"operationalArea\":{\"areaId\":\"AREA-REPORT\"") !=
+         std::string::npos);
+   CHECK(json.find("\"alarms\":[{\"alarmId\":\"ALARM-REPORT\"") !=
          std::string::npos);
 
    const std::string csv = ReadAll(runDirectory + "/network_summary.csv");
@@ -256,6 +288,28 @@ int main()
    CHECK(planningRecommendations.find("\"confidence\":\"HIGH\"") !=
          std::string::npos);
 
+   const std::string alarms =
+      ReadAll(runDirectory + "/resource_alarms.jsonl");
+   CHECK(alarms.find("\"schemaVersion\":\"nrm.resource_alarm.v1\"") !=
+         std::string::npos);
+   CHECK(alarms.find("ALARM-REPORT") != std::string::npos);
+
+   const std::string feedback =
+      ReadAll(runDirectory + "/demand_feedback.jsonl");
+   CHECK(feedback.find("\"schemaVersion\":\"nrm.resource_demand_feedback.v1\"") !=
+         std::string::npos);
+   CHECK(feedback.find("\"requestSource\":\"customer-planner\"") !=
+         std::string::npos);
+   CHECK(feedback.find("\"historicalPassRatioPercent\":75") !=
+         std::string::npos);
+
+   const std::string coordination =
+      ReadAll(runDirectory + "/planning_coordination.jsonl");
+   CHECK(coordination.find("\"schemaVersion\":\"nrm.planning_coordination.v1\"") !=
+         std::string::npos);
+   CHECK(coordination.find("\"operation\":\"MEMBERSHIP_JOIN\"") !=
+         std::string::npos);
+
    const std::string manifest = ReadAll(runDirectory + "/manifest.json");
    CHECK(manifest.find("\"complete\":true") != std::string::npos);
    CHECK(manifest.find("\"softwareVersion\"") != std::string::npos);
@@ -264,6 +318,9 @@ int main()
    CHECK(manifest.find("plan_evaluation_results.jsonl") != std::string::npos);
    CHECK(manifest.find("resource_demand_results.jsonl") != std::string::npos);
    CHECK(manifest.find("planning_recommendations.jsonl") != std::string::npos);
+   CHECK(manifest.find("resource_alarms.jsonl") != std::string::npos);
+   CHECK(manifest.find("demand_feedback.jsonl") != std::string::npos);
+   CHECK(manifest.find("planning_coordination.jsonl") != std::string::npos);
    CHECK(manifest.find("\"droppedDemandResultCount\":0") != std::string::npos);
    CHECK(manifest.find("\"droppedPlanningRecommendationCount\":0") !=
          std::string::npos);
