@@ -15,6 +15,7 @@
 #include "nrm/NetworkPlanRepository.hpp"
 #include "nrm/NetworkPlanCoordinationService.hpp"
 #include "nrm/ResourceDemandRepository.hpp"
+#include "nrm/ResourceDemandCoordinator.hpp"
 #include "NrmCustomerJsonCodec.hpp"
 
 namespace WkNrm
@@ -71,6 +72,10 @@ public:
    const nrm::ResourceDemandBatchResult& GetDemandMatching() const
    {
       return mDemandMatching;
+   }
+   const nrm::ResourceDemandFeedback& GetDemandFeedback() const
+   {
+      return mDemandFeedback;
    }
    const nrm::ResourceDemandRepositoryResult& GetDemandOperation() const
    {
@@ -154,6 +159,8 @@ private:
    nrm::ResourceDemandRepository      mDemandRepository;
    nrm::ResourceDemandRepositoryResult mDemandOperation;
    nrm::ResourceDemandBatchResult     mDemandMatching;
+   nrm::ResourceDemandCoordinator     mDemandCoordinator;
+   nrm::ResourceDemandFeedback        mDemandFeedback;
    bool                               mHasDemandMatching = false;
    std::unique_ptr<SnapshotReporter> mReporterPtr;
    CustomerJsonCodec                 mCustomerJsonCodec;

@@ -36,6 +36,7 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/NetworkPlanDistributionService.hpp
       include/nrm/ResourceDemandTypes.hpp
       include/nrm/ResourceDemandRepository.hpp
+      include/nrm/ResourceDemandCoordinator.hpp
       include/nrm/PlanningRecommendationEngine.hpp
       include/nrm/ResourceDemandMatchingService.hpp
       include/nrm/ModelServiceTypes.hpp
@@ -243,6 +244,15 @@ target_include_directories(nrm_resource_demand_matching_test PRIVATE
 add_test(NAME nrm_resource_demand_matching_test
    COMMAND nrm_resource_demand_matching_test)
 
+add_executable(nrm_resource_demand_coordinator_test EXCLUDE_FROM_ALL
+   tests/ResourceDemandCoordinatorTest.cpp
+)
+target_include_directories(nrm_resource_demand_coordinator_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_resource_demand_coordinator_test
+   COMMAND nrm_resource_demand_coordinator_test)
+
 add_executable(nrm_model_service_facade_test EXCLUDE_FROM_ALL
    tests/ModelServiceFacadeTest.cpp
 )
@@ -341,6 +351,7 @@ set(NRM_TEST_TARGETS
    nrm_network_plan_coordination_test
    nrm_resource_demand_repository_test
    nrm_resource_demand_matching_test
+   nrm_resource_demand_coordinator_test
    nrm_model_service_facade_test
    nrm_model_registry_test
    nrm_environment_config_repository_test

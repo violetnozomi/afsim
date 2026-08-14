@@ -551,6 +551,8 @@ nrm::ResourceDemandBatchResult WkNrm::DataContainer::EvaluateResourceDemands(
    mDemandMatching = response.result;
    mHasDemandMatching = response.valid;
    if (mHasDemandMatching)
+      mDemandFeedback = mDemandCoordinator.Record(*demandSetPtr, mDemandMatching);
+   if (mHasDemandMatching)
    {
       mReporterPtr->EnqueueDemandResults(mDemandMatching);
       mReporterPtr->EnqueuePlanningRecommendations(mDemandMatching);

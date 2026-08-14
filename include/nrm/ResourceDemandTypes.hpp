@@ -139,7 +139,8 @@ enum class ResourceDemandReason
    cCANDIDATE_CONFLICT,
    cMEMBER_LIMIT_EXCEEDED,
    cROUTE_UNAVAILABLE,
-   cNO_CURRENT_DEMAND_SET
+   cNO_CURRENT_DEMAND_SET,
+   cINTERFERENCE_CONFLICT
 };
 
 inline const char* ToString(ResourceDemandReason aReason)
@@ -202,6 +203,7 @@ inline const char* ToString(ResourceDemandReason aReason)
       return "MEMBER_LIMIT_EXCEEDED";
    case ResourceDemandReason::cROUTE_UNAVAILABLE: return "ROUTE_UNAVAILABLE";
    case ResourceDemandReason::cNO_CURRENT_DEMAND_SET: return "NO_CURRENT_DEMAND_SET";
+   case ResourceDemandReason::cINTERFERENCE_CONFLICT: return "INTERFERENCE_CONFLICT";
    }
    return "PARSE_ERROR";
 }
@@ -237,6 +239,8 @@ struct ResourceDemandSet
    std::string configVersion;
    std::string providerId;
    std::string createdTime;
+   std::string requestSource;
+   std::string correlationId;
    DataOrigin source = DataOrigin::cCUSTOMER_MODULE;
    Confidence confidence = Confidence::cLOW;
    bool valid = false;
@@ -276,6 +280,9 @@ struct PlanningResourceCandidate
    std::string allocationId;
    std::string platformId;
    double frequencyHz = 0.0;
+   double interferenceCenterHz = 0.0;
+   double interferenceBandwidthHz = 0.0;
+   double protectionBandwidthHz = 0.0;
    bool occupied = false;
    bool pathAvailable = false;
    DemandMatchStatus projectedStatus = DemandMatchStatus::cDATA_INVALID;
@@ -340,6 +347,17 @@ struct ResourceDemandBatchResult
    std::size_t unsatisfiedCount = 0;
    std::size_t dataInvalidCount = 0;
    std::vector<ResourceDemandMatchResult> results;
+};
+
+struct ResourceDemandFeedback
+{
+   std::string schemaVersion = "nrm.resource_demand_feedback.v1";
+   std::string requestSource;
+   std::string correlationId;
+   std::vector<std::string> classifications;
+   ResourceDemandBatchResult batch;
+   double historicalPassRatioPercent = 0.0;
+   std::size_t historySampleCount = 0;
 };
 } // namespace nrm
 

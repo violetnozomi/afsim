@@ -507,5 +507,25 @@ int main()
    assert(immutableDemandSet.demands[0].demandId == demandIdBefore);
    assert(profiles.Profiles()[0].frequenciesHz == profileFrequenciesBefore);
 
+   nrm::PlanningCandidateSet protectedCandidates = Candidates();
+   protectedCandidates.candidates[0].interferenceCenterHz = 1010000000.0;
+   protectedCandidates.candidates[0].interferenceBandwidthHz = 1000000.0;
+   protectedCandidates.candidates[0].protectionBandwidthHz = 1000000.0;
+   protectedCandidates.candidates[1].occupied = true;
+   const auto protectedResult = service.Evaluate(
+      snapshot, immutableDemandSet, &plan, nullptr, nrm::EnvironmentContext(),
+      &protectedCandidates);
+   assert(protectedResult.results[0].recommendations[0].candidateId == "frequency-high");
+   assert(!protectedResult.results[0].recommendations[0].evidence.empty());
+
+   protectedCandidates.candidates[0].interferenceCenterHz = 1000000000.0;
+   const auto conflictedResult = service.Evaluate(
+      snapshot, immutableDemandSet, &plan, nullptr, nrm::EnvironmentContext(),
+      &protectedCandidates);
+   assert(conflictedResult.results[0].recommendations[0].status ==
+          nrm::RecommendationStatus::cUNAVAILABLE);
+   assert(conflictedResult.results[0].recommendations[0].reason ==
+          nrm::ResourceDemandReason::cINTERFERENCE_CONFLICT);
+
    return 0;
 }

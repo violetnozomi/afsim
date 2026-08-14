@@ -11,6 +11,7 @@
 #include "nrm/NetworkPlanRepository.hpp"
 #include "nrm/NetworkProfileRepository.hpp"
 #include "nrm/ResourceDemandTypes.hpp"
+#include "nrm/OperationalEnvironmentEvaluator.hpp"
 
 namespace nrm
 {
@@ -206,6 +207,7 @@ private:
                    return aLeft->candidateId < aRight->candidateId;
                 });
       bool sawConflict = false;
+      bool sawInterference = false;
       bool sawProfileFailure = false;
       for (const PlanningResourceCandidate* candidate : candidates)
       {
@@ -216,6 +218,15 @@ private:
          if (candidate->occupied)
          {
             sawConflict = true;
+            continue;
+         }
+         if (candidate->interferenceCenterHz > 0.0 &&
+             OperationalEnvironmentEvaluator::BandsOverlap(
+                candidate->frequencyHz, candidate->protectionBandwidthHz,
+                candidate->interferenceCenterHz,
+                candidate->interferenceBandwidthHz))
+         {
+            sawInterference = true;
             continue;
          }
          const NetworkPlanAllocation* allocation =
@@ -236,10 +247,21 @@ private:
          aRecommendation.evidence.push_back("profileId=" + profile->profileId);
          aRecommendation.evidence.push_back("frequencyHz=" +
                                             Number(candidate->frequencyHz));
+         if (candidate->interferenceCenterHz > 0.0)
+         {
+            const double margin = std::abs(candidate->frequencyHz -
+                                           candidate->interferenceCenterHz) -
+               (candidate->protectionBandwidthHz +
+                candidate->interferenceBandwidthHz) / 2.0;
+            aRecommendation.evidence.push_back(
+               "interferenceNonOverlapMarginHz=" + Number(margin));
+         }
          return;
       }
       if (sawProfileFailure)
          aRecommendation.reason = ResourceDemandReason::cPROFILE_CONFIG_INVALID;
+      else if (sawInterference)
+         aRecommendation.reason = ResourceDemandReason::cINTERFERENCE_CONFLICT;
       else if (sawConflict)
          aRecommendation.reason = ResourceDemandReason::cCANDIDATE_CONFLICT;
       else
