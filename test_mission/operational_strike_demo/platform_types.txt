@@ -65,6 +65,15 @@ platform_type NRM_OP_LINK16_AIR WSF_PLATFORM
       update_interval 1 sec
       at_end_of_path stop
    end_mover
+   # Deterministic GPS1 demonstration values for integrated resource display.
+   # These are PRE_ACCEPTANCE parameters, not equipment specifications.
+   navigation_errors
+      gps_status 1
+      gps_in_track_error 8 m
+      gps_cross_track_error 3 m
+      gps_vertical_error 5 m
+      randomness off
+   end_navigation_errors
    add comm link16 NRM_OP_LINK16_COMM
       internal_link message_processor
    end_comm
@@ -85,6 +94,14 @@ platform_type NRM_OP_ISR_UAV WSF_PLATFORM
       update_interval 1 sec
       at_end_of_path stop
    end_mover
+   # GPS2 exposes a degraded satellite-navigation state in the same scenario.
+   navigation_errors
+      gps_status 2
+      gps_in_track_error 15 m
+      gps_cross_track_error 6 m
+      gps_vertical_error 10 m
+      randomness off
+   end_navigation_errors
    add comm cdl NRM_OP_CDL_COMM
       internal_link message_processor
    end_comm
@@ -98,6 +115,23 @@ platform_type NRM_OP_LINK11_AIR WSF_PLATFORM
       update_interval 1 sec
       at_end_of_path stop
    end_mover
+   # The Link-11 air relay demonstrates deterministic inertial drift.
+   navigation_errors
+      gps_status -1
+      gps_in_track_error 8 m
+      gps_cross_track_error 3 m
+      gps_vertical_error 5 m
+      ins_x_errors
+         coefficient 0.5 exponent 1
+      end_ins_x_errors
+      ins_y_errors
+         coefficient 0.25 exponent 1
+      end_ins_y_errors
+      ins_z_errors
+         coefficient 0.1 exponent 1
+      end_ins_z_errors
+      randomness off
+   end_navigation_errors
    add comm link11 NRM_OP_LINK11_COMM
       internal_link message_processor
    end_comm

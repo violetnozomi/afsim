@@ -21,45 +21,42 @@
 ### Task 1: Operational scenario navigation configuration
 
 **Files:**
-- Modify: `tests/RemotePlanSwitchTest.sh`
 - Modify: `test_mission/operational_strike_demo/platform_types.txt`
+- Modify: `test_mission/operational_strike_demo/events.txt`
 - Modify: `scripts/validate_operational_strike_demo.sh`
 
 **Interfaces:**
 - Consumes: AFSIM `navigation_errors` platform command and the existing `WsfNavigationErrors` collector.
 - Produces: 7 `GPS_ACTIVE`, 3 `GPS_DEGRADED`, and 1 `INS` platform samples in the integrated scenario.
 
-- [ ] **Step 1: Add failing configuration assertions**
+- [ ] **Step 1: Add failing runtime assertions**
 
-Extend `RemotePlanSwitchTest.sh` to require exactly three `navigation_errors` blocks and require
-`gps_status 1`, `gps_status 2`, `gps_status -1`, and all three INS error axes.
+Extend `validate_operational_strike_demo.sh` to require the exact runtime markers
+`NRM_OPERATIONAL NAVIGATION GPS1 1`, `NRM_OPERATIONAL NAVIGATION GPS2 2`, and
+`NRM_OPERATIONAL NAVIGATION INS -1`.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
-Run: `bash tests/RemotePlanSwitchTest.sh`
+Run: `./scripts/validate_operational_strike_demo.sh`
 
-Expected: FAIL because `platform_types.txt` contains no navigation configuration.
+Expected: FAIL because the integrated scenario has no native navigation state markers.
 
 - [ ] **Step 3: Add minimal AFSIM navigation blocks**
 
 Add deterministic GPS1 parameters to `NRM_OP_LINK16_AIR`, degraded GPS2 parameters to
-`NRM_OP_ISR_UAV`, and deterministic three-axis INS drift to `NRM_OP_LINK11_AIR`.
+`NRM_OP_ISR_UAV`, and deterministic three-axis INS drift to `NRM_OP_LINK11_AIR`. At 5 seconds,
+read `GPS_Status()` from one representative platform of each type and print the three markers.
 
 - [ ] **Step 4: Verify configuration and runtime GREEN**
 
-Run:
-
-```bash
-bash tests/RemotePlanSwitchTest.sh
-./scripts/validate_operational_strike_demo.sh
-```
+Run: `./scripts/validate_operational_strike_demo.sh`
 
 Expected: configuration assertions pass; AFSIM completes all phases with 25 cooperative platforms and no weapon events.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/RemotePlanSwitchTest.sh test_mission/operational_strike_demo/platform_types.txt scripts/validate_operational_strike_demo.sh
+git add test_mission/operational_strike_demo/platform_types.txt test_mission/operational_strike_demo/events.txt scripts/validate_operational_strike_demo.sh docs/superpowers/plans/2026-08-16-operational-navigation.md
 git commit -m "feat: add navigation to cooperative air platforms"
 ```
 
@@ -142,4 +139,3 @@ Run `git diff --check`, static checks, all 31 tests, the operational scenario va
 git add docs/功能使用手册.md docs/VALIDATION.md docs/ai/SESSION_HANDOFF.md
 git commit -m "docs: record integrated navigation evidence"
 ```
-

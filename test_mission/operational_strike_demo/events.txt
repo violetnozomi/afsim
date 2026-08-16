@@ -4,6 +4,17 @@ execute at_time 1 s absolute
    writeln("NRM_OPERATIONAL PHASE SCENARIO_START");
 end_execute
 
+# Read the native platform navigation state so the command-line validator
+# proves that all three inherited WsfNavigationErrors models are active.
+execute at_time 5 s absolute
+   WsfPlatform gps1Platform = WsfSimulation.FindPlatform("mission_aircraft_1");
+   WsfPlatform gps2Platform = WsfSimulation.FindPlatform("survey_uav_1");
+   WsfPlatform insPlatform = WsfSimulation.FindPlatform("link11_air_relay");
+   writeln("NRM_OPERATIONAL NAVIGATION GPS1 ", gps1Platform.GPS_Status());
+   writeln("NRM_OPERATIONAL NAVIGATION GPS2 ", gps2Platform.GPS_Status());
+   writeln("NRM_OPERATIONAL NAVIGATION INS ", insPlatform.GPS_Status());
+end_execute
+
 execute at_time 10 s absolute
    WsfMessage message = WsfMessage();
    message.SetType("CDL_ISR_IMAGE");
