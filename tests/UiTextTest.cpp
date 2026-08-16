@@ -8,6 +8,7 @@ int main()
    using WkNrm::UiText::TranslateCode;
    using WkNrm::UiText::TranslateCodeWithRaw;
    using WkNrm::UiText::TranslateListWithRaw;
+   using WkNrm::UiText::NavigationEmptyState;
 
    assert(TranslateCode("REJECTED") == "已拒绝");
    assert(TranslateCode("PARAMETERIZED_MODEL") == "参数化模型");
@@ -30,5 +31,7 @@ int main()
    assert(TranslateListWithRaw("NETWORK_PROFILE_CAPACITY,PDR_ESTIMATE") ==
           "网络配置容量（NETWORK_PROFILE_CAPACITY）、PDR估算（PDR_ESTIMATE）");
    assert(TranslateListWithRaw("") == "");
+   assert(NavigationEmptyState() ==
+          "当前场景未配置导航误差模型，或尚未收到甲方导航数据。");
    return 0;
 }

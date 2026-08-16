@@ -119,3 +119,8 @@ std::string WkNrm::UiText::TranslateListWithRaw(const std::string& aCodes)
    }
    return output.str();
 }
+
+std::string WkNrm::UiText::NavigationEmptyState()
+{
+   return "当前场景未配置导航误差模型，或尚未收到甲方导航数据。";
+}

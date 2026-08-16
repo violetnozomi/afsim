@@ -2096,6 +2096,16 @@ void WkNrm::DockWidget::Refresh()
                 QString::fromUtf8("用于定向天线候选链路方位约束"));
 
    const nrm::NavigationSnapshot& navigation = snapshot.navigation;
+   mNavigationTablePtr->clearSpans();
+   if (navigation.platforms.empty())
+   {
+      mNavigationTablePtr->setRowCount(1);
+      SetTableText(mNavigationTablePtr, 0, 0,
+                   QString::fromStdString(UiText::NavigationEmptyState()));
+      mNavigationTablePtr->setSpan(0, 0, 1, mNavigationTablePtr->columnCount());
+      RefreshResourceDemands();
+      return;
+   }
    mNavigationTablePtr->setRowCount(static_cast<int>(navigation.platforms.size()));
    for (std::size_t index = 0; index < navigation.platforms.size(); ++index)
    {
