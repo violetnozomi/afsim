@@ -456,6 +456,12 @@ int main()
       assert(codec.DecodeAssessment(Compact(root), unconstrainedTask).valid);
       assert(unconstrainedTask.maximumDelayMs == 0.0);
       assert(!unconstrainedTask.requireDelayMetricForFeasibility);
+      data.insert("maximumDelayMs", 100.0);
+      root.insert("data", data);
+      nrm::AssessmentTask constrainedTask;
+      assert(codec.DecodeAssessment(Compact(root), constrainedTask).valid);
+      assert(constrainedTask.maximumDelayMs == 100.0);
+      assert(constrainedTask.requireDelayMetricForFeasibility);
       data.insert("maximumDelayMs", -1.0);
       root.insert("data", data);
       ExpectFirstError(codec.DecodeAssessment(Compact(root), unconstrainedTask),
@@ -578,6 +584,13 @@ int main()
       QJsonObject data = root.value("data").toObject();
       QJsonArray allocations = data.value("allocations").toArray();
       QJsonObject allocation = allocations.at(0).toObject();
+      const QJsonArray originalMembers = allocation.value("members").toArray();
+      allocation.insert("members", QJsonArray{originalMembers.at(0)});
+      allocations.replace(0, allocation);
+      data.insert("allocations", allocations);
+      root.insert("data", data);
+      nrm::NetworkPlanDocument singleMemberPlan;
+      assert(codec.DecodeNetworkPlan(Compact(root), singleMemberPlan).valid);
       allocation.insert("members", QJsonArray{});
       allocations.replace(0, allocation);
       data.insert("allocations", allocations);
