@@ -27,7 +27,8 @@ _接口基线草案 V1 · 2026-08-11 · 适用于 AFSIM 2.9 网络资源管理�
 核心设计决定：
 
 1. 甲方模块通过同进程`CustomerNrmAdapter`交互；JSON仅用于接口规范、测试、回放和文件导入导出。
-2. V1 输入使用原子全量快照，暂不接收增量补丁，避免丢包后产生不可恢复的混合状态。
+2. V1资源报告是原子全量快照；导航报告按`platformId`原子upsert；环境报告按明确
+   提供的子域原子覆盖。三者不共用整域last-writer-wins。
 3. 所有算法使用 `simTime`；`generatedAt` 只用于运维追踪，不能参与仿真时延计算。
 4. 链路是有方向的；双向链路必须上报两条记录。
 5. 缺失或无效物理量不得用 0 代替，必须使用 `valid=false` 和原因码。
@@ -104,7 +105,9 @@ nrm::CustomerIngestResult result =
 - 编码：UTF-8，无 BOM。
 - 数字：必须是有限 JSON number，禁止 `NaN`、`Infinity` 和数字字符串。
 - 字节序只与传输帧长度有关，JSON 内不涉及字节序。
-- 标识符允许字母、数字、`_ . : @ / -`，长度 1–128。
+- 标识符允许字母、数字、`_ . : @ / -`，长度 1–64。
+- 甲方→NRM请求与上报的信封`source`固定为`CUSTOMER`；NRM→甲方结果、ACK和错误
+  固定为`NRM`。运行时按具体Schema校验方向，不只检查枚举成员。
 - 所有未知扩展只能放入 `extensions`；顶层未知字段会被严格拒绝。
 - 单条消息建议不超过 16 MiB；更大规模由双方确认分片策略后发布 V2。
 
@@ -232,6 +235,12 @@ JSON Schema无法表达的语义校验必须由Adapter执行：
 `nrm.customer.environment_report.v1`接收地形、气象、天象和电磁干扰的精简状态，包括地形
 开关/阻断链路、风雨云、儒略日/太阳高度角以及受干扰链路和容量缩放。
 
+该报告是子域补充语义：`terrain`、`weather`、`astronomy`、`interference`均可单独
+上报。Customer提供某子域时覆盖同子域AFSIM值，未提供的子域继续使用最新AFSIM状态。
+同一Customer运行内的后续部分报告也不会清空已接受的其他子域。
+插件根据消息中实际存在的对象生成`customerProvidedDomains`，该字段是C++运行时状态，不要求
+甲方在JSON中重复填写。
+
 每个影响必须声明`applicationMode`：
 
 | 模式 | 处理规则 |
@@ -241,20 +250,24 @@ JSON Schema无法表达的语义校验必须由Adapter执行：
 | `INFORMATION_ONLY` | 只显示和上报，不参与能力计算 |
 
 该字段用于防止环境衰减被重复施加。甲方不能确认时必须使用`INFORMATION_ONLY`。
+`applicationMode`只作用于本次由Customer提供的子域。例如Customer仅上报气象时，不能借此
+改变AFSIM地形或干扰的处理方式；混合快照的证据和置信度始终读取对应子域自身值。
 
 示例见[`environment-report.example.json`](../schemas/customer/v1/examples/environment-report.example.json)。
 只有`CANDIDATE_ADJUSTMENT`会对明确受影响的候选链路施加参数化影响。
 
 运行时以`EnvironmentApplicationMode`三态保存该字段：`INFORMATION_ONLY`输出
 `CUSTOMER_ENVIRONMENT_INFORMATION_ONLY`证据，`ALREADY_INCLUDED`输出
-`CUSTOMER_ENVIRONMENT_ALREADY_INCLUDED`证据，两者容量比例保持1且不重复计算；只有
-`CANDIDATE_ADJUSTMENT`可产生`PARAMETERIZED_CANDIDATE_EFFECT`。地形阻断链路、云量、太阳
+`CUSTOMER_ENVIRONMENT_ALREADY_INCLUDED`证据，两者容量比例保持1、时延增量保持0，且即使
+`blockedLinkIds`非空也不硬阻断；只有`CANDIDATE_ADJUSTMENT`可产生
+`PARAMETERIZED_CANDIDATE_EFFECT`或硬阻断。地形阻断证据按子域来源区分Customer与AFSIM。地形阻断链路、云量、太阳
 高度角、受干扰链路和容量缩放均进入环境快照，不静默丢弃。
 
 ### 运行时校验边界
 
 所有JSON入口先经过`CustomerJsonValidationLayer`。默认实现负责公共信封、Schema支持范围、
-未知字段、ISO 8601时区和关键结构约束；各`Decode*`继续负责数值范围、枚举和类型，资源/规划/
+未知字段、ISO 8601时区、消息方向和标识符约束；各`Decode*`继续负责数值范围、枚举、类型和
+`minItems/uniqueItems`约束，资源/规划/
 需求解码负责引用完整性、重复ID和跨对象语义。该接口允许甲方现场在不改Codec业务转换的
 情况下替换为已有Draft 2020-12校验器。本项目当前不新增第三方JSON Schema依赖，离线脚本
 仍以正式Schema对全部正反例进行一致性校验。
@@ -263,6 +276,7 @@ JSON Schema无法表达的语义校验必须由Adapter执行：
 
 V1请求按一个源和一个目的组织。并发或多目的任务由资源规划中的`demands[]`统一处理。
 请求必须给出业务类型、最低带宽、最大时延、最低PDR和允许网络；任何控制动作不属于V1。
+`maximumDelayMs=0`表示不设置最大时延约束，正值表示启用具体时延上限，负值非法。
 
 响应返回：
 
@@ -285,6 +299,7 @@ V1请求按一个源和一个目的组织。并发或多目的任务由资源规
 编号、修订号，以及每项需求的源/目的平台、业务类型、带宽、时延、PDR和允许网络；插件
 自动绑定当前配置版本，并按同一资源池执行并发扣减和冲突检查。可选字段只有任务阶段、
 载荷、业务流量、最大距离和最小网络规模。
+其中`maximumDelayMs`沿用任务评估的统一规则：0不启用时延门限，负值拒绝。
 
 响应逐项返回`SATISFIED/UNSATISFIED/DATA_INVALID`、固定原因码和频率/站点/信道/子网/
 时隙/路由建议。建议只读，不自动改变规划或AFSIM网络。示例见
@@ -304,6 +319,8 @@ V1请求按一个源和一个目的组织。并发或多目的任务由资源规
 规划文件定义资源分配和业务需求，但不定义完整物理候选边。因此“只读推演”表示先校验规划，
 再用同一版本的当前/参数化候选能力图评估规划需求；它不声称已经构造或执行“规划后网络”。
 规划`configVersion`由插件接纳时绑定当前启用的网络剖面版本，JSON输入不得自行覆盖。
+每个`allocations[]`必须至少包含一个`members[]`成员；空数组没有资源分配语义，Schema、
+运行时Codec和`NetworkPlanValidator`均拒绝。规划需求中的`maximumDelayMs`同样允许0表示无门限。
 
 ## 10. ACK、错误与重试
 

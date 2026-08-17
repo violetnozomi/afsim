@@ -69,7 +69,40 @@ public:
       ResourceSnapshot result = aNewRun ? ResourceSnapshot() : aCurrent;
       result.snapshotVersion = aCurrent.snapshotVersion + 1;
       result.simTime = std::max(result.simTime, aEnvironment.sampleTime);
-      result.environment = aEnvironment;
+      EnvironmentSnapshot& environment = result.environment;
+      if (aEnvironment.terrain.available)
+      {
+         environment.terrain = aEnvironment.terrain;
+         environment.terrain.origin = aEnvironment.origin;
+         environment.terrain.confidence = aEnvironment.confidence;
+      }
+      if (aEnvironment.weather.available)
+      {
+         environment.weather = aEnvironment.weather;
+         environment.weather.origin = aEnvironment.origin;
+         environment.weather.confidence = aEnvironment.confidence;
+      }
+      if (aEnvironment.celestial.available)
+      {
+         environment.celestial = aEnvironment.celestial;
+         environment.celestial.origin = aEnvironment.origin;
+         environment.celestial.confidence = aEnvironment.confidence;
+      }
+      if (aEnvironment.interference.available)
+      {
+         environment.interference = aEnvironment.interference;
+         environment.interference.origin = aEnvironment.origin;
+         environment.interference.confidence = aEnvironment.confidence;
+      }
+      environment.valid = aEnvironment.valid;
+      environment.sampleTime =
+         std::max(environment.sampleTime, aEnvironment.sampleTime);
+      environment.schemaVersion = aEnvironment.schemaVersion;
+      if (!aEnvironment.configVersion.empty())
+         environment.configVersion = aEnvironment.configVersion;
+      environment.providerId = aEnvironment.providerId;
+      environment.origin = aEnvironment.origin;
+      environment.confidence = aEnvironment.confidence;
       return result;
    }
 };

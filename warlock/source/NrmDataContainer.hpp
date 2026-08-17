@@ -160,6 +160,10 @@ private:
    {
       return mSnapshot;
    }
+   const nrm::ResourceSnapshot& CurrentCustomerOverlay() const override
+   {
+      return mCustomerOverlaySnapshot;
+   }
    std::string ActiveConfigVersion() const override
    {
       return mProfiles.ConfigVersion();

@@ -308,6 +308,8 @@ struct LinkSnapshot
 
 struct TerrainEnvironmentState
 {
+   DataOrigin origin = DataOrigin::cAFSIM_INTERNAL;
+   Confidence confidence = Confidence::cHIGH;
    bool available = false;
    bool enabled = false;
    std::size_t evaluatedLinkCount = 0;
@@ -317,6 +319,8 @@ struct TerrainEnvironmentState
 
 struct WeatherEnvironmentState
 {
+   DataOrigin origin = DataOrigin::cAFSIM_INTERNAL;
+   Confidence confidence = Confidence::cHIGH;
    bool available = false;
    MetricValue<double> windSpeedMps;
    MetricValue<double> windDirectionDeg;
@@ -331,6 +335,8 @@ struct WeatherEnvironmentState
 
 struct CelestialEnvironmentState
 {
+   DataOrigin origin = DataOrigin::cAFSIM_INTERNAL;
+   Confidence confidence = Confidence::cHIGH;
    bool available = false;
    bool usesSystemTime = false;
    MetricValue<double> julianDate;
@@ -348,6 +354,8 @@ struct InterferenceEnvironmentState
       bool active = false;
    };
 
+   DataOrigin origin = DataOrigin::cAFSIM_INTERNAL;
+   Confidence confidence = Confidence::cHIGH;
    bool available = false;
    std::size_t observedLinkCount = 0;
    MetricValue<double> maximumPowerDbm;

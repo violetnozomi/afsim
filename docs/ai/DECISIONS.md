@@ -28,6 +28,8 @@
 | D-022 | 2026-08-17 | 甲方状态按`networkId/platformId`主键增量合并，环境三态优先于候选路径推断 | 防止同类型网络串线、导航覆盖及`INFORMATION_ONLY/ALREADY_INCLUDED`被重复施加 | ACTIVE |
 | D-023 | 2026-08-17 | AFSIM拥有拓扑/实时链路基础态，甲方导航和环境作为持久覆盖层；无AFSIM基础态时才使用甲方完整资源快照 | 避免两个生产者以最后写入覆盖彼此的新状态，同时保留独立文件回放能力 | ACTIVE |
 | D-024 | 2026-08-17 | JSON层负责结构校验，所有资源入口共用纯C++`ResourceSnapshotValidator`执行对象关系语义校验 | 防止JSON入口严格而甲方C++对象入口绕过业务约束，也避免维护两套引用规则 | ACTIVE |
+| D-025 | 2026-08-17 | Customer导航按`platformId`、环境按子域覆盖AFSIM基础态，且环境三态以`applicationMode`为唯一施加开关 | 避免有效快照反向污染Customer Overlay、部分环境报告丢失AFSIM子域，以及兼容布尔值导致重复衰减 | ACTIVE，收紧D-022/D-023 |
+| D-026 | 2026-08-17 | Customer环境模式只控制本次实际提供的子域；`maximumDelayMs=0`统一表示无时延门限，规划分配至少一名成员 | 防止混合来源环境被全局模式误处理，并消除Schema、Codec与领域服务之间的边界漂移 | ACTIVE，收紧D-025 |
 
 ## 新决策模板
 

@@ -529,3 +529,32 @@
 - 验证：`git diff --check`、静态门禁、13正例/6反例合同、37/37固定C++测试、40/40完整
   CTest、WSF/Warlock构建、部署检查和25节点场景全部通过；场景到达`Simulation complete`。
 - 边界：AFSIM核心修改数为0；甲方私有对象薄映射和目标ABI构建仍需甲方头文件与现场环境。
+
+### 2026-08-17 — Codex final boundary closure
+
+- 唯一目标：不改AFSIM核心、不改业务算法，收口Environment三态、Customer Overlay、
+  canonical资源校验、JSON关键规则和Python脚本可移植性。
+- TDD证据：5类新断言先在旧实现上失败；修复后Environment三态、导航按平台覆盖、
+  环境按子域覆盖、坐标/覆盖/业务流/姿态校验及identifier/source规则均通过。
+- 解决根因：Customer更新不再从Effective Snapshot复制AFSIM值；`applicationMode`是环境
+  影响的唯一权威开关；环境子域单独保留来源与置信度。
+- 验证：`git diff --check`、`ai_guard static`、使用`PYTHON_BIN=/usr/bin/python3`的
+  `ai_guard contract`、37/37固定C++测试、41/41完整CTest、WSF/Warlock构建和25节点
+  `operational_strike_demo`全部通过；场景到达`Simulation complete`。
+- 工程状态：本轮变更在`feat/code-quality-raii-hardening`完成独立验证和提交，并快进合入
+  `feat/v0.11-model-service-facade`；未打标签，AFSIM核心修改数0。
+- 剩余边界：只等待甲方真实AFSIM C++对象、字段语义和ABI环境，再实现
+  `ContractInterfaceAdapter`薄映射与联合运行验证。
+
+### 2026-08-17 — Codex final code and Git closure
+
+- 统一语义：Assessment、Plan Demand和Resource Demand均接受`maximumDelayMs=0`表示无门限，
+  负值拒绝；规划Allocation至少一名成员，Schema与Runtime一致。
+- 环境粒度：`customerProvidedDomains`由JSON或同进程Adapter根据实际输入推导，Customer
+  `applicationMode`不再控制未提供的AFSIM子域；显式效果使用对应子域origin/confidence和证据。
+- canonical校验：补齐建链时延、RSSI、SNR等关键浮点有限值检查，并保持
+  `ValidationResult.valid == issues.empty()`。
+- 验证：差异检查、静态门禁、13正例/6反例合同、37/37固定C++测试、41/41完整CTest、
+  WSF/Warlock构建及25节点`operational_strike_demo`全部通过。
+- 边界：生产插件和算法全部为C++；Python只执行离线JSON Schema测试。未新增Transport，未修改
+  AFSIM核心，后续只等待甲方私有C++对象和目标ABI完成薄映射及联合仿真。

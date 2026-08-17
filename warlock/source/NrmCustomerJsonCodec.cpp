@@ -195,6 +195,159 @@ WkNrm::CustomerJsonDecodeResult Failure(const char* aCode, const char* aPath,
    return result;
 }
 
+bool IsIdentifier(const QString& aValue)
+{
+   if (aValue.isEmpty() || aValue.size() > 64) return false;
+   for (const QChar character : aValue)
+   {
+      const ushort value = character.unicode();
+      const bool alphaNumeric =
+         (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z') ||
+         (value >= '0' && value <= '9');
+      if (!alphaNumeric && value != '_' && value != '.' && value != ':' &&
+          value != '@' && value != '/' && value != '-') return false;
+   }
+   return true;
+}
+
+bool ValidateIdentifier(const QJsonValue& aValue, const std::string& aPath,
+                        WkNrm::CustomerJsonDecodeResult& aResult)
+{
+   if (aValue.isString() && IsIdentifier(aValue.toString())) return true;
+   aResult.errors.push_back(
+      {"SCHEMA_VALIDATION_FAILED", aPath,
+       "标识符必须为1至64个允许字符[A-Za-z0-9_.:@/-]"});
+   return false;
+}
+
+bool ValidateOptionalIdentifier(const QJsonObject& aObject, const char* aName,
+                                const std::string& aBasePath,
+                                WkNrm::CustomerJsonDecodeResult& aResult)
+{
+   const QString name = QString::fromLatin1(aName);
+   return !aObject.contains(name) ||
+          ValidateIdentifier(aObject.value(name), aBasePath + "/" + aName,
+                             aResult);
+}
+
+bool ValidateIdentifierArray(const QJsonValue& aValue,
+                             const std::string& aPath,
+                             WkNrm::CustomerJsonDecodeResult& aResult)
+{
+   if (!aValue.isArray()) return true;
+   const QJsonArray values = aValue.toArray();
+   for (int index = 0; index < values.size(); ++index)
+      if (!ValidateIdentifier(values.at(index),
+                              aPath + "/" + std::to_string(index), aResult))
+         return false;
+   return true;
+}
+
+bool ValidateObjectArrayIdentifiers(
+   const QJsonObject& aData, const char* aArrayName,
+   const std::vector<const char*>& aFields,
+   const std::vector<const char*>& aArrayFields,
+   WkNrm::CustomerJsonDecodeResult& aResult)
+{
+   const QJsonValue value = aData.value(QString::fromLatin1(aArrayName));
+   if (!value.isArray()) return true;
+   const QJsonArray objects = value.toArray();
+   for (int index = 0; index < objects.size(); ++index)
+   {
+      if (!objects.at(index).isObject()) continue;
+      const QJsonObject object = objects.at(index).toObject();
+      const std::string base =
+         std::string("/data/") + aArrayName + "/" + std::to_string(index);
+      for (const char* field : aFields)
+         if (!ValidateOptionalIdentifier(object, field, base, aResult))
+            return false;
+      for (const char* field : aArrayFields)
+         if (!ValidateIdentifierArray(object.value(QString::fromLatin1(field)),
+                                      base + "/" + field, aResult))
+            return false;
+   }
+   return true;
+}
+
+bool ValidateSchemaIdentifiers(const QString& aSchema, const QJsonObject& aData,
+                               WkNrm::CustomerJsonDecodeResult& aResult)
+{
+   const auto direct = [&aData, &aResult](
+      std::initializer_list<const char*> aFields)
+   {
+      for (const char* field : aFields)
+         if (!ValidateOptionalIdentifier(aData, field, "/data", aResult))
+            return false;
+      return true;
+   };
+   if (aSchema == "nrm.customer.navigation_report.v1")
+      return direct({"runId", "platformId"});
+   if (aSchema == "nrm.customer.environment_report.v1")
+   {
+      if (!direct({"runId", "regionId"})) return false;
+      const QJsonObject terrain = aData.value("terrain").toObject();
+      if (!ValidateIdentifierArray(terrain.value("blockedLinkIds"),
+                                   "/data/terrain/blockedLinkIds", aResult))
+         return false;
+      const QJsonObject interference = aData.value("interference").toObject();
+      return ValidateIdentifierArray(interference.value("affectedLinkIds"),
+                                     "/data/interference/affectedLinkIds",
+                                     aResult);
+   }
+   if (aSchema == "nrm.customer.resource_report.v1")
+   {
+      return direct({"runId"}) &&
+             ValidateObjectArrayIdentifiers(aData, "networks", {"networkId"}, {}, aResult) &&
+             ValidateObjectArrayIdentifiers(aData, "members", {"memberId", "platformId", "networkId"}, {}, aResult) &&
+             ValidateObjectArrayIdentifiers(aData, "links", {"linkId", "networkId", "sourceMemberId", "destinationMemberId"}, {}, aResult) &&
+             ValidateOptionalIdentifier(aData.value("operationalArea").toObject(), "areaId", "/data/operationalArea", aResult) &&
+             ValidateObjectArrayIdentifiers(aData, "attitudes", {"platformId"}, {}, aResult) &&
+             ValidateObjectArrayIdentifiers(aData, "routes", {"routeId", "sourceMemberId", "destinationMemberId"}, {"hops"}, aResult) &&
+             ValidateObjectArrayIdentifiers(aData, "flows", {"flowId", "sourceMemberId", "destinationMemberId"}, {}, aResult) &&
+             ValidateObjectArrayIdentifiers(aData, "gateways", {"gatewayId", "platformId", "ingressNetworkId", "egressNetworkId"}, {}, aResult) &&
+             ValidateObjectArrayIdentifiers(aData, "resourceProxies", {"proxyId", "providerId"}, {}, aResult) &&
+             ValidateObjectArrayIdentifiers(aData, "alarms", {"alarmId", "objectId"}, {}, aResult);
+   }
+   if (aSchema == "nrm.customer.assessment_request.v1")
+      return direct({"taskId", "sourcePlatformId", "destinationPlatformId"});
+   if (aSchema == "nrm.customer.assessment_response.v1")
+      return direct({"taskId"}) &&
+             ValidateIdentifierArray(aData.value("primaryRoute"),
+                                     "/data/primaryRoute", aResult) &&
+             ValidateIdentifierArray(aData.value("backupRoute"),
+                                     "/data/backupRoute", aResult);
+   if (aSchema == "nrm.customer.resource_demand_request.v1")
+      return direct({"demandSetId"}) &&
+             ValidateObjectArrayIdentifiers(aData, "demands", {"demandId", "sourcePlatformId", "destinationPlatformId"}, {}, aResult);
+   if (aSchema == "nrm.customer.resource_demand_response.v1")
+      return direct({"demandSetId"}) &&
+             ValidateObjectArrayIdentifiers(aData, "results", {"demandId"}, {}, aResult);
+   if (aSchema == "nrm.customer.network_plan.v1")
+      return direct({"planId"}) &&
+             ValidateObjectArrayIdentifiers(aData, "allocations", {"allocationId", "profileId", "channelId", "subnetId", "routePolicyId"}, {"members", "slots"}, aResult) &&
+             ValidateObjectArrayIdentifiers(aData, "demands", {"demandId", "sourcePlatformId", "destinationPlatformId"}, {}, aResult);
+   if (aSchema == "nrm.customer.network_plan_result.v1")
+      return direct({"planId"});
+   if (aSchema == "nrm.customer.membership_request.v1")
+      return direct({"requestId", "planId", "allocationId", "platformId"});
+   if (aSchema == "nrm.customer.provider_hello.v1")
+      return direct({"providerId"});
+   if (aSchema == "nrm.customer.ingest_ack.v1")
+      return direct({"originalMessageId"});
+   return true;
+}
+
+const char* ExpectedSource(const QString& aSchema)
+{
+   if (aSchema == "nrm.customer.assessment_response.v1" ||
+       aSchema == "nrm.customer.resource_demand_response.v1" ||
+       aSchema == "nrm.customer.network_plan_result.v1" ||
+       aSchema == "nrm.customer.ingest_ack.v1" ||
+       aSchema == "nrm.customer.error.v1")
+      return "NRM";
+   return "CUSTOMER";
+}
+
 bool RequiredString(const QJsonObject& aObject, const char* aName,
                     WkNrm::CustomerJsonDecodeResult& aResult)
 {
@@ -390,6 +543,8 @@ DefaultCustomerJsonValidationLayer::Validate(const QByteArray& aJson) const
    const QString schema = root.value("schema").toString();
    if (!WkNrm::CustomerJsonCodec::IsSupportedSchema(schema))
       return Failure("SCHEMA_UNSUPPORTED", "/schema", "不支持的接口Schema");
+   if (!ValidateIdentifier(root.value("messageId"), "/messageId", result))
+      return result;
    std::string unknownPath;
    if (HasUnknownKey(root.value("data").toObject(), DataKeys(schema), unknownPath))
       return Failure("SCHEMA_VALIDATION_FAILED", unknownPath.c_str(),
@@ -403,15 +558,16 @@ DefaultCustomerJsonValidationLayer::Validate(const QByteArray& aJson) const
       return Failure("SCHEMA_VALIDATION_FAILED", "/timestamp",
                      "timestamp必须是包含时区的ISO 8601时间");
    const QString source = root.value("source").toString();
-   if (source != "CUSTOMER" && source != "AFSIM" && source != "NRM" &&
-       source != "REPLAY")
-      return Failure("SCHEMA_VALIDATION_FAILED", "/source", "source枚举无效");
+   if (source != QString::fromLatin1(ExpectedSource(schema)))
+      return Failure("SCHEMA_VALIDATION_FAILED", "/source",
+                     "source与消息方向不一致");
 
    result.envelope.schema = schema.toStdString();
    result.envelope.messageId = root.value("messageId").toString().toStdString();
    result.envelope.timestamp = root.value("timestamp").toString().toStdString();
    result.envelope.source = source.toStdString();
    const QJsonObject data = root.value("data").toObject();
+   if (!ValidateSchemaIdentifiers(schema, data, result)) return result;
    if (data.value("runId").isString())
       result.envelope.runId = data.value("runId").toString().toStdString();
    if (data.value("simTime").isDouble() &&
@@ -601,6 +757,10 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeEnvironment(
          return Failure("SCHEMA_VALIDATION_FAILED", "/data/terrain",
                         "地形字段无效");
       snapshot.terrain.available = true;
+      context.customerProvidedDomains.push_back(
+         nrm::EnvironmentDomain::cTERRAIN);
+      snapshot.terrain.origin = snapshot.origin;
+      snapshot.terrain.confidence = snapshot.confidence;
       const QJsonObject terrain = data.value("terrain").toObject();
       snapshot.terrain.enabled = terrain.value("enabled").toBool();
       if (terrain.contains("blockedLinkIds"))
@@ -625,6 +785,10 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeEnvironment(
       if (!data.value("weather").isObject())
          return Failure("SCHEMA_VALIDATION_FAILED", "/data/weather", "气象字段无效");
       snapshot.weather.available = true;
+      context.customerProvidedDomains.push_back(
+         nrm::EnvironmentDomain::cWEATHER);
+      snapshot.weather.origin = snapshot.origin;
+      snapshot.weather.confidence = snapshot.confidence;
       const auto weather = data.value("weather").toObject();
       double value = 0.0;
       if (!OptionalFiniteNumber(weather, "windSpeedMps", value, 0.0))
@@ -651,6 +815,10 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeEnvironment(
       if (!data.value("astronomy").isObject())
          return Failure("SCHEMA_VALIDATION_FAILED", "/data/astronomy", "天象字段无效");
       snapshot.celestial.available = true;
+      context.customerProvidedDomains.push_back(
+         nrm::EnvironmentDomain::cCELESTIAL);
+      snapshot.celestial.origin = snapshot.origin;
+      snapshot.celestial.confidence = snapshot.confidence;
       const auto astronomy = data.value("astronomy").toObject();
       double value = 0.0;
       if (!OptionalFiniteNumber(astronomy, "julianDate", value))
@@ -672,6 +840,10 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeEnvironment(
          return Failure("SCHEMA_VALIDATION_FAILED", "/data/interference",
                         "电磁干扰字段无效");
       snapshot.interference.available = true;
+      context.customerProvidedDomains.push_back(
+         nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE);
+      snapshot.interference.origin = snapshot.origin;
+      snapshot.interference.confidence = snapshot.confidence;
       const auto interference = data.value("interference").toObject();
       double value = 0.0;
       if (!OptionalFiniteNumber(interference, "maximumPowerDbm", value))
@@ -1174,6 +1346,7 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeAssessment(
    task.businessType = data.value("businessType").toString().toStdString();
    task.requiredBandwidthBps = data.value("requiredBandwidthBps").toDouble();
    task.maximumDelayMs = data.value("maximumDelayMs").toDouble();
+   task.requireDelayMetricForFeasibility = task.maximumDelayMs > 0.0;
    task.minimumPdrPercent = data.value("minimumPdrPercent").toDouble();
    std::set<nrm::NetworkType> networkTypes;
    for (const QJsonValue& value : data.value("allowedNetworks").toArray())
@@ -1185,7 +1358,7 @@ WkNrm::CustomerJsonDecodeResult WkNrm::CustomerJsonCodec::DecodeAssessment(
                         "包含未知或重复网络类型");
       task.allowedNetworks.push_back(type);
    }
-   if (task.requiredBandwidthBps < 0.0 || task.maximumDelayMs <= 0.0 ||
+   if (task.requiredBandwidthBps < 0.0 || task.maximumDelayMs < 0.0 ||
        task.minimumPdrPercent < 0.0 || task.minimumPdrPercent > 100.0 ||
        task.allowedNetworks.empty())
       return Failure("SCHEMA_VALIDATION_FAILED", "/data", "任务约束超出允许范围");
@@ -1246,7 +1419,7 @@ WkNrm::CustomerJsonCodec::DecodeResourceDemands(
           source == destination ||
           object.value("businessType").toString().isEmpty() ||
           !FiniteNumber(object, "requiredBandwidthBps", bandwidth, 0.0) ||
-          !FiniteNumber(object, "maximumDelayMs", delay, 0.0) || delay <= 0.0 ||
+          !FiniteNumber(object, "maximumDelayMs", delay, 0.0) ||
           !FiniteNumber(object, "minimumPdrPercent", pdr, 0.0, 100.0) ||
           !object.value("allowedNetworks").isArray() ||
           object.value("allowedNetworks").toArray().isEmpty() ||

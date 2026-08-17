@@ -950,6 +950,7 @@ void WkNrm::DockWidget::EvaluateTask()
    }
    task.requiredBandwidthBps = mBandwidthKbpsPtr->value() * 1000.0;
    task.maximumDelayMs       = mMaximumDelayMsPtr->value();
+   task.requireDelayMetricForFeasibility = task.maximumDelayMs > 0.0;
    task.minimumPdrPercent    = mMinimumPdrPtr->value();
    AddAllowedNetwork(mAllowedNetworkPtr->currentText(), task.allowedNetworks);
 

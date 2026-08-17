@@ -4,6 +4,7 @@
 #include "nrm/NetworkPlanRepository.hpp"
 #include "nrm/NetworkProfileRepository.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -99,6 +100,12 @@ int main()
    ExpectFirstError(codec.Inspect(
       R"({"schema":"nrm.customer.assessment_request.v1","messageId":"msg-unknown-field","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{"unexpected":true}})"),
       "SCHEMA_VALIDATION_FAILED", "/data/unexpected");
+   ExpectFirstError(codec.Inspect(
+      R"({"schema":"nrm.customer.assessment_request.v1","messageId":"bad id!","timestamp":"2026-08-13T10:00:00+08:00","source":"CUSTOMER","data":{}})"),
+      "SCHEMA_VALIDATION_FAILED", "/messageId");
+   ExpectFirstError(codec.Inspect(
+      R"({"schema":"nrm.customer.assessment_request.v1","messageId":"wrong-source","timestamp":"2026-08-13T10:00:00+08:00","source":"NRM","data":{}})"),
+      "SCHEMA_VALIDATION_FAILED", "/source");
 
    WkNrm::CustomerJsonEnvelope envelope;
    envelope.messageId = "msg-009";
@@ -166,6 +173,19 @@ int main()
    assert(environmentContext.applicationMode ==
           nrm::EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT);
    assert(environmentContext.applyParameterizedEffects);
+   assert(environmentContext.customerProvidedDomains.size() == 3);
+   assert(std::find(environmentContext.customerProvidedDomains.begin(),
+                    environmentContext.customerProvidedDomains.end(),
+                    nrm::EnvironmentDomain::cTERRAIN) !=
+          environmentContext.customerProvidedDomains.end());
+   assert(std::find(environmentContext.customerProvidedDomains.begin(),
+                    environmentContext.customerProvidedDomains.end(),
+                    nrm::EnvironmentDomain::cWEATHER) !=
+          environmentContext.customerProvidedDomains.end());
+   assert(std::find(environmentContext.customerProvidedDomains.begin(),
+                    environmentContext.customerProvidedDomains.end(),
+                    nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE) !=
+          environmentContext.customerProvidedDomains.end());
    for (const auto& mode : {
            std::pair<const char*, nrm::EnvironmentApplicationMode>{
               "INFORMATION_ONLY",
@@ -186,6 +206,20 @@ int main()
       assert(decodedContext.applicationMode == mode.second);
       assert(decodedContext.applyParameterizedEffects ==
              (mode.second == nrm::EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT));
+   }
+   {
+      QJsonObject root = FixtureRoot("environment-report.example.json");
+      QJsonObject data = root.value("data").toObject();
+      data.remove("terrain");
+      data.remove("interference");
+      root.insert("data", data);
+      nrm::EnvironmentSnapshot partialEnvironment;
+      nrm::EnvironmentContext partialContext;
+      assert(codec.DecodeEnvironment(Compact(root), partialEnvironment,
+                                     partialContext).valid);
+      assert(partialContext.customerProvidedDomains.size() == 1);
+      assert(partialContext.customerProvidedDomains.front() ==
+             nrm::EnvironmentDomain::cWEATHER);
    }
    {
       QJsonObject root = FixtureRoot("environment-report.example.json");
@@ -409,9 +443,24 @@ int main()
    assert(task.businessType == "C2");
    assert(task.requiredBandwidthBps == 64000.0);
    assert(task.maximumDelayMs == 300.0);
+   assert(task.requireDelayMetricForFeasibility);
    assert(task.minimumPdrPercent == 90.0);
    assert(task.allowedNetworks.size() == 1);
    assert(task.allowedNetworks.front() == nrm::NetworkType::cLINK16);
+   {
+      QJsonObject root = FixtureRoot("assessment-request.example.json");
+      QJsonObject data = root.value("data").toObject();
+      data.insert("maximumDelayMs", 0.0);
+      root.insert("data", data);
+      nrm::AssessmentTask unconstrainedTask;
+      assert(codec.DecodeAssessment(Compact(root), unconstrainedTask).valid);
+      assert(unconstrainedTask.maximumDelayMs == 0.0);
+      assert(!unconstrainedTask.requireDelayMetricForFeasibility);
+      data.insert("maximumDelayMs", -1.0);
+      root.insert("data", data);
+      ExpectFirstError(codec.DecodeAssessment(Compact(root), unconstrainedTask),
+                       "SCHEMA_VALIDATION_FAILED", "/data");
+   }
    {
       QJsonObject root = FixtureRoot("assessment-request.example.json");
       QJsonObject data = root.value("data").toObject();
@@ -434,6 +483,25 @@ int main()
    assert(demandSet.demands.front().demandSetId == demandSet.demandSetId);
    assert(demandSet.demands.front().allowedNetworks.size() == 2);
    assert(demandSet.demands.front().valid);
+   {
+      QJsonObject root = FixtureRoot("resource-demand-request.example.json");
+      QJsonObject data = root.value("data").toObject();
+      QJsonArray demands = data.value("demands").toArray();
+      QJsonObject demand = demands.at(0).toObject();
+      demand.insert("maximumDelayMs", 0.0);
+      demands.replace(0, demand);
+      data.insert("demands", demands);
+      root.insert("data", data);
+      nrm::ResourceDemandSet unconstrainedDemands;
+      assert(codec.DecodeResourceDemands(Compact(root), unconstrainedDemands).valid);
+      assert(unconstrainedDemands.demands.front().maximumDelayMs == 0.0);
+      demand.insert("maximumDelayMs", -1.0);
+      demands.replace(0, demand);
+      data.insert("demands", demands);
+      root.insert("data", data);
+      ExpectFirstError(codec.DecodeResourceDemands(Compact(root), unconstrainedDemands),
+                       "SCHEMA_VALIDATION_FAILED", "/data/demands");
+   }
    {
       QJsonObject root = FixtureRoot("resource-demand-request.example.json");
       nrm::ResourceDemandSet decodedDemands;
@@ -465,10 +533,57 @@ int main()
    {
       QJsonObject root = FixtureRoot("network-plan.example.json");
       QJsonObject data = root.value("data").toObject();
+      QJsonArray demands = data.value("demands").toArray();
+      QJsonObject demand = demands.at(0).toObject();
+      demand.insert("maximumDelayMs", 0.0);
+      demands.replace(0, demand);
+      data.insert("demands", demands);
+      root.insert("data", data);
+      nrm::NetworkPlanDocument unconstrainedPlan;
+      assert(codec.DecodeNetworkPlan(Compact(root), unconstrainedPlan).valid);
+      assert(unconstrainedPlan.demands.front().maximumDelayMs == 0.0);
+      demand.insert("maximumDelayMs", -1.0);
+      demands.replace(0, demand);
+      data.insert("demands", demands);
+      root.insert("data", data);
+      ExpectFirstError(codec.DecodeNetworkPlan(Compact(root), unconstrainedPlan),
+                       "SCHEMA_VALIDATION_FAILED", "/data/demands");
+   }
+   {
+      QJsonObject root = FixtureRoot("network-plan.example.json");
+      QJsonObject data = root.value("data").toObject();
+      data.insert("allocations", QJsonArray{});
+      root.insert("data", data);
+      ExpectFirstError(codec.DecodeNetworkPlan(Compact(root), plan),
+                       "SCHEMA_VALIDATION_FAILED", "/data");
+   }
+   {
+      QJsonObject root = FixtureRoot("network-plan.example.json");
+      QJsonObject data = root.value("data").toObject();
       data.insert("demands", QJsonArray{});
       root.insert("data", data);
       ExpectFirstError(codec.DecodeNetworkPlan(Compact(root), plan),
                        "SCHEMA_VALIDATION_FAILED", "/data");
+   }
+   {
+      QJsonObject root = FixtureRoot("resource-demand-request.example.json");
+      QJsonObject data = root.value("data").toObject();
+      data.insert("demands", QJsonArray{});
+      root.insert("data", data);
+      ExpectFirstError(codec.DecodeResourceDemands(Compact(root), demandSet),
+                       "SCHEMA_VALIDATION_FAILED", "/data");
+   }
+   {
+      QJsonObject root = FixtureRoot("network-plan.example.json");
+      QJsonObject data = root.value("data").toObject();
+      QJsonArray allocations = data.value("allocations").toArray();
+      QJsonObject allocation = allocations.at(0).toObject();
+      allocation.insert("members", QJsonArray{});
+      allocations.replace(0, allocation);
+      data.insert("allocations", allocations);
+      root.insert("data", data);
+      ExpectFirstError(codec.DecodeNetworkPlan(Compact(root), plan),
+                       "SCHEMA_VALIDATION_FAILED", "/data/allocations");
    }
    {
       QJsonObject root = FixtureRoot("network-plan.example.json");

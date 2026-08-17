@@ -6,7 +6,8 @@
 
 目标版本：`v0.12.0-contract-gap-closure`。
 
-开发分支：`feat/code-quality-raii-hardening`（隔离工作树，基线`a1a5ff8`可随时回退）。
+正式开发分支：`feat/v0.11-model-service-facade`；本轮在
+`feat/code-quality-raii-hardening`隔离工作树验证后快进合并，旧基线`1d9ffb0`仍可定位回退。
 
 AFSIM核心修改数：`0`。实现范围仅限独立`network_resource_manager`扩展、Warlock插件、
 场景、脚本和文档。
@@ -38,15 +39,23 @@ AFSIM核心修改数：`0`。实现范围仅限独立`network_resource_manager`�
   `DataContainer::LoadCustomerJson`端到端测试覆盖三域合并、评估响应、配置绑定和派生失效。
 - 资源对象关系已抽取为纯C++`ResourceSnapshotValidator`，JSON解码与同进程Adapter共用；
   AFSIM基础态和甲方导航/环境覆盖层由`EffectiveSnapshotAssembler`确定性合成。
+- Customer Overlay已收紧为导航按平台、环境按子域合成，不再从Effective Snapshot反向
+  复制AFSIM状态；地形阻断仅在`CANDIDATE_ADJUSTMENT`下生效并区分Customer/AFSIM证据。
+- `ResourceSnapshotValidator`已补齐坐标、覆盖、业务流和姿态canonical约束；运行时JSON已
+  对齐1–64位标识符与具体Schema消息方向。
 - 独立Assessment通过唯一Facade复用Capability环境链，明确区分只读信息、已包含影响和候选
   修正三态；接口校验脚本支持`PYTHON_BIN`并提供依赖诊断。
+- 任务评估、规划和并发需求统一采用`maximumDelayMs=0`无门限语义；空规划成员同时被Schema
+  和运行时拒绝；Customer环境三态仅作用于实际提供子域，混合来源证据按子域记录。
+- 生产插件、状态管理、评估与规划均为C++；Python只用于离线Schema合同检查，不进入AFSIM
+  仿真运行链。
 
 ## 4. 当前固定验证基线
 
 - `scripts/ai_guard.sh static`：通过。
 - `scripts/ai_guard.sh contract`：13个合法样例通过，6个非法样例按预期拒绝。
 - `scripts/ai_guard.sh test`：37/37固定C++测试通过，WSF和Warlock插件构建通过；完整
-  NRM `ctest`为40/40（其中另含3项Shell回归）。
+  NRM `ctest`为41/41（其中另含4项Shell/工程回归）。
 - `nrm_remote_plan_switch_test`与`nrm_deployment_contract_test`：2/2 Shell回归通过。
 - 严格编译告警检查：本插件在`-Wall -Wextra -Wpedantic -Wconversion
   -Wsign-conversion -Wshadow`下零告警；仅保留AFSIM上游告警。

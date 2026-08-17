@@ -32,9 +32,12 @@ public:
                              ? aSnapshot.environment.providerId
                              : aContext.providerId;
       effect.sampleTime = aSnapshot.environment.sampleTime;
-      effect.origin = DataOrigin::cAFSIM_INTERNAL;
-      effect.confidence = Confidence::cHIGH;
-      const bool applyCandidate = UsesCandidateAdjustment(aContext);
+      effect.origin = DomainOrigin(aDomain, aSnapshot.environment);
+      effect.confidence = DomainConfidence(aDomain, aSnapshot.environment);
+      const EnvironmentApplicationMode applicationMode =
+         ApplicationModeForDomain(aDomain, aContext);
+      const bool applyCandidate =
+         applicationMode == EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT;
 
       if (applyCandidate && aDomain == EnvironmentDomain::cTERRAIN)
       {
@@ -65,28 +68,41 @@ public:
       effect.reason = CapabilityReason::cNONE;
       effect.effectId = std::string("afsim-") + ToString(aDomain);
       Set(effect.pathLossDeltaDb, 0.0, "dB", effect.sampleTime,
-          DataOrigin::cAFSIM_INTERNAL, Confidence::cHIGH);
+          effect.origin, effect.confidence);
       Set(effect.capacityScale, 1.0, "ratio", effect.sampleTime,
-          DataOrigin::cAFSIM_INTERNAL, Confidence::cHIGH);
+          effect.origin, effect.confidence);
       Set(effect.packetLossDeltaPercent, 0.0, "percentage_point", effect.sampleTime,
-          DataOrigin::cAFSIM_INTERNAL, Confidence::cHIGH);
+          effect.origin, effect.confidence);
       Set(effect.delayDeltaMs, 0.0, "ms", effect.sampleTime,
-          DataOrigin::cAFSIM_INTERNAL, Confidence::cHIGH);
+          effect.origin, effect.confidence);
       if (applyCandidate)
-         effect.evidence.push_back("AFSIM_CURRENT_STATE_NOT_DOUBLE_APPLIED");
-      else if (aContext.applicationMode ==
-               EnvironmentApplicationMode::cALREADY_INCLUDED)
-         effect.evidence.push_back("CUSTOMER_ENVIRONMENT_ALREADY_INCLUDED");
+         effect.evidence.push_back(
+            effect.origin == DataOrigin::cCUSTOMER_MODULE
+               ? "CUSTOMER_CURRENT_STATE_NOT_DOUBLE_APPLIED"
+               : "AFSIM_CURRENT_STATE_NOT_DOUBLE_APPLIED");
+      else if (applicationMode == EnvironmentApplicationMode::cALREADY_INCLUDED)
+         effect.evidence.push_back(
+            effect.origin == DataOrigin::cCUSTOMER_MODULE
+               ? "CUSTOMER_ENVIRONMENT_ALREADY_INCLUDED"
+               : "AFSIM_ENVIRONMENT_ALREADY_INCLUDED");
       else
-         effect.evidence.push_back("CUSTOMER_ENVIRONMENT_INFORMATION_ONLY");
+         effect.evidence.push_back(
+            effect.origin == DataOrigin::cCUSTOMER_MODULE
+               ? "CUSTOMER_ENVIRONMENT_INFORMATION_ONLY"
+               : "AFSIM_ENVIRONMENT_INFORMATION_ONLY");
 
-      if (aDomain == EnvironmentDomain::cTERRAIN &&
-          RouteTerrainBlocked(aSnapshot, aEndpointRoute))
+      if (applyCandidate && aDomain == EnvironmentDomain::cTERRAIN)
       {
-         effect.hardBlocked = true;
-         effect.reason = CapabilityReason::cENVIRONMENT_HARD_BLOCKED;
-         effect.evidence.push_back("AFSIM_TERRAIN_MASKED");
-         return effect;
+         const char* terrainEvidence =
+            RouteTerrainBlocked(aSnapshot, aEndpointRoute);
+         if (terrainEvidence != nullptr)
+         {
+            effect.hardBlocked = true;
+            effect.reason = CapabilityReason::cENVIRONMENT_HARD_BLOCKED;
+            effect.evidence.clear();
+            effect.evidence.push_back(terrainEvidence);
+            return effect;
+         }
       }
 
       if (!applyCandidate) return effect;
@@ -102,6 +118,7 @@ public:
       const NetworkType networkType = RouteNetwork(aSnapshot, aEndpointRoute);
       const EnvironmentAdjustment* adjustment = mConfig.Find(aDomain, networkType);
       if (adjustment == nullptr) return effect;
+      const DataOrigin sourceOrigin = effect.origin;
       effect.effectId = adjustment->adjustmentId;
       effect.origin = DataOrigin::cPARAMETERIZED_MODEL;
       effect.confidence = Confidence::cLOW;
@@ -115,10 +132,10 @@ public:
       {
          Set(effect.capacityScale,
              aSnapshot.environment.interference.capacityScale.value, "ratio",
-             effect.sampleTime, aSnapshot.environment.origin,
-             aSnapshot.environment.confidence);
-         effect.origin = aSnapshot.environment.origin;
-         effect.confidence = aSnapshot.environment.confidence;
+             effect.sampleTime, aSnapshot.environment.interference.origin,
+             aSnapshot.environment.interference.confidence);
+         effect.origin = aSnapshot.environment.interference.origin;
+         effect.confidence = aSnapshot.environment.interference.confidence;
       }
       Set(effect.packetLossDeltaPercent, adjustment->packetLossDeltaPercent,
           "percentage_point", effect.sampleTime, effect.origin, effect.confidence);
@@ -126,13 +143,57 @@ public:
           effect.sampleTime, effect.origin, effect.confidence);
       effect.evidence.clear();
       effect.evidence.push_back("PARAMETERIZED_CANDIDATE_EFFECT");
+      effect.evidence.push_back(
+         sourceOrigin == DataOrigin::cCUSTOMER_MODULE
+            ? "CUSTOMER_ENVIRONMENT_SOURCE"
+            : "AFSIM_ENVIRONMENT_SOURCE");
       return effect;
    }
 
 private:
-   static bool UsesCandidateAdjustment(const EnvironmentContext& aContext)
+   static EnvironmentApplicationMode ApplicationModeForDomain(
+      EnvironmentDomain aDomain, const EnvironmentContext& aContext)
    {
-      return aContext.applyParameterizedEffects;
+      if (!aContext.valid)
+         return EnvironmentApplicationMode::cINFORMATION_ONLY;
+      if (aContext.origin == DataOrigin::cCUSTOMER_MODULE &&
+          !aContext.customerProvidedDomains.empty() &&
+          std::find(aContext.customerProvidedDomains.begin(),
+                    aContext.customerProvidedDomains.end(), aDomain) ==
+             aContext.customerProvidedDomains.end())
+      {
+         return EnvironmentApplicationMode::cINFORMATION_ONLY;
+      }
+      return aContext.applicationMode;
+   }
+
+   static DataOrigin DomainOrigin(EnvironmentDomain aDomain,
+                                  const EnvironmentSnapshot& aEnvironment)
+   {
+      switch (aDomain)
+      {
+      case EnvironmentDomain::cTERRAIN: return aEnvironment.terrain.origin;
+      case EnvironmentDomain::cWEATHER: return aEnvironment.weather.origin;
+      case EnvironmentDomain::cCELESTIAL: return aEnvironment.celestial.origin;
+      case EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE:
+         return aEnvironment.interference.origin;
+      }
+      return aEnvironment.origin;
+   }
+
+   static Confidence DomainConfidence(
+      EnvironmentDomain aDomain, const EnvironmentSnapshot& aEnvironment)
+   {
+      switch (aDomain)
+      {
+      case EnvironmentDomain::cTERRAIN: return aEnvironment.terrain.confidence;
+      case EnvironmentDomain::cWEATHER: return aEnvironment.weather.confidence;
+      case EnvironmentDomain::cCELESTIAL:
+         return aEnvironment.celestial.confidence;
+      case EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE:
+         return aEnvironment.interference.confidence;
+      }
+      return aEnvironment.confidence;
    }
 
    static bool DomainAvailable(EnvironmentDomain aDomain,
@@ -230,8 +291,9 @@ private:
       return nullptr;
    }
 
-   static bool RouteTerrainBlocked(const ResourceSnapshot& aSnapshot,
-                                   const std::vector<std::string>& aRoute)
+   static const char* RouteTerrainBlocked(
+      const ResourceSnapshot& aSnapshot,
+      const std::vector<std::string>& aRoute)
    {
       for (std::size_t i = 1; i < aRoute.size(); ++i)
       {
@@ -241,15 +303,23 @@ private:
                 link.destinationEndpointId == aRoute[i])
             {
                if (link.terrainBlockedFlag.valid &&
-                   link.terrainBlockedFlag.value >= 0.5) return true;
+                   link.terrainBlockedFlag.value >= 0.5)
+                  return link.terrainBlockedFlag.origin ==
+                               DataOrigin::cCUSTOMER_MODULE
+                            ? "CUSTOMER_LINK_TERRAIN_BLOCKED"
+                            : "AFSIM_TERRAIN_MASKED";
                if (std::find(aSnapshot.environment.terrain.blockedLinkIds.begin(),
                              aSnapshot.environment.terrain.blockedLinkIds.end(),
                              link.linkId) !=
-                   aSnapshot.environment.terrain.blockedLinkIds.end()) return true;
+                   aSnapshot.environment.terrain.blockedLinkIds.end())
+                  return aSnapshot.environment.terrain.origin ==
+                               DataOrigin::cCUSTOMER_MODULE
+                            ? "CUSTOMER_TERRAIN_BLOCKED"
+                            : "AFSIM_TERRAIN_MASKED";
             }
          }
       }
-      return false;
+      return nullptr;
    }
 
    static bool RouteContainsAnyLink(

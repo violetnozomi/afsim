@@ -9,7 +9,7 @@
     "schema": {"const": "nrm.customer.resource_demand_request.v1"},
     "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
     "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
-    "source": {"$ref": "common.schema.json#/$defs/source"},
+    "source": {"const": "CUSTOMER"},
     "data": {
       "type": "object",
       "additionalProperties": false,
@@ -28,7 +28,7 @@
               "destinationPlatformId": {"$ref": "common.schema.json#/$defs/identifier"},
               "businessType": {"type": "string", "minLength": 1, "maxLength": 64},
               "requiredBandwidthBps": {"type": "number", "minimum": 0},
-              "maximumDelayMs": {"type": "number", "exclusiveMinimum": 0},
+              "maximumDelayMs": {"type": "number", "minimum": 0},
               "minimumPdrPercent": {"type": "number", "minimum": 0, "maximum": 100},
               "allowedNetworks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/networkType"}},
               "missionStage": {"type": "string", "maxLength": 64},

@@ -541,6 +541,7 @@ int main()
    informationOnly.valid = true;
    informationOnly.applicationMode =
       nrm::EnvironmentApplicationMode::cINFORMATION_ONLY;
+   informationOnly.applyParameterizedEffects = true;
    const std::size_t capabilityCallsBeforeEnvironment = capabilityPort->calls;
    const nrm::AssessmentServiceResponse informationAssessment =
       countingFacade.EvaluateAssessment(

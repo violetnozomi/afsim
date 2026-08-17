@@ -85,6 +85,13 @@ public:
    virtual ~CustomerNrmHost() = default;
 
    virtual const ResourceSnapshot& CurrentSnapshot() const = 0;
+   // Implementations that maintain an AFSIM base must return only the
+   // customer-owned overlay here.  The default preserves source compatibility
+   // for customer-only/replay hosts.
+   virtual const ResourceSnapshot& CurrentCustomerOverlay() const
+   {
+      return CurrentSnapshot();
+   }
    virtual std::string ActiveConfigVersion() const = 0;
    virtual void PublishCustomerSnapshot(const ResourceSnapshot& aSnapshot) = 0;
    virtual void ApplyCustomerEnvironmentContext(
@@ -147,10 +154,10 @@ public:
       if (!aContext.providerId.empty())
          normalized.providerId = aContext.providerId;
       const ResourceSnapshot merged = CustomerSnapshotAssembler::MergeResources(
-         mHost.CurrentSnapshot(), normalized, decision.newRun);
+         mHost.CurrentCustomerOverlay(), normalized, decision.newRun);
       mHost.PublishCustomerSnapshot(merged);
       Commit(aContext, CustomerMessageDomain::cRESOURCE);
-      return Accepted(merged.snapshotVersion);
+      return Accepted(mHost.CurrentSnapshot().snapshotVersion);
    }
 
    CustomerIngestResult UpdateNavigation(
@@ -173,13 +180,13 @@ public:
       NavigationSample normalized = aSample;
       if (aContext.hasSimTime) normalized.sampleTime = aContext.simTime;
       const std::string providerId = aContext.providerId.empty()
-                                        ? mHost.CurrentSnapshot().providerId
+                                        ? mHost.CurrentCustomerOverlay().providerId
                                         : aContext.providerId;
       const ResourceSnapshot merged = CustomerSnapshotAssembler::UpsertNavigation(
-         mHost.CurrentSnapshot(), normalized, providerId, decision.newRun);
+         mHost.CurrentCustomerOverlay(), normalized, providerId, decision.newRun);
       mHost.PublishCustomerSnapshot(merged);
       Commit(aContext, CustomerMessageDomain::cNAVIGATION);
-      return Accepted(merged.snapshotVersion);
+      return Accepted(mHost.CurrentSnapshot().snapshotVersion);
    }
 
    CustomerIngestResult UpdateEnvironment(
@@ -201,6 +208,12 @@ public:
       BeginRunIfNeeded(decision);
       EnvironmentSnapshot normalized = aSnapshot;
       EnvironmentContext normalizedContext = aEnvironment;
+      if (normalizedContext.origin == DataOrigin::cCUSTOMER_MODULE &&
+          normalizedContext.customerProvidedDomains.empty())
+      {
+         normalizedContext.customerProvidedDomains =
+            ProvidedEnvironmentDomains(normalized);
+      }
       if (aContext.hasSimTime)
       {
          normalized.sampleTime = aContext.simTime;
@@ -212,11 +225,11 @@ public:
          normalizedContext.providerId = aContext.providerId;
       }
       const ResourceSnapshot merged = CustomerSnapshotAssembler::MergeEnvironment(
-         mHost.CurrentSnapshot(), normalized, decision.newRun);
+         mHost.CurrentCustomerOverlay(), normalized, decision.newRun);
       mHost.ApplyCustomerEnvironmentContext(normalizedContext);
       mHost.PublishCustomerSnapshot(merged);
       Commit(aContext, CustomerMessageDomain::cENVIRONMENT);
-      return Accepted(merged.snapshotVersion);
+      return Accepted(mHost.CurrentSnapshot().snapshotVersion);
    }
 
    AssessmentResult Evaluate(const AssessmentTask& aTask)
@@ -246,6 +259,22 @@ public:
    }
 
 private:
+   static std::vector<EnvironmentDomain> ProvidedEnvironmentDomains(
+      const EnvironmentSnapshot& aSnapshot)
+   {
+      std::vector<EnvironmentDomain> domains;
+      if (aSnapshot.terrain.available)
+         domains.push_back(EnvironmentDomain::cTERRAIN);
+      if (aSnapshot.weather.available)
+         domains.push_back(EnvironmentDomain::cWEATHER);
+      if (aSnapshot.celestial.available)
+         domains.push_back(EnvironmentDomain::cCELESTIAL);
+      if (aSnapshot.interference.available)
+         domains.push_back(
+            EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE);
+      return domains;
+   }
+
    static bool ValidContext(const CustomerCallContext& aContext)
    {
       return !aContext.messageId.empty() &&

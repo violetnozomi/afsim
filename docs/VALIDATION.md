@@ -5,14 +5,25 @@
 - `scripts/ai_guard.sh static`通过，版本、脚本、文档和变更集守卫无错误。
 - `scripts/ai_guard.sh contract`通过：13个合法样例接受，6个非法样例按预期拒绝。
 - `scripts/ai_guard.sh test`通过：37/37固定C++测试，WSF与Warlock插件重新构建成功。
-- NRM完整CTest为40/40；新增共享资源语义校验、有效快照仲裁和Python解释器可配置回归，
+- NRM完整CTest为41/41；共享资源语义校验、有效快照仲裁和Python解释器可配置回归，
   并包含远程规划切换与部署契约Shell测试。
-- `ResourceSnapshotValidatorTest`覆盖双Link-16实例、重复ID、跨具体网络链路、非法PDR/BER、
-  协议资源超用、缺失路由跳和合法快照；`CustomerNrmAdapterTest`证明直接C++入口无法绕过。
+- `ResourceSnapshotValidatorTest`覆盖双Link-16实例、重复ID、跨具体网络链路、非法经纬度、
+  PDR/BER、覆盖范围、协议资源超用、业务流引用/流量、姿态范围、缺失路由跳、负海拔和
+  合法快照；`CustomerNrmAdapterTest`证明直接C++入口无法绕过。
 - `ModelServiceFacadeTest`覆盖`INFORMATION_ONLY`、`ALREADY_INCLUDED`、
   `CANDIDATE_ADJUSTMENT`及环境硬阻断，Assessment和Capability复用同一环境链。
-- `EffectiveSnapshotAssemblerTest`与`CustomerDataContainerTest`证明AFSIM周期更新不清除甲方
-  导航/环境，甲方旧资源也不能覆盖AFSIM新拓扑，发布版本严格单调递增。
+- `EffectiveSnapshotAssemblerTest`与`CustomerDataContainerTest`证明Customer导航只按
+  `platformId`覆盖、不冻结其他AFSIM平台；Customer干扰子域不会清空AFSIM地形/气象，
+  旧Customer资源也不能覆盖AFSIM新拓扑，发布版本严格单调递增。
+- `EnvironmentEffectAdapterTest`用同一`blockedLinkIds`证明只有
+  `CANDIDATE_ADJUSTMENT`阻断，其他两态不改变能力；混合AFSIM地形/干扰与Customer气象/干扰
+  时，Customer模式只控制实际提供子域，显式容量缩放使用干扰子域自身来源与置信度。
+- `CustomerJsonCodecTest`覆盖1–64位identifier、请求/响应`source`方向、空规划/需求
+  集合和重复`allowedNetworks`，并证明时延-1拒绝、0无门限、正值正常约束以及空规划成员
+  在Schema/Runtime两层拒绝；Shell回归同时覆盖PATH `python3`、`PYTHON_BIN`覆盖和
+  `jsonschema`缺失诊断。Python仅用于离线合同验证，生产运行链为C++。
+- `ResourceSnapshotValidatorTest`新增建链时延NaN、RSSI/SNR无穷值和
+  `valid == issues.empty()`不变量回归，直接C++ Adapter继续复用同一验证器。
 - 新增入口测试实际执行`resource → navigation A/B → environment → assessment → plan → demand
   → resource refresh`，验证状态保留、配置绑定、响应编码及旧派生结果失效。
 - 25节点`operational_strike_demo`通过并到达`Simulation complete`；部署契约为`PASS`。

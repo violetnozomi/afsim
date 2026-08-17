@@ -117,6 +117,25 @@ int main()
    assert(passed.reliabilityMarginPercent.value > 0.2);
    assert(passed.reasons.empty());
 
+   nrm::ResourceSnapshot delayUnconstrainedSnapshot = snapshot;
+   for (nrm::LinkSnapshot& link : delayUnconstrainedSnapshot.links)
+      link.windows.front().averageTransportDelayMs.valid = false;
+   for (nrm::EndpointSnapshot& endpoint : delayUnconstrainedSnapshot.endpoints)
+   {
+      endpoint.latitudeDeg.valid = false;
+      endpoint.longitudeDeg.valid = false;
+   }
+   nrm::AssessmentTask delayUnconstrainedTask = task;
+   delayUnconstrainedTask.maximumDelayMs = 0.0;
+   delayUnconstrainedTask.requireObservedCurrentMetrics = true;
+   // Legacy callers leave this compatibility flag at its default true.  A
+   // zero maximum still means that delay is not a feasibility constraint.
+   assert(delayUnconstrainedTask.requireDelayMetricForFeasibility);
+   const nrm::AssessmentResult delayUnconstrained = evaluator.Evaluate(
+      delayUnconstrainedSnapshot, delayUnconstrainedTask);
+   assert(delayUnconstrained.canComplete);
+   assert(!HasReason(delayUnconstrained, nrm::AssessmentReason::cDATA_INVALID));
+
    nrm::AssessmentTask relaxedBackupTask = task;
    relaxedBackupTask.maximumDelayMs = 70.0;
    relaxedBackupTask.minimumPdrPercent = 85.0;

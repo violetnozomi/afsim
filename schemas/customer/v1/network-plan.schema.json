@@ -5,7 +5,7 @@
   "type": "object", "additionalProperties": false,
   "required": ["schema", "messageId", "timestamp", "source", "data"],
   "properties": {
-    "schema": {"const": "nrm.customer.network_plan.v1"}, "messageId": {"$ref": "common.schema.json#/$defs/identifier"}, "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"}, "source": {"$ref": "common.schema.json#/$defs/source"},
+    "schema": {"const": "nrm.customer.network_plan.v1"}, "messageId": {"$ref": "common.schema.json#/$defs/identifier"}, "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"}, "source": {"const": "CUSTOMER"},
     "data": {
       "type": "object", "additionalProperties": false,
       "required": ["planId", "revision", "allocations", "demands"],
@@ -23,7 +23,7 @@
       "required": ["allocationId", "networkName", "networkType", "profileId", "frequencyHz", "channelId", "subnetId", "members", "routePolicyId", "enabled"],
       "properties": {
         "allocationId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkName": {"type": "string", "minLength": 1}, "networkType": {"$ref": "common.schema.json#/$defs/networkType"}, "profileId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "frequencyHz": {"type": "number", "minimum": 0}, "channelId": {"$ref": "common.schema.json#/$defs/identifier"}, "subnetId": {"$ref": "common.schema.json#/$defs/identifier"}, "members": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "slots": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "routePolicyId": {"$ref": "common.schema.json#/$defs/identifier"}, "enabled": {"type": "boolean"}
+        "frequencyHz": {"type": "number", "minimum": 0}, "channelId": {"$ref": "common.schema.json#/$defs/identifier"}, "subnetId": {"$ref": "common.schema.json#/$defs/identifier"}, "members": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "slots": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "routePolicyId": {"$ref": "common.schema.json#/$defs/identifier"}, "enabled": {"type": "boolean"}
       }
     },
     "demand": {

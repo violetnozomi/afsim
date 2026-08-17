@@ -1,5 +1,6 @@
 #include "nrm/BuiltInEnvironmentEffectAdapter.hpp"
 
+#include <algorithm>
 #include <cassert>
 
 namespace
@@ -48,6 +49,13 @@ nrm::ResourceSnapshot Snapshot()
    snapshot.links.push_back(link);
    return snapshot;
 }
+
+bool HasEvidence(const nrm::EnvironmentEffect& aEffect,
+                 const char* aEvidence)
+{
+   return std::find(aEffect.evidence.begin(), aEffect.evidence.end(),
+                    aEvidence) != aEffect.evidence.end();
+}
 } // namespace
 
 int main()
@@ -68,7 +76,7 @@ int main()
    assert(current.valid);
    assert(current.capacityScale.value == 1.0);
    assert(current.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
-   assert(current.evidence.front() == "CUSTOMER_ENVIRONMENT_INFORMATION_ONLY");
+   assert(current.evidence.front() == "AFSIM_ENVIRONMENT_INFORMATION_ONLY");
 
    context.applicationMode = nrm::EnvironmentApplicationMode::cALREADY_INCLUDED;
    nrm::EnvironmentEffect alreadyIncluded = adapter.Evaluate(
@@ -76,10 +84,36 @@ int main()
    assert(alreadyIncluded.capacityScale.value == 1.0);
    assert(alreadyIncluded.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
    assert(alreadyIncluded.evidence.front() ==
-          "CUSTOMER_ENVIRONMENT_ALREADY_INCLUDED");
+          "AFSIM_ENVIRONMENT_ALREADY_INCLUDED");
+
+   // A declared blocked link is informational unless the customer explicitly
+   // requests candidate adjustment.  The compatibility bool must not override
+   // either non-applying mode.
+   snapshot.environment.origin = nrm::DataOrigin::cCUSTOMER_MODULE;
+   snapshot.environment.terrain.origin = nrm::DataOrigin::cCUSTOMER_MODULE;
+   snapshot.environment.terrain.blockedLinkIds = {"link-1"};
+   context.applicationMode = nrm::EnvironmentApplicationMode::cINFORMATION_ONLY;
+   context.applyParameterizedEffects = true;
+   nrm::EnvironmentEffect informationalTerrain = adapter.Evaluate(
+      nrm::EnvironmentDomain::cTERRAIN, snapshot, request, route, context);
+   assert(!informationalTerrain.hardBlocked);
+   assert(informationalTerrain.capacityScale.value == 1.0);
+
+   context.applicationMode = nrm::EnvironmentApplicationMode::cALREADY_INCLUDED;
+   nrm::EnvironmentEffect includedTerrain = adapter.Evaluate(
+      nrm::EnvironmentDomain::cTERRAIN, snapshot, request, route, context);
+   assert(!includedTerrain.hardBlocked);
+   assert(includedTerrain.capacityScale.value == 1.0);
 
    context.applicationMode = nrm::EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT;
    context.applyParameterizedEffects = true;
+   nrm::EnvironmentEffect customerBlockedTerrain = adapter.Evaluate(
+      nrm::EnvironmentDomain::cTERRAIN, snapshot, request, route, context);
+   assert(customerBlockedTerrain.hardBlocked);
+   assert(customerBlockedTerrain.evidence.front() ==
+          "CUSTOMER_TERRAIN_BLOCKED");
+   snapshot.environment.terrain.blockedLinkIds.clear();
+   snapshot.environment.origin = nrm::DataOrigin::cAFSIM_INTERNAL;
    nrm::EnvironmentEffect candidate = adapter.Evaluate(
       nrm::EnvironmentDomain::cWEATHER, snapshot, request, route, context);
    assert(candidate.valid);
@@ -146,10 +180,68 @@ int main()
       nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE,
       snapshot, frequencyRequest, route, context);
    assert(explicitScale.capacityScale.value == 0.61);
+   assert(explicitScale.origin ==
+          snapshot.environment.interference.origin);
    frequencyRequest.frequencyHz = 1010000000.0;
    nrm::EnvironmentEffect clear = adapter.Evaluate(
       nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE,
       snapshot, frequencyRequest, route, context);
    assert(clear.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
+
+   // A partial customer update owns only the supplied domain.  Its global
+   // application mode must not adjust or block AFSIM-owned terrain or
+   // interference data.
+   nrm::ResourceSnapshot mixed = Snapshot();
+   mixed.environment.weather.origin = nrm::DataOrigin::cCUSTOMER_MODULE;
+   mixed.environment.weather.confidence = nrm::Confidence::cHIGH;
+   mixed.environment.terrain.blockedLinkIds = {"link-1"};
+   mixed.environment.interference.capacityScale.valid = true;
+   mixed.environment.interference.capacityScale.value = 0.55;
+   mixed.environment.interference.origin = nrm::DataOrigin::cAFSIM_INTERNAL;
+   mixed.environment.interference.confidence = nrm::Confidence::cMEDIUM;
+   nrm::EnvironmentContext partialCustomer;
+   partialCustomer.valid = true;
+   partialCustomer.origin = nrm::DataOrigin::cCUSTOMER_MODULE;
+   partialCustomer.applicationMode =
+      nrm::EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT;
+   partialCustomer.applyParameterizedEffects = true;
+   partialCustomer.customerProvidedDomains = {
+      nrm::EnvironmentDomain::cWEATHER};
+
+   const nrm::EnvironmentEffect mixedWeather = adapter.Evaluate(
+      nrm::EnvironmentDomain::cWEATHER, mixed, request, route,
+      partialCustomer);
+   assert(mixedWeather.origin == nrm::DataOrigin::cPARAMETERIZED_MODEL);
+   assert(HasEvidence(mixedWeather, "PARAMETERIZED_CANDIDATE_EFFECT"));
+   assert(HasEvidence(mixedWeather, "CUSTOMER_ENVIRONMENT_SOURCE"));
+
+   const nrm::EnvironmentEffect mixedTerrain = adapter.Evaluate(
+      nrm::EnvironmentDomain::cTERRAIN, mixed, request, route,
+      partialCustomer);
+   assert(!mixedTerrain.hardBlocked);
+   assert(mixedTerrain.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
+   assert(mixedTerrain.evidence.front() ==
+          "AFSIM_ENVIRONMENT_INFORMATION_ONLY");
+
+   const nrm::EnvironmentEffect mixedInterference = adapter.Evaluate(
+      nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE, mixed,
+      request, route, partialCustomer);
+   assert(mixedInterference.capacityScale.value == 1.0);
+   assert(mixedInterference.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
+   assert(mixedInterference.evidence.front() ==
+          "AFSIM_ENVIRONMENT_INFORMATION_ONLY");
+
+   partialCustomer.customerProvidedDomains = {
+      nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE};
+   mixed.environment.interference.origin =
+      nrm::DataOrigin::cCUSTOMER_MODULE;
+   mixed.environment.interference.confidence = nrm::Confidence::cHIGH;
+   const nrm::EnvironmentEffect customerInterference = adapter.Evaluate(
+      nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE, mixed,
+      request, route, partialCustomer);
+   assert(customerInterference.capacityScale.value == 0.55);
+   assert(customerInterference.origin == nrm::DataOrigin::cCUSTOMER_MODULE);
+   assert(customerInterference.confidence == nrm::Confidence::cHIGH);
+   assert(HasEvidence(customerInterference, "CUSTOMER_ENVIRONMENT_SOURCE"));
    return 0;
 }

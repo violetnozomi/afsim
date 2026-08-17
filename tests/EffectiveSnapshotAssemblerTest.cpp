@@ -2,6 +2,23 @@
 
 #include <cassert>
 
+namespace
+{
+nrm::NavigationSample Navigation(const char* aPlatformId, double aLatitude,
+                                 nrm::DataOrigin aOrigin)
+{
+   nrm::NavigationSample sample;
+   sample.platformId = aPlatformId;
+   sample.platformName = aPlatformId;
+   sample.sampleTime = aLatitude;
+   sample.valid = true;
+   sample.origin = aOrigin;
+   sample.truthLatitudeDeg.value = aLatitude;
+   sample.truthLatitudeDeg.valid = true;
+   return sample;
+}
+}
+
 int main()
 {
    nrm::ResourceSnapshot customer;
@@ -52,6 +69,42 @@ int main()
    const nrm::ResourceSnapshot staleCustomer =
       nrm::EffectiveSnapshotAssembler::Compose(&afsim, &customer);
    assert(staleCustomer.networks.front().networkId == "afsim-network");
+
+   // Customer navigation is a per-platform overlay, not a replacement for
+   // the complete AFSIM navigation domain.
+   afsim.navigation.platforms = {
+      Navigation("platform-x", 12.0, nrm::DataOrigin::cAFSIM_INTERNAL),
+      Navigation("platform-y", 10.0, nrm::DataOrigin::cAFSIM_INTERNAL)};
+   customer.navigation.platforms = {
+      Navigation("platform-y", 11.0, nrm::DataOrigin::cCUSTOMER_MODULE)};
+   const nrm::ResourceSnapshot navigationOverlay =
+      nrm::EffectiveSnapshotAssembler::Compose(&afsim, &customer);
+   assert(navigationOverlay.navigation.platforms.size() == 2);
+   assert(navigationOverlay.navigation.platforms.at(0).platformId == "platform-x");
+   assert(navigationOverlay.navigation.platforms.at(0).truthLatitudeDeg.value == 12.0);
+   assert(navigationOverlay.navigation.platforms.at(1).platformId == "platform-y");
+   assert(navigationOverlay.navigation.platforms.at(1).truthLatitudeDeg.value == 11.0);
+
+   // Customer environment reports are partial by schema.  Missing customer
+   // subdomains must retain the newest AFSIM values.
+   afsim.environment.terrain.available = true;
+   afsim.environment.terrain.enabled = true;
+   afsim.environment.weather.available = true;
+   afsim.environment.weather.rainRateMmPerHour.valid = true;
+   afsim.environment.weather.rainRateMmPerHour.value = 8.0;
+   customer.environment.terrain = nrm::TerrainEnvironmentState();
+   customer.environment.weather = nrm::WeatherEnvironmentState();
+   customer.environment.celestial = nrm::CelestialEnvironmentState();
+   customer.environment.interference.available = true;
+   customer.environment.interference.observedLinkCount = 1;
+   const nrm::ResourceSnapshot environmentOverlay =
+      nrm::EffectiveSnapshotAssembler::Compose(&afsim, &customer);
+   assert(environmentOverlay.environment.terrain.available);
+   assert(environmentOverlay.environment.terrain.enabled);
+   assert(environmentOverlay.environment.weather.available);
+   assert(environmentOverlay.environment.weather.rainRateMmPerHour.value == 8.0);
+   assert(environmentOverlay.environment.interference.available);
+   assert(environmentOverlay.environment.interference.observedLinkCount == 1);
 
    return 0;
 }

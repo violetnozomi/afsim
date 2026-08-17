@@ -110,7 +110,9 @@ void WkNrm::DataContainer::ApplyCustomerEnvironmentContext(
 void WkNrm::DataContainer::BeginCustomerRun()
 {
    mCustomerEnvironmentContext = nrm::EnvironmentContext();
+   const std::uint64_t previousVersion = mSnapshot.snapshotVersion;
    mCustomerOverlaySnapshot = nrm::FrameworkSnapshot();
+   mCustomerOverlaySnapshot.snapshotVersion = previousVersion;
    mHasCustomerOverlaySnapshot = false;
 }
 
@@ -405,7 +407,8 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
                if (decision.newRun)
                   mCustomerEnvironmentContext = nrm::EnvironmentContext();
                PublishCustomerSnapshot(nrm::CustomerSnapshotAssembler::UpsertNavigation(
-                  mSnapshot, sample, mLastCustomerJsonResult.envelope.source,
+                  mCustomerOverlaySnapshot, sample,
+                  mLastCustomerJsonResult.envelope.source,
                   decision.newRun));
             }
          }
@@ -419,7 +422,7 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
                commit();
                mCustomerEnvironmentContext = context;
                PublishCustomerSnapshot(nrm::CustomerSnapshotAssembler::MergeEnvironment(
-                  mSnapshot, environment, decision.newRun));
+                  mCustomerOverlaySnapshot, environment, decision.newRun));
             }
          }
          else if (schema == "nrm.customer.resource_report.v1")
@@ -432,7 +435,7 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
                if (decision.newRun)
                   mCustomerEnvironmentContext = nrm::EnvironmentContext();
                PublishCustomerSnapshot(nrm::CustomerSnapshotAssembler::MergeResources(
-                  mSnapshot, snapshot, decision.newRun));
+                  mCustomerOverlaySnapshot, snapshot, decision.newRun));
             }
          }
          else if (schema == "nrm.customer.assessment_request.v1")
@@ -647,6 +650,8 @@ nrm::NetworkPlanEvaluationResult WkNrm::DataContainer::EvaluateNetworkPlan(
          task.payloadBits = demand.payloadBits;
          task.requiredBandwidthBps = demand.requiredBandwidthBps;
          task.maximumDelayMs = demand.maximumDelayMs;
+         task.requireDelayMetricForFeasibility =
+            task.maximumDelayMs > 0.0;
          task.minimumPdrPercent = demand.minimumPdrPercent;
          task.allowedNetworks = demand.allowedNetworks;
          tasks.push_back(task);

@@ -111,6 +111,10 @@ struct EnvironmentContext
       EnvironmentApplicationMode::cINFORMATION_ONLY;
    // Compatibility mirror for integrations compiled before applicationMode.
    bool applyParameterizedEffects = false;
+   // Customer applicationMode applies only to domains actually supplied by
+   // that customer update.  An empty list preserves the legacy all-domain
+   // meaning for direct integrations that predate this field.
+   std::vector<EnvironmentDomain> customerProvidedDomains;
    double validFrom = 0.0;
    double validUntil = 0.0;
 };

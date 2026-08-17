@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 
 namespace
 {
@@ -65,6 +66,8 @@ nrm::ResourceSnapshot ValidSnapshot()
    link.state = nrm::ResourceState::cONLINE;
    ValidMetric(link.bandwidthBps, 1000000.0);
    ValidMetric(link.ber, 0.001);
+   link.coverage.valid = true;
+   ValidMetric(link.coverage.maximumRangeM, 500000.0);
    ValidMetric(link.protocolResource.utilizationPercent, 25.0);
    link.protocolResource.kind = "TIMESLOT";
    link.protocolResource.capacity = 16;
@@ -94,6 +97,23 @@ nrm::ResourceSnapshot ValidSnapshot()
    gateway.egressNetworkId = "net-backup";
    gateway.enabled = true;
    snapshot.gateways.push_back(gateway);
+
+   nrm::BusinessFlowState flow;
+   flow.flowId = "flow-primary";
+   flow.businessType = "C2";
+   flow.sourceMemberId = "source-member";
+   flow.destinationMemberId = "gateway-primary";
+   ValidMetric(flow.trafficBps, 64000.0);
+   snapshot.flows.push_back(flow);
+
+   nrm::PlatformAttitude attitude;
+   attitude.platformName = "source-platform";
+   attitude.headingDeg = 180.0;
+   attitude.pitchDeg = 10.0;
+   attitude.rollDeg = -5.0;
+   attitude.sampleTime = 10.0;
+   attitude.valid = true;
+   snapshot.platformAttitudes.push_back(attitude);
    return snapshot;
 }
 
@@ -106,6 +126,12 @@ bool HasReason(const nrm::ResourceSnapshotValidationResult& aResult,
       {
          return aIssue.reason == aReason;
       });
+}
+
+void AssertValidityInvariant(
+   const nrm::ResourceSnapshotValidationResult& aResult)
+{
+   assert(aResult.valid == aResult.issues.empty());
 }
 } // namespace
 
@@ -149,6 +175,25 @@ int main()
                     nrm::ResourceSnapshotValidationReason::cMETRIC_OUT_OF_RANGE));
    assert(HasReason(result,
                     nrm::ResourceSnapshotValidationReason::cPROTOCOL_USAGE_INVALID));
+   AssertValidityInvariant(result);
+
+   invalid = ValidSnapshot();
+   ValidMetric(invalid.links.front().averageEstablishmentDelayMs,
+               std::numeric_limits<double>::quiet_NaN());
+   result = validator.Validate(invalid);
+   assert(HasReason(result,
+                    nrm::ResourceSnapshotValidationReason::cMETRIC_OUT_OF_RANGE));
+   AssertValidityInvariant(result);
+
+   invalid = ValidSnapshot();
+   ValidMetric(invalid.links.front().rssiDbm,
+               std::numeric_limits<double>::infinity());
+   ValidMetric(invalid.links.front().snrDb,
+               -std::numeric_limits<double>::infinity());
+   result = validator.Validate(invalid);
+   assert(HasReason(result,
+                    nrm::ResourceSnapshotValidationReason::cMETRIC_OUT_OF_RANGE));
+   AssertValidityInvariant(result);
 
    invalid = ValidSnapshot();
    invalid.routes.front().hops = {"source-member", "gateway-backup",
@@ -162,6 +207,38 @@ int main()
    result = validator.Validate(invalid);
    assert(HasReason(result,
                     nrm::ResourceSnapshotValidationReason::cGATEWAY_SELF_REFERENCE));
+
+   invalid = ValidSnapshot();
+   ValidMetric(invalid.endpoints.front().latitudeDeg, 999.0);
+   ValidMetric(invalid.endpoints.front().longitudeDeg, -999.0);
+   ValidMetric(invalid.endpoints.front().altitudeM, -50.0);
+   result = validator.Validate(invalid);
+   assert(!result.valid);
+
+   invalid = ValidSnapshot();
+   invalid.links.front().coverage.maximumRangeM.value = -1.0;
+   result = validator.Validate(invalid);
+   assert(!result.valid);
+
+   invalid = ValidSnapshot();
+   invalid.flows.front().sourceMemberId = "missing-member";
+   invalid.flows.front().trafficBps.value = -1.0;
+   result = validator.Validate(invalid);
+   assert(!result.valid);
+
+   invalid = ValidSnapshot();
+   invalid.platformAttitudes.front().headingDeg = 361.0;
+   invalid.platformAttitudes.front().pitchDeg = -91.0;
+   invalid.platformAttitudes.front().rollDeg = 181.0;
+   invalid.platformAttitudes.front().sampleTime = -1.0;
+   result = validator.Validate(invalid);
+   assert(!result.valid);
+
+   invalid = ValidSnapshot();
+   ValidMetric(invalid.endpoints.front().latitudeDeg, 34.0);
+   ValidMetric(invalid.endpoints.front().longitudeDeg, 108.0);
+   ValidMetric(invalid.endpoints.front().altitudeM, -50.0);
+   assert(validator.Validate(invalid).valid);
 
    return 0;
 }

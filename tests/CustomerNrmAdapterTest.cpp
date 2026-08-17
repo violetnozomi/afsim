@@ -1,4 +1,5 @@
 #include "nrm/CustomerNrmAdapter.hpp"
+#include "nrm/EffectiveSnapshotAssembler.hpp"
 
 #include <cassert>
 
@@ -8,10 +9,18 @@ class Host final : public nrm::CustomerNrmHost
 {
 public:
    const nrm::ResourceSnapshot& CurrentSnapshot() const override { return snapshot; }
+   const nrm::ResourceSnapshot& CurrentCustomerOverlay() const override
+   {
+      return customerOverlay;
+   }
    std::string ActiveConfigVersion() const override { return "demo-0.7.0"; }
    void PublishCustomerSnapshot(const nrm::ResourceSnapshot& aSnapshot) override
    {
-      snapshot = aSnapshot;
+      customerOverlay = aSnapshot;
+      snapshot = hasAfsimBase
+                    ? nrm::EffectiveSnapshotAssembler::Compose(
+                         &afsimBase, &customerOverlay)
+                    : customerOverlay;
       ++published;
    }
    void ApplyCustomerEnvironmentContext(
@@ -22,6 +31,9 @@ public:
    void BeginCustomerRun() override
    {
       environment = nrm::EnvironmentContext();
+      const std::uint64_t previousVersion = snapshot.snapshotVersion;
+      customerOverlay = nrm::ResourceSnapshot();
+      customerOverlay.snapshotVersion = previousVersion;
       ++runTransitions;
    }
    nrm::AssessmentResult RunCustomerAssessment(
@@ -55,6 +67,9 @@ public:
    }
 
    nrm::ResourceSnapshot snapshot;
+   nrm::ResourceSnapshot afsimBase;
+   nrm::ResourceSnapshot customerOverlay;
+   bool hasAfsimBase = false;
    nrm::EnvironmentContext environment;
    nrm::NetworkPlanDocument lastPlan;
    nrm::ResourceDemandSet lastDemands;
@@ -156,7 +171,11 @@ int main()
    nrm::EnvironmentSnapshot environment;
    environment.sampleTime = 13.0;
    environment.valid = true;
+   environment.weather.available = true;
+   environment.weather.origin = nrm::DataOrigin::cCUSTOMER_MODULE;
    nrm::EnvironmentContext environmentContext;
+   environmentContext.valid = true;
+   environmentContext.origin = nrm::DataOrigin::cCUSTOMER_MODULE;
    environmentContext.applicationMode =
       nrm::EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT;
    environmentContext.applyParameterizedEffects = true;
@@ -164,6 +183,9 @@ int main()
       Context("run-a", "env-1", 13.0), environment,
       environmentContext).mutated);
    assert(host.environment.applyParameterizedEffects);
+   assert(host.environment.customerProvidedDomains.size() == 1);
+   assert(host.environment.customerProvidedDomains.front() ==
+          nrm::EnvironmentDomain::cWEATHER);
    assert(host.snapshot.navigation.platforms.size() == 2);
    assert(host.snapshot.networks.size() == 1);
 
@@ -205,5 +227,48 @@ int main()
    assert(!host.environment.applyParameterizedEffects);
    assert(host.snapshot.navigation.platforms.empty());
    assert(host.snapshot.snapshotVersion == 6);
+
+   // A customer update for Y must not copy the AFSIM sample for X into the
+   // customer-owned overlay.  Later AFSIM X updates therefore stay visible,
+   // while customer Y continues to override AFSIM Y.
+   Host overlayHost;
+   overlayHost.hasAfsimBase = true;
+   overlayHost.afsimBase.navigation.valid = true;
+   overlayHost.afsimBase.navigation.providerId = "afsim-navigation";
+   nrm::NavigationSample afsimX;
+   afsimX.platformId = "platform-x";
+   afsimX.platformName = "platform-x";
+   afsimX.valid = true;
+   afsimX.sampleTime = 10.0;
+   afsimX.truthLatitudeDeg.valid = true;
+   afsimX.truthLatitudeDeg.value = 10.0;
+   nrm::NavigationSample afsimY = afsimX;
+   afsimY.platformId = "platform-y";
+   afsimY.platformName = "platform-y";
+   overlayHost.afsimBase.navigation.platforms = {afsimX, afsimY};
+   overlayHost.snapshot = overlayHost.afsimBase;
+
+   nrm::CustomerNrmAdapter overlayAdapter(overlayHost, 8);
+   nrm::NavigationSample customerY = afsimY;
+   customerY.origin = nrm::DataOrigin::cCUSTOMER_MODULE;
+   customerY.sampleTime = 11.0;
+   customerY.truthLatitudeDeg.value = 11.0;
+   assert(overlayAdapter.UpdateNavigation(
+      Context("run-overlay", "nav-y", 11.0), customerY).mutated);
+   assert(overlayHost.customerOverlay.navigation.platforms.size() == 1);
+   assert(overlayHost.customerOverlay.navigation.platforms.front().platformId ==
+          "platform-y");
+
+   overlayHost.afsimBase.navigation.platforms.at(0).sampleTime = 12.0;
+   overlayHost.afsimBase.navigation.platforms.at(0).truthLatitudeDeg.value = 12.0;
+   overlayHost.afsimBase.navigation.platforms.at(1).sampleTime = 12.0;
+   overlayHost.afsimBase.navigation.platforms.at(1).truthLatitudeDeg.value = 12.0;
+   overlayHost.snapshot = nrm::EffectiveSnapshotAssembler::Compose(
+      &overlayHost.afsimBase, &overlayHost.customerOverlay);
+   assert(overlayHost.snapshot.navigation.platforms.size() == 2);
+   assert(overlayHost.snapshot.navigation.platforms.at(0).truthLatitudeDeg.value ==
+          12.0);
+   assert(overlayHost.snapshot.navigation.platforms.at(1).truthLatitudeDeg.value ==
+          11.0);
    return 0;
 }

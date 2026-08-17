@@ -32,12 +32,19 @@ enum class ResourceSnapshotValidationReason
    cLINK_ID_DUPLICATE,
    cENDPOINT_REFERENCE_MISSING,
    cLINK_NETWORK_MISMATCH,
+   cPOSITION_OUT_OF_RANGE,
    cMETRIC_OUT_OF_RANGE,
    cPROTOCOL_USAGE_INVALID,
+   cCOVERAGE_INVALID,
    cROUTE_ID_EMPTY,
    cROUTE_ID_DUPLICATE,
    cROUTE_ENDPOINT_INVALID,
    cROUTE_LINK_MISSING,
+   cFLOW_ID_EMPTY,
+   cFLOW_ID_DUPLICATE,
+   cFLOW_REFERENCE_MISSING,
+   cFLOW_TRAFFIC_INVALID,
+   cATTITUDE_INVALID,
    cGATEWAY_ID_EMPTY,
    cGATEWAY_ID_DUPLICATE,
    cGATEWAY_REFERENCE_MISSING,
@@ -72,10 +79,14 @@ inline const char* ToString(ResourceSnapshotValidationReason aReason)
       return "ENDPOINT_REFERENCE_MISSING";
    case ResourceSnapshotValidationReason::cLINK_NETWORK_MISMATCH:
       return "LINK_NETWORK_MISMATCH";
+   case ResourceSnapshotValidationReason::cPOSITION_OUT_OF_RANGE:
+      return "POSITION_OUT_OF_RANGE";
    case ResourceSnapshotValidationReason::cMETRIC_OUT_OF_RANGE:
       return "METRIC_OUT_OF_RANGE";
    case ResourceSnapshotValidationReason::cPROTOCOL_USAGE_INVALID:
       return "PROTOCOL_USAGE_INVALID";
+   case ResourceSnapshotValidationReason::cCOVERAGE_INVALID:
+      return "COVERAGE_INVALID";
    case ResourceSnapshotValidationReason::cROUTE_ID_EMPTY:
       return "ROUTE_ID_EMPTY";
    case ResourceSnapshotValidationReason::cROUTE_ID_DUPLICATE:
@@ -84,6 +95,16 @@ inline const char* ToString(ResourceSnapshotValidationReason aReason)
       return "ROUTE_ENDPOINT_INVALID";
    case ResourceSnapshotValidationReason::cROUTE_LINK_MISSING:
       return "ROUTE_LINK_MISSING";
+   case ResourceSnapshotValidationReason::cFLOW_ID_EMPTY:
+      return "FLOW_ID_EMPTY";
+   case ResourceSnapshotValidationReason::cFLOW_ID_DUPLICATE:
+      return "FLOW_ID_DUPLICATE";
+   case ResourceSnapshotValidationReason::cFLOW_REFERENCE_MISSING:
+      return "FLOW_REFERENCE_MISSING";
+   case ResourceSnapshotValidationReason::cFLOW_TRAFFIC_INVALID:
+      return "FLOW_TRAFFIC_INVALID";
+   case ResourceSnapshotValidationReason::cATTITUDE_INVALID:
+      return "ATTITUDE_INVALID";
    case ResourceSnapshotValidationReason::cGATEWAY_ID_EMPTY:
       return "GATEWAY_ID_EMPTY";
    case ResourceSnapshotValidationReason::cGATEWAY_ID_DUPLICATE:
@@ -130,6 +151,8 @@ public:
       ValidateEndpoints(aSnapshot, networks, endpoints, result);
       ValidateLinks(aSnapshot, networks, endpoints, links, result);
       ValidateRoutes(aSnapshot, endpoints, links, result);
+      ValidateFlows(aSnapshot, endpoints, result);
+      ValidateAttitudes(aSnapshot, result);
       ValidateGateways(aSnapshot, networks, endpoints, result);
       result.valid = result.issues.empty();
       return result;
@@ -208,6 +231,14 @@ private:
          else if (endpoint.networkType != network->second->networkType)
             Add(aResult, ResourceSnapshotValidationReason::cNETWORK_TYPE_MISMATCH,
                 path + "/networkType", "endpoint networkType differs from its networkId");
+         if (!InRange(endpoint.latitudeDeg, -90.0, 90.0) ||
+             !InRange(endpoint.longitudeDeg, -180.0, 180.0) ||
+             !InRange(endpoint.altitudeM,
+                      -std::numeric_limits<double>::max(),
+                      std::numeric_limits<double>::max()))
+            Add(aResult, ResourceSnapshotValidationReason::cPOSITION_OUT_OF_RANGE,
+                path + "/position",
+                "latitude/longitude must be within WGS-84 degree ranges");
       }
    }
 
@@ -277,10 +308,28 @@ private:
 
          bool metricsValid = InRange(link.distanceM, 0.0, maximum) &&
                              InRange(link.bandwidthBps, 0.0, maximum) &&
+                             InRange(link.currentOfflineDurationS, 0.0, maximum) &&
+                             InRange(link.windowOfflineDurationS, 0.0, maximum) &&
                              InRange(link.ber, 0.0, 1.0) &&
                              InRange(link.serviceAvailabilityPercent, 0.0, 100.0) &&
                              InRange(link.establishmentSuccessRatioPercent, 0.0, 100.0) &&
+                             InRange(link.averageEstablishmentDelayMs, 0.0, maximum) &&
+                             InRange(link.rssiDbm, -maximum, maximum) &&
+                             InRange(link.snrDb, -maximum, maximum) &&
+                             InRange(link.interferencePowerDbm, -maximum, maximum) &&
+                             InRange(link.interferenceFactorPercent, 0.0, 100.0) &&
+                             InRange(link.atmosphericTransmittancePercent, 0.0, 100.0) &&
+                             InRange(link.terrainBlockedFlag, 0.0, 1.0) &&
                              InRange(link.communicationQualityPercent, 0.0, 100.0);
+         metricsValid = metricsValid &&
+                        std::all_of(
+                           link.availableFrequenciesHz.begin(),
+                           link.availableFrequenciesHz.end(),
+                           [](double aFrequencyHz)
+                           {
+                              return std::isfinite(aFrequencyHz) &&
+                                     aFrequencyHz >= 0.0;
+                           });
          for (const WindowMetrics& window : link.windows)
             metricsValid = metricsValid && ValidWindow(window);
          if (!metricsValid)
@@ -293,6 +342,12 @@ private:
               !InRange(link.protocolResource.utilizationPercent, 0.0, 100.0)))
             Add(aResult, ResourceSnapshotValidationReason::cPROTOCOL_USAGE_INVALID,
                 path + "/protocolResource", "protocol used/remaining/capacity are inconsistent");
+         if ((link.coverage.valid && !link.coverage.maximumRangeM.valid) ||
+             !InRange(link.coverage.maximumRangeM, 0.0, maximum) ||
+             !InRange(link.coverage.rangeMarginM, -maximum, maximum))
+            Add(aResult, ResourceSnapshotValidationReason::cCOVERAGE_INVALID,
+                path + "/coverage/maximumRangeM",
+                "maximum coverage range must be finite and non-negative");
       }
    }
 
@@ -334,6 +389,54 @@ private:
                break;
             }
          }
+      }
+   }
+
+   static void ValidateFlows(const ResourceSnapshot& aSnapshot,
+                             const EndpointMap& aEndpoints,
+                             ResourceSnapshotValidationResult& aResult)
+   {
+      std::set<std::string> flowIds;
+      const double maximum = std::numeric_limits<double>::max();
+      for (std::size_t index = 0; index < aSnapshot.flows.size(); ++index)
+      {
+         const BusinessFlowState& flow = aSnapshot.flows[index];
+         const std::string path = "/flows/" + std::to_string(index);
+         if (flow.flowId.empty())
+            Add(aResult, ResourceSnapshotValidationReason::cFLOW_ID_EMPTY,
+                path + "/flowId", "flowId must not be empty");
+         else if (!flowIds.insert(flow.flowId).second)
+            Add(aResult, ResourceSnapshotValidationReason::cFLOW_ID_DUPLICATE,
+                path + "/flowId", "flowId must be unique");
+         if (aEndpoints.count(flow.sourceMemberId) == 0 ||
+             aEndpoints.count(flow.destinationMemberId) == 0)
+            Add(aResult, ResourceSnapshotValidationReason::cFLOW_REFERENCE_MISSING,
+                path, "flow source and destination must reference existing members");
+         if (!InRange(flow.trafficBps, 0.0, maximum))
+            Add(aResult, ResourceSnapshotValidationReason::cFLOW_TRAFFIC_INVALID,
+                path + "/trafficBps",
+                "flow traffic must be finite and non-negative");
+      }
+   }
+
+   static void ValidateAttitudes(const ResourceSnapshot& aSnapshot,
+                                 ResourceSnapshotValidationResult& aResult)
+   {
+      for (std::size_t index = 0; index < aSnapshot.platformAttitudes.size();
+           ++index)
+      {
+         const PlatformAttitude& attitude = aSnapshot.platformAttitudes[index];
+         if (!attitude.valid) continue;
+         if (attitude.platformName.empty() ||
+             !std::isfinite(attitude.headingDeg) || attitude.headingDeg < 0.0 ||
+             attitude.headingDeg > 360.0 || !std::isfinite(attitude.pitchDeg) ||
+             attitude.pitchDeg < -90.0 || attitude.pitchDeg > 90.0 ||
+             !std::isfinite(attitude.rollDeg) || attitude.rollDeg < -180.0 ||
+             attitude.rollDeg > 180.0 || !std::isfinite(attitude.sampleTime) ||
+             attitude.sampleTime < 0.0)
+            Add(aResult, ResourceSnapshotValidationReason::cATTITUDE_INVALID,
+                "/platformAttitudes/" + std::to_string(index),
+                "valid attitude values must be finite and within canonical ranges");
       }
    }
 

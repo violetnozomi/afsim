@@ -77,7 +77,9 @@ public:
       constraints.requiredBandwidthBps = aTask.requiredBandwidthBps;
       constraints.maximumDelayMs = aTask.maximumDelayMs;
       constraints.minimumPdrPercent = aTask.minimumPdrPercent;
-      constraints.requireDelayMetric = aTask.requireDelayMetricForFeasibility;
+      constraints.requireDelayMetric =
+         aTask.maximumDelayMs > 0.0 &&
+         aTask.requireDelayMetricForFeasibility;
       if (!options.Valid() || !constraints.Valid())
       {
          AddReason(result, AssessmentReason::cDATA_INVALID);

@@ -11,8 +11,8 @@ AFSIM 内部事件 / 甲方结果包 / 回放输入
                  ▼
 状态与证据层
   ├── CustomerIngestionState：甲方消息去重、乱序拒绝和运行隔离
-  ├── CustomerSnapshotAssembler：资源/导航/环境按域原子合并
-  ├── EffectiveSnapshotAssembler：AFSIM基础态与甲方导航/环境覆盖层仲裁
+  ├── CustomerSnapshotAssembler：资源全量域、导航平台和环境子域原子合并
+  ├── EffectiveSnapshotAssembler：AFSIM基础态与Customer粒度化覆盖层仲裁
   ├── ResourceSnapshotValidator：JSON与C++入口共用的对象关系语义校验
   ├── MessageLifecycleTracker：消息关联、去重、超时和严格窗口队列
   ├── ResourceEventLedger：端点/链路状态及建链事件
@@ -86,15 +86,24 @@ JSON结构、字段类型、范围和枚举校验；解码后的对象关系由�
 进入需求仓库和同一门面的匹配服务。快照版本变化后旧评估、能力和规划推演缓存立即失效。
 
 运行期采用明确的Customer Overlay仲裁，不再使用隐式last-writer-wins：AFSIM快照存在时，
-AFSIM始终拥有网络、端点、链路、业务流和网关的权威基础态；甲方只覆盖有效导航和环境域。
-后续AFSIM周期快照不会清除甲方覆盖层，较旧的甲方资源报告也不能回写覆盖最新AFSIM链路。
+AFSIM始终拥有网络、端点、链路、业务流和网关的权威基础态；Customer导航只保存其真实
+上报的平台，按`platformId`覆盖同平台AFSIM导航，未上报平台继续使用最新AFSIM状态；
+Customer环境按`terrain/weather/celestial/interference`可用子域覆盖，未上报子域保留AFSIM值。
+`EnvironmentContext.customerProvidedDomains`由JSON Codec或同进程Adapter根据本次实际输入推导；
+Customer的`applicationMode`只控制这些子域，不能改变未上报的AFSIM地形、气象、天象或干扰语义。
+后续AFSIM周期快照不会清除Customer覆盖层，较旧的Customer资源报告也不能回写覆盖最新AFSIM链路。
 尚未取得AFSIM基础态时，完整甲方资源快照可作为独立演示/回放基础态。每次合成发布都生成
 单调递增的有效`snapshotVersion`，所有派生结果按该版本失效。
 
 独立任务评估与通信能力查询共享环境语义。`INFORMATION_ONLY`只携带证据，
-`ALREADY_INCLUDED`表示AFSIM基础指标已经包含环境影响，二者均不重复衰减；只有
+`ALREADY_INCLUDED`表示上游链路指标已经包含环境影响，二者均不硬阻断、不衰减、不增加时延；只有
 `CANDIDATE_ADJUSTMENT`通过既有`CommunicationCapabilityService`环境链修正带宽、时延、
-PDR和硬阻断，再保守回填任务评估结论。这里不复制环境公式，也不改变评估得到的路由。
+PDR和硬阻断，再保守回填任务评估结论。效果证据使用子域的
+`AFSIM_INTERNAL/CUSTOMER_MODULE`来源，不把Customer阻断误报为AFSIM地形遮挡。这里不复制环境
+公式，也不改变评估得到的路由。
+
+评估、规划需求和并发资源需求统一规定`maximumDelayMs=0`为“不设置最大时延约束”，正值才
+启用时延门限，负值拒绝。该规则在C++领域入口、JSON运行时解码和正式Schema中保持一致。
 
 v0.11第一阶段增加`ModelServiceFacade`作为进程内强类型编排边界。Facade先校验
 `ModelServiceContext`的schema、请求标识和snapshotVersion，再分别单次委托现有任务评估、
@@ -113,7 +122,7 @@ v0.11第一阶段增加`ModelServiceFacade`作为进程内强类型编排边界�
 - WSF 扩展入口只负责能力注册；`NrmSimInterface` 是当前 AFSIM 内部监听适配器。
 - `DataContainer` 只存在于 GUI 线程，跨线程事件只传递值对象。
 - 甲方同类型多网络按具体`networkId`隔离；`networkType`仅用于四网分类。
-- AFSIM拥有拓扑和实时链路基础态；甲方导航/环境作为持久覆盖层，未取得AFSIM快照时才允许
+- AFSIM拥有拓扑和实时链路基础态；导航按平台、环境按子域使用Customer持久覆盖，未取得AFSIM快照时才允许
   甲方完整资源报告作为基础态。
 - JSON结构校验和C++对象语义校验职责分离；所有资源入口共用
   `ResourceSnapshotValidator`，不得在Codec中维护第二套跨对象规则。
@@ -121,6 +130,7 @@ v0.11第一阶段增加`ModelServiceFacade`作为进程内强类型编排边界�
 - `InputProvider` 冻结内部、甲方模块和回放输入的公共边界。
 - `AssessmentEvaluator` 不改变 AFSIM 图，只产生评估结果和只读建议。
 - 规划服务只产生校验、推演和本地包；编辑生成新修订的`DRAFT`，不向网络下发。
+- 每个规划资源分配至少包含一个成员；空`members`同时被Schema、Codec和规划校验器拒绝。
 - 需求服务只产生匹配、差距和建议；编辑生成新需求集修订，不自动应用建议。
 - 模型服务只编排既有服务；Registry只保存描述符；甲方对象转换限定在
   `ContractInterfaceAdapter`实现中，同进程执行统一进入`CustomerNrmAdapter`。

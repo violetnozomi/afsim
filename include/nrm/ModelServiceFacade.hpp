@@ -528,14 +528,9 @@ public:
 private:
    static bool UsesCandidateAdjustment(const EnvironmentContext& aEnvironment)
    {
-      if (!aEnvironment.valid ||
-          aEnvironment.applicationMode ==
-             EnvironmentApplicationMode::cALREADY_INCLUDED)
-         return false;
-      if (aEnvironment.applicationMode ==
-          EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT)
-         return true;
-      return aEnvironment.applyParameterizedEffects;
+      return aEnvironment.valid &&
+             aEnvironment.applicationMode ==
+                EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT;
    }
 
    static CapabilityRequest CapabilityRequestFrom(const AssessmentTask& aTask)
@@ -654,7 +649,8 @@ private:
             AddAssessmentReason(aResult, AssessmentReason::cDELAY_MARGIN_NEGATIVE);
          }
       }
-      else if (aTask.requireDelayMetricForFeasibility)
+      else if (aTask.maximumDelayMs > 0.0 &&
+               aTask.requireDelayMetricForFeasibility)
       {
          meetsConstraints = false;
          AddAssessmentReason(aResult, AssessmentReason::cDATA_INVALID);
