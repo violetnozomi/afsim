@@ -86,5 +86,5 @@
 
 - [x] Update only affected semantics and actual test evidence.
 - [x] Run diff/static/contract/full tests/build/CTest/one approved scenario.
-- [ ] Commit all reviewed worktree changes with one closure commit.
-- [ ] Fast-forward the formal branch, rerun key gates from the formal worktree and report exact branch/HEAD/status.
+- [x] Commit all reviewed worktree changes with one closure commit.
+- [x] Fast-forward the formal branch, rerun key gates from the formal worktree and report exact branch/HEAD/status.
