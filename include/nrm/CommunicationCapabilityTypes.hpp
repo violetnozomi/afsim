@@ -79,6 +79,25 @@ inline const char* ToString(EnvironmentDomain aDomain)
    return "TERRAIN";
 }
 
+enum class EnvironmentApplicationMode
+{
+   cINFORMATION_ONLY,
+   cALREADY_INCLUDED,
+   cCANDIDATE_ADJUSTMENT
+};
+
+inline const char* ToString(EnvironmentApplicationMode aMode)
+{
+   switch (aMode)
+   {
+   case EnvironmentApplicationMode::cINFORMATION_ONLY: return "INFORMATION_ONLY";
+   case EnvironmentApplicationMode::cALREADY_INCLUDED: return "ALREADY_INCLUDED";
+   case EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT:
+      return "CANDIDATE_ADJUSTMENT";
+   }
+   return "INFORMATION_ONLY";
+}
+
 struct EnvironmentContext
 {
    std::string contextId;
@@ -88,6 +107,9 @@ struct EnvironmentContext
    DataOrigin origin = DataOrigin::cCUSTOMER_MODULE;
    Confidence confidence = Confidence::cLOW;
    bool valid = false;
+   EnvironmentApplicationMode applicationMode =
+      EnvironmentApplicationMode::cINFORMATION_ONLY;
+   // Compatibility mirror for integrations compiled before applicationMode.
    bool applyParameterizedEffects = false;
    double validFrom = 0.0;
    double validUntil = 0.0;

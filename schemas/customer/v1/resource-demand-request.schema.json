@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/resource-demand-request.schema.json",
+  "title": "并发通信资源需求请求",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.resource_demand_request.v1"},
+    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
+    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "source": {"$ref": "common.schema.json#/$defs/source"},
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demandSetId", "revision", "demands"],
+      "properties": {
+        "demandSetId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "revision": {"type": "integer", "minimum": 1},
+        "demands": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["demandId", "sourcePlatformId", "destinationPlatformId", "businessType", "requiredBandwidthBps", "maximumDelayMs", "minimumPdrPercent", "allowedNetworks"],
+            "properties": {
+              "demandId": {"$ref": "common.schema.json#/$defs/identifier"},
+              "sourcePlatformId": {"$ref": "common.schema.json#/$defs/identifier"},
+              "destinationPlatformId": {"$ref": "common.schema.json#/$defs/identifier"},
+              "businessType": {"type": "string", "minLength": 1, "maxLength": 64},
+              "requiredBandwidthBps": {"type": "number", "minimum": 0},
+              "maximumDelayMs": {"type": "number", "exclusiveMinimum": 0},
+              "minimumPdrPercent": {"type": "number", "minimum": 0, "maximum": 100},
+              "allowedNetworks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/networkType"}},
+              "missionStage": {"type": "string", "maxLength": 64},
+              "payloadBits": {"type": "integer", "minimum": 0},
+              "businessTrafficBps": {"type": "number", "minimum": 0},
+              "maximumDistanceM": {"type": "number", "minimum": 0},
+              "minimumNetworkSize": {"type": "integer", "minimum": 0}
+            }
+          }
+        }
+      }
+    }
+  }
+}

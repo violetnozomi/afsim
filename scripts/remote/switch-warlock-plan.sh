@@ -21,7 +21,24 @@ fi
 
 mkdir -p "$(dirname "${REQUEST_FILE}")"
 request_temp="${REQUEST_FILE}.tmp.$$"
+request_committed=false
+cleanup_request() {
+   rm -f -- "${request_temp}"
+   if [[ "${request_committed}" != true ]]
+   then
+      rm -f -- "${REQUEST_FILE}"
+   fi
+}
+trap cleanup_request EXIT HUP INT TERM
+
 printf '%s\n%s\n' "${SCENARIO}" "${PLAN}" >"${request_temp}"
 mv -f "${request_temp}" "${REQUEST_FILE}"
 
-exec "${SYSTEMCTL_COMMAND}" --user restart nrm-warlock.service
+if "${SYSTEMCTL_COMMAND}" --user restart nrm-warlock.service
+then
+   request_committed=true
+   exit 0
+else
+   status=$?
+   exit "${status}"
+fi

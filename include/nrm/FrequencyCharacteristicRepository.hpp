@@ -1,6 +1,8 @@
 /**
  * @file FrequencyCharacteristicRepository.hpp
  * @brief Strict parameterized frequency characteristics with atomic revision replacement.
+ * @note This component is independently tested. Runtime recommendations still
+ *       use NetworkProfileRepository until a customer frequency source is bound.
  */
 
 #ifndef NRM_FREQUENCY_CHARACTERISTIC_REPOSITORY_HPP

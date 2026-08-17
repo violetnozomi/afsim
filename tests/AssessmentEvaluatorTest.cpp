@@ -80,7 +80,8 @@ int main()
    snapshot.endpoints.push_back(Endpoint("D", "backup_relay"));
    for (std::size_t index = 0; index < snapshot.endpoints.size(); ++index)
    {
-      SetPosition(snapshot.endpoints[index], 35.0 + 0.05 * index, 120.0 + 0.05 * index);
+      const double offset = 0.05 * static_cast<double>(index);
+      SetPosition(snapshot.endpoints[index], 35.0 + offset, 120.0 + offset);
    }
    snapshot.links.push_back(Link("A->B", "A", "B", "source", "relay", 20.0, 95.0, 1000.0));
    snapshot.links.push_back(Link("B->C", "B", "C", "relay", "destination", 20.0, 95.0, 800.0));

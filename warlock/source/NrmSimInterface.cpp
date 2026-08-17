@@ -414,6 +414,7 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
       if (updateTime < 0.0 && status != WsfNavigationErrors::cGPS_PERFECT) continue;
 
       nrm::NavigationSample sample;
+      sample.platformId = platformPtr->GetName();
       sample.platformName = platformPtr->GetName();
       sample.rawStatus = RawNavigationStatus(status);
       sample.mode = NavigationModeFromStatus(status);
@@ -544,6 +545,10 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
       endpoint.commName    = commPtr->GetName();
       endpoint.commType    = commPtr->GetType();
       endpoint.networkName = commPtr->GetNetwork();
+      const auto endpointNetwork = networkIndexes.find(endpoint.networkName);
+      endpoint.networkId = endpointNetwork == networkIndexes.end()
+                              ? endpoint.networkName
+                              : mSnapshot.networks[endpointNetwork->second].networkId;
       endpoint.networkType = GetNetworkType(commPtr);
       endpoint.state       = CommState(commPtr);
       endpoint.canSend     = commPtr->CanSend();
@@ -555,7 +560,7 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
          event.kind = nrm::ResourceEventKind::cENDPOINT_STATE;
          event.simTime = mSnapshot.simTime;
          event.endpointId = endpoint.endpointId;
-         event.networkId = endpoint.networkName;
+         event.networkId = endpoint.networkId;
          event.previousState = previousState == mLastEndpointStates.end()
                                   ? nrm::ResourceState::cUNKNOWN : previousState->second;
          event.currentState = endpoint.state;
@@ -570,7 +575,8 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
       endpoint.endpointOnlineRatioPercent = endpointMetrics.endpointOnlineRatioPercent;
       if (commPtr->GetPlatform() != nullptr)
       {
-         endpoint.platformName = commPtr->GetPlatform()->GetName();
+         endpoint.platformId = commPtr->GetPlatform()->GetName();
+         endpoint.platformName = endpoint.platformId;
          double latitude = 0.0;
          double longitude = 0.0;
          double altitude = 0.0;
@@ -657,6 +663,10 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
          link.destinationPlatform =
             destinationPtr->GetPlatform() == nullptr ? "" : destinationPtr->GetPlatform()->GetName();
          link.networkName = sourcePtr->GetNetwork();
+         const auto linkNetwork = networkIndexes.find(link.networkName);
+         link.networkId = linkNetwork == networkIndexes.end()
+                             ? link.networkName
+                             : mSnapshot.networks[linkNetwork->second].networkId;
          link.networkType = GetNetworkType(sourcePtr);
          link.state       = edgePtr->IsEnabled() ? nrm::ResourceState::cONLINE : nrm::ResourceState::cDISABLED;
          const auto previousState = mLastLinkStates.find(link.linkId);
@@ -666,7 +676,7 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
             event.kind = nrm::ResourceEventKind::cLINK_STATE;
             event.simTime = mSnapshot.simTime;
             event.linkId = link.linkId;
-            event.networkId = link.networkName;
+            event.networkId = link.networkId;
             event.sourceEndpointId = link.sourceEndpointId;
             event.destinationEndpointId = link.destinationEndpointId;
             event.previousState = previousState == mLastLinkStates.end()

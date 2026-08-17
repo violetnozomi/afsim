@@ -109,6 +109,11 @@ public:
       ModelServiceContext& aContext,
       CapabilityModelServiceRequest& aRequest) const = 0;
 
+   virtual ContractAdapterResult DecodeAssessmentRequest(
+      const ContractInterfaceRequest& aExternalRequest,
+      ModelServiceContext& aContext,
+      AssessmentModelServiceRequest& aRequest) const = 0;
+
    virtual ContractAdapterResult DecodeValidatePlanRequest(
       const ContractInterfaceRequest& aExternalRequest,
       ModelServiceContext& aContext,
@@ -141,6 +146,10 @@ public:
 
    virtual ContractAdapterResult EncodeCapabilityResponse(
       const CapabilityServiceResponse& aResponse,
+      ContractInterfaceResponse& aExternalResponse) const = 0;
+
+   virtual ContractAdapterResult EncodeAssessmentResponse(
+      const AssessmentServiceResponse& aResponse,
       ContractInterfaceResponse& aExternalResponse) const = 0;
 
    virtual ContractAdapterResult EncodePlanValidationResponse(

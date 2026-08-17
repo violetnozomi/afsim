@@ -135,15 +135,24 @@ public:
       effect.providerId = aContext.providerId;
       effect.effectId = "TEST-EFFECT";
       effect.sampleTime = aContext.sampleTime;
-      SetMetric(effect.pathLossDeltaDb, 3.0);
-      SetMetric(effect.capacityScale, 0.8);
-      SetMetric(effect.packetLossDeltaPercent, 2.0);
-      SetMetric(effect.delayDeltaMs, 1.5);
+      lastApplicationMode = aContext.applicationMode;
+      lastApplyParameterizedEffects = aContext.applyParameterizedEffects;
+      SetMetric(effect.pathLossDeltaDb,
+                aContext.applyParameterizedEffects ? 3.0 : 0.0);
+      SetMetric(effect.capacityScale,
+                aContext.applyParameterizedEffects ? 0.8 : 1.0);
+      SetMetric(effect.packetLossDeltaPercent,
+                aContext.applyParameterizedEffects ? 2.0 : 0.0);
+      SetMetric(effect.delayDeltaMs,
+                aContext.applyParameterizedEffects ? 1.5 : 0.0);
       return effect;
    }
 
    mutable std::size_t callCount = 0;
    mutable std::vector<std::string> lastEndpointRoute;
+   mutable nrm::EnvironmentApplicationMode lastApplicationMode =
+      nrm::EnvironmentApplicationMode::cINFORMATION_ONLY;
+   mutable bool lastApplyParameterizedEffects = false;
 
 private:
    static void SetMetric(nrm::MetricValue<double>& aMetric, double aValue)
@@ -361,6 +370,21 @@ int main()
           candidate.packetLossPercent.value);
    assert(candidateWithEnvironment.transmissionDelayMs.value >
           candidate.transmissionDelayMs.value);
+
+   nrm::EnvironmentContext informationOnly = environmentContext;
+   informationOnly.schemaVersion = "nrm.customer.environment_report.v1";
+   informationOnly.applicationMode =
+      nrm::EnvironmentApplicationMode::cINFORMATION_ONLY;
+   informationOnly.applyParameterizedEffects = false;
+   const nrm::CapabilityResult informationOnlyCandidate =
+      environmentService.Query(candidateSnapshot, candidateRequest,
+                               informationOnly);
+   assert(informationOnlyCandidate.usesCandidate);
+   assert(!environmentAdapter.lastApplyParameterizedEffects);
+   assert(environmentAdapter.lastApplicationMode ==
+          nrm::EnvironmentApplicationMode::cINFORMATION_ONLY);
+   assert(informationOnlyCandidate.transmissionRateBps.value ==
+          candidate.transmissionRateBps.value);
 
    const std::size_t callsBeforeInvalidRequest = environmentAdapter.callCount;
    nrm::CapabilityRequest invalidEnvironmentRequest = request;

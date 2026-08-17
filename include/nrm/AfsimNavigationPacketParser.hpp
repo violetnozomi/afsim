@@ -80,6 +80,7 @@ public:
             result.samples.clear();
             return result;
          }
+         sample.platformId = aPlatformName;
          sample.platformName = aPlatformName;
          sample.navigationType =
             sample.mode == NavigationMode::cINS ? "INS" : "GNSS";

@@ -600,7 +600,8 @@ private:
          SetCurrentAndMargin(aResult.checks[1], current,
                              current - static_cast<double>(aDemand.minimumNetworkSize),
                              DataOrigin::cDERIVED, Confidence::cHIGH, aSnapshot);
-         aResult.checks[1].passed = current >= aDemand.minimumNetworkSize;
+         aResult.checks[1].passed =
+            current >= static_cast<double>(aDemand.minimumNetworkSize);
          aResult.checks[1].reason =
             aResult.checks[1].passed ? ResourceDemandReason::cNONE
                                      : ResourceDemandReason::cNETWORK_SIZE_NOT_MET;

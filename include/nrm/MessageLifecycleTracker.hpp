@@ -203,7 +203,8 @@ public:
       if (output.messages.transmitted > 0)
       {
          SetDerived(output.deliveryRatioPercent,
-                    100.0 * output.messages.received / output.messages.transmitted,
+                    100.0 * static_cast<double>(output.messages.received) /
+                       static_cast<double>(output.messages.transmitted),
                     "percent", aSimTime, aWindowS);
          output.pdrPercent = output.deliveryRatioPercent;
       }
@@ -330,7 +331,8 @@ private:
       {
          total += value;
       }
-      SetDerived(aAverage, total / aValues.size(), "ms", aSimTime, aWindowS);
+      SetDerived(aAverage, total / static_cast<double>(aValues.size()),
+                 "ms", aSimTime, aWindowS);
       SetDerived(aP50, Percentile(aValues, 0.50), "ms", aSimTime, aWindowS);
       SetDerived(aP95, Percentile(aValues, 0.95), "ms", aSimTime, aWindowS);
    }

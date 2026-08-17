@@ -33,7 +33,6 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include "nrm/AssessmentEvaluator.hpp"
 #include "nrm/NetworkTypeUtils.hpp"
 #include "nrm/Version.hpp"
 #include "NrmUiText.hpp"
@@ -954,17 +953,7 @@ void WkNrm::DockWidget::EvaluateTask()
    task.minimumPdrPercent    = mMinimumPdrPtr->value();
    AddAllowedNetwork(mAllowedNetworkPtr->currentText(), task.allowedNetworks);
 
-   nrm::NetworkProfileRepository profiles =
-      nrm::NetworkProfileRepository::BuiltInDemo();
-   const QByteArray profilePath = qgetenv("NRM_NETWORK_PROFILE_CONFIG");
-   if (!profilePath.isEmpty())
-   {
-      nrm::NetworkProfileValidation validation;
-      profiles.LoadFromFile(profilePath.constData(), validation);
-   }
-   const nrm::AssessmentResult result =
-      nrm::AssessmentEvaluator(profiles).Evaluate(mData.GetSnapshot(), task);
-   mData.StoreAssessment(result);
+   const nrm::AssessmentResult result = mData.EvaluateAssessment(task);
    QStringList route;
    for (const std::string& platform : result.primaryRoute)
    {

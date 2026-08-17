@@ -76,8 +76,9 @@ private:
    static bool IsSafePlanId(const std::string& aValue)
    {
       if (aValue.empty()) return false;
-      for (unsigned char character : aValue)
+      for (char rawCharacter : aValue)
       {
+         const unsigned char character = static_cast<unsigned char>(rawCharacter);
          const bool allowed = (character >= 'a' && character <= 'z') ||
                               (character >= 'A' && character <= 'Z') ||
                               (character >= '0' && character <= '9') ||

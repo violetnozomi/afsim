@@ -15,8 +15,9 @@ inline std::string EscapeJson(const std::string& aValue)
 {
    std::string output;
    output.reserve(aValue.size());
-   for (unsigned char character : aValue)
+   for (char rawCharacter : aValue)
    {
+      const unsigned char character = static_cast<unsigned char>(rawCharacter);
       switch (character)
       {
       case '"': output += "\\\""; break;

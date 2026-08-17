@@ -44,7 +44,8 @@ public:
       }
       feedback.historySampleCount = samples;
       feedback.historicalPassRatioPercent = samples == 0
-         ? 0.0 : 100.0 * successes / static_cast<double>(samples);
+         ? 0.0 : 100.0 * static_cast<double>(successes) /
+                    static_cast<double>(samples);
       return feedback;
    }
 

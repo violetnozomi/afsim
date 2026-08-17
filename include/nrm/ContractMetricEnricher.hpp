@@ -57,7 +57,7 @@ public:
          {
             if (!window.queueUtilizationPercent.valid && link.queueLimit > 0)
                Estimate(window.queueUtilizationPercent,
-                        std::min(100.0, 100.0 * window.messages.queueDepth /
+                        std::min(100.0, 100.0 * static_cast<double>(window.messages.queueDepth) /
                                            static_cast<double>(link.queueLimit)),
                         "percent", aSnapshot.simTime, window.windowS);
             if (window.averageTransportDelayMs.valid)
@@ -142,7 +142,8 @@ private:
       if (resource.valid && resource.capacity > 0)
       {
          Estimate(resource.utilizationPercent,
-                  Clamp(100.0 * resource.used / static_cast<double>(resource.capacity),
+                  Clamp(100.0 * static_cast<double>(resource.used) /
+                                  static_cast<double>(resource.capacity),
                         0.0, 100.0),
                   "percent", aTime, 0.0);
       }
@@ -199,7 +200,8 @@ private:
       }
       if (count > 0)
       {
-         Estimate(aLink.communicationQualityPercent, score / count, "percent",
+         Estimate(aLink.communicationQualityPercent,
+                  score / static_cast<double>(count), "percent",
                   aTime, window.windowS);
          aLink.communicationQualityPercent.origin = DataOrigin::cDERIVED;
       }

@@ -547,7 +547,8 @@ void WriteJsonSnapshot(std::ostream& aOutput,
    {
       const nrm::NetworkSnapshot& network = aSnapshot.networks[index];
       if (index != 0) aOutput << ',';
-      aOutput << "{\"name\":\"" << EscapeJson(network.networkName)
+      aOutput << "{\"networkId\":\"" << EscapeJson(network.networkId)
+              << "\",\"name\":\"" << EscapeJson(network.networkName)
               << "\",\"type\":\"" << nrm::ToString(network.networkType)
               << "\",\"members\":" << network.endpointCount
               << ",\"online\":" << network.onlineCount
@@ -568,6 +569,7 @@ void WriteJsonSnapshot(std::ostream& aOutput,
       aOutput << "{\"id\":\"" << EscapeJson(endpoint.endpointId)
               << "\",\"platform\":\"" << EscapeJson(endpoint.platformName)
               << "\",\"comm\":\"" << EscapeJson(endpoint.commName)
+              << "\",\"networkId\":\"" << EscapeJson(endpoint.networkId)
               << "\",\"network\":\"" << EscapeJson(endpoint.networkName)
               << "\",\"network_type\":\"" << nrm::ToString(endpoint.networkType)
               << "\",\"state\":\"" << nrm::ToString(endpoint.state)
@@ -597,6 +599,7 @@ void WriteJsonSnapshot(std::ostream& aOutput,
       aOutput << "{\"id\":\"" << EscapeJson(link.linkId)
               << "\",\"source\":\"" << EscapeJson(link.sourceEndpointId)
               << "\",\"destination\":\"" << EscapeJson(link.destinationEndpointId)
+              << "\",\"networkId\":\"" << EscapeJson(link.networkId)
               << "\",\"network_type\":\"" << nrm::ToString(link.networkType)
               << "\",\"state\":\"" << nrm::ToString(link.state)
               << "\",\"distance_m\":";
@@ -718,7 +721,8 @@ void WriteJsonSnapshot(std::ostream& aOutput,
    {
       const nrm::NavigationSample& sample = navigation.platforms[index];
       if (index != 0) aOutput << ',';
-      aOutput << "{\"platformName\":\"" << EscapeJson(sample.platformName)
+      aOutput << "{\"platformId\":\"" << EscapeJson(sample.platformId)
+              << "\",\"platformName\":\"" << EscapeJson(sample.platformName)
               << "\",\"navigationType\":\""
               << EscapeJson(sample.navigationType)
               << "\",\"rawStatus\":\"" << EscapeJson(sample.rawStatus)
@@ -789,17 +793,24 @@ WkNrm::SnapshotReporter::SnapshotReporter(const std::string& aOutputDirectory,
    }
 }
 
-WkNrm::SnapshotReporter::~SnapshotReporter()
+WkNrm::SnapshotReporter::~SnapshotReporter() noexcept
 {
-   Start();
+   bool wasStarted = false;
    {
       std::lock_guard<std::mutex> lock(mMutex);
       mStopping = true;
+      wasStarted = mStarted;
    }
    mCondition.notify_one();
    if (mThread.joinable())
    {
+      // The reporter owns its worker exclusively. Detaching here would allow
+      // the worker to access a destroyed object, so destruction always joins.
       mThread.join();
+   }
+   if (!wasStarted)
+   {
+      try { WriteManifest(true); } catch (...) {}
    }
 }
 
@@ -810,9 +821,10 @@ void WkNrm::SnapshotReporter::Start()
    {
       return;
    }
+   std::thread worker(&SnapshotReporter::Run, this);
+   mThread = std::move(worker);
    mStarted = true;
    mStatus.started = true;
-   mThread = std::thread(&SnapshotReporter::Run, this);
 }
 
 void WkNrm::SnapshotReporter::Enqueue(const nrm::ResourceSnapshot& aSnapshot)
@@ -951,46 +963,14 @@ void WkNrm::SnapshotReporter::ReportPlanError(
    nrm::PlanValidationReason aReason,
    const std::string& aField)
 {
-   std::string runDirectory;
-   {
-      std::lock_guard<std::mutex> lock(mMutex);
-      mStatus.healthy = false;
-      ++mStatus.writeErrorCount;
-      mStatus.lastError = nrm::ToString(aReason);
-      runDirectory = mStatus.runDirectory;
-   }
-   std::ofstream errorOutput(runDirectory + "/error.log", std::ios::out | std::ios::app);
-   if (errorOutput)
-   {
-      errorOutput << "{\"time\":\"" << UtcTimestamp(false)
-                  << "\",\"component\":\"NetworkPlan\","
-                     "\"reasonCode\":\""
-                  << nrm::ToString(aReason) << "\",\"field\":\""
-                  << EscapeJson(aField) << "\"}\n";
-   }
+   RecordDomainError("NetworkPlan", nrm::ToString(aReason), aField);
 }
 
 void WkNrm::SnapshotReporter::ReportDemandError(
    nrm::ResourceDemandReason aReason,
    const std::string& aField)
 {
-   std::string runDirectory;
-   {
-      std::lock_guard<std::mutex> lock(mMutex);
-      mStatus.healthy = false;
-      ++mStatus.writeErrorCount;
-      mStatus.lastError = nrm::ToString(aReason);
-      runDirectory = mStatus.runDirectory;
-   }
-   std::ofstream errorOutput(runDirectory + "/error.log", std::ios::out | std::ios::app);
-   if (errorOutput)
-   {
-      errorOutput << "{\"time\":\"" << UtcTimestamp(false)
-                  << "\",\"component\":\"ResourceDemand\","
-                     "\"reasonCode\":\""
-                  << nrm::ToString(aReason) << "\",\"field\":\""
-                  << EscapeJson(aField) << "\"}\n";
-   }
+   RecordDomainError("ResourceDemand", nrm::ToString(aReason), aField);
 }
 
 void WkNrm::SnapshotReporter::ReportCustomerInterfaceEvent(
@@ -1001,7 +981,12 @@ void WkNrm::SnapshotReporter::ReportCustomerInterfaceEvent(
    const std::string runDirectory = GetRunDirectory();
    std::ofstream output(runDirectory + "/customer_interface_events.jsonl",
                         std::ios::out | std::ios::app);
-   if (!output) return;
+   if (!output)
+   {
+      RecordError("CustomerInterface", nrm::MetricReason::cOUTPUT_OPEN_FAILED,
+                  "customer_interface_events.jsonl");
+      return;
+   }
    output << "{\"time\":\"" << UtcTimestamp(false)
           << "\",\"schema\":\"" << EscapeJson(aSchema)
           << "\",\"messageId\":\"" << EscapeJson(aMessageId)
@@ -1009,6 +994,10 @@ void WkNrm::SnapshotReporter::ReportCustomerInterfaceEvent(
           << "\",\"result\":\"" << (aAccepted ? "ACCEPTED" : "REJECTED")
           << "\",\"errorCode\":\"" << EscapeJson(aErrorCode)
           << "\",\"errorPath\":\"" << EscapeJson(aErrorPath) << "\"}\n";
+   output.flush();
+   if (!output)
+      RecordError("CustomerInterface", nrm::MetricReason::cOUTPUT_WRITE_FAILED,
+                  "customer_interface_events.jsonl");
 }
 
 WkNrm::ReporterStatus WkNrm::SnapshotReporter::GetStatus() const
@@ -1045,6 +1034,32 @@ void WkNrm::SnapshotReporter::RecordError(const std::string& aComponent,
    }
 }
 
+void WkNrm::SnapshotReporter::RecordDomainError(
+   const std::string& aComponent, const std::string& aReason,
+   const std::string& aField)
+{
+   std::string runDirectory;
+   {
+      std::lock_guard<std::mutex> lock(mMutex);
+      ++mStatus.domainErrorCount;
+      mStatus.lastDomainError = aReason;
+      runDirectory = mStatus.runDirectory;
+   }
+   std::ofstream output(runDirectory + "/error.log", std::ios::out | std::ios::app);
+   if (!output)
+   {
+      RecordError(aComponent, nrm::MetricReason::cOUTPUT_OPEN_FAILED, "error.log");
+      return;
+   }
+   output << "{\"time\":\"" << UtcTimestamp(false)
+          << "\",\"component\":\"" << EscapeJson(aComponent)
+          << "\",\"reasonCode\":\"" << EscapeJson(aReason)
+          << "\",\"field\":\"" << EscapeJson(aField) << "\"}\n";
+   output.flush();
+   if (!output)
+      RecordError(aComponent, nrm::MetricReason::cOUTPUT_WRITE_FAILED, "error.log");
+}
+
 void WkNrm::SnapshotReporter::WriteManifest(bool aComplete)
 {
    const ReporterStatus status = GetStatus();
@@ -1078,6 +1093,7 @@ void WkNrm::SnapshotReporter::WriteManifest(bool aComplete)
           << status.droppedDemandFeedbackCount
           << ",\"droppedPlanningCoordinationCount\":"
           << status.droppedPlanningCoordinationCount
+          << ",\"domainErrorCount\":" << status.domainErrorCount
           << ",\"writeErrorCount\":" << status.writeErrorCount
           << ",\"files\":[\"resource_snapshots.jsonl\",\"network_summary.csv\","
              "\"assessment_results.jsonl\",\"capability_results.jsonl\","

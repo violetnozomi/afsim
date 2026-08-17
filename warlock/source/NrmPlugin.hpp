@@ -5,7 +5,10 @@
 #include "NrmDockWidget.hpp"
 #include "NrmSimInterface.hpp"
 #include "NrmTacticalView.hpp"
+#include "UtQtUiPointer.hpp"
 #include "WkPlugin.hpp"
+
+#include <QDockWidget>
 
 namespace WkNrm
 {
@@ -21,8 +24,8 @@ protected:
 
 private:
    DataContainer mData;
-   DockWidget*   mDockWidgetPtr;
-   TacticalView* mTacticalViewPtr;
+   ut::qt::UiPointer<DockWidget>   mDockWidgetPtr;
+   ut::qt::UiPointer<QDockWidget>  mTacticalDockPtr;
 };
 } // namespace WkNrm
 

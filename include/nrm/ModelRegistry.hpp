@@ -76,10 +76,10 @@ public:
    {
       const auto iterator = std::find_if(
          mDescriptors.begin(), mDescriptors.end(),
-         [&aModelId, &aModelVersion](const ModelDescriptor& aDescriptor)
+         [&aModelId, &aModelVersion](const ModelDescriptor& aCandidate)
          {
-            return aDescriptor.modelId == aModelId &&
-                   aDescriptor.modelVersion == aModelVersion;
+            return aCandidate.modelId == aModelId &&
+                   aCandidate.modelVersion == aModelVersion;
          });
       if (iterator == mDescriptors.end())
          return Result(false, ModelRegistryReason::cMODEL_NOT_FOUND,
@@ -95,10 +95,10 @@ public:
    {
       const auto iterator = std::find_if(
          mDescriptors.begin(), mDescriptors.end(),
-         [&aModelId, &aModelVersion](const ModelDescriptor& aDescriptor)
+         [&aModelId, &aModelVersion](const ModelDescriptor& aCandidate)
          {
-            return aDescriptor.modelId == aModelId &&
-                   aDescriptor.modelVersion == aModelVersion;
+            return aCandidate.modelId == aModelId &&
+                   aCandidate.modelVersion == aModelVersion;
          });
       if (iterator == mDescriptors.end()) return false;
       aDescriptor = *iterator;
@@ -227,6 +227,7 @@ private:
       switch (aOperation)
       {
       case ModelServiceOperation::cQUERY_CAPABILITY:
+      case ModelServiceOperation::cEVALUATE_ASSESSMENT:
       case ModelServiceOperation::cVALIDATE_PLAN:
       case ModelServiceOperation::cEVALUATE_PLAN:
       case ModelServiceOperation::cGENERATE_DISTRIBUTION_PACKAGE:

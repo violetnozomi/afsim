@@ -37,6 +37,7 @@ touch "${SCENARIO}" "${PLAN}"
 cat >"${TEMP_ROOT}/systemctl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >"${NRM_TEST_SYSTEMCTL_LOG}"
+exit "${NRM_TEST_SYSTEMCTL_EXIT:-0}"
 EOF
 chmod +x "${TEMP_ROOT}/systemctl"
 
@@ -49,6 +50,20 @@ mapfile -t REQUEST_LINES <"${REQUEST}"
 [[ "${REQUEST_LINES[0]}" == "${SCENARIO}" ]]
 [[ "${REQUEST_LINES[1]}" == "${PLAN}" ]]
 grep -qx -- '--user restart nrm-warlock.service' "${SYSTEMCTL_LOG}"
+
+# A failed restart must not leave a request that the next service start could
+# consume accidentally.
+rm -f "${REQUEST}"
+set +e
+NRM_SWITCH_REQUEST_FILE="${REQUEST}" \
+NRM_SYSTEMCTL_COMMAND="${TEMP_ROOT}/systemctl" \
+NRM_TEST_SYSTEMCTL_LOG="${SYSTEMCTL_LOG}" \
+NRM_TEST_SYSTEMCTL_EXIT=23 \
+"${SWITCH_SCRIPT}" "${SCENARIO}" "${PLAN}"
+switch_status=$?
+set -e
+[[ "${switch_status}" -eq 23 ]]
+[[ ! -e "${REQUEST}" ]]
 
 # The pre-acceptance runner may execute from an isolated worktree while the
 # managed Warlock service writes to the main checkout.  It must discover the

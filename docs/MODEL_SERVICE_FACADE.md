@@ -37,8 +37,25 @@ v0.11提供纯C++、进程内的强类型调用边界，统一委托现有通信
 - 只有现有`NetworkPlanDistributionService`在调用方明确请求时写本地不可变分发包；
 - `ModelRegistry`只管理值类型描述符，不扫描动态库、不拥有AFSIM对象或Qt指针。
 
+## Assessment与环境语义
+
+`EvaluateAssessment`接收当前有效`EnvironmentContext`，并复用既有通信能力端口处理环境影响：
+
+- `INFORMATION_ONLY`只保留环境证据，不修改任务评估；
+- `ALREADY_INCLUDED`表示AFSIM链路指标已包含影响，不进行二次衰减；
+- `CANDIDATE_ADJUSTMENT`才使用既有能力服务给出的环境修正结果，保守更新带宽、时延、PDR
+  裕量及硬阻断原因；
+- 环境硬阻断时固定产生`ENVIRONMENT_HARD_BLOCKED`，不得继续报告可建链或可完成。
+
+Warlock手工评估和甲方`assessment_request`都经过`DataContainer::EvaluateAssessment()`进入
+这一入口。Facade不复制环境公式、不重写路径搜索，也不改变评估器选出的路由。
+
 ## 外部适配边界
 
 `ContractInterfaceAdapter`只接收抽象的外部请求/响应载体，并在边界内转换为
-操作对应的显式请求和响应结构体。载体没有预设JSON、XML、二进制或网络语义。仓库中
-不提供“甲方Adapter”假实现。
+操作对应的显式请求和响应结构体。载体没有预设JSON、XML、二进制或网络语义；取得甲方
+私有对象头文件后在此实现字段转换。
+
+转换后的公共值对象统一进入`CustomerNrmAdapter`。该同进程入口负责资源、导航和环境状态
+生命周期，并把任务评估、规划推演和并发需求匹配交给`DataContainer`持有的唯一Facade。
+`CustomerJsonCodec`只提供文件、测试、回放和验收编解码，不属于运行时服务链。

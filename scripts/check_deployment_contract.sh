@@ -37,20 +37,35 @@ fi
 
 kernel=$(uname -s 2>/dev/null || true)
 arch=$(uname -m 2>/dev/null || true)
-cpu_cores=$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)
-cpu_mhz=$(awk -F: '/cpu MHz/{gsub(/^[ \t]+/, "", $2); print $2; exit}' /proc/cpuinfo 2>/dev/null || true)
-memory_kb=$(awk '/MemTotal/{print $2; exit}' /proc/meminfo 2>/dev/null || true)
-disk_kb=$(df -Pk "$ROOT" 2>/dev/null | awk 'NR==2{print $4}' || true)
-nic_count=$(ip -o link show 2>/dev/null | awk -F': ' '$2 != "lo" {count++} END{print count+0}' || true)
+cpu_cores=${NRM_DEPLOYMENT_CPU_CORES:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)}
+cpu_mhz=${NRM_DEPLOYMENT_CPU_MHZ:-$(awk -F: '/cpu MHz/{gsub(/^[ \t]+/, "", $2); print $2; exit}' /proc/cpuinfo 2>/dev/null || true)}
+memory_kb=${NRM_DEPLOYMENT_MEMORY_KB:-$(awk '/MemTotal/{print $2; exit}' /proc/meminfo 2>/dev/null || true)}
+disk_kb=${NRM_DEPLOYMENT_DISK_KB:-$(df -Pk "$ROOT" 2>/dev/null | awk 'NR==2{print $2}' || true)}
+nic_count=${NRM_DEPLOYMENT_NIC_COUNT:-$(ip -o link show 2>/dev/null | awk -F': ' '$2 != "lo" {count++} END{print count+0}' || true)}
+nic_speed_mbps=${NRM_DEPLOYMENT_NIC_SPEED_MBPS:-}
+if [[ -z "$nic_speed_mbps" ]] && command -v ethtool >/dev/null 2>&1; then
+  nic_speed_mbps=0
+  for interface_path in /sys/class/net/*; do
+    [[ -e "$interface_path/device" ]] || continue
+    interface_name=${interface_path##*/}
+    supported_speed=$(ethtool "$interface_name" 2>/dev/null |
+      sed -n '/Supported link modes:/,/Supported pause frame/p' |
+      grep -Eo '[0-9]+base' | sed 's/base//' | sort -nr | head -n 1 || true)
+    if [[ "$supported_speed" =~ ^[0-9]+$ && "$supported_speed" -gt "$nic_speed_mbps" ]]; then
+      nic_speed_mbps=$supported_speed
+    fi
+  done
+fi
 compiler=$(c++ --version 2>/dev/null | head -n 1 || true)
 
 [[ "$kernel" == Linux ]] && record_check os PASS "$kernel" "Linux运行环境" || record_check os FAIL "${kernel:-unavailable}" "Linux运行环境"
 [[ -n "$arch" ]] && record_check cpu_arch PASS "$arch" "CPU架构可识别" || record_check cpu_arch FAIL unavailable "CPU架构可识别"
-[[ "$cpu_cores" =~ ^[0-9]+$ && "$cpu_cores" -gt 0 ]] && record_check cpu_cores PASS "$cpu_cores" "处理器核心数可识别" || record_check cpu_cores FAIL "${cpu_cores:-unavailable}" "处理器核心数可识别"
-[[ -n "$cpu_mhz" ]] && record_check cpu_frequency PASS "${cpu_mhz} MHz" "处理器频率可识别" || record_check cpu_frequency FAIL unavailable "处理器频率可识别"
-[[ "$memory_kb" =~ ^[0-9]+$ && "$memory_kb" -gt 0 ]] && record_check memory PASS "${memory_kb} kB" "内存容量可识别" || record_check memory FAIL "${memory_kb:-unavailable}" "内存容量可识别"
-[[ "$disk_kb" =~ ^[0-9]+$ && "$disk_kb" -gt 0 ]] && record_check disk PASS "${disk_kb} kB available" "插件目录具有可用磁盘空间" || record_check disk FAIL "${disk_kb:-unavailable}" "插件目录具有可用磁盘空间"
+[[ "$cpu_cores" =~ ^[0-9]+$ && "$cpu_cores" -ge 4 ]] && record_check cpu_cores PASS "$cpu_cores" "不少于4个处理器核心" || record_check cpu_cores FAIL "${cpu_cores:-unavailable}" "不少于4个处理器核心"
+[[ "$cpu_mhz" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v value="$cpu_mhz" 'BEGIN { exit !(value >= 1000.0) }' && record_check cpu_frequency PASS "${cpu_mhz} MHz" "处理器主频不低于1.0 GHz" || record_check cpu_frequency FAIL "${cpu_mhz:-unavailable}" "处理器主频不低于1.0 GHz"
+[[ "$memory_kb" =~ ^[0-9]+$ && "$memory_kb" -ge 2097152 ]] && record_check memory PASS "${memory_kb} kB" "内存不低于2 GiB" || record_check memory FAIL "${memory_kb:-unavailable}" "内存不低于2 GiB"
+[[ "$disk_kb" =~ ^[0-9]+$ && "$disk_kb" -ge 104857600 ]] && record_check disk PASS "${disk_kb} kB total" "插件所在文件系统总容量不低于100 GiB" || record_check disk FAIL "${disk_kb:-unavailable}" "插件所在文件系统总容量不低于100 GiB"
 [[ "$nic_count" =~ ^[0-9]+$ && "$nic_count" -gt 0 ]] && record_check network_interface PASS "$nic_count non-loopback interface(s)" "至少一块非回环网卡" || record_check network_interface FAIL "${nic_count:-0}" "至少一块非回环网卡"
+[[ "$nic_speed_mbps" =~ ^[0-9]+$ && "$nic_speed_mbps" -ge 100 ]] && record_check network_speed PASS "${nic_speed_mbps} Mbit/s supported" "至少一块网卡支持100 Mbit/s或更高链路速率" || record_check network_speed FAIL "${nic_speed_mbps:-unavailable}" "至少一块网卡支持100 Mbit/s或更高链路速率"
 [[ -n "$compiler" ]] && record_check compiler PASS "$compiler" "C++编译器可用" || record_check compiler FAIL unavailable "C++编译器可用"
 [[ -x "${AFSIM_BUILD_VALUE}/mission" ]] && record_check afsim_runtime PASS "${AFSIM_BUILD_VALUE}/mission" "AFSIM mission可执行" || record_check afsim_runtime FAIL "${AFSIM_BUILD_VALUE}/mission" "AFSIM mission可执行"
 [[ -f "${ROOT}/wsf_module" && -f "${ROOT}/warlock/warlock_plugin.cmake" ]] && record_check plugin_source PASS "$ROOT" "插件源码挂载点完整" || record_check plugin_source FAIL "$ROOT" "插件源码挂载点完整"

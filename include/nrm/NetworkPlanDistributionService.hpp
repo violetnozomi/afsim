@@ -14,6 +14,7 @@
 
 #include "nrm/NetworkPlanRepository.hpp"
 #include "nrm/NetworkPlanSerialization.hpp"
+#include "nrm/TemporaryPathGuard.hpp"
 
 namespace nrm
 {
@@ -83,6 +84,13 @@ public:
       const std::string validationPath = Join(stagingRoot, "validation_result.json");
       const std::string evaluationPath = Join(stagingRoot, "evaluation_result.json");
       const std::string manifestPath = Join(stagingRoot, "manifest.json");
+      TemporaryPathGuard stagingGuard(
+         stagingRoot,
+         [planPath, validationPath, evaluationPath, manifestPath](
+            const std::string& aRoot) {
+            CleanupStaging(aRoot, planPath, validationPath,
+                           evaluationPath, manifestPath);
+         });
       NetworkPlanDocument packagePlan = aPlan;
       packagePlan.state = NetworkPlanState::cREADY_FOR_DISTRIBUTION;
       const PlanRepositoryResult saveResult =
@@ -94,8 +102,6 @@ public:
          WriteManifest(manifestPath, packagePlan, generatedTime);
       if (!filesWritten)
       {
-         CleanupStaging(stagingRoot, planPath, validationPath,
-                        evaluationPath, manifestPath);
          result.reason = saveResult.success
                             ? PlanValidationReason::cFILE_WRITE_FAILED
                             : saveResult.reason;
@@ -103,11 +109,10 @@ public:
       }
       if (std::rename(stagingRoot.c_str(), finalRoot.c_str()) != 0)
       {
-         CleanupStaging(stagingRoot, planPath, validationPath,
-                        evaluationPath, manifestPath);
          result.reason = PlanValidationReason::cATOMIC_RENAME_FAILED;
          return result;
       }
+      stagingGuard.Commit();
 
       result.generated = true;
       result.outputPath = finalRoot;

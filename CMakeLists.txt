@@ -12,6 +12,7 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/ProtocolResourceModel.hpp
       include/nrm/OperationalEnvironmentEvaluator.hpp
       include/nrm/InputProvider.hpp
+      include/nrm/TemporaryPathGuard.hpp
       include/nrm/NetworkTypeUtils.hpp
       include/nrm/RollingMetrics.hpp
       include/nrm/MetricReason.hpp
@@ -43,6 +44,11 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/ModelServiceFacade.hpp
       include/nrm/ModelRegistry.hpp
       include/nrm/ContractInterfaceAdapter.hpp
+      include/nrm/CustomerIngestionState.hpp
+      include/nrm/CustomerNrmAdapter.hpp
+      include/nrm/CustomerSnapshotAssembler.hpp
+      include/nrm/EffectiveSnapshotAssembler.hpp
+      include/nrm/ResourceSnapshotValidator.hpp
       include/nrm/Version.hpp
       source/WsfNetworkResourceManagerPlugin.hpp
    SRCS
@@ -72,6 +78,14 @@ add_test(NAME nrm_ui_text_test COMMAND nrm_ui_text_test)
 
 add_test(NAME nrm_remote_plan_switch_test
    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/RemotePlanSwitchTest.sh
+)
+
+add_test(NAME nrm_deployment_contract_test
+   COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/DeploymentContractTest.sh
+)
+
+add_test(NAME nrm_customer_interface_validation_script_test
+   COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/CustomerInterfaceValidationScriptTest.sh
 )
 
 add_executable(nrm_snapshot_reporter_test EXCLUDE_FROM_ALL
@@ -334,6 +348,51 @@ target_include_directories(nrm_reference_model_adapter_test PRIVATE
 add_test(NAME nrm_reference_model_adapter_test
    COMMAND nrm_reference_model_adapter_test)
 
+add_executable(nrm_temporary_path_guard_test EXCLUDE_FROM_ALL
+   tests/TemporaryPathGuardTest.cpp
+)
+target_include_directories(nrm_temporary_path_guard_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_temporary_path_guard_test
+   COMMAND nrm_temporary_path_guard_test)
+
+add_executable(nrm_customer_state_lifecycle_test EXCLUDE_FROM_ALL
+   tests/CustomerStateLifecycleTest.cpp
+)
+target_include_directories(nrm_customer_state_lifecycle_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_customer_state_lifecycle_test
+   COMMAND nrm_customer_state_lifecycle_test)
+
+add_executable(nrm_customer_nrm_adapter_test EXCLUDE_FROM_ALL
+   tests/CustomerNrmAdapterTest.cpp
+)
+target_include_directories(nrm_customer_nrm_adapter_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_customer_nrm_adapter_test
+   COMMAND nrm_customer_nrm_adapter_test)
+
+add_executable(nrm_resource_snapshot_validator_test EXCLUDE_FROM_ALL
+   tests/ResourceSnapshotValidatorTest.cpp
+)
+target_include_directories(nrm_resource_snapshot_validator_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_resource_snapshot_validator_test
+   COMMAND nrm_resource_snapshot_validator_test)
+
+add_executable(nrm_effective_snapshot_assembler_test EXCLUDE_FROM_ALL
+   tests/EffectiveSnapshotAssemblerTest.cpp
+)
+target_include_directories(nrm_effective_snapshot_assembler_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_effective_snapshot_assembler_test
+   COMMAND nrm_effective_snapshot_assembler_test)
+
 find_package(Qt5Core REQUIRED)
 add_executable(nrm_customer_json_codec_test EXCLUDE_FROM_ALL
    tests/CustomerJsonCodecTest.cpp
@@ -349,6 +408,24 @@ target_compile_definitions(nrm_customer_json_codec_test PRIVATE
 target_link_libraries(nrm_customer_json_codec_test PRIVATE Qt5::Core)
 add_test(NAME nrm_customer_json_codec_test
    COMMAND nrm_customer_json_codec_test)
+
+add_executable(nrm_customer_data_container_test EXCLUDE_FROM_ALL
+   tests/CustomerDataContainerTest.cpp
+   warlock/source/NrmDataContainer.cpp
+   warlock/source/NrmCustomerJsonCodec.cpp
+   warlock/source/NrmSnapshotReporter.cpp
+)
+set_target_properties(nrm_customer_data_container_test PROPERTIES AUTOMOC ON)
+target_include_directories(nrm_customer_data_container_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+target_compile_definitions(nrm_customer_data_container_test PRIVATE
+   NRM_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+target_link_libraries(nrm_customer_data_container_test PRIVATE Qt5::Core)
+add_test(NAME nrm_customer_data_container_test
+   COMMAND nrm_customer_data_container_test)
 
 add_executable(nrm_navigation_packet_tool EXCLUDE_FROM_ALL
    tools/NrmNavigationPacketTool.cpp
@@ -388,7 +465,13 @@ set(NRM_TEST_TARGETS
    nrm_navigation_accuracy_model_test
    nrm_recovery_state_store_test
    nrm_reference_model_adapter_test
+   nrm_temporary_path_guard_test
+   nrm_customer_state_lifecycle_test
+   nrm_customer_nrm_adapter_test
+   nrm_resource_snapshot_validator_test
+   nrm_effective_snapshot_assembler_test
    nrm_customer_json_codec_test
+   nrm_customer_data_container_test
 )
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
    foreach(NRM_TEST_TARGET IN LISTS NRM_TEST_TARGETS)

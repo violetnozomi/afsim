@@ -32,7 +32,9 @@ struct ReporterStatus
    std::uint64_t droppedPlanningRecommendationCount = 0;
    std::uint64_t droppedDemandFeedbackCount = 0;
    std::uint64_t droppedPlanningCoordinationCount = 0;
+   std::uint64_t domainErrorCount = 0;
    std::uint64_t writeErrorCount = 0;
+   std::string lastDomainError;
    std::string lastError;
 };
 
@@ -43,7 +45,7 @@ public:
                              const std::string& aConfigVersion = "demo-0.7.0",
                              std::size_t aMaximumQueueSize = 128,
                              bool aAutoStart = true);
-   ~SnapshotReporter();
+   ~SnapshotReporter() noexcept;
 
    SnapshotReporter(const SnapshotReporter&) = delete;
    SnapshotReporter& operator=(const SnapshotReporter&) = delete;
@@ -78,6 +80,9 @@ private:
    void RecordError(const std::string& aComponent,
                     nrm::MetricReason aReason,
                     const std::string& aField);
+   void RecordDomainError(const std::string& aComponent,
+                          const std::string& aReason,
+                          const std::string& aField);
    void WriteManifest(bool aComplete);
 
    std::string                       mOutputDirectory;

@@ -41,9 +41,9 @@
   schema、requestId、snapshotVersion和规划证据不一致时在下游调用前固定拒绝。
 - 模型注册表：`ModelRegistry`支持精确版本注册、查询、枚举、卸载和操作/schema能力判断，
   列表按模型ID、语义版本和provider稳定排序，不扫描动态库。
-- 外部适配边界：`ContractInterfaceAdapter`只定义抽象外部载体与显式内部结构体间的转换，
-  不定义甲方端口、字段、二进制布局或传输协议。
-- 甲方接口基线：11类Draft 2020-12统一JSON Schema覆盖提供方握手、四网资源、导航、环境、
+- 外部适配边界：`CustomerNrmAdapter`提供同进程强类型执行入口；`ContractInterfaceAdapter`
+  只定义甲方私有对象与公共值对象的转换，`CustomerJsonCodec`仅用于文件、测试和回放。
+- 甲方接口基线：13类Draft 2020-12统一JSON Schema覆盖提供方声明、四网资源、导航、环境、
   规划、评估请求/响应、ACK和错误；详见[`甲方接口对齐规范与JSON Schema`](docs/甲方接口对齐规范与JSON-Schema.md)。
 - 可恢复上报：每次运行写入独立 `runId` 目录，生成 manifest、快照 JSONL、评估 JSONL
   能力 JSONL、规划校验/推演 JSONL、需求匹配/建议 JSONL 和 CSV；队列溢出与写入失败

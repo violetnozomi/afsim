@@ -40,6 +40,7 @@ nrm::ResourceSnapshot Snapshot()
    destination.longitudeDeg.value = 2.0;
    snapshot.endpoints = {source, destination};
    nrm::LinkSnapshot link;
+   link.linkId = "link-1";
    link.sourceEndpointId = "source";
    link.destinationEndpointId = "destination";
    link.networkType = nrm::NetworkType::cCDL;
@@ -59,6 +60,7 @@ int main()
    nrm::EnvironmentContext context;
    context.valid = true;
    context.sampleTime = 10.0;
+   context.applicationMode = nrm::EnvironmentApplicationMode::cINFORMATION_ONLY;
 
    nrm::ResourceSnapshot snapshot = Snapshot();
    nrm::EnvironmentEffect current = adapter.Evaluate(
@@ -66,7 +68,17 @@ int main()
    assert(current.valid);
    assert(current.capacityScale.value == 1.0);
    assert(current.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
+   assert(current.evidence.front() == "CUSTOMER_ENVIRONMENT_INFORMATION_ONLY");
 
+   context.applicationMode = nrm::EnvironmentApplicationMode::cALREADY_INCLUDED;
+   nrm::EnvironmentEffect alreadyIncluded = adapter.Evaluate(
+      nrm::EnvironmentDomain::cWEATHER, snapshot, request, route, context);
+   assert(alreadyIncluded.capacityScale.value == 1.0);
+   assert(alreadyIncluded.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
+   assert(alreadyIncluded.evidence.front() ==
+          "CUSTOMER_ENVIRONMENT_ALREADY_INCLUDED");
+
+   context.applicationMode = nrm::EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT;
    context.applyParameterizedEffects = true;
    nrm::EnvironmentEffect candidate = adapter.Evaluate(
       nrm::EnvironmentDomain::cWEATHER, snapshot, request, route, context);
@@ -83,6 +95,11 @@ int main()
    assert(terrain.reason == nrm::CapabilityReason::cENVIRONMENT_HARD_BLOCKED);
 
    snapshot.links[0].terrainBlockedFlag.value = 0.0;
+   snapshot.environment.terrain.blockedLinkIds.push_back("link-1");
+   terrain = adapter.Evaluate(nrm::EnvironmentDomain::cTERRAIN, snapshot,
+                              request, route, context);
+   assert(terrain.hardBlocked);
+   snapshot.environment.terrain.blockedLinkIds.clear();
    snapshot.operationalArea.areaId = "demo-area";
    snapshot.operationalArea.points = {{0.0, 0.0, 0.0}, {0.0, 3.0, 0.0},
                                       {3.0, 3.0, 0.0}, {3.0, 0.0, 0.0}};
@@ -118,6 +135,17 @@ int main()
       nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE,
       snapshot, frequencyRequest, route, context);
    assert(overlapped.origin == nrm::DataOrigin::cPARAMETERIZED_MODEL);
+   snapshot.environment.interference.affectedLinkIds = {"other-link"};
+   nrm::EnvironmentEffect unaffected = adapter.Evaluate(
+      nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE,
+      snapshot, frequencyRequest, route, context);
+   assert(unaffected.origin == nrm::DataOrigin::cAFSIM_INTERNAL);
+   snapshot.environment.interference.affectedLinkIds = {"link-1"};
+   Set(snapshot.environment.interference.capacityScale, 0.61);
+   nrm::EnvironmentEffect explicitScale = adapter.Evaluate(
+      nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE,
+      snapshot, frequencyRequest, route, context);
+   assert(explicitScale.capacityScale.value == 0.61);
    frequencyRequest.frequencyHz = 1010000000.0;
    nrm::EnvironmentEffect clear = adapter.Evaluate(
       nrm::EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE,

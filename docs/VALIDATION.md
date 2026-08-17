@@ -1,5 +1,23 @@
 # 验证记录
 
+## 2026-08-17 最终工程与架构收口
+
+- `scripts/ai_guard.sh static`通过，版本、脚本、文档和变更集守卫无错误。
+- `scripts/ai_guard.sh contract`通过：13个合法样例接受，6个非法样例按预期拒绝。
+- `scripts/ai_guard.sh test`通过：37/37固定C++测试，WSF与Warlock插件重新构建成功。
+- NRM完整CTest为40/40；新增共享资源语义校验、有效快照仲裁和Python解释器可配置回归，
+  并包含远程规划切换与部署契约Shell测试。
+- `ResourceSnapshotValidatorTest`覆盖双Link-16实例、重复ID、跨具体网络链路、非法PDR/BER、
+  协议资源超用、缺失路由跳和合法快照；`CustomerNrmAdapterTest`证明直接C++入口无法绕过。
+- `ModelServiceFacadeTest`覆盖`INFORMATION_ONLY`、`ALREADY_INCLUDED`、
+  `CANDIDATE_ADJUSTMENT`及环境硬阻断，Assessment和Capability复用同一环境链。
+- `EffectiveSnapshotAssemblerTest`与`CustomerDataContainerTest`证明AFSIM周期更新不清除甲方
+  导航/环境，甲方旧资源也不能覆盖AFSIM新拓扑，发布版本严格单调递增。
+- 新增入口测试实际执行`resource → navigation A/B → environment → assessment → plan → demand
+  → resource refresh`，验证状态保留、配置绑定、响应编码及旧派生结果失效。
+- 25节点`operational_strike_demo`通过并到达`Simulation complete`；部署契约为`PASS`。
+- 上述为本机`PRE_ACCEPTANCE`证据；甲方私有对象、ABI和正式四网数据仍需目标环境联调。
+
 ## 2026-08-16 综合协同场景导航展示
 
 - 根因：25节点综合场景未配置`navigation_errors`，因此采集器正确输出空导航快照；导航
@@ -18,7 +36,7 @@
 ## 2026-08-14 合同指标补缺发布候选
 
 - 版本：`0.12.0`；分支：`feat/contract-gap-closure`；AFSIM核心修改数为0。
-- 静态门禁通过；甲方接口11个合法样例通过、5个非法样例按预期拒绝。
+- 静态门禁通过；甲方接口13个合法样例通过、6个非法样例按预期拒绝。
 - 31/31固定C++测试通过，WSF与Warlock插件均完成编译和链接。
 - 25节点同体系协同场景`operational_strike_demo`通过，固定阶段、四网消息和
   `Simulation complete`证据齐全。
@@ -61,7 +79,7 @@
 
 新增Draft 2020-12统一Schema，覆盖提供方握手、四网资源、导航、环境、评估请求、评估响应、
 接收ACK和统一错误8类消息。系统`jsonschema 4.10.3`校验全部8个正例通过，故意缺失公共字段
-的资源包被拒绝。Schema仅作为`BASELINE_DRAFT`，实时TCP Adapter、安全认证和甲方专用字段
+的资源包被拒绝。Schema仅作为`BASELINE_DRAFT`；正式运行时采用同进程C++适配，甲方专用字段
 尚未实现或签字确认。
 
 ## 2026-08-11 综合通信协同场景25节点验证

@@ -34,8 +34,9 @@ public:
       effect.sampleTime = aSnapshot.environment.sampleTime;
       effect.origin = DataOrigin::cAFSIM_INTERNAL;
       effect.confidence = Confidence::cHIGH;
+      const bool applyCandidate = UsesCandidateAdjustment(aContext);
 
-      if (aContext.applyParameterizedEffects && aDomain == EnvironmentDomain::cTERRAIN)
+      if (applyCandidate && aDomain == EnvironmentDomain::cTERRAIN)
       {
          const char* blockEvidence = OperationalBlock(aSnapshot, aRequest, aEndpointRoute);
          if (blockEvidence != nullptr)
@@ -71,7 +72,13 @@ public:
           DataOrigin::cAFSIM_INTERNAL, Confidence::cHIGH);
       Set(effect.delayDeltaMs, 0.0, "ms", effect.sampleTime,
           DataOrigin::cAFSIM_INTERNAL, Confidence::cHIGH);
-      effect.evidence.push_back("AFSIM_CURRENT_STATE_NOT_DOUBLE_APPLIED");
+      if (applyCandidate)
+         effect.evidence.push_back("AFSIM_CURRENT_STATE_NOT_DOUBLE_APPLIED");
+      else if (aContext.applicationMode ==
+               EnvironmentApplicationMode::cALREADY_INCLUDED)
+         effect.evidence.push_back("CUSTOMER_ENVIRONMENT_ALREADY_INCLUDED");
+      else
+         effect.evidence.push_back("CUSTOMER_ENVIRONMENT_INFORMATION_ONLY");
 
       if (aDomain == EnvironmentDomain::cTERRAIN &&
           RouteTerrainBlocked(aSnapshot, aEndpointRoute))
@@ -82,12 +89,15 @@ public:
          return effect;
       }
 
-      if (!aContext.applyParameterizedEffects) return effect;
+      if (!applyCandidate) return effect;
       if (aDomain == EnvironmentDomain::cWEATHER &&
           (!WeatherActive(aSnapshot.environment) || !TimeApplicable(aRequest, aContext)))
          return effect;
       if (aDomain == EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE &&
-          !InterferenceActive(aSnapshot.environment, aRequest)) return effect;
+          (!InterferenceActive(aSnapshot.environment, aRequest) ||
+           !RouteContainsAnyLink(
+              aSnapshot, aEndpointRoute,
+              aSnapshot.environment.interference.affectedLinkIds))) return effect;
 
       const NetworkType networkType = RouteNetwork(aSnapshot, aEndpointRoute);
       const EnvironmentAdjustment* adjustment = mConfig.Find(aDomain, networkType);
@@ -100,6 +110,16 @@ public:
           effect.sampleTime, effect.origin, effect.confidence);
       Set(effect.capacityScale, adjustment->capacityScale, "ratio",
           effect.sampleTime, effect.origin, effect.confidence);
+      if (aDomain == EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE &&
+          aSnapshot.environment.interference.capacityScale.valid)
+      {
+         Set(effect.capacityScale,
+             aSnapshot.environment.interference.capacityScale.value, "ratio",
+             effect.sampleTime, aSnapshot.environment.origin,
+             aSnapshot.environment.confidence);
+         effect.origin = aSnapshot.environment.origin;
+         effect.confidence = aSnapshot.environment.confidence;
+      }
       Set(effect.packetLossDeltaPercent, adjustment->packetLossDeltaPercent,
           "percentage_point", effect.sampleTime, effect.origin, effect.confidence);
       Set(effect.delayDeltaMs, adjustment->delayDeltaMs, "ms",
@@ -110,6 +130,11 @@ public:
    }
 
 private:
+   static bool UsesCandidateAdjustment(const EnvironmentContext& aContext)
+   {
+      return aContext.applyParameterizedEffects;
+   }
+
    static bool DomainAvailable(EnvironmentDomain aDomain,
                                const EnvironmentSnapshot& aEnvironment)
    {
@@ -213,11 +238,32 @@ private:
          for (const LinkSnapshot& link : aSnapshot.links)
          {
             if (link.sourceEndpointId == aRoute[i - 1] &&
-                link.destinationEndpointId == aRoute[i] &&
-                link.terrainBlockedFlag.valid &&
-                link.terrainBlockedFlag.value >= 0.5) return true;
+                link.destinationEndpointId == aRoute[i])
+            {
+               if (link.terrainBlockedFlag.valid &&
+                   link.terrainBlockedFlag.value >= 0.5) return true;
+               if (std::find(aSnapshot.environment.terrain.blockedLinkIds.begin(),
+                             aSnapshot.environment.terrain.blockedLinkIds.end(),
+                             link.linkId) !=
+                   aSnapshot.environment.terrain.blockedLinkIds.end()) return true;
+            }
          }
       }
+      return false;
+   }
+
+   static bool RouteContainsAnyLink(
+      const ResourceSnapshot& aSnapshot,
+      const std::vector<std::string>& aRoute,
+      const std::vector<std::string>& aLinkIds)
+   {
+      if (aLinkIds.empty()) return true;
+      for (std::size_t i = 1; i < aRoute.size(); ++i)
+         for (const LinkSnapshot& link : aSnapshot.links)
+            if (link.sourceEndpointId == aRoute[i - 1] &&
+                link.destinationEndpointId == aRoute[i] &&
+                std::find(aLinkIds.begin(), aLinkIds.end(), link.linkId) !=
+                   aLinkIds.end()) return true;
       return false;
    }
 

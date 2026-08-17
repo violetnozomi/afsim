@@ -18,6 +18,7 @@
 
 #include "nrm/NetworkTypeUtils.hpp"
 #include "nrm/ResourceDemandTypes.hpp"
+#include "nrm/TemporaryPathGuard.hpp"
 
 namespace nrm
 {
@@ -89,8 +90,9 @@ inline bool ParseConfidence(const std::string& aToken, Confidence& aConfidence)
 inline bool IsSafeId(const std::string& aValue)
 {
    if (aValue.empty()) return false;
-   for (unsigned char character : aValue)
+   for (char rawCharacter : aValue)
    {
+      const unsigned char character = static_cast<unsigned char>(rawCharacter);
       const bool allowed = (character >= 'a' && character <= 'z') ||
                            (character >= 'A' && character <= 'Z') ||
                            (character >= '0' && character <= '9') ||
@@ -393,6 +395,7 @@ public:
 
       const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
       const std::string temporaryPath = aPath + ".tmp-" + std::to_string(stamp);
+      TemporaryPathGuard temporaryGuard(temporaryPath);
       {
          std::ofstream output(temporaryPath, std::ios::out | std::ios::trunc);
          if (!output)
@@ -403,8 +406,6 @@ public:
          output.flush();
          if (!output)
          {
-            output.close();
-            std::remove(temporaryPath.c_str());
             return resource_demand_detail::Failure(
                ResourceDemandReason::cFILE_WRITE_FAILED,
                aPath, "document", &normalized);
@@ -412,11 +413,11 @@ public:
       }
       if (std::rename(temporaryPath.c_str(), aPath.c_str()) != 0)
       {
-         std::remove(temporaryPath.c_str());
          return resource_demand_detail::Failure(
             ResourceDemandReason::cATOMIC_RENAME_FAILED,
             aPath, "path", &normalized);
       }
+      temporaryGuard.Commit();
       return resource_demand_detail::Success(aPath, normalized);
    }
 

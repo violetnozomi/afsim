@@ -10,7 +10,7 @@ contract_gap_closure_evidence:
     NAV-04: {status: IMPLEMENTED, evidence: "直接误差优先及无效值保护"}
   data_link_keys:
     DL-01: {status: IMPLEMENTED, evidence: "四网显式类型与参数剖面"}
-    DL-02: {status: IMPLEMENTED, evidence: "不同频点特性库"}
+    DL-02: {status: COMPONENT_ONLY, evidence: "不同频点特性库已实现并测试；运行时仍使用NetworkProfileRepository"}
     DL-03: {status: IMPLEMENTED, evidence: "轮询/时隙/波束信道/信道资源"}
     DL-04: {status: IMPLEMENTED, evidence: "占用与干扰保护带规避"}
   capability_keys:
@@ -34,7 +34,7 @@ contract_gap_closure_evidence:
     MGR-04: {status: IMPLEMENTED, evidence: "同类历史通过率与128条有界历史"}
     MGR-05: {status: IMPLEMENTED, evidence: "六类确定性只读建议"}
   interface_keys:
-    IF-01: {status: IMPLEMENTED, evidence: "11类精简JSON Schema"}
+    IF-01: {status: IMPLEMENTED, evidence: "13类精简JSON Schema，含并发资源需求请求/响应"}
     IF-02: {status: IMPLEMENTED, evidence: "中文注释与正负样例校验"}
     IF-03: {status: IMPLEMENTED, evidence: "进程内C++抽象边界和模型门面"}
     IF-04: {status: CUSTOMER_BLOCKED, evidence: "甲方正式载荷/鉴权规范未提供"}
@@ -45,11 +45,11 @@ contract_gap_closure_evidence:
     ENV-04: {status: IMPLEMENTED, evidence: "活动干扰频带"}
   operations_keys:
     OPS-01: {status: IMPLEMENTED, evidence: "runId隔离和有界异步上报"}
-    OPS-02: {status: IMPLEMENTED, evidence: "原子恢复状态与损坏保护"}
+    OPS-02: {status: COMPONENT_ONLY, evidence: "原子恢复状态与损坏保护已测试；启动恢复策略尚未接入"}
     OPS-03: {status: CUSTOMER_BLOCKED, evidence: "目标机保密与运维流程未提供"}
   extension_keys:
     EXT-01: {status: IMPLEMENTED, evidence: "ModelRegistry精确版本注册"}
-    EXT-02: {status: IMPLEMENTED, evidence: "ReferenceModelAdapter健康/描述符样例"}
+    EXT-02: {status: REFERENCE_FIXTURE, evidence: "ReferenceModelAdapter仅作为健康/描述符兼容性测试样例"}
   deployment_keys:
     DES-01: {status: IMPLEMENTED, evidence: "本机硬件与软件只读检查"}
     DES-02: {status: IMPLEMENTED, evidence: "部署检查JSON证据"}
@@ -106,8 +106,8 @@ v110_model_service_evidence:
   scenario_status: NOT_CREATED_NO_SAFE_STRONGLY_TYPED_HEADLESS_ENTRY
   schemas: [nrm.model_service.request.v1, nrm.model_service.response.v1, nrm.model_service.health.v1]
   limitations:
-    - "仅建立进程内强类型边界，不代表甲方模型封装协议或真实网络服务完成。"
-    - "甲方接口文件、封装规范、参考模块和正式样包尚未提供，ContractInterfaceAdapter没有具体甲方实现。"
+    - "已建立同进程强类型边界，不代表甲方私有对象映射和目标ABI联调完成。"
+    - "同进程CustomerNrmAdapter和精简V1 JSON工具已完成；甲方私有对象头文件、字段映射和ABI尚未提供，ContractInterfaceAdapter对象转换SPI待现场实现。"
     - "headless mission无法取得Warlock Facade和强类型快照，未以文本命令或普通消息伪造服务smoke。"
     - "不扫描动态库，不自动修改规划、网络或AFSIM运行状态。"
 v011_contract_metric_completion_evidence:

@@ -275,7 +275,8 @@ private:
          return;
       }
       SetDerived(aOutput.establishmentSuccessRatioPercent,
-                 100.0 * aOutput.establishmentSuccesses / aOutput.establishmentAttempts,
+                 100.0 * static_cast<double>(aOutput.establishmentSuccesses) /
+                    static_cast<double>(aOutput.establishmentAttempts),
                  "percent", aSimTime, aWindowS);
       if (!delays.empty())
       {
@@ -285,7 +286,8 @@ private:
             total += delay;
          }
          SetDerived(aOutput.averageEstablishmentDelayMs,
-                    total / delays.size(), "ms", aSimTime, aWindowS);
+                    total / static_cast<double>(delays.size()),
+                    "ms", aSimTime, aWindowS);
       }
    }
 

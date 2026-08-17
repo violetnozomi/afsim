@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define CHECK(condition) \
@@ -123,13 +124,32 @@ int main()
       demandErrorRun = reporter.GetRunDirectory();
       reporter.ReportDemandError(nrm::ResourceDemandReason::cPARSE_ERROR,
                                  "line:7");
-      CHECK(!reporter.GetStatus().healthy);
-      CHECK(reporter.GetStatus().writeErrorCount == 1);
+      CHECK(reporter.GetStatus().healthy);
+      CHECK(reporter.GetStatus().writeErrorCount == 0);
+      CHECK(reporter.GetStatus().domainErrorCount == 1);
    }
    CHECK(Contains(demandErrorRun + "/error.log",
                   "\"component\":\"ResourceDemand\""));
    CHECK(Contains(demandErrorRun + "/error.log", "PARSE_ERROR"));
    CHECK(Contains(demandErrorRun + "/error.log", "line:7"));
+
+   {
+      WkNrm::SnapshotReporter reporter(root, "customer-event-write-failure", 2,
+                                       false);
+      const std::string eventPath =
+         reporter.GetRunDirectory() + "/customer_interface_events.jsonl";
+      CHECK(::mkdir(eventPath.c_str(), 0700) == 0);
+      reporter.ReportCustomerInterfaceEvent("schema", "message", "input.json",
+                                            false, "DATA_INVALID", "/data");
+      CHECK(!reporter.GetStatus().healthy);
+      CHECK(reporter.GetStatus().writeErrorCount == 1);
+      CHECK(reporter.GetStatus().lastError == "OUTPUT_OPEN_FAILED");
+   }
+
+   {
+      WkNrm::SnapshotReporter reporter(root, "never-started", 2, false);
+      CHECK(!reporter.GetStatus().started);
+   }
 
    {
       WkNrm::SnapshotReporter reporter(

@@ -1,7 +1,9 @@
 #include "NrmDataContainer.hpp"
+#include "NrmCustomerPlanIngest.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 #include <QByteArray>
 #include <QDir>
@@ -46,6 +48,25 @@ nrm::EnvironmentConfigRepository LoadEnvironmentConfig()
    }
    return config;
 }
+
+nrm::CustomerMessageDomain MessageDomain(const std::string& aSchema)
+{
+   if (aSchema == "nrm.customer.resource_report.v1")
+      return nrm::CustomerMessageDomain::cRESOURCE;
+   if (aSchema == "nrm.customer.navigation_report.v1")
+      return nrm::CustomerMessageDomain::cNAVIGATION;
+   if (aSchema == "nrm.customer.environment_report.v1")
+      return nrm::CustomerMessageDomain::cENVIRONMENT;
+   if (aSchema == "nrm.customer.network_plan.v1")
+      return nrm::CustomerMessageDomain::cPLAN;
+   if (aSchema == "nrm.customer.assessment_request.v1")
+      return nrm::CustomerMessageDomain::cASSESSMENT;
+   if (aSchema == "nrm.customer.resource_demand_request.v1")
+      return nrm::CustomerMessageDomain::cDEMAND;
+   if (aSchema == "nrm.customer.membership_request.v1")
+      return nrm::CustomerMessageDomain::cMEMBERSHIP;
+   return nrm::CustomerMessageDomain::cPROVIDER;
+}
 } // namespace
 
 WkNrm::DataContainer::DataContainer(QObject* aParentPtr)
@@ -54,6 +75,7 @@ WkNrm::DataContainer::DataContainer(QObject* aParentPtr)
    , mEnvironmentConfig(LoadEnvironmentConfig())
    , mEnvironmentAdapter(mEnvironmentConfig)
    , mModelServiceFacade(mProfiles, &mEnvironmentAdapter)
+   , mCustomerNrmAdapter(*this, mCustomerIngestionState)
 {
    mModelRegistration = mModelRegistry.Register(
       nrm::ModelServiceFacade::Descriptor());
@@ -71,15 +93,89 @@ WkNrm::DataContainer::DataContainer(QObject* aParentPtr)
 
 WkNrm::DataContainer::~DataContainer() = default;
 
+void WkNrm::DataContainer::PublishCustomerSnapshot(
+   const nrm::ResourceSnapshot& aSnapshot)
+{
+   mCustomerOverlaySnapshot = aSnapshot;
+   mHasCustomerOverlaySnapshot = true;
+   RebuildEffectiveSnapshot();
+}
+
+void WkNrm::DataContainer::ApplyCustomerEnvironmentContext(
+   const nrm::EnvironmentContext& aContext)
+{
+   mCustomerEnvironmentContext = aContext;
+}
+
+void WkNrm::DataContainer::BeginCustomerRun()
+{
+   mCustomerEnvironmentContext = nrm::EnvironmentContext();
+   mCustomerOverlaySnapshot = nrm::FrameworkSnapshot();
+   mHasCustomerOverlaySnapshot = false;
+}
+
+nrm::AssessmentResult WkNrm::DataContainer::RunCustomerAssessment(
+   const nrm::AssessmentTask& aTask)
+{
+   return EvaluateAssessment(aTask);
+}
+
+nrm::CustomerPlanEvaluationResult WkNrm::DataContainer::RunCustomerPlan(
+   const nrm::NetworkPlanDocument& aPlan)
+{
+   nrm::CustomerPlanEvaluationResult result;
+   result.accepted = ReplaceNetworkPlanDraft(aPlan);
+   if (!result.accepted) return result;
+   result.validation = ValidateNetworkPlan();
+   result.evaluation = EvaluateNetworkPlan();
+   return result;
+}
+
+nrm::ResourceDemandBatchResult WkNrm::DataContainer::RunCustomerDemands(
+   const nrm::ResourceDemandSet& aDemands)
+{
+   if (!ReplaceResourceDemandDraft(aDemands))
+      return nrm::ResourceDemandBatchResult();
+   return EvaluateResourceDemands();
+}
+
 void WkNrm::DataContainer::SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot)
 {
-   mSnapshot = aSnapshot;
+   mAfsimBaseSnapshot = aSnapshot;
+   mHasAfsimBaseSnapshot = true;
+   RebuildEffectiveSnapshot();
+}
+
+void WkNrm::DataContainer::RebuildEffectiveSnapshot()
+{
+   const nrm::ResourceSnapshot* afsimPtr =
+      mHasAfsimBaseSnapshot ? &mAfsimBaseSnapshot : nullptr;
+   const nrm::ResourceSnapshot* customerPtr =
+      mHasCustomerOverlaySnapshot ? &mCustomerOverlaySnapshot : nullptr;
+   ApplyEffectiveSnapshot(
+      nrm::EffectiveSnapshotAssembler::Compose(afsimPtr, customerPtr));
+}
+
+void WkNrm::DataContainer::ApplyEffectiveSnapshot(
+   nrm::FrameworkSnapshot aSnapshot)
+{
+   const std::uint64_t nextVersion = mEffectiveSnapshotVersion + 1;
+   aSnapshot.snapshotVersion = std::max(aSnapshot.snapshotVersion, nextVersion);
+   mEffectiveSnapshotVersion = aSnapshot.snapshotVersion;
+   mSnapshot = std::move(aSnapshot);
    const nrm::NavigationAccuracyModel navigationAccuracy;
    for (nrm::NavigationSample& sample : mSnapshot.navigation.platforms)
    {
       navigationAccuracy.Enrich(sample, sample.navigationType);
    }
    nrm::ContractMetricEnricher(mProfiles).Apply(mSnapshot);
+   // Every derived result is tied to a snapshot version. Never present a
+   // result computed from the previous graph as current after an update.
+   mHasAssessment = false;
+   mHasCapability = false;
+   mHasPlanValidation = false;
+   mHasPlanEvaluation = false;
+   mHasDistributionPackage = false;
    mHasDemandMatching = false;
    mReporterPtr->Enqueue(mSnapshot);
    emit SnapshotChanged();
@@ -91,6 +187,22 @@ void WkNrm::DataContainer::StoreAssessment(const nrm::AssessmentResult& aResult)
    mHasAssessment = true;
    mReporterPtr->EnqueueAssessment(aResult);
    emit AssessmentChanged();
+}
+
+nrm::AssessmentResult WkNrm::DataContainer::EvaluateAssessment(
+   const nrm::AssessmentTask& aTask)
+{
+   const nrm::AssessmentServiceResponse response =
+      mModelServiceFacade.EvaluateAssessment(
+         MakeModelServiceContext(
+            nrm::ModelServiceOperation::cEVALUATE_ASSESSMENT,
+            mSnapshot.snapshotVersion),
+         mSnapshot, aTask, EffectiveEnvironment(nrm::EnvironmentContext()));
+   if (response.valid)
+   {
+      StoreAssessment(response.result);
+   }
+   return response.result;
 }
 
 nrm::CapabilityResult WkNrm::DataContainer::QueryCapability(
@@ -216,6 +328,7 @@ bool WkNrm::DataContainer::LoadNetworkPlan(const std::string& aPath)
 
 bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
 {
+   mLastCustomerJsonResponse.clear();
    QFile input(QString::fromStdString(aPath));
    if (!input.open(QIODevice::ReadOnly))
    {
@@ -230,11 +343,57 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
       if (mLastCustomerJsonResult.valid)
       {
          const std::string& schema = mLastCustomerJsonResult.envelope.schema;
-         if (schema == "nrm.customer.network_plan.v1")
+         const nrm::CustomerMessageDomain domain = MessageDomain(schema);
+         const nrm::CustomerIngestionDecision decision =
+            mCustomerIngestionState.Preview(
+               mLastCustomerJsonResult.envelope.runId,
+               mLastCustomerJsonResult.envelope.messageId,
+               domain,
+               mLastCustomerJsonResult.envelope.hasSimTime,
+               mLastCustomerJsonResult.envelope.simTime);
+         const bool execute =
+            decision.status == nrm::CustomerIngestionStatus::cACCEPTED;
+         bool committed = false;
+         const auto commit = [&]()
+         {
+            if (committed) return;
+            mCustomerIngestionState.Commit(
+               mLastCustomerJsonResult.envelope.runId,
+               mLastCustomerJsonResult.envelope.messageId,
+               domain, mLastCustomerJsonResult.envelope.hasSimTime,
+               mLastCustomerJsonResult.envelope.simTime);
+            committed = true;
+         };
+         if (!execute)
+         {
+            const bool duplicate =
+               decision.status == nrm::CustomerIngestionStatus::cDUPLICATE;
+            mLastCustomerJsonResponse = mCustomerJsonCodec.EncodeIngestAck(
+               mLastCustomerJsonResult.envelope,
+               duplicate ? CustomerIngestStatus::cDUPLICATE
+                         : CustomerIngestStatus::cSTALE,
+               duplicate ? "重复消息已忽略" : "陈旧消息已忽略");
+         }
+         else if (schema == "nrm.customer.network_plan.v1")
          {
             nrm::NetworkPlanDocument plan;
             mLastCustomerJsonResult = mCustomerJsonCodec.DecodeNetworkPlan(json, plan);
-            if (mLastCustomerJsonResult.valid) ReplaceNetworkPlanDraft(plan);
+            if (mLastCustomerJsonResult.valid)
+            {
+               commit();
+               plan.configVersion = mProfiles.ConfigVersion();
+               const bool accepted = AcceptDecodedNetworkPlan(
+                  mLastCustomerJsonResult, plan, mPlanRepository);
+               mPlanOperation = mPlanRepository.LastLoadResult();
+               if (accepted)
+               {
+                  mHasPlanValidation = false;
+                  mHasPlanEvaluation = false;
+                  mHasDistributionPackage = false;
+                  mHasDemandMatching = false;
+               }
+               emit NetworkPlanChanged();
+            }
          }
          else if (schema == "nrm.customer.navigation_report.v1")
          {
@@ -242,13 +401,12 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
             mLastCustomerJsonResult = mCustomerJsonCodec.DecodeNavigation(json, sample);
             if (mLastCustomerJsonResult.valid)
             {
-               nrm::FrameworkSnapshot snapshot = mSnapshot;
-               snapshot.navigation.valid = true;
-               snapshot.navigation.providerId = mLastCustomerJsonResult.envelope.source;
-               snapshot.navigation.origin = sample.origin;
-               snapshot.navigation.sampleTime = sample.sampleTime;
-               snapshot.navigation.platforms = {sample};
-               SetSnapshot(snapshot);
+               commit();
+               if (decision.newRun)
+                  mCustomerEnvironmentContext = nrm::EnvironmentContext();
+               PublishCustomerSnapshot(nrm::CustomerSnapshotAssembler::UpsertNavigation(
+                  mSnapshot, sample, mLastCustomerJsonResult.envelope.source,
+                  decision.newRun));
             }
          }
          else if (schema == "nrm.customer.environment_report.v1")
@@ -258,21 +416,73 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
             mLastCustomerJsonResult = mCustomerJsonCodec.DecodeEnvironment(json, environment, context);
             if (mLastCustomerJsonResult.valid)
             {
-               nrm::FrameworkSnapshot snapshot = mSnapshot;
-               snapshot.environment = environment;
-               SetSnapshot(snapshot);
+               commit();
+               mCustomerEnvironmentContext = context;
+               PublishCustomerSnapshot(nrm::CustomerSnapshotAssembler::MergeEnvironment(
+                  mSnapshot, environment, decision.newRun));
             }
          }
          else if (schema == "nrm.customer.resource_report.v1")
          {
             nrm::ResourceSnapshot snapshot;
             mLastCustomerJsonResult = mCustomerJsonCodec.DecodeResources(json, snapshot);
-            if (mLastCustomerJsonResult.valid) SetSnapshot(snapshot);
+            if (mLastCustomerJsonResult.valid)
+            {
+               commit();
+               if (decision.newRun)
+                  mCustomerEnvironmentContext = nrm::EnvironmentContext();
+               PublishCustomerSnapshot(nrm::CustomerSnapshotAssembler::MergeResources(
+                  mSnapshot, snapshot, decision.newRun));
+            }
+         }
+         else if (schema == "nrm.customer.assessment_request.v1")
+         {
+            nrm::AssessmentTask task;
+            mLastCustomerJsonResult = mCustomerJsonCodec.DecodeAssessment(json, task);
+            if (mLastCustomerJsonResult.valid)
+            {
+               commit();
+               const nrm::AssessmentResult result =
+                  mCustomerNrmAdapter.Evaluate(task);
+               mLastCustomerJsonResponse = mCustomerJsonCodec.EncodeAssessment(
+                  mLastCustomerJsonResult.envelope, result);
+            }
+         }
+         else if (schema == "nrm.customer.resource_demand_request.v1")
+         {
+            nrm::ResourceDemandSet demandSet;
+            mLastCustomerJsonResult =
+               mCustomerJsonCodec.DecodeResourceDemands(json, demandSet);
+            if (mLastCustomerJsonResult.valid)
+            {
+               const nrm::ResourceDemandBatchResult matching =
+                  mCustomerNrmAdapter.EvaluateDemands(demandSet);
+               if (mDemandOperation.success)
+               {
+                  commit();
+                  mLastCustomerJsonResponse =
+                     mCustomerJsonCodec.EncodeResourceDemandResult(
+                        mLastCustomerJsonResult.envelope, matching);
+               }
+               else
+               {
+                  mLastCustomerJsonResult.valid = false;
+                  mLastCustomerJsonResult.errors.push_back(
+                     {"RESOURCE_DEMAND_REJECTED", "/data",
+                      nrm::ToString(mDemandOperation.reason)});
+               }
+            }
          }
          else if (schema == "nrm.customer.provider_hello.v1")
          {
             CustomerProviderHello hello;
             mLastCustomerJsonResult = mCustomerJsonCodec.DecodeProviderHello(json, hello);
+            if (mLastCustomerJsonResult.valid)
+            {
+               commit();
+               mLastCustomerProvider = hello;
+               mHasCustomerProvider = true;
+            }
          }
          else if (schema == "nrm.customer.membership_request.v1")
          {
@@ -281,6 +491,7 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
             const nrm::NetworkPlanDocument* current = mPlanRepository.GetCurrentPlan();
             if (mLastCustomerJsonResult.valid && current != nullptr)
             {
+               commit();
                const nrm::PlanCoordinationResult coordination =
                   mPlanCoordinationService.ApplyMembership(*current, change);
                mPlanCoordination = nrm::PlanCoordinationEvidence();
@@ -316,6 +527,15 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
                {"SCHEMA_UNSUPPORTED", "/schema", "该消息不能通过文件加载入口执行"});
          }
       }
+   }
+   if (mLastCustomerJsonResponse.isEmpty())
+   {
+      mLastCustomerJsonResponse = mLastCustomerJsonResult.valid
+         ? mCustomerJsonCodec.EncodeIngestAck(
+              mLastCustomerJsonResult.envelope,
+              CustomerIngestStatus::cACCEPTED, "消息已接收并处理")
+         : mCustomerJsonCodec.EncodeError(
+              mLastCustomerJsonResult.envelope, mLastCustomerJsonResult.errors);
    }
    const CustomerJsonError error = mLastCustomerJsonResult.errors.empty()
                                       ? CustomerJsonError()
@@ -624,6 +844,7 @@ nrm::EnvironmentContext WkNrm::DataContainer::EffectiveEnvironment(
    const nrm::EnvironmentContext& aEnvironment) const
 {
    if (aEnvironment.valid) return aEnvironment;
+   if (mCustomerEnvironmentContext.valid) return mCustomerEnvironmentContext;
    nrm::EnvironmentContext context;
    context.contextId = "afsim-environment-snapshot-" +
                        std::to_string(mSnapshot.snapshotVersion);
@@ -673,7 +894,9 @@ std::string WkNrm::DataContainer::GetReportingStatus() const
                                     status.droppedPlanValidationCount +
                                     status.droppedPlanEvaluationCount +
                                     status.droppedDemandResultCount +
-                                    status.droppedPlanningRecommendationCount;
+                                    status.droppedPlanningRecommendationCount +
+                                    status.droppedDemandFeedbackCount +
+                                    status.droppedPlanningCoordinationCount;
    if (allDropped > 0)
    {
       result += " dropped=" + std::to_string(allDropped);

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nrm.local/schema/customer/v1/resource-demand-response.schema.json",
+  "title": "并发通信资源需求匹配结果",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "properties": {
+    "schema": {"const": "nrm.customer.resource_demand_response.v1"},
+    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
+    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "source": {"const": "NRM"},
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["demandSetId", "revision", "snapshotVersion", "totalCount", "satisfiedCount", "unsatisfiedCount", "dataInvalidCount", "results"],
+      "properties": {
+        "demandSetId": {"$ref": "common.schema.json#/$defs/identifier"},
+        "revision": {"type": "integer", "minimum": 1},
+        "snapshotVersion": {"type": "integer", "minimum": 0},
+        "totalCount": {"type": "integer", "minimum": 0},
+        "satisfiedCount": {"type": "integer", "minimum": 0},
+        "unsatisfiedCount": {"type": "integer", "minimum": 0},
+        "dataInvalidCount": {"type": "integer", "minimum": 0},
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["demandId", "status", "reasonCodes", "recommendations"],
+            "properties": {
+              "demandId": {"$ref": "common.schema.json#/$defs/identifier"},
+              "status": {"enum": ["SATISFIED", "UNSATISFIED", "DATA_INVALID"]},
+              "reasonCodes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "recommendations": {
+                "type": "array",
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["type", "status", "value", "reason"],
+                  "properties": {
+                    "type": {"enum": ["FREQUENCY", "STATION", "CHANNEL", "SUBNET", "TIMESLOT", "ROUTE"]},
+                    "status": {"enum": ["AVAILABLE", "UNAVAILABLE"]},
+                    "value": {"type": "string"},
+                    "reason": {"type": "string", "minLength": 1}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

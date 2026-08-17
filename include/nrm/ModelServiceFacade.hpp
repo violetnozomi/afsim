@@ -1,11 +1,13 @@
 #ifndef NRM_MODEL_SERVICE_FACADE_HPP
 #define NRM_MODEL_SERVICE_FACADE_HPP
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
 #include <utility>
 
+#include "nrm/AssessmentEvaluator.hpp"
 #include "nrm/CommunicationCapabilityService.hpp"
 #include "nrm/ModelServiceTypes.hpp"
 #include "nrm/NetworkPlanDistributionService.hpp"
@@ -26,6 +28,16 @@ public:
       const ResourceSnapshot& aSnapshot,
       const CapabilityRequest& aRequest,
       const EnvironmentContext& aEnvironment) const = 0;
+};
+
+class AssessmentServicePort
+{
+public:
+   virtual ~AssessmentServicePort() = default;
+
+   virtual AssessmentResult Evaluate(
+      const ResourceSnapshot& aSnapshot,
+      const AssessmentTask& aTask) const = 0;
 };
 
 class PlanValidationServicePort
@@ -77,6 +89,26 @@ public:
 
 namespace model_service_detail
 {
+class DefaultAssessmentServicePort final : public AssessmentServicePort
+{
+public:
+   explicit DefaultAssessmentServicePort(
+      const NetworkProfileRepository& aProfiles)
+      : mService(aProfiles)
+   {
+   }
+
+   AssessmentResult Evaluate(
+      const ResourceSnapshot& aSnapshot,
+      const AssessmentTask& aTask) const override
+   {
+      return mService.Evaluate(aSnapshot, aTask);
+   }
+
+private:
+   AssessmentEvaluator mService;
+};
+
 class DefaultCommunicationCapabilityServicePort final
    : public CommunicationCapabilityServicePort
 {
@@ -201,6 +233,8 @@ public:
       std::shared_ptr<const PlanDistributionServicePort>;
    using DemandServicePtr =
       std::shared_ptr<const ResourceDemandMatchingServicePort>;
+   using AssessmentServicePtr =
+      std::shared_ptr<const AssessmentServicePort>;
 
    explicit ModelServiceFacade(
       const NetworkProfileRepository& aProfiles,
@@ -219,7 +253,9 @@ public:
               model_service_detail::DefaultPlanDistributionServicePort>(),
            std::make_shared<
               model_service_detail::DefaultResourceDemandMatchingServicePort>(
-                 aProfiles, aEnvironmentAdapterPtr))
+                 aProfiles, aEnvironmentAdapterPtr),
+           std::make_shared<
+              model_service_detail::DefaultAssessmentServicePort>(aProfiles))
    {
    }
 
@@ -230,13 +266,63 @@ public:
       EvaluationServicePtr aEvaluationService,
       DistributionServicePtr aDistributionService,
       DemandServicePtr aDemandService)
+      : ModelServiceFacade(
+           aProfiles, std::move(aCapabilityService),
+           std::move(aValidationService), std::move(aEvaluationService),
+           std::move(aDistributionService), std::move(aDemandService),
+           std::make_shared<
+              model_service_detail::DefaultAssessmentServicePort>(aProfiles))
+   {
+   }
+
+   ModelServiceFacade(
+      const NetworkProfileRepository& aProfiles,
+      CapabilityServicePtr aCapabilityService,
+      ValidationServicePtr aValidationService,
+      EvaluationServicePtr aEvaluationService,
+      DistributionServicePtr aDistributionService,
+      DemandServicePtr aDemandService,
+      AssessmentServicePtr aAssessmentService)
       : mProfiles(aProfiles)
       , mCapabilityService(std::move(aCapabilityService))
       , mValidationService(std::move(aValidationService))
       , mEvaluationService(std::move(aEvaluationService))
       , mDistributionService(std::move(aDistributionService))
       , mDemandService(std::move(aDemandService))
+      , mAssessmentService(std::move(aAssessmentService))
    {
+   }
+
+   AssessmentServiceResponse EvaluateAssessment(
+      const ModelServiceContext& aContext,
+      const ResourceSnapshot& aSnapshot,
+      const AssessmentTask& aTask,
+      const EnvironmentContext& aEnvironment = EnvironmentContext()) const
+   {
+      AssessmentServiceResponse response = NewResponse<AssessmentResult>(
+         aContext, ModelServiceOperation::cEVALUATE_ASSESSMENT,
+         aSnapshot.snapshotVersion);
+      if (!ValidateContext(aContext, &aSnapshot.snapshotVersion, response) ||
+          !ValidateService(mAssessmentService, response) ||
+          (UsesCandidateAdjustment(aEnvironment) &&
+           !ValidateService(mCapabilityService, response)))
+         return response;
+      try
+      {
+         response.result = mAssessmentService->Evaluate(aSnapshot, aTask);
+         if (UsesCandidateAdjustment(aEnvironment))
+         {
+            const CapabilityResult capability = mCapabilityService->Query(
+               aSnapshot, CapabilityRequestFrom(aTask), aEnvironment);
+            ApplyEnvironmentCapability(aTask, capability, response.result);
+         }
+         Complete(response);
+      }
+      catch (...)
+      {
+         InternalError(response);
+      }
+      return response;
    }
 
    CapabilityServiceResponse QueryCapability(
@@ -412,6 +498,7 @@ public:
       descriptor.providerId = "afsim-network-resource-manager";
       descriptor.supportedOperations = {
          ModelServiceOperation::cQUERY_CAPABILITY,
+         ModelServiceOperation::cEVALUATE_ASSESSMENT,
          ModelServiceOperation::cVALIDATE_PLAN,
          ModelServiceOperation::cEVALUATE_PLAN,
          ModelServiceOperation::cGENERATE_DISTRIBUTION_PACKAGE,
@@ -420,10 +507,12 @@ public:
          ModelServiceOperation::cGET_DESCRIPTOR};
       descriptor.supportedRequestSchemas = {
          cMODEL_SERVICE_REQUEST_SCHEMA,
+         "nrm.assessment_task.v1",
          "nrm.network_plan.v1",
          "nrm.resource_demand_set.v1"};
       descriptor.supportedResponseSchemas = {
          cMODEL_SERVICE_RESPONSE_SCHEMA,
+         "nrm.assessment.v3",
          "nrm.capability.v1",
          "nrm.network_plan_validation.v1",
          "nrm.network_plan_evaluation.v1",
@@ -437,6 +526,170 @@ public:
    }
 
 private:
+   static bool UsesCandidateAdjustment(const EnvironmentContext& aEnvironment)
+   {
+      if (!aEnvironment.valid ||
+          aEnvironment.applicationMode ==
+             EnvironmentApplicationMode::cALREADY_INCLUDED)
+         return false;
+      if (aEnvironment.applicationMode ==
+          EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT)
+         return true;
+      return aEnvironment.applyParameterizedEffects;
+   }
+
+   static CapabilityRequest CapabilityRequestFrom(const AssessmentTask& aTask)
+   {
+      CapabilityRequest request;
+      request.requestId = aTask.taskId;
+      request.sourcePlatform = aTask.sourcePlatform;
+      request.destinationPlatform = aTask.destinationPlatform;
+      request.businessType = aTask.businessType;
+      request.payloadBits = aTask.payloadBits;
+      request.requiredBandwidthBps = aTask.requiredBandwidthBps;
+      request.maximumDelayMs = aTask.maximumDelayMs;
+      request.minimumPdrPercent = aTask.minimumPdrPercent;
+      request.kShortestPaths = aTask.kShortestPaths;
+      request.maximumHops = aTask.maximumHops;
+      request.allowedNetworks = aTask.allowedNetworks;
+      return request;
+   }
+
+   static bool HasReason(const CapabilityResult& aResult,
+                         CapabilityReason aReason)
+   {
+      return std::find(aResult.reasons.begin(), aResult.reasons.end(), aReason) !=
+             aResult.reasons.end();
+   }
+
+   static void AddAssessmentReason(AssessmentResult& aResult,
+                                   AssessmentReason aReason)
+   {
+      if (std::find(aResult.reasons.begin(), aResult.reasons.end(), aReason) ==
+          aResult.reasons.end())
+         aResult.reasons.push_back(aReason);
+   }
+
+   static bool HasApplicableEnvironmentEffect(const CapabilityResult& aCapability)
+   {
+      for (const EnvironmentEffect& effect : aCapability.environmentEffects)
+      {
+         if (effect.valid && effect.origin != DataOrigin::cAFSIM_INTERNAL)
+            return true;
+      }
+      return HasReason(aCapability, CapabilityReason::cENVIRONMENT_HARD_BLOCKED);
+   }
+
+   static void SetDerivedMargin(MetricValue<double>& aMargin,
+                                double aValue,
+                                const MetricValue<double>& aEvidence,
+                                const char* aUnit)
+   {
+      aMargin = aEvidence;
+      aMargin.value = aValue;
+      aMargin.unit = aUnit;
+      aMargin.valid = std::isfinite(aValue);
+      aMargin.reason = aMargin.valid ? MetricReason::cNONE
+                                     : MetricReason::cINVALID_INPUT;
+   }
+
+   static void ApplyEnvironmentCapability(const AssessmentTask& aTask,
+                                          const CapabilityResult& aCapability,
+                                          AssessmentResult& aResult)
+   {
+      if (!HasApplicableEnvironmentEffect(aCapability)) return;
+      if (!aCapability.requestValid)
+      {
+         aResult.canComplete = false;
+         aResult.stable = false;
+         AddAssessmentReason(aResult, AssessmentReason::cDATA_INVALID);
+         return;
+      }
+
+      const bool hardBlocked =
+         HasReason(aCapability, CapabilityReason::cENVIRONMENT_HARD_BLOCKED);
+      if (hardBlocked)
+      {
+         aResult.canEstablish = false;
+         aResult.canComplete = false;
+         aResult.stable = false;
+         AddAssessmentReason(
+            aResult, AssessmentReason::cENVIRONMENT_HARD_BLOCKED);
+         aResult.recommendations.push_back(
+            "环境约束阻断了当前候选路径，建议更换链路、时段或中继节点后重评估。");
+         return;
+      }
+
+      bool meetsConstraints = aCapability.pathAvailable;
+      if (aCapability.transmissionRateBps.valid)
+      {
+         aResult.bottleneckBandwidthBps = aCapability.transmissionRateBps;
+         SetDerivedMargin(aResult.bandwidthMarginBps,
+                          aCapability.transmissionRateBps.value -
+                             aTask.requiredBandwidthBps,
+                          aCapability.transmissionRateBps, "bit/s");
+         if (aResult.bandwidthMarginBps.value < 0.0)
+         {
+            meetsConstraints = false;
+            AddAssessmentReason(
+               aResult, AssessmentReason::cBANDWIDTH_MARGIN_NEGATIVE);
+         }
+      }
+      else
+      {
+         meetsConstraints = false;
+         AddAssessmentReason(aResult, AssessmentReason::cDATA_INVALID);
+      }
+
+      if (aCapability.transmissionDelayMs.valid)
+      {
+         aResult.predictedDelayMs = aCapability.transmissionDelayMs;
+         SetDerivedMargin(aResult.delayMarginMs,
+                          aTask.maximumDelayMs -
+                             aCapability.transmissionDelayMs.value,
+                          aCapability.transmissionDelayMs, "ms");
+         if (aTask.maximumDelayMs > 0.0 && aResult.delayMarginMs.value < 0.0)
+         {
+            meetsConstraints = false;
+            AddAssessmentReason(aResult, AssessmentReason::cDELAY_MARGIN_NEGATIVE);
+         }
+      }
+      else if (aTask.requireDelayMetricForFeasibility)
+      {
+         meetsConstraints = false;
+         AddAssessmentReason(aResult, AssessmentReason::cDATA_INVALID);
+      }
+
+      if (aCapability.packetLossPercent.valid)
+      {
+         aResult.estimatedPdrPercent = aCapability.packetLossPercent;
+         aResult.estimatedPdrPercent.value =
+            100.0 - aCapability.packetLossPercent.value;
+         aResult.estimatedPdrPercent.unit = "percent";
+         SetDerivedMargin(aResult.reliabilityMarginPercent,
+                          aResult.estimatedPdrPercent.value -
+                             aTask.minimumPdrPercent,
+                          aResult.estimatedPdrPercent, "percent");
+         if (aResult.reliabilityMarginPercent.value < 0.0)
+         {
+            meetsConstraints = false;
+            AddAssessmentReason(
+               aResult, AssessmentReason::cRELIABILITY_MARGIN_NEGATIVE);
+         }
+      }
+      else
+      {
+         meetsConstraints = false;
+         AddAssessmentReason(aResult, AssessmentReason::cDATA_INVALID);
+      }
+
+      aResult.canComplete = aResult.canComplete && meetsConstraints;
+      aResult.stable = aResult.stable && aResult.canComplete;
+      if (!aResult.canComplete)
+         aResult.recommendations.push_back(
+            "候选环境修正后任务约束不再满足，请按负裕量调整资源或业务门限。");
+   }
+
    template<typename ResultType>
    static ModelServiceResponse<ResultType> NewResponse(
       const ModelServiceContext& aContext,
@@ -586,7 +839,7 @@ private:
    bool DependenciesAvailable() const
    {
       return mCapabilityService && mValidationService && mEvaluationService &&
-             mDistributionService && mDemandService;
+             mDistributionService && mDemandService && mAssessmentService;
    }
 
    NetworkProfileRepository mProfiles;
@@ -595,6 +848,7 @@ private:
    EvaluationServicePtr mEvaluationService;
    DistributionServicePtr mDistributionService;
    DemandServicePtr mDemandService;
+   AssessmentServicePtr mAssessmentService;
 };
 } // namespace nrm
 

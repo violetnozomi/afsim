@@ -108,6 +108,20 @@ nrm::CapabilityRequest CapabilityRequest()
    return request;
 }
 
+nrm::AssessmentTask AssessmentTask()
+{
+   nrm::AssessmentTask task;
+   task.taskId = "ASSESSMENT-110";
+   task.sourcePlatform = "source";
+   task.destinationPlatform = "destination";
+   task.businessType = "C2";
+   task.requiredBandwidthBps = 500.0;
+   task.maximumDelayMs = 20.0;
+   task.minimumPdrPercent = 90.0;
+   task.allowedNetworks.push_back(nrm::NetworkType::cLINK16);
+   return task;
+}
+
 nrm::NetworkPlanDocument Plan()
 {
    nrm::NetworkPlanDocument plan;
@@ -196,6 +210,13 @@ bool HasReason(const std::vector<nrm::ModelServiceReason>& aReasons,
    return std::find(aReasons.begin(), aReasons.end(), aReason) != aReasons.end();
 }
 
+bool HasAssessmentReason(const nrm::AssessmentResult& aResult,
+                         nrm::AssessmentReason aReason)
+{
+   return std::find(aResult.reasons.begin(), aResult.reasons.end(), aReason) !=
+          aResult.reasons.end();
+}
+
 class CountingCapabilityService : public nrm::CommunicationCapabilityServicePort
 {
 public:
@@ -279,6 +300,21 @@ public:
    nrm::ResourceDemandBatchResult next;
 };
 
+class CountingAssessmentService : public nrm::AssessmentServicePort
+{
+public:
+   nrm::AssessmentResult Evaluate(
+      const nrm::ResourceSnapshot&,
+      const nrm::AssessmentTask&) const override
+   {
+      ++calls;
+      return next;
+   }
+
+   mutable std::size_t calls = 0;
+   nrm::AssessmentResult next;
+};
+
 void RemovePackage(const nrm::DistributionPackageResult& aPackage,
                    const std::string& aOutputRoot)
 {
@@ -328,6 +364,14 @@ int main()
    assert(capability.snapshotVersion == snapshot.snapshotVersion);
    assert(capability.result.requestValid);
    assert(capability.result.pathAvailable);
+
+   const nrm::AssessmentServiceResponse assessment = facade.EvaluateAssessment(
+      Context("SERVICE-ASSESSMENT"), snapshot, AssessmentTask());
+   assert(assessment.valid);
+   assert(assessment.status == nrm::ModelServiceStatus::cSUCCESS);
+   assert(assessment.operation ==
+          nrm::ModelServiceOperation::cEVALUATE_ASSESSMENT);
+   assert(assessment.result.taskId == "ASSESSMENT-110");
 
    const nrm::PlanValidationServiceResponse validation = facade.ValidatePlan(
       Context("SERVICE-VALIDATION"), snapshot, plan);
@@ -389,9 +433,10 @@ int main()
    auto evaluationPort = std::make_shared<CountingEvaluationService>();
    auto distributionPort = std::make_shared<CountingDistributionService>();
    auto demandPort = std::make_shared<CountingDemandService>();
+   auto assessmentPort = std::make_shared<CountingAssessmentService>();
    const nrm::ModelServiceFacade countingFacade(
       profiles, capabilityPort, validationPort, evaluationPort,
-      distributionPort, demandPort);
+      distributionPort, demandPort, assessmentPort);
 
    nrm::ModelServiceContext invalidContext = Context("");
    nrm::CapabilityServiceResponse rejected = countingFacade.QueryCapability(
@@ -480,7 +525,89 @@ int main()
          Context("COUNT-DEMAND"), snapshot, demandSet);
    assert(countedDemand.status == nrm::ModelServiceStatus::cSUCCESS);
    assert(demandPort->calls == 1);
+   assessmentPort->next.taskId = "COUNTED-ASSESSMENT";
+   const nrm::AssessmentServiceResponse countedAssessment =
+      countingFacade.EvaluateAssessment(
+         Context("COUNT-ASSESSMENT"), snapshot, AssessmentTask());
+   assert(countedAssessment.status == nrm::ModelServiceStatus::cSUCCESS);
+   assert(countedAssessment.result.taskId == "COUNTED-ASSESSMENT");
+   assert(assessmentPort->calls == 1);
 
+   assessmentPort->next.taskId = "ENVIRONMENT-ASSESSMENT";
+   assessmentPort->next.canEstablish = true;
+   assessmentPort->next.canComplete = true;
+   assessmentPort->next.stable = true;
+   nrm::EnvironmentContext informationOnly;
+   informationOnly.valid = true;
+   informationOnly.applicationMode =
+      nrm::EnvironmentApplicationMode::cINFORMATION_ONLY;
+   const std::size_t capabilityCallsBeforeEnvironment = capabilityPort->calls;
+   const nrm::AssessmentServiceResponse informationAssessment =
+      countingFacade.EvaluateAssessment(
+         Context("ASSESSMENT-INFORMATION"), snapshot, AssessmentTask(),
+         informationOnly);
+   assert(informationAssessment.result.canComplete);
+   assert(capabilityPort->calls == capabilityCallsBeforeEnvironment);
+
+   nrm::EnvironmentContext alreadyIncluded = informationOnly;
+   alreadyIncluded.applicationMode =
+      nrm::EnvironmentApplicationMode::cALREADY_INCLUDED;
+   alreadyIncluded.applyParameterizedEffects = true;
+   const nrm::AssessmentServiceResponse includedAssessment =
+      countingFacade.EvaluateAssessment(
+         Context("ASSESSMENT-INCLUDED"), snapshot, AssessmentTask(),
+         alreadyIncluded);
+   assert(includedAssessment.result.canComplete);
+   assert(capabilityPort->calls == capabilityCallsBeforeEnvironment);
+
+   nrm::EnvironmentContext candidateAdjustment = informationOnly;
+   candidateAdjustment.applicationMode =
+      nrm::EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT;
+   candidateAdjustment.applyParameterizedEffects = true;
+   capabilityPort->next = nrm::CapabilityResult();
+   capabilityPort->next.requestValid = true;
+   capabilityPort->next.pathAvailable = true;
+   capabilityPort->next.transmissionRateBps.valid = true;
+   capabilityPort->next.transmissionRateBps.value = 400.0;
+   capabilityPort->next.transmissionDelayMs.valid = true;
+   capabilityPort->next.transmissionDelayMs.value = 30.0;
+   capabilityPort->next.packetLossPercent.valid = true;
+   capabilityPort->next.packetLossPercent.value = 15.0;
+   nrm::EnvironmentEffect adjustedEffect;
+   adjustedEffect.valid = true;
+   adjustedEffect.origin = nrm::DataOrigin::cCUSTOMER_MODULE;
+   adjustedEffect.capacityScale.valid = true;
+   adjustedEffect.capacityScale.value = 0.5;
+   capabilityPort->next.environmentEffects.push_back(adjustedEffect);
+   const nrm::AssessmentServiceResponse adjustedAssessment =
+      countingFacade.EvaluateAssessment(
+         Context("ASSESSMENT-ADJUSTED"), snapshot, AssessmentTask(),
+         candidateAdjustment);
+   assert(capabilityPort->calls == capabilityCallsBeforeEnvironment + 1);
+   assert(!adjustedAssessment.result.canComplete);
+   assert(!adjustedAssessment.result.stable);
+   assert(adjustedAssessment.result.bandwidthMarginBps.valid);
+   assert(adjustedAssessment.result.bandwidthMarginBps.value == -100.0);
+   assert(adjustedAssessment.result.delayMarginMs.value == -10.0);
+   assert(adjustedAssessment.result.reliabilityMarginPercent.value == -5.0);
+   assert(HasAssessmentReason(
+      adjustedAssessment.result,
+      nrm::AssessmentReason::cBANDWIDTH_MARGIN_NEGATIVE));
+
+   capabilityPort->next.pathAvailable = false;
+   capabilityPort->next.reasons.push_back(
+      nrm::CapabilityReason::cENVIRONMENT_HARD_BLOCKED);
+   const nrm::AssessmentServiceResponse blockedAssessment =
+      countingFacade.EvaluateAssessment(
+         Context("ASSESSMENT-BLOCKED"), snapshot, AssessmentTask(),
+         candidateAdjustment);
+   assert(!blockedAssessment.result.canEstablish);
+   assert(!blockedAssessment.result.canComplete);
+   assert(HasAssessmentReason(
+      blockedAssessment.result,
+      nrm::AssessmentReason::cENVIRONMENT_HARD_BLOCKED));
+
+   capabilityPort->next = nrm::CapabilityResult();
    capabilityPort->next.requestId = "DOWNSTREAM-FAILURE";
    capabilityPort->next.requestValid = false;
    capabilityPort->next.reasons.push_back(
@@ -505,7 +632,7 @@ int main()
 
    const nrm::ModelServiceFacade missingDependencyFacade(
       profiles, nrm::ModelServiceFacade::CapabilityServicePtr(), validationPort,
-      evaluationPort, distributionPort, demandPort);
+      evaluationPort, distributionPort, demandPort, assessmentPort);
    const nrm::CapabilityServiceResponse missingDependency =
       missingDependencyFacade.QueryCapability(
          Context("MISSING-DEPENDENCY"), snapshot, CapabilityRequest());

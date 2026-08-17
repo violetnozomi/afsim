@@ -24,6 +24,7 @@ enum class AssessmentReason
    cBANDWIDTH_MARGIN_NEGATIVE,
    cDELAY_MARGIN_NEGATIVE,
    cRELIABILITY_MARGIN_NEGATIVE,
+   cENVIRONMENT_HARD_BLOCKED,
    cPROFILE_CONFIG_INVALID,
    cPATH_SEARCH_LIMIT_REACHED
 };
@@ -54,6 +55,8 @@ inline const char* ToString(AssessmentReason aReason)
       return "PATH_SEARCH_LIMIT_REACHED";
    case AssessmentReason::cRELIABILITY_MARGIN_NEGATIVE:
       return "RELIABILITY_MARGIN_NEGATIVE";
+   case AssessmentReason::cENVIRONMENT_HARD_BLOCKED:
+      return "ENVIRONMENT_HARD_BLOCKED";
    }
    return "DATA_INVALID";
 }

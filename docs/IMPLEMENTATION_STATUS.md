@@ -1,6 +1,6 @@
 # AFSIM 网络资源管理器实施状态与需求追踪
 
-_对照《AFSIM网络资源管理器技术报告与实施方案》· 更新日期：2026-08-14_
+_对照《AFSIM网络资源管理器技术报告与实施方案》· 更新日期：2026-08-17_
 
 ## 状态摘要
 
@@ -18,17 +18,17 @@ _对照《AFSIM网络资源管理器技术报告与实施方案》· 更新日�
 | 综合通信协同场景 | 25节点、29端点、60链路；无敌方、武器和交战元素，命令行已验证 | 0.11.0工作区 |
 | 统一通信能力查询 | 已实现，PRE_ACCEPTANCE | 0.8.0 第一阶段 |
 | 内部网链规划文件生命周期 | 已实现，PRE_ACCEPTANCE | 0.9.0 第一阶段 |
-| 资源需求生命周期、匹配与有限候选建议 | 已实现，PRE_ACCEPTANCE | 0.10.0 第一阶段 |
+| 资源需求生命周期、并发匹配与有限候选建议 | 已实现，PRE_ACCEPTANCE；甲方精简JSON已接入 | 0.12.0工作区 |
 | 进程内模型服务门面与版本注册表 | 已实现，PRE_ACCEPTANCE | 0.11.0 第一阶段 |
 | 环境影响适配 | 第一版已实现：严格配置、内置采集、候选链路修正 | `docs/环境影响简要设计.md` |
 | 甲方外部模块输入 | 接口预留 | `InputProvider` |
-| 甲方JSON接口基线 | Schema、中文标准注解与8类示例已完成，待甲方签字 | `docs/甲方接口对齐规范与JSON-Schema.md` |
+| 甲方JSON接口基线 | 13类Schema、中文注释、运行时严格校验、状态合并、任务评估和并发需求入口已完成，待甲方签字 | `docs/甲方接口对齐规范与JSON-Schema.md` |
 | AFSIM 内置导航数据适配 | 第一版已实现，PRE_ACCEPTANCE | 实时状态 + `.neh`解析 + 中文导航页 |
 | 甲方专用 GNSS/INS 结果包适配 | Adapter后置 | 仅在其格式不同于AFSIM `.neh`时需要 |
 | 地形、气象、天象和电磁环境 | 第一版已实现 | AFSIM内置采集 + 中文环境页签 |
 | 现代化可视化 | 深色卡片、统一控件、平台去重、多网徽点和标签避碰已验证 | 10/25平台远程VNC截图 |
 | 合同30行指标软件映射 | 30/30已实现，26类唯一能力，PRE_ACCEPTANCE | `docs/合同30项指标实现矩阵.md` |
-| 合同补缺闭环 | 已实现，31项固定测试通过 | 频点/协议资源、区域/姿态/干扰、规划协同、需求反馈、导航精度、恢复与部署证据 |
+| 合同补缺闭环 | 已实现，37项固定C++测试通过 | 频点/协议资源、区域/姿态/干扰、规划协同、需求反馈、导航精度、恢复、部署及甲方入口端到端证据 |
 
 ## 2026-08-14 合同补缺闭环
 
@@ -42,6 +42,23 @@ _对照《AFSIM网络资源管理器技术报告与实施方案》· 更新日�
 - [x] 恢复清单原子保存最后有效配置、规划/需求修订和未确认包；损坏输入不污染已有状态。
 - [x] 第三方参考模型可在真实`ModelRegistry`注册、健康检查、描述和卸载。
 - [x] 新增资源告警、需求反馈和规划协同JSONL，以及只读部署检查JSON。
+- [x] 甲方JSON按具体网络ID隔离；资源/导航/环境按域合并，导航按平台upsert。
+- [x] `messageId/runId/simTime`执行有界去重、乱序拒绝、新运行切换和旧运行隔离。
+- [x] 规划输入绑定当前剖面配置版本；外部任务请求与界面共用统一评估入口。
+- [x] 两个同类型网络按明确`networkId`隔离；跨网络成员链路引用被拒绝。
+- [x] 环境`INFORMATION_ONLY/ALREADY_INCLUDED/CANDIDATE_ADJUSTMENT`完整保存；甲方模式不会被候选路径推断覆盖。
+- [x] `DataContainer::LoadCustomerJson`真实文件入口覆盖资源、导航、环境、评估、规划、需求及新快照派生失效。
+- [x] `ResourceSnapshotValidator`由JSON和同进程C++入口共用，统一校验具体网络归属、路由连续性、网关关系和指标语义。
+- [x] AFSIM拓扑/实时链路作为基础态，甲方导航/环境作为跨AFSIM周期持久覆盖层，彻底移除隐式最后写入者覆盖。
+- [x] 独立任务评估复用能力服务的环境链；三态环境不会漏算或二次衰减，硬阻断具有固定原因码。
+- [x] 接口校验脚本默认使用`python3`并支持`PYTHON_BIN`覆盖，缺少`jsonschema`时给出明确诊断。
+
+运行时接入边界：`FrequencyCharacteristicRepository`、`RecoveryStateStore`和
+`ReferenceModelAdapter`当前分别属于“独立组件”“恢复组件”“兼容性测试样例”，均有固定
+测试，但尚未绑定到Warlock运行时主链。当前频率推荐使用`NetworkProfileRepository`；启动
+恢复位置/策略和第三方正式模块需甲方确认后再通过现有边界接入，不能把组件级实现写成现场
+运行证据。`InputProvider`、`NetworkPlanAdapter`和`ContractInterfaceAdapter`是刻意保留的
+兼容扩展接口，不属于可删除死代码；`CustomerNrmAdapter`已绑定`DataContainer`运行时主链。
 
 上述内容均为插件内部`PRE_ACCEPTANCE`证据。甲方OA、保密、TLS、正式模型封装ABI和真实
 四网协议字段未提供时统一标记`CUSTOMER_BLOCKED`，不伪造为已通过。
@@ -132,20 +149,20 @@ _对照《AFSIM网络资源管理器技术报告与实施方案》· 更新日�
 
 ## v0.11 第一阶段已实现
 
-- [x] `ModelServiceContext`、七项固定操作、六类固定状态和强类型响应契约
+- [x] `ModelServiceContext`、八项固定操作、六类固定状态和强类型响应契约
 - [x] schema、空requestId、非有限requestTime和snapshotVersion前置校验
-- [x] `ModelServiceFacade`分别单次委托现有能力、规划校验、规划推演、分发和需求匹配服务
+- [x] `ModelServiceFacade`分别单次委托任务评估、能力、规划校验、规划推演、分发和需求匹配服务
 - [x] 规划内容指纹、修订与snapshotVersion证据不匹配时不调用下游服务
 - [x] 下游领域失败结果无损保留；不可预期异常固定返回`INTERNAL_ERROR`
 - [x] `ModelRegistry`精确版本注册、查询、稳定列表、卸载和操作/schema能力查询
 - [x] 非法描述符、重复modelId+version拒绝且不破坏既有项；同ID不同版本并存
-- [x] `ContractInterfaceAdapter`纯抽象边界，不含甲方协议、字段或传输假设
+- [x] `CustomerNrmAdapter`实现同进程强类型执行边界；`ContractInterfaceAdapter`保留为甲方私有对象转换SPI；`CustomerJsonCodec`负责精简V1文件、测试和回放
 - [x] DataContainer持有Facade和Registry，注册唯一NRM描述符并复用门面调用链
 - [x] 新增Facade与Registry两项测试，原13项无回归，合计15项
 - [x] WSF和Warlock两个插件构建成功；公共头无Qt/AFSIM依赖
 - [ ] 固定服务smoke：headless mission无法取得Warlock Facade和强类型快照，未伪造证据
 
-本阶段只形成内部进程调用边界，不代表甲方模型封装协议、真实网络服务、第三方模型兼容
+本阶段形成同进程调用边界，不代表甲方私有对象映射、目标ABI、第三方模型兼容
 或目标环境联调完成。没有新增HTTP、gRPC、消息队列、数据库、动态库扫描或自动网络控制。
 
 ## 仍为部分完成

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "nrm/AssessmentTypes.hpp"
 #include "nrm/NetworkPlanTypes.hpp"
 #include "nrm/ResourceDemandTypes.hpp"
 
@@ -18,6 +19,7 @@ constexpr const char* cMODEL_SERVICE_RESPONSE_SCHEMA =
 enum class ModelServiceOperation
 {
    cQUERY_CAPABILITY,
+   cEVALUATE_ASSESSMENT,
    cVALIDATE_PLAN,
    cEVALUATE_PLAN,
    cGENERATE_DISTRIBUTION_PACKAGE,
@@ -31,6 +33,8 @@ inline const char* ToString(ModelServiceOperation aOperation)
    switch (aOperation)
    {
    case ModelServiceOperation::cQUERY_CAPABILITY: return "QUERY_CAPABILITY";
+   case ModelServiceOperation::cEVALUATE_ASSESSMENT:
+      return "EVALUATE_ASSESSMENT";
    case ModelServiceOperation::cVALIDATE_PLAN: return "VALIDATE_PLAN";
    case ModelServiceOperation::cEVALUATE_PLAN: return "EVALUATE_PLAN";
    case ModelServiceOperation::cGENERATE_DISTRIBUTION_PACKAGE:
@@ -156,6 +160,7 @@ struct ModelServiceResponse
 };
 
 using CapabilityServiceResponse = ModelServiceResponse<CapabilityResult>;
+using AssessmentServiceResponse = ModelServiceResponse<AssessmentResult>;
 using PlanValidationServiceResponse = ModelServiceResponse<PlanValidationResult>;
 using PlanEvaluationServiceResponse =
    ModelServiceResponse<NetworkPlanEvaluationResult>;
@@ -171,6 +176,12 @@ struct CapabilityModelServiceRequest
    ResourceSnapshot snapshot;
    CapabilityRequest request;
    EnvironmentContext environment;
+};
+
+struct AssessmentModelServiceRequest
+{
+   ResourceSnapshot snapshot;
+   AssessmentTask task;
 };
 
 struct ValidatePlanModelServiceRequest

@@ -61,13 +61,13 @@ public:
       case NetworkType::cLINK11:
          result.state.kind = "POLLING_UNIT";
          result.state.capacity = mDefaults.link11PollingUnits;
-         result.addedDelayMs = 125.0 * (aActiveOwners + 1);
+         result.addedDelayMs = 125.0 * static_cast<double>(aActiveOwners + 1);
          result.reason = ProtocolResourceReason::cPOLLING_UNIT_EXHAUSTED;
          break;
       case NetworkType::cLINK16:
          result.state.kind = "TIMESLOT";
          result.state.capacity = mDefaults.link16Slots;
-         result.addedDelayMs = 7.8125 * (aActiveOwners + 1);
+         result.addedDelayMs = 7.8125 * static_cast<double>(aActiveOwners + 1);
          result.reason = ProtocolResourceReason::cTIMESLOT_EXHAUSTED;
          break;
       case NetworkType::cSATCOM:
@@ -95,7 +95,8 @@ public:
       if (result.state.capacity > 0)
       {
          result.state.utilizationPercent.value = std::min(
-            100.0, 100.0 * result.state.used / result.state.capacity);
+            100.0, 100.0 * static_cast<double>(result.state.used) /
+                      static_cast<double>(result.state.capacity));
          result.state.utilizationPercent.unit = "percent";
          result.state.utilizationPercent.valid = true;
          result.state.utilizationPercent.origin = DataOrigin::cPARAMETERIZED_MODEL;

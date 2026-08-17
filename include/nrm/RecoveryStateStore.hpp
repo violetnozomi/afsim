@@ -2,7 +2,9 @@
 #define NRM_RECOVERY_STATE_STORE_HPP
 
 // Atomic persistence for small, validated restart metadata. This deliberately
-// does not restore simulation time or unfinished communication tasks.
+// does not restore simulation time or unfinished communication tasks. The
+// component is independently tested; runtime startup wiring is deferred until
+// the customer confirms the target persistence location and recovery policy.
 
 #include <cmath>
 #include <cstdio>
@@ -11,6 +13,8 @@
 #include <iomanip>
 #include <string>
 #include <vector>
+
+#include "nrm/TemporaryPathGuard.hpp"
 
 namespace nrm
 {
@@ -41,6 +45,7 @@ public:
    {
       if (!Valid(aState) || aPath.empty()) return false;
       const std::string temporaryPath = aPath + ".tmp";
+      TemporaryPathGuard temporaryGuard(temporaryPath);
       {
          std::ofstream output(temporaryPath.c_str(),
                               std::ios::out | std::ios::trunc);
@@ -66,15 +71,14 @@ public:
          output.flush();
          if (!output)
          {
-            std::remove(temporaryPath.c_str());
             return false;
          }
       }
       if (std::rename(temporaryPath.c_str(), aPath.c_str()) != 0)
       {
-         std::remove(temporaryPath.c_str());
          return false;
       }
+      temporaryGuard.Commit();
       return true;
    }
 

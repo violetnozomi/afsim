@@ -147,9 +147,15 @@ struct EndpointSnapshot
 {
    std::string endpointId;
    std::string address;
+   // Stable platform identity supplied by AFSIM or the customer contract.
+   std::string platformId;
+   // Human-readable/legacy platform label. Older producers may place the ID here.
    std::string platformName;
    std::string commName;
    std::string commType;
+   // Stable network identity used for joins and reference validation.
+   std::string networkId;
+   // Human-readable/legacy network label. Older producers may place the ID here.
    std::string networkName;
    NetworkType networkType = NetworkType::cUNKNOWN;
    ResourceState state      = ResourceState::cUNKNOWN;
@@ -266,6 +272,9 @@ struct LinkSnapshot
    std::string destinationEndpointId;
    std::string sourcePlatform;
    std::string destinationPlatform;
+   // Stable network identity used for joins and reference validation.
+   std::string networkId;
+   // Human-readable/legacy network label. Older producers may place the ID here.
    std::string networkName;
    NetworkType networkType = NetworkType::cUNKNOWN;
    ResourceState state      = ResourceState::cUNKNOWN;
@@ -303,6 +312,7 @@ struct TerrainEnvironmentState
    bool enabled = false;
    std::size_t evaluatedLinkCount = 0;
    std::size_t blockedLinkCount = 0;
+   std::vector<std::string> blockedLinkIds;
 };
 
 struct WeatherEnvironmentState
@@ -311,6 +321,7 @@ struct WeatherEnvironmentState
    MetricValue<double> windSpeedMps;
    MetricValue<double> windDirectionDeg;
    MetricValue<double> rainRateMmPerHour;
+   MetricValue<double> cloudPercent;
    MetricValue<double> rainUpperAltitudeM;
    MetricValue<double> cloudLowerAltitudeM;
    MetricValue<double> cloudUpperAltitudeM;
@@ -323,6 +334,7 @@ struct CelestialEnvironmentState
    bool available = false;
    bool usesSystemTime = false;
    MetricValue<double> julianDate;
+   MetricValue<double> sunElevationDeg;
 };
 
 struct InterferenceEnvironmentState
@@ -340,6 +352,8 @@ struct InterferenceEnvironmentState
    std::size_t observedLinkCount = 0;
    MetricValue<double> maximumPowerDbm;
    MetricValue<double> maximumFactorPercent;
+   MetricValue<double> capacityScale;
+   std::vector<std::string> affectedLinkIds;
    std::vector<Band> bands;
 };
 
@@ -360,6 +374,9 @@ struct EnvironmentSnapshot
 
 struct NavigationSample
 {
+   // Stable customer/AFSIM platform identity used for state upsert.
+   std::string platformId;
+   // Human-readable/legacy platform label. Older producers may place the ID here.
    std::string platformName;
    std::string navigationType;
    std::string rawStatus;

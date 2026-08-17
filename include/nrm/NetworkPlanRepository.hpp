@@ -18,6 +18,7 @@
 
 #include "nrm/NetworkPlanTypes.hpp"
 #include "nrm/NetworkTypeUtils.hpp"
+#include "nrm/TemporaryPathGuard.hpp"
 
 namespace nrm
 {
@@ -162,8 +163,9 @@ inline bool FileExists(const std::string& aPath)
 inline bool IsSafePlanId(const std::string& aValue)
 {
    if (aValue.empty()) return false;
-   for (unsigned char character : aValue)
+   for (char rawCharacter : aValue)
    {
+      const unsigned char character = static_cast<unsigned char>(rawCharacter);
       const bool allowed = (character >= 'a' && character <= 'z') ||
                            (character >= 'A' && character <= 'Z') ||
                            (character >= '0' && character <= '9') ||
@@ -316,8 +318,9 @@ inline std::string PlanContentFingerprint(const NetworkPlanDocument& aDocument)
    WriteDocument(serialized, canonical);
 
    std::uint64_t fingerprint = 14695981039346656037ULL;
-   for (unsigned char byte : serialized.str())
+   for (char rawByte : serialized.str())
    {
+      const unsigned char byte = static_cast<unsigned char>(rawByte);
       fingerprint ^= static_cast<std::uint64_t>(byte);
       fingerprint *= 1099511628211ULL;
    }
@@ -442,6 +445,7 @@ public:
 
       const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
       const std::string temporaryPath = aPath + ".tmp-" + std::to_string(stamp);
+      TemporaryPathGuard temporaryGuard(temporaryPath);
       {
          std::ofstream output(temporaryPath, std::ios::out | std::ios::trunc);
          if (!output)
@@ -451,18 +455,16 @@ public:
          output.flush();
          if (!output)
          {
-            output.close();
-            std::remove(temporaryPath.c_str());
             return network_plan_detail::Failure(
                PlanValidationReason::cFILE_WRITE_FAILED, aPath, "document", &aDocument);
          }
       }
       if (std::rename(temporaryPath.c_str(), aPath.c_str()) != 0)
       {
-         std::remove(temporaryPath.c_str());
          return network_plan_detail::Failure(
             PlanValidationReason::cATOMIC_RENAME_FAILED, aPath, "path", &aDocument);
       }
+      temporaryGuard.Commit();
       return network_plan_detail::Success(aPath, aDocument);
    }
 

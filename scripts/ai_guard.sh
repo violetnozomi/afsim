@@ -16,7 +16,7 @@ if [ -z "$SCENARIO_TIMEOUT_VALUE" ]; then
   SCENARIO_TIMEOUT_VALUE=120
 fi
 
-TEST_NAMES="nrm_contract_metric_enricher_test nrm_degradation_policy_test nrm_concurrent_task_assessment_test nrm_framework_types_test nrm_ui_text_test nrm_snapshot_reporter_test nrm_assessment_evaluator_test nrm_network_profile_test nrm_frequency_characteristic_test nrm_protocol_resource_model_test nrm_message_lifecycle_tracker_test nrm_resource_event_ledger_test nrm_constrained_path_selector_test nrm_snapshot_reporter_recovery_test nrm_communication_capability_service_test nrm_network_plan_repository_test nrm_network_plan_evaluation_test nrm_network_plan_coordination_test nrm_resource_demand_repository_test nrm_resource_demand_matching_test nrm_resource_demand_coordinator_test nrm_model_service_facade_test nrm_model_registry_test nrm_environment_config_repository_test nrm_environment_effect_adapter_test nrm_operational_environment_evaluator_test nrm_afsim_navigation_packet_parser_test nrm_navigation_accuracy_model_test nrm_recovery_state_store_test nrm_reference_model_adapter_test nrm_customer_json_codec_test"
+TEST_NAMES="nrm_contract_metric_enricher_test nrm_degradation_policy_test nrm_concurrent_task_assessment_test nrm_framework_types_test nrm_ui_text_test nrm_snapshot_reporter_test nrm_assessment_evaluator_test nrm_network_profile_test nrm_frequency_characteristic_test nrm_protocol_resource_model_test nrm_message_lifecycle_tracker_test nrm_resource_event_ledger_test nrm_constrained_path_selector_test nrm_snapshot_reporter_recovery_test nrm_communication_capability_service_test nrm_network_plan_repository_test nrm_network_plan_evaluation_test nrm_network_plan_coordination_test nrm_resource_demand_repository_test nrm_resource_demand_matching_test nrm_resource_demand_coordinator_test nrm_model_service_facade_test nrm_model_registry_test nrm_environment_config_repository_test nrm_environment_effect_adapter_test nrm_operational_environment_evaluator_test nrm_afsim_navigation_packet_parser_test nrm_navigation_accuracy_model_test nrm_recovery_state_store_test nrm_reference_model_adapter_test nrm_temporary_path_guard_test nrm_customer_state_lifecycle_test nrm_customer_nrm_adapter_test nrm_resource_snapshot_validator_test nrm_effective_snapshot_assembler_test nrm_customer_json_codec_test nrm_customer_data_container_test"
 
 usage() {
   printf '%s\n' \
@@ -151,11 +151,29 @@ scenario_cmd() {
     return 1
   fi
   require_file "$input_path"
+  mkdir -p "$ROOT/output"
   if [ "$1" = navigation_errors ]; then
     mkdir -p /tmp/nrm-navigation-history
   fi
   printf 'Running approved scenario once: %s\n' "$1"
-  timeout "$SCENARIO_TIMEOUT_VALUE" "$mission_path" "$input_path"
+  scenario_log=$(mktemp /tmp/nrm-scenario.XXXXXX.log)
+  command_status=0
+  if timeout "$SCENARIO_TIMEOUT_VALUE" "$mission_path" "$input_path" 2>&1 | tee "$scenario_log"; then
+    :
+  else
+    command_status=$?
+  fi
+  if [ "$command_status" -ne 0 ]; then
+    rm -f "$scenario_log"
+    return "$command_status"
+  fi
+  if grep -Eq 'Initialization of simulation failed|Reading of simulation input failed|Cannot open file' "$scenario_log" ||
+     ! grep -q 'Simulation complete' "$scenario_log"; then
+    printf 'ERROR: scenario did not reach a clean Simulation complete marker.\n' >&2
+    rm -f "$scenario_log"
+    return 1
+  fi
+  rm -f "$scenario_log"
 }
 
 if [ "$#" -eq 0 ]; then

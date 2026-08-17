@@ -51,6 +51,9 @@ int main()
    assert(registry.SupportsOperation(
       nrmDescriptor.modelId, nrmDescriptor.modelVersion,
       nrm::ModelServiceOperation::cQUERY_CAPABILITY));
+   assert(registry.SupportsOperation(
+      nrmDescriptor.modelId, nrmDescriptor.modelVersion,
+      nrm::ModelServiceOperation::cEVALUATE_ASSESSMENT));
    assert(!registry.SupportsOperation(
       nrmDescriptor.modelId, nrmDescriptor.modelVersion,
       static_cast<nrm::ModelServiceOperation>(99)));

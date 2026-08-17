@@ -10,6 +10,10 @@
 #include "nrm/AssessmentTypes.hpp"
 #include "nrm/ConcurrentTaskAssessment.hpp"
 #include "nrm/BuiltInEnvironmentEffectAdapter.hpp"
+#include "nrm/CustomerIngestionState.hpp"
+#include "nrm/CustomerNrmAdapter.hpp"
+#include "nrm/CustomerSnapshotAssembler.hpp"
+#include "nrm/EffectiveSnapshotAssembler.hpp"
 #include "nrm/ModelRegistry.hpp"
 #include "nrm/ModelServiceFacade.hpp"
 #include "nrm/NetworkPlanRepository.hpp"
@@ -22,7 +26,7 @@ namespace WkNrm
 {
 class SnapshotReporter;
 
-class DataContainer : public QObject
+class DataContainer : public QObject, private nrm::CustomerNrmHost
 {
    Q_OBJECT
 
@@ -95,11 +99,20 @@ public:
    {
       return mModelRegistration;
    }
+   nrm::CustomerNrmAdapter& GetCustomerNrmAdapter()
+   {
+      return mCustomerNrmAdapter;
+   }
+   const nrm::CustomerNrmAdapter& GetCustomerNrmAdapter() const
+   {
+      return mCustomerNrmAdapter;
+   }
    nrm::NetworkPlanState GetNetworkPlanState() const;
    bool IsReportingHealthy() const;
    std::string GetReportingStatus() const;
    void SetSnapshot(const nrm::FrameworkSnapshot& aSnapshot);
    void StoreAssessment(const nrm::AssessmentResult& aResult);
+   nrm::AssessmentResult EvaluateAssessment(const nrm::AssessmentTask& aTask);
    nrm::CapabilityResult QueryCapability(
       const nrm::CapabilityRequest& aRequest,
       const nrm::EnvironmentContext& aEnvironment = nrm::EnvironmentContext());
@@ -108,6 +121,15 @@ public:
    const CustomerJsonDecodeResult& LastCustomerJsonResult() const
    {
       return mLastCustomerJsonResult;
+   }
+   const QByteArray& LastCustomerJsonResponse() const
+   {
+      return mLastCustomerJsonResponse;
+   }
+   bool HasCustomerProvider() const { return mHasCustomerProvider; }
+   const CustomerProviderHello& LastCustomerProvider() const
+   {
+      return mLastCustomerProvider;
    }
    bool ReplaceNetworkPlanDraft(const nrm::NetworkPlanDocument& aDocument);
    void UnloadNetworkPlan();
@@ -134,13 +156,40 @@ signals:
    void ResourceDemandChanged();
 
 private:
+   const nrm::ResourceSnapshot& CurrentSnapshot() const override
+   {
+      return mSnapshot;
+   }
+   std::string ActiveConfigVersion() const override
+   {
+      return mProfiles.ConfigVersion();
+   }
+   void PublishCustomerSnapshot(
+      const nrm::ResourceSnapshot& aSnapshot) override;
+   void ApplyCustomerEnvironmentContext(
+      const nrm::EnvironmentContext& aContext) override;
+   void BeginCustomerRun() override;
+   nrm::AssessmentResult RunCustomerAssessment(
+      const nrm::AssessmentTask& aTask) override;
+   nrm::CustomerPlanEvaluationResult RunCustomerPlan(
+      const nrm::NetworkPlanDocument& aPlan) override;
+   nrm::ResourceDemandBatchResult RunCustomerDemands(
+      const nrm::ResourceDemandSet& aDemands) override;
+
    nrm::ModelServiceContext MakeModelServiceContext(
       nrm::ModelServiceOperation aOperation,
       std::uint64_t aSnapshotVersion);
    nrm::EnvironmentContext EffectiveEnvironment(
       const nrm::EnvironmentContext& aEnvironment) const;
+   void RebuildEffectiveSnapshot();
+   void ApplyEffectiveSnapshot(nrm::FrameworkSnapshot aSnapshot);
 
    nrm::FrameworkSnapshot            mSnapshot;
+   nrm::FrameworkSnapshot            mAfsimBaseSnapshot;
+   nrm::FrameworkSnapshot            mCustomerOverlaySnapshot;
+   bool                              mHasAfsimBaseSnapshot = false;
+   bool                              mHasCustomerOverlaySnapshot = false;
+   std::uint64_t                     mEffectiveSnapshotVersion = 0;
    nrm::AssessmentResult             mAssessment;
    nrm::CapabilityResult             mCapability;
    bool                              mHasAssessment = false;
@@ -173,6 +222,12 @@ private:
    std::unique_ptr<SnapshotReporter> mReporterPtr;
    CustomerJsonCodec                 mCustomerJsonCodec;
    CustomerJsonDecodeResult          mLastCustomerJsonResult;
+   QByteArray                        mLastCustomerJsonResponse;
+   nrm::CustomerIngestionState       mCustomerIngestionState;
+   nrm::CustomerNrmAdapter           mCustomerNrmAdapter;
+   nrm::EnvironmentContext           mCustomerEnvironmentContext;
+   CustomerProviderHello             mLastCustomerProvider;
+   bool                              mHasCustomerProvider = false;
 };
 } // namespace WkNrm
 

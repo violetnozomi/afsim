@@ -125,7 +125,8 @@ public:
       if (mTransmitObservationAvailable && output.messages.transmitted > 0)
       {
          const double ratio =
-            std::min(1.0, static_cast<double>(output.messages.received) / output.messages.transmitted);
+            std::min(1.0, static_cast<double>(output.messages.received) /
+                           static_cast<double>(output.messages.transmitted));
          SetDerived(output.deliveryRatioPercent, ratio * 100.0, "percent", aSimTime, aWindowS);
          output.pdrPercent = output.deliveryRatioPercent;
       }
@@ -140,12 +141,14 @@ public:
       if (queueDelayCount > 0)
       {
          SetDerived(
-            output.averageQueueDelayMs, queueDelayTotalMs / queueDelayCount, "ms", aSimTime, aWindowS);
+            output.averageQueueDelayMs,
+            queueDelayTotalMs / static_cast<double>(queueDelayCount),
+            "ms", aSimTime, aWindowS);
       }
       if (transportDelayCount > 0)
       {
          SetDerived(output.averageTransportDelayMs,
-                    transportDelayTotalMs / transportDelayCount,
+                    transportDelayTotalMs / static_cast<double>(transportDelayCount),
                     "ms",
                     aSimTime,
                     aWindowS);
@@ -153,7 +156,7 @@ public:
       if (onlineRatioCount > 0)
       {
          SetDerived(output.onlineRatioPercent,
-                    100.0 * onlineRatioTotal / onlineRatioCount,
+                    100.0 * onlineRatioTotal / static_cast<double>(onlineRatioCount),
                     "percent",
                     aSimTime,
                     aWindowS);

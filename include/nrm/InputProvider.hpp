@@ -1,6 +1,9 @@
 #ifndef NRM_INPUT_PROVIDER_HPP
 #define NRM_INPUT_PROVIDER_HPP
 
+// Stable extension seam for later customer AFSIM providers. The built-in
+// collector does not instantiate this interface directly.
+
 #include <string>
 
 #include "nrm/NetworkResourceTypes.hpp"

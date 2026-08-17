@@ -380,7 +380,17 @@ private:
          EnvironmentDomain::cCELESTIAL,
          EnvironmentDomain::cELECTROMAGNETIC_INTERFERENCE};
       EnvironmentContext effectiveContext = aContext;
-      effectiveContext.applyParameterizedEffects = aResult.usesCandidate;
+      const bool customerModeSpecified =
+         aContext.schemaVersion == "nrm.customer.environment_report.v1";
+      const bool candidateAdjustmentAllowed =
+         !customerModeSpecified ||
+         aContext.applicationMode ==
+            EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT;
+      effectiveContext.applyParameterizedEffects =
+         aResult.usesCandidate && candidateAdjustmentAllowed;
+      if (effectiveContext.applyParameterizedEffects && !customerModeSpecified)
+         effectiveContext.applicationMode =
+            EnvironmentApplicationMode::cCANDIDATE_ADJUSTMENT;
       const bool contextUsable = effectiveContext.valid &&
                                  std::isfinite(effectiveContext.sampleTime) &&
                                  mEnvironmentAdapterPtr != nullptr;

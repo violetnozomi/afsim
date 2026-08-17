@@ -41,6 +41,7 @@ int main()
    snapshot.navigation.valid = true;
    snapshot.navigation.sampleTime = 12.5;
    nrm::NavigationSample navigation;
+   navigation.platformId = "fighter-id";
    navigation.platformName = "fighter";
    navigation.rawStatus = "GPS1";
    navigation.mode = nrm::NavigationMode::cGPS_ACTIVE;
@@ -53,6 +54,7 @@ int main()
    snapshot.navigation.platforms.push_back(navigation);
 
    nrm::NetworkSnapshot network;
+   network.networkId = "network-id-link16";
    network.networkName = "nrm_link16_test";
    network.networkType = nrm::NetworkType::cLINK16;
    network.endpointCount = 2;
@@ -72,6 +74,7 @@ int main()
    endpoint.endpointId = "10.0.0.1";
    endpoint.platformName = "fighter";
    endpoint.commName = "link16";
+   endpoint.networkId = network.networkId;
    endpoint.networkName = network.networkName;
    endpoint.networkType = nrm::NetworkType::cLINK16;
    endpoint.state = nrm::ResourceState::cONLINE;
@@ -195,6 +198,8 @@ int main()
    CHECK(json.find("\"snapshot_version\":7") != std::string::npos);
    CHECK(json.find("\"type\":\"LINK16\"") != std::string::npos);
    CHECK(json.find("\"platform\":\"fighter\"") != std::string::npos);
+   CHECK(json.find("\"networkId\":\"network-id-link16\"") !=
+         std::string::npos);
    CHECK(json.find("\"comm\":\"link16\"") != std::string::npos);
    CHECK(json.find("\"can_send\":false") != std::string::npos);
    CHECK(json.find("\"memberRole\":") != std::string::npos);
@@ -214,6 +219,7 @@ int main()
    CHECK(json.find("\"packetFormat\":\"AFSIM_NAVIGATION_ERROR_HISTORY_NEH\"") !=
          std::string::npos);
    CHECK(json.find("\"rawStatus\":\"GPS1\"") != std::string::npos);
+   CHECK(json.find("\"platformId\":\"fighter-id\"") != std::string::npos);
    CHECK(json.find("\"mode\":\"GPS_ACTIVE\"") != std::string::npos);
    CHECK(json.find("\"totalPositionErrorM\":{\"value\":8.775") !=
          std::string::npos);

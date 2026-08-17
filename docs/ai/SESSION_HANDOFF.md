@@ -432,3 +432,100 @@
   为AFSIM内部高置信度数据，精度模板保持参数化低置信度。
 - 未修改：AFSIM核心、地面/静态卫星状态、平台航迹、甲方专用格式和自动控制逻辑。
 - 回退：场景导航提交与前端空状态提交相互独立，可按需单独`git revert`。
+
+### 2026-08-16 — Codex code quality and RAII hardening
+
+- 唯一目标：一次性收口整体审查发现的正确性、异常安全、RAII、脚本假通过和证据一致性问题。
+- 隔离与回退：在`feat/code-quality-raii-hardening`工作树实施，基线为`a1a5ff8`；未修改AFSIM
+  核心，未删除或改签名甲方扩展接口。
+- 实际修改：严格化导航/环境/资源/规划JSON运行时校验；统一规划仓库接纳；区分Reporter
+  业务域错误与I/O错误并修正线程生命周期；Qt顶层Dock改用`UiPointer`；引入
+  `TemporaryPathGuard`覆盖规划、需求、恢复和分发暂存；远程切换失败回滚；部署检查落实
+  4核/1.0GHz/2GiB/100GiB/百兆网卡下限；场景门禁要求真正到达`Simulation complete`。
+- 死代码结论：`InputProvider`、`NetworkPlanAdapter`、`ContractInterfaceAdapter`是兼容接口；
+  频率特性库、恢复状态库和参考适配器分别标记为组件级/样例级，未伪称运行时已接入。
+- 验证：静态与11类Schema契约通过；32/32 C++测试、2/2 Shell回归通过；严格告警构建中
+  本插件零告警；部署检查PASS；25节点`operational_strike_demo`初始化、消息、导航阶段和
+  `Simulation complete`全部通过。
+- 已知边界：AFSIM上游仍有`-Woverloaded-virtual`告警和Sphinx缺失提示，本轮遵守核心零修改；
+  `NrmDockWidget.cpp`/`NrmSnapshotReporter.cpp`大文件拆分留作独立低风险重构，不混入加固。
+- 详细报告：`docs/代码质量与RAII审查报告.md`。
+- 下一步唯一动作：用户确认后提交该隔离分支；此后仅做甲方现场薄适配。
+
+### 2026-08-16 — Codex customer JSON state lifecycle closure
+
+- 唯一目标：落实最新版审查提示中可由插件本地完成的甲方JSON接入、状态管理和规划语义收口。
+- 实际修改：按具体`networkId`汇总同类型多网络；新增有界`CustomerIngestionState`和
+  `CustomerSnapshotAssembler`；资源报告保留导航/环境，导航按平台upsert；规划绑定当前剖面
+  版本；外部和界面任务评估统一入口；Provider握手保存；快照变化使旧派生结果失效。
+- 环境补齐：保存云量、太阳高度角、地形阻断链路、干扰影响链路和容量缩放，并只对明确
+  受影响候选链路应用`CANDIDATE_ADJUSTMENT`。
+- 技术取舍：未引入通用Draft 2020-12引擎，改为对全部受支持V1消息执行严格允许字段及现有
+  类型/范围/枚举/引用校验；规划文件没有完整拓扑边，因此不伪造规划后网络。
+- 验证结果：静态门禁、11类Schema契约、33/33固定C++测试、36/36完整CTest、部署检查、
+  WSF/Warlock构建和25节点`operational_strike_demo`均通过。
+- 未修改：AFSIM核心、自动控制、真实四网协议和安全传输层。
+
+### 2026-08-17 — Codex unified service and demand JSON closure
+
+- 唯一目标：核实新一轮代码评审，收口仍真实存在的“模块已有但未进入统一主链”问题。
+- 实际修改：任务评估新增`ModelServiceFacade`操作、端口、默认实现、强类型响应、Registry
+  能力和健康依赖；DataContainer不再直接构造评估器。新增并发资源需求请求/响应Schema、
+  严格编解码、配置版本绑定、需求仓库接纳、匹配执行和结构化响应。
+- 接口命名：当前工作的精简V1边界明确为`CustomerJsonContractAdapter`，保留旧
+  `CustomerJsonCodec`别名；抽象`ContractInterfaceAdapter`继续作为未知现场传输SPI。
+- 技术取舍：规划输入没有潜在拓扑和控制动作，未伪造规划后虚拟快照；建议保持只读；
+  HTTP/TCP/MQ传输仍等待甲方部署协议，当前文件/进程内响应字节已具备。
+- 验证：静态门禁通过；13个Schema正例通过、6个反例按预期拒绝；33/33固定测试和
+  36/36完整CTest通过；WSF/Warlock插件构建、部署检查和25节点
+  `operational_strike_demo`均通过并到达`Simulation complete`。
+
+### 2026-08-17 — Codex in-process customer adapter closure
+
+- 唯一目标：把甲方接入从“待定网络Transport”纠正为甲方修改版AFSIM内部的同进程模块调用。
+- 实际修改：新增纯C++ `CustomerNrmAdapter`和`CustomerNrmHost`，统一资源、导航、环境状态
+  生命周期及任务评估、规划推演、并发需求入口；`DataContainer`实现宿主端口并公开
+  `GetCustomerNrmAdapter()`，复用唯一`ModelServiceFacade`和仓库。
+- 接口职责：`ContractInterfaceAdapter`只负责未来甲方私有对象到公共值对象的薄转换；具体
+  JSON类恢复命名为`CustomerJsonCodec`，仅用于Schema合同、文件、测试、回放和验收。
+  `provider_hello/ingest_ack/error`保留为文件工具记录，不再描述为网络握手响应链。
+- 状态语义：直接C++调用与JSON文件入口共享`CustomerIngestionState`；无效输入在任何宿主
+  变更前返回`REJECTED`，重复与迟到输入不改变快照，新run清除上一run的导航/环境动态状态。
+- 范围取舍：不新增HTTP、TCP、WebSocket、MQ、端口、TLS或独立服务进程；没有甲方对象头文件
+  时不伪造具体转换类，也没有在缺少潜在拓扑时伪造规划后虚拟快照。
+- 验证：静态门禁、13正例/6反例契约、34/34固定测试、37/37完整CTest、WSF/Warlock构建、
+  部署检查和25节点`operational_strike_demo`均通过；场景到达`Simulation complete`。
+- 未修改：AFSIM核心。当前仍需甲方提供私有对象头文件、字段语义和目标ABI构建条件，之后
+  只实现`ContractInterfaceAdapter`薄映射。
+
+### 2026-08-17 — Codex customer interface acceptance closure
+
+- 唯一目标：针对外部代码审查指出的未闭环项，直接补齐甲方进程内接口语义和真实入口证据。
+- TDD修复：端点/链路新增明确`networkId`并按实例校验和统计；导航新增`platformId`并按其
+  upsert；环境新增三态枚举与可区分证据，甲方`INFORMATION_ONLY/ALREADY_INCLUDED`不再被
+  候选路径逻辑覆盖；资源需求缺省任务阶段统一降级为`UNSPECIFIED`。
+- 运行时校验：新增可替换`CustomerJsonValidationLayer`，所有JSON解码先走统一校验入口，
+  再执行领域类型、范围、引用和跨对象语义校验；未引入重量级第三方Draft引擎。
+- 真实入口：新增`CustomerDataContainerTest`，从文件加载资源、两个导航平台、环境、评估、
+  规划和并发需求，验证评估响应JSON、活动配置版本绑定、同运行资源刷新保留导航/环境以及
+  Assessment/Capability/Plan/Distribution/Demand旧结果全部失效。
+- 验证：静态与13正例/6反例Schema契约通过；35/35固定C++测试、37/37完整NRM CTest、
+  WSF/Warlock构建、部署检查和25节点场景均通过；场景到达`Simulation complete`。
+- 边界：未增加HTTP/TCP/WebSocket/MQ，未修改AFSIM核心，未实现甲方私有对象薄映射、自动
+  规划或复杂虚拟快照What-if。
+
+### 2026-08-17 — Codex final architecture closure
+
+- 唯一目标：完成外部评审要求中仍真实存在的最后断点，并把隔离worktree成果安全提交、合并
+  回正式开发分支；没有扩展到Transport、自动规划或大型What-if引擎。
+- 共享校验：新增纯C++`ResourceSnapshotValidator`，统一校验具体`networkId`归属、端点、
+  链路、指标、协议资源、路由和网关语义；JSON解码和`CustomerNrmAdapter`直接入口共用。
+- 环境评估：独立Assessment经唯一Facade复用Capability环境链；只读信息与已包含影响不重复
+  衰减，仅候选修正参与带宽、时延、PDR和硬阻断判定。
+- 数据源仲裁：`EffectiveSnapshotAssembler`固定AFSIM拓扑/实时链路为基础态，甲方导航和环境
+  为持久覆盖层；无AFSIM基础态时保留甲方完整回放能力，发布版本保持单调。
+- 工程收口：校验脚本默认`python3`并支持`PYTHON_BIN`覆盖，缺失`jsonschema`给出明确错误；
+  `ai_guard.sh test`已纳入本轮两个新增C++测试，避免新增测试只编译不执行。
+- 验证：`git diff --check`、静态门禁、13正例/6反例合同、37/37固定C++测试、40/40完整
+  CTest、WSF/Warlock构建、部署检查和25节点场景全部通过；场景到达`Simulation complete`。
+- 边界：AFSIM核心修改数为0；甲方私有对象薄映射和目标ABI构建仍需甲方头文件与现场环境。

@@ -10,6 +10,10 @@ AFSIM 内部事件 / 甲方结果包 / 回放输入
                  │ 统一值对象
                  ▼
 状态与证据层
+  ├── CustomerIngestionState：甲方消息去重、乱序拒绝和运行隔离
+  ├── CustomerSnapshotAssembler：资源/导航/环境按域原子合并
+  ├── EffectiveSnapshotAssembler：AFSIM基础态与甲方导航/环境覆盖层仲裁
+  ├── ResourceSnapshotValidator：JSON与C++入口共用的对象关系语义校验
   ├── MessageLifecycleTracker：消息关联、去重、超时和严格窗口队列
   ├── ResourceEventLedger：端点/链路状态及建链事件
   ├── NetworkProfileRepository：版本化参数剖面与校验
@@ -70,14 +74,37 @@ v0.10 第一阶段以`ResourceDemandSet`作为内部需求值对象。匹配服�
 子网和时隙仅在调用方显式有限候选中稳定排序；路由只复用本次能力结果。所有结果均为
 只读分析，不修改规划、需求、快照或AFSIM运行网络。
 
+v0.12 的甲方运行时入口由 `CustomerNrmAdapter → CustomerIngestionState →
+CustomerSnapshotAssembler → ResourceSnapshotValidator → DataContainer → ModelServiceFacade`
+组成。它是同一AFSIM进程内的强类型C++边界，不依赖Qt、JSON或网络协议。
+`CustomerJsonValidationLayer`和`CustomerJsonCodec`只负责文件导入、测试、回放及验收所需的
+JSON结构、字段类型、范围和枚举校验；解码后的对象关系由同一个纯C++
+`ResourceSnapshotValidator`校验，直接C++入口不得绕过。生命周期状态机按
+`runId/messageId/simTime/消息域`拒绝重复和迟到输入；资源报告不会再清空导航与环境，导航
+按平台upsert。外部任务评估和Warlock手工评估统一调用
+`DataContainer::EvaluateAssessment()`，并由该入口进入`ModelServiceFacade`；并发资源需求JSON
+进入需求仓库和同一门面的匹配服务。快照版本变化后旧评估、能力和规划推演缓存立即失效。
+
+运行期采用明确的Customer Overlay仲裁，不再使用隐式last-writer-wins：AFSIM快照存在时，
+AFSIM始终拥有网络、端点、链路、业务流和网关的权威基础态；甲方只覆盖有效导航和环境域。
+后续AFSIM周期快照不会清除甲方覆盖层，较旧的甲方资源报告也不能回写覆盖最新AFSIM链路。
+尚未取得AFSIM基础态时，完整甲方资源快照可作为独立演示/回放基础态。每次合成发布都生成
+单调递增的有效`snapshotVersion`，所有派生结果按该版本失效。
+
+独立任务评估与通信能力查询共享环境语义。`INFORMATION_ONLY`只携带证据，
+`ALREADY_INCLUDED`表示AFSIM基础指标已经包含环境影响，二者均不重复衰减；只有
+`CANDIDATE_ADJUSTMENT`通过既有`CommunicationCapabilityService`环境链修正带宽、时延、
+PDR和硬阻断，再保守回填任务评估结论。这里不复制环境公式，也不改变评估得到的路由。
+
 v0.11第一阶段增加`ModelServiceFacade`作为进程内强类型编排边界。Facade先校验
-`ModelServiceContext`的schema、请求标识和snapshotVersion，再分别单次委托现有通信能力、
-规划校验、规划推演、本地分发包或需求匹配服务。领域结果不被转换成自由文本，异常不会
+`ModelServiceContext`的schema、请求标识和snapshotVersion，再分别单次委托现有任务评估、
+通信能力、规划校验、规划推演、本地分发包或需求匹配服务。领域结果不被转换成自由文本，异常不会
 静默变为成功，输入值对象和profile保持不变。
 
 `ModelRegistry`只保存`ModelDescriptor`值对象，使用精确版本查询和确定性列表顺序，不扫描
-动态库、不拥有AFSIM对象或Qt指针。`ContractInterfaceAdapter`只冻结抽象转换职责；甲方
-规范缺失时不定义端口、字段名、字节布局或传输方式。DataContainer注册唯一NRM Facade并
+动态库、不拥有AFSIM对象或Qt指针。`ContractInterfaceAdapter`只冻结甲方私有对象到公共值
+对象的转换职责；甲方头文件缺失时不伪造其对象类型。`CustomerNrmAdapter`是已实现的同进程
+执行入口，`CustomerJsonCodec`是精简V1文件工具。DataContainer注册唯一NRM Facade并
 复用该门面，Warlock页面仍只消费既有领域结果。
 
 ## 稳定边界
@@ -85,12 +112,18 @@ v0.11第一阶段增加`ModelServiceFacade`作为进程内强类型编排边界�
 - `include/nrm/` 中的公共契约和算法不依赖 AFSIM 或 Qt。
 - WSF 扩展入口只负责能力注册；`NrmSimInterface` 是当前 AFSIM 内部监听适配器。
 - `DataContainer` 只存在于 GUI 线程，跨线程事件只传递值对象。
+- 甲方同类型多网络按具体`networkId`隔离；`networkType`仅用于四网分类。
+- AFSIM拥有拓扑和实时链路基础态；甲方导航/环境作为持久覆盖层，未取得AFSIM快照时才允许
+  甲方完整资源报告作为基础态。
+- JSON结构校验和C++对象语义校验职责分离；所有资源入口共用
+  `ResourceSnapshotValidator`，不得在Codec中维护第二套跨对象规则。
 - `SnapshotReporter` 使用有界队列和独立线程，仿真回调不执行文件 I/O。
 - `InputProvider` 冻结内部、甲方模块和回放输入的公共边界。
 - `AssessmentEvaluator` 不改变 AFSIM 图，只产生评估结果和只读建议。
 - 规划服务只产生校验、推演和本地包；编辑生成新修订的`DRAFT`，不向网络下发。
 - 需求服务只产生匹配、差距和建议；编辑生成新需求集修订，不自动应用建议。
-- 模型服务只编排既有服务；Registry只保存描述符，外部协议只允许在抽象Adapter之外实现。
+- 模型服务只编排既有服务；Registry只保存描述符；甲方对象转换限定在
+  `ContractInterfaceAdapter`实现中，同进程执行统一进入`CustomerNrmAdapter`。
 - 所有参数化候选指标标记为 `PARAMETERIZED_MODEL/LOW`；当前路径上由多链路组合得到的
   PDR 标记为 `ESTIMATED/LOW`，不会伪装为协议实测。
 

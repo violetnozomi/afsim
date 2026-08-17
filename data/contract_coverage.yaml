@@ -22,7 +22,8 @@ requirements:
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
     components: [FrequencyCharacteristicRepository, PlanningRecommendationEngine]
-    evidence: "四网内置频点、带宽、范围、损耗、容量和PDR特性可配置；频率推荐排除占用及干扰保护带重叠。"
+    runtime_integration_status: COMPONENT_ONLY
+    evidence: "FrequencyCharacteristicRepository独立实现并测试四网频点、范围、容量比例、附加时延和PDR特性；当前运行时频率推荐使用NetworkProfileRepository并排除占用及干扰保护带重叠，尚未绑定独立频率库。"
   - requirement_id: "3.2.3"
     requirement_name: "通信数据链能力模型"
     implementation_status: IMPLEMENTED
@@ -45,9 +46,9 @@ requirements:
     requirement_name: "接口要求"
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
-    components: [ContractInterfaceAdapter, NrmCustomerJsonCodec, ModelServiceFacade]
-    evidence: "11类精简JSON消息、中文注释、Schema校验、Provider Hello、输入ACK及进程内强类型门面。"
-    customer_blocked: "甲方若使用不同载荷，只修改边界适配层。"
+    components: [ContractInterfaceAdapter, CustomerNrmAdapter, CustomerJsonCodec, CustomerJsonValidationLayer, CustomerIngestionState, ModelServiceFacade]
+    evidence: "CustomerNrmAdapter提供同进程资源/导航/环境更新及评估/规划/需求强类型入口；明确networkId/platformId主键、三域合并、三态环境语义及有界生命周期；13类精简JSON作为字段合同、文件、测试和回放工具，并通过DataContainer真实入口端到端测试。"
+    customer_blocked: "甲方私有对象头文件、字段映射和ABI未提供；取得后只实现ContractInterfaceAdapter薄转换。"
   - requirement_id: "3.4.1"
     requirement_name: "软件运行环境"
     implementation_status: IMPLEMENTED
@@ -60,13 +61,15 @@ requirements:
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
     components: [NrmDockWidget, SnapshotReporter, RecoveryStateStore]
-    evidence: "响应式中文界面、有界异步上报、runId隔离、原子恢复清单和损坏状态保护。"
+    runtime_integration_status: RECOVERY_COMPONENT_ONLY
+    evidence: "响应式中文界面、有界异步上报和runId隔离已接入运行时；RecoveryStateStore具备原子保存与损坏状态保护并通过独立测试，但启动恢复策略待甲方确认后接入。"
   - requirement_id: "3.5"
     requirement_name: "兼容扩展"
     implementation_status: IMPLEMENTED
     verification_status: PRE_ACCEPTANCE
     components: [ModelRegistry, ReferenceModelAdapter]
-    evidence: "参考适配器可在真实注册表中注册、查询能力/Schema、健康检查并卸载。"
+    runtime_integration_status: REFERENCE_FIXTURE_ONLY
+    evidence: "ReferenceModelAdapter作为兼容性测试样例，可在ModelRegistry注册、查询能力/Schema、健康检查并卸载；它不是已部署的第三方模块。"
     customer_blocked: "不宣称符合尚未提供的甲方正式模型封装ABI。"
   - requirement_id: "4.1-4.2"
     requirement_name: "设计原则与约束"
