@@ -1,0 +1,172 @@
+{
+  "schema": "nrm.customer.resource_report.v1", // 固定值：通信资源全量快照 V1
+  "messageId": "resource-001", // 1~64字符；同一运行内唯一
+  "timestamp": "2026-08-17T10:00:00+08:00", // RFC 3339墙钟时间
+  "source": "CUSTOMER", // 固定值：CUSTOMER
+  "data": { // 本次上报的原子全量资源快照
+    "runId": "run-demo", // 1~64字符；一次AFSIM运行唯一
+    "simTime": 10.0, // >=0，AFSIM仿真时间，单位s
+    "operationalArea": { // 可选：本快照适用的任务区域
+      "areaId": "demo-area", // 1~64字符；区域唯一编号
+      "validFrom": 0.0, // >=0，生效仿真时间s
+      "validUntil": 120.0, // >=0，失效仿真时间s；应>=validFrom
+      "points": [ // 区域边界点；按顺序形成多边形
+        {
+          "latitudeDeg": 33.8, // -90~90，单位deg
+          "longitudeDeg": 108.6, // -180~180，单位deg
+          "altitudeM": 0 // 高度，单位m
+        },
+        {
+          "latitudeDeg": 34.4, // -90~90，单位deg
+          "longitudeDeg": 108.6, // -180~180，单位deg
+          "altitudeM": 0 // 高度，单位m
+        },
+        {
+          "latitudeDeg": 34.4, // -90~90，单位deg
+          "longitudeDeg": 109.2, // -180~180，单位deg
+          "altitudeM": 0 // 高度，单位m
+        },
+        {
+          "latitudeDeg": 33.8, // -90~90，单位deg
+          "longitudeDeg": 109.2, // -180~180，单位deg
+          "altitudeM": 0 // 高度，单位m
+        }
+      ]
+    },
+    "networks": [ // 必填；当前运行全部网络，可为空数组
+      {
+        "networkId": "net-l16", // 同一runId内唯一网络编号
+        "networkType": "LINK16", // 允许值：LINK11/LINK16/SATCOM/CDL
+        "name": "Link16演示网" // AFSIM网络显示名称
+      },
+      {
+        "networkId": "net-sat", // 同一runId内唯一网络编号
+        "networkType": "SATCOM", // 允许值：LINK11/LINK16/SATCOM/CDL
+        "name": "卫通备份网" // AFSIM网络显示名称
+      }
+    ],
+    "members": [ // 必填；通信端点列表，可为空数组
+      {
+        "memberId": "ep-1", // 同一runId内唯一端点编号
+        "platformId": "aircraft-01", // 端点所属AFSIM平台编号
+        "networkId": "net-l16", // 必须引用networks中的networkId
+        "state": "ONLINE", // 允许值：ONLINE/OFFLINE/DISABLED/FAILED
+        "position": { // 端点当前位置
+          "latitudeDeg": 34.0, // -90~90，单位deg
+          "longitudeDeg": 108.8, // -180~180，单位deg
+          "altitudeM": 8000 // 高度，单位m
+        }
+      },
+      {
+        "memberId": "ep-2", // 同一runId内唯一端点编号
+        "platformId": "command-01", // 端点所属AFSIM平台编号
+        "networkId": "net-l16", // 必须引用networks中的networkId
+        "state": "ONLINE", // 允许值：ONLINE/OFFLINE/DISABLED/FAILED
+        "position": { // 端点当前位置
+          "latitudeDeg": 34.2, // -90~90，单位deg
+          "longitudeDeg": 109.0, // -180~180，单位deg
+          "altitudeM": 0 // 高度，单位m
+        }
+      },
+      {
+        "memberId": "ep-3", // 多网平台的另一通信端点编号
+        "platformId": "command-01", // 同一平台可拥有多个端点
+        "networkId": "net-sat", // 必须引用networks中的networkId
+        "state": "ONLINE", // 允许值：ONLINE/OFFLINE/DISABLED/FAILED
+        "position": { // 端点当前位置
+          "latitudeDeg": 34.2, // -90~90，单位deg
+          "longitudeDeg": 109.0, // -180~180，单位deg
+          "altitudeM": 0 // 高度，单位m
+        }
+      }
+    ],
+    "attitudes": [ // 可选：平台姿态列表
+      {
+        "platformId": "aircraft-01", // 必须引用已知平台编号
+        "headingDeg": 90, // 0~360，航向角deg
+        "pitchDeg": 2, // -90~90，俯仰角deg
+        "rollDeg": -1, // -180~180，滚转角deg
+        "sampleTime": 10 // >=0，采样仿真时间s
+      }
+    ],
+    "links": [ // 必填；有向链路列表，可为空数组
+      {
+        "linkId": "link-l16-1", // 同一runId内唯一链路编号
+        "networkId": "net-l16", // 必须引用networks中的networkId
+        "sourceMemberId": "ep-1", // 必须引用members中的源端点
+        "destinationMemberId": "ep-2", // 必须引用members中的目的端点
+        "state": "ONLINE", // 允许值：ONLINE/OFFLINE/DISABLED/FAILED
+        "subnetId": "L16-A", // 可选：所属子网编号
+        "supportedBusinessTypes": [ // 可选：本链路可承载业务
+          "C2", // 指挥控制业务
+          "TRACK" // 态势/航迹业务
+        ],
+        "bandwidthBps": 238000, // 可选；>=0，链路带宽bit/s
+        "delayMs": 20, // 可选；>=0，链路时延ms
+        "pdrPercent": 96, // 可选；0~100，投递成功率%
+        "rssiDbm": -75, // 可选；接收信号强度dBm
+        "snrDb": 12, // 可选；信噪比dB
+        "berRatio": 0.000001, // 可选；0~1，误码率
+        "queuePercent": 10, // 可选；0~100，队列占用率%
+        "trafficBps": 64000, // 可选；>=0，当前业务流量bit/s
+        "protocolResource": { // 可选：协议专用资源占用
+          "kind": "TIMESLOT", // 允许值：POLLING_UNIT/TIMESLOT/BEAM_CHANNEL/CHANNEL
+          "capacity": 16, // >=0，协议资源总量
+          "used": 4 // >=0，已占用量；应<=capacity
+        },
+        "coverage": { // 可选：链路覆盖约束
+          "maximumRangeM": 500000 // >=0，最大通信距离m
+        }
+      }
+    ],
+    "routes": [ // 可选：当前路由证据
+      {
+        "routeId": "route-1", // 同一runId内唯一线路编号
+        "sourceMemberId": "ep-1", // 路由源端点编号
+        "destinationMemberId": "ep-2", // 路由目的端点编号
+        "hops": [ // 至少含源和目的；按转发顺序排列
+          "ep-1", // 起始端点
+          "ep-2" // 目的端点
+        ],
+        "active": true // 是否为当前活动路由
+      }
+    ],
+    "flows": [ // 可选：当前业务流
+      {
+        "flowId": "flow-1", // 同一runId内唯一业务流编号
+        "businessType": "C2", // 业务类型；1~64字符
+        "sourceMemberId": "ep-1", // 源端点编号
+        "destinationMemberId": "ep-2", // 目的端点编号
+        "trafficBps": 64000 // >=0，业务流量bit/s
+      }
+    ],
+    "gateways": [ // 可选：显式跨网网关能力
+      {
+        "gatewayId": "gateway-1", // 同一runId内唯一网关编号
+        "platformId": "command-01", // 承载网关的平台编号
+        "ingressNetworkId": "net-l16", // 入口networkId
+        "egressNetworkId": "net-sat", // 出口networkId
+        "enabled": true // 是否允许跨网转换
+      }
+    ],
+    "resourceProxies": [ // 可选：甲方资源代理状态
+      {
+        "proxyId": "proxy-link16", // 同一runId内唯一代理编号
+        "resourceType": "LINK16", // 资源类型；建议用四网类型
+        "providerId": "customer-afsim-link-adapter", // 提供方稳定编号
+        "online": true, // 代理是否在线
+        "lastUpdateTime": 10 // >=0，最近更新仿真时间s
+      }
+    ],
+    "alarms": [ // 可选：当前资源告警
+      {
+        "alarmId": "alarm-queue-1", // 同一runId内唯一告警编号
+        "objectId": "link-l16-1", // 告警关联的网络/端点/链路编号
+        "reasonCode": "QUEUE_HIGH", // 固定原因码；1~64字符
+        "severity": "WARNING", // 允许值：INFO/WARNING/ERROR
+        "startTime": 9.5, // >=0，告警开始仿真时间s
+        "active": true // 告警当前是否有效
+      }
+    ]
+  }
+}

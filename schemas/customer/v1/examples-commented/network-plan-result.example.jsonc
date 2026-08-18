@@ -1,0 +1,19 @@
+{
+  "schema": "nrm.customer.network_plan_result.v1", // 固定值：资源规划结果 V1
+  "messageId": "plan-001", // 回显请求messageId
+  "timestamp": "2026-08-17T10:00:01+08:00", // NRM生成的RFC 3339墙钟时间
+  "source": "NRM", // 固定值：NRM
+  "data": { // 以下字段均由NRM生成
+    "planId": "four-network-demo", // 回显规划编号
+    "revision": 1, // >=1；回显规划修订号
+    "validationPassed": true, // 结构和引用校验是否通过
+    "evaluationStatus": "FAIL", // 允许值：PASS/FAIL/DATA_INVALID/NOT_EVALUATED
+    "state": "REJECTED", // 允许值：DRAFT/VALIDATED/REJECTED/READY_FOR_DISTRIBUTION
+    "reasonCodes": [ // 固定原因码数组；无原因时为空
+      "PDR_NOT_MET" // 示例：PDR未满足
+    ],
+    "recommendations": [ // 只读调整建议；插件不自动执行
+      "改用PDR更高的备用链路或质量更好的中继路径。" // 简短建议文本
+    ]
+  }
+}

@@ -6,6 +6,7 @@ readonly ROOT=$(cd "$(dirname "$0")/.." && pwd)
 readonly SCHEMA_ROOT="${ROOT}/schemas/customer/v1"
 readonly ANNOTATED_EXAMPLES="${SCHEMA_ROOT}/nrm-customer-interface-v1.annotated.jsonc"
 readonly EXAMPLE_DIR="${ROOT}/schemas/customer/v1/examples"
+readonly COMMENTED_EXAMPLE_DIR="${ROOT}/schemas/customer/v1/examples-commented"
 readonly INVALID_DIR="${ROOT}/schemas/customer/v1/invalid"
 readonly CONTRACTS="navigation-report environment-report resource-report assessment-request assessment-response resource-demand-request resource-demand-response network-plan network-plan-result membership-request provider-hello ingest-ack error"
 readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
@@ -33,11 +34,11 @@ do
 done
 "$PYTHON_BIN" -m json.tool "${SCHEMA_ROOT}/common.schema.json" >/dev/null
 
-# JSONC 只供人工阅读。删除独占一行的 // 注释后逐条按正式 Schema 校验，
+# JSONC 只供人工阅读。去除字符串外的 // 行注释后逐条按正式 Schema 校验，
 # 保证中文注释版不会随着接口演进而成为失真的过期样例。
-"$PYTHON_BIN" - "$SCHEMA_ROOT" "$ANNOTATED_EXAMPLES" "$EXAMPLE_DIR" "$INVALID_DIR" <<'PY'
+"$PYTHON_BIN" - "$SCHEMA_ROOT" "$ANNOTATED_EXAMPLES" "$EXAMPLE_DIR" \
+   "$COMMENTED_EXAMPLE_DIR" "$INVALID_DIR" <<'PY'
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -46,7 +47,8 @@ from jsonschema import Draft202012Validator, RefResolver
 schema_root = Path(sys.argv[1])
 annotated_path = Path(sys.argv[2])
 example_root = Path(sys.argv[3])
-invalid_root = Path(sys.argv[4])
+commented_example_root = Path(sys.argv[4])
+invalid_root = Path(sys.argv[5])
 schemas = {}
 for schema_path in schema_root.glob("*.schema.json"):
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
@@ -60,8 +62,89 @@ def validator_for(schema_name):
         resolver=RefResolver(schema["$id"], schema, store=schemas),
     )
 
+def strip_jsonc_line_comments(text):
+    """Remove // comments outside strings while preserving JSON string data."""
+    output = []
+    in_string = False
+    escaped = False
+    index = 0
+    while index < len(text):
+        character = text[index]
+        if in_string:
+            output.append(character)
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            index += 1
+            continue
+
+        if character == '"':
+            in_string = True
+            output.append(character)
+            index += 1
+            continue
+        if character == "/" and index + 1 < len(text) and text[index + 1] == "/":
+            while index < len(text) and text[index] not in "\r\n":
+                index += 1
+            continue
+        output.append(character)
+        index += 1
+    return "".join(output)
+
+def line_comment_offset(line):
+    """Return the first // comment offset outside a JSON string, or -1."""
+    in_string = False
+    escaped = False
+    for index, character in enumerate(line[:-1]):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character == "/" and line[index + 1] == "/":
+            return index
+    return -1
+
+def is_property_line(line):
+    """Return true when a line starts with one complete JSON property name."""
+    stripped = line.lstrip()
+    if not stripped.startswith('"'):
+        return False
+    escaped = False
+    for index, character in enumerate(stripped[1:], start=1):
+        if escaped:
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == '"':
+            return stripped[index + 1:].lstrip().startswith(":")
+    return False
+
+def validate_inline_field_comments(path, text):
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not is_property_line(line):
+            continue
+        comment_offset = line_comment_offset(line)
+        if comment_offset < 0:
+            raise SystemExit(
+                f"ERROR: {path.name}:{line_number}: missing inline field comment"
+            )
+        comment = line[comment_offset + 2:]
+        if not any("\u4e00" <= character <= "\u9fff" for character in comment):
+            raise SystemExit(
+                f"ERROR: {path.name}:{line_number}: inline field comment must contain Chinese text"
+            )
+
 jsonc_text = annotated_path.read_text(encoding="utf-8")
-json_text = re.sub(r"(?m)^\s*//.*(?:\n|$)", "", jsonc_text)
+json_text = strip_jsonc_line_comments(jsonc_text)
 bundle = json.loads(json_text)
 
 if bundle.get("documentType") != "NRM_CUSTOMER_INTERFACE_ANNOTATED_EXAMPLES_V1":
@@ -83,6 +166,33 @@ for index, message in enumerate(messages, start=1):
         )
 
 print("PASS annotated JSONC syntax and 13 embedded messages")
+
+commented_paths = sorted(commented_example_root.glob("*.example.jsonc"))
+if len(commented_paths) != 13:
+    raise SystemExit(
+        f"ERROR: expected 13 commented JSONC examples, found {len(commented_paths)}"
+    )
+
+for commented_path in commented_paths:
+    schema_name = commented_path.name.removesuffix(".example.jsonc")
+    commented_text = commented_path.read_text(encoding="utf-8")
+    validate_inline_field_comments(commented_path, commented_text)
+    message = json.loads(
+        strip_jsonc_line_comments(commented_text)
+    )
+    errors = sorted(
+        validator_for(schema_name).iter_errors(message),
+        key=lambda item: list(item.path),
+    )
+    if errors:
+        error = errors[0]
+        field_path = "/" + "/".join(str(part) for part in error.path)
+        raise SystemExit(
+            f"ERROR: {commented_path.name} failed at {field_path}: {error.message}"
+        )
+    print(f"PASS {commented_path.name}")
+
+print("PASS: 13 commented JSONC examples validated.")
 
 validated = 0
 for example_path in sorted(example_root.glob("*.example.json")):

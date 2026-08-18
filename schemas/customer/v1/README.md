@@ -24,6 +24,9 @@ Draft约束回归。由于AFSIM 2.9扩展不新增重量级依赖，默认C++校
 所有JSON固定包含`schema`、`messageId`、`timestamp`、`source`和`data`。时间戳使用带时区
 ISO 8601；仿真计算使用`data.simTime`。未知可选数据直接省略，不能用0伪装未知值。
 
+业务报文只填写上述信封和对应`data`字段。Schema文件开头的`$schema`、`$id`、`title`和
+`description`是校验文档自身的元数据，**甲方业务报文不填写这些字段**。
+
 ## 文件清单
 
 | Schema | 作用 | 合同 |
@@ -41,11 +44,21 @@ ISO 8601；仿真计算使用`data.simTime`。未知可选数据直接省略，�
 源/目的、业务类型及带宽/时延/PDR约束；插件负责绑定当前模型配置、并发扣减资源并返回
 每项结果。响应中的建议只读，不会自动建链、改频或修改路由。
 
-正式JSON示例位于`examples/`；中文评审示例是
-`nrm-customer-interface-v1.annotated.jsonc`。执行：
+## 示例文件怎么使用
+
+| 目录/文件 | 用途 | 能否直接发送给插件 |
+| --- | --- | --- |
+| `*.schema.json` | 正式字段、类型、枚举和范围约束 | 否 |
+| `examples/*.example.json` | 无注释标准JSON，可直接用于测试和回放 | 是 |
+| `examples-commented/*.example.jsonc` | 13类接口逐字段中文注释模板 | 否，必须先删除注释 |
+| `nrm-customer-interface-v1.annotated.jsonc` | 13类消息聚合总览，兼容原评审入口 | 否 |
+
+甲方优先阅读[`examples-commented/README.md`](examples-commented/README.md)，选择与接口同名的
+`*.example.jsonc`照填；正式传输时删除`//`注释，或直接使用`examples/`中的同名JSON。执行：
 
 ```bash
 ./scripts/validate_customer_interface.sh
 ```
 
-该命令通过表示Schema、正例和负例一致，不代表已经完成甲方环境最终联调。
+该命令通过表示Schema、13份无注释正例、13份逐字段注释模板和负例一致，不代表已经完成
+甲方环境最终联调。

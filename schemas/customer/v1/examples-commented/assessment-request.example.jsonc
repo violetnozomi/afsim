@@ -1,0 +1,19 @@
+{
+  "schema": "nrm.customer.assessment_request.v1", // 固定值：任务评估请求 V1
+  "messageId": "assessment-001", // 1~64字符；同一运行内唯一
+  "timestamp": "2026-08-17T10:00:00+08:00", // RFC 3339墙钟时间；不参与仿真计算
+  "source": "CUSTOMER", // 固定值：CUSTOMER
+  "data": { // 评估任务约束
+    "taskId": "task-001", // 1~64字符；任务唯一编号
+    "sourcePlatformId": "aircraft-01", // 已上报的源平台编号
+    "destinationPlatformId": "command-01", // 已上报的目的平台编号
+    "businessType": "C2", // 业务类型；如C2/TRACK/ISR_VIDEO/VOICE/FILE
+    "requiredBandwidthBps": 64000, // >=0，单位bit/s
+    "maximumDelayMs": 300, // >=0，单位ms
+    "minimumPdrPercent": 90, // 0~100，单位%
+    "allowedNetworks": [ // 至少1项；LINK11/LINK16/SATCOM/CDL
+      "LINK16" // 本任务允许使用的网络类型
+    ]
+  }
+}
+

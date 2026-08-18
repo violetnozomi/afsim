@@ -1,0 +1,43 @@
+{
+  "schema": "nrm.customer.resource_demand_request.v1", // 固定值：并发资源需求请求 V1
+  "messageId": "demand-001", // 1~64字符；同一运行内唯一
+  "timestamp": "2026-08-17T10:00:00+08:00", // RFC 3339墙钟时间
+  "source": "CUSTOMER", // 固定值：CUSTOMER
+  "data": { // 一批同时参与匹配的通信需求
+    "demandSetId": "mission-demands", // 1~64字符；需求集唯一编号
+    "revision": 1, // >=1；同一需求集递增修订号
+    "demands": [ // 至少1项；按数组内全部需求并发评估
+      {
+        "demandId": "video-01", // 1~64字符；需求集内唯一
+        "sourcePlatformId": "survey_uav_1", // 已上报的源平台编号
+        "destinationPlatformId": "data_processing_center", // 已上报的目的平台编号
+        "businessType": "ISR_VIDEO", // 1~64字符；如C2/TRACK/ISR_VIDEO/VOICE/FILE
+        "requiredBandwidthBps": 5000000, // >=0，单位bit/s
+        "maximumDelayMs": 2000, // >=0，单位ms
+        "minimumPdrPercent": 95, // 0~100，单位%
+        "allowedNetworks": [ // 至少1项且不重复；LINK11/LINK16/SATCOM/CDL
+          "CDL", // 允许使用CDL
+          "SATCOM" // 允许使用卫通
+        ],
+        "missionStage": "SURVEILLANCE", // 可选；0~64字符的任务阶段
+        "businessTrafficBps": 4500000, // 可选；>=0，实测业务流量bit/s
+        "maximumDistanceM": 300000, // 可选；>=0，最大通信距离m
+        "minimumNetworkSize": 2 // 可选；>=0，所需最少在网节点数
+      },
+      {
+        "demandId": "command-01", // 1~64字符；需求集内唯一
+        "sourcePlatformId": "network_control_center", // 已上报的源平台编号
+        "destinationPlatformId": "mission_aircraft_1", // 已上报的目的平台编号
+        "businessType": "C2", // 1~64字符；业务类型
+        "requiredBandwidthBps": 64000, // >=0，单位bit/s
+        "maximumDelayMs": 300, // >=0，单位ms
+        "minimumPdrPercent": 99, // 0~100，单位%
+        "allowedNetworks": [ // 至少1项且不重复
+          "LINK16", // LINK11/LINK16/SATCOM/CDL
+          "SATCOM" // LINK11/LINK16/SATCOM/CDL
+        ]
+      }
+    ]
+  }
+}
+

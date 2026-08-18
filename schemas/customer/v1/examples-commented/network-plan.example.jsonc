@@ -1,0 +1,99 @@
+{
+  "schema": "nrm.customer.network_plan.v1", // 固定值：网链资源规划 V1
+  "messageId": "plan-001", // 1~64字符；同一运行内唯一
+  "timestamp": "2026-08-17T10:00:00+08:00", // RFC 3339墙钟时间
+  "source": "CUSTOMER", // 固定值：CUSTOMER
+  "data": { // 规划分配与规划内通信需求
+    "planId": "four-network-demo", // 1~64字符；规划唯一编号
+    "revision": 1, // >=1；同一planId递增修订号
+    "allocations": [ // 至少1项；分配编号不得重复
+      {
+        "allocationId": "allocation-link11", // 规划内唯一分配编号
+        "networkName": "nrm_link11", // AFSIM网络名称
+        "networkType": "LINK11", // 允许值：LINK11/LINK16/SATCOM/CDL
+        "profileId": "demo-link11-v1", // 插件内已配置的能力模板编号
+        "frequencyHz": 225000000, // >=0，中心频率Hz
+        "channelId": "L11-DEMO", // 信道编号；1~64字符
+        "subnetId": "L11-A", // 子网编号；1~64字符
+        "members": [ // 至少1个平台编号且不重复
+          "l11_control", // Link-11控制平台
+          "l11_member" // Link-11成员平台
+        ],
+        "slots": [ // 轮询单元/时隙/波束/信道编号数组
+          "poll-01" // Link-11轮询资源编号
+        ],
+        "routePolicyId": "controlled-star", // 路由策略编号
+        "enabled": true // 是否启用本项分配
+      },
+      {
+        "allocationId": "allocation-link16", // 规划内唯一分配编号
+        "networkName": "nrm_link16", // AFSIM网络名称
+        "networkType": "LINK16", // 允许值：LINK11/LINK16/SATCOM/CDL
+        "profileId": "demo-link16-v1", // 插件内已配置的能力模板编号
+        "frequencyHz": 1000000000, // >=0，中心频率Hz
+        "channelId": "L16-DEMO", // 信道/NPG标识
+        "subnetId": "L16-A", // 子网编号
+        "members": [ // 至少1个平台编号且不重复
+          "l16_fighter", // Link-16成员平台
+          "l16_command" // Link-16指挥平台
+        ],
+        "slots": [ // 时隙资源编号数组
+          "slot-001" // Link-16时隙编号
+        ],
+        "routePolicyId": "shortest-stable", // 路由策略编号
+        "enabled": true // 是否启用本项分配
+      },
+      {
+        "allocationId": "allocation-satcom", // 规划内唯一分配编号
+        "networkName": "nrm_satcom", // AFSIM网络名称
+        "networkType": "SATCOM", // 允许值：LINK11/LINK16/SATCOM/CDL
+        "profileId": "demo-satcom-v1", // 插件内已配置的能力模板编号
+        "frequencyHz": 20000000000, // >=0，中心频率Hz
+        "channelId": "SAT-DEMO", // 卫通波束/信道编号
+        "subnetId": "SAT-A", // 子网编号
+        "members": [ // 至少1个平台编号且不重复
+          "sat_terminal", // 卫通终端平台
+          "sat_gateway" // 卫通网关平台
+        ],
+        "slots": [ // 波束资源编号数组
+          "beam-01" // 卫通波束编号
+        ],
+        "routePolicyId": "satellite-relay", // 路由策略编号
+        "enabled": true // 是否启用本项分配
+      },
+      {
+        "allocationId": "allocation-cdl", // 规划内唯一分配编号
+        "networkName": "nrm_cdl", // AFSIM网络名称
+        "networkType": "CDL", // 允许值：LINK11/LINK16/SATCOM/CDL
+        "profileId": "demo-cdl-v1", // 插件内已配置的能力模板编号
+        "frequencyHz": 15000000000, // >=0，中心频率Hz
+        "channelId": "CDL-DEMO", // CDL信道编号
+        "subnetId": "CDL-A", // 子网编号
+        "members": [ // 至少1个平台编号且不重复
+          "cdl_sensor", // CDL传感器平台
+          "cdl_station" // CDL地面站平台
+        ],
+        "slots": [ // 信道资源编号数组
+          "channel-01" // CDL信道资源编号
+        ],
+        "routePolicyId": "direct-high-rate", // 路由策略编号
+        "enabled": true // 是否启用本项分配
+      }
+    ],
+    "demands": [ // 可选；规划内需要并发验证的业务需求
+      {
+        "demandId": "demand-l16", // 规划内唯一需求编号
+        "businessType": "C2", // 业务类型；如C2/TRACK/ISR_VIDEO/VOICE/FILE
+        "sourcePlatformId": "l16_fighter", // 源平台编号
+        "destinationPlatformId": "l16_command", // 目的平台编号
+        "payloadBits": 8192, // >=0，载荷大小bit
+        "requiredBandwidthBps": 64000, // >=0，所需带宽bit/s
+        "maximumDelayMs": 300, // >=0，最大时延ms
+        "minimumPdrPercent": 90, // 0~100，最低PDR%
+        "allowedNetworks": [ // 至少1项且不重复
+          "LINK16" // LINK11/LINK16/SATCOM/CDL
+        ]
+      }
+    ]
+  }
+}

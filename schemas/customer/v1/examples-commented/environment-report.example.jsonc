@@ -1,0 +1,28 @@
+{
+  "schema": "nrm.customer.environment_report.v1", // 固定值：环境状态上报 V1
+  "messageId": "env-001", // 1~64字符；同一运行内唯一
+  "timestamp": "2026-08-17T10:00:00+08:00", // RFC 3339墙钟时间
+  "source": "CUSTOMER", // 固定值：CUSTOMER
+  "data": { // 可只上报甲方能够提供的环境子域
+    "runId": "run-demo", // 1~64字符；一次仿真运行唯一
+    "simTime": 10.0, // >=0，AFSIM仿真时间，单位s
+    "regionId": "region-a", // 环境区域唯一编号
+    "applicationMode": "CANDIDATE_ADJUSTMENT", // 允许值：INFORMATION_ONLY/ALREADY_INCLUDED/CANDIDATE_ADJUSTMENT
+    "terrain": { // 可选：地形影响
+      "enabled": true, // 是否启用地形影响
+      "blockedLinkIds": [] // 被地形阻断的链路编号数组
+    },
+    "weather": { // 可选：气象状态
+      "windSpeedMps": 8.0, // >=0，风速，单位m/s
+      "rainRateMmPerHour": 2.5, // >=0，降雨率，单位mm/h
+      "cloudPercent": 40 // 0~100，云量，单位%
+    },
+    "interference": { // 可选：电磁干扰状态
+      "affectedLinkIds": [ // 受影响链路编号数组
+        "link-l16-1" // 必须引用资源快照中的linkId
+      ],
+      "maximumPowerDbm": -82, // 最大干扰功率，单位dBm
+      "capacityScale": 0.9 // 0~1，候选链路容量缩放系数
+    }
+  }
+}

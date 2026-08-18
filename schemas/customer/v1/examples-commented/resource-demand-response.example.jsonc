@@ -1,0 +1,38 @@
+{
+  "schema": "nrm.customer.resource_demand_response.v1", // 固定值：并发需求匹配结果 V1
+  "messageId": "demand-001", // 回显请求messageId
+  "timestamp": "2026-08-17T10:00:01+08:00", // NRM生成的RFC 3339墙钟时间
+  "source": "NRM", // 固定值：NRM
+  "data": { // 以下字段均由NRM生成
+    "demandSetId": "mission-demands", // 回显需求集编号
+    "revision": 1, // 回显需求集修订号
+    "snapshotVersion": 110, // >=0；本次评估使用的资源快照版本
+    "totalCount": 2, // >=0；需求总数
+    "satisfiedCount": 1, // >=0；满足数量
+    "unsatisfiedCount": 1, // >=0；不满足数量
+    "dataInvalidCount": 0, // >=0；数据无效数量
+    "results": [ // 每项输入需求对应一项结果
+      {
+        "demandId": "video-01", // 回显需求编号
+        "status": "UNSATISFIED", // 允许值：SATISFIED/UNSATISFIED/DATA_INVALID
+        "reasonCodes": [ // 固定原因码数组；无原因时为空
+          "BANDWIDTH_NOT_MET" // 示例：带宽不足
+        ],
+        "recommendations": [ // 只读建议；插件不自动执行
+          {
+            "type": "ROUTE", // 允许值：FREQUENCY/STATION/CHANNEL/SUBNET/TIMESLOT/ROUTE
+            "status": "AVAILABLE", // 允许值：AVAILABLE/UNAVAILABLE
+            "value": "survey_uav_1->airborne_relay->data_processing_center", // 建议值或路径
+            "reason": "NONE" // 建议依据；不能为空
+          }
+        ]
+      },
+      {
+        "demandId": "command-01", // 回显需求编号
+        "status": "SATISFIED", // 允许值：SATISFIED/UNSATISFIED/DATA_INVALID
+        "reasonCodes": [], // 满足且无告警时为空
+        "recommendations": [] // 无需调整时为空
+      }
+    ]
+  }
+}

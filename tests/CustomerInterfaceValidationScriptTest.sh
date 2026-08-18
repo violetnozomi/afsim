@@ -48,8 +48,9 @@ SH
 chmod +x "${TEMP_ROOT}/path-bin/python3"
 (
    unset PYTHON_BIN
-   PATH="${TEMP_ROOT}/path-bin:${PATH}" \
-      "${ROOT}/scripts/validate_customer_interface.sh" >/dev/null
+   output=$(PATH="${TEMP_ROOT}/path-bin:${PATH}" \
+      "${ROOT}/scripts/validate_customer_interface.sh")
+   grep -q "PASS: 13 commented JSONC examples validated." <<<"$output"
 )
 
 cat >"${TEMP_ROOT}/python-ok" <<'SH'
@@ -62,6 +63,22 @@ export NRM_PYTHON_MARKER="${TEMP_ROOT}/python.marker"
 PYTHON_BIN="${TEMP_ROOT}/python-ok" \
    "${ROOT}/scripts/validate_customer_interface.sh" >/dev/null
 test -s "${NRM_PYTHON_MARKER}"
+
+mkdir -p "${TEMP_ROOT}/comment-coverage/scripts" \
+   "${TEMP_ROOT}/comment-coverage/schemas/customer"
+cp "${ROOT}/scripts/validate_customer_interface.sh" \
+   "${TEMP_ROOT}/comment-coverage/scripts/"
+cp -R "${ROOT}/schemas/customer/v1" \
+   "${TEMP_ROOT}/comment-coverage/schemas/customer/"
+sed -i '0,/\/\/ 固定值：任务评估请求 V1/{s/ *\/\/ 固定值：任务评估请求 V1//}' \
+   "${TEMP_ROOT}/comment-coverage/schemas/customer/v1/examples-commented/assessment-request.example.jsonc"
+set +e
+output=$(PYTHON_BIN="$NRM_TEST_REAL_PYTHON_BIN" \
+   "${TEMP_ROOT}/comment-coverage/scripts/validate_customer_interface.sh" 2>&1)
+status=$?
+set -e
+test "$status" -ne 0
+grep -q "missing inline field comment" <<<"$output"
 
 cat >"${TEMP_ROOT}/python-no-jsonschema" <<'SH'
 #!/usr/bin/env bash

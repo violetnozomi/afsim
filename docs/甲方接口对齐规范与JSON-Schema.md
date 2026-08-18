@@ -4,14 +4,14 @@
 > 甲方模块优先在同一进程传递公共 C++ 值对象；需要文件交换时，按本项目定义的精简
 > UTF-8 JSON v1 对齐。
 
-机器校验 Schema 位于 `schemas/customer/v1/`，中文可注释示例位于
-`schemas/customer/v1/nrm-customer-interface-v1.annotated.jsonc`。当前支持导航、环境、四网资源、
-任务评估、并发资源需求、网络规划、规划结果、成员入退网、提供方声明、输入确认和统一错误等13类消息。执行
+机器校验 Schema 位于 `schemas/customer/v1/`，甲方首选的逐字段中文注释模板位于
+`schemas/customer/v1/examples-commented/`。当前支持导航、环境、四网资源、任务评估、并发资源
+需求、网络规划、规划结果、成员入退网、提供方声明、输入确认和统一错误等13类消息。执行
 `./scripts/ai_guard.sh contract` 可验证全部示例。运行时入口还执行V1允许字段、类型、范围、
 枚举和引用关系校验，不依赖第三方通用Schema引擎。内部解析已达 `PRE_ACCEPTANCE`；甲方 AFSIM
 目标树重编译、真实模块数据和安全策略仍需现场联调。
 
-> Schema 内已使用标准 `title`/`description` 添加中文注解；另提供 [`JSONC 中文注释版`](../schemas/customer/v1/nrm-customer-interface-v1.annotated.jsonc) 供人工评审。正式传输和程序校验仍使用无注释 JSON，字段中文速查见 [`schemas/customer/v1/README.md`](../schemas/customer/v1/README.md)。
+> 每类接口都提供一份实际业务报文形态的[`逐字段中文注释 JSONC 模板`](../schemas/customer/v1/examples-commented/README.md)。正式传输和程序校验仍使用无注释 JSON，字段中文速查见[`schemas/customer/v1/README.md`](../schemas/customer/v1/README.md)。原聚合[`JSONC 总览`](../schemas/customer/v1/nrm-customer-interface-v1.annotated.jsonc)继续保留。
 
 _接口基线草案 V1 · 2026-08-11 · 适用于 AFSIM 2.9 网络资源管理器_
 
@@ -22,7 +22,12 @@ _接口基线草案 V1 · 2026-08-11 · 适用于 AFSIM 2.9 网络资源管理�
 才能标记为正式接口。
 
 统一 JSON Schema 位于[`schemas/customer/v1/`](../schemas/customer/v1/)；每种消息独立一个
-`*.schema.json`，正式样例位于[`examples/`](../schemas/customer/v1/examples/)。
+`*.schema.json`，正式样例位于[`examples/`](../schemas/customer/v1/examples/)，逐字段中文注释模板
+位于[`examples-commented/`](../schemas/customer/v1/examples-commented/)。
+
+> `$schema`、`$id`、`title`和`description`仅属于`*.schema.json`校验文档，不是甲方业务报文
+> 字段。甲方实际消息从`schema/messageId/timestamp/source/data`开始；JSONC中的`//`注释也不能
+> 随正式消息发送。
 
 核心设计决定：
 
@@ -336,7 +341,7 @@ V1请求按一个源和一个目的组织。并发或多目的任务由资源规
 修正后重新生成新的`messageId`。
 
 示例：[`ingest-ack.example.json`](../schemas/customer/v1/examples/ingest-ack.example.json)和
-[`error-response.example.json`](../schemas/customer/v1/examples/error-response.example.json)。
+[`error.example.json`](../schemas/customer/v1/examples/error.example.json)。
 
 ## 11. 同进程接入与JSON工具
 

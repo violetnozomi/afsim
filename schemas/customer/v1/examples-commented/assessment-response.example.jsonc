@@ -1,0 +1,24 @@
+{
+  "schema": "nrm.customer.assessment_response.v1", // 固定值：任务评估响应 V1
+  "messageId": "assessment-001", // 回显请求messageId
+  "timestamp": "2026-08-17T10:00:01+08:00", // NRM生成的RFC 3339墙钟时间
+  "source": "NRM", // 固定值：NRM
+  "data": { // 以下字段均由NRM生成
+    "taskId": "task-001", // 回显任务编号
+    "reachable": true, // 当前启用图是否存在路径
+    "canEstablish": true, // 当前或候选链路是否可建立
+    "canComplete": true, // 是否满足带宽、时延和PDR约束
+    "primaryRoute": [ // 主路由平台编号，按转发顺序排列
+      "aircraft-01", // 路由起点
+      "command-01" // 路由终点
+    ],
+    "bandwidthMarginBps": 174000, // 可用带宽-所需带宽，单位bit/s
+    "delayMarginMs": 280, // 允许时延-预测时延，单位ms
+    "pdrMarginPercent": 6, // 预测PDR-最低PDR，单位百分点
+    "reasonCodes": [], // 失败原因码；成功时可为空
+    "recommendations": [ // 只读建议；插件不自动执行
+      "保持当前Link-16直连路由" // 简短可执行建议文本
+    ]
+  }
+}
+
