@@ -199,7 +199,7 @@ Run: `./scripts/ai_guard.sh test`
 Expected: 所有命令退出码为0；13个Schema无引用且有中文说明；13个正式示例、13个JSONC示例、
 6个负例和37个固定C++测试均符合预期。
 
-- [ ] **Step 4: 建立Schema展开检查点**
+- [x] **Step 4: 建立Schema展开检查点**
 
 ```bash
 git add schemas/customer/v1/*.schema.json schemas/customer/v1/README.md \
