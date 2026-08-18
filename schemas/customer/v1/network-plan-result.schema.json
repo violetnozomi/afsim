@@ -2,15 +2,108 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nrm.local/schema/customer/v1/network-plan-result.schema.json",
   "title": "网链资源规划处理结果",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.network_plan_result.v1"}, "messageId": {"$ref": "common.schema.json#/$defs/identifier"}, "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"}, "source": {"const": "NRM"},
+    "schema": {
+      "const": "nrm.customer.network_plan_result.v1",
+      "description": "固定值，表示网链资源规划处理结果V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "关联资源规划输入的消息编号；1～64字符。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "NRM生成结果的墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "NRM",
+      "description": "固定值NRM，表示结果由网络资源管理插件生成。"
+    },
     "data": {
-      "type": "object", "additionalProperties": false,
-      "required": ["planId", "revision", "validationPassed", "evaluationStatus", "state", "reasonCodes", "recommendations"],
+      "type": "object",
+      "additionalProperties": false,
+      "description": "规划结构校验、只读推演、生命周期状态和调整建议。",
+      "required": [
+        "planId",
+        "revision",
+        "validationPassed",
+        "evaluationStatus",
+        "state",
+        "reasonCodes",
+        "recommendations"
+      ],
       "properties": {
-        "planId": {"$ref": "common.schema.json#/$defs/identifier"}, "revision": {"type": "integer", "minimum": 1}, "validationPassed": {"type": "boolean"}, "evaluationStatus": {"enum": ["PASS", "FAIL", "DATA_INVALID", "NOT_EVALUATED"]}, "state": {"enum": ["DRAFT", "VALIDATED", "REJECTED", "READY_FOR_DISTRIBUTION"]}, "reasonCodes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "recommendations": {"type": "array", "items": {"type": "string", "minLength": 1}}, "packagePath": {"type": "string", "minLength": 1}
+        "planId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "回显资源规划唯一编号；1～64字符。"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "回显规划修订号，必须大于等于1。"
+        },
+        "validationPassed": {
+          "type": "boolean",
+          "description": "规划字段、引用和资源分配校验是否通过。"
+        },
+        "evaluationStatus": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "DATA_INVALID",
+            "NOT_EVALUATED"
+          ],
+          "description": "只读推演状态；通过、失败、数据无效或未执行。"
+        },
+        "state": {
+          "enum": [
+            "DRAFT",
+            "VALIDATED",
+            "REJECTED",
+            "READY_FOR_DISTRIBUTION"
+          ],
+          "description": "规划生命周期状态；草稿、已校验、已拒绝或可生成分发包。"
+        },
+        "reasonCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "规划失败或数据无效原因码数组，无原因时允许为空。",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "一项规划校验或推演原因码。"
+          }
+        },
+        "recommendations": {
+          "type": "array",
+          "description": "只读规划调整建议数组，插件不会自动执行。",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "一条面向使用方的简短规划建议。"
+          }
+        },
+        "packagePath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "可选分发包文件路径，仅在生成成功时返回。"
+        }
       }
     }
   }

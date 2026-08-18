@@ -11,6 +11,10 @@
 枚举和引用关系校验，不依赖第三方通用Schema引擎。内部解析已达 `PRE_ACCEPTANCE`；甲方 AFSIM
 目标树重编译、真实模块数据和安全策略仍需现场联调。
 
+13个正式业务Schema均为独立展开文件，不包含`$ref`或文件内`$defs`。每个属性旁直接给出完整
+约束和中文`description`；甲方查看`messageId`、平台编号、网络类型或嵌套对象时不需要跳转到
+`common.schema.json`。该公共文件只用于旧工具兼容和规则词典。
+
 > 每类接口都提供一份实际业务报文形态的[`逐字段中文注释 JSONC 模板`](../schemas/customer/v1/examples-commented/README.md)。正式传输和程序校验仍使用无注释 JSON，字段中文速查见[`schemas/customer/v1/README.md`](../schemas/customer/v1/README.md)。原聚合[`JSONC 总览`](../schemas/customer/v1/nrm-customer-interface-v1.annotated.jsonc)继续保留。
 
 _接口基线草案 V1 · 2026-08-11 · 适用于 AFSIM 2.9 网络资源管理器_

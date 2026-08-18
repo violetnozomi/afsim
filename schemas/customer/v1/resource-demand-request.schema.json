@@ -4,38 +4,158 @@
   "title": "并发通信资源需求请求",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.resource_demand_request.v1"},
-    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
-    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
-    "source": {"const": "CUSTOMER"},
+    "schema": {
+      "const": "nrm.customer.resource_demand_request.v1",
+      "description": "固定值，表示并发通信资源需求请求V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "消息唯一编号；1～64字符，只允许字母、数字及_.:@/-。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "消息生成墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "CUSTOMER",
+      "description": "固定值CUSTOMER，表示需求由甲方模块提供。"
+    },
     "data": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["demandSetId", "revision", "demands"],
+      "description": "需要在同一资源池中并发匹配的一组通信需求。",
+      "required": [
+        "demandSetId",
+        "revision",
+        "demands"
+      ],
       "properties": {
-        "demandSetId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "revision": {"type": "integer", "minimum": 1},
+        "demandSetId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "需求集唯一编号；1～64字符。"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "需求集修订号，必须为大于等于1的整数。"
+        },
         "demands": {
-          "type": "array", "minItems": 1,
+          "type": "array",
+          "minItems": 1,
+          "description": "并发参与资源匹配的需求数组，至少包含一项。",
           "items": {
-            "type": "object", "additionalProperties": false,
-            "required": ["demandId", "sourcePlatformId", "destinationPlatformId", "businessType", "requiredBandwidthBps", "maximumDelayMs", "minimumPdrPercent", "allowedNetworks"],
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一项源平台到目的平台的通信资源需求。",
+            "required": [
+              "demandId",
+              "sourcePlatformId",
+              "destinationPlatformId",
+              "businessType",
+              "requiredBandwidthBps",
+              "maximumDelayMs",
+              "minimumPdrPercent",
+              "allowedNetworks"
+            ],
             "properties": {
-              "demandId": {"$ref": "common.schema.json#/$defs/identifier"},
-              "sourcePlatformId": {"$ref": "common.schema.json#/$defs/identifier"},
-              "destinationPlatformId": {"$ref": "common.schema.json#/$defs/identifier"},
-              "businessType": {"type": "string", "minLength": 1, "maxLength": 64},
-              "requiredBandwidthBps": {"type": "number", "minimum": 0},
-              "maximumDelayMs": {"type": "number", "minimum": 0},
-              "minimumPdrPercent": {"type": "number", "minimum": 0, "maximum": 100},
-              "allowedNetworks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/networkType"}},
-              "missionStage": {"type": "string", "maxLength": 64},
-              "payloadBits": {"type": "integer", "minimum": 0},
-              "businessTrafficBps": {"type": "number", "minimum": 0},
-              "maximumDistanceM": {"type": "number", "minimum": 0},
-              "minimumNetworkSize": {"type": "integer", "minimum": 0}
+              "demandId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "需求集内唯一需求编号；1～64字符。"
+              },
+              "sourcePlatformId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "源平台编号，必须引用当前资源快照中的平台。"
+              },
+              "destinationPlatformId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "目的平台编号，必须引用当前资源快照中的平台。"
+              },
+              "businessType": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "业务类型；1～64字符，例如C2、TRACK或ISR_VIDEO。"
+              },
+              "requiredBandwidthBps": {
+                "type": "number",
+                "minimum": 0,
+                "description": "业务所需最低带宽，必须大于等于0，单位bit/s。"
+              },
+              "maximumDelayMs": {
+                "type": "number",
+                "minimum": 0,
+                "description": "业务允许最大端到端时延，必须大于等于0，单位ms。"
+              },
+              "minimumPdrPercent": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "业务要求最低投递成功率，范围0～100，单位%。"
+              },
+              "allowedNetworks": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "description": "允许承载业务的网络类型，至少一项且不得重复。",
+                "items": {
+                  "enum": [
+                    "LINK11",
+                    "LINK16",
+                    "SATCOM",
+                    "CDL"
+                  ],
+                  "description": "允许值为LINK11、LINK16、SATCOM或CDL。"
+                }
+              },
+              "missionStage": {
+                "type": "string",
+                "maxLength": 64,
+                "description": "可选任务阶段，最长64字符。"
+              },
+              "payloadBits": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "可选业务载荷大小，必须为非负整数，单位bit。"
+              },
+              "businessTrafficBps": {
+                "type": "number",
+                "minimum": 0,
+                "description": "可选当前业务流量，必须大于等于0，单位bit/s。"
+              },
+              "maximumDistanceM": {
+                "type": "number",
+                "minimum": 0,
+                "description": "可选最大通信距离，必须大于等于0，单位m。"
+              },
+              "minimumNetworkSize": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "可选最低在网节点数量，必须为非负整数。"
+              }
             }
           }
         }

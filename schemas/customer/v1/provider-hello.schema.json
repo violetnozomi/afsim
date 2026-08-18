@@ -2,21 +2,86 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nrm.local/schema/customer/v1/provider-hello.schema.json",
   "title": "资源提供方能力握手",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.provider_hello.v1"},
-    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
-    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
-    "source": {"const": "CUSTOMER"},
+    "schema": {
+      "const": "nrm.customer.provider_hello.v1",
+      "description": "固定值，表示甲方提供方能力声明V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "消息唯一编号；1～64字符，只允许字母、数字及_.:@/-。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "消息生成墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "CUSTOMER",
+      "description": "固定值CUSTOMER，表示消息由甲方模块提供。"
+    },
     "data": {
-      "type": "object", "additionalProperties": false,
-      "required": ["providerId", "softwareVersion", "supportedSchemas", "supportedNetworkTypes"],
+      "type": "object",
+      "additionalProperties": false,
+      "description": "甲方AFSIM模块的软件版本和可提供接口能力。",
+      "required": [
+        "providerId",
+        "softwareVersion",
+        "supportedSchemas",
+        "supportedNetworkTypes"
+      ],
       "properties": {
-        "providerId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "softwareVersion": {"type": "string", "minLength": 1, "maxLength": 64},
-        "supportedSchemas": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-        "supportedNetworkTypes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/networkType"}}
+        "providerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "数据提供模块的稳定唯一编号；不得使用临时进程号。"
+        },
+        "softwareVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "甲方提供模块的软件版本；1～64字符。"
+        },
+        "supportedSchemas": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "模块能够提供或接收的Schema固定值，至少一项且不得重复。",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "一个受支持的消息Schema名称。"
+          }
+        },
+        "supportedNetworkTypes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "模块实际支持的网络类型，至少一项且不得重复。",
+          "items": {
+            "enum": [
+              "LINK11",
+              "LINK16",
+              "SATCOM",
+              "CDL"
+            ],
+            "description": "允许值为LINK11、LINK16、SATCOM或CDL。"
+          }
+        }
       }
     }
   }

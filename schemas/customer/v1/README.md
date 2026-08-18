@@ -5,6 +5,10 @@
 Draft约束回归。由于AFSIM 2.9扩展不新增重量级依赖，默认C++校验层实现关键约束子集并保留
 可替换接口，不宣称内置完整Draft 2020-12引擎。
 
+13个正式业务Schema已经完全展开：文件内不使用`$ref`或`$defs`，每个业务字段直接给出类型、
+长度、范围、枚举和中文`description`，可以单文件交给甲方评审。`common.schema.json`仅作为旧
+工具兼容和公共规则词典保留，正式业务Schema不再依赖它。
+
 资源对象中的`networkId`是逻辑网络实例主键；相同`networkType`的两个网络不共享成员或链路。
 导航对象中的`platformId`是upsert主键。环境`applicationMode`三种枚举在运行时完整保存，
 仅`CANDIDATE_ADJUSTMENT`允许附加参数化候选影响。
@@ -48,7 +52,7 @@ ISO 8601；仿真计算使用`data.simTime`。未知可选数据直接省略，�
 
 | 目录/文件 | 用途 | 能否直接发送给插件 |
 | --- | --- | --- |
-| `*.schema.json` | 正式字段、类型、枚举和范围约束 | 否 |
+| `*.schema.json` | 已展开的正式字段、类型、枚举、范围和中文说明 | 否 |
 | `examples/*.example.json` | 无注释标准JSON，可直接用于测试和回放 | 是 |
 | `examples-commented/*.example.jsonc` | 13类接口逐字段中文注释模板 | 否，必须先删除注释 |
 | `nrm-customer-interface-v1.annotated.jsonc` | 13类消息聚合总览，兼容原评审入口 | 否 |

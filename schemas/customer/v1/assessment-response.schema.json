@@ -2,19 +2,123 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nrm.local/schema/customer/v1/assessment-response.schema.json",
   "title": "任务评估结果",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.assessment_response.v1"},
-    "messageId": {"$ref": "common.schema.json#/$defs/identifier"}, "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"}, "source": {"const": "NRM"},
+    "schema": {
+      "const": "nrm.customer.assessment_response.v1",
+      "description": "固定值，表示任务评估响应V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "关联评估请求的消息编号；1～64字符。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "NRM生成响应的墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "NRM",
+      "description": "固定值NRM，表示消息由网络资源管理插件生成。"
+    },
     "data": {
-      "type": "object", "additionalProperties": false,
-      "required": ["taskId", "reachable", "canEstablish", "canComplete", "reasonCodes", "recommendations"],
+      "type": "object",
+      "additionalProperties": false,
+      "description": "任务可达性、能力差距、路径和只读建议。",
+      "required": [
+        "taskId",
+        "reachable",
+        "canEstablish",
+        "canComplete",
+        "reasonCodes",
+        "recommendations"
+      ],
       "properties": {
-        "taskId": {"$ref": "common.schema.json#/$defs/identifier"}, "reachable": {"type": "boolean"}, "canEstablish": {"type": "boolean"}, "canComplete": {"type": "boolean"},
-        "primaryRoute": {"type": "array", "minItems": 2, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "backupRoute": {"type": "array", "minItems": 2, "items": {"$ref": "common.schema.json#/$defs/identifier"}},
-        "bandwidthMarginBps": {"type": "number"}, "delayMarginMs": {"type": "number"}, "pdrMarginPercent": {"type": "number"},
-        "reasonCodes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "recommendations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        "taskId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "回显任务唯一编号；1～64字符。"
+        },
+        "reachable": {
+          "type": "boolean",
+          "description": "当前已启用网络图中是否存在允许网络组成的路径。"
+        },
+        "canEstablish": {
+          "type": "boolean",
+          "description": "当前路径或候选链路是否满足建链条件。"
+        },
+        "canComplete": {
+          "type": "boolean",
+          "description": "最佳路径是否同时满足带宽、时延和PDR约束。"
+        },
+        "primaryRoute": {
+          "type": "array",
+          "minItems": 2,
+          "description": "可选主路由，按转发顺序填写至少两个平台编号。",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_.:@/-]+$",
+            "description": "路由中的平台编号。"
+          }
+        },
+        "backupRoute": {
+          "type": "array",
+          "minItems": 2,
+          "description": "可选备份路由，按转发顺序填写至少两个平台编号。",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_.:@/-]+$",
+            "description": "备份路由中的平台编号。"
+          }
+        },
+        "bandwidthMarginBps": {
+          "type": "number",
+          "description": "可用带宽减所需带宽，正值有余量，单位bit/s。"
+        },
+        "delayMarginMs": {
+          "type": "number",
+          "description": "允许时延减预测时延，正值有余量，单位ms。"
+        },
+        "pdrMarginPercent": {
+          "type": "number",
+          "description": "预测PDR减最低PDR，正值有余量，单位百分点。"
+        },
+        "reasonCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "固定失败原因码数组，成功且无告警时允许为空。",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "一个不可达、能力不足或数据无效原因码。"
+          }
+        },
+        "recommendations": {
+          "type": "array",
+          "description": "只读建议数组，插件不会自动执行建链、改频或改路由。",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "一条面向使用方的简短调整建议。"
+          }
+        }
       }
     }
   }

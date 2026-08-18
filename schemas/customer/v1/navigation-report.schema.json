@@ -2,30 +2,170 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nrm.local/schema/customer/v1/navigation-report.schema.json",
   "title": "导航结果输入",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.navigation_report.v1"},
-    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
-    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
-    "source": {"const": "CUSTOMER"},
+    "schema": {
+      "const": "nrm.customer.navigation_report.v1",
+      "description": "固定值，表示导航状态上报V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "消息唯一编号；1～64字符，只允许字母、数字及_.:@/-。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "消息生成墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "CUSTOMER",
+      "description": "固定值CUSTOMER，表示消息由甲方导航模块提供。"
+    },
     "data": {
-      "type": "object", "additionalProperties": false,
-      "required": ["runId", "simTime", "platformId", "navigationType", "truthPosition", "perceivedPosition"],
+      "type": "object",
+      "additionalProperties": false,
+      "description": "一个平台在指定仿真时刻的导航真值、感知值和误差。",
+      "required": [
+        "runId",
+        "simTime",
+        "platformId",
+        "navigationType",
+        "truthPosition",
+        "perceivedPosition"
+      ],
       "properties": {
-        "runId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "simTime": {"type": "number", "minimum": 0},
-        "platformId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "navigationType": {"enum": ["GNSS", "INS", "INTEGRATED"]},
-        "truthPosition": {"$ref": "common.schema.json#/$defs/position"},
-        "perceivedPosition": {"$ref": "common.schema.json#/$defs/position"},
-        "positionErrorM": {
-          "type": "object", "additionalProperties": false,
-          "required": ["inTrack", "crossTrack", "vertical"],
-          "properties": {"inTrack": {"type": "number"}, "crossTrack": {"type": "number"}, "vertical": {"type": "number"}}
+        "runId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "一次AFSIM仿真运行的唯一编号；1～64字符。"
         },
-        "status": {"type": "string", "minLength": 1, "maxLength": 32},
-        "confidence": {"enum": ["LOW", "MEDIUM", "HIGH"]}
+        "simTime": {
+          "type": "number",
+          "minimum": 0,
+          "description": "AFSIM仿真时间，必须大于等于0，单位s。"
+        },
+        "platformId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "导航样本所属AFSIM平台编号；1～64字符。"
+        },
+        "navigationType": {
+          "enum": [
+            "GNSS",
+            "INS",
+            "INTEGRATED"
+          ],
+          "description": "导航模式；允许GNSS、INS或INTEGRATED。"
+        },
+        "truthPosition": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "AFSIM平台真实位置。",
+          "required": [
+            "latitudeDeg",
+            "longitudeDeg",
+            "altitudeM"
+          ],
+          "properties": {
+            "latitudeDeg": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90,
+              "description": "真实纬度，范围-90～90，单位deg。"
+            },
+            "longitudeDeg": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180,
+              "description": "真实经度，范围-180～180，单位deg。"
+            },
+            "altitudeM": {
+              "type": "number",
+              "description": "真实高度，单位m。"
+            }
+          }
+        },
+        "perceivedPosition": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "导航系统输出的感知位置。",
+          "required": [
+            "latitudeDeg",
+            "longitudeDeg",
+            "altitudeM"
+          ],
+          "properties": {
+            "latitudeDeg": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90,
+              "description": "感知纬度，范围-90～90，单位deg。"
+            },
+            "longitudeDeg": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180,
+              "description": "感知经度，范围-180～180，单位deg。"
+            },
+            "altitudeM": {
+              "type": "number",
+              "description": "感知高度，单位m。"
+            }
+          }
+        },
+        "positionErrorM": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "可选三轴导航位置误差，单位m。",
+          "required": [
+            "inTrack",
+            "crossTrack",
+            "vertical"
+          ],
+          "properties": {
+            "inTrack": {
+              "type": "number",
+              "description": "沿航向纵向误差，单位m。"
+            },
+            "crossTrack": {
+              "type": "number",
+              "description": "垂直航向横向误差，单位m。"
+            },
+            "vertical": {
+              "type": "number",
+              "description": "垂向高度误差，单位m。"
+            }
+          }
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "可选AFSIM导航状态；1～32字符，如PERFECT、GPS1或INS1。"
+        },
+        "confidence": {
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH"
+          ],
+          "description": "数据置信度；允许LOW、MEDIUM或HIGH。"
+        }
       }
     }
   }

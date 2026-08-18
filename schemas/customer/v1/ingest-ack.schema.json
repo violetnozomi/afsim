@@ -2,20 +2,67 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nrm.local/schema/customer/v1/ingest-ack.schema.json",
   "title": "资源输入确认",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.ingest_ack.v1"},
-    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
-    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
-    "source": {"const": "NRM"},
+    "schema": {
+      "const": "nrm.customer.ingest_ack.v1",
+      "description": "固定值，表示文件输入确认V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "关联输入消息的编号；1～64字符。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "NRM生成确认的墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "NRM",
+      "description": "固定值NRM，表示确认由网络资源管理插件生成。"
+    },
     "data": {
-      "type": "object", "additionalProperties": false,
-      "required": ["status", "originalMessageId", "detail"],
+      "type": "object",
+      "additionalProperties": false,
+      "description": "文件输入被接受、去重、判为过期或拒绝的结果。",
+      "required": [
+        "status",
+        "originalMessageId",
+        "detail"
+      ],
       "properties": {
-        "status": {"enum": ["ACCEPTED", "DUPLICATE", "STALE", "REJECTED"]},
-        "originalMessageId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "detail": {"type": "string", "maxLength": 512}
+        "status": {
+          "enum": [
+            "ACCEPTED",
+            "DUPLICATE",
+            "STALE",
+            "REJECTED"
+          ],
+          "description": "处理状态；允许ACCEPTED、DUPLICATE、STALE或REJECTED。"
+        },
+        "originalMessageId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "被处理的原输入消息编号；1～64字符。"
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "简短处理说明，最长512字符。"
+        }
       }
     }
   }

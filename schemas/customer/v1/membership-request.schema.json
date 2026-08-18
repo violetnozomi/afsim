@@ -2,22 +2,83 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nrm.local/schema/customer/v1/membership-request.schema.json",
   "title": "动态入退网申请",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.membership_request.v1"},
-    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
-    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
-    "source": {"const": "CUSTOMER"},
+    "schema": {
+      "const": "nrm.customer.membership_request.v1",
+      "description": "固定值，表示成员动态入退网申请V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "消息唯一编号；1～64字符，只允许字母、数字及_.:@/-。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "消息生成墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "CUSTOMER",
+      "description": "固定值CUSTOMER，表示申请由甲方模块提供。"
+    },
     "data": {
-      "type": "object", "additionalProperties": false,
-      "required": ["requestId", "planId", "allocationId", "platformId", "action"],
+      "type": "object",
+      "additionalProperties": false,
+      "description": "针对一个规划分配的成员入网或退网申请。",
+      "required": [
+        "requestId",
+        "planId",
+        "allocationId",
+        "platformId",
+        "action"
+      ],
       "properties": {
-        "requestId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "planId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "allocationId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "platformId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "action": {"enum": ["JOIN", "LEAVE"]}
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "申请唯一编号；1～64字符。"
+        },
+        "planId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "目标资源规划编号，必须引用已加载规划。"
+        },
+        "allocationId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "目标规划内的资源分配编号。"
+        },
+        "platformId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "申请入网或退网的AFSIM平台编号。"
+        },
+        "action": {
+          "enum": [
+            "JOIN",
+            "LEAVE"
+          ],
+          "description": "申请动作；JOIN表示入网，LEAVE表示退网。"
+        }
       }
     }
   }

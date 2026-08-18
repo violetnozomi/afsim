@@ -51,6 +51,8 @@ chmod +x "${TEMP_ROOT}/path-bin/python3"
    output=$(PATH="${TEMP_ROOT}/path-bin:${PATH}" \
       "${ROOT}/scripts/validate_customer_interface.sh")
    grep -q "PASS: 13 commented JSONC examples validated." <<<"$output"
+   grep -q "PASS: 13 standalone schemas contain no refs and all fields have Chinese descriptions." \
+      <<<"$output"
 )
 
 cat >"${TEMP_ROOT}/python-ok" <<'SH'

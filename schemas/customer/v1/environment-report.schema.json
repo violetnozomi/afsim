@@ -2,27 +2,192 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nrm.local/schema/customer/v1/environment-report.schema.json",
   "title": "环境状态输入",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.environment_report.v1"},
-    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
-    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
-    "source": {"const": "CUSTOMER"},
+    "schema": {
+      "const": "nrm.customer.environment_report.v1",
+      "description": "固定值，表示环境状态上报V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "消息唯一编号；1～64字符，只允许字母、数字及_.:@/-。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "消息生成墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "CUSTOMER",
+      "description": "固定值CUSTOMER，表示消息由甲方环境模块提供。"
+    },
     "data": {
-      "type": "object", "additionalProperties": false,
-      "required": ["runId", "simTime", "regionId", "applicationMode"],
+      "type": "object",
+      "additionalProperties": false,
+      "description": "指定区域和仿真时刻的地形、气象、天象或干扰状态。",
+      "required": [
+        "runId",
+        "simTime",
+        "regionId",
+        "applicationMode"
+      ],
       "properties": {
-        "runId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "simTime": {"type": "number", "minimum": 0},
-        "regionId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "applicationMode": {"enum": ["INFORMATION_ONLY", "ALREADY_INCLUDED", "CANDIDATE_ADJUSTMENT"]},
-        "terrain": {"type": "object", "additionalProperties": false, "required": ["enabled"], "properties": {"enabled": {"type": "boolean"}, "blockedLinkIds": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}}},
-        "weather": {"type": "object", "additionalProperties": false, "properties": {"windSpeedMps": {"type": "number", "minimum": 0}, "rainRateMmPerHour": {"type": "number", "minimum": 0}, "cloudPercent": {"type": "number", "minimum": 0, "maximum": 100}}},
-        "astronomy": {"type": "object", "additionalProperties": false, "properties": {"julianDate": {"type": "number"}, "sunElevationDeg": {"type": "number", "minimum": -90, "maximum": 90}}},
-        "interference": {"type": "object", "additionalProperties": false, "properties": {"affectedLinkIds": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "maximumPowerDbm": {"type": "number"}, "capacityScale": {"type": "number", "minimum": 0, "maximum": 1}}}
+        "runId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "一次AFSIM仿真运行的唯一编号；1～64字符。"
+        },
+        "simTime": {
+          "type": "number",
+          "minimum": 0,
+          "description": "AFSIM仿真时间，必须大于等于0，单位s。"
+        },
+        "regionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "环境状态适用区域的唯一编号；1～64字符。"
+        },
+        "applicationMode": {
+          "enum": [
+            "INFORMATION_ONLY",
+            "ALREADY_INCLUDED",
+            "CANDIDATE_ADJUSTMENT"
+          ],
+          "description": "影响应用模式；只展示、已计入链路结果或仅调整候选链路。"
+        },
+        "terrain": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "可选地形影响状态。",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "是否启用地形影响。"
+            },
+            "blockedLinkIds": {
+              "type": "array",
+              "uniqueItems": true,
+              "description": "被地形阻断的链路编号数组，不得重复。",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "必须引用资源快照中的链路编号。"
+              }
+            }
+          }
+        },
+        "weather": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "可选气象状态。",
+          "properties": {
+            "windSpeedMps": {
+              "type": "number",
+              "minimum": 0,
+              "description": "风速，必须大于等于0，单位m/s。"
+            },
+            "rainRateMmPerHour": {
+              "type": "number",
+              "minimum": 0,
+              "description": "降雨率，必须大于等于0，单位mm/h。"
+            },
+            "cloudPercent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "云量覆盖率，范围0～100，单位%。"
+            }
+          }
+        },
+        "astronomy": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "可选天象状态。",
+          "properties": {
+            "julianDate": {
+              "type": "number",
+              "description": "儒略日数值。"
+            },
+            "sunElevationDeg": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90,
+              "description": "太阳高度角，范围-90～90，单位deg。"
+            }
+          }
+        },
+        "interference": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "可选电磁干扰状态。",
+          "properties": {
+            "affectedLinkIds": {
+              "type": "array",
+              "uniqueItems": true,
+              "description": "受干扰链路编号数组，不得重复。",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "必须引用资源快照中的链路编号。"
+              }
+            },
+            "maximumPowerDbm": {
+              "type": "number",
+              "description": "最大干扰功率，单位dBm。"
+            },
+            "capacityScale": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "候选链路容量缩放系数，范围0～1。"
+            }
+          }
+        }
       },
-      "anyOf": [{"required": ["terrain"]}, {"required": ["weather"]}, {"required": ["astronomy"]}, {"required": ["interference"]}]
+      "anyOf": [
+        {
+          "required": [
+            "terrain"
+          ]
+        },
+        {
+          "required": [
+            "weather"
+          ]
+        },
+        {
+          "required": [
+            "astronomy"
+          ]
+        },
+        {
+          "required": [
+            "interference"
+          ]
+        }
+      ]
     }
   }
 }

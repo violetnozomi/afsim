@@ -54,6 +54,65 @@ for schema_path in schema_root.glob("*.schema.json"):
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     schemas[schema["$id"]] = schema
 
+def schema_path_text(parts):
+    return "/" + "/".join(str(part) for part in parts)
+
+def reject_schema_refs(node, file_name, path=()):
+    """Reject every external or local reference in one interface schema."""
+    if isinstance(node, dict):
+        if "$ref" in node:
+            raise SystemExit(
+                f"ERROR: {file_name}{schema_path_text(path)} contains forbidden $ref"
+            )
+        for key, value in node.items():
+            reject_schema_refs(value, file_name, path + (key,))
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            reject_schema_refs(value, file_name, path + (index,))
+
+def validate_property_descriptions(node, file_name, path=()):
+    """Require concise Chinese descriptions on every declared property."""
+    if isinstance(node, dict):
+        properties = node.get("properties")
+        if isinstance(properties, dict):
+            for property_name, property_schema in properties.items():
+                description = property_schema.get("description", "")
+                property_path = path + ("properties", property_name)
+                if not isinstance(description, str) or not description.strip():
+                    raise SystemExit(
+                        f"ERROR: {file_name}{schema_path_text(property_path)} "
+                        "lacks description"
+                    )
+                if not any("\u4e00" <= character <= "\u9fff" for character in description):
+                    raise SystemExit(
+                        f"ERROR: {file_name}{schema_path_text(property_path)} "
+                        "description must contain Chinese text"
+                    )
+        for key, value in node.items():
+            validate_property_descriptions(value, file_name, path + (key,))
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            validate_property_descriptions(value, file_name, path + (index,))
+
+standalone_paths = sorted(
+    path for path in schema_root.glob("*.schema.json")
+    if path.name != "common.schema.json"
+)
+if len(standalone_paths) != 13:
+    raise SystemExit(
+        f"ERROR: expected 13 standalone interface schemas, found {len(standalone_paths)}"
+    )
+for standalone_path in standalone_paths:
+    standalone_schema = json.loads(standalone_path.read_text(encoding="utf-8"))
+    reject_schema_refs(standalone_schema, standalone_path.name)
+for standalone_path in standalone_paths:
+    standalone_schema = json.loads(standalone_path.read_text(encoding="utf-8"))
+    validate_property_descriptions(standalone_schema, standalone_path.name)
+
+print(
+    "PASS: 13 standalone schemas contain no refs and all fields have Chinese descriptions."
+)
+
 def validator_for(schema_name):
     schema_path = schema_root / f"{schema_name}.schema.json"
     schema = json.loads(schema_path.read_text(encoding="utf-8"))

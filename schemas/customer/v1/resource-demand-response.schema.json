@@ -4,42 +4,166 @@
   "title": "并发通信资源需求匹配结果",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.resource_demand_response.v1"},
-    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
-    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
-    "source": {"const": "NRM"},
+    "schema": {
+      "const": "nrm.customer.resource_demand_response.v1",
+      "description": "固定值，表示并发资源需求匹配响应V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "关联需求请求的消息编号；1～64字符。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "NRM生成响应的墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "NRM",
+      "description": "固定值NRM，表示结果由网络资源管理插件生成。"
+    },
     "data": {
-      "type": "object", "additionalProperties": false,
-      "required": ["demandSetId", "revision", "snapshotVersion", "totalCount", "satisfiedCount", "unsatisfiedCount", "dataInvalidCount", "results"],
+      "type": "object",
+      "additionalProperties": false,
+      "description": "并发需求集的汇总计数和逐需求匹配结果。",
+      "required": [
+        "demandSetId",
+        "revision",
+        "snapshotVersion",
+        "totalCount",
+        "satisfiedCount",
+        "unsatisfiedCount",
+        "dataInvalidCount",
+        "results"
+      ],
       "properties": {
-        "demandSetId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "revision": {"type": "integer", "minimum": 1},
-        "snapshotVersion": {"type": "integer", "minimum": 0},
-        "totalCount": {"type": "integer", "minimum": 0},
-        "satisfiedCount": {"type": "integer", "minimum": 0},
-        "unsatisfiedCount": {"type": "integer", "minimum": 0},
-        "dataInvalidCount": {"type": "integer", "minimum": 0},
+        "demandSetId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "回显需求集唯一编号；1～64字符。"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "回显需求集修订号，必须大于等于1。"
+        },
+        "snapshotVersion": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "本次匹配使用的资源快照版本，必须为非负整数。"
+        },
+        "totalCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "输入需求总数，必须为非负整数。"
+        },
+        "satisfiedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "满足全部约束的需求数量，必须为非负整数。"
+        },
+        "unsatisfiedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "未满足约束的需求数量，必须为非负整数。"
+        },
+        "dataInvalidCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "因关键数据无效而无法评估的需求数量，必须为非负整数。"
+        },
         "results": {
           "type": "array",
+          "description": "逐需求匹配结果数组，与输入需求编号对应。",
           "items": {
-            "type": "object", "additionalProperties": false,
-            "required": ["demandId", "status", "reasonCodes", "recommendations"],
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一项需求的满足状态、原因码和只读建议。",
+            "required": [
+              "demandId",
+              "status",
+              "reasonCodes",
+              "recommendations"
+            ],
             "properties": {
-              "demandId": {"$ref": "common.schema.json#/$defs/identifier"},
-              "status": {"enum": ["SATISFIED", "UNSATISFIED", "DATA_INVALID"]},
-              "reasonCodes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "demandId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "回显需求集内的需求编号；1～64字符。"
+              },
+              "status": {
+                "enum": [
+                  "SATISFIED",
+                  "UNSATISFIED",
+                  "DATA_INVALID"
+                ],
+                "description": "匹配状态；满足、不满足或关键数据无效。"
+              },
+              "reasonCodes": {
+                "type": "array",
+                "uniqueItems": true,
+                "description": "固定原因码数组，无失败原因时允许为空。",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "一项资源不足、冲突或数据无效原因码。"
+                }
+              },
               "recommendations": {
                 "type": "array",
+                "description": "可用资源调整建议数组，插件不会自动执行。",
                 "items": {
-                  "type": "object", "additionalProperties": false,
-                  "required": ["type", "status", "value", "reason"],
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "一项频率、站点、信道、子网、时隙或路由建议。",
+                  "required": [
+                    "type",
+                    "status",
+                    "value",
+                    "reason"
+                  ],
                   "properties": {
-                    "type": {"enum": ["FREQUENCY", "STATION", "CHANNEL", "SUBNET", "TIMESLOT", "ROUTE"]},
-                    "status": {"enum": ["AVAILABLE", "UNAVAILABLE"]},
-                    "value": {"type": "string"},
-                    "reason": {"type": "string", "minLength": 1}
+                    "type": {
+                      "enum": [
+                        "FREQUENCY",
+                        "STATION",
+                        "CHANNEL",
+                        "SUBNET",
+                        "TIMESLOT",
+                        "ROUTE"
+                      ],
+                      "description": "建议类型；频率、站点、信道、子网、时隙或路由。"
+                    },
+                    "status": {
+                      "enum": [
+                        "AVAILABLE",
+                        "UNAVAILABLE"
+                      ],
+                      "description": "建议资源状态；可用或不可用。"
+                    },
+                    "value": {
+                      "type": "string",
+                      "description": "建议采用的资源值、对象编号或路由字符串。"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "建议依据或不可用原因，不能为空。"
+                    }
                   }
                 }
               }

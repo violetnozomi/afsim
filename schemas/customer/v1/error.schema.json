@@ -2,20 +2,90 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nrm.local/schema/customer/v1/error.schema.json",
   "title": "统一错误响应",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.error.v1"}, "messageId": {"$ref": "common.schema.json#/$defs/identifier"}, "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"}, "source": {"const": "NRM"},
+    "schema": {
+      "const": "nrm.customer.error.v1",
+      "description": "固定值，表示统一错误响应V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "关联失败输入的消息编号；1～64字符。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "NRM生成错误响应的墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "NRM",
+      "description": "固定值NRM，表示错误响应由网络资源管理插件生成。"
+    },
     "data": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["success", "errors"],
+      "description": "一次输入失败对应的结构化错误列表。",
+      "required": [
+        "success",
+        "errors"
+      ],
       "properties": {
-        "success": {"const": false},
+        "success": {
+          "const": false,
+          "description": "固定值false，表示本次输入处理失败。"
+        },
         "errors": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "common.schema.json#/$defs/error"}
+          "description": "错误列表，至少包含一项。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一项固定错误码、字段路径和中文说明。",
+            "required": [
+              "code",
+              "path",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "enum": [
+                  "INVALID_JSON",
+                  "SCHEMA_UNSUPPORTED",
+                  "SCHEMA_VALIDATION_FAILED",
+                  "REQUIRED_FIELD_MISSING",
+                  "VALUE_OUT_OF_RANGE",
+                  "REFERENCE_NOT_FOUND",
+                  "DUPLICATE_MESSAGE",
+                  "STALE_DATA",
+                  "DATA_INVALID",
+                  "INTERNAL_ERROR"
+                ],
+                "description": "固定错误码；允许JSON、Schema、字段、引用、重复、过期、数据或内部错误。"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "错误字段的JSON Pointer路径，不能为空。"
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "description": "面向联调人员的简短错误说明，不能为空。"
+              }
+            }
+          }
         }
       }
     }

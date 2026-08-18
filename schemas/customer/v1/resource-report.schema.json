@@ -4,62 +4,700 @@
   "title": "四网通信资源完整快照",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "messageId", "timestamp", "source", "data"],
+  "required": [
+    "schema",
+    "messageId",
+    "timestamp",
+    "source",
+    "data"
+  ],
   "properties": {
-    "schema": {"const": "nrm.customer.resource_report.v1"},
-    "messageId": {"$ref": "common.schema.json#/$defs/identifier"},
-    "timestamp": {"$ref": "common.schema.json#/$defs/timestamp"},
-    "source": {"const": "CUSTOMER"},
+    "schema": {
+      "const": "nrm.customer.resource_report.v1",
+      "description": "固定值，表示四网通信资源全量快照V1。"
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:@/-]+$",
+      "description": "消息唯一编号；1～64字符，只允许字母、数字及_.:@/-。"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "消息生成墙钟时间，使用带时区的RFC 3339格式。"
+    },
+    "source": {
+      "const": "CUSTOMER",
+      "description": "固定值CUSTOMER，表示资源快照由甲方模块提供。"
+    },
     "data": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["runId", "simTime", "networks", "members", "links"],
+      "description": "一次仿真时刻的网络、端点、链路、路由、流量和告警原子全量快照。",
+      "required": [
+        "runId",
+        "simTime",
+        "networks",
+        "members",
+        "links"
+      ],
       "properties": {
-        "runId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "simTime": {"type": "number", "minimum": 0},
-        "operationalArea": {"$ref": "#/$defs/operationalArea"},
-        "networks": {"type": "array", "items": {"$ref": "#/$defs/network"}},
-        "members": {"type": "array", "items": {"$ref": "#/$defs/member"}},
-        "attitudes": {"type": "array", "items": {"$ref": "#/$defs/attitude"}},
-        "links": {"type": "array", "items": {"$ref": "#/$defs/link"}},
-        "routes": {"type": "array", "items": {"$ref": "#/$defs/route"}},
-        "flows": {"type": "array", "items": {"$ref": "#/$defs/flow"}},
-        "gateways": {"type": "array", "items": {"$ref": "#/$defs/gateway"}},
-        "resourceProxies": {"type": "array", "items": {"$ref": "#/$defs/proxy"}},
-        "alarms": {"type": "array", "items": {"$ref": "#/$defs/alarm"}}
+        "runId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.:@/-]+$",
+          "description": "一次AFSIM仿真运行的唯一编号；1～64字符。"
+        },
+        "simTime": {
+          "type": "number",
+          "minimum": 0,
+          "description": "AFSIM仿真时间，必须大于等于0，单位s。"
+        },
+        "operationalArea": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "可选任务区域及其仿真时间有效范围。",
+          "required": [
+            "areaId",
+            "validFrom",
+            "validUntil",
+            "points"
+          ],
+          "properties": {
+            "areaId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_.:@/-]+$",
+              "description": "任务区域唯一编号；1～64字符。"
+            },
+            "validFrom": {
+              "type": "number",
+              "minimum": 0,
+              "description": "区域开始生效的仿真时间，必须大于等于0，单位s。"
+            },
+            "validUntil": {
+              "type": "number",
+              "minimum": 0,
+              "description": "区域结束生效的仿真时间，必须大于等于0，单位s。"
+            },
+            "points": {
+              "type": "array",
+              "minItems": 3,
+              "description": "按顺序组成区域边界的地理点，至少三点。",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "一个区域边界地理点。",
+                "required": [
+                  "latitudeDeg",
+                  "longitudeDeg",
+                  "altitudeM"
+                ],
+                "properties": {
+                  "latitudeDeg": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "纬度，范围-90～90，单位deg。"
+                  },
+                  "longitudeDeg": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "经度，范围-180～180，单位deg。"
+                  },
+                  "altitudeM": {
+                    "type": "number",
+                    "description": "高度，单位m。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "networks": {
+          "type": "array",
+          "description": "当前运行中的全部通信网络，允许为空数组。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一个Link-11、Link-16、卫通或CDL网络实例。",
+            "required": [
+              "networkId",
+              "networkType",
+              "name"
+            ],
+            "properties": {
+              "networkId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "同一runId内唯一网络编号；同类型多网也必须不同。"
+              },
+              "networkType": {
+                "enum": [
+                  "LINK11",
+                  "LINK16",
+                  "SATCOM",
+                  "CDL"
+                ],
+                "description": "网络类型；允许LINK11、LINK16、SATCOM或CDL。"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "description": "AFSIM网络显示名称；1～128字符。"
+              }
+            }
+          }
+        },
+        "members": {
+          "type": "array",
+          "description": "当前运行中的全部通信端点，允许为空数组。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "平台上的一个网络通信端点；多网平台按端点分别上报。",
+            "required": [
+              "memberId",
+              "platformId",
+              "networkId",
+              "state",
+              "position"
+            ],
+            "properties": {
+              "memberId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "同一runId内唯一通信端点编号；1～64字符。"
+              },
+              "platformId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "端点所属AFSIM平台编号；1～64字符。"
+              },
+              "networkId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "端点所属网络编号，必须引用networks中的networkId。"
+              },
+              "state": {
+                "enum": [
+                  "ONLINE",
+                  "OFFLINE",
+                  "DISABLED",
+                  "FAILED"
+                ],
+                "description": "端点状态；在线、离线、禁用或故障。"
+              },
+              "position": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "通信端点当前地理位置。",
+                "required": [
+                  "latitudeDeg",
+                  "longitudeDeg",
+                  "altitudeM"
+                ],
+                "properties": {
+                  "latitudeDeg": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "端点纬度，范围-90～90，单位deg。"
+                  },
+                  "longitudeDeg": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "端点经度，范围-180～180，单位deg。"
+                  },
+                  "altitudeM": {
+                    "type": "number",
+                    "description": "端点高度，单位m。"
+                  }
+                }
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 64,
+                "description": "可选网络角色，最长64字符。"
+              }
+            }
+          }
+        },
+        "attitudes": {
+          "type": "array",
+          "description": "可选平台姿态数组。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一个平台在指定仿真时刻的姿态。",
+            "required": [
+              "platformId",
+              "headingDeg",
+              "pitchDeg",
+              "rollDeg",
+              "sampleTime"
+            ],
+            "properties": {
+              "platformId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "姿态所属AFSIM平台编号；1～64字符。"
+              },
+              "headingDeg": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 360,
+                "description": "航向角，范围0～360，单位deg。"
+              },
+              "pitchDeg": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90,
+                "description": "俯仰角，范围-90～90，单位deg。"
+              },
+              "rollDeg": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "description": "滚转角，范围-180～180，单位deg。"
+              },
+              "sampleTime": {
+                "type": "number",
+                "minimum": 0,
+                "description": "姿态采样仿真时间，必须大于等于0，单位s。"
+              }
+            }
+          }
+        },
+        "links": {
+          "type": "array",
+          "description": "当前运行中的全部有向通信链路，允许为空数组。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "从源端点到目的端点的一条有向通信链路。",
+            "required": [
+              "linkId",
+              "networkId",
+              "sourceMemberId",
+              "destinationMemberId",
+              "state"
+            ],
+            "properties": {
+              "linkId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "同一runId内唯一链路编号；1～64字符。"
+              },
+              "networkId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "链路所属网络编号，必须引用networks中的networkId。"
+              },
+              "sourceMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "有向链路源端点编号，必须引用members中的memberId。"
+              },
+              "destinationMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "有向链路目的端点编号，必须引用members中的memberId。"
+              },
+              "state": {
+                "enum": [
+                  "ONLINE",
+                  "OFFLINE",
+                  "DISABLED",
+                  "FAILED"
+                ],
+                "description": "链路状态；在线、离线、禁用或故障。"
+              },
+              "subnetId": {
+                "type": "string",
+                "maxLength": 64,
+                "description": "可选链路子网编号，最长64字符。"
+              },
+              "supportedBusinessTypes": {
+                "type": "array",
+                "uniqueItems": true,
+                "description": "链路可承载业务类型数组，不得重复。",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "一个可承载业务类型，例如C2或ISR_VIDEO。"
+                }
+              },
+              "bandwidthBps": {
+                "type": "number",
+                "minimum": 0,
+                "description": "可选链路带宽，必须大于等于0，单位bit/s。"
+              },
+              "delayMs": {
+                "type": "number",
+                "minimum": 0,
+                "description": "可选链路时延，必须大于等于0，单位ms。"
+              },
+              "pdrPercent": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "可选链路投递成功率，范围0～100，单位%。"
+              },
+              "rssiDbm": {
+                "type": "number",
+                "description": "可选接收信号强度，单位dBm。"
+              },
+              "snrDb": {
+                "type": "number",
+                "description": "可选信噪比，单位dB。"
+              },
+              "berRatio": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "可选误码率，范围0～1。"
+              },
+              "queuePercent": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "可选队列占用率，范围0～100，单位%。"
+              },
+              "trafficBps": {
+                "type": "number",
+                "minimum": 0,
+                "description": "可选当前链路业务流量，必须大于等于0，单位bit/s。"
+              },
+              "protocolResource": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "可选协议专用轮询、时隙、波束或信道资源占用。",
+                "required": [
+                  "kind",
+                  "capacity",
+                  "used"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "POLLING_UNIT",
+                      "TIMESLOT",
+                      "BEAM_CHANNEL",
+                      "CHANNEL"
+                    ],
+                    "description": "协议资源类型；轮询单元、时隙、波束信道或普通信道。"
+                  },
+                  "capacity": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "协议资源总量，必须为非负整数。"
+                  },
+                  "used": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "已占用协议资源数量，必须为非负整数。"
+                  }
+                }
+              },
+              "coverage": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "可选链路覆盖范围约束。",
+                "required": [
+                  "maximumRangeM"
+                ],
+                "properties": {
+                  "maximumRangeM": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "链路最大通信距离，必须大于等于0，单位m。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "routes": {
+          "type": "array",
+          "description": "可选当前路由证据数组。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一条源端点到目的端点的当前路由。",
+            "required": [
+              "routeId",
+              "sourceMemberId",
+              "destinationMemberId",
+              "hops",
+              "active"
+            ],
+            "properties": {
+              "routeId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "同一runId内唯一路由编号；1～64字符。"
+              },
+              "sourceMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "路由源端点编号，必须引用members中的memberId。"
+              },
+              "destinationMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "路由目的端点编号，必须引用members中的memberId。"
+              },
+              "hops": {
+                "type": "array",
+                "minItems": 2,
+                "description": "按转发顺序排列的端点编号，至少包含源和目的。",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                  "description": "一个路由跳端点编号。"
+                }
+              },
+              "active": {
+                "type": "boolean",
+                "description": "该路由当前是否活动。"
+              }
+            }
+          }
+        },
+        "flows": {
+          "type": "array",
+          "description": "可选当前业务流数组。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一个源端点到目的端点的业务流。",
+            "required": [
+              "flowId",
+              "businessType",
+              "sourceMemberId",
+              "destinationMemberId"
+            ],
+            "properties": {
+              "flowId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "同一runId内唯一业务流编号；1～64字符。"
+              },
+              "businessType": {
+                "type": "string",
+                "minLength": 1,
+                "description": "业务类型，不能为空，例如C2、TRACK或ISR_VIDEO。"
+              },
+              "sourceMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "业务流源端点编号，必须引用members中的memberId。"
+              },
+              "destinationMemberId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "业务流目的端点编号，必须引用members中的memberId。"
+              },
+              "trafficBps": {
+                "type": "number",
+                "minimum": 0,
+                "description": "可选业务流量，必须大于等于0，单位bit/s。"
+              }
+            }
+          }
+        },
+        "gateways": {
+          "type": "array",
+          "description": "可选显式跨网网关能力数组。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一个平台从入口网络到出口网络的显式转换能力。",
+            "required": [
+              "gatewayId",
+              "platformId",
+              "ingressNetworkId",
+              "egressNetworkId",
+              "enabled"
+            ],
+            "properties": {
+              "gatewayId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "同一runId内唯一网关能力编号；1～64字符。"
+              },
+              "platformId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "承载网关能力的AFSIM平台编号。"
+              },
+              "ingressNetworkId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "入口网络编号，必须引用networks中的networkId。"
+              },
+              "egressNetworkId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "出口网络编号，必须引用networks中的networkId。"
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "是否允许使用该跨网转换能力。"
+              }
+            }
+          }
+        },
+        "resourceProxies": {
+          "type": "array",
+          "description": "可选甲方资源代理状态数组。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一个甲方资源提供模块的在线和更新时间状态。",
+            "required": [
+              "proxyId",
+              "resourceType",
+              "providerId",
+              "online",
+              "lastUpdateTime"
+            ],
+            "properties": {
+              "proxyId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "同一runId内唯一资源代理编号；1～64字符。"
+              },
+              "resourceType": {
+                "type": "string",
+                "minLength": 1,
+                "description": "代理资源类型，不能为空，建议使用四网类型名称。"
+              },
+              "providerId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "资源提供模块的稳定编号；1～64字符。"
+              },
+              "online": {
+                "type": "boolean",
+                "description": "资源代理当前是否在线。"
+              },
+              "lastUpdateTime": {
+                "type": "number",
+                "minimum": 0,
+                "description": "代理最近更新仿真时间，必须大于等于0，单位s。"
+              }
+            }
+          }
+        },
+        "alarms": {
+          "type": "array",
+          "description": "可选当前资源告警数组。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "一个网络、端点、链路或资源对象告警。",
+            "required": [
+              "alarmId",
+              "objectId",
+              "reasonCode",
+              "severity",
+              "startTime",
+              "active"
+            ],
+            "properties": {
+              "alarmId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "同一runId内唯一告警编号；1～64字符。"
+              },
+              "objectId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:@/-]+$",
+                "description": "告警关联的网络、端点、链路或资源对象编号。"
+              },
+              "reasonCode": {
+                "type": "string",
+                "minLength": 1,
+                "description": "固定告警原因码，不能为空。"
+              },
+              "severity": {
+                "enum": [
+                  "INFO",
+                  "WARNING",
+                  "ERROR"
+                ],
+                "description": "告警严重度；信息、警告或错误。"
+              },
+              "startTime": {
+                "type": "number",
+                "minimum": 0,
+                "description": "告警开始仿真时间，必须大于等于0，单位s。"
+              },
+              "active": {
+                "type": "boolean",
+                "description": "告警当前是否仍有效。"
+              }
+            }
+          }
+        }
       }
     }
-  },
-  "$defs": {
-    "network": {
-      "type": "object", "additionalProperties": false,
-      "required": ["networkId", "networkType", "name"],
-      "properties": {"networkId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkType": {"$ref": "common.schema.json#/$defs/networkType"}, "name": {"type": "string", "minLength": 1, "maxLength": 128}}
-    },
-    "member": {
-      "type": "object", "additionalProperties": false,
-      "required": ["memberId", "platformId", "networkId", "state", "position"],
-      "properties": {"memberId": {"$ref": "common.schema.json#/$defs/identifier"}, "platformId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkId": {"$ref": "common.schema.json#/$defs/identifier"}, "state": {"enum": ["ONLINE", "OFFLINE", "DISABLED", "FAILED"]}, "position": {"$ref": "common.schema.json#/$defs/position"}, "role": {"type": "string", "maxLength": 64}}
-    },
-    "link": {
-      "type": "object", "additionalProperties": false,
-      "required": ["linkId", "networkId", "sourceMemberId", "destinationMemberId", "state"],
-      "properties": {
-        "linkId": {"$ref": "common.schema.json#/$defs/identifier"}, "networkId": {"$ref": "common.schema.json#/$defs/identifier"}, "sourceMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "destinationMemberId": {"$ref": "common.schema.json#/$defs/identifier"},
-        "state": {"enum": ["ONLINE", "OFFLINE", "DISABLED", "FAILED"]}, "subnetId": {"type": "string", "maxLength": 64}, "supportedBusinessTypes": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-        "bandwidthBps": {"type": "number", "minimum": 0}, "delayMs": {"type": "number", "minimum": 0}, "pdrPercent": {"type": "number", "minimum": 0, "maximum": 100}, "rssiDbm": {"type": "number"}, "snrDb": {"type": "number"}, "berRatio": {"type": "number", "minimum": 0, "maximum": 1}, "queuePercent": {"type": "number", "minimum": 0, "maximum": 100}, "trafficBps": {"type": "number", "minimum": 0},
-        "protocolResource": {"$ref": "#/$defs/protocolResource"}, "coverage": {"$ref": "#/$defs/coverage"}
-      }
-    },
-    "geoPoint": {"type": "object", "additionalProperties": false, "required": ["latitudeDeg", "longitudeDeg", "altitudeM"], "properties": {"latitudeDeg": {"type": "number", "minimum": -90, "maximum": 90}, "longitudeDeg": {"type": "number", "minimum": -180, "maximum": 180}, "altitudeM": {"type": "number"}}},
-    "operationalArea": {"type": "object", "additionalProperties": false, "required": ["areaId", "validFrom", "validUntil", "points"], "properties": {"areaId": {"$ref": "common.schema.json#/$defs/identifier"}, "validFrom": {"type": "number", "minimum": 0}, "validUntil": {"type": "number", "minimum": 0}, "points": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/geoPoint"}}}},
-    "attitude": {"type": "object", "additionalProperties": false, "required": ["platformId", "headingDeg", "pitchDeg", "rollDeg", "sampleTime"], "properties": {"platformId": {"$ref": "common.schema.json#/$defs/identifier"}, "headingDeg": {"type": "number", "minimum": 0, "maximum": 360}, "pitchDeg": {"type": "number", "minimum": -90, "maximum": 90}, "rollDeg": {"type": "number", "minimum": -180, "maximum": 180}, "sampleTime": {"type": "number", "minimum": 0}}},
-    "protocolResource": {"type": "object", "additionalProperties": false, "required": ["kind", "capacity", "used"], "properties": {"kind": {"enum": ["POLLING_UNIT", "TIMESLOT", "BEAM_CHANNEL", "CHANNEL"]}, "capacity": {"type": "integer", "minimum": 0}, "used": {"type": "integer", "minimum": 0}}},
-    "coverage": {"type": "object", "additionalProperties": false, "required": ["maximumRangeM"], "properties": {"maximumRangeM": {"type": "number", "minimum": 0}}},
-    "route": {"type": "object", "additionalProperties": false, "required": ["routeId", "sourceMemberId", "destinationMemberId", "hops", "active"], "properties": {"routeId": {"$ref": "common.schema.json#/$defs/identifier"}, "sourceMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "destinationMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "hops": {"type": "array", "minItems": 2, "items": {"$ref": "common.schema.json#/$defs/identifier"}}, "active": {"type": "boolean"}}},
-    "flow": {"type": "object", "additionalProperties": false, "required": ["flowId", "businessType", "sourceMemberId", "destinationMemberId"], "properties": {"flowId": {"$ref": "common.schema.json#/$defs/identifier"}, "businessType": {"type": "string", "minLength": 1}, "sourceMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "destinationMemberId": {"$ref": "common.schema.json#/$defs/identifier"}, "trafficBps": {"type": "number", "minimum": 0}}},
-    "gateway": {"type": "object", "additionalProperties": false, "required": ["gatewayId", "platformId", "ingressNetworkId", "egressNetworkId", "enabled"], "properties": {"gatewayId": {"$ref": "common.schema.json#/$defs/identifier"}, "platformId": {"$ref": "common.schema.json#/$defs/identifier"}, "ingressNetworkId": {"$ref": "common.schema.json#/$defs/identifier"}, "egressNetworkId": {"$ref": "common.schema.json#/$defs/identifier"}, "enabled": {"type": "boolean"}}},
-    "proxy": {"type": "object", "additionalProperties": false, "required": ["proxyId", "resourceType", "providerId", "online", "lastUpdateTime"], "properties": {"proxyId": {"$ref": "common.schema.json#/$defs/identifier"}, "resourceType": {"type": "string", "minLength": 1}, "providerId": {"$ref": "common.schema.json#/$defs/identifier"}, "online": {"type": "boolean"}, "lastUpdateTime": {"type": "number", "minimum": 0}}},
-    "alarm": {"type": "object", "additionalProperties": false, "required": ["alarmId", "objectId", "reasonCode", "severity", "startTime", "active"], "properties": {"alarmId": {"$ref": "common.schema.json#/$defs/identifier"}, "objectId": {"$ref": "common.schema.json#/$defs/identifier"}, "reasonCode": {"type": "string", "minLength": 1}, "severity": {"enum": ["INFO", "WARNING", "ERROR"]}, "startTime": {"type": "number", "minimum": 0}, "active": {"type": "boolean"}}}
   }
 }
