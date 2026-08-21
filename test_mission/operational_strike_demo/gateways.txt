@@ -1,0 +1,520 @@
+# Six pair-scoped cross-domain gateway groups. Each physical gateway is dual-homed
+# in exactly two domains; no gateway is connected to all four networks.
+
+# Explicit route templates for all twelve directions.
+nrm_gateway_route
+   route_id route_l11_to_l16
+   source_platform link11_control_station
+   destination_platform network_control_center
+   destination_comm link16
+   allowed_message_type XDOM_L11_TO_L16
+   gateway_capability gw_l11_l16_forward_cap
+   priority 100
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_l16_to_l11
+   source_platform network_control_center
+   destination_platform link11_control_station
+   destination_comm link11
+   allowed_message_type XDOM_L16_TO_L11
+   gateway_capability gw_l11_l16_reverse_cap
+   priority 100
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_l11_to_satcom
+   source_platform link11_control_station
+   destination_platform regional_command
+   destination_comm satcom
+   allowed_message_type XDOM_L11_TO_SATCOM
+   gateway_capability gw_l11_satcom_forward_cap
+   priority 90
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_satcom_to_l11
+   source_platform regional_command
+   destination_platform link11_control_station
+   destination_comm link11
+   allowed_message_type XDOM_SATCOM_TO_L11
+   gateway_capability gw_l11_satcom_reverse_cap
+   priority 90
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_l11_to_cdl
+   source_platform link11_control_station
+   destination_platform data_processing_center
+   destination_comm cdl
+   allowed_message_type XDOM_L11_TO_CDL
+   gateway_capability gw_l11_cdl_forward_cap
+   priority 80
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_cdl_to_l11
+   source_platform data_processing_center
+   destination_platform link11_control_station
+   destination_comm link11
+   allowed_message_type XDOM_CDL_TO_L11
+   gateway_capability gw_l11_cdl_reverse_cap
+   priority 80
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_l16_to_satcom
+   source_platform network_control_center
+   destination_platform regional_command
+   destination_comm satcom
+   allowed_message_type XDOM_L16_TO_SATCOM
+   gateway_capability gw_l16_satcom_forward_cap
+   priority 100
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_satcom_to_l16
+   source_platform regional_command
+   destination_platform network_control_center
+   destination_comm link16
+   allowed_message_type XDOM_SATCOM_TO_L16
+   gateway_capability gw_l16_satcom_reverse_cap
+   priority 100
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_l16_to_cdl
+   source_platform network_control_center
+   destination_platform data_processing_center
+   destination_comm cdl
+   allowed_message_type XDOM_L16_TO_CDL
+   gateway_capability gw_l16_cdl_forward_cap
+   priority 110
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_cdl_to_l16
+   source_platform data_processing_center
+   destination_platform network_control_center
+   destination_comm link16
+   allowed_message_type XDOM_CDL_TO_L16
+   gateway_capability gw_l16_cdl_reverse_cap
+   priority 110
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_satcom_to_cdl
+   source_platform regional_command
+   destination_platform data_processing_center
+   destination_comm cdl
+   allowed_message_type XDOM_SATCOM_TO_CDL
+   gateway_capability gw_satcom_cdl_forward_cap
+   priority 100
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_cdl_to_satcom
+   source_platform data_processing_center
+   destination_platform regional_command
+   destination_comm satcom
+   allowed_message_type XDOM_CDL_TO_SATCOM
+   gateway_capability gw_satcom_cdl_reverse_cap
+   priority 100
+   enabled true
+end_nrm_gateway_route
+
+# Explicit multi-gateway cascades. They may not be assembled from unrelated
+# direct routes at runtime; every hop and order is fixed in the template.
+nrm_gateway_route
+   route_id route_l11_satcom_cdl_cascade
+   source_platform link11_control_station
+   destination_platform data_processing_center
+   destination_comm cdl
+   allowed_message_type XDOM_CASCADE_L11_CDL
+   gateway_capability gw_l11_satcom_forward_cap
+   gateway_capability gw_satcom_cdl_forward_cap
+   priority 120
+   enabled true
+end_nrm_gateway_route
+
+nrm_gateway_route
+   route_id route_cdl_l16_l11_cascade
+   source_platform data_processing_center
+   destination_platform link11_control_station
+   destination_comm link11
+   allowed_message_type XDOM_CASCADE_CDL_L11
+   gateway_capability gw_l16_cdl_reverse_cap
+   gateway_capability gw_l11_l16_reverse_cap
+   priority 120
+   enabled true
+end_nrm_gateway_route
+
+# Link-11 <-> Link-16 pair.
+processor NRM_OP_GATEWAY_L11_L16_FORWARD WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l11_l16_forward_cap
+      ingress_network_id nrm_link11_coordination
+      egress_network_id nrm_link16_tactical
+      ingress_comm link11
+      egress_comm link16
+      allowed_source_platform link11_control_station
+      allowed_destination_platform network_control_center
+      allowed_message_type XDOM_L11_TO_L16
+      priority 100
+      processing_delay_ms 4
+      forwarding_rate_bps 256000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+processor NRM_OP_GATEWAY_L11_L16_REVERSE WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l11_l16_reverse_cap
+      ingress_network_id nrm_link16_tactical
+      egress_network_id nrm_link11_coordination
+      ingress_comm link16
+      egress_comm link11
+      allowed_source_platform network_control_center
+      allowed_source_platform data_processing_center
+      allowed_destination_platform link11_control_station
+      allowed_message_type XDOM_L16_TO_L11
+      allowed_message_type XDOM_CASCADE_CDL_L11
+      priority 100
+      processing_delay_ms 4
+      forwarding_rate_bps 256000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+# Link-11 <-> SATCOM pair.
+processor NRM_OP_GATEWAY_L11_SATCOM_FORWARD WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l11_satcom_forward_cap
+      ingress_network_id nrm_link11_coordination
+      egress_network_id nrm_satcom_command
+      ingress_comm link11
+      egress_comm satcom
+      allowed_source_platform link11_control_station
+      allowed_destination_platform regional_command
+      allowed_destination_platform data_processing_center
+      allowed_message_type XDOM_L11_TO_SATCOM
+      allowed_message_type XDOM_CASCADE_L11_CDL
+      priority 90
+      processing_delay_ms 12
+      forwarding_rate_bps 128000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+processor NRM_OP_GATEWAY_L11_SATCOM_REVERSE WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l11_satcom_reverse_cap
+      ingress_network_id nrm_satcom_command
+      egress_network_id nrm_link11_coordination
+      ingress_comm satcom
+      egress_comm link11
+      allowed_source_platform regional_command
+      allowed_destination_platform link11_control_station
+      allowed_message_type XDOM_SATCOM_TO_L11
+      priority 90
+      processing_delay_ms 12
+      forwarding_rate_bps 128000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+# Link-11 <-> CDL pair.
+processor NRM_OP_GATEWAY_L11_CDL_FORWARD WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l11_cdl_forward_cap
+      ingress_network_id nrm_link11_coordination
+      egress_network_id nrm_cdl_isr
+      ingress_comm link11
+      egress_comm cdl
+      allowed_source_platform link11_control_station
+      allowed_destination_platform data_processing_center
+      allowed_message_type XDOM_L11_TO_CDL
+      priority 80
+      processing_delay_ms 6
+      forwarding_rate_bps 512000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+processor NRM_OP_GATEWAY_L11_CDL_REVERSE WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l11_cdl_reverse_cap
+      ingress_network_id nrm_cdl_isr
+      egress_network_id nrm_link11_coordination
+      ingress_comm cdl
+      egress_comm link11
+      allowed_source_platform data_processing_center
+      allowed_destination_platform link11_control_station
+      allowed_message_type XDOM_CDL_TO_L11
+      priority 80
+      processing_delay_ms 6
+      forwarding_rate_bps 512000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+# Link-16 <-> SATCOM pair.
+processor NRM_OP_GATEWAY_L16_SATCOM_FORWARD WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l16_satcom_forward_cap
+      ingress_network_id nrm_link16_tactical
+      egress_network_id nrm_satcom_command
+      ingress_comm link16
+      egress_comm satcom
+      allowed_source_platform network_control_center
+      allowed_destination_platform regional_command
+      allowed_message_type XDOM_L16_TO_SATCOM
+      priority 100
+      processing_delay_ms 10
+      forwarding_rate_bps 512000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+processor NRM_OP_GATEWAY_L16_SATCOM_REVERSE WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l16_satcom_reverse_cap
+      ingress_network_id nrm_satcom_command
+      egress_network_id nrm_link16_tactical
+      ingress_comm satcom
+      egress_comm link16
+      allowed_source_platform regional_command
+      allowed_destination_platform network_control_center
+      allowed_message_type XDOM_SATCOM_TO_L16
+      priority 100
+      processing_delay_ms 10
+      forwarding_rate_bps 512000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+# Link-16 <-> CDL pair.
+processor NRM_OP_GATEWAY_L16_CDL_FORWARD WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l16_cdl_forward_cap
+      ingress_network_id nrm_link16_tactical
+      egress_network_id nrm_cdl_isr
+      ingress_comm link16
+      egress_comm cdl
+      allowed_source_platform network_control_center
+      allowed_destination_platform data_processing_center
+      allowed_message_type XDOM_L16_TO_CDL
+      priority 110
+      processing_delay_ms 3
+      forwarding_rate_bps 2000000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+processor NRM_OP_GATEWAY_L16_CDL_REVERSE WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l16_cdl_reverse_cap
+      ingress_network_id nrm_cdl_isr
+      egress_network_id nrm_link16_tactical
+      ingress_comm cdl
+      egress_comm link16
+      allowed_source_platform data_processing_center
+      allowed_destination_platform network_control_center
+      allowed_destination_platform link11_control_station
+      allowed_message_type XDOM_CDL_TO_L16
+      allowed_message_type XDOM_CASCADE_CDL_L11
+      priority 110
+      processing_delay_ms 3
+      forwarding_rate_bps 2000000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+# SATCOM <-> CDL pair.
+processor NRM_OP_GATEWAY_SATCOM_CDL_FORWARD WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_satcom_cdl_forward_cap
+      ingress_network_id nrm_satcom_command
+      egress_network_id nrm_cdl_isr
+      ingress_comm satcom
+      egress_comm cdl
+      allowed_source_platform regional_command
+      allowed_source_platform link11_control_station
+      allowed_destination_platform data_processing_center
+      allowed_message_type XDOM_SATCOM_TO_CDL
+      allowed_message_type XDOM_CASCADE_L11_CDL
+      priority 100
+      processing_delay_ms 8
+      forwarding_rate_bps 4000000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+processor NRM_OP_GATEWAY_SATCOM_CDL_REVERSE WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_satcom_cdl_reverse_cap
+      ingress_network_id nrm_cdl_isr
+      egress_network_id nrm_satcom_command
+      ingress_comm cdl
+      egress_comm satcom
+      allowed_source_platform data_processing_center
+      allowed_destination_platform regional_command
+      allowed_message_type XDOM_CDL_TO_SATCOM
+      priority 100
+      processing_delay_ms 8
+      forwarding_rate_bps 4000000
+      max_queue_messages 64
+      max_queue_bits 33554432
+      enabled true
+   end_capability
+end_processor
+
+# Pair-specific dual-homed platform types.
+platform_type NRM_OP_GW_L11_L16_BASE WSF_PLATFORM
+   icon Command_Post
+   side blue
+   add comm link11 NRM_OP_LINK11_COMM internal_link gateway end_comm
+   add comm link16 NRM_OP_LINK16_COMM internal_link gateway end_comm
+end_platform_type
+platform_type NRM_OP_GW_L11_L16_FORWARD NRM_OP_GW_L11_L16_BASE
+   add processor gateway NRM_OP_GATEWAY_L11_L16_FORWARD end_processor
+end_platform_type
+platform_type NRM_OP_GW_L11_L16_REVERSE NRM_OP_GW_L11_L16_BASE
+   add processor gateway NRM_OP_GATEWAY_L11_L16_REVERSE end_processor
+end_platform_type
+
+platform_type NRM_OP_GW_L11_SATCOM_BASE WSF_PLATFORM
+   icon Command_Post
+   side blue
+   add comm link11 NRM_OP_LINK11_COMM internal_link gateway end_comm
+   add comm satcom NRM_OP_SATCOM_COMM internal_link gateway end_comm
+end_platform_type
+platform_type NRM_OP_GW_L11_SATCOM_FORWARD NRM_OP_GW_L11_SATCOM_BASE
+   add processor gateway NRM_OP_GATEWAY_L11_SATCOM_FORWARD end_processor
+end_platform_type
+platform_type NRM_OP_GW_L11_SATCOM_REVERSE NRM_OP_GW_L11_SATCOM_BASE
+   add processor gateway NRM_OP_GATEWAY_L11_SATCOM_REVERSE end_processor
+end_platform_type
+
+platform_type NRM_OP_GW_L11_CDL_BASE WSF_PLATFORM
+   icon Command_Post
+   side blue
+   add comm link11 NRM_OP_LINK11_COMM internal_link gateway end_comm
+   add comm cdl NRM_OP_CDL_COMM internal_link gateway end_comm
+end_platform_type
+platform_type NRM_OP_GW_L11_CDL_FORWARD NRM_OP_GW_L11_CDL_BASE
+   add processor gateway NRM_OP_GATEWAY_L11_CDL_FORWARD end_processor
+end_platform_type
+platform_type NRM_OP_GW_L11_CDL_REVERSE NRM_OP_GW_L11_CDL_BASE
+   add processor gateway NRM_OP_GATEWAY_L11_CDL_REVERSE end_processor
+end_platform_type
+
+platform_type NRM_OP_GW_L16_SATCOM_BASE WSF_PLATFORM
+   icon Command_Post
+   side blue
+   add comm link16 NRM_OP_LINK16_COMM internal_link gateway end_comm
+   add comm satcom NRM_OP_SATCOM_COMM internal_link gateway end_comm
+end_platform_type
+platform_type NRM_OP_GW_L16_SATCOM_FORWARD NRM_OP_GW_L16_SATCOM_BASE
+   add processor gateway NRM_OP_GATEWAY_L16_SATCOM_FORWARD end_processor
+end_platform_type
+platform_type NRM_OP_GW_L16_SATCOM_REVERSE NRM_OP_GW_L16_SATCOM_BASE
+   add processor gateway NRM_OP_GATEWAY_L16_SATCOM_REVERSE end_processor
+end_platform_type
+
+platform_type NRM_OP_GW_L16_CDL_BASE WSF_PLATFORM
+   icon Command_Post
+   side blue
+   add comm link16 NRM_OP_LINK16_COMM internal_link gateway end_comm
+   add comm cdl NRM_OP_CDL_COMM internal_link gateway end_comm
+end_platform_type
+platform_type NRM_OP_GW_L16_CDL_FORWARD NRM_OP_GW_L16_CDL_BASE
+   add processor gateway NRM_OP_GATEWAY_L16_CDL_FORWARD end_processor
+end_platform_type
+platform_type NRM_OP_GW_L16_CDL_REVERSE NRM_OP_GW_L16_CDL_BASE
+   add processor gateway NRM_OP_GATEWAY_L16_CDL_REVERSE end_processor
+end_platform_type
+
+platform_type NRM_OP_GW_SATCOM_CDL_BASE WSF_PLATFORM
+   icon Command_Post
+   side blue
+   add comm satcom NRM_OP_SATCOM_COMM internal_link gateway end_comm
+   add comm cdl NRM_OP_CDL_COMM internal_link gateway end_comm
+end_platform_type
+platform_type NRM_OP_GW_SATCOM_CDL_FORWARD NRM_OP_GW_SATCOM_CDL_BASE
+   add processor gateway NRM_OP_GATEWAY_SATCOM_CDL_FORWARD end_processor
+end_platform_type
+platform_type NRM_OP_GW_SATCOM_CDL_REVERSE NRM_OP_GW_SATCOM_CDL_BASE
+   add processor gateway NRM_OP_GATEWAY_SATCOM_CDL_REVERSE end_processor
+end_platform_type
+
+# Twelve physical gateways: two per unordered domain pair.
+platform gw_l11_l16_forward NRM_OP_GW_L11_L16_FORWARD
+   position 35.36n 120.02e altitude 25 m
+end_platform
+platform gw_l11_l16_reverse NRM_OP_GW_L11_L16_REVERSE
+   position 35.30n 119.96e altitude 25 m
+end_platform
+platform gw_l11_satcom_forward NRM_OP_GW_L11_SATCOM_FORWARD
+   position 35.48n 119.92e altitude 25 m
+end_platform
+platform gw_l11_satcom_reverse NRM_OP_GW_L11_SATCOM_REVERSE
+   position 35.42n 119.86e altitude 25 m
+end_platform
+platform gw_l11_cdl_forward NRM_OP_GW_L11_CDL_FORWARD
+   position 35.34n 120.16e altitude 25 m
+end_platform
+platform gw_l11_cdl_reverse NRM_OP_GW_L11_CDL_REVERSE
+   position 35.27n 120.20e altitude 25 m
+end_platform
+platform gw_l16_satcom_forward NRM_OP_GW_L16_SATCOM_FORWARD
+   position 34.98n 119.58e altitude 25 m
+end_platform
+platform gw_l16_satcom_reverse NRM_OP_GW_L16_SATCOM_REVERSE
+   position 34.91n 119.52e altitude 25 m
+end_platform
+platform gw_l16_cdl_forward NRM_OP_GW_L16_CDL_FORWARD
+   position 35.05n 119.78e altitude 25 m
+end_platform
+platform gw_l16_cdl_reverse NRM_OP_GW_L16_CDL_REVERSE
+   position 34.98n 119.82e altitude 25 m
+end_platform
+platform gw_satcom_cdl_forward NRM_OP_GW_SATCOM_CDL_FORWARD
+   position 34.88n 119.62e altitude 25 m
+end_platform
+platform gw_satcom_cdl_reverse NRM_OP_GW_SATCOM_CDL_REVERSE
+   position 34.84n 119.56e altitude 25 m
+end_platform

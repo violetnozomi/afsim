@@ -1,0 +1,175 @@
+# Cross-domain gateway smoke test: Link-11 -> SATCOM -> CDL.
+# Success requires two explicitly authorized physical gateway hops.
+
+nrm_gateway_route
+   route_id route_l11_satcom_cdl
+   source_platform gateway_source
+   destination_platform gateway_destination
+   destination_comm cdl
+   allowed_message_type NRM_GATEWAY_TEST
+   gateway_capability gw_l11_satcom_forward
+   gateway_capability gw_satcom_cdl_forward
+   priority 100
+   enabled true
+end_nrm_gateway_route
+
+comm NRM_GATEWAY_LINK11_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_gateway_link11
+end_comm
+
+comm NRM_GATEWAY_SATCOM_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_gateway_satcom
+end_comm
+
+comm NRM_GATEWAY_CDL_COMM WSF_COMM_TRANSCEIVER
+   network_name nrm_gateway_cdl
+end_comm
+
+processor NRM_GATEWAY_RECEIVER WSF_SCRIPT_PROCESSOR
+   on_message
+      script
+         writeln("NRM_GATEWAY_DESTINATION_RECEIVED " + MESSAGE.Type());
+      end_script
+   end_on_message
+end_processor
+
+processor NRM_GATEWAY_L11_SATCOM WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_l11_satcom_forward
+      ingress_network_id nrm_gateway_link11
+      egress_network_id nrm_gateway_satcom
+      ingress_comm l11
+      egress_comm satcom
+      allowed_source_platform gateway_source
+      allowed_destination_platform gateway_destination
+      allowed_message_type NRM_GATEWAY_TEST
+      priority 100
+      processing_delay_ms 2
+      forwarding_rate_bps 1000000
+      max_queue_messages 32
+      max_queue_bits 1048576
+      enabled true
+   end_capability
+end_processor
+
+processor NRM_GATEWAY_SATCOM_CDL WSF_NRM_CROSS_DOMAIN_GATEWAY_PROCESSOR
+   capability
+      gateway_id gw_satcom_cdl_forward
+      ingress_network_id nrm_gateway_satcom
+      egress_network_id nrm_gateway_cdl
+      ingress_comm satcom
+      egress_comm cdl
+      allowed_source_platform gateway_source
+      allowed_destination_platform gateway_destination
+      allowed_message_type NRM_GATEWAY_TEST
+      priority 100
+      processing_delay_ms 3
+      forwarding_rate_bps 500000
+      max_queue_messages 32
+      max_queue_bits 1048576
+      enabled true
+   end_capability
+end_processor
+
+network nrm_gateway_link11 WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member gateway_source l11
+      member gateway_l11_satcom l11
+   end_comm_list
+   comm_link_list
+      link gateway_source l11 gateway_l11_satcom l11
+      link gateway_l11_satcom l11 gateway_source l11
+   end_comm_link_list
+end_network
+
+network nrm_gateway_satcom WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member gateway_l11_satcom satcom
+      member gateway_satcom_cdl satcom
+   end_comm_list
+   comm_link_list
+      link gateway_l11_satcom satcom gateway_satcom_cdl satcom
+      link gateway_satcom_cdl satcom gateway_l11_satcom satcom
+   end_comm_link_list
+end_network
+
+network nrm_gateway_cdl WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member gateway_satcom_cdl cdl
+      member gateway_destination cdl
+   end_comm_list
+   comm_link_list
+      link gateway_satcom_cdl cdl gateway_destination cdl
+      link gateway_destination cdl gateway_satcom_cdl cdl
+   end_comm_link_list
+end_network
+
+platform_type NRM_GATEWAY_SOURCE WSF_PLATFORM
+   side blue
+   add comm l11 NRM_GATEWAY_LINK11_COMM end_comm
+end_platform_type
+
+platform_type NRM_GATEWAY_L11_SATCOM_NODE WSF_PLATFORM
+   side blue
+   add comm l11 NRM_GATEWAY_LINK11_COMM
+      internal_link gateway
+   end_comm
+   add comm satcom NRM_GATEWAY_SATCOM_COMM
+      internal_link gateway
+   end_comm
+   add processor gateway NRM_GATEWAY_L11_SATCOM end_processor
+end_platform_type
+
+platform_type NRM_GATEWAY_SATCOM_CDL_NODE WSF_PLATFORM
+   side blue
+   add comm satcom NRM_GATEWAY_SATCOM_COMM
+      internal_link gateway
+   end_comm
+   add comm cdl NRM_GATEWAY_CDL_COMM
+      internal_link gateway
+   end_comm
+   add processor gateway NRM_GATEWAY_SATCOM_CDL end_processor
+end_platform_type
+
+platform_type NRM_GATEWAY_DESTINATION WSF_PLATFORM
+   side blue
+   add comm cdl NRM_GATEWAY_CDL_COMM
+      internal_link receiver
+   end_comm
+   add processor receiver NRM_GATEWAY_RECEIVER end_processor
+end_platform_type
+
+platform gateway_source NRM_GATEWAY_SOURCE
+   position 35.000n 120.000e altitude 20 m
+end_platform
+
+platform gateway_l11_satcom NRM_GATEWAY_L11_SATCOM_NODE
+   position 35.010n 120.000e altitude 20 m
+end_platform
+
+platform gateway_satcom_cdl NRM_GATEWAY_SATCOM_CDL_NODE
+   position 35.020n 120.000e altitude 20 m
+end_platform
+
+platform gateway_destination NRM_GATEWAY_DESTINATION
+   position 35.030n 120.000e altitude 20 m
+end_platform
+
+execute at_time 1 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("NRM_GATEWAY_TEST");
+   message.SetSizeInBits(2048);
+   message.SetAuxData("nrm_gateway_transfer_id", "gateway-smoke-transfer-1");
+   message.SetAuxData("nrm_gateway_route_id", "route_l11_satcom_cdl");
+   message.SetAuxData("nrm_gateway_route_index", 0);
+   message.SetAuxData("nrm_gateway_hop_count", 0);
+   message.SetAuxData("nrm_gateway_ttl", 8);
+   message.SetAuxData("nrm_gateway_trace", "");
+   message.SetAuxData("nrm_original_source_platform", "gateway_source");
+   message.SetAuxData("nrm_final_destination_platform", "gateway_destination");
+   message.SetAuxData("nrm_final_destination_comm", "cdl");
+   WsfSimulation.FindPlatform("gateway_source").Comm("l11").SendMessage(
+      message, WsfSimulation.FindPlatform("gateway_l11_satcom").Comm("l11"));
+end_execute
+
+end_time 5 s

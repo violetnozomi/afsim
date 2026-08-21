@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "nrm/AssessmentTypes.hpp"
+
 namespace WkNrm
 {
 namespace UiText
@@ -12,6 +14,7 @@ std::string TranslateCode(const std::string& aCode);
 std::string TranslateCodeWithRaw(const std::string& aCode);
 std::string TranslateListWithRaw(const std::string& aCodes);
 std::string NavigationEmptyState();
+std::string FormatAssessmentRouteHop(const nrm::AssessmentRouteHop& aHop);
 }
 } // namespace WkNrm
 

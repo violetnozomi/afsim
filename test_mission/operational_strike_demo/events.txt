@@ -24,6 +24,24 @@ execute at_time 10 s absolute
    writeln("NRM_OPERATIONAL PHASE ISR_COLLECTED");
 end_execute
 
+execute at_time 15 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("XDOM_L11_TO_L16");
+   message.SetSizeInBits(4096);
+   message.SetAuxData("nrm_gateway_transfer_id", "operational-l11-l16-1");
+   message.SetAuxData("nrm_gateway_route_id", "route_l11_to_l16");
+   message.SetAuxData("nrm_gateway_route_index", 0);
+   message.SetAuxData("nrm_gateway_hop_count", 0);
+   message.SetAuxData("nrm_gateway_ttl", 8);
+   message.SetAuxData("nrm_gateway_trace", "");
+   message.SetAuxData("nrm_original_source_platform", "link11_control_station");
+   message.SetAuxData("nrm_final_destination_platform", "network_control_center");
+   message.SetAuxData("nrm_final_destination_comm", "link16");
+   WsfSimulation.FindPlatform("link11_control_station").Comm("link11").SendMessage(
+      message, WsfSimulation.FindPlatform("gw_l11_l16_forward").Comm("link11"));
+   writeln("NRM_OPERATIONAL PHASE GATEWAY_PAIR_L11_L16_SENT");
+end_execute
+
 execute at_time 20 s absolute
    WsfMessage message = WsfMessage();
    message.SetType("SATCOM_SURVEY_SUMMARY");
@@ -31,6 +49,24 @@ execute at_time 20 s absolute
    WsfSimulation.FindPlatform("data_processing_center").Comm("satcom").SendMessage(
       message, WsfSimulation.FindPlatform("regional_command").Comm("satcom"));
    writeln("NRM_OPERATIONAL PHASE SURVEY_SUMMARY_REPORTED");
+end_execute
+
+execute at_time 25 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("XDOM_L16_TO_SATCOM");
+   message.SetSizeInBits(4096);
+   message.SetAuxData("nrm_gateway_transfer_id", "operational-l16-satcom-1");
+   message.SetAuxData("nrm_gateway_route_id", "route_l16_to_satcom");
+   message.SetAuxData("nrm_gateway_route_index", 0);
+   message.SetAuxData("nrm_gateway_hop_count", 0);
+   message.SetAuxData("nrm_gateway_ttl", 8);
+   message.SetAuxData("nrm_gateway_trace", "");
+   message.SetAuxData("nrm_original_source_platform", "network_control_center");
+   message.SetAuxData("nrm_final_destination_platform", "regional_command");
+   message.SetAuxData("nrm_final_destination_comm", "satcom");
+   WsfSimulation.FindPlatform("network_control_center").Comm("link16").SendMessage(
+      message, WsfSimulation.FindPlatform("gw_l16_satcom_forward").Comm("link16"));
+   writeln("NRM_OPERATIONAL PHASE GATEWAY_PAIR_L16_SATCOM_SENT");
 end_execute
 
 execute at_time 30 s absolute
@@ -50,6 +86,24 @@ execute at_time 35 s absolute
    writeln("NRM_OPERATIONAL PHASE MISSION_PLAN_DISTRIBUTED");
 end_execute
 
+execute at_time 40 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("XDOM_SATCOM_TO_CDL");
+   message.SetSizeInBits(8192);
+   message.SetAuxData("nrm_gateway_transfer_id", "operational-satcom-cdl-1");
+   message.SetAuxData("nrm_gateway_route_id", "route_satcom_to_cdl");
+   message.SetAuxData("nrm_gateway_route_index", 0);
+   message.SetAuxData("nrm_gateway_hop_count", 0);
+   message.SetAuxData("nrm_gateway_ttl", 8);
+   message.SetAuxData("nrm_gateway_trace", "");
+   message.SetAuxData("nrm_original_source_platform", "regional_command");
+   message.SetAuxData("nrm_final_destination_platform", "data_processing_center");
+   message.SetAuxData("nrm_final_destination_comm", "cdl");
+   WsfSimulation.FindPlatform("regional_command").Comm("satcom").SendMessage(
+      message, WsfSimulation.FindPlatform("gw_satcom_cdl_forward").Comm("satcom"));
+   writeln("NRM_OPERATIONAL PHASE GATEWAY_PAIR_SATCOM_CDL_SENT");
+end_execute
+
 execute at_time 45 s absolute
    WsfMessage message = WsfMessage();
    message.SetType("LINK11_MEMBER_STATUS");
@@ -67,12 +121,48 @@ execute at_time 50 s absolute
       message, WsfSimulation.FindPlatform("link11_service_node").Comm("link11"));
 end_execute
 
+execute at_time 55 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("XDOM_CASCADE_L11_CDL");
+   message.SetSizeInBits(16384);
+   message.SetAuxData("nrm_gateway_transfer_id", "operational-cascade-l11-cdl-1");
+   message.SetAuxData("nrm_gateway_route_id", "route_l11_satcom_cdl_cascade");
+   message.SetAuxData("nrm_gateway_route_index", 0);
+   message.SetAuxData("nrm_gateway_hop_count", 0);
+   message.SetAuxData("nrm_gateway_ttl", 8);
+   message.SetAuxData("nrm_gateway_trace", "");
+   message.SetAuxData("nrm_original_source_platform", "link11_control_station");
+   message.SetAuxData("nrm_final_destination_platform", "data_processing_center");
+   message.SetAuxData("nrm_final_destination_comm", "cdl");
+   WsfSimulation.FindPlatform("link11_control_station").Comm("link11").SendMessage(
+      message, WsfSimulation.FindPlatform("gw_l11_satcom_forward").Comm("link11"));
+   writeln("NRM_OPERATIONAL PHASE GATEWAY_CASCADE_L11_CDL_SENT");
+end_execute
+
 execute at_time 60 s absolute
    WsfMessage message = WsfMessage();
    message.SetType("LINK16_ROUTE_UPDATE");
    message.SetSizeInBits(2048);
    WsfSimulation.FindPlatform("airborne_relay").Comm("link16").SendMessage(
       message, WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16"));
+end_execute
+
+execute at_time 65 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("XDOM_L11_TO_SATCOM");
+   message.SetSizeInBits(4096);
+   message.SetAuxData("nrm_gateway_transfer_id", "operational-l11-satcom-1");
+   message.SetAuxData("nrm_gateway_route_id", "route_l11_to_satcom");
+   message.SetAuxData("nrm_gateway_route_index", 0);
+   message.SetAuxData("nrm_gateway_hop_count", 0);
+   message.SetAuxData("nrm_gateway_ttl", 8);
+   message.SetAuxData("nrm_gateway_trace", "");
+   message.SetAuxData("nrm_original_source_platform", "link11_control_station");
+   message.SetAuxData("nrm_final_destination_platform", "regional_command");
+   message.SetAuxData("nrm_final_destination_comm", "satcom");
+   WsfSimulation.FindPlatform("link11_control_station").Comm("link11").SendMessage(
+      message, WsfSimulation.FindPlatform("gw_l11_satcom_forward").Comm("link11"));
+   writeln("NRM_OPERATIONAL PHASE GATEWAY_PAIR_L11_SATCOM_SENT");
 end_execute
 
 execute at_time 70 s absolute
@@ -90,6 +180,24 @@ execute at_time 75 s absolute
    WsfSimulation.FindPlatform("network_control_center").Comm("link16").SendMessage(
       message, WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16"));
    writeln("NRM_OPERATIONAL PHASE RELAY_ROUTE_REQUESTED");
+end_execute
+
+execute at_time 85 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("XDOM_L11_TO_CDL");
+   message.SetSizeInBits(8192);
+   message.SetAuxData("nrm_gateway_transfer_id", "operational-l11-cdl-1");
+   message.SetAuxData("nrm_gateway_route_id", "route_l11_to_cdl");
+   message.SetAuxData("nrm_gateway_route_index", 0);
+   message.SetAuxData("nrm_gateway_hop_count", 0);
+   message.SetAuxData("nrm_gateway_ttl", 8);
+   message.SetAuxData("nrm_gateway_trace", "");
+   message.SetAuxData("nrm_original_source_platform", "link11_control_station");
+   message.SetAuxData("nrm_final_destination_platform", "data_processing_center");
+   message.SetAuxData("nrm_final_destination_comm", "cdl");
+   WsfSimulation.FindPlatform("link11_control_station").Comm("link11").SendMessage(
+      message, WsfSimulation.FindPlatform("gw_l11_cdl_forward").Comm("link11"));
+   writeln("NRM_OPERATIONAL PHASE GATEWAY_PAIR_L11_CDL_SENT");
 end_execute
 
 execute at_time 105 s absolute
@@ -119,6 +227,24 @@ execute at_time 132 s absolute
    writeln("NRM_OPERATIONAL PHASE CDL_HIGH_RATE_COMPLETE");
 end_execute
 
+execute at_time 135 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("XDOM_L16_TO_CDL");
+   message.SetSizeInBits(8192);
+   message.SetAuxData("nrm_gateway_transfer_id", "operational-l16-cdl-1");
+   message.SetAuxData("nrm_gateway_route_id", "route_l16_to_cdl");
+   message.SetAuxData("nrm_gateway_route_index", 0);
+   message.SetAuxData("nrm_gateway_hop_count", 0);
+   message.SetAuxData("nrm_gateway_ttl", 8);
+   message.SetAuxData("nrm_gateway_trace", "");
+   message.SetAuxData("nrm_original_source_platform", "network_control_center");
+   message.SetAuxData("nrm_final_destination_platform", "data_processing_center");
+   message.SetAuxData("nrm_final_destination_comm", "cdl");
+   WsfSimulation.FindPlatform("network_control_center").Comm("link16").SendMessage(
+      message, WsfSimulation.FindPlatform("gw_l16_cdl_forward").Comm("link16"));
+   writeln("NRM_OPERATIONAL PHASE GATEWAY_PAIR_L16_CDL_SENT");
+end_execute
+
 execute at_time 140 s absolute
    WsfMessage message = WsfMessage();
    message.SetType("LINK11_RESOURCE_STATUS");
@@ -135,6 +261,24 @@ execute at_time 145 s absolute
    WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16").SendMessage(
       message, WsfSimulation.FindPlatform("network_control_center").Comm("link16"));
    writeln("NRM_OPERATIONAL PHASE MISSION_STATUS_REPORTED");
+end_execute
+
+execute at_time 150 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetType("XDOM_CASCADE_CDL_L11");
+   message.SetSizeInBits(16384);
+   message.SetAuxData("nrm_gateway_transfer_id", "operational-cascade-cdl-l11-1");
+   message.SetAuxData("nrm_gateway_route_id", "route_cdl_l16_l11_cascade");
+   message.SetAuxData("nrm_gateway_route_index", 0);
+   message.SetAuxData("nrm_gateway_hop_count", 0);
+   message.SetAuxData("nrm_gateway_ttl", 8);
+   message.SetAuxData("nrm_gateway_trace", "");
+   message.SetAuxData("nrm_original_source_platform", "data_processing_center");
+   message.SetAuxData("nrm_final_destination_platform", "link11_control_station");
+   message.SetAuxData("nrm_final_destination_comm", "link11");
+   WsfSimulation.FindPlatform("data_processing_center").Comm("cdl").SendMessage(
+      message, WsfSimulation.FindPlatform("gw_l16_cdl_reverse").Comm("cdl"));
+   writeln("NRM_OPERATIONAL PHASE GATEWAY_CASCADE_CDL_L11_SENT");
 end_execute
 
 execute at_time 175 s absolute

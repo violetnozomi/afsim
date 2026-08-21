@@ -1,13 +1,18 @@
 plugin_cmakelists_template(NetworkResourceManager warlock
-   LIBRARIES warlock_core
+   LIBRARIES warlock_core wsf_network_resource_manager
    NO_INSTALL_SOURCE
 )
 
 target_include_directories(NetworkResourceManager PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/../../include
+   ${CMAKE_CURRENT_SOURCE_DIR}/../../source
 )
 
 target_sources(NetworkResourceManager PRIVATE
+   NrmUiScale.cpp
+   NrmUiScale.hpp
+   NrmUiStyle.cpp
+   NrmUiStyle.hpp
    NrmUiText.cpp
    NrmUiText.hpp
    NrmCustomerJsonCodec.cpp
@@ -16,6 +21,10 @@ target_sources(NetworkResourceManager PRIVATE
    NrmPreacceptanceStatusMonitor.hpp
    NrmSnapshotReporter.cpp
    NrmSnapshotReporter.hpp
+   NrmTacticalSelection.cpp
+   NrmTacticalSelection.hpp
+   NrmTacticalViewport.cpp
+   NrmTacticalViewport.hpp
    NrmTacticalView.cpp
    NrmTacticalView.hpp
 )

@@ -17,6 +17,7 @@
 #include "WsfEnvironment.hpp"
 #include "WsfMessage.hpp"
 #include "WsfNavigationErrors.hpp"
+#include "WsfNrmGatewayExtension.hpp"
 #include "WsfPlatform.hpp"
 #include "WsfSimulation.hpp"
 #include "WsfTerrain.hpp"
@@ -400,6 +401,15 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
    mSnapshot.networks.clear();
    mSnapshot.endpoints.clear();
    mSnapshot.links.clear();
+   mSnapshot.gateways.clear();
+   mSnapshot.gatewayRoutes.clear();
+   const WsfNrmGatewaySimulationExtension* gatewayExtension =
+      WsfNrmGatewaySimulationExtension::Find(aSimulation);
+   if (gatewayExtension != nullptr)
+   {
+      mSnapshot.gateways = gatewayExtension->GetCapabilities();
+      mSnapshot.gatewayRoutes = gatewayExtension->GetRoutes();
+   }
    mSnapshot.navigation = nrm::NavigationSnapshot();
    mSnapshot.navigation.sampleTime = mSnapshot.simTime;
    for (std::size_t platformIndex = 0;

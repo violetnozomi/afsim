@@ -1,5 +1,71 @@
 # AI会话交接记录
 
+### 2026-08-20 14:40 CST — Codex assessment hop route display
+
+- 唯一目标：让Warlock忠实显示资源测评算法已选路径的每一跳，不改路由算法。
+- 实际修改：新增`AssessmentRouteHopKind/AssessmentRouteHop`及主备逐跳向量；Evaluator按
+  `ConstrainedPath::edges`原顺序投影端点、平台、网络、候选和网关证据；任务评估文本新增
+  中文逐跳清单；Reporter新增主/备逐跳JSONL；态势图改为黄色主路由、青色备路、
+  `H1/H2/...`箭头、单跳候选虚线和网关转换环，并补充图例。
+- 未修改但发现：干净临时AFSIM构建会因上游`UtStacktrace.hpp`缺少`<cstdint>`在基础
+  `util`库阶段失败；未修改AFSIM核心，改用已配置Release构建命令对当前项目源码定向
+  编译和链接。
+- 执行命令：受影响测试严格编译/运行；当前源码投影`nrm_tests`构建与
+  `ctest -R '^nrm_'`；`git diff --check`；`ai_guard.sh static/contract`；
+  `ai_guard.sh scenario cross_domain_gateway_smoke`；Warlock当前翻译单元编译、动态库链接与
+  `readelf`NEEDED检查。
+- 测试结果：严格受影响测试7/7、NRM CTest 43/43、静态门、13正例/6反例合同均通过；
+  最小跨域场景两次转发、最终收件和正常结束通过；Warlock库显式依赖WSF NRM库。
+- 合同追踪键：不变更甲方V1 Schema/Codec；新字段仅用于进程内C++与内部
+  `assessment_results.jsonl`审计。
+- 阻塞：Warlock人工目视检查未运行；甲方真实四网设备参数、ABI和目标环境仍未提供。
+- 下一步唯一动作：用户在Warlock 37节点场景中人工核对主/备路由的有向跳号、网络标签、
+  单跳候选虚线和网关转换环。
+
+### 2026-08-19 — Codex cross-domain gateway phase 1
+
+- 唯一目标：实现Link-11、Link-16、SATCOM、CDL六组域对网关，并在一期支持显式多网关级联。
+- 实际修改：新增纯C++网关契约/策略引擎、AFSIM场景扩展和跨域处理器；支持显式有序路由、
+  方向授权、优先级有界队列、处理/串行化时延、去重、TTL、轨迹、逐跳新序列号及审计事件。
+  综合场景从25个基础节点扩展为37个物理节点，新增12个仅双归属的方向专用网关、53个端点、
+  108条有向链路、12条直达路由和2条双网关级联。快照、Reporter、Assessment和Warlock节点
+  详情均已接入；一键预验收同步为39项固定测试和10个场景。
+- 安全收紧：最终通信端点必须与路由模板一致；负跳号、跳号不一致、缺少transferId、TTL耗尽、
+  重复传输、环路以及未授权源/目的/消息类型/入口均固定拒绝或丢弃；不隐式拼接路由。
+- TDD证据：网关策略、资源测评、Reporter、中文原因码和37节点场景契约均经历失败用例后实现；
+  当前源码39/39 C++测试与4/4 Shell回归通过，干净临时源码投影的43/43 NRM CTest通过，
+  JSONL经`jq`逐行验证。
+- 运行证据：最小场景完成Link-11→SATCOM→CDL两跳并到达最终端；综合180秒场景完成六组
+  域对、两条双网关级联和10次逐跳转发，37条`PLATFORM_ADDED`且无武器事件。
+- 构建证据：当前源码干净CMake投影完成`nrm_tests`目标构建；WSF三个当前源码翻译单元和
+  Warlock全部当前源码/MOC完成Release编译与动态库链接。共享CMake缓存仍绑定旧隔离工作树，
+  未将其中的旧CTest二进制冒充当前源码结果。
+- 边界：AFSIM核心修改数为0；网关参数和策略均为内部`PRE_ACCEPTANCE`演示配置，不代表真实
+  四网设备参数、甲方正式跨域规则或目标环境最终验收。
+- 下一步唯一动作：在Warlock 37节点场景人工核对12个网关节点详情、转发事件和源/目的选点，
+  再运行更新后的10场景完整预验收。
+
+### 2026-08-18 — Codex tactical node inspection and assessment picking
+
+- 唯一目标：为Warlock通信资源态势图增加节点点击详情，并允许资源测评通过态势图依次选择
+  源平台和目的平台。
+- 实际修改：新增纯C++命中检测和选点状态机；态势图保存本帧平台点击区域，普通点击显示平台
+  ID、位置、端点数量、网络、设备、地址、职责、状态和收发能力；源/目的节点分别使用绿色、
+  橙色虚线圈，当前查看节点使用黄色圈。资源测评页新增两个显式选点按钮和模式提示，源点选定
+  后自动进入目的点模式，组合框手工选择仍会同步态势图。
+- TDD证据：`TacticalSelectionTest`先因模块缺失编译失败，补充最小实现后通过；覆盖最近节点
+  命中、点击范围外拒绝、源到目的状态推进、普通查看不修改评估参数和快照节点消失清理。
+- 验证：`scripts/ai_guard.sh static`通过；38/38固定C++测试通过；当前Qt头文件MOC生成通过；
+  `NrmDockWidget.cpp`、`NrmTacticalView.cpp`和`NrmPlugin.cpp`使用现有AFSIM编译参数通过；替换
+  当前对象和MOC后完整链接生成`libNetworkResourceManager_feature.so`成功。
+- 构建边界：共享`build-ubuntu24`仍绑定旧`code-quality-raii-hardening`工作树；直接改指向包含
+  `.worktrees`的仓库根会重复发现同名扩展，因此已恢复原缓存并采用等价定向编译/链接验证。
+  新测试已加入CMake和`ai_guard.sh`，当前源码专用构建目录重配置后完整CTest应增加一项。
+- 合同状态：保持`IMPLEMENTED / PRE_ACCEPTANCE`，AFSIM核心修改数为0，公共`include/nrm`
+  契约未修改。剩余验证仅为人工点击视觉验收，不影响纯C++选点逻辑测试结论。
+- 下一步唯一动作：运行一次Warlock固定场景，人工核对普通点击详情、源点自动切换目的点以及
+  选点完成后的资源测评结果。
+
 ### 2026-08-11 — Warlock现代化视觉升级
 
 - 实际修改：右侧增加现代深色标题区、八张指标卡片及统一页签/表格/输入/按钮样式；中央图
@@ -558,3 +624,108 @@
   WSF/Warlock构建及25节点`operational_strike_demo`全部通过。
 - 边界：生产插件和算法全部为C++；Python只执行离线JSON Schema测试。未新增Transport，未修改
   AFSIM核心，后续只等待甲方私有C++对象和目标ABI完成薄映射及联合仿真。
+
+### 2026-08-20 — Codex Warlock launch and staged plugin repair
+
+- 唯一目标：排查并修复`run-operational-strike-warlock.sh`运行后界面无明显反应的问题。
+- 根因：旧综合场景进程实际已在VNC前台运行，但共享AFSIM构建缓存仍绑定旧隔离
+  工作树；已部署Warlock UI库因缺少当前MOC与`NrmTacticalSelection.cpp`对应对象而含
+  8个未解析符号，Warlock因此拒绝加载UI插件。
+- 修复：用当前源码投影重新生成Qt MOC，按AFSIM Release参数重编译11个Warlock编译
+  单元，与正式AFSIM库重新链接并部署UI插件；又建立
+  `/home/pyh/afsim/nrm-current-extension-projection`独立发现目录，避免AFSIM递归扫描主仓库内
+  `.worktrees`，并将共享构建缓存持久重绑到当前工作区。未修改AFSIM核心。启动脚本新增
+  VNC、前台运行和`Ctrl+C`退出提示。
+- 验证：正式共享目录完成`wsf_network_resource_manager`、`NetworkResourceManager`和`nrm_tests`
+  的1241步全量依赖重建；`ldd -r`未解析符号0、缺失依赖0；43/43 NRM CTest、静态门禁、
+  `git diff --check`和网关场景契约测试全部通过。默认场景及综合场景进程均实际
+  映射UI/WSF两个插件，`operational_strike_demo/main.txt`窗口已在VNC `:1`中显示。
+- 运行语义：命令保持前台是预期行为，界面显示在VNC而不是SSH终端；按`Ctrl+C`后
+  脚本恢复`nrm-warlock.service`。本轮验证结束时默认服务已恢复为`active`。
+- 下一步唯一动作：用户在VNC中人工核对节点点击、评估源/目的选点、网关和主备逐跳
+  路由图层；未经授权不提交或推送Git。
+
+### 2026-08-20 — Codex Warlock UI scaling and Chinese readability
+
+- 唯一目标：增加插件界面放大功能，并减少仿真页面中的裸英文变量；不改仿真协议、算法、
+  网关策略、JSON合同或稳定内部标识。
+- TDD：新增纯C++`NrmUiScale`和边界测试，先观测CMake因实现缺失失败；扩展中文映射测试时
+  先观测`NO_SAMPLES`和`PATH`断言失败，再补齐全部当前界面可见枚举。
+- 实现：资源面板提供80%–160%按钮与快捷键，字体、控件和表格尺寸同步调整；态势图使用
+  同一比例的逻辑画布并反算点击坐标。网络类型、职责、协议资源、状态、来源、置信度、
+  原因码和单位中文优先，唯一标识与合同码保持不变。
+- 验证：44/44 NRM CTest、静态门禁和差异检查通过；Warlock插件重新链接，运行环境
+  `ldd -r`缺失依赖0、未解析符号0。VNC实测100%→110%同步放大、放大后节点点击详情及
+  恢复100%均成功；`nrm-warlock.service`最终为`active`。
+- 工程状态：AFSIM核心修改数0，未提交、未推送；37节点网关和主备逐跳路由的完整人工验收
+  仍是下一项工作。
+
+### 2026-08-20 16:12 CST — Codex Warlock scaling correction
+
+- 唯一目标：修复Warlock界面只局部缩放的问题，并恢复`Link-11`/`Link-16`/
+  `SATCOM`/`CDL`专有名称显示。
+- 实际修改：新增`NrmUiStyle`，用后代QSS规则同步缩放全部子控件字号、控件内边距、
+  圆角、滚动条和按钮尺寸，并保存基准布局边距/间距后按比例重算；快捷键作用域改为整个
+  Warlock窗口。由于Warlock核心已占用`Ctrl+0`分配平台组0，恢复默认改为
+  `Ctrl+Shift+0`。网络专名和`SATCOM终端`不再全中文化。
+- 根因：旧QSS的基础字号只选中`QWidget#NrmRoot`，Qt子控件未继承；多数控件内边距和布局
+  间距仍为固定像素。终端运行时另捕获`QAction::event: Ambiguous shortcut overload:
+  Ctrl+0`，证实恢复快捷键与Warlock内置动作冲突。
+- TDD证据：`nrm_ui_scale_test`先因`NrmUiStyle.cpp`缺失导致CMake配置失败，实现后用真实
+  Qt Widgets验证子按钮字号、高度、布局边距和间距的100%→160%变化；
+  `nrm_ui_text_test`先在`LINK11`专名断言失败，修正映射后通过。
+- 执行命令：受影响测试定向构建/运行；`NetworkResourceManager`构建；
+  `scripts/ai_guard.sh static/test`；`git diff --check`；VNC临时Warlock窗口按钮与XTest
+  快捷键验证。
+- 测试结果：40/40固定测试通过，Warlock插件编译链接通过；VNC验证100%→110%
+  时表单字体、输入框、按钮、页签和间距全部可见放大，态势图焦点下
+  `Ctrl++`与`Ctrl+Shift+0`通过，平台选择显示`Link-16`。
+- 合同追踪键：不变；仅修改Warlock显示层与其测试，不改仿真状态、路由算法、网关策略、
+  公共契约或JSON Schema，状态保持`IMPLEMENTED / PRE_ACCEPTANCE`。
+- 阻塞：完整120秒GUI预验收未重跑；当前用户综合场景进程仍映射启动时的旧库，需用户
+  退出后重新执行运行命令才会加载本次新库。
+- 下一步唯一动作：用户重启综合场景，在常用分辨率下人工核对80%/100%/160%的可读性和
+  页面滚动/裁剪边界。
+
+### 2026-08-21 09:45 CST — Codex tactical-view-only scaling correction
+
+- 唯一目标：将缩放作用域收窄为中央态势图，右侧资源测评及其他表单、按钮、字号、布局、
+  表格行高和表头尺寸保持固定；不改仿真状态、路由算法、跨域网关、JSON合同或专名映射。
+- TDD证据：先将真实Qt Widgets测试改为断言面板几何保持不变，旧实现如预期在按钮字号
+  10pt→16pt处失败；随后将`NrmUiStyle`改为无比例参数的固定主题，测试转绿。
+- 实现：缩放栏文案改为“态势图缩放”；`SetUiScalePercent`仅刷新百分比并发送既有信号，
+  删除按比例重写后代QSS、布局边距/间距、表格尺寸和指标卡高度的代码。`NrmTacticalView`
+  的80%–160%逻辑画布缩放与鼠标坐标反算保持不变。
+- 自动验证：`scripts/ai_guard.sh static`、40/40固定测试、44/44 NRM CTest、插件编译链接及
+  运行环境`ldd -r`全部通过；缺失依赖0、未解析符号0。
+- VNC证据：独立临时Warlock加载新库，100%→110%后任务评估表单截图变化像素为0，态势图
+  变化像素为11748。临时窗口已关闭，临时目录已移入回收站；用户综合场景PID 925555未停止，
+  其当前映射的旧UI库显示`(deleted)`，需重启综合场景后才会加载本轮新库。
+- 工程状态：AFSIM核心修改数0，未提交、未推送；历史全页面缩放记录保留为历史证据，
+  README、当前里程碑和验证文档已更新为“仅态势图缩放”。
+- 下一步唯一动作：用户退出当前综合场景并重新执行运行命令，人工核对常用窗口尺寸下的
+  80%/100%/160%态势图效果、节点详情和资源测评选点。
+
+### 2026-08-21 10:18 CST — Codex map-style tactical viewport zoom
+
+- 需求修正：用户明确否定“整体逻辑画布放大”，要求像地图一样放大局部以查看密集节点、
+  链路和逐跳路径细节；此前两版缩放记录保留为历史，本条为当前实现。
+- 实现：新增`NrmTacticalViewport`，提供50%–500%、25%步进、鼠标锚点缩放、受限平移、
+  内容/视口正逆变换和适配全图。`NrmTacticalView`仅对网格、节点、链路、网关、逐跳路径和
+  标签施加变换，标题、摘要、提示、图例和详情卡固定；左键移动超过Qt阈值才平移，否则按
+  节点单击处理。滚轮比例通过新信号同步回Dock。
+- TDD证据：先扩展`nrm_ui_scale_test`，因缺少`NrmTacticalViewport.hpp`按预期编译失败；
+  实现后鼠标锚点保持、QTransform一致性、正逆映射、平移、边界钳制、适配全图和50%–500%
+  规则全部通过。资源面板固定字体/几何测试继续通过。
+- 自动验证：`scripts/ai_guard.sh static`、40/40固定测试、44/44 NRM CTest、插件编译链接和
+  `git diff --check`通过；只出现AFSIM上游既有虚函数隐藏告警。
+- VNC证据：独立临时Warlock以3440×1348加载新库，在密集区100%→200%局部放大；拖动后
+  拓扑变化687967像素，固定图例和右侧表单变化均为0。200%下点击
+  `network_control_center`显示固定详情；选源模式再次点击后右侧源平台更新并自动进入选目的
+  模式；“适配全图”恢复100%和37节点全局视野。
+- 清理/运行态：临时窗口已关闭，临时目录移入系统回收站；当前用户侧为默认
+  `four_network_overview` Warlock PID 1438301。该进程启动早于本轮最终库，用户需重启后加载。
+- 工程状态：AFSIM核心修改数0，未提交、未推送；路由算法、网关策略、JSON合同、中文映射及
+  `Link-11`/`Link-16`/`SATCOM`/`CDL`专名未改变。
+- 下一步唯一动作：用户重启当前Warlock，在自己的VNC视角下滚轮放大密集区、拖动浏览，
+  并复核逐跳路由标签与资源测评选点。

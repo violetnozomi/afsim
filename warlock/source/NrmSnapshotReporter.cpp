@@ -351,6 +351,33 @@ void WriteResourceAlarms(std::ostream& aOutput,
    }
 }
 
+void WriteAssessmentRouteHops(std::ostream& aOutput,
+                              const std::vector<nrm::AssessmentRouteHop>& aHops)
+{
+   aOutput << '[';
+   for (std::size_t index = 0; index < aHops.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      const nrm::AssessmentRouteHop& hop = aHops[index];
+      aOutput << "{\"hopIndex\":" << hop.hopIndex
+              << ",\"kind\":\"" << nrm::ToString(hop.kind)
+              << "\",\"sourceEndpointId\":\"" << EscapeJson(hop.sourceEndpointId)
+              << "\",\"destinationEndpointId\":\"" << EscapeJson(hop.destinationEndpointId)
+              << "\",\"sourcePlatform\":\"" << EscapeJson(hop.sourcePlatform)
+              << "\",\"destinationPlatform\":\"" << EscapeJson(hop.destinationPlatform)
+              << "\",\"sourceNetworkId\":\"" << EscapeJson(hop.sourceNetworkId)
+              << "\",\"destinationNetworkId\":\"" << EscapeJson(hop.destinationNetworkId)
+              << "\",\"sourceNetworkType\":\"" << nrm::ToString(hop.sourceNetworkType)
+              << "\",\"destinationNetworkType\":\"" << nrm::ToString(hop.destinationNetworkType)
+              << "\",\"candidate\":" << (hop.candidate ? "true" : "false")
+              << ",\"gateway\":" << (hop.gateway ? "true" : "false")
+              << ",\"gatewayRouteId\":\"" << EscapeJson(hop.gatewayRouteId)
+              << "\",\"gatewayCapabilityId\":\"" << EscapeJson(hop.gatewayCapabilityId)
+              << "\"}";
+   }
+   aOutput << ']';
+}
+
 void WriteAssessment(std::ostream& aOutput,
                      const nrm::AssessmentResult& aResult,
                      const std::string& aRunId,
@@ -380,11 +407,19 @@ void WriteAssessment(std::ostream& aOutput,
            << (aResult.primaryRouteUsesCandidate ? "true" : "false")
            << ",\"primary_endpoint_route\":";
    WriteStringArray(aOutput, aResult.primaryEndpointRoute);
+   aOutput << ",\"primary_route_hops\":";
+   WriteAssessmentRouteHops(aOutput, aResult.primaryRouteHops);
+   aOutput << ",\"gateway_route_ids\":";
+   WriteStringArray(aOutput, aResult.gatewayRouteIds);
+   aOutput << ",\"gateway_capability_ids\":";
+   WriteStringArray(aOutput, aResult.gatewayCapabilityIds);
    aOutput << ",\"backup_route\":";
    WriteStringArray(aOutput, aResult.backupRoute);
    aOutput << ",\"backup_route_uses_candidate\":"
            << (aResult.backupRouteUsesCandidate ? "true" : "false")
-           << ",\"network_sequence\":[";
+           << ",\"backup_route_hops\":";
+   WriteAssessmentRouteHops(aOutput, aResult.backupRouteHops);
+   aOutput << ",\"network_sequence\":[";
    for (std::size_t index = 0; index < aResult.networkSequence.size(); ++index)
    {
       if (index != 0) aOutput << ',';
@@ -499,6 +534,105 @@ void WriteCapability(std::ostream& aOutput,
    aOutput << "]}\n";
 }
 
+void WriteGatewayEvent(std::ostream& aOutput,
+                       const nrm::GatewayForwardingEvent& aEvent)
+{
+   aOutput << "{\"transferId\":\"" << EscapeJson(aEvent.transferId)
+           << "\",\"routeId\":\"" << EscapeJson(aEvent.routeId)
+           << "\",\"gatewayCapabilityId\":\""
+           << EscapeJson(aEvent.gatewayCapabilityId)
+           << "\",\"platformId\":\"" << EscapeJson(aEvent.platformId)
+           << "\",\"sourcePlatformId\":\""
+           << EscapeJson(aEvent.sourcePlatformId)
+           << "\",\"destinationPlatformId\":\""
+           << EscapeJson(aEvent.destinationPlatformId)
+           << "\",\"destinationCommName\":\""
+           << EscapeJson(aEvent.destinationCommName)
+           << "\",\"ingressNetworkId\":\""
+           << EscapeJson(aEvent.ingressNetworkId)
+           << "\",\"egressNetworkId\":\""
+           << EscapeJson(aEvent.egressNetworkId)
+           << "\",\"messageType\":\"" << EscapeJson(aEvent.messageType)
+           << "\",\"result\":\"" << EscapeJson(aEvent.result)
+           << "\",\"reasonCode\":\"" << EscapeJson(aEvent.reasonCode)
+           << "\",\"inputSerialNumber\":" << aEvent.inputSerialNumber
+           << ",\"outputSerialNumber\":" << aEvent.outputSerialNumber
+           << ",\"messageBits\":" << aEvent.messageBits
+           << ",\"routeIndex\":" << aEvent.routeIndex
+           << ",\"hopCount\":" << aEvent.hopCount
+           << ",\"receiveTime\":" << aEvent.receiveTime
+           << ",\"completionTime\":" << aEvent.completionTime << '}';
+}
+
+void WriteGateway(std::ostream& aOutput,
+                  const nrm::GatewayResourceState& aGateway)
+{
+   aOutput << "{\"gatewayId\":\"" << EscapeJson(aGateway.gatewayId)
+           << "\",\"platformId\":\"" << EscapeJson(aGateway.platformId)
+           << "\",\"ingressNetworkId\":\""
+           << EscapeJson(aGateway.ingressNetworkId)
+           << "\",\"egressNetworkId\":\""
+           << EscapeJson(aGateway.egressNetworkId)
+           << "\",\"ingressCommName\":\""
+           << EscapeJson(aGateway.ingressCommName)
+           << "\",\"egressCommName\":\""
+           << EscapeJson(aGateway.egressCommName)
+           << "\",\"allowedSourcePlatformIds\":";
+   WriteStringArray(aOutput, aGateway.allowedSourcePlatformIds);
+   aOutput << ",\"allowedDestinationPlatformIds\":";
+   WriteStringArray(aOutput, aGateway.allowedDestinationPlatformIds);
+   aOutput << ",\"allowedMessageTypes\":";
+   WriteStringArray(aOutput, aGateway.allowedMessageTypes);
+   aOutput << ",\"priority\":" << aGateway.priority
+           << ",\"processingDelayMs\":" << aGateway.processingDelayMs
+           << ",\"forwardingRateBps\":" << aGateway.forwardingRateBps
+           << ",\"maxQueueMessages\":" << aGateway.maxQueueMessages
+           << ",\"maxQueueBits\":" << aGateway.maxQueueBits
+           << ",\"queuedMessages\":" << aGateway.queuedMessages
+           << ",\"queuedBits\":" << aGateway.queuedBits
+           << ",\"receivedCount\":" << aGateway.receivedCount
+           << ",\"forwardedCount\":" << aGateway.forwardedCount
+           << ",\"rejectedCount\":" << aGateway.rejectedCount
+           << ",\"droppedCount\":" << aGateway.droppedCount
+           << ",\"forwardedBits\":" << aGateway.forwardedBits
+           << ",\"enabled\":" << (aGateway.enabled ? "true" : "false")
+           << ",\"valid\":" << (aGateway.valid ? "true" : "false")
+           << ",\"source\":\"" << nrm::ToString(aGateway.origin)
+           << "\",\"confidence\":\"" << nrm::ToString(aGateway.confidence)
+           << "\",\"sampleTime\":" << aGateway.sampleTime
+           << ",\"reasonCodes\":";
+   WriteStringArray(aOutput, aGateway.reasonCodes);
+   aOutput << ",\"recentEvents\":[";
+   for (std::size_t index = 0; index < aGateway.recentEvents.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      WriteGatewayEvent(aOutput, aGateway.recentEvents[index]);
+   }
+   aOutput << "]}";
+}
+
+void WriteGatewayRoute(std::ostream& aOutput,
+                       const nrm::GatewayRouteTemplate& aRoute)
+{
+   aOutput << "{\"routeId\":\"" << EscapeJson(aRoute.routeId)
+           << "\",\"sourcePlatformId\":\""
+           << EscapeJson(aRoute.sourcePlatformId)
+           << "\",\"destinationPlatformId\":\""
+           << EscapeJson(aRoute.destinationPlatformId)
+           << "\",\"destinationCommName\":\""
+           << EscapeJson(aRoute.destinationCommName)
+           << "\",\"allowedMessageTypes\":";
+   WriteStringArray(aOutput, aRoute.allowedMessageTypes);
+   aOutput << ",\"gatewayCapabilityIds\":";
+   WriteStringArray(aOutput, aRoute.gatewayCapabilityIds);
+   aOutput << ",\"priority\":" << aRoute.priority
+           << ",\"enabled\":" << (aRoute.enabled ? "true" : "false")
+           << ",\"valid\":" << (aRoute.valid ? "true" : "false")
+           << ",\"reasonCodes\":";
+   WriteStringArray(aOutput, aRoute.reasonCodes);
+   aOutput << '}';
+}
+
 void WriteJsonSnapshot(std::ostream& aOutput,
                        const nrm::ResourceSnapshot& aSnapshot,
                        const std::string& aRunId,
@@ -517,7 +651,9 @@ void WriteJsonSnapshot(std::ostream& aOutput,
            << EscapeJson(aSnapshot.providerId) << "\",\"network_count\":"
            << aSnapshot.networks.size() << ",\"endpoint_count\":"
            << aSnapshot.endpoints.size() << ",\"link_count\":"
-           << aSnapshot.links.size() << ",\"messages\":{\"queued\":"
+           << aSnapshot.links.size() << ",\"gateway_count\":"
+           << aSnapshot.gateways.size() << ",\"gateway_route_count\":"
+           << aSnapshot.gatewayRoutes.size() << ",\"messages\":{\"queued\":"
            << aSnapshot.messages.queued << ",\"transmitted\":"
            << aSnapshot.messages.transmitted << ",\"received\":"
            << aSnapshot.messages.received << ",\"hops\":"
@@ -540,6 +676,18 @@ void WriteJsonSnapshot(std::ostream& aOutput,
               << "\",\"reasonCode\":\"" << EscapeJson(alarm.reasonCode)
               << "\",\"active\":" << (alarm.active ? "true" : "false")
               << '}';
+   }
+   aOutput << "],\"gateways\":[";
+   for (std::size_t index = 0; index < aSnapshot.gateways.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      WriteGateway(aOutput, aSnapshot.gateways[index]);
+   }
+   aOutput << "],\"gatewayRoutes\":[";
+   for (std::size_t index = 0; index < aSnapshot.gatewayRoutes.size(); ++index)
+   {
+      if (index != 0) aOutput << ',';
+      WriteGatewayRoute(aOutput, aSnapshot.gatewayRoutes[index]);
    }
    aOutput << "],\"networks\":[";
 

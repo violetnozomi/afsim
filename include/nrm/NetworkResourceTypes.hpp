@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "nrm/GatewayTypes.hpp"
 #include "nrm/MetricReason.hpp"
 
 namespace nrm
@@ -262,7 +263,30 @@ struct GatewayResourceState
    std::string platformId;
    std::string ingressNetworkId;
    std::string egressNetworkId;
+   std::string ingressCommName;
+   std::string egressCommName;
+   std::vector<std::string> allowedSourcePlatformIds;
+   std::vector<std::string> allowedDestinationPlatformIds;
+   std::vector<std::string> allowedMessageTypes;
+   int priority = 0;
+   double processingDelayMs = 0.0;
+   double forwardingRateBps = 1.0;
+   std::size_t maxQueueMessages = 1;
+   std::uint64_t maxQueueBits = 1;
+   std::size_t queuedMessages = 0;
+   std::uint64_t queuedBits = 0;
+   std::uint64_t receivedCount = 0;
+   std::uint64_t forwardedCount = 0;
+   std::uint64_t rejectedCount = 0;
+   std::uint64_t droppedCount = 0;
+   std::uint64_t forwardedBits = 0;
    bool enabled = false;
+   bool valid = false;
+   DataOrigin origin = DataOrigin::cAFSIM_INTERNAL;
+   Confidence confidence = Confidence::cHIGH;
+   double sampleTime = 0.0;
+   std::vector<std::string> reasonCodes;
+   std::vector<GatewayForwardingEvent> recentEvents;
 };
 
 struct LinkSnapshot
@@ -443,6 +467,7 @@ struct ResourceSnapshot
    std::vector<RouteResourceState> routes;
    std::vector<BusinessFlowState> flows;
    std::vector<GatewayResourceState> gateways;
+   std::vector<GatewayRouteTemplate> gatewayRoutes;
    MessageStatistics             messages;
    EnvironmentSnapshot           environment;
    NavigationSnapshot            navigation;

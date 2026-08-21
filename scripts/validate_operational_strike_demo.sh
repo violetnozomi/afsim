@@ -25,6 +25,14 @@ required_markers=(
    "NRM_OPERATIONAL PHASE LINK16_DIRECT_RECOVERED"
    "NRM_OPERATIONAL PHASE CDL_HIGH_RATE_ACTIVE"
    "NRM_OPERATIONAL PHASE CDL_HIGH_RATE_COMPLETE"
+   "NRM_OPERATIONAL PHASE GATEWAY_PAIR_L11_L16_SENT"
+   "NRM_OPERATIONAL PHASE GATEWAY_PAIR_L11_SATCOM_SENT"
+   "NRM_OPERATIONAL PHASE GATEWAY_PAIR_L11_CDL_SENT"
+   "NRM_OPERATIONAL PHASE GATEWAY_PAIR_L16_SATCOM_SENT"
+   "NRM_OPERATIONAL PHASE GATEWAY_PAIR_L16_CDL_SENT"
+   "NRM_OPERATIONAL PHASE GATEWAY_PAIR_SATCOM_CDL_SENT"
+   "NRM_OPERATIONAL PHASE GATEWAY_CASCADE_L11_CDL_SENT"
+   "NRM_OPERATIONAL PHASE GATEWAY_CASCADE_CDL_L11_SENT"
    "NRM_OPERATIONAL PHASE LINK11_RESOURCE_STATUS_REPORTED"
    "NRM_OPERATIONAL PHASE MISSION_STATUS_REPORTED"
    "NRM_OPERATIONAL PHASE SCENARIO_COMPLETE"
@@ -53,12 +61,32 @@ then
 fi
 
 platform_added_count=$(grep -c ' PLATFORM_ADDED ' "$EVENT_FILE" || true)
-if [[ "$platform_added_count" -ne 25 ]]
+if [[ "$platform_added_count" -ne 37 ]]
 then
-   printf 'FAIL: expected 25 PLATFORM_ADDED events, found %s.\nEvent file: %s\n' \
+   printf 'FAIL: expected 37 PLATFORM_ADDED events, found %s.\nEvent file: %s\n' \
       "$platform_added_count" "$EVENT_FILE" >&2
    exit 1
 fi
+
+gateway_forwarded_count=$(grep -c 'NRM_GATEWAY FORWARDED' "$CONSOLE_LOG" || true)
+if [[ "$gateway_forwarded_count" -ne 10 ]]
+then
+   printf 'FAIL: expected 10 gateway hop forwards, found %s.\nLog: %s\n' \
+      "$gateway_forwarded_count" "$CONSOLE_LOG" >&2
+   exit 1
+fi
+
+for route in route_l11_satcom_cdl_cascade route_cdl_l16_l11_cascade
+do
+   route_forwarded_count=$(grep -c "NRM_GATEWAY FORWARDED .*route=${route} " \
+      "$CONSOLE_LOG" || true)
+   if [[ "$route_forwarded_count" -ne 2 ]]
+   then
+      printf 'FAIL: expected two gateway hops for %s, found %s.\nLog: %s\n' \
+         "$route" "$route_forwarded_count" "$CONSOLE_LOG" >&2
+      exit 1
+   fi
+done
 
 if grep -Eq ' WEAPON_(FIRED|HIT|MISSED|TERMINATED) ' "$EVENT_FILE"
 then
@@ -80,6 +108,8 @@ do
 done
 
 printf 'PASS: cooperative operational-network scenario completed with all phase markers.\n'
+printf 'PASS: all six domain pairs and both explicit two-gateway cascades were observed.\n'
+printf 'PASS: %s gateway hop forwards completed.\n' "$gateway_forwarded_count"
 printf 'PASS: four-network operational recipients were observed.\n'
 printf 'PASS: %s cooperative platforms were recorded and no weapon event occurred.\n' \
    "$platform_added_count"

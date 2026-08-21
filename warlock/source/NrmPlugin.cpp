@@ -35,7 +35,20 @@ WkNrm::Plugin::Plugin(const QString& aPluginName, size_t aUniqueId)
          QString::fromUtf8("AFSIM通信资源态势"), centralDockerPtr);
       mTacticalDockPtr->setObjectName("NrmTacticalViewDockWidget");
       mTacticalDockPtr->setFeatures(QDockWidget::NoDockWidgetFeatures);
-      mTacticalDockPtr->setWidget(new TacticalView(mData, mTacticalDockPtr));
+      TacticalView* tacticalViewPtr = new TacticalView(mData, mTacticalDockPtr);
+      mTacticalDockPtr->setWidget(tacticalViewPtr);
+      connect(tacticalViewPtr, &TacticalView::PlatformSelected,
+              mDockWidgetPtr, &DockWidget::ApplyTacticalPlatformSelection);
+      connect(tacticalViewPtr, &TacticalView::SelectionTargetChanged,
+              mDockWidgetPtr, &DockWidget::SetTacticalSelectionTarget);
+      connect(mDockWidgetPtr, &DockWidget::TacticalSelectionRequested,
+              tacticalViewPtr, &TacticalView::BeginAssessmentSelection);
+      connect(mDockWidgetPtr, &DockWidget::AssessmentPlatformsChanged,
+              tacticalViewPtr, &TacticalView::SetAssessmentPlatforms);
+      connect(mDockWidgetPtr, &DockWidget::UiScaleChanged,
+              tacticalViewPtr, &TacticalView::SetUiScalePercent);
+      connect(tacticalViewPtr, &TacticalView::UiScalePercentChanged,
+              mDockWidgetPtr, &DockWidget::SetUiScalePercent);
       centralDockerPtr->addDockWidget(Qt::LeftDockWidgetArea, mTacticalDockPtr);
       mTacticalDockPtr->show();
    }

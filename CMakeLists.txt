@@ -18,6 +18,8 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/MetricReason.hpp
       include/nrm/MessageLifecycleTypes.hpp
       include/nrm/MessageLifecycleTracker.hpp
+      include/nrm/GatewayTypes.hpp
+      include/nrm/GatewayPolicyEngine.hpp
       include/nrm/NetworkProfile.hpp
       include/nrm/NetworkProfileRepository.hpp
       include/nrm/ResourceEventTypes.hpp
@@ -51,12 +53,17 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/ResourceSnapshotValidator.hpp
       include/nrm/Version.hpp
       source/WsfNetworkResourceManagerPlugin.hpp
+      source/WsfNrmGatewayExtension.hpp
+      source/WsfNrmCrossDomainGatewayProcessor.hpp
    SRCS
       source/WsfNetworkResourceManagerPlugin.cpp
+      source/WsfNrmGatewayExtension.cpp
+      source/WsfNrmCrossDomainGatewayProcessor.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
    ${CMAKE_CURRENT_SOURCE_DIR}/include
+   ${CMAKE_CURRENT_SOURCE_DIR}/source
 )
 
 add_executable(nrm_framework_types_test EXCLUDE_FROM_ALL
@@ -72,9 +79,32 @@ add_executable(nrm_ui_text_test EXCLUDE_FROM_ALL
    warlock/source/NrmUiText.cpp
 )
 target_include_directories(nrm_ui_text_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
    ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
 )
 add_test(NAME nrm_ui_text_test COMMAND nrm_ui_text_test)
+
+add_executable(nrm_ui_scale_test EXCLUDE_FROM_ALL
+   tests/UiScaleTest.cpp
+   warlock/source/NrmTacticalViewport.cpp
+   warlock/source/NrmUiScale.cpp
+   warlock/source/NrmUiStyle.cpp
+)
+target_include_directories(nrm_ui_scale_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+find_package(Qt5Widgets REQUIRED)
+target_link_libraries(nrm_ui_scale_test PRIVATE Qt5::Widgets)
+add_test(NAME nrm_ui_scale_test COMMAND nrm_ui_scale_test)
+
+add_executable(nrm_tactical_selection_test EXCLUDE_FROM_ALL
+   tests/TacticalSelectionTest.cpp
+   warlock/source/NrmTacticalSelection.cpp
+)
+target_include_directories(nrm_tactical_selection_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+add_test(NAME nrm_tactical_selection_test COMMAND nrm_tactical_selection_test)
 
 add_test(NAME nrm_remote_plan_switch_test
    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/RemotePlanSwitchTest.sh
@@ -108,6 +138,18 @@ target_include_directories(nrm_assessment_evaluator_test PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 add_test(NAME nrm_assessment_evaluator_test COMMAND nrm_assessment_evaluator_test)
+
+add_executable(nrm_gateway_policy_engine_test EXCLUDE_FROM_ALL
+   tests/GatewayPolicyEngineTest.cpp
+)
+target_include_directories(nrm_gateway_policy_engine_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_gateway_policy_engine_test COMMAND nrm_gateway_policy_engine_test)
+
+add_test(NAME nrm_operational_gateway_scenario_test
+   COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/OperationalGatewayScenarioTest.sh
+)
 
 add_executable(nrm_concurrent_task_assessment_test EXCLUDE_FROM_ALL
    tests/ConcurrentTaskAssessmentTest.cpp
@@ -440,8 +482,11 @@ set(NRM_TEST_TARGETS
    nrm_degradation_policy_test
    nrm_framework_types_test
    nrm_ui_text_test
+   nrm_ui_scale_test
+   nrm_tactical_selection_test
    nrm_snapshot_reporter_test
    nrm_assessment_evaluator_test
+   nrm_gateway_policy_engine_test
    nrm_network_profile_test
    nrm_frequency_characteristic_test
    nrm_protocol_resource_model_test

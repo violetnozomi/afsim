@@ -34,6 +34,12 @@ network nrm_link11_coordination WSF_COMM_NETWORK_GENERIC
       member link11_station_north link11
       member link11_station_south link11
       member link11_air_relay link11
+      member gw_l11_l16_forward link11
+      member gw_l11_l16_reverse link11
+      member gw_l11_satcom_forward link11
+      member gw_l11_satcom_reverse link11
+      member gw_l11_cdl_forward link11
+      member gw_l11_cdl_reverse link11
    end_comm_list
    comm_link_list
       link link11_sensor_hub link11 link11_control_station link11
@@ -50,6 +56,18 @@ network nrm_link11_coordination WSF_COMM_NETWORK_GENERIC
       link link11_station_south link11 link11_relay_south link11
       link link11_control_station link11 link11_air_relay link11
       link link11_air_relay link11 link11_control_station link11
+      link link11_control_station link11 gw_l11_l16_forward link11
+      link gw_l11_l16_forward link11 link11_control_station link11
+      link link11_control_station link11 gw_l11_l16_reverse link11
+      link gw_l11_l16_reverse link11 link11_control_station link11
+      link link11_control_station link11 gw_l11_satcom_forward link11
+      link gw_l11_satcom_forward link11 link11_control_station link11
+      link link11_control_station link11 gw_l11_satcom_reverse link11
+      link gw_l11_satcom_reverse link11 link11_control_station link11
+      link link11_control_station link11 gw_l11_cdl_forward link11
+      link gw_l11_cdl_forward link11 link11_control_station link11
+      link link11_control_station link11 gw_l11_cdl_reverse link11
+      link gw_l11_cdl_reverse link11 link11_control_station link11
    end_comm_link_list
 end_network
 
@@ -64,6 +82,12 @@ network nrm_link16_tactical WSF_COMM_NETWORK_GENERIC
       member spectrum_monitor_aircraft link16
       member support_aircraft link16
       member mobile_command link16
+      member gw_l11_l16_forward link16
+      member gw_l11_l16_reverse link16
+      member gw_l16_satcom_forward link16
+      member gw_l16_satcom_reverse link16
+      member gw_l16_cdl_forward link16
+      member gw_l16_cdl_reverse link16
    end_comm_list
    comm_link_list
       link network_control_center link16 airborne_relay link16
@@ -90,6 +114,18 @@ network nrm_link16_tactical WSF_COMM_NETWORK_GENERIC
       link support_aircraft link16 airborne_relay link16
       link network_control_center link16 mobile_command link16
       link mobile_command link16 network_control_center link16
+      link network_control_center link16 gw_l11_l16_forward link16
+      link gw_l11_l16_forward link16 network_control_center link16
+      link network_control_center link16 gw_l11_l16_reverse link16
+      link gw_l11_l16_reverse link16 network_control_center link16
+      link network_control_center link16 gw_l16_satcom_forward link16
+      link gw_l16_satcom_forward link16 network_control_center link16
+      link network_control_center link16 gw_l16_satcom_reverse link16
+      link gw_l16_satcom_reverse link16 network_control_center link16
+      link network_control_center link16 gw_l16_cdl_forward link16
+      link gw_l16_cdl_forward link16 network_control_center link16
+      link network_control_center link16 gw_l16_cdl_reverse link16
+      link gw_l16_cdl_reverse link16 network_control_center link16
    end_comm_link_list
 end_network
 
@@ -102,6 +138,12 @@ network nrm_satcom_command WSF_COMM_NETWORK_GENERIC
       member sat_relay_2 satcom
       member mobile_command satcom
       member backup_processing_center satcom
+      member gw_l11_satcom_forward satcom
+      member gw_l11_satcom_reverse satcom
+      member gw_l16_satcom_forward satcom
+      member gw_l16_satcom_reverse satcom
+      member gw_satcom_cdl_forward satcom
+      member gw_satcom_cdl_reverse satcom
    end_comm_list
    comm_link_list
       link regional_command satcom sat_relay_1 satcom
@@ -116,6 +158,18 @@ network nrm_satcom_command WSF_COMM_NETWORK_GENERIC
       link mobile_command satcom sat_relay_2 satcom
       link sat_relay_2 satcom backup_processing_center satcom
       link backup_processing_center satcom sat_relay_2 satcom
+      link sat_relay_1 satcom gw_l11_satcom_forward satcom
+      link gw_l11_satcom_forward satcom sat_relay_1 satcom
+      link sat_relay_1 satcom gw_l11_satcom_reverse satcom
+      link gw_l11_satcom_reverse satcom sat_relay_1 satcom
+      link sat_relay_1 satcom gw_l16_satcom_forward satcom
+      link gw_l16_satcom_forward satcom sat_relay_1 satcom
+      link sat_relay_1 satcom gw_l16_satcom_reverse satcom
+      link gw_l16_satcom_reverse satcom sat_relay_1 satcom
+      link sat_relay_1 satcom gw_satcom_cdl_forward satcom
+      link gw_satcom_cdl_forward satcom sat_relay_1 satcom
+      link sat_relay_1 satcom gw_satcom_cdl_reverse satcom
+      link gw_satcom_cdl_reverse satcom sat_relay_1 satcom
    end_comm_link_list
 end_network
 
@@ -126,6 +180,12 @@ network nrm_cdl_isr WSF_COMM_NETWORK_GENERIC
       member survey_uav_2 cdl
       member survey_uav_3 cdl
       member backup_processing_center cdl
+      member gw_l11_cdl_forward cdl
+      member gw_l11_cdl_reverse cdl
+      member gw_l16_cdl_forward cdl
+      member gw_l16_cdl_reverse cdl
+      member gw_satcom_cdl_forward cdl
+      member gw_satcom_cdl_reverse cdl
    end_comm_list
    comm_link_list
       link survey_uav_1 cdl data_processing_center cdl
@@ -138,5 +198,17 @@ network nrm_cdl_isr WSF_COMM_NETWORK_GENERIC
       link survey_uav_2 cdl backup_processing_center cdl
       link backup_processing_center cdl survey_uav_3 cdl
       link survey_uav_3 cdl backup_processing_center cdl
+      link data_processing_center cdl gw_l11_cdl_forward cdl
+      link gw_l11_cdl_forward cdl data_processing_center cdl
+      link data_processing_center cdl gw_l11_cdl_reverse cdl
+      link gw_l11_cdl_reverse cdl data_processing_center cdl
+      link data_processing_center cdl gw_l16_cdl_forward cdl
+      link gw_l16_cdl_forward cdl data_processing_center cdl
+      link data_processing_center cdl gw_l16_cdl_reverse cdl
+      link gw_l16_cdl_reverse cdl data_processing_center cdl
+      link data_processing_center cdl gw_satcom_cdl_forward cdl
+      link gw_satcom_cdl_forward cdl data_processing_center cdl
+      link data_processing_center cdl gw_satcom_cdl_reverse cdl
+      link gw_satcom_cdl_reverse cdl data_processing_center cdl
    end_comm_link_list
 end_network

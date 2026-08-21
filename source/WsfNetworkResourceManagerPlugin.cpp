@@ -3,7 +3,9 @@
 #include "UtMemory.hpp"
 #include "WsfApplication.hpp"
 #include "WsfApplicationExtension.hpp"
+#include "WsfNrmGatewayExtension.hpp"
 #include "WsfPlugin.hpp"
+#include "WsfScenario.hpp"
 
 namespace
 {
@@ -11,6 +13,12 @@ const char* cEXTENSION_NAME = "wsf_network_resource_manager";
 
 class NetworkResourceManagerApplicationExtension : public WsfApplicationExtension
 {
+public:
+   void ScenarioCreated(WsfScenario& aScenario) override
+   {
+      aScenario.RegisterExtension(
+         cEXTENSION_NAME, ut::make_unique<WsfNrmGatewayScenarioExtension>());
+   }
 };
 }
 

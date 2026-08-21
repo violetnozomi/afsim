@@ -20,4 +20,7 @@ then
 fi
 
 trap restore_default_service EXIT
+echo "Launching operational strike scenario: ${SCENARIO}"
+echo "Warlock UI will open in the configured VNC desktop, not in this terminal."
+echo "Keep this terminal open; press Ctrl+C to stop and restore the default service."
 "${ROOT}/scripts/remote/run-warlock-remote.sh" "$SCENARIO"

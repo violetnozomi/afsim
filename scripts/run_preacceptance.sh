@@ -13,7 +13,7 @@ readonly RESULT_FILE="${RUN_DIR}/results.tsv"
 readonly REPORT_FILE="${RUN_DIR}/PREACCEPTANCE_REPORT.md"
 readonly GUI_SUMMARY_FILE="${RUN_DIR}/gui_snapshot_summary.json"
 readonly LATEST_STATUS_FILE="${OUTPUT_ROOT}/latest_status.json"
-readonly FIXED_TEST_COUNT=31
+readonly FIXED_TEST_COUNT=40
 readonly SCENARIOS=(
    framework_smoke
    four_network_overview
@@ -21,6 +21,7 @@ readonly SCENARIOS=(
    congestion
    quality_degradation
    capability_service_smoke
+   cross_domain_gateway_smoke
    environment_weather
    navigation_errors
    operational_strike_demo
@@ -116,6 +117,10 @@ scenario_markers_valid() {
       capability_service_smoke)
          [[ $(grep -c '^NRM capability smoke received on capability_destination$' "$log_file" || true) -eq 2 ]]
          ;;
+      cross_domain_gateway_smoke)
+         [[ $(grep -c '^NRM_GATEWAY FORWARDED ' "$log_file" || true) -eq 2 ]] &&
+            grep -q '^NRM_GATEWAY_DESTINATION_RECEIVED NRM_GATEWAY_TEST$' "$log_file"
+         ;;
       environment_weather)
          [[ $(grep -c '^NRM received on ' "$log_file" || true) -eq 8 ]]
          ;;
@@ -130,6 +135,9 @@ scenario_markers_valid() {
          grep -q '^NRM_OPERATIONAL PHASE SCENARIO_START$' "$log_file" &&
             grep -q '^NRM_OPERATIONAL PHASE LINK16_DIRECT_FAILURE$' "$log_file" &&
             grep -q '^NRM_OPERATIONAL PHASE RELAY_ROUTE_REQUESTED$' "$log_file" &&
+            grep -q '^NRM_OPERATIONAL PHASE GATEWAY_CASCADE_L11_CDL_SENT$' "$log_file" &&
+            grep -q '^NRM_OPERATIONAL PHASE GATEWAY_CASCADE_CDL_L11_SENT$' "$log_file" &&
+            [[ $(grep -c '^NRM_GATEWAY FORWARDED ' "$log_file" || true) -eq 10 ]] &&
             grep -q '^NRM_OPERATIONAL PHASE SCENARIO_COMPLETE$' "$log_file"
          ;;
       *)

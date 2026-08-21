@@ -36,6 +36,11 @@ struct ConstrainedEdge
    Confidence distanceConfidence = Confidence::cLOW;
    bool candidate = false;
    std::string profileId;
+   bool gateway = false;
+   std::string gatewayRouteId;
+   std::string gatewayCapabilityId;
+   std::size_t gatewayRouteIndex = 0;
+   std::size_t gatewayRouteLength = 0;
 };
 
 struct PathConstraintSet
@@ -86,6 +91,8 @@ struct ConstrainedPath
    Confidence distanceConfidence = Confidence::cLOW;
    bool feasible = false;
    std::size_t candidateEdgeCount = 0;
+   std::vector<std::string> gatewayRouteIds;
+   std::vector<std::string> gatewayCapabilityIds;
    std::vector<std::string> failedConstraints;
 };
 
@@ -147,7 +154,11 @@ public:
          queue.pop();
          ++result.expandedStateCount;
          const std::string& currentId = partial.nodeIds.back();
-         if (aDestinationIds.count(currentId) != 0 && !partial.edges.empty())
+         const bool gatewayRouteComplete =
+            partial.gatewayRouteId.empty() ||
+            partial.nextGatewayRouteIndex == partial.gatewayRouteLength;
+         if (aDestinationIds.count(currentId) != 0 && !partial.edges.empty() &&
+             gatewayRouteComplete)
          {
             ConstrainedPath complete = Evaluate(partial, aConstraints);
             if (!aRequireCandidate || complete.candidateEdgeCount > 0)
@@ -193,6 +204,22 @@ public:
             {
                continue;
             }
+            if (edge->gateway)
+            {
+               if (partial.gatewayRouteId.empty())
+               {
+                  if (edge->gatewayRouteIndex != 0 || edge->gatewayRouteLength == 0)
+                  {
+                     continue;
+                  }
+               }
+               else if (edge->gatewayRouteId != partial.gatewayRouteId ||
+                        edge->gatewayRouteIndex != partial.nextGatewayRouteIndex ||
+                        edge->gatewayRouteLength != partial.gatewayRouteLength)
+               {
+                  continue;
+               }
+            }
             PartialPath next = partial;
             next.edges.push_back(edge);
             next.nodeIds.push_back(edge->destinationId);
@@ -200,6 +227,15 @@ public:
             if (edge->candidate)
             {
                ++next.candidateEdgeCount;
+            }
+            if (edge->gateway)
+            {
+               if (next.gatewayRouteId.empty())
+               {
+                  next.gatewayRouteId = edge->gatewayRouteId;
+                  next.gatewayRouteLength = edge->gatewayRouteLength;
+               }
+               next.nextGatewayRouteIndex = edge->gatewayRouteIndex + 1;
             }
             queue.push(next);
          }
@@ -227,7 +263,13 @@ public:
 
    static std::string EdgeKey(const ConstrainedEdge& aEdge)
    {
-      return aEdge.sourceId + "->" + aEdge.destinationId;
+      std::string key = aEdge.sourceId + "->" + aEdge.destinationId;
+      if (aEdge.gateway)
+      {
+         key += "#" + aEdge.gatewayRouteId + ":" +
+                aEdge.gatewayCapabilityId;
+      }
+      return key;
    }
 
 private:
@@ -239,6 +281,9 @@ private:
       std::vector<std::string> nodeIds;
       double delayCost = 0.0;
       std::size_t candidateEdgeCount = 0;
+      std::string gatewayRouteId;
+      std::size_t nextGatewayRouteIndex = 0;
+      std::size_t gatewayRouteLength = 0;
    };
 
    struct PartialGreater
@@ -300,6 +345,14 @@ private:
          if (edge->candidate)
          {
             ++path.candidateEdgeCount;
+         }
+         if (edge->gateway)
+         {
+            if (path.gatewayRouteIds.empty())
+            {
+               path.gatewayRouteIds.push_back(edge->gatewayRouteId);
+            }
+            path.gatewayCapabilityIds.push_back(edge->gatewayCapabilityId);
          }
          if (!edge->delayValid || !std::isfinite(edge->delayMs) || edge->delayMs < 0.0)
          {

@@ -6,6 +6,7 @@
 #ifndef NRM_ASSESSMENT_TYPES_HPP
 #define NRM_ASSESSMENT_TYPES_HPP
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -61,6 +62,45 @@ inline const char* ToString(AssessmentReason aReason)
    return "DATA_INVALID";
 }
 
+enum class AssessmentRouteHopKind
+{
+   cCURRENT_LINK,
+   cCANDIDATE_LINK,
+   cGATEWAY_TRANSITION
+};
+
+inline const char* ToString(AssessmentRouteHopKind aKind)
+{
+   switch (aKind)
+   {
+   case AssessmentRouteHopKind::cCURRENT_LINK:
+      return "CURRENT_LINK";
+   case AssessmentRouteHopKind::cCANDIDATE_LINK:
+      return "CANDIDATE_LINK";
+   case AssessmentRouteHopKind::cGATEWAY_TRANSITION:
+      return "GATEWAY_TRANSITION";
+   }
+   return "CURRENT_LINK";
+}
+
+struct AssessmentRouteHop
+{
+   std::size_t            hopIndex = 0;
+   AssessmentRouteHopKind kind = AssessmentRouteHopKind::cCURRENT_LINK;
+   std::string            sourceEndpointId;
+   std::string            destinationEndpointId;
+   std::string            sourcePlatform;
+   std::string            destinationPlatform;
+   std::string            sourceNetworkId;
+   std::string            destinationNetworkId;
+   NetworkType            sourceNetworkType = NetworkType::cUNKNOWN;
+   NetworkType            destinationNetworkType = NetworkType::cUNKNOWN;
+   bool                   candidate = false;
+   bool                   gateway = false;
+   std::string            gatewayRouteId;
+   std::string            gatewayCapabilityId;
+};
+
 struct AssessmentTask
 {
    std::string              taskId;
@@ -96,10 +136,14 @@ struct AssessmentResult
    bool                          stable           = false;
    std::vector<std::string>      primaryRoute;
    std::vector<std::string>      primaryEndpointRoute;
+   std::vector<AssessmentRouteHop> primaryRouteHops;
    bool                          primaryRouteUsesCandidate = false;
    std::vector<std::string>      backupRoute;
+   std::vector<AssessmentRouteHop> backupRouteHops;
    bool                          backupRouteUsesCandidate = false;
    std::vector<NetworkType>      networkSequence;
+   std::vector<std::string>      gatewayRouteIds;
+   std::vector<std::string>      gatewayCapabilityIds;
    MetricValue<double>           predictedDelayMs;
    MetricValue<double>           pathDistanceM;
    MetricValue<double>           maximumHopDistanceM;

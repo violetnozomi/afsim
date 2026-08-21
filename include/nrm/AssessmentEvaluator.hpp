@@ -15,6 +15,7 @@
 
 #include "nrm/AssessmentTypes.hpp"
 #include "nrm/ConstrainedPathSelector.hpp"
+#include "nrm/GatewayPolicyEngine.hpp"
 #include "nrm/NetworkProfileRepository.hpp"
 
 namespace nrm
@@ -91,6 +92,7 @@ public:
       ConstrainedPathSelector::Adjacency adjacency;
       std::set<std::string> currentEdgeKeys;
       BuildCurrentEdges(aSnapshot, aTask, endpoints, adjacency, currentEdgeKeys, result);
+      BuildGatewayEdges(aSnapshot, aTask, endpoints, adjacency);
       bool profileMissing = false;
       BuildCandidateEdges(aSnapshot, aTask, endpoints, currentEdgeKeys, adjacency, profileMissing);
       ConstrainedPathSelector selector;
@@ -157,10 +159,13 @@ public:
       result.primaryRouteUsesCandidate = primary->candidateEdgeCount > 0;
       PopulateRoute(*primary, aTask.sourcePlatform, result.primaryRoute,
                     result.primaryEndpointRoute, result.networkSequence);
+      PopulateRouteHops(*primary, endpoints, result.primaryRouteHops);
       PopulateMetrics(aSnapshot, *primary, result);
       PopulateMargins(aSnapshot, aTask, result);
       ApplyFailures(*primary, result);
       PopulateProfiles(*primary, result);
+      result.gatewayRouteIds = primary->gatewayRouteIds;
+      result.gatewayCapabilityIds = primary->gatewayCapabilityIds;
 
       std::set<std::string> forbiddenEdges;
       for (const ConstrainedEdge* edge : primary->edges)
@@ -182,6 +187,7 @@ public:
          std::vector<std::string> ignoredEndpoints;
          PopulateRoute(*backupPath, aTask.sourcePlatform, result.backupRoute,
                        ignoredEndpoints, ignored);
+         PopulateRouteHops(*backupPath, endpoints, result.backupRouteHops);
          result.backupRouteUsesCandidate = backupPath->candidateEdgeCount > 0;
       }
 
@@ -417,6 +423,153 @@ private:
       }
    }
 
+   static bool GatewayAllows(const GatewayResourceState& aCapability,
+                             const AssessmentTask& aTask)
+   {
+      return aCapability.enabled && aCapability.valid &&
+             std::find(aCapability.allowedSourcePlatformIds.begin(),
+                       aCapability.allowedSourcePlatformIds.end(),
+                       aTask.sourcePlatform) !=
+                aCapability.allowedSourcePlatformIds.end() &&
+             std::find(aCapability.allowedDestinationPlatformIds.begin(),
+                       aCapability.allowedDestinationPlatformIds.end(),
+                       aTask.destinationPlatform) !=
+                aCapability.allowedDestinationPlatformIds.end() &&
+             std::find(aCapability.allowedMessageTypes.begin(),
+                       aCapability.allowedMessageTypes.end(),
+                       aTask.businessType) != aCapability.allowedMessageTypes.end();
+   }
+
+   static const GatewayResourceState* FindGateway(
+      const ResourceSnapshot& aSnapshot, const std::string& aGatewayId)
+   {
+      const auto found = std::find_if(
+         aSnapshot.gateways.begin(), aSnapshot.gateways.end(),
+         [&aGatewayId](const GatewayResourceState& aGateway)
+         { return aGateway.gatewayId == aGatewayId; });
+      return found == aSnapshot.gateways.end() ? nullptr : &*found;
+   }
+
+   static const EndpointSnapshot* FindGatewayEndpoint(
+      const EndpointMap& aEndpoints,
+      const std::string& aPlatformId,
+      const std::string& aNetworkId,
+      const std::string& aCommName)
+   {
+      for (const auto& entry : aEndpoints)
+      {
+         const EndpointSnapshot& endpoint = *entry.second;
+         const std::string& platformId =
+            endpoint.platformId.empty() ? endpoint.platformName : endpoint.platformId;
+         if (platformId == aPlatformId && endpoint.networkId == aNetworkId &&
+             (aCommName.empty() || endpoint.commName == aCommName))
+         {
+            return &endpoint;
+         }
+      }
+      return nullptr;
+   }
+
+   static bool RouteMatches(const GatewayRouteTemplate& aRoute,
+                            const AssessmentTask& aTask)
+   {
+      return aRoute.enabled && aRoute.valid &&
+             aRoute.sourcePlatformId == aTask.sourcePlatform &&
+             aRoute.destinationPlatformId == aTask.destinationPlatform &&
+             std::find(aRoute.allowedMessageTypes.begin(),
+                       aRoute.allowedMessageTypes.end(), aTask.businessType) !=
+                aRoute.allowedMessageTypes.end();
+   }
+
+   static void BuildGatewayEdges(const ResourceSnapshot& aSnapshot,
+                                 const AssessmentTask& aTask,
+                                 const EndpointMap& aEndpoints,
+                                 ConstrainedPathSelector::Adjacency& aAdjacency)
+   {
+      GatewayPolicyEngine policy;
+      for (const GatewayRouteTemplate& route : aSnapshot.gatewayRoutes)
+      {
+         if (!RouteMatches(route, aTask))
+         {
+            continue;
+         }
+         std::vector<GatewayResourceState> routeCapabilities;
+         bool referencesComplete = true;
+         for (const std::string& capabilityId : route.gatewayCapabilityIds)
+         {
+            const GatewayResourceState* capability =
+               FindGateway(aSnapshot, capabilityId);
+            if (capability == nullptr)
+            {
+               referencesComplete = false;
+               break;
+            }
+            routeCapabilities.push_back(*capability);
+         }
+         if (!referencesComplete ||
+             !policy.Validate(routeCapabilities, {route}).valid)
+         {
+            continue;
+         }
+
+         for (std::size_t index = 0; index < routeCapabilities.size(); ++index)
+         {
+            const GatewayResourceState& capability = routeCapabilities[index];
+            if (!GatewayAllows(capability, aTask))
+            {
+               break;
+            }
+            const EndpointSnapshot* ingress = FindGatewayEndpoint(
+               aEndpoints, capability.platformId, capability.ingressNetworkId,
+               capability.ingressCommName);
+            const EndpointSnapshot* egress = FindGatewayEndpoint(
+               aEndpoints, capability.platformId, capability.egressNetworkId,
+               capability.egressCommName);
+            if (ingress == nullptr || egress == nullptr ||
+                ingress->state != ResourceState::cONLINE ||
+                egress->state != ResourceState::cONLINE ||
+                !Allowed(aTask, ingress->networkType) ||
+                !Allowed(aTask, egress->networkType))
+            {
+               break;
+            }
+
+            ConstrainedEdge edge;
+            edge.sourceId = ingress->endpointId;
+            edge.destinationId = egress->endpointId;
+            edge.sourcePlatform = capability.platformId;
+            edge.destinationPlatform = capability.platformId;
+            edge.networkType = egress->networkType;
+            edge.delayMs = capability.processingDelayMs;
+            edge.delayValid = std::isfinite(edge.delayMs) && edge.delayMs >= 0.0;
+            edge.delayConfidence = capability.confidence;
+            const std::uint64_t reliabilityDenominator =
+               capability.forwardedCount + capability.droppedCount;
+            if (reliabilityDenominator > 0)
+            {
+               edge.pdrPercent =
+                  100.0 * static_cast<double>(capability.forwardedCount) /
+                  static_cast<double>(reliabilityDenominator);
+               edge.pdrValid = true;
+               edge.pdrConfidence = capability.confidence;
+            }
+            edge.bandwidthBps = capability.forwardingRateBps;
+            edge.bandwidthValid = std::isfinite(edge.bandwidthBps) &&
+                                  edge.bandwidthBps > 0.0;
+            edge.bandwidthConfidence = capability.confidence;
+            edge.distanceM = 0.0;
+            edge.distanceValid = true;
+            edge.distanceConfidence = capability.confidence;
+            edge.gateway = true;
+            edge.gatewayRouteId = route.routeId;
+            edge.gatewayCapabilityId = capability.gatewayId;
+            edge.gatewayRouteIndex = index;
+            edge.gatewayRouteLength = routeCapabilities.size();
+            aAdjacency[edge.sourceId].push_back(edge);
+         }
+      }
+   }
+
    static double AdmissibleCapacityBps(const ResourceSnapshot& aSnapshot,
                                        const std::string& aNetworkName,
                                        double aServiceCapacityBps)
@@ -541,6 +694,50 @@ private:
          {
             aNetworkSequence.push_back(edge->networkType);
          }
+      }
+   }
+
+   static void PopulateRouteHops(const ConstrainedPath& aPath,
+                                 const EndpointMap& aEndpoints,
+                                 std::vector<AssessmentRouteHop>& aHops)
+   {
+      aHops.clear();
+      aHops.reserve(aPath.edges.size());
+      for (std::size_t index = 0; index < aPath.edges.size(); ++index)
+      {
+         const ConstrainedEdge& edge = *aPath.edges[index];
+         AssessmentRouteHop hop;
+         hop.hopIndex = index + 1;
+         hop.sourceEndpointId = edge.sourceId;
+         hop.destinationEndpointId = edge.destinationId;
+         hop.sourcePlatform = edge.sourcePlatform;
+         hop.destinationPlatform = edge.destinationPlatform;
+         hop.candidate = edge.candidate;
+         hop.gateway = edge.gateway;
+         if (edge.gateway)
+         {
+            hop.kind = AssessmentRouteHopKind::cGATEWAY_TRANSITION;
+            hop.gatewayRouteId = edge.gatewayRouteId;
+            hop.gatewayCapabilityId = edge.gatewayCapabilityId;
+         }
+         else if (edge.candidate)
+         {
+            hop.kind = AssessmentRouteHopKind::cCANDIDATE_LINK;
+         }
+
+         const auto source = aEndpoints.find(edge.sourceId);
+         if (source != aEndpoints.end())
+         {
+            hop.sourceNetworkId = source->second->networkId;
+            hop.sourceNetworkType = source->second->networkType;
+         }
+         const auto destination = aEndpoints.find(edge.destinationId);
+         if (destination != aEndpoints.end())
+         {
+            hop.destinationNetworkId = destination->second->networkId;
+            hop.destinationNetworkType = destination->second->networkType;
+         }
+         aHops.push_back(hop);
       }
    }
 

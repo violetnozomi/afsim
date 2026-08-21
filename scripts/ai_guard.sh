@@ -16,7 +16,7 @@ if [ -z "$SCENARIO_TIMEOUT_VALUE" ]; then
   SCENARIO_TIMEOUT_VALUE=120
 fi
 
-TEST_NAMES="nrm_contract_metric_enricher_test nrm_degradation_policy_test nrm_concurrent_task_assessment_test nrm_framework_types_test nrm_ui_text_test nrm_snapshot_reporter_test nrm_assessment_evaluator_test nrm_network_profile_test nrm_frequency_characteristic_test nrm_protocol_resource_model_test nrm_message_lifecycle_tracker_test nrm_resource_event_ledger_test nrm_constrained_path_selector_test nrm_snapshot_reporter_recovery_test nrm_communication_capability_service_test nrm_network_plan_repository_test nrm_network_plan_evaluation_test nrm_network_plan_coordination_test nrm_resource_demand_repository_test nrm_resource_demand_matching_test nrm_resource_demand_coordinator_test nrm_model_service_facade_test nrm_model_registry_test nrm_environment_config_repository_test nrm_environment_effect_adapter_test nrm_operational_environment_evaluator_test nrm_afsim_navigation_packet_parser_test nrm_navigation_accuracy_model_test nrm_recovery_state_store_test nrm_reference_model_adapter_test nrm_temporary_path_guard_test nrm_customer_state_lifecycle_test nrm_customer_nrm_adapter_test nrm_resource_snapshot_validator_test nrm_effective_snapshot_assembler_test nrm_customer_json_codec_test nrm_customer_data_container_test"
+TEST_NAMES="nrm_contract_metric_enricher_test nrm_degradation_policy_test nrm_concurrent_task_assessment_test nrm_framework_types_test nrm_ui_text_test nrm_ui_scale_test nrm_tactical_selection_test nrm_snapshot_reporter_test nrm_assessment_evaluator_test nrm_gateway_policy_engine_test nrm_network_profile_test nrm_frequency_characteristic_test nrm_protocol_resource_model_test nrm_message_lifecycle_tracker_test nrm_resource_event_ledger_test nrm_constrained_path_selector_test nrm_snapshot_reporter_recovery_test nrm_communication_capability_service_test nrm_network_plan_repository_test nrm_network_plan_evaluation_test nrm_network_plan_coordination_test nrm_resource_demand_repository_test nrm_resource_demand_matching_test nrm_resource_demand_coordinator_test nrm_model_service_facade_test nrm_model_registry_test nrm_environment_config_repository_test nrm_environment_effect_adapter_test nrm_operational_environment_evaluator_test nrm_afsim_navigation_packet_parser_test nrm_navigation_accuracy_model_test nrm_recovery_state_store_test nrm_reference_model_adapter_test nrm_temporary_path_guard_test nrm_customer_state_lifecycle_test nrm_customer_nrm_adapter_test nrm_resource_snapshot_validator_test nrm_effective_snapshot_assembler_test nrm_customer_json_codec_test nrm_customer_data_container_test"
 
 usage() {
   printf '%s\n' \
@@ -30,7 +30,7 @@ usage() {
     "contract  Validate the proposed customer JSON Schema and all examples." \
     "scenario  Run one approved scenario once with a timeout." \
     "" \
-    "Approved scenarios: framework_smoke, four_network_overview, link_failure, congestion, quality_degradation, capability_service_smoke, operational_strike_demo, environment_weather, navigation_errors."
+    "Approved scenarios: framework_smoke, four_network_overview, link_failure, congestion, quality_degradation, capability_service_smoke, cross_domain_gateway_smoke, operational_strike_demo, environment_weather, navigation_errors."
 }
 
 require_file() {
@@ -128,6 +128,7 @@ scenario_file() {
     congestion) printf '%s\n' congestion.txt ;;
     quality_degradation) printf '%s\n' quality_degradation.txt ;;
     capability_service_smoke) printf '%s\n' capability_service_smoke.txt ;;
+    cross_domain_gateway_smoke) printf '%s\n' cross_domain_gateway_smoke.txt ;;
     operational_strike_demo) printf '%s\n' operational_strike_demo/validation.txt ;;
     environment_weather) printf '%s\n' environment_weather.txt ;;
     navigation_errors) printf '%s\n' navigation_errors.txt ;;

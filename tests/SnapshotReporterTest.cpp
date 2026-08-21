@@ -80,6 +80,52 @@ int main()
    endpoint.state = nrm::ResourceState::cONLINE;
    snapshot.endpoints.push_back(endpoint);
 
+   nrm::GatewayResourceState gateway;
+   gateway.gatewayId = "gw-link11-satcom-forward";
+   gateway.platformId = "gateway-link11-satcom";
+   gateway.ingressNetworkId = "network-link11";
+   gateway.egressNetworkId = "network-satcom";
+   gateway.ingressCommName = "link11";
+   gateway.egressCommName = "satcom";
+   gateway.allowedSourcePlatformIds.push_back("fighter");
+   gateway.allowedDestinationPlatformIds.push_back("command");
+   gateway.allowedMessageTypes.push_back("MISSION_REPORT");
+   gateway.processingDelayMs = 4.5;
+   gateway.forwardingRateBps = 64000.0;
+   gateway.maxQueueMessages = 16;
+   gateway.maxQueueBits = 262144;
+   gateway.receivedCount = 3;
+   gateway.forwardedCount = 2;
+   gateway.droppedCount = 1;
+   gateway.forwardedBits = 4096;
+   gateway.enabled = true;
+   gateway.valid = true;
+   nrm::GatewayForwardingEvent forwardingEvent;
+   forwardingEvent.transferId = "transfer-report";
+   forwardingEvent.routeId = "route-link11-satcom-cdl";
+   forwardingEvent.gatewayCapabilityId = gateway.gatewayId;
+   forwardingEvent.platformId = gateway.platformId;
+   forwardingEvent.destinationCommName = "destination-comm";
+   forwardingEvent.result = "FORWARDED";
+   forwardingEvent.reasonCode = "FORWARD_ALLOWED";
+   forwardingEvent.inputSerialNumber = 41;
+   forwardingEvent.outputSerialNumber = 42;
+   gateway.recentEvents.push_back(forwardingEvent);
+   snapshot.gateways.push_back(gateway);
+
+   nrm::GatewayRouteTemplate gatewayRoute;
+   gatewayRoute.routeId = "route-link11-satcom-cdl";
+   gatewayRoute.sourcePlatformId = "fighter";
+   gatewayRoute.destinationPlatformId = "command";
+   gatewayRoute.destinationCommName = "cdl";
+   gatewayRoute.allowedMessageTypes.push_back("MISSION_REPORT");
+   gatewayRoute.gatewayCapabilityIds.push_back("gw-link11-satcom-forward");
+   gatewayRoute.gatewayCapabilityIds.push_back("gw-satcom-cdl-forward");
+   gatewayRoute.priority = 100;
+   gatewayRoute.enabled = true;
+   gatewayRoute.valid = true;
+   snapshot.gatewayRoutes.push_back(gatewayRoute);
+
    {
       WkNrm::SnapshotReporter reporter(outputRoot);
       runDirectory = reporter.GetRunDirectory();
@@ -95,6 +141,35 @@ int main()
       assessment.primaryRoute = {"fighter", "command"};
       assessment.backupRoute = {"fighter", "relay", "command"};
       assessment.backupRouteUsesCandidate = true;
+      nrm::AssessmentRouteHop primaryHop;
+      primaryHop.hopIndex = 1;
+      primaryHop.kind = nrm::AssessmentRouteHopKind::cCURRENT_LINK;
+      primaryHop.sourceEndpointId = "fighter/link16";
+      primaryHop.destinationEndpointId = "command/link16";
+      primaryHop.sourcePlatform = "fighter";
+      primaryHop.destinationPlatform = "command";
+      primaryHop.sourceNetworkId = "network-link16";
+      primaryHop.destinationNetworkId = "network-link16";
+      primaryHop.sourceNetworkType = nrm::NetworkType::cLINK16;
+      primaryHop.destinationNetworkType = nrm::NetworkType::cLINK16;
+      assessment.primaryRouteHops.push_back(primaryHop);
+      nrm::AssessmentRouteHop backupHop;
+      backupHop.hopIndex = 2;
+      backupHop.kind = nrm::AssessmentRouteHopKind::cGATEWAY_TRANSITION;
+      backupHop.sourceEndpointId = "gateway/link11";
+      backupHop.destinationEndpointId = "gateway/satcom";
+      backupHop.sourcePlatform = "gateway";
+      backupHop.destinationPlatform = "gateway";
+      backupHop.sourceNetworkId = "network-link11";
+      backupHop.destinationNetworkId = "network-satcom";
+      backupHop.sourceNetworkType = nrm::NetworkType::cLINK11;
+      backupHop.destinationNetworkType = nrm::NetworkType::cSATCOM;
+      backupHop.gateway = true;
+      backupHop.gatewayRouteId = "route-link11-satcom-cdl";
+      backupHop.gatewayCapabilityId = "gw-link11-satcom-forward";
+      assessment.backupRouteHops.push_back(backupHop);
+      assessment.gatewayRouteIds.push_back("route-link11-satcom-cdl");
+      assessment.gatewayCapabilityIds.push_back("gw-link11-satcom-forward");
       reporter.EnqueueAssessment(assessment);
 
       nrm::CapabilityResult capability;
@@ -227,6 +302,16 @@ int main()
          std::string::npos);
    CHECK(json.find("\"alarms\":[{\"alarmId\":\"ALARM-REPORT\"") !=
          std::string::npos);
+   CHECK(json.find("\"gateway_count\":1") != std::string::npos);
+   CHECK(json.find("\"gatewayId\":\"gw-link11-satcom-forward\"") !=
+         std::string::npos);
+   CHECK(json.find("\"forwardedCount\":2") != std::string::npos);
+   CHECK(json.find("\"transferId\":\"transfer-report\"") !=
+         std::string::npos);
+   CHECK(json.find("\"destinationCommName\":\"destination-comm\"") !=
+         std::string::npos);
+   CHECK(json.find("\"gatewayRoutes\":[{\"routeId\":\"route-link11-satcom-cdl\"") !=
+         std::string::npos);
 
    const std::string csv = ReadAll(runDirectory + "/network_summary.csv");
    CHECK(csv.find("nrm_link16_test") != std::string::npos);
@@ -238,9 +323,30 @@ int main()
    CHECK(assessment.find("\"DATA_INVALID\"") != std::string::npos);
    CHECK(assessment.find("\"backup_route\":[\"fighter\",\"relay\",\"command\"]") !=
          std::string::npos);
+   CHECK(assessment.find(
+            "\"primary_route_hops\":[{\"hopIndex\":1,\"kind\":\"CURRENT_LINK\","
+            "\"sourceEndpointId\":\"fighter/link16\",\"destinationEndpointId\":\"command/link16\","
+            "\"sourcePlatform\":\"fighter\",\"destinationPlatform\":\"command\","
+            "\"sourceNetworkId\":\"network-link16\",\"destinationNetworkId\":\"network-link16\","
+            "\"sourceNetworkType\":\"LINK16\",\"destinationNetworkType\":\"LINK16\","
+            "\"candidate\":false,\"gateway\":false,\"gatewayRouteId\":\"\","
+            "\"gatewayCapabilityId\":\"\"}]") != std::string::npos);
+   CHECK(assessment.find(
+            "\"backup_route_hops\":[{\"hopIndex\":2,\"kind\":\"GATEWAY_TRANSITION\","
+            "\"sourceEndpointId\":\"gateway/link11\",\"destinationEndpointId\":\"gateway/satcom\","
+            "\"sourcePlatform\":\"gateway\",\"destinationPlatform\":\"gateway\","
+            "\"sourceNetworkId\":\"network-link11\",\"destinationNetworkId\":\"network-satcom\","
+            "\"sourceNetworkType\":\"LINK11\",\"destinationNetworkType\":\"SATCOM\","
+            "\"candidate\":false,\"gateway\":true,"
+            "\"gatewayRouteId\":\"route-link11-satcom-cdl\","
+            "\"gatewayCapabilityId\":\"gw-link11-satcom-forward\"}]") != std::string::npos);
    CHECK(assessment.find("\"schema\":\"nrm.assessment.v3\"") != std::string::npos);
    CHECK(assessment.find("\"network_sequence\":[]") != std::string::npos);
    CHECK(assessment.find("\"recommendations\":[]") != std::string::npos);
+   CHECK(assessment.find("\"gateway_route_ids\":[\"route-link11-satcom-cdl\"]") !=
+         std::string::npos);
+   CHECK(assessment.find("\"gateway_capability_ids\":[\"gw-link11-satcom-forward\"]") !=
+         std::string::npos);
 
    const std::string capability =
       ReadAll(runDirectory + "/capability_results.jsonl");

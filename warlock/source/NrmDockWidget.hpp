@@ -6,9 +6,11 @@
 class QLabel;
 class QComboBox;
 class QDoubleSpinBox;
+class QPushButton;
 class QTableWidget;
 class QTabWidget;
 class QTextEdit;
+class QWidget;
 
 #include "NrmDataContainer.hpp"
 #include "NrmPreacceptanceStatusMonitor.hpp"
@@ -22,6 +24,17 @@ class DockWidget : public QDockWidget
 public:
    explicit DockWidget(DataContainer& aData, QWidget* aParentPtr = nullptr);
    void ShowNetworkPlan();
+
+public slots:
+   void ApplyTacticalPlatformSelection(const QString& aPlatformName, int aAssignment);
+   void SetTacticalSelectionTarget(int aTarget);
+   void SetUiScalePercent(int aPercent);
+
+signals:
+   void TacticalSelectionRequested(int aTarget);
+   void AssessmentPlatformsChanged(const QString& aSourcePlatform,
+                                   const QString& aDestinationPlatform);
+   void UiScaleChanged(int aPercent);
 
 private:
    void Refresh();
@@ -43,10 +56,15 @@ private:
    void RefreshResourceDemands();
    void RefreshPreacceptance(const PreacceptanceStatus& aStatus);
    void RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnapshot);
+   void PublishAssessmentPlatforms();
+   void RefreshTacticalScaleControl();
    static QString RuntimeStateText(nrm::RuntimeState aState);
    static void SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText);
 
    DataContainer& mData;
+   QWidget*        mContentPtr;
+   QLabel*         mScaleValuePtr;
+   int             mUiScalePercent = 100;
    QLabel*        mVersionValuePtr;
    QLabel*        mStateValuePtr;
    QLabel*        mReportingValuePtr;
@@ -70,6 +88,9 @@ private:
    QDoubleSpinBox* mMaximumDelayMsPtr;
    QDoubleSpinBox* mMinimumPdrPtr;
    QTextEdit*      mAssessmentResultPtr;
+   QPushButton*    mSelectSourceOnMapPtr;
+   QPushButton*    mSelectDestinationOnMapPtr;
+   QLabel*         mTacticalSelectionStatusPtr;
    QComboBox*      mCapabilitySourceSelectorPtr;
    QComboBox*      mCapabilityDestinationSelectorPtr;
    QComboBox*      mCapabilityAllowedNetworkPtr;
