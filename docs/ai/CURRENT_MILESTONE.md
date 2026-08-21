@@ -6,8 +6,8 @@
 
 目标版本：`v0.12.0-contract-gap-closure`。
 
-正式开发分支：`feat/v0.11-model-service-facade`；本轮在
-`feat/code-quality-raii-hardening`隔离工作树验证后快进合并，旧基线`1d9ffb0`仍可定位回退。
+本地集成分支：`main`；跨域网关、算法逐跳显示、态势图选点、中文化和地图式局部缩放已于
+2026-08-21快进合并到`eaaad00`。旧功能分支提交和历史基线仍可通过Git记录定位。
 
 AFSIM核心修改数：`0`。实现范围仅限独立`network_resource_manager`扩展、Warlock插件、
 场景、脚本和文档。

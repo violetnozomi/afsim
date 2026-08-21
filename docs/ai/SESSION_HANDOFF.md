@@ -729,3 +729,15 @@
   `Link-11`/`Link-16`/`SATCOM`/`CDL`专名未改变。
 - 下一步唯一动作：用户重启当前Warlock，在自己的VNC视角下滚轮放大密集区、拖动浏览，
   并复核逐跳路由标签与资源测评选点。
+
+### 2026-08-21 10:28 CST — Codex local main integration
+
+- 用户选择开发分支收尾选项1：本地合并回`main`，不推送远端。
+- 提交：在`feat/v0.11-model-service-facade`将连续开发成果提交为`eaaad00`
+  (`feat: add cross-domain routing and tactical viewport`)；提交包括跨域网关、算法逐跳显示、
+  态势图选点、中文化和地图式局部缩放及其测试、场景和文档。
+- 合并：确认`main`是功能分支祖先后执行`git merge --ff-only`，本地`main`从`073c9b7`
+  快进到`eaaad00`，无冲突、无额外合并提交；仓库未配置远端，因此未执行`pull`或`push`。
+- 验证要求：在本条文档提交后的`main`最终树重新执行静态门禁、40个固定测试、44项CTest、
+  差异检查和运行环境动态库检查；通过后删除已合并的旧功能分支。
+- AFSIM核心修改数0；其他已登记工作树和分支不处理。
