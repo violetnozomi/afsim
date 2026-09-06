@@ -1,0 +1,48 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of the platform script command to ReturnToRoute without having a "default" route.
+# Expected behavior is for the ReturnToRoute method to return false and the platform
+# should not be paused.
+
+platform p1 WSF_PLATFORM
+   icon f-18
+   add mover WSF_AIR_MOVER end_mover
+   
+   # Platform starts out without a route
+   # The position of the platform is 0n 0e 0 m 
+   
+   # A route is constructed and the platform is commanded to follow that route
+   execute at_time 2 s absolute
+      WsfRoute route = WsfRoute();
+      route.Append(WsfGeoPoint.Construct("1n 1w"), 500.0);
+      PLATFORM.FollowRoute(route);
+   end_execute 
+     
+   # Platform is commanded to go to a new location; a deviation from original route
+   execute at_time 8 min absolute     
+      PLATFORM.GoToLocation(WsfGeoPoint.Construct("1n 2w"));
+   end_execute 
+   
+   # Platform is commanded to return to route; crash!
+   # The method should return false
+   execute at_time 15 min absolute     
+      if (!PLATFORM.ReturnToRoute())
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_execute    
+
+end_platform
+
+end_time 20 min

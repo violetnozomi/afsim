@@ -1,0 +1,121 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#Launching platform and a scripted launch computer that creates a predicted intercept point needs to be made yet.
+#D Schueths 12/05/2014
+
+aero BULLET_AERO  WSF_AERO
+   reference_area      7.0 cm2
+   cl_max              0.1
+   mach_and_cd         0.2      .2
+   mach_and_cd         0.8      .21
+   mach_and_cd         0.95     .29
+   mach_and_cd         1.1      .45
+   mach_and_cd         1.5      .3
+   mach_and_cd         4.2      .23
+end_aero
+
+platform_type BULLET WSF_PLATFORM
+   icon gbu-15
+   mover WSF_UNGUIDED_MOVER
+     # show status
+      update_interval   0.01 sec
+      stage 1 
+         total_mass       0.4 kg
+         aero             BULLET_AERO
+      end_stage
+   end_mover
+   processor   fuse   WSF_AIR_TARGET_FUSE
+     #update_interval   0.01 sec
+      gross_update_interval 0.10 sec
+      fine_update_interval 0.01 sec
+   end_processor
+#   processor write_info WSF_SCRIPT_PROCESSOR
+#      update_interval 1 sec
+#      on_update
+#         writeln("Time ", PLATFORM.TimeSinceCreation(), " Speed ", PLATFORM.Speed()*MATH.FT_PER_M(), " Range ", PLATFORM.SlantRangeTo(0,0,0));
+#      end_on_update
+#   end_processor
+end_platform_type
+
+
+
+weapon_effects  BULLET_LETHALITY  WSF_GRADUATED_LETHALITY
+   radius_and_pk      10 m   0.9   # bullet dispersion
+   script void on_weapon_target_engagement(WsfPlatform aTarget)
+      WsfPlatform weapon = WeaponPlatform();
+      WsfPlatform target = aTarget;
+      double slantrange = weapon.SlantRangeTo(TargetLocationAtLaunch());
+      if ((!target.IsValid()) || (!weapon.IsValid()))
+      {
+         return;
+      }
+     #if (slantrange > 1300)
+      if (slantrange > 650)   #meters
+      {
+         SetPkDegrade(0.5);
+      }
+   end_script
+end_weapon_effects
+
+
+launch_computer BULLET_LAUNCH_COMPUTER WSF_SCRIPT_LAUNCH_COMPUTER   #first attempt
+   # This is the required script method name and signature.
+   script void compute_intercept(WsfTrack aTrack, double aLaunchDelay)
+      # If needed the following additional script variables are pre-defined:
+      #
+      #       WEAPON   references the WsfWeapon to which the launch computer is attached.
+      #       PLATFORM references the WsfPlatform to which the weapon is attached.
+      double weaponSpeed = 3000.0;         # feet/sec
+      WsfWaypoint intercept = WsfWaypoint();
+     #double tti = PLATFORM.InterceptLocation2D(aTrack, intercept, weaponSpeed, aLaunchDelay);
+      double tti = PLATFORM.InterceptLocation3D(aTrack, intercept, weaponSpeed, aLaunchDelay);
+      if (tti > 0.0)
+      {
+         double az = PLATFORM.RelativeAzimuthOf(intercept.Location());
+         double el = PLATFORM.RelativeElevationOf(intercept.Location());
+         if (az < WEAPON.SlewMaximumAzimuth() && az > WEAPON.SlewMinimumAzimuth() &&
+             el < WEAPON.SlewMaximumElevation() && el > WEAPON.SlewMinimumElevation())
+         {
+            #compute additional drop in altitude from gravity
+            double drop = 0.5 * Earth.ACCEL_OF_GRAVITY() * tti * tti;
+            #add it back in (so the given point is above actual intercept point)
+            intercept.SetAltitude(intercept.Altitude()+drop, false);
+      
+            SetInterceptPoint(intercept.Location());
+            # The next call is the minimum requirement for reporting an intercept.
+            SetInterceptTime(TIME_NOW + tti);
+            SetLaunchTime(TIME_NOW + aLaunchDelay);
+            SetTimeOfFlight(tti - aLaunchDelay);
+         }
+      }
+   end_script
+end_launch_computer
+
+
+weapon BULLET WSF_EXPLICIT_WEAPON
+   launch_computer BULLET_LAUNCH_COMPUTER   #first attempt
+   end_launch_computer
+   launched_platform_type  BULLET
+   weapon_effects          BULLET_LETHALITY
+   # Slew is really not true but only for the air mover platform to be able to align to a target for it to shoot.
+   slew_mode               azimuth_and_elevation
+  #azimuth_slew_limits     -4 deg 4 deg
+  #elevation_slew_limits   -4 deg 4 deg
+   azimuth_slew_limits     -1.0 deg 1.0 deg
+   elevation_slew_limits   -1.0 deg 1.0 deg
+   quantity                10    #(each shot represents a quantity of bullets as established by Pk)
+   firing_delay            0.1 sec
+   salvo_interval          5 sec  # 5 seconds between bursts
+  #launch_delta_v          1900   0   0 ft/s # muzzle velocity
+   launch_delta_v          3000   0   0 ft/s # muzzle velocity - brawler: GUN_0_MD.GUN
+  #cue_to_predicted_intercept  true
+   automatic_target_cueing     false
+   cue_to_predicted_intercept  false
+end_weapon

@@ -1,0 +1,74 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Range test for spherical and circular zones
+
+platform_type AIR_EYE_POINT WSF_PLATFORM
+   icon Wedge
+
+   script void ZoneTest(string aTargetName, string aZoneName, bool aShouldBeInside)
+      WsfPlatform target = WsfSimulation.FindPlatform(aTargetName);
+      if (! target.IsValid())
+      {
+         writeln("-FAIL- Unable to find platform ", aTargetName);
+      }
+      WsfTrack track = target.MakeTrack();
+      writeln("Target: ", aTargetName,
+              " SR=", PLATFORM.SlantRangeTo(track),
+              " GR=", PLATFORM.GroundRangeTo(track));
+
+      bool inside = track.WithinZoneOf(PLATFORM, aZoneName);
+      if (inside != aShouldBeInside)
+      {
+         writeln("-FAIL- ", aTargetName, " ", aZoneName);
+      }
+      else
+      {
+         writeln("-PASS- ", aTargetName, " ", aZoneName);
+      }
+   end_script
+
+   execute at_time 0.1 sec relative
+      ZoneTest("target-1", "spherical-zone", true);
+      ZoneTest("target-2", "spherical-zone", false);
+      ZoneTest("target-1", "circular-zone", true);
+      ZoneTest("target-2", "circular-zone", false);
+   end_execute
+
+   zone spherical-zone
+      spherical maximum_radius 40 km
+   end_zone
+
+   zone circular-zone
+      circular  maximum_radius 38.700 km
+   end_zone
+
+end_platform_type
+
+platform_type GROUND_TARGET WSF_PLATFORM
+   icon airport
+end_platform_type
+
+platform target-1 GROUND_TARGET
+   side red
+   position 40.34850n 90w altitude 0 m
+end_platform
+
+platform target-2 GROUND_TARGET
+   side red
+   position 40.34860n 90w altitude 0 m
+end_platform
+
+platform air_eye_point AIR_EYE_POINT
+   side blue
+   position 40n 90w altitude 10000 m
+end_platform
+
+end_time 1.0 sec
+

@@ -1,0 +1,43 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# EZJA test case 1:
+# Target enters sensor volume from outside the volume
+
+include_once ../auto_script/test_functions.txt
+include_once spin_scheduler_resources.txt
+
+platform bomber_case_1 BOMBER 
+   position 30:35n 80:0w
+   
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+  
+   route
+      position 30:35:00.000n 78:00:00.000w altitude 25000.00 ft
+         speed 900 mph
+      position 30:35:26.248n 81:33:26.830w altitude 25000.00 ft
+      position 30:17:09.956n 77:55:00.024w altitude 25000.00 ft
+   end_route
+end_platform
+execute at_time .01 sec absolute 
+   WsfSimulation.FindPlatform("sam_1").DeletePlatform();
+end_execute
+
+observer 
+   enable SENSOR_DETECTION_ATTEMPT 
+end_observer
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   if (aTarget.Name() == "bomber_case_1" && aResult.Succeeded())
+   {   
+      AssertTrueMessage(TIME_NOW > 370 && TIME_NOW < 1350, "Target detected outside of visible range");
+   }
+end_script

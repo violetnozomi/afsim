@@ -1,0 +1,89 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+include mtd_radar.txt
+
+use_default_radar_frequencies true
+
+radar_signature TARGET_RADAR_SIG
+   constant 0 dbsm
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+end_platform_type
+
+platform sensor WSF_PLATFORM
+   add sensor sensor MTD_RADAR
+   end_sensor
+   position 00:00:00n  00:00:00w  altitude 0.0 m agl
+   heading 90 deg
+end_platform
+
+#script double jammer_to_mds(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+#   if ((aResult.DetectionThreshold() > -300.0) &&
+#       (aResult.RcvrNoise() > -300.0) &&
+#       (aResult.NoiseJammerPower() > -300.0) &&
+#       (aResult.NoiseJammerPower() != 0.0))
+#   {
+#      double MDS =  aResult.DetectionThreshold() + aResult.RcvrNoise();
+#      return aResult.NoiseJammerPower() - MDS;
+#   }
+#   return -300.0;  // In dB
+#end_script
+
+horizontal_map
+   pd_map_file hm-mtd_radar.pd
+   gnuplot_file hm-mtd_radar.plt
+   gnuplot_player_file mtd_radar.plt
+   output_column_limit 100
+
+   header_line_1 "MTD Radar Horizontal Map"
+
+   // One of the below sections can be used to choose the
+   // variable of interest to plot
+   variable pd
+   defended_area_report_file mtd_radar.log # valid only if variable is pd
+
+   #variable required_rcs
+   #detection_reference 12.8 dB
+
+   #variable radar_signature
+   #variable optical_signature
+   #variable infrared_signature
+   #variable signal_to_noise
+   #variable signal_to_interference
+   #variable background_radiant_intensity
+   #variable signal_at_target
+   #variable clutter_power
+   #variable ground_range
+   #variable slant_range
+   #variable azimuth_angle
+   #variable angle
+   #variable grazing_angle
+   #variable detection_threshold
+   #variable noise_power
+   #variable noise_jammer_power
+   #variable jammer_to_mds
+   #script_variable jammer_to_mds
+
+   target_region
+      down_range_limits  -350 km 350 km
+      down_range_step     5 km
+      cross_range_limits  -350 km 350 km
+      cross_range_step    5 km
+   end_target_region
+
+   target_heading  90 deg
+   target_altitude 20000 ft
+   target_speed    250 kts
+   target_pitch    0 deg
+   target_roll     0 deg
+end_horizontal_map

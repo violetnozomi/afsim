@@ -1,0 +1,156 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 1 2020
+start_time 12:00:00.000
+end_time 1 hr
+
+platform_type INTEGRATING_SAT WSF_PLATFORM
+   empty_mass 1 kg
+
+   mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0.01
+      semi_major_axis 8000 km
+      raan 0 deg
+      inclination 25 deg
+      true_anomaly 0 deg
+      argument_of_periapsis 10 deg
+      reference_frame eci
+
+      integrator prince_dormand_45
+         tolerance 1.0e-11
+         error_criterion L_infinity
+      end_integrator
+
+      dynamics
+         term earth_monopole
+            egm96
+         end_term
+      end_dynamics
+   end_mover
+end_platform_type
+
+platform input INTEGRATING_SAT
+end_platform
+
+script_variables
+   Map<int, Vec3> gPositionMap = {};
+   Map<int, Vec3> gVelocityMap = {};
+
+   double gInterval = 600.0;
+end_script_variables
+
+script void ReportOnErrors(string aName, double aPosErr, double aVelErr)
+   if (aPosErr > 1.0e-10)
+   {
+      writeln("-FAIL- '", aName, "' at time ", TIME_NOW, " posErr is too large ", aPosErr);
+   }
+   else
+   {
+      writeln("-PASS- '", aName, "' at time ", TIME_NOW, " posErr is small ", aPosErr);
+   }
+   if (aVelErr > 1.0e-10)
+   {
+      writeln("-FAIL- '", aName, "' at time ", TIME_NOW, " velErr is too large ", aVelErr);
+   }
+   else
+   {
+      writeln("-PASS- '", aName, "' at time ", TIME_NOW, " velErr is small ", aVelErr);
+   }
+end_script
+
+script void TestRelativeKinematics()
+   WsfPlatform test = WsfSimulation.FindPlatform("test");
+   Vec3 testPos = test.LocationECI();
+   Vec3 testVel = test.VelocityECI();
+
+   WsfPlatform input = WsfSimulation.FindPlatform("input");
+   Vec3 inputPos = input.LocationECI();
+   Vec3 inputVel = input.VelocityECI();
+
+   double posErr = Vec3.Subtract(testPos, inputPos).Magnitude() / inputPos.Magnitude();
+   double velErr = Vec3.Subtract(testVel, inputVel).Magnitude() / inputVel.Magnitude();
+   ReportOnErrors("test", posErr, velErr);
+
+   WsfSimulation.ExecuteAtTime(TIME_NOW + gInterval, "TestRelativeKinematics");
+end_script
+
+script void TestTrailingKinematics()
+   WsfPlatform trail = WsfSimulation.FindPlatform("trail");
+   Vec3 pos = trail.LocationECI();
+   Vec3 vel = trail.VelocityECI();
+
+   double origin = trail.AuxDataDouble("origin");
+   double offset = TIME_NOW - origin;
+   int index = MATH.Floor(offset / gInterval);
+
+   if (gPositionMap.Exists(index))
+   {
+      Vec3 refPos = gPositionMap[index];
+      Vec3 refVel = gVelocityMap[index];
+
+      Vec3 diffPos = Vec3.Subtract(pos, refPos);
+      Vec3 diffVel = Vec3.Subtract(vel, refVel);
+
+      double posErr = diffPos.Magnitude() / refPos.Magnitude();
+      double velErr = diffVel.Magnitude() / refVel.Magnitude();
+      ReportOnErrors("trail", posErr, velErr);
+   }
+   else
+   {
+      writeln("-FAIL- Somehow platform 'input' did not save it's kinematics");
+   }
+
+   WsfSimulation.ExecuteAtTime(TIME_NOW + gInterval, "TestTrailingKinematics");
+end_script
+
+script void AddSatelliteTest()
+   WsfPlatform template = WsfSimulation.CreatePlatform("INTEGRATING_SAT");
+   WsfSpaceMover mover = (WsfSpaceMover)template.Mover();
+   mover.ProcessInput("epoch_date_time jan 1 2020 12:00:00.000");
+   WsfPlatform test = WsfSimulation.AddPlatform(template, "test");
+
+   WsfSimulation.ExecuteAtTime(TIME_NOW + gInterval, "TestRelativeKinematics");
+end_script
+
+script void AddSatelliteTrail()
+   WsfPlatform template = WsfSimulation.CreatePlatform("INTEGRATING_SAT");
+   WsfSpaceMover mover = (WsfSpaceMover)template.Mover();
+   WsfPlatform trail = WsfSimulation.AddPlatform(template, "trail");
+
+   trail.SetAuxData("origin", TIME_NOW);
+
+   TestTrailingKinematics();
+end_script
+
+script void RecordInputKinematics()
+   // Record 'input's kinematics into a map.
+   WsfPlatform input = WsfSimulation.FindPlatform("input");
+   Vec3 pos = input.LocationECI();
+   Vec3 vel = input.VelocityECI();
+
+   int index = MATH.Floor(TIME_NOW / gInterval);
+
+   gPositionMap[index] = pos;
+   gVelocityMap[index] = vel;
+
+   // Call this periodically to record kinematics.
+   WsfSimulation.ExecuteAtTime(TIME_NOW + gInterval, "RecordInputKinematics");
+
+   if (index == 0)
+   {
+      // If this is the first recording, schedule addition of 'trail'
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gInterval, "AddSatelliteTrail");
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gInterval, "AddSatelliteTest");
+   }
+end_script
+
+observer
+   enable SIMULATION_STARTING RecordInputKinematics
+end_observer

@@ -1,0 +1,119 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt3g.f and brlrol.f
+// Replicates the barrel roll 3,16,1,1 alternative behavior
+// DO A BARREL ROLL! - Peppy
+
+
+behavior alt3G11_barrel_roll
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      // Takes the place of 'brlflg'
+      bool mAlternative3G11Enabled = true;
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 16;
+      int icall  = 1;
+      int lcall  = 1;
+
+      // Barrel Roll Generation Parameters (formerly from rules file)
+      // See Brawler Production Rule Handbook 2.1.2.4 Barrel Roll - brlrol
+      double rolrat = 15; // Desired roll rate in degrees/sec
+      double ptchrt = 30; // Desired pitch rate in degrees/sec
+      double lgees  = 0;  // Desired longitudinal acceleration in units of gees.
+
+      // Maneuver Alternative flight values
+      Vec3 mA0 = Vec3();
+      Vec3 mAl0 = Vec3();
+      double mAccmod = 0.0;
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      double grav   = 32.17405; // From pcon.fi
+
+   end_script_variables
+
+   on_init
+
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt3G11_barrel_roll, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3G11Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      // ALL CONDITIONS PASS
+      ### Generate Maneuver Alternative
+      # brlrol.f
+      #--NEXT LINE ALLOWS ALT3G TO GENERATE ALTERNATIVE
+      #brlflg=.true.
+      #if(lprnt) write(ioutp,1000) rolrat,ptchrt,lgees
+      #--SET DESIRED RATES
+      #w0(1)=rolrat*rad
+      #w0(2)=ptchrt*rad
+      #w0(3)=0.0
+      #al0 = grav*lgees
+      #accmod = desacc
+      #call xmit(5,althld(5),baralt)
+      mA0.SetX(rolrat * Math.RAD_PER_DEG());
+      mA0.SetY(ptchrt * Math.RAD_PER_DEG());
+      mA0.SetZ(0.0);
+      mAl0.SetX(grav * lgees); // Note al0 is actually a singe value, it is set to vector accreq(1) in command.f
+      //mAccmod = ??; where do we get desacc?
+
+      # alt3g.f
+      #iactn = 1
+      #lenalt=lactn(iactn)
+      #altdsc = indpk(3,16,1,1)
+      #call xmit(5,baralt,althld(5))  <- copy predefined barrel roll maneuver into alternative storage
+
+      ### Evaluate [Projected] Maneuver Alternative
+      double score = BRAWLER.EvaluateRates(mA0, mAl0, ilevel, kalt, icall, lcall);
+      return score;
+
+   end_precondition
+
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.FlyRates(mA0, mAl0);
+   end_execute
+
+end_behavior
+

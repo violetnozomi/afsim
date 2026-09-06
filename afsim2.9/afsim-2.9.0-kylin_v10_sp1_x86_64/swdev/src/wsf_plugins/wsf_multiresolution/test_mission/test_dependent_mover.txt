@@ -1,0 +1,112 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once mr_gps_bomb.txt
+
+end_time 30 min
+
+processor BOMBER_WEAPON_RELEASE WSF_SCRIPT_PROCESSOR
+   script_variables
+      string weaponName = "gps_bomb";
+      double shotRange = 20000;
+      bool tgtEngaged = false;
+   end_script_variables
+
+   update_interval 3.0 s
+   on_update
+      if (!tgtEngaged && PLATFORM.MasterTrackList().Count() > 0)
+      {
+         WsfTrack tempTrack = PLATFORM.MasterTrackList().TrackEntry(0);
+         WsfWeapon tempWeapon = PLATFORM.Weapon(weaponName);
+         if (tempWeapon.IsValid() && PLATFORM.GroundRangeTo(tempTrack) < shotRange && tempWeapon.QuantityRemaining() > 0) {
+            tgtEngaged = tempWeapon.FireSalvo(tempTrack, 2);
+         }
+      } 
+   end_on_update
+end_processor
+
+platform_type BOMBER WSF_PLATFORM
+   mover WSF_AIR_MOVER
+   end_mover
+   
+   weapon gps_bomb MR_GPS_BOMB
+      maximum_request_count 2
+      quantity 4
+
+   end_weapon
+   
+   processor fire-em BOMBER_WEAPON_RELEASE
+   end_processor
+end_platform_type
+
+platform_type TANK WSF_PLATFORM
+   mover WSF_GROUND_MOVER
+   end_mover
+end_platform_type
+
+platform tank TANK
+   position 30:10:08.999n 81:37:02.078w
+   side blue
+   heading 90 degrees
+end_platform
+
+platform bomber BOMBER
+   track platform tank end_track
+
+   side red
+   heading 270 degrees
+   
+   route
+      position 30:05:54.78n 80:07:48.80w altitude 30000.00 ft
+         speed 500 mph
+      position 30:05:28.867n 81:30:28.430w
+      position 30:10:07.914n 81:43:41.103w
+      position 30:23:14.716n 81:39:16.362w
+      position 30:28:24.576n 81:19:55.787w
+   end_route
+end_platform
+
+# Scripts to check for firing and hitting of weapon
+# These use regression values for the creation and destruction times
+
+script bool TimeWithinOneSecond(double time0, double time1)
+   double difference = MATH.Fabs(time1 - time0);
+   return difference <= 1.0;
+end_script
+
+script void WeaponFired(WsfWeaponEngagement aWeaponEngagement, WsfTrack aTargetTrack) 
+   double time = TIME_NOW;
+   double regressionWeaponFiredTime = 561.0; // seconds
+   if(TimeWithinOneSecond(time, regressionWeaponFiredTime)){
+      writeln("Weapon fired");
+      writeln("-PASS-");
+   } else {
+      writeln("Weapon fired at time ", time, ". Expected ", regressionWeaponFiredTime);
+      writeln("-FAIL-");
+   }
+end_script
+
+script void WeaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform) 
+   double time = TIME_NOW;
+   double regressionWeaponHitTime = 642.0; // seconds
+   if(TimeWithinOneSecond(time, regressionWeaponHitTime)){
+      writeln("Weapon hit");
+      writeln("-PASS-");
+   } else {
+      writeln("Weapon hit at time ", time, ". Expected ", regressionWeaponHitTime);
+      writeln("-FAIL-");
+   }
+end_script
+
+observer
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+end_observer

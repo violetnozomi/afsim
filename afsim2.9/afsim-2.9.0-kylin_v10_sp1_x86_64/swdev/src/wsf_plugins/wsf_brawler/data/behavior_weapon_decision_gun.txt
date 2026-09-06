@@ -1,0 +1,321 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 aslct7.f and akshn7.f
+// Replicates the gun fire 7,3,7,x alternative behavior
+
+include_once BrawlerScriptUtil.txt
+
+behavior weapon_decision_gun
+
+   script_debug_writes off
+
+   script_variables
+
+      double RNGWPN = 3000.0;   #feet (from MIND file)
+
+      WsfBrawlerProcessor BRAWLER;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawGuns         = true;
+      WsfDraw  mDraw             = WsfDraw();
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      // Takes the place of production rules
+      bool mAlternative7371Enabled = true;
+
+      // Alternative ID
+      int ilevel = 7;
+      int kalt   = 3;
+      int icall  = 7;  // Always 7 for gun
+      int lcall  = 1;
+
+
+   end_script_variables
+
+   on_init
+
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   // Replicates the checks done in canfirg.f
+   // Return true if the gun can be fired ("hard" checks)
+   // Sets the string to the fail reason
+   script bool canfirg(string failMsg)
+      /*
+      cnfire = .false.
+C     --NOTE THAT WE ARE RECALCULATING PILOT POSTURE VARIABLES HERE
+C     --ppmrmx WILL BE NEEDED IN shldfrg, SO PERFORM THIS CALCULATION
+C     --UNCONDITIONALLY.
+      call gunenv(xp(1,me),vp(1,me),xp(1,ppmiac),vp(1,ppmiac),
+     1 ppmptr,ppmrmn,ppmrmx,ppmapt,ppmse,ppmaof,ppmenv,ppmtrk,ppmohr,
+     2 rbep )
+C     --If temp midway in a 0.5 second burst exceeds maximum (1.0 by
+C     --definition) then you can't shoot.  Rate of temperature rise
+C     --is 1.0/t_to_heat, so that firing for t_to_heat seconds reaches
+C     --the limit.
+      overheat = (gun_temp+0.25/t_to_heat .gt. 1.0)
+      if (overheat) then
+         rsfail = 'GUN OVERHEAT'
+         return
+      endif
+C
+C     --CHECK IF TARGET IS IN ENVELOPE
+      if (.not.ppmenv) then
+         rsfail = 'NOT IN ENVELOPE '
+         return
+      endif
+C
+C     --CHECK ON PROBABILITY IN RANGE
+      pinrng = prmax2(ppmiac,ppmrmx,1.0,0.2)
+      pbinrg = pinrng.ge.pr2lim
+      if (.not.pbinrg) then
+         rsfail = 'LOW PROB IN RANGE'
+         return
+      endif
+C
+      visacq = inform(ppmiac).eq.1 .and. time.le.seet(ppmiac)+0.5
+C     --If pilot has not had a recent visual (or does not have a
+C     --radar lock if rdrgun is set), then gun can't be fired.
+      if(.not.rdrgun) then
+C        --DO I HAVE A RECENT VISUAL?
+         if(.not.visacq) then
+            rsfail = 'NO RECENT VISUAL'
+            return
+         endif
+      else
+C        --AN ESTABLISHED RADAR TRACK MAY SUBSTITUTE FOR A VISUAL
+C        --IF RDRGUN=.TRUE.
+         call lockid(iacid,ppmjid,locked)
+         gunacq = visacq .or. locked.eq.2
+         if(.not.gunacq) then
+            rsfail = 'NO RECENT VISUAL OR LOCK'
+            return
+         endif
+      endif
+C
+      cnfire = .true.
+      */
+     #bool canFire = false;
+      bool canFire = true;   #LBM - temporary
+
+      return canFire;
+   end_script
+
+   // Replicates the checks done in shldfrg.f
+   // Return true if the should should be fired ("soft" checks)
+   // Sets the string to the fail reason if any
+   script bool shldfrg(string failMsg)
+      /*
+C     --If target is inside Rmax2, don't need the following
+C     --tests(target is inside no-escape range).
+C     --CHECK THAT PILOT BELIEVES RANGE IS OK FOR TARGETING
+      pinrng = prmax2(ppmiac,ppmrmx,ppm_rpeak,0.2)
+      pbinrg = pinrng.ge.pr2lim
+      call pdset('PROB_IN_RANGE',pbinrg)
+C
+C     --CALCULATE CURRENT ENVELOPE LEVEL; ppmrmx WAS RECALCULATED IN canfirg
+      elevnow = envlvg(rngnow(me,ppmiac),rdotme(ppmiac),ppmse,ppmrmx,
+     1 'SHOOT')
+C     --CALCULATE PROJECTED ENVELOPE, CONSTANT VELOCITY PROJECTION FOR
+C     --ME AND CURRENT ACCELERATION PROJECTION FOR TARGET.
+C     --call vecinc(xp(1,me),tproj3,vp(1,me),xme)
+C     --Full projection for target, fixed velocity projection
+C     --for attacker.
+C     --call gunenv(xme,vp(1,me),xeut(1,ppmiac),veut(1,ppmiac),
+      call gunenv(xeuan,veuan,xeut(1,ppmiac),veut(1,ppmiac),
+     1   ppmptr,rmin,rmax,aimp,se,aof,inenvp,trkbl,ovrhoz,rbep)
+      elevprj = envlvg(rngun(ppmiac),rngrun(ppmiac),se,rmax,'SHOOT')
+      if(lprnt) write(ioutp,2000) rmin,rmax,rng(ppmiac),aimp,se,aof,
+     1  elevprj
+C
+C     --CHECK PROJECTION -- IS LEVEL DECREASING?
+      worse = (elevnow.ge.elevprj)
+      call pdset('SHOT_WORSENING',worse)
+C
+      needid = (irel(ppmiac).eq.0) .and. (id_mode.ne.bvr_id_md)
+      call pdset('SURE_BAD_GUY',.not.needid)
+C
+      if (needid)then
+         lfire = .false.
+         rsfail = 'NEED ID'
+      elseif(.not.(pbinrg.or.worse))then
+         rsfail = '!(IN RPEAK OR WORSE)'
+         lfire = .false.
+      else
+         lfire = .true.
+      endif
+      */
+#      bool lfire = false;
+      bool lfire = true;   #LBM - temporary
+
+
+      return lfire;
+   end_script
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition weapon_decision_gun, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      // aslct7.f line 123 - 132
+#      --CHECK IF TARGET SELECTED
+#      if (ppmiac .eq. 0 .and. .not.dewvmsl)then
+#         rsfail = 'NO TARGET SELECTED'
+#         goto 800
+#      endif
+#      --CHECK IF WEAPON SELECTED
+#      if (ppmptr .eq. 0)then
+#         rsfail = 'NO WEAPON SELECTED'
+#         goto 800
+#      endif
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         return Failure("no target selected");
+      }
+
+      WsfTrack targetTrack = PLATFORM.MasterTrackList().FindTrack(tasks.Entry(0).LocalTrackId());
+      if (!targetTrack.IsValid())
+      {
+         return Failure("no valid target track");
+      }
+
+#LBM - temporary
+#      // Weapon selection done in selwpn.f (called from aslct2.f)
+#      // checks weapon inventory. Use a similar check here as a replacement
+#      if (!HaveWeapon(PLATFORM))
+#      {
+#         // TODO Account for weapon type gun/missile
+#         return Failure("no weapon selected");
+#      }
+
+      if (!PLATFORM.Weapon("gun").IsValid() || PLATFORM.Weapon("gun").QuantityRemaining() <= 0)
+      {
+         writeln_d("   ", PLATFORM.Name(), " no weapon selected at time: ", TIME_NOW);
+         return Failure("no weapon selected");
+      }
+
+#      // aslct7() calls canfir().
+#      // canfir.f checks production rules and GCI inhibit
+#      // just doing a simple flag for now
+#      if (!mAlternative7371Enabled)
+#      {
+#         writeln_d("behavior not enabled!");
+#         return Failure("behavior alternative not enabled");
+#      }
+#
+#      //canfir.f calls canfirg()
+#      string msg = "";
+#      if (!canfirg(msg))
+#      {
+#         return Failure(msg);
+#      }
+#
+#      // aslct7 line 199 - 205
+#      // if undamaged calls shldfr().
+#      // if we are damaged skip checks and fire now
+#      if (PLATFORM.DamageFactor() <= 0.0)
+#      {
+#         // shldfr.f just calls the specific weapon type
+#         if (!shldfrg(msg))
+#         {
+#            return Failure(msg);
+#         }
+#      }
+#
+#      // aslct7 creates and alternative to evaluate.
+#      // The alternative has no projection and always
+#      // evaluates to 1, so skip that processing
+
+      WsfWeapon gun = PLATFORM.Weapon("gun");
+      if (gun.LaunchComputer().CanIntercept(targetTrack, 0.1))   #see "firing_delay" for BULLET weapon
+      {
+         WsfGeoPoint pt = gun.LaunchComputer().InterceptPoint();
+
+         #TODO - move slant range check to gun's launch computer???
+
+         if (PLATFORM.SlantRangeTo(pt) <= (RNGWPN * MATH.M_PER_FT()))
+         {
+#            #draw line to intercept point
+#            if (mDrawGuns)
+#            {
+#               double delta = ((WsfBrawlerPlatform)PLATFORM).ProjectedTimeDelta();
+#               mDraw.SetLayer("behavior_weapon_decision_gun");
+#               mDraw.SetDuration(delta);
+#               mDraw.SetColor(0.5, 0.5, 0.5);   #gray
+#               mDraw.SetLineSize(1);
+#               mDraw.SetLineStyle("solid");
+#               mDraw.BeginLines();
+#                  mDraw.Vertex(PLATFORM.Location());
+#                  mDraw.Vertex(pt);
+#               mDraw.End();
+#            }
+            // All conditions pass, weapon can fire
+            return true;
+         }
+         else
+         {
+            writeln_d("no gun fire, too far away");
+            return Failure("no gun fire, too far away");
+         }
+      }
+      else
+      {
+         writeln_d("gun cannot intercept target yet");
+         return Failure("gun cannot intercept target yet");
+      }
+   end_precondition
+
+   execute
+      // Replicates akshn7.f
+      // We don't need to do all the bookeeping that BRAWLER
+      // does. Just launch the weapon.
+      // TODO Fill in gun fire
+
+
+
+      #LBM - temporary
+      WsfTrack targetTrack = PLATFORM.MasterTrackList().FindTrack(BRAWLER.TasksReceivedOfType("WEAPON").Entry(0).LocalTrackId());
+      WsfWeapon weapon = PLATFORM.Weapon("gun");
+      bool launched = weapon.FireSalvo(targetTrack, 1); // Always firing one for now
+      if (!launched)
+      {
+         writeln_d("   ", PLATFORM.Name(), " could NOT fire at track: ", targetTrack.TargetName(), " at time: ", TIME_NOW);
+      }
+#      else if (mDrawGuns)
+#      {
+#         double delta = BRAWLER.ProjectedTimeDelta();
+#
+#         mDraw.SetLayer("behavior_weapon_decision_gun");
+#         mDraw.SetDuration(delta);
+#         mDraw.SetColor(1.0, 1.0, 1.0);   #white
+#         mDraw.SetLineSize(2);
+#         mDraw.SetLineStyle("dotted2");
+#         mDraw.BeginLines();
+#            mDraw.Vertex(PLATFORM.Location());
+#            mDraw.Vertex(targetTrack.CurrentLocation());
+#         mDraw.End();
+#      }
+
+   end_execute
+
+end_behavior
+

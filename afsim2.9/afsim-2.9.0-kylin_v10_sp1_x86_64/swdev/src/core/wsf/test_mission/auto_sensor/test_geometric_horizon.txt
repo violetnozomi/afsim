@@ -1,0 +1,119 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the ability to use the geometric sensor as a surrogate for a radar sensor
+# by using the earth_radius_scale factor to change the range to the apparent horizon.
+
+sensor RADAR WSF_GEOMETRIC_SENSOR
+   antenna_height 30 m
+   frame_time 1 sec
+   reports_location
+   ignore_same_side
+   on
+end_sensor
+
+platform visual-sensor WSF_PLATFORM
+   side red
+   position 0n 0e altitude 0 m
+   add sensor radar RADAR
+     earth_radius_multiplier 1.000000000
+   end_sensor
+end_platform
+
+platform radar-sensor WSF_PLATFORM
+   side red
+   position 0n 0e altitude 0 m
+   add sensor radar RADAR
+      earth_radius_multiplier 1.333333333
+   end_sensor
+end_platform
+
+# Earth radius (r_e) at equator = 6378137.0 m
+# Antenna height (h_a) = 30m
+#
+# Visual horizon (ground range)  = r_e * acos(r_e / (r_e + h_a))
+# Radar  horizon (ground range)  = r_e * acos((k * r_e) / (k * r_e + h_a))
+
+platform just-in-visual-horizon WSF_PLATFORM
+   side blue
+   position 0n 0.1757e
+end_platform
+
+platform just-out-visual-horizon WSF_PLATFORM
+   side blue
+   position 0n 0.1759e
+end_platform
+
+platform just-in-radar-horizon WSF_PLATFORM
+   side blue
+   position 0n 0.2029e
+end_platform
+
+platform just-out-radar-horizon WSF_PLATFORM
+   side blue
+   position 0n 0.2031e
+end_platform
+
+script_variables
+   int gAttempts = 0;
+   int gFailures = 0;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform          aDetector,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+  bool detected = aResult.Succeeded();
+  bool expected = false;
+
+  if (aDetector.Name() == "visual-sensor")
+  {
+     if (aTarget.Name() == "just-in-visual-horizon") expected = true;
+  }
+  else if (aDetector.Name() == "radar-sensor")
+  {
+     expected = true;
+     if (aTarget.Name() == "just-out-radar-horizon") expected = false;
+  }
+  else
+  {
+     return;
+  }
+  gAttempts = gAttempts + 1;
+  if (detected != expected)
+  {
+     gFailures = gFailures + 1;
+     writeln("-FAIL- ", aDetector.Name(), " -> ", aTarget.Name(),
+             "; detected=", detected, ", expected=", expected);
+  }
+  else
+  {
+     writeln("-PASS- ", aDetector.Name(), " -> ", aTarget.Name(),
+             "; detected=", detected, ", expected=", expected);
+  }
+end_script
+
+script void SimulationComplete()
+  if ((gAttempts == 8) && (gFailures == 0))
+  {
+     writeln("-PASS-");
+  }
+  else
+  {
+     writeln("-FAIL- attempts=", gAttempts, " failures=", gFailures);
+  }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 0.75 sec
+

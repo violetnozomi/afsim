@@ -1,0 +1,50 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool mPassed = true;
+   bool mDebug = false;
+end_script_variables
+
+#event_pipe
+#   file test_air_mover_bank_angle_limit.aer
+#end_event_pipe
+
+platform 737_sw_aircraft WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      bank_angle_limit 2 degrees
+      route
+         label orbit
+            position 34:10:18.42n 103:57:32.41w altitude 10000 m agl speed 300 m/s
+         goto orbit
+      end_route
+   end_mover
+
+   add processor processor_data WSF_SCRIPT_PROCESSOR
+      update_interval 1.0 sec
+
+      on_update
+         extern bool mDebug;
+         double roll = PLATFORM.Roll();
+         if (mDebug)
+         {
+            writeln("TIME: ", TIME_NOW);
+            writeln("Altitude: ", PLATFORM.Altitude());
+            writeln("Roll: ", roll);
+         }
+         if (roll < -2.0)
+         {
+            writeln("-FAIL- : test_air_mover_bank_angle_limit.txt, Roll is: ", roll);
+            WsfSimulation.Terminate();
+         }
+      end_on_update
+   end_processor
+end_platform
+
+end_time 700 sec

@@ -1,0 +1,51 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../utils.txt
+
+script void TestCost(WsfOrbitalOptimizationCost aCost, double aA, double aB, double aC, string aCase)
+   ExpectDouble(aCost.Cost(1.0, 0.0), aA, 1.0e-12, "dt = 1, should return A value: " + aCase);
+   ExpectDouble(aCost.Cost(0.0, 1.0), aB, 1.0e-12, "dv = 1, should return B value: " + aCase);
+   ExpectDouble(aCost.Cost(1.0, 1.0), aA + aB + aC, 1.0e-12, "dt = 1, dv = 1, should return sum of A+B+C: " + aCase);
+end_script
+
+execute at_time 1 s absolute
+   double generalA_Value = 1.0;
+   double generalB_Value = 10.0;
+   double generalC_Value = 100.0;
+
+   // Construct a general blended cost
+   WsfOrbitalBlendedCost general = WsfOrbitalBlendedCost.Construct(generalA_Value, generalB_Value, generalC_Value);
+   ExpectDouble(general.A_Value(), generalA_Value, 1.0e-12, "A value should match");
+   ExpectDouble(general.B_Value(), generalB_Value, 1.0e-12, "B value should match");
+   ExpectDouble(general.C_Value(), generalC_Value, 1.0e-12, "C value should match");
+   TestCost(general, generalA_Value, generalB_Value, generalC_Value, "general");
+   
+   general.SetA_Value(generalB_Value);
+   ExpectDouble(general.A_Value(), generalB_Value, 1.0e-12, "A value should have updated");
+   general.SetB_Value(generalC_Value);
+   ExpectDouble(general.B_Value(), generalC_Value, 1.0e-12, "B value should have updated");
+   general.SetC_Value(generalA_Value);
+   ExpectDouble(general.C_Value(), generalA_Value, 1.0e-12, "C value should have updated");
+   TestCost(general, generalB_Value, generalC_Value, generalA_Value, "general permuted");
+   
+   // Construct a least delta-t cost
+   WsfOrbitalBlendedCost dt = WsfOrbitalBlendedCost.ConstructLeastTime();
+   ExpectDouble(dt.A_Value(), 1.0, 1.0e-12, "A value should match, dt");
+   ExpectDouble(dt.B_Value(), 0.0, 1.0e-12, "B value should match, dt");
+   ExpectDouble(dt.C_Value(), 0.0, 1.0e-12, "C value should match, dt");
+   TestCost(dt, 1.0, 0.0, 0.0, "dt");
+   
+   // Construct a lead delta-v cost
+   WsfOrbitalBlendedCost dv = WsfOrbitalBlendedCost.ConstructLeastDeltaV();
+   ExpectDouble(dv.A_Value(), 0.0, 1.0e-12, "A value should match, dv");
+   ExpectDouble(dv.B_Value(), 1.0, 1.0e-12, "B value should match, dv");
+   ExpectDouble(dv.C_Value(), 0.0, 1.0e-12, "C value should match, dv");
+   TestCost(dv, 0.0, 1.0, 0.0, "dv");
+end_execute

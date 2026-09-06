@@ -1,0 +1,28 @@
+<CPackWiXPatch>
+   <CPackWiXFragment Id="CM_DP_Runtime.bin">
+      <Component Id="AfsimSystemPathEntryCMP" KeyPath="yes" Guid="4af3d898-9e97-4f66-85d9-63feb054040a">
+
+         <Condition>ADD_AFSIM_TO_PATH = "System"</Condition>
+
+         <Environment Id="AfsimSystemPathEntryENV" Action="set" Part="first"
+           Name="PATH" Value="[INSTALL_ROOT]bin"
+           Permanent="no"
+           System="yes"/>
+      </Component>
+
+      <Component Id="AfsimUserPathEntryCMP" KeyPath="yes" Guid="ec7a0f5f-6ec8-4208-b071-5269eb9aa781">
+
+         <Condition>ADD_AFSIM_TO_PATH = "User"</Condition>
+
+         <Environment Id="AfsimUserPathEntryENV" Action="set" Part="first"
+           Name="PATH" Value="[INSTALL_ROOT]bin"
+           Permanent="no"
+           System="no"/>
+      </Component>
+   </CPackWiXFragment>
+
+   <CPackWiXFragment Id="#PRODUCTFEATURE">
+      <ComponentRef Id="AfsimSystemPathEntryCMP"/>
+      <ComponentRef Id="AfsimUserPathEntryCMP"/>
+   </CPackWiXFragment>
+</CPackWiXPatch>

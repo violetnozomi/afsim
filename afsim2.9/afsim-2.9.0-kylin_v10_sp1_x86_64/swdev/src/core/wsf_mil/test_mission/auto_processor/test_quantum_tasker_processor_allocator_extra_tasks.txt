@@ -1,0 +1,87 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// Copyright 2021 Radiance Technologies. All rights reserved.
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+// This test reproduces bug AFSIM-2142. The complexity of that bug means that this will only reproduce the issue if run in Valgrind or Address Sanitizer.
+// The bug occurs when 1) you have a sufficient number of extra tasks in the WSF_QUANTUM_TASKER_PROCESSOR, 2) you get more than one allocation pass in the WSF_QUANTUM_TASKER_PROCESSOR.
+// During subsequent allocation passes, the allocator will touch freed memory. This will only cause a crash in specific circumstances which require a more complex scenario than this one.
+
+platform tgt1 WSF_PLATFORM
+end_platform
+
+platform tgt2 WSF_PLATFORM
+end_platform
+
+platform tgt3 WSF_PLATFORM
+end_platform
+
+platform tgt4 WSF_PLATFORM
+end_platform
+
+platform p1 WSF_PLATFORM
+   add processor perc WSF_PERCEPTION_PROCESSOR
+      asset_perception truth subordinates 
+   end_processor 
+
+   add processor tasker WSF_QUANTUM_TASKER_PROCESSOR
+      update_interval 1 s
+      asset_representation platform
+      generator simple_sensor
+      evaluator simple
+      allocator simple
+      
+      // Force the extra allocator to make a few extra passes so we hit the use after free bug. 
+      script Map<WsfAssetPerception, WsfQuantumTask> alloc( Array<Array<double>> profit, Array<WsfAssetPerception> assets, Array<WsfQuantumTask> tasks)
+         Map<WsfAssetPerception, WsfQuantumTask> out = Map<WsfAssetPerception, WsfQuantumTask>();
+         out[assets[0]] = tasks[0];
+         return out;
+      end_script
+      allocator_extra_tasks custom alloc  
+   end_processor
+
+   add comm c WSF_COMM_TRANSCEIVER 
+      debug
+   end_comm
+   
+   track
+      platform tgt1
+   end_track
+   
+   track
+      platform tgt2
+   end_track
+   
+   track
+      platform tgt3
+   end_track
+   
+   track
+      platform tgt4
+   end_track
+
+end_platform
+
+platform p2 WSF_PLATFORM
+   commander p1
+   
+   add comm c WSF_COMM_TRANSCEIVER 
+      internal_link t
+   end_comm
+   
+   add processor t WSF_TASK_PROCESSOR 
+   end_processor 
+   
+   add sensor s WSF_GEOMETRIC_SENSOR
+      on
+      frame_time 10 s
+      reports_location  
+      maximum_request_count 1
+   end_sensor
+end_platform

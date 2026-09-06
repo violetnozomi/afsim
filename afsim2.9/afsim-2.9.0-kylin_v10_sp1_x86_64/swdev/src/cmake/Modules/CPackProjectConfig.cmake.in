@@ -1,0 +1,58 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+if("${CPACK_GENERATOR}" STREQUAL "WIX")
+   set(CPACK_WIX_UI_DIALOG "@CMAKE_CURRENT_LIST_DIR@/../logos/AFSIM_logo-493x312.png")
+   set(CPACK_WIX_UI_BANNER "@CMAKE_CURRENT_LIST_DIR@/../logos/AFSIM_banner-493x58.png")
+
+   set(_WSF_INSTALL_DOCUMENTATION @WSF_INSTALL_DOCUMENTATION@)
+   if (_WSF_INSTALL_DOCUMENTATION)
+      set_property(INSTALL "documentation/index.html" PROPERTY
+                   CPACK_START_MENU_SHORTCUTS "AFSIM Documentation")
+   endif()
+
+  set(CPACK_WIX_LIGHT_EXTRA_FLAGS "-dcl:high")
+  set(CPACK_WIX_CANDLE_EXTRA_FLAGS "-fips")
+
+  set(CPACK_WIX_UI_REF "AFSIM_UI_InstallDir")
+
+  set(CPACK_WIX_PROGRAM_MENU_FOLDER "${CPACK_PACKAGE_NAME} ${CPACK_PACKAGE_VERSION}")
+
+  set(CPACK_WIX_TEMPLATE "@CMAKE_CURRENT_LIST_DIR@/../Release/Wix/wix.template.in")
+
+  set(CPACK_WIX_EXTRA_SOURCES
+      "@CMAKE_CURRENT_LIST_DIR@/../Release/WiX/install_dir.wxs"
+      "@CMAKE_CURRENT_LIST_DIR@/../Release/WiX/extra_dialog.wxs"
+     )
+
+  set(CPACK_WIX_PATCH_FILE
+      "@CMAKE_CURRENT_LIST_DIR@/../Release/Wix/patch_path_env.xml"
+      "@CMAKE_CURRENT_LIST_DIR@/../Release/Wix/patch_file_assoc.xml"
+     )
+
+   #if(CPACK_CREATE_DESKTOP_LINKS)
+   #  list(APPEND CPACK_WIX_PATCH_FILE
+   #       "@CMAKE_CURRENT_LIST_DIR@/../Release/Wix/patch_desktop_shortcut.xml"
+   #      )
+   #endif()
+endif()
+
+if("${CPACK_GENERATOR}" STREQUAL "RPM")
+   set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/${CPACK_PACKAGE_NAME}")
+   set(CPACK_RPM_PACKAGE_AUTOREQ 0)
+   set(CPACK_RPM_PACKAGE_REQUIRES "mesa-libGL, mesa-libGLU, fontconfig, freetype")
+   # Disable post install processing, e.g. bytecompiling python files
+   set(CPACK_RPM_SPEC_MORE_DEFINE "%global __os_install_post /bin/true")
+endif()
+
+if("${CPACK_GENERATOR}" STREQUAL "DEB")
+   set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64") # always do the 64-bit architecture build for now.
+   set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/${CPACK_PACKAGE_NAME}")
+   set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgl1-mesa-glx | libgl1, libglu1-mesa, fontconfig, libfreetype6")
+endif()

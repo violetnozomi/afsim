@@ -1,0 +1,105 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+# *******************************************************************************************
+# File Log
+# 11/11/15 - J.Iffrig - This is generic straight line mover used for development testing.
+# ******************************************************************************************
+
+platform_type SL_MEDIUM_RNG WSF_PLATFORM
+   icon missile
+   radar_signature STRAIGHTLINE-MISSILE-SIG
+   mover WSF_STRAIGHT_LINE_MOVER
+      update_interval .5 s
+      tof_and_speed
+         0.0 s   1700 kts
+         40.0 s  1500 kts
+         80.0 s  1300 kts
+      end_tof_and_speed
+      maximum_lateral_acceleration 9.0 g
+      guidance_mode lead_pursuit
+   end_mover
+   
+#   sensor msl_seeker GENERIC_RADAR_TYPE
+#      on
+#      //off
+#   end_sensor   
+
+#   processor tracker WSF_PERFECT_TRACKER
+#      update_interval 1.0 s
+#   end_processor
+   
+   processor track-processor WSF_WEAPON_TRACK_PROCESSOR
+      on
+      update_interval 1 sec
+   end_processor
+   
+   processor fuse WSF_AIR_TARGET_FUSE
+      max_time_of_flight_to_detonate 120 s
+   end_processor
+
+   fuel WSF_FUEL
+      # made up values
+      # do missiles have enough fuel to fly the max range
+      # that in theory it would not run out of fuel before for it reached the 
+      # max tof
+
+      initial_quantity 45 kg
+      consumption_rate 0.4 kg/s
+
+
+      script void on_empty()
+         # staying_alive_on_empty == 1 means staying in the sim even after running out of fuel
+         int stayInSim = 1;
+         if (PLATFORM.IsValid())
+         {
+            int condition = PLATFORM.AuxDataInt("staying_alive_on_empty");
+            if (condition != stayInSim)
+            {
+               # crash on empty
+               if (PLATFORM.Fuel().IsValid())
+               {
+                  double fuelR = PLATFORM.FuelRemaining();
+                  if (fuelR <= 0.0)
+                  {
+                     PLATFORM.DeletePlatform(PLATFORM.Index());   
+                  }   
+               }
+            }
+         }
+      end_script
+
+      # other possible script options   
+      script void on_reserve()
+         # user decides what PLATFORM is to do
+      end_script
+
+      script void on_bingo()
+      end_script
+
+      script void refuel()
+      end_script
+   end_fuel
+
+end_platform_type
+
+weapon SL_MEDIUM_RNG WSF_EXPLICIT_WEAPON
+   launched_platform_type SL_MEDIUM_RNG
+   quantity 2
+   weapon_effects STRAIGHTLINE-MISSILE-EFFECTS
+   #aux_data                                  // Students can uncomment the aux_data block
+   #    unitary time_of_flight = 1 min        // by removing the '#' characters.
+   #    unitary maximum_range = 23 nm         // This will enable a tool that can assist
+   #    unitary preferred_shot_range = 15 nm  // players during simulated engagements.
+   #end_aux_data                              // See Wiki--Search using "aux_data", then
+                                              //  select IWARS Auxiliary Data; Weapons section.
+   # enable the integrated fire control for net enabled weapon
+   #ifc_enabled true
+end_weapon

@@ -1,0 +1,106 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+###############################################################################
+# Test of the WSF_NORAD_SPACE_MOVER 
+# (SGP4 propagator for short period orbit propagation).
+# This test make use of the test case in the SpaceTrack3 report (p.81):
+#
+# TLE:
+#1 88888U          80275.98708465  .00073094  13844-3  66816-4 0     8
+#2 88888  72.8435 115.9689 0086731  52.6988 110.5714 16.05824518   105
+#
+# Results (time in minutes, distance in km, velocity in km/s)
+#SGP4 TSINCE X Y Z
+#0. 2328.97048951 -5995.22076416 1719.97067261
+#360.00000000 2456.10705566 -6071.93853760 1222.89727783
+#720.00000000 2567.56195068 -6112.50384522 713.96397400
+#1080.00000000 2663.09078980 -6115.48229980 196.39640427
+#1440.00000000 2742.55133057 -6079.67144775 -326.38095856
+#XDOT YDOT ZDOT
+#2.91207230 -0.98341546 -7.09081703
+#2.67938992 -0.44829041 -7.22879231
+#2.44024599 0.09810869 -7.31995916
+#2.19611958 0.65241995 -7.36282432
+#1.94850229 1.21106251 -7.35619372
+###############################################################################
+platform_type SATELLITE WSF_PLATFORM
+   script_variables
+      Array<Vec3> sExpectedLocationTEME = {};
+      Array<Vec3> sExpectedVelocityTEME = {};
+   end_script_variables
+
+   icon satellite
+   side green
+   
+   mover WSF_NORAD_SPACE_MOVER
+      update_interval 360 minutes 
+   end_mover   
+
+   on_update
+      static int index = 0;
+      Vec3 locTEME = PLATFORM.LocationTEME();
+      Vec3 velTEME = PLATFORM.VelocityTEME();
+      Vec3 refLocTEME = sExpectedLocationTEME[index];
+      refLocTEME.Scale(1000.0);
+      Vec3 refVelTEME = sExpectedVelocityTEME[index];
+      refVelTEME.Scale(1000.0);
+      index += 1;
+      Vec3 diffTEME = Vec3.Subtract(locTEME, refLocTEME);
+      double diffLength = diffTEME.Magnitude();
+      if (diffLength > 20.0)  // fail if we are more that 20m from the reference location.
+      {
+         writeln("-FAIL-");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+      Vec3 diffVelTEME = Vec3.Subtract(velTEME, refVelTEME);
+      double diffSpeed = diffVelTEME.Magnitude();
+      if (diffSpeed > 0.1)  // fail if we are more than 0.1m/s from the reference velocity.
+      {
+         writeln("-FAIL-");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+      //writeln(TIME_NOW / 60.0, ": ", diffLength, ", ", diffSpeed);
+   end_on_update
+
+end_platform_type
+
+platform sgp4_test SATELLITE
+orbit
+1 88888U          80275.98708465  .00073094  13844-3  66816-4 0     8
+2 88888  72.8435 115.9689 0086731  52.6988 110.5714 16.05824518   105
+end_orbit
+
+on_initialize
+   sExpectedLocationTEME[0] = Vec3.Construct(2328.97048951, -5995.22076416, 1719.97067261);
+   sExpectedLocationTEME[1] = Vec3.Construct(2456.10705566, -6071.93853760, 1222.89727783);
+   sExpectedLocationTEME[2] = Vec3.Construct(2567.56195068, -6112.50384522, 713.96397400);
+   sExpectedLocationTEME[3] = Vec3.Construct(2663.09078980, -6115.48229980, 196.39640427);
+   sExpectedLocationTEME[4] = Vec3.Construct(2742.55133057, -6079.67144775, -326.38095856);
+
+   sExpectedVelocityTEME[0] = Vec3.Construct(2.91207230, -0.98341546, -7.09081703);
+   sExpectedVelocityTEME[1] = Vec3.Construct(2.67938992, -0.44829041, -7.22879231);
+   sExpectedVelocityTEME[2] = Vec3.Construct(2.44024599, 0.09810869, -7.31995916);
+   sExpectedVelocityTEME[3] = Vec3.Construct(2.19611958, 0.65241995, -7.36282432);
+   sExpectedVelocityTEME[4] = Vec3.Construct(1.94850229, 1.21106251, -7.35619372);   
+end_on_initialize
+
+end_platform
+
+start_epoch 1980275.98708465
+
+end_time 1440.1 minutes
+test_date_time  

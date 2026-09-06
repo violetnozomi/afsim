@@ -1,0 +1,49 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+include_once sam_commander_tactics.txt
+include_once sam_launch_computer.txt
+
+# ==================================================================================================
+
+platform_type SAM_COMMANDER WSF_PLATFORM
+   icon C4I
+
+   comm cmdr_net WSF_COMM_TRANSCEIVER
+      network_name <local:slave>
+      internal_link data_mgr
+      internal_link task_mgr
+   end_comm
+
+   comm sub_net WSF_COMM_TRANSCEIVER
+      network_name <local:master>
+      internal_link data_mgr
+      internal_link task_mgr
+   end_comm
+
+   zone full_kinematic
+      circular
+         maximum_altitude 30 km
+         maximum_radius   25 nm
+   end_zone
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval 60 seconds
+   end_processor
+
+   processor task_mgr SAM_COMMANDER_TACTICS
+      show_state_transitions
+      on_initialize
+         SENSOR_NAME = "ttr";
+         WEAPON_NAME = "sam";
+         SALVO_SIZE  = 1;
+      end_on_initialize
+   end_processor
+end_platform_type

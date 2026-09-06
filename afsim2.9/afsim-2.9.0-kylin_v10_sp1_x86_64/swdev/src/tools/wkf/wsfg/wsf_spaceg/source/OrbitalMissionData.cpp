@@ -1,0 +1,40 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// Copyright 2019 Infoscitex, a DCS Company. All rights reserved.
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+#include "OrbitalMissionData.hpp"
+
+namespace wsfg
+{
+
+namespace spaceg
+{
+
+QJsonObject OrbitalMissionData::GetItemData(int aOrderedIndex) const
+{
+   QJsonObject retval{};
+
+   auto iter = mValues.find(aOrderedIndex);
+   if (iter != mValues.end())
+   {
+      retval = iter->second.mData;
+   }
+
+   return retval;
+}
+
+void OrbitalMissionData::SetItemData(int aOrderedIndex, const QJsonObject& aData, int aParent, int aRow)
+{
+   mValues[aOrderedIndex] = Value{aData, aParent, aRow};
+}
+
+} // namespace spaceg
+
+} // namespace wsfg

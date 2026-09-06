@@ -1,0 +1,103 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Example 'defended area' plot using the SALRAM radar model.
+
+################################################################################
+# Define the target radar signature and a platform type that has that signature.
+#
+# NOTE: The name of the platform_type MUST be TARGET_PLATFORM
+################################################################################
+
+radar_signature TARGET_RADAR_SIGNATURE
+  constant 1 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+  radar_signature TARGET_RADAR_SIGNATURE
+end_platform_type
+
+################################################################################
+#     Define platform types that have the specific radar types on them...
+################################################################################
+
+platform_type SINX_ELSCAN_PLATFORM_TYPE WSF_PLATFORM
+  side red
+  icon Ground_Radar
+  sensor radar-1 WSF_SALRAM_SENSOR
+    namelist_file salram_sinx_elscan.dat
+    reports_location
+  end_sensor
+end_platform_type
+
+platform_type SINX_TRK_PLATFORM_TYPE WSF_PLATFORM
+  side red
+  icon Ground_Radar
+  sensor radar-1 WSF_SALRAM_SENSOR
+    namelist_file salram_sinx_trk.dat
+    reports_location
+  end_sensor
+end_platform_type
+
+platform_type CSC_AZSCAN_PLATFORM_TYPE WSF_PLATFORM
+  side red
+  icon Ground_Radar
+  sensor radar-1 WSF_SALRAM_SENSOR
+    namelist_file salram_csc_azscan.dat
+    reports_location
+  end_sensor
+end_platform_type
+
+################################################################################
+#                          Define the sensor laydown
+################################################################################
+
+platform <default> CSC_AZSCAN_PLATFORM_TYPE
+  position 38:03:48n 46:18:36e
+end_platform
+
+platform <default> CSC_AZSCAN_PLATFORM_TYPE
+  position 35:40:12n 51:23:48e 
+end_platform
+
+platform <default> CSC_AZSCAN_PLATFORM_TYPE
+  position 35:09:12n 48:43:36e
+end_platform
+
+################################################################################
+#                    Define the plot and report attributes
+################################################################################
+
+horizontal_map
+  longitude_range 42e 55e
+  latitude_range  30n 43n
+  latitude_step   0.05
+  longitude_step  0.05
+
+  target_speed 400 kts
+  target_altitude 25000 ft msl
+  target_pitch 2 deg
+
+  # The report file contains the 'defended area' report.
+  report_file coverage.rpt
+
+  # The sedit file has coverage zones.
+  sedit_file coverage.sed
+
+end_horizontal_map
+
+################################################################################
+#                      Indicate we're using the CME terrain
+################################################################################
+
+terrain
+  load_cme_terrain
+end_terrain

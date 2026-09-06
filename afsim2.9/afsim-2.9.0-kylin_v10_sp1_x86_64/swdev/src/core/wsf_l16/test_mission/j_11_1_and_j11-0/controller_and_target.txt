@@ -1,0 +1,231 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# *******************************************************************************************
+# File Log
+# 11/11/15 - J.Iffrig - This is the top level configuration file for WSF. This file provides
+#   the basic launch platform within WSF. It also provides the top most configuration commands.
+# *******************************************************************************************
+
+# *******************************************************************************************
+#
+# This set of files mimics an external application.  Using a python script to mimic the 
+# release store command from that application, the "launching" platform is defined here.  
+# It will expect to see a weapon released from the application using the start-up 
+# file weapon_server.txt.
+#
+# The python script being used is D:\PYTHON_SCRIPTS\PythonTestCaseScripts\release_store_TSS.py.
+#
+# *******************************************************************************************
+
+realtime
+
+link16_interface
+   j11
+   end_j11
+end_link16_interface
+
+############################################################
+# include common type definitions
+file_path .
+include terrain.txt
+include_once weapons/aam/aim120.txt
+include_once weapons/aam/aim-9x.txt
+include_once weapons/other/gun.txt
+include_once weapons/agm/gbu-31.txt
+
+include_once sensor/generic_eoir.txt
+
+include_once expendables/chaff/chaff.txt
+include_once expendables/flare/flare.txt
+
+include_once platforms/generic_air_mover.txt
+
+include_once link16/jtids.txt
+include_once dis_realtime.txt
+
+include_once weapons/aam/straightlineMover.txt
+############################################################
+
+platform_type GENERIC_AIR_MOVER_2_TYPE WSF_PLATFORM
+   infrared_signature TEST_INFRARED_SIGNATURE
+   optical_signature  TEST_OPTICAL_SIGNATURE
+   radar_signature    TEST_RADAR_SIGNATURE
+
+   width 10 m
+   length 10 m
+   height 10 m
+
+   mover WSF_AIR_MOVER
+   end_mover
+   
+   processor track-maker WSF_SCRIPT_PROCESSOR
+      on 
+      update_interval 10 s
+      
+      on_update
+         #writeln(PLATFORM.Name());
+         #script
+            if (PLATFORM.MasterTrackList().TrackCount() > 0)
+            {
+               #writeln(PLATFORM.Name(), " has a track");
+               WsfTrack track = PLATFORM.MasterTrackList().Entry(0);
+               if (track.IsValid())
+               {
+                  if (! PLATFORM.HasCurrentTarget())
+                  {
+                     PLATFORM.SetCurrentTarget(track);
+                     #writeln(PLATFORM.Name(), " Set current target to ", track.TargetName());
+                  }
+               }
+            }
+            else if (PLATFORM.MasterRawTrackList().TrackCount() > 0)
+            {
+               WsfTrack track = PLATFORM.MasterRawTrackList().Entry(0);
+               if (track.IsValid())
+               {
+                  if (! PLATFORM.HasCurrentTarget())
+                  {
+                     PLATFORM.SetCurrentTarget(track);
+                     writeln(PLATFORM.Name(), " Set current target to ", track.TargetName());
+                  }
+               }
+            }
+         #end_script
+      end_on_update
+      
+   end_processor
+   
+   ###################################################################
+   #### Add tracking sensor
+   
+   sensor GENERIC_EOIR WSF_EOIR_SENSOR
+      band visual
+      
+      frame_time                          .1 sec     # sample rate
+      slew_mode                           azimuth_and_elevation
+      azimuth_slew_limits                 -180 deg 180 deg
+      elevation_slew_limits               -90 deg 10 deg
+      azimuth_field_of_view               -1.58 deg 1.58 deg
+      elevation_field_of_view             -1.58 deg 1.58 deg
+      maximum_range                       200 km
+      angular_resolution                  0.001 deg
+      reports_location
+      internal_link image_proc
+      
+      #debug
+      on
+      
+   end_sensor
+   
+   processor image_proc WSF_IMAGE_PROCESSOR
+      # Forward the extracted 'tracks' to 'track_proc'
+      internal_link track_proc
+      
+      #debug
+      on
+   end_processor
+   
+   ###############################################################################
+   #### Add link-16 comm and processor
+     
+   comm j11_comm J11_COMM
+      processor l16_computer
+      processor track_proc
+   end_comm 
+      
+   processor l16_computer FIGHTER_LINK16_COMPUTER_OUT
+      comm j11_comm                                                                        
+   end_processor                                                                           
+                                                                                                     
+   # The command_chain slot group key entry defined in the NETWORK_ENABLED_WEAPON message processor    
+   # is used to find the command_chain of the same name on the platform (as defined below)               
+   # to determine if the messages are to be sent onto any other WSF platforms (similiar to
+   # an external link command)
+   #             
+   command_chain WEAPON_GRP_KEY   SELF                                                                        
+                                                                                                      
+   # The command_chain slot group key entry defined in the SCRIPTED message processor    
+   # is used to find the command_chain of the same name on the platform (as defined below)               
+   # to determine if the messages are to be sent onto any other WSF platforms (similiar to
+   # an external link command)              
+   #              
+   command_chain SCRIPTED_GRP_KEY SELF
+     
+   track_manager 
+#      debug
+      correlation_method perfect
+      fusion_method replacement
+   end_track_manager
+
+   processor track_proc WSF_TRACK_PROCESSOR
+      # Implicitly takes the tracks from 'image_proc' and updates the track_manager
+      master_track_processor
+   end_processor
+   
+end_platform_type
+
+platform generic_platform GENERIC_AIR_MOVER_2_TYPE
+   icon fighter
+   side blue
+   route
+      position 35:00:00n 118:00w altitude 10000 ft msl
+      speed 300 knots
+      heading 0 deg
+      extrapolate
+   end_route
+   
+   infrared_signature TEST_INFRARED_SIGNATURE
+   optical_signature  TEST_OPTICAL_SIGNATURE
+   radar_signature    TEST_RADAR_SIGNATURE
+   
+   edit processor l16_computer
+      decimal_track_number 1000 
+   end_processor
+end_platform
+
+platform_type AIRCRAFT WSF_PLATFORM
+   icon fighter
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform red-1 AIRCRAFT
+   side red
+   route
+      position 36:00:00n 118:00:00w  
+         altitude 10000 ft
+         speed 400 kts
+         heading 180 deg
+   end_route
+end_platform
+
+
+########################################################################
+#TCP/IP Connection Settings
+#wsf_weapon_server
+#     #host 130.38.147.188 # optional and not required if connecting on same machine
+#    port  7654 # Mandatory entry - defines the port to receive TCP/IP commands over
+#end_wsf_weapon_server
+#ascii_interface
+#     # optional and not required if connecting on same machine
+#     #host 130.38.147.188
+#     # Mandatory entry
+#    port  13500
+#end_ascii_interface
+########################################################################
+
+end_time 24 hours
+
+event_output
+   file NULL
+end_event_output
+
+realtime
+

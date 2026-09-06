@@ -1,0 +1,245 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   double FROM = 32.3;
+   double TO = 60.1;
+   double EVERY = 6.77;
+   WsfCyberTriggerInterval intervalEvery = {};
+   WsfCyberTriggerInterval intervalFromEvery = {};
+   WsfCyberTriggerInterval intervalToEvery = {};
+   WsfCyberTriggerInterval intervalFromToEvery = {};
+end_script_variables
+
+script bool AnyValueSet(WsfCyberTriggerInterval aInterval)
+   return (aInterval.IsFromSet() || aInterval.IsToSet() || aInterval.IsEverySet());
+end_script
+
+execute at_time 1 s absolute
+   WsfRandomVariable from = {};
+   from.Set("constant", FROM, 0.0, "non_negative");
+   
+   WsfRandomVariable to = {};
+   to.Set("constant", TO, 0.0, "non_negative");
+   
+   WsfRandomVariable every = {};
+   every.Set("constant", EVERY, 0.0, "non_negative");
+
+   if(AnyValueSet(intervalEvery))
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value Set intervalEvery");
+   }
+   if(AnyValueSet(intervalFromEvery))
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value Set intervalFromEvery");
+   }
+   if(AnyValueSet(intervalToEvery))
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value Set intervalToEvery");
+   }
+   if(AnyValueSet(intervalFromToEvery))
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value Set intervalFromToEvery");
+   }
+    
+   intervalEvery.SetEvery(every);
+   intervalFromEvery.SetFromEvery(from, every);
+   intervalToEvery.SetToEvery(to, every);
+   intervalFromToEvery.SetFromToEvery(from, to, every);
+   
+   if(!intervalEvery.IsEverySet())
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value Not Set intervalEvery");
+   }
+   if(intervalEvery.GetEvery() != EVERY)
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value intervalEvery");
+   }
+   
+   if(!intervalFromEvery.IsFromSet() || !intervalFromEvery.IsEverySet())
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value Not Set intervalFromEvery");
+   }
+   if(intervalFromEvery.GetFrom() != FROM || intervalFromEvery.GetEvery() != EVERY)
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value intervalFromEvery");
+   }
+   
+   if(!intervalToEvery.IsToSet() || !intervalToEvery.IsEverySet())
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value Not Set intervalToEvery");
+   }
+   if(intervalToEvery.GetTo() != TO || intervalToEvery.GetEvery() != EVERY)
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value intervalToEvery");
+   }
+   
+   if(!intervalFromToEvery.IsFromSet() || !intervalFromToEvery.IsToSet() || !intervalFromToEvery.IsEverySet())
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value Not Set intervalFromToEvery");
+   }
+   if(intervalFromToEvery.GetFrom() != FROM || intervalFromToEvery.GetTo() != TO || intervalFromToEvery.GetEvery() != EVERY)
+   {
+      writeln("-FAIL-");
+      writeln("Fail Value intervalFromToEvery");
+   }   
+end_execute
+
+execute at_time 25.0 s absolute
+   double timeEvery = intervalEvery.NextEvaluationTime();
+   double timeFromEvery = intervalFromEvery.NextEvaluationTime();
+   double timeToEvery = intervalToEvery.NextEvaluationTime();
+   double timeFromToEvery = intervalFromToEvery.NextEvaluationTime();
+   
+   if((timeEvery < (27.08 + Math.DOUBLE_MIN())) && (timeEvery > (27.08 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeEvery: " +(string)timeEvery + " at: " + (string)TIME_NOW);
+   }
+   if(timeFromEvery != FROM)
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromEvery: " +(string)timeFromEvery + "  at: " + (string)TIME_NOW);
+   }
+   if((timeToEvery < (27.08 + Math.DOUBLE_MIN())) && (timeToEvery > (27.08 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeToEvery: " +(string)timeToEvery + "  at: " + (string)TIME_NOW);
+   }
+   if(timeFromToEvery != FROM)
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromToEvery: " +(string)timeFromToEvery + "  at: " + (string)TIME_NOW);
+   }
+end_execute
+
+execute at_time 30.0 s absolute
+   double timeEvery = intervalEvery.NextEvaluationTime();
+   double timeFromEvery = intervalFromEvery.NextEvaluationTime();
+   double timeToEvery = intervalToEvery.NextEvaluationTime();
+   double timeFromToEvery = intervalFromToEvery.NextEvaluationTime();
+   
+   if((timeEvery < (33.85 + Math.DOUBLE_MIN())) && (timeEvery > (33.85 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeEvery: " +(string)timeEvery + " at: " + (string)TIME_NOW);
+   }
+   if(timeFromEvery != FROM)
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromEvery: " +(string)timeFromEvery + "  at: " + (string)TIME_NOW);
+   }
+   if((timeToEvery < (33.85 + Math.DOUBLE_MIN())) && (timeToEvery > (33.85 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeToEvery: " +(string)timeToEvery + "  at: " + (string)TIME_NOW);
+   }
+   if(timeFromToEvery != FROM)
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromToEvery: " +(string)timeFromToEvery + "  at: " + (string)TIME_NOW);
+   }
+end_execute
+
+execute at_time 35.0 s absolute
+   double timeEvery = intervalEvery.NextEvaluationTime();
+   double timeFromEvery = intervalFromEvery.NextEvaluationTime();
+   double timeToEvery = intervalToEvery.NextEvaluationTime();
+   double timeFromToEvery = intervalFromToEvery.NextEvaluationTime();
+   
+   if((timeEvery < (40.62 + Math.DOUBLE_MIN())) && (timeEvery > (33.85 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeEvery: " +(string)timeEvery + " at: " + (string)TIME_NOW);
+   }
+   if((timeFromEvery < (39.07 + Math.DOUBLE_MIN())) && (timeFromEvery > (39.07 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromEvery: " +(string)timeFromEvery + "  at: " + (string)TIME_NOW);
+   }
+   if((timeToEvery < (40.62 + Math.DOUBLE_MIN())) && (timeToEvery > (33.85 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeToEvery: " +(string)timeToEvery + "  at: " + (string)TIME_NOW);
+   }
+   if((timeFromToEvery < (39.07 + Math.DOUBLE_MIN())) && (timeFromToEvery > (39.07 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromToEvery: " +(string)timeFromToEvery + "  at: " + (string)TIME_NOW);
+   }
+end_execute
+
+execute at_time 55.0 s absolute
+   double timeEvery = intervalEvery.NextEvaluationTime();
+   double timeFromEvery = intervalFromEvery.NextEvaluationTime();
+   double timeToEvery = intervalToEvery.NextEvaluationTime();
+   double timeFromToEvery = intervalFromToEvery.NextEvaluationTime();
+   
+   if((timeEvery < (60.93 + Math.DOUBLE_MIN())) && (timeEvery > (60.93 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeEvery: " +(string)timeEvery + " at: " + (string)TIME_NOW);
+   }
+   if((timeFromEvery < (59.38 + Math.DOUBLE_MIN())) && (timeFromEvery > (59.38 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromEvery: " +(string)timeFromEvery + "  at: " + (string)TIME_NOW);
+   }
+   if(timeToEvery != -1.0)
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeToEvery: " +(string)timeToEvery + "  at: " + (string)TIME_NOW);
+   }
+   if((timeFromToEvery < (59.38 + Math.DOUBLE_MIN())) && (timeFromToEvery > (59.38 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromToEvery: " +(string)timeFromToEvery + "  at: " + (string)TIME_NOW);
+   }
+end_execute
+
+execute at_time 60.0 s absolute
+   double timeEvery = intervalEvery.NextEvaluationTime();
+   double timeFromEvery = intervalFromEvery.NextEvaluationTime();
+   double timeToEvery = intervalToEvery.NextEvaluationTime();
+   double timeFromToEvery = intervalFromToEvery.NextEvaluationTime();
+   
+   if((timeEvery < (60.93 + Math.DOUBLE_MIN())) && (timeEvery > (60.93 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeEvery: " +(string)timeEvery + " at: " + (string)TIME_NOW);
+   }
+   if((timeFromEvery < (66.15 + Math.DOUBLE_MIN())) && (timeFromEvery > (66.15 - Math.DOUBLE_MIN())))
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromEvery: " +(string)timeFromEvery + "  at: " + (string)TIME_NOW);
+   }
+   if(timeToEvery != -1.0)
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeToEvery: " +(string)timeToEvery + "  at: " + (string)TIME_NOW);
+   }
+   if(timeFromToEvery != -1.0)
+   {
+      writeln("-FAIL-");
+      writeln("Fail next time interval timeFromToEvery: " +(string)timeFromToEvery + "  at: " + (string)TIME_NOW);
+   }
+end_execute
+
+end_time 61 s

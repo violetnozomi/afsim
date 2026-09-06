@@ -1,0 +1,95 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test continuous-fire implicit weapon
+# Verify hit/miss counts and damage when target is killed (corrected by AFSIM-206)
+#
+include_once ../auto_script/test_functions.txt
+
+test_feature wsf_mil
+
+end_time 30 sec
+
+script_variables
+    int hit_count = 0;
+    int miss_count = 0;
+    int update_count = 0;   // number of damage updates
+    double target_damage = 0.0;
+    bool success_incremental = true;  // any failure turns it false
+end_script_variables
+
+weapon_effects effect WSF_SPHERICAL_LETHALITY 
+    maximum_damage .2
+    minimum_damage 0
+    maximum_radius 100 m
+    minimum_radius 0 m
+end_weapon_effects
+
+platform shooter WSF_PLATFORM
+    icon fighter
+    altitude 300 km
+
+    add weapon weap WSF_IMPLICIT_WEAPON 
+        weapon_effects effect
+        update_interval 1 sec
+    end_weapon
+   
+    execute at_time 10 sec absolute 
+        Weapon("weap").Fire(WsfSimulation.FindPlatform("target").MakeTrack());
+    end_execute
+
+    execute at_time 20 sec absolute
+        Weapon("weap").CeaseFire();
+    end_execute
+   
+    position 00:01:02.261s 00:00:00.195e
+end_platform
+
+platform target WSF_PLATFORM
+    icon ucav
+    altitude 300 km
+   
+    // Save latest damage factor and verify incremental damage
+    script void on_damage_received()
+        update_count += 1;
+        target_damage = DamageFactor();
+        // Damage should accrue at 0.2 per second starting at T=11
+        if (success_incremental)
+        {
+            double expected_damage = 0.2 * (TIME_NOW - 10);
+            success_incremental = AssertDoubleEqualsMessage(expected_damage, target_damage, "incremental damage incorrect");
+        }
+    end_script
+end_platform
+
+observer
+    enable WEAPON_HIT
+    enable WEAPON_MISSED
+    enable SIMULATION_COMPLETE
+end_observer
+
+// WEAPON_HIT observer:  Count weapon hits
+script void WeaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+    hit_count += 1;
+end_script
+
+// WEAPON_MISS observer:  Count weapon misses
+script void WeaponMissed(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+    miss_count += 1;
+end_script
+
+// SIMULATION_COMPLETE observer:  Expect 5 hits, 0 misses, 5 damage updates, 1.0 damage and success_incremental=true
+script void SimulationComplete()
+    bool success_hit = AssertEqualsMessage(5, hit_count, "weapon hit count incorrect");
+    bool success_miss = AssertEqualsMessage(0, miss_count, "weapon miss count incorrect");
+    bool success_update = AssertEqualsMessage(5, update_count, "damage update count incorrect");
+    bool success_damage = AssertDoubleEqualsMessage(1.0, target_damage, "target damage incorrect");
+    writePass(success_hit && success_miss && success_update && success_damage && success_incremental);
+end_script

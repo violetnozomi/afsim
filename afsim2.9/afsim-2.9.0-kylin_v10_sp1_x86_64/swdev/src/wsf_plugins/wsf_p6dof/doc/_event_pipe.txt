@@ -1,0 +1,197 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _p6dof_event_pipe:
+
+P6Dof Commands
+==============
+
+Additional P6Dof related <file-name>:
+
+ **use_preset [ default | low | high | full ]**
+
+  Configures the messages that will be output.  By default, the default preset is used.  The messages output presets are as follows:
+
+  full:
+
+  * P6DOF
+
+Inside **mover .. end_mover**, custom data rates may be set to change how frequently certain types of P6Dof data are output to the event_pipe:
+
+ **event_core_data             [ <real> <frequency-unit> | <real> <time-unit> ]**
+
+ **event_kinematic_data        [ <real> <frequency-unit> | <real> <time-unit> ]**
+
+ **event_engine_fuel_data      [ <real> <frequency-unit> | <real> <time-unit> ]**
+
+ **event_autopilot_data        [ <real> <frequency-unit> | <real> <time-unit> ]**
+
+ **event_autopilot_limits_data [ <real> <frequency-unit> | <real> <time-unit> ]**
+
+ **event_control_inputs_data   [ <real> <frequency-unit> | <real> <time-unit> ]**
+
+ **event_control_surfaces_data [ <real> <frequency-unit> | <real> <time-unit> ]**
+
+ **event_force_moment_data     [ <real> <frequency-unit> | <real> <time-unit> ]**
+
+The rates can be set as either a Frequency unit (hz) or a Time interval unit (s). Messages may be turned off by setting the rate less than or equal to 0.
+
+By default, all messages are off.  The suggested rates for P6Dof messages are as follows:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 10 10
+
+   * - Command
+     - Message Type
+     - Suggested Interval
+   * - event_core_data
+     - MsgP6dofCoreData_
+     - 30 Hz / 0.0333 s
+   * - event_kinematic_data
+     - MsgP6dofKinematic_
+     - 30 Hz / 0.0333 s
+   * - event_engine_fuel_data
+     - MsgP6dofEngineFuel_
+     - 10 Hz / 0.1000 s
+   * - event_autopilot_data
+     - MsgP6dofAutopilot_
+     - 1 Hz / 1.0000 s
+   * - event_autopilot_limits_data
+     - MsgP6dofAutopilotLimits_
+     - 1 Hz / 1.0000 s
+   * - event_control_inputs_data
+     - MsgP6dofControlInputs_
+     - 10 Hz / 0.1000 s
+   * - event_control_surfaces_data
+     - MsgP6dofControlSurfaces_
+     - 10 Hz / 0.1000 s
+   * - event_force_moment_data
+     - MsgP6dofForceMoment_
+     - 10 Hz / 0.1000 s
+
+
+P6Dof Messages
+==============
+
+MsgP6dofCoreData
+~~~~~~~~~~~~~~~~
+
+* double               altitude;
+* double               vertSpeed;
+* double               KCAS;
+* double               KTAS;
+* double               mach;
+* double               heading;
+* double               pitch;
+* double               roll;
+* double               gLoad;
+* double               alpha;
+* double               gAvail;
+* double               speedbrakeAngle;
+
+MsgP6dofKinematic
+~~~~~~~~~~~~~~~~~
+
+* double               beta;
+* double               alphaDot;
+* double               betaDot;
+* double               yawRate;
+* double               pitchRate;
+* double               rollRate;
+* double               dynamicPressure;
+* double               nx;
+* double               ny;
+* double               flightPathAngle;
+* double               centerGravity_x;
+* double               centerGravity_y;
+* double               centerGravity_z;
+
+MsgP6dofEngineFuel
+~~~~~~~~~~~~~~~~~~
+
+* double               fuelFlow;
+* double               fuelInternal;
+* double               fuelExternal;
+* double               fuelInternalRemaining;
+* double               fuelExternalRemaining;
+* double               totalWeight;
+* bool                 afterburnerOn;
+* bool                 producingThrust;
+* bool                 engineOperating;
+* bool                 engineSmoking;
+* bool                 contrailing;
+* double               jokerFuelState;
+* double               bingoFuelState;
+* bool                 weightOnWheels;
+
+MsgP6dofAutopilot
+~~~~~~~~~~~~~~~~~
+
+* unsigned int         platformIndex;
+* std::string          activePilot;
+* std::string          lateralModeName;
+* float                lateralModeValue;
+* std::string          verticalModeName;
+* float                verticalModeValue;
+* std::string          speedModeName;
+* float                speedModeValue;
+* std::string          currentManeuver;
+
+MsgP6dofAutopilotLimits
+~~~~~~~~~~~~~~~~~~~~~~~
+
+* unsigned int         platformIndex;
+* double               pitchGLoadMin;
+* double               pitchGLoadMax;
+* double               alphaMin;
+* double               alphaMax;
+* double               pitchRateMin;
+* double               pitchRateMax;
+* double               verticalSpeedMin;
+* double               verticalSpeedMax;
+* double               yawGLoadMax;
+* double               betaMax;
+* double               yawRateMax;
+* double               rollRateMax;
+* double               bankAngleMax;
+* double               forwardAccelMin;
+* double               forwardAccelMax;
+* double               taxiSpeedMax;
+* double               taxiYawRateMax;
+
+MsgP6dofControlInputs
+~~~~~~~~~~~~~~~~~~~~~
+
+* double               stickBack;
+* double               stickRight;
+* double               rudderRight;
+* double               throttle;
+* double               speedBrakeLever;
+* double               flapsLever;
+* double               landingGearLever;
+* double               spoilersLever;
+* double               thrustReverserLever;
+
+MsgP6dofControlSurfaces
+~~~~~~~~~~~~~~~~~~~~~~~
+
+* StringList           surfaceNames;
+* DoubleList           surfaceAngles;
+
+MsgP6dofForceMoment
+~~~~~~~~~~~~~~~~~~~
+
+* double               liftForce;
+* double               dragForce;
+* double               thrustForce;
+* double               sideForce;
+* double               yawMoment;
+* double               pitchMoment;
+* double               rollMoment;

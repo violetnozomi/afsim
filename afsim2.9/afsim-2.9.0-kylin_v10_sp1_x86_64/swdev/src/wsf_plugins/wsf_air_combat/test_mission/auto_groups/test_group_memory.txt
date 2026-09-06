@@ -1,0 +1,165 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test casting between different types of PIs
+# - WsfSA_EntityPerception to WsfSA_PerceivedItem should always work
+# - WsfSA_Group to WsfSA_PerceivedItem should always work
+# - WsfSA_PerceivedItem to WsfSA_EntityPerception should only work if the PI was originally an entity
+# - WsfSA_PerceivedItem to WsfSA_Group should should only work if the PI was originally a group
+#
+include_once ../auto_script/utility_test_functions.txt
+include_once platforms/tracking_platform.txt
+include_once platforms/target_platform.txt
+
+end_time 1 min
+
+script_variables
+   bool allTestsPassed = true; // any failure turns it false
+end_script_variables
+
+platform red-1 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:10w
+      altitude 45000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:0e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:10e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+# This platform uses defaults for all SA processor update intervals
+platform blue-1 TEST_PLATFORM
+
+   route
+      position 0:0:0n 0:0:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   edit processor sa-proc
+      
+      include scripts/threat_target_scoring.txt
+      
+   end_processor
+   
+   execute at_time 50 s absolute
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      if (proc.IsValid())
+      {
+         Array<WsfSA_Group> groups = proc.PerceivedGroups();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PerceivedItemCount(), "Incorrect number of PIs.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, groups.Size(), "Groups list is the wrong size.");
+         
+         Array<WsfSA_PerceivedItem> PIs = Array<WsfSA_PerceivedItem>();
+         foreach (WsfSA_Group group in groups)
+         {
+            PIs.PushBack((WsfSA_PerceivedItem) group);
+            allTestsPassed = allTestsPassed && AssertTrueMessage(PIs.Back().IsValid(), "Cast from WsfSA_Group to WsfSA_PerceivedItem failed.");
+         }
+         
+         foreach (WsfSA_PerceivedItem item in PIs)
+         {
+            allTestsPassed = allTestsPassed && AssertEqualsMessage(1, item.ItemType(), "Item incorrectly thinks it isn't a group.");
+            WsfSA_EntityPerception invalid = (WsfSA_EntityPerception) item;
+            allTestsPassed = allTestsPassed && AssertTrueMessage(invalid.IsNull(), "Group erroneously casted to an entity.");
+         }
+         
+         WsfSA_Group m1 = groups[0];
+         WsfSA_Group m2 = groups[1];
+         allTestsPassed = allTestsPassed && AssertTrueMessage(m1.IsValid(), "Group 1 is invalid.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(m2.IsValid(), "Group 2 is invalid.");
+         proc.MergeGroups(groups);
+         allTestsPassed = allTestsPassed && AssertTrueMessage(m1.IsNull(), "Group 1 is valid.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(m2.IsNull(), "Group 2 is valid.");
+         groups[0] = m1;
+         groups[1] = m2;
+         // This merge should fail.
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.MergeGroups(groups).IsNull(), "Merge succeeded where it shouldn't have.");
+         
+         // Do the same but in the other direction
+         
+         Array<WsfSA_EntityPerception> entities = proc.PerceivedBandits();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, entities.Size(), "Entities list is the wrong size.");
+         
+         PIs.Clear();
+         foreach (WsfSA_EntityPerception entity in entities)
+         {
+            PIs.PushBack((WsfSA_PerceivedItem) entity);
+            allTestsPassed = allTestsPassed && AssertTrueMessage(PIs.Back().IsValid(), "Cast from WsfSA_EntityPerception to WsfSA_PerceivedItem failed.");
+         }
+         
+         foreach (WsfSA_PerceivedItem item in PIs)
+         {
+            allTestsPassed = allTestsPassed && AssertEqualsMessage(0, item.ItemType(), "Item incorrectly thinks it isn't an entity.");
+            WsfSA_Group invalid = (WsfSA_Group) item;
+            allTestsPassed = allTestsPassed && AssertTrueMessage(invalid.IsNull(), "Entity erroneously casted to an group.");
+         }
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

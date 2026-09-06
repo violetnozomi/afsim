@@ -1,0 +1,230 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests the WsfRandomVariable via its exposed script functionality.
+// Ensures parameters, constraints, and distribution selection is correct
+// and producing reasonable draws.
+
+script void TestMemberMethods(WsfRandomVariable aVar, string aDistribution, double aPar1, double aPar2, string aConstraint)
+   if(aVar.GetDistribution() != aDistribution)
+   {
+      writeln("FAIL " + aDistribution + " GetDistribution");
+      writeln("-FAIL-");
+   }
+   if(aVar.GetFirstParameter() != aPar1)
+   {
+      writeln("FAIL " + aDistribution + " GetFirstParameter");
+      writeln("-FAIL-");
+   }
+   if(aVar.GetSecondParameter() != aPar2)
+   {
+      writeln("FAIL " + aDistribution + " GetSecondParameter");
+      writeln("-FAIL-");
+   }
+   if(aVar.GetConstraint() != aConstraint)
+   {
+      writeln("FAIL " + aDistribution + " GetConstraint");
+      writeln("-FAIL-");
+   }
+end_script
+
+execute at_time 0.001 s absolute
+
+   //////////////// CONSTANT ////////////////
+   // Only the first value matters, it represents the constant value
+   WsfRandomVariable test = WsfRandomVariable();
+   test.Set("constant", 5.34, 0.1, "no_constraint");
+   
+   int i = 0;
+   for(;i < 1000; i = i + 1)
+   {
+      if(test.Draw() != 5.34)
+      {
+         writeln("FAIL CONSTANT DRAW");
+         writeln("-FAIL-");
+         break;
+      }
+      if(test.LastDraw() != 5.34)
+      {
+         writeln("FAIL CONSTANT LASTDRAW");
+         writeln("-FAIL-");
+         break;
+      }
+   }
+   
+   test.Set("constant", 2.34, 0.1, "positive");
+   
+   i = 0;
+   for(;i < 1000; i = i + 1)
+   {
+      if(test.Draw() != 2.34)
+      {
+         writeln("FAIL CONSTANT DRAW");
+         writeln("-FAIL-");
+         break;
+      }
+      if(test.LastDraw() != 2.34)
+      {
+         writeln("FAIL CONSTANT LASTDRAW");
+         writeln("-FAIL-");
+         break;
+      }
+   }
+   
+   TestMemberMethods(test, "constant", 2.34, 0.1, "positive");
+
+   //////////////// EXPONENTIAL ////////////////
+   // Only the first value matters, it represents the lambda
+   // The lambda must be greater than 0.0
+   test.Set("exponential", 1.0, 0.0, "positive");
+   
+   i = 0;
+   for(;i < 1000; i = i + 1)
+   {
+      if(test.Draw() <= 0.0)
+      {
+         writeln("FAIL EXPONENTIAL DRAW");
+         writeln("-FAIL-");
+         break;
+      }
+      if(test.LastDraw() <= 0.0)
+      {
+         writeln("FAIL EXPONENTIAL LASTDRAW");
+         writeln("-FAIL-");
+         break;
+      }
+   }
+   
+   test.Set("exponential", 0.33, 22.0, "non_negative");
+   
+   i = 0;
+   for(;i < 1000; i = i + 1)
+   {
+      if(test.Draw() < 0.0)
+      {
+         writeln("FAIL EXPONENTIAL DRAW");
+         writeln("-FAIL-");
+         break;
+      }
+      if(test.LastDraw() < 0.0)
+      {
+         writeln("FAIL EXPONENTIAL LASTDRAW");
+         writeln("-FAIL-");
+         break;
+      }
+   }
+   
+   TestMemberMethods(test, "exponential", 0.33, 22.0, "non_negative");
+
+   //////////////// NORMAL ////////////////
+   // The first value is mean, second is standard deviation
+   test.Set("normal", 100.0, 0.01, "positive");
+   
+   i = 0;
+   for(;i < 1000; i = i + 1)
+   {
+      double value = test.Draw(); 
+      if(value < 99.95 || value > 100.05)
+      {
+         writeln("FAIL NORMAL DRAW");
+         writeln("-FAIL-");
+         break;
+      }
+      if(test.LastDraw() != value)
+      {
+         writeln("FAIL NORMAL LASTDRAW");
+         writeln("-FAIL-");
+         break;
+      }
+   }
+   
+   test.Set("normal", 0.01 , 2.0, "positive");
+
+   i = 0;
+   for(;i < 1000; i = i + 1)
+   {
+      double value = test.Draw();
+      if(value < 0.0)
+      {
+         writeln("FAIL NORMAL DRAW POSITIVE CONSTRAINT");
+         writeln("-FAIL-");
+         break;
+      }
+   }
+
+   test.Set("normal", 0.01 , 2.0, "no_constraint");
+
+   i = 0;
+   bool negative_value_seen = false;
+   for(;i < 1000; i = i + 1)
+   {
+      double value = test.Draw();
+      if(value < 0.0)
+      {
+         negative_value_seen = true;
+         break;
+      }
+   }
+
+   if(!negative_value_seen)
+   {
+      writeln("FAIL NORMAL DRAW NO CONSTRAINT");
+      writeln("-FAIL-");
+   }
+
+   TestMemberMethods(test, "normal", 0.01, 2.0, "no_constraint");
+
+   //////////////// LOG NORMAL ////////////////
+   // The first value is mean, second is standard deviation
+   test.Set("log_normal", 2.0, 0.01, "positive");
+   
+   i = 0;
+   for(;i < 1000; i = i + 1)
+   {
+      double value = test.Draw();
+      if(value < 7.0 || value > 8.0)
+      {
+         writeln("FAIL LOG_NORMAL DRAW");
+         writeln("-FAIL-");
+         break;
+      }
+      if(test.LastDraw() != value)
+      {
+         writeln("FAIL LOG_NORMAL LASTDRAW");
+         writeln("-FAIL-");
+         break;
+      }
+   }
+   
+   TestMemberMethods(test, "log_normal", 2.0, 0.01, "positive");
+
+   //////////////// UNIFORM ////////////////
+   // The first value is minimum, second is maximum
+   test.Set("uniform", 22.2, 87.6, "positive");
+   
+   i = 0;
+   for(;i < 1000; i = i + 1)
+   {
+      double value = test.Draw();
+      if(value < 22.2 || value > 87.6)
+      {
+         writeln("FAIL UNIFORM DRAW");
+         writeln("-FAIL-");
+         break;
+      }
+      if(test.LastDraw() != value)
+      {
+         writeln("FAIL UNIFORM LASTDRAW");
+         writeln("-FAIL-");
+         break;
+      }
+   }
+
+   TestMemberMethods(test, "uniform", 22.2, 87.6, "positive");
+end_execute

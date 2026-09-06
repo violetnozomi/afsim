@@ -1,0 +1,65 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 600 s
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+platform TEST_AIRCRAFT FA-LGT
+   side blue
+   
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   execute at_time 10 sec absolute
+      WsfRollAngleManeuver mvr = WsfRollAngleManeuver.Construct(15.0);
+      mvr.SetEntryConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(10.0));
+      mvr.SetExitConstraint(WsfManeuverConstraint.AT_HEADING(-90.0));
+      mvr.SetDebug(true);
+      
+      WsfRollAngleManeuver stop = WsfRollAngleManeuver.Construct(0.0);
+      
+      WsfManeuverSequence sqn = WsfManeuverSequence.Construct();
+      sqn.Append(mvr);
+      sqn.Append(stop);
+
+      WsfP6DOF_Mover mov = (WsfP6DOF_Mover)PLATFORM.Mover();      
+      mov.ExecuteManeuver(sqn);
+   end_execute
+   
+   execute at_time 12 sec absolute
+      allPassed = ExpectAngleDegrees(PLATFORM.Heading(), 180, 3.0, "Heading should be +/-180.") && allPassed;
+   end_execute
+   
+   execute at_time 19.9 sec absolute
+      allPassed = ExpectAngleDegrees(PLATFORM.Heading(), 180, 3.0, "Heading should be +/-180.") && allPassed;
+   end_execute
+   
+   execute at_time 500 sec absolute
+      allPassed = ExpectDouble(PLATFORM.Heading(), -90, 3.0, "Heading should be -90.") && allPassed;
+   end_execute
+end_platform
+
+execute at_time 550 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }   
+end_execute   

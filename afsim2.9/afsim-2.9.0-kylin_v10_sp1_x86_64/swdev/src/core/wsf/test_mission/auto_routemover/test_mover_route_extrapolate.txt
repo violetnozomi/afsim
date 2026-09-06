@@ -1,0 +1,57 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test mover extrapolation
+//    Heading should be maintained through last waypoint
+//
+
+end_time 20 s
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      route
+         position 31n       110w altitude 10000 ft agl speed 100 knots
+         position 31:00:10n 110:00:10w altitude 10000 ft agl speed 100 knots
+            execute now_extrapolating
+      end_route
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+
+   script_variables
+      bool pass = false;
+      double initialHeading;
+   end_script_variables
+
+   execute at_time 1 s absolute
+      initialHeading = Heading();
+   end_execute
+   script void now_extrapolating()
+      ExecuteAtTime(TIME_NOW + 1, "test_extrapolated_heading");
+   end_script
+   script void test_extrapolated_heading()
+      pass = MATH.AngleIsBetween(Heading(), initialHeading - 0.2, initialHeading + 0.2);
+      if (!pass)
+      {
+         writeln("Extrapolated Heading does not match initial target heading.");
+         writeln("  target heading: ", initialHeading);
+         writeln("  extrap heading: ", Heading());
+      }
+   end_script
+   script void on_platform_deleted()
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+end_platform
+

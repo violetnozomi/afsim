@@ -1,0 +1,164 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform_type FUEL_TEST_TYPE WSF_PLATFORM
+   side blue
+   spatial_domain air
+
+   mover WSF_AIR_MOVER
+   end_mover
+
+   fuel WSF_TABULAR_RATE_FUEL
+      maximum_quantity 7000 lb
+      initial_quantity 6750 lb
+      reserve_quantity 1500 lb
+      mode MACH_MODE # Sets the mode in the Fuel Object
+
+      fuel_table
+         mode CONSTANT_MODE
+         constant 4.0 kg/s
+      end_fuel_table
+
+      fuel_table
+         mode MACH_MODE
+         altitudes
+            units m
+            0 5000 10000
+         end_altitudes
+         mach
+            .25 .5 .75 1.0
+         end_mach
+         rates
+            units kg/s
+          # .25  0.5  .75  1.0 mach
+            3.0  4.5  5.5  7.0  # Sea Level
+            2.0  3.5  4.5  6.0  # 5000 m
+            1.0  2.5  3.5  5.0  # 10000 m
+         end_rates
+      end_fuel_table
+
+      fuel_table
+         mode MPS_MODE
+         altitudes
+            units m
+            0 5000 10000
+         end_altitudes
+         speeds
+            units m/s
+            100 200 300 400
+         end_speeds
+         rates
+            units kg/s
+          # 100  200  300  400 m/s
+            3.0  4.5  5.5  7.0  # Sea Level
+            2.0  3.5  4.5  6.0  # 5000 m
+            1.0  2.5  3.5  5.0  # 10000 m
+         end_rates
+      end_fuel_table
+
+   end_fuel
+end_platform_type
+
+script_variables
+   double mMachPassed = false;
+   double mMpsPassed = false;
+   double mConstantPassed = false;
+end_script_variables
+
+platform FUEL_TEST_AC_1 FUEL_TEST_TYPE
+   update_interval 0.01 sec
+   edit fuel
+      mode MACH_MODE
+   end_fuel
+   execute at_time 1.0 sec absolute
+      WsfFuel fuel = PLATFORM.Fuel();
+      if (fuel.IsValid())
+      {
+         #Sonic Velocity (2500m) ~= 330 m/s
+         #Sonic Velocity (7500m) ~= 310 m/s
+         double rate1 = fuel.ConsumptionRate(2500, 250);
+         double rate2 = fuel.ConsumptionRate(7500, 250);
+         double rate3 = fuel.ConsumptionRate(2500, 300);
+         double rate4 = fuel.ConsumptionRate(7500, 300);
+       #  writeln("rate1: ", rate1, "  rate2: ", rate2, "  rate3: ", rate3, "  rate4: ", rate4);
+         if(rate1 > 5.00 && rate1 < 5.1  && //~5.038
+            rate2 > 4.30 && rate2 < 4.40 && //~4.336
+            rate3 > 5.90 && rate3 < 6.00 && //~5.945
+            rate4 > 5.25 && rate4 < 5.35)   //~5.303
+         {
+            mMachPassed = true;
+         }
+         else
+         {
+            writeln("--FAIL-- Rates for mach are incorrect.");
+         }
+      }
+   end_execute
+end_platform
+
+platform FUEL_TEST_AC_2 FUEL_TEST_TYPE
+   update_interval 0.01 sec
+   edit fuel
+      mode MPS_MODE
+   end_fuel
+   execute at_time 1.0 sec absolute
+      WsfFuel fuel = PLATFORM.Fuel();
+      if (fuel.IsValid())
+      {
+         double rate1 = fuel.ConsumptionRate(2500, 250);
+         double rate2 = fuel.ConsumptionRate(7500, 300);
+         if(rate1 != 4.5 || rate2 != 4.0)
+         {
+            writeln("--FAIL-- Rates for m/s are incorrect.");
+         }
+         else
+         {
+            mMpsPassed = true;
+         }
+      }
+   end_execute
+end_platform
+
+platform FUEL_TEST_AC_3 FUEL_TEST_TYPE
+   update_interval 0.01 sec
+   edit fuel
+      mode CONSTANT_MODE
+   end_fuel
+   execute at_time 1.0 sec absolute
+      WsfFuel fuel = PLATFORM.Fuel();
+      if (fuel.IsValid())
+      {
+         double rate1 = fuel.ConsumptionRate(2500, 250);
+         double rate2 = fuel.ConsumptionRate(7500, 300);
+         if(rate1 != 4.0 || rate2 != 4.0)
+         {
+            writeln("--FAIL-- Rates for Constant Mode are incorrect.");
+         }
+         else
+         {
+            mConstantPassed = true;
+         }
+      }
+   end_execute
+end_platform
+
+execute at_time 2 s absolute
+   extern double mMachPassed;
+   extern double mMpsPassed;
+   extern double mConstantPassed;
+
+   if (mMachPassed && mMpsPassed && mConstantPassed)
+   {
+      writeln("--PASS--");
+   }
+   else
+   {
+      writeln("--FAIL--");
+   }
+end_execute

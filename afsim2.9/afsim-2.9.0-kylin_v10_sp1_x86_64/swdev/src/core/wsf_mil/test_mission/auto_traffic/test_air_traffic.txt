@@ -1,0 +1,462 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include platforms/road_platforms.txt
+include platforms/airport.txt
+include platforms/ground_radar_static.txt
+include platforms/command_post_static.txt
+include platforms/scud_launcher_static.txt
+include platforms/f-18e_static.txt
+include platforms/sea_platforms.txt
+include platforms/air_platforms.txt
+
+include_once ../auto_script/collect_stats.txt
+
+air_traffic
+
+  everyone_land_time          180 min
+
+  aircraft_type B-737
+    minimum_cruise_altitude 20000 ft
+    maximum_cruise_altitude 30000 ft
+    mean_cruise_speed         480 kts
+    sigma_cruise_speed         40 kts
+    minimum_runway_length    8000 ft
+    maximum_operating_range  2000 nm
+  end_aircraft_type
+
+  aircraft_type CESSNA172
+    minimum_cruise_altitude 10000 ft
+    maximum_cruise_altitude 12000 ft
+    mean_cruise_speed         175 kts
+    sigma_cruise_speed         20 kts
+    minimum_runway_length    3000 ft
+    maximum_operating_range   400 nm
+  end_aircraft_type
+
+  aircraft_type B-707
+    minimum_cruise_altitude 20000 ft
+    maximum_cruise_altitude 30000 ft
+    mean_cruise_speed         420 kts
+    sigma_cruise_speed         40 kts
+    minimum_runway_length    8000 ft
+    maximum_operating_range  2000 nm
+  end_aircraft_type
+
+  aircraft_type C-17
+    minimum_cruise_altitude 30000 ft
+    maximum_cruise_altitude 35000 ft
+    mean_cruise_speed         420 kts
+    sigma_cruise_speed         20 kts
+    minimum_runway_length    8000 ft
+    maximum_operating_range  2000 nm
+  end_aircraft_type
+
+  aircraft_type C-130
+    minimum_cruise_altitude 18000 ft
+    maximum_cruise_altitude 22000 ft
+    mean_cruise_speed         350 kts
+    sigma_cruise_speed         20 kts
+    minimum_runway_length    5000 ft
+    maximum_operating_range  1500 nm
+  end_aircraft_type
+
+  aircraft_type KA-6
+    minimum_cruise_altitude 27000 ft
+    maximum_cruise_altitude 29000 ft
+    mean_cruise_speed         500 kts
+    sigma_cruise_speed         30 kts
+    minimum_runway_length    3000 ft
+    maximum_operating_range  1500 nm
+  end_aircraft_type
+
+# Airport locations taken from www.airnav.com
+
+  # Las Vegas Mc Carran
+  airbase LAS 36:04:49.300N 115:09:08.400W
+    runway # 7L-25R
+      36:04.58200N 115:10.21140W
+      36:04.58440N 115:07.26597W
+
+    departure_interval 5 min
+
+    aircraft    B-737  0.5
+    aircraft    B-707  0.5
+
+    destination PHX 0.20
+    destination LAX 0.20
+    destination SAN 0.1
+    destination SEA 0.1
+    destination SFO 0.1
+    destination RNO 0.1
+    destination PDX 0.1
+    destination DEN 0.1
+
+    deactivation_time 210 min
+
+  end_airbase
+
+  # Reno/Tahoe International Airport
+  airbase RNO 39:29:56.800N 119:46:05.200W
+    runway_length   11000 ft 
+    runway_heading  180
+
+    departure_interval 50.0 min
+    aircraft    B-707  1.0
+    destination LAS 1.0
+
+  end_airbase
+
+  # Lambert St. Louis International
+  airbase STL 38:44:51.600N 090:21:36.000W
+    runway # 12R-30L
+      38:45:14.067N 090:22:44.979W
+      38:44:16.045N 090:20:47.280W
+  end_airbase
+
+  # Chicago O'Hare International
+  airbase ORD 41:58:46.500N 087:54:16.100W
+    runway # 14R-32L
+      41:59:25.567N 087:55:59.303W
+      41:57:47.225N 087:54:08.630W
+  end_airbase
+
+  # Kansas City International
+  airbase MCI 39:17:51.379N 094:42:50.060W
+    runway # 01L-19R
+      39:17:36.012N 094:43:45.535W
+      39:19:20.054N 094:43:14.794W
+  end_airbase
+
+  # San Francisco International
+  airbase SFO 37:37:08.300N 122:22:29.600W
+    runway_length   12000 ft 
+    runway_heading  117
+
+    departure_interval 50.0 min
+    aircraft    B-707  1.0
+    destination LAS 1.0
+
+  end_airbase
+
+  # Los Angeles International
+  airbase LAX 33:56:33.130N 118:24:29.068W
+    runway_length   12000 ft 
+    runway_heading  83
+
+    departure_interval 25 min
+    aircraft    B-707  1.0
+    destination LAS 1.0
+
+  end_airbase
+
+  # Seattle-Tacoma International
+  airbase SEA 47:26:56.400N 122:18:33.500W
+    runway_length   12000 ft 
+    runway_heading  180
+
+    departure_interval 50.0 min
+    aircraft    B-707  1.0
+    destination LAS 1.0
+
+  end_airbase
+
+  # San Diego International
+  airbase SAN 32:44:00.802N 117:11:22.764W
+    runway_length   9400 ft 
+    runway_heading  286
+
+    departure_interval 50.0 min
+    aircraft    B-707  1.0
+    destination LAS 1.0
+
+  end_airbase
+
+  # Portland (Oregon) International
+  airbase PDX 45:35:19.400N 122:35:51.000W
+    runway_length   11000 ft 
+    runway_heading  119
+
+    departure_interval 50.0 min
+    aircraft    B-707  1.0
+    destination LAS 1.0
+
+  end_airbase
+
+  # Washington Dulles International
+  airbase IAD 38:56:40.315N 077:27:20.915W
+    runway_length   11500 ft 
+    runway_heading  1
+  end_airbase
+
+  # Ronald Reagan Washington National
+  airbase DCA 38:51:07.500N 077:02:15.800W
+    runway_length   6900 ft 
+    runway_heading  355
+  end_airbase
+
+  # Baltimore-Washington International
+  airbase BWI 39:10:31.300N 076:40:06.000W
+    runway_length   10500 ft 
+    runway_heading  94
+  end_airbase
+  
+  # New York John F Kennedy International
+  airbase JFK 40:38:23.104N 073:46:44.132W
+    runway_length   14600 ft 
+    runway_heading  121
+  end_airbase
+  
+  # New York La Guardia
+  airbase LGA 40:46:38.075N 073:52:21.393W
+    runway_length   7000 ft 
+    runway_heading  32
+  end_airbase
+
+  # Boston - Logan International
+  airbase BOS 42:21:51.700N 071:00:18.700W
+    runway_length   10005 ft
+    runway_heading  20
+  end_airbase
+
+  # Detroit Metropolitan
+  airbase DTW 42:12:44.750N 083:21:12.213W
+    runway_length   12000 ft 
+    runway_heading  29
+  end_airbase
+
+  # Dallas/Fort Worth International
+  airbase DFW 32:53:48.581N 097:02:16.785W
+    runway_length   13400 ft 
+    runway_heading  180
+  end_airbase
+
+  # Denver (CO) International
+  airbase DEN 39:51:41.963N 104:40:23.439W
+    runway_length   12000 ft 
+    runway_heading  90
+
+    departure_interval 50.0 min
+    aircraft    B-707  1.0
+    destination LAS 1.0
+
+  end_airbase
+
+  # Houston George Bush Intercontinental 
+  airbase IAH 29:59:03.961N 095:20:29.192W
+    runway_length   11000 ft 
+    runway_heading  45
+  end_airbase
+
+  # Minneapolis-St. Paul International
+  airbase MSP 44:52:49.969N 093:13:00.921W
+    runway_length   10500 ft
+    runway_heading  87 
+  end_airbase
+
+  # Miami (FL) International
+  airbase MIA 25:47:35.700N 080:17:26.000W
+    runway_length   11900 ft 
+    runway_heading  90
+  end_airbase
+
+  # Hartsfield - Jackson Atlanta International (GA) 
+  airbase ATL 33:38:25.600N 084:25:37.000W
+    runway_length   11500 ft 
+    runway_heading  90
+  end_airbase
+
+  # Phoenix Sky Harbor International
+  airbase PHX 33:26:03.000N 112:00:29.000W
+    runway_length   11000 ft 
+    runway_heading  270
+
+    departure_interval 25 min
+    aircraft    B-707  1.0
+    destination LAS 1.0
+
+  end_airbase 
+
+  # Nellis Air Force Base
+  airbase LSV 36:14:10.310N 115:02:03.310W
+#    runway_length   10000 ft 
+    runway_length   5000 ft 
+    runway_heading  41
+  end_airbase
+
+  # Boulder City Municipal
+  airbase 61B 35:56:50.929N 114:51:39.948W
+    runway_length   4800 ft 
+    runway_heading  90
+
+    departure_interval 200 min
+    aircraft    CESSNA172  1.0
+    destination CXP 1.0
+
+  end_airbase
+
+  # Carson Airport
+  airbase CXP 39:11:32.000N 119:44:04.000W
+    runway_length   5900 ft 
+    runway_heading  107
+
+    departure_interval 20 min
+    aircraft    CESSNA172  1.0
+
+    destination 67L 0.1
+    destination HND 0.2
+    destination VGT 0.5
+    destination EKO 0.1
+    destination 61B 0.1
+
+  end_airbase
+
+  # Elko Regional Airport
+  airbase EKO 40:49:29.700N 115:47:30.100W
+    runway_length   7200 ft 
+    runway_heading  69
+
+    departure_interval 200 min
+    aircraft    CESSNA172  1.0
+    destination CXP 1.0
+
+  end_airbase
+
+  # Jackpot Airport
+  airbase 06U 41:58:33.680N 114:39:29.128W
+    runway_length   6200 ft 
+    runway_heading  0
+
+    departure_interval 400 min
+    aircraft    CESSNA172  1.0
+    destination VGT 1.0
+
+  end_airbase
+
+  # Mesquite Airport
+  airbase 67L 36:50:05.912N 114:03:18.883W
+    runway_length   5100 ft 
+    runway_heading  0
+
+    departure_interval 200 min
+    aircraft    CESSNA172  1.0
+    destination CXP 1.0
+
+  end_airbase
+
+  # Mindon:Tahoe Airport
+  airbase MEV 39:00:01.100N 119:45:04.300W
+    runway_length   7400 ft 
+    runway_heading  180
+
+    departure_interval 80 min
+    aircraft    CESSNA172  1.0
+    destination VGT 1.0
+
+  end_airbase
+
+  # Tonopah Airport
+  airbase TPH 38:03:36.728N 117:05:13.753W
+    runway_length   7100 ft 
+    runway_heading  165
+  end_airbase
+
+  # Wells Municipal Airport
+  airbase LWL 41:07:01.700N 114:55:19.600W
+    runway_length   5500 ft 
+    runway_heading  101
+  end_airbase
+
+  # Winnemucca Municipal Airport
+  airbase WMC 40:53:47.800N 117:48:21.200W
+    runway_length   7000 ft 
+    runway_heading  160
+
+    departure_interval 200 min
+    aircraft    CESSNA172  1.0
+    destination VGT 1.0
+
+  end_airbase
+
+  # Derby Field Airport
+  airbase LOL 40:03:59.058N 118:33:54.599W
+    runway_length   5500 ft 
+    runway_heading  30
+  end_airbase
+
+  # Searchlight Airport
+  airbase 1L3 35:26:39.968N 114:54:33.919W
+    runway_length   5000 ft 
+    runway_heading  0
+  end_airbase
+
+  # North Las Vegas Airport
+  airbase VGT 36:12:45.000N 115:11:46.000W
+    runway_length   5000 ft 
+    runway_heading  134
+
+    departure_interval 20 min
+    aircraft    CESSNA172  1.0
+    destination CXP 0.5
+    destination MEV 0.25
+    destination WMC 0.1
+    destination ELY 0.1
+    destination 06U 0.05
+
+  end_airbase
+
+  # Henderson Executive Airport
+  airbase HND 35:58:22.000N 115:08:04.000W
+    runway_length   6500 ft 
+    runway_heading  0
+
+    departure_interval 100 min
+    aircraft    CESSNA172  1.0
+    destination CXP 1.0
+
+  end_airbase
+
+  # Elly Airport
+  airbase ELY 39:17:58.900N 114:50:30.800W
+    runway_length   6000 ft 
+    runway_heading  195
+
+    departure_interval 200 min
+    aircraft    CESSNA172  1.0
+    destination VGT 1.0
+
+  end_airbase 
+
+end_air_traffic
+
+end_time 5 hrs
+
+
+observer
+   enable SIMULATION_COMPLETE simComplete
+end_observer
+
+script void simComplete()
+   struct sum = collect_Summarize("");
+   sum->Print();
+#Samples: 144
+#Alive Time: 2.09854e+006
+#Distance Travelled: 5.05745e+007
+
+   # Traffic is fairly random, expect to be within 50 %
+   if (!sum->ExpectedAliveTime(2.09854e+006, .5)
+    || !sum->ExpectedDistanceTravelled(5.05745e+007, .5))
+      writeln("-FAIL-");
+   else
+      writeln("-PASS-");
+    
+end_script
+# Test Monte-Carlo
+final_run_number 3
+end_time 5 hr

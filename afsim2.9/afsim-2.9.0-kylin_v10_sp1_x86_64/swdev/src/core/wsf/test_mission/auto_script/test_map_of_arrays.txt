@@ -1,0 +1,44 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once test_functions.txt
+
+#script_listing on
+
+script bool AssertArrayEqualsMessage(Array<double> aExpected, Array<double> aReceived, string aFailureString)
+   bool pass = (aExpected.Size() == aReceived.Size());
+   for (int i = 0; i < aExpected.Size(); i = i + 1)
+   {
+      pass = pass && AssertEqualsMessage(aExpected[i], aReceived[i], aFailureString);
+   }
+   return pass;
+end_script
+
+on_initialize
+   Map<string, Array<double>> map = Map<string, Array<double>>();
+   Array<double> arrayDoubles = Array<double>();
+   arrayDoubles.PushBack(2.0);
+   arrayDoubles.PushBack(4.0);
+   arrayDoubles.PushBack(6.0);
+   map.Set("abc", arrayDoubles);
+   Array<double> returnedArrayDoubles = map.Get("abc");
+   AssertEqualsMessage(arrayDoubles, returnedArrayDoubles, "Map Get");
+   foreach (string key : Array<double> data in map) {
+      AssertArrayEqualsMessage(arrayDoubles, data, "MapIterator Data");
+   }
+   string key = (string)map.ElementKeyAtIndex(0);
+   AssertEqualsMessage("abc", key, "ElementKeyAtIndex");
+// TODO: Array of Array direct reference - compile ERROR
+//   double receivedDouble = map[key][0];
+//     OR
+//   double receivedDouble = (map[key])[0];
+   Array<double> array = map[key];
+   double receivedDouble = array[0];
+   AssertEqualsMessage(2, receivedDouble, "Map dereferenced");
+end_on_initialize

@@ -1,0 +1,138 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 600 s
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+platform TEST_AIRCRAFT FA-LGT_RB6
+   side blue
+   
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   execute at_time 10 sec absolute
+      WsfSixDOF_FlightPathAngleManeuver mvr = WsfSixDOF_FlightPathAngleManeuver.Construct(3.0);
+      mvr.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(10.0));
+      mvr.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_ALTITUDE(22000 * Math.M_PER_FT()));
+      
+      WsfMover test = mvr.GetMover();
+      allPassed = ExpectBool(test.IsValid(), false, "Mover on unassigned maneuver should be invalid") && allPassed;
+      
+      allPassed = ExpectDouble(mvr.GetFlightPathAngle(), 3.0, 1.0e-4, "Flight path angle should be 3.0") && allPassed;
+      allPassed = ExpectString(mvr.GetEntryConstraint().Type(), "RELATIVE-TIME", "Should have a relative time entry constraint") && allPassed;
+      allPassed = ExpectString(mvr.GetExitConstraint().Type(), "ALTITUDE", "Should have an altitude exit constraint.") && allPassed;
+      
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      mov.ExecuteManeuver(mvr);
+      
+      WsfSixDOF_FlightPathAngleManeuver level = WsfSixDOF_FlightPathAngleManeuver.Construct(0.0);
+      WsfSixDOF_ManeuverSequence sqn = mov.GetManeuverSequence();
+      sqn.Append(level);
+   end_execute
+   
+   execute at_time 19.0 sec absolute
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      allPassed = ExpectBool(mov.GetCurrentManeuver().GetMover().IsValid(), true, "Mover on assigned maneuver should be valid.") && allPassed;
+      mov.CancelManeuvers();
+   end_execute
+   
+   execute at_time 21.0 sec absolute
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      allPassed = ExpectBool(mov.GetManeuverSequence().IsCanceled(), true, "Sequence should be canceled.") && allPassed;
+   end_execute
+   
+   execute at_time 50.0 sec absolute
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      allPassed = ExpectDouble(mov.GetFlightPathAngle(), 0.0, 0.1, "Flight should be level") && allPassed;
+   end_execute
+   
+   execute at_time 400.0 sec absolute
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      allPassed = ExpectDouble(mov.GetFlightPathAngle(), 0.0, 0.1, "Flight should be level") && allPassed;
+      double alt = PLATFORM.Altitude();
+      if (alt > 20100 * Math.M_PER_FT())
+      {
+         writeln("-FAIL- aircraft should not have climed over 20000 ft");
+      }
+   end_execute
+   
+end_platform
+
+platform SECOND_TEST FA-LGT_RB6
+   side blue
+   
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   execute at_time 10 s absolute
+      WsfSixDOF_FlightPathAngleManeuver climb = WsfSixDOF_FlightPathAngleManeuver.Construct(3.0);
+      climb.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(20.0));
+      
+      WsfSixDOF_FlightPathAngleManeuver level = WsfSixDOF_FlightPathAngleManeuver.Construct(0.0);
+      level.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(10.0));
+      
+      WsfSixDOF_RollAngleManeuver zig = WsfSixDOF_RollAngleManeuver.Construct(30.0);
+      zig.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(30.0));
+      zig.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(60.0));
+      
+      WsfSixDOF_RollAngleManeuver zag = WsfSixDOF_RollAngleManeuver.Construct(-30.0);
+      zag.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(60.0));
+      
+      WsfSixDOF_RollAngleManeuver done = WsfSixDOF_RollAngleManeuver.Construct(0.0);
+      
+      WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+      sqn.Append(climb);
+      sqn.Append(level);
+      sqn.Append(zig);
+      sqn.Append(zag);
+      sqn.Append(done);
+      
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      mov.ExecuteManeuverSequence(sqn);
+   end_execute
+   
+   execute at_time 50 s absolute
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      WsfSixDOF_ManeuverSequence sqn = mov.GetManeuverSequence();
+      WsfSixDOF_Maneuver mvrNow = sqn.GetCurrentManeuver();
+      
+      allPassed = ExpectString(mvrNow.GetManeuverType(), "ROLL-ANGLE", "Current maneuver should be roll angle.") && allPassed;
+      
+      mvrNow.Cancel();
+   end_execute
+   
+   execute at_time 200 s absolute
+      double heading = PLATFORM.Heading();
+      if (MATH.Fabs(heading - 180.0) < 2.0)
+      {
+         writeln("-FAIL- The heading should not be close to 180");
+      }
+   end_execute
+end_platform
+
+execute at_time 200 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }   
+end_execute   

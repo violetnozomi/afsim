@@ -1,0 +1,259 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// atmosphere data needed for fluence model - laser type - nd_yag
+include_once ../../test/resources/COEFS1064_1.txt
+include_once ../../test/resources/COEFS1064_2.txt
+include_once ../../test/resources/COEFS1064_3.txt
+include_once ../../test/resources/COEFS1064_4.txt
+include_once ../../test/resources/COEFS1064_5.txt
+
+// declare a template for a blue air mover platform
+platform_type BLUE_MULTIROLE_FIGHTER_1EF WSF_PLATFORM
+  mover WSF_AIR_MOVER
+     default_climb_rate          400 fps
+     default_linear_acceleration 4.0 g
+     default_radial_acceleration 4.0 g
+  end_mover
+  
+  spatial_domain air
+  icon F-18E
+  side blue
+end_platform_type
+
+weapon_effects hel_lethality WSF_HEL_LETHALITY
+   region RED_ADV_FIGHTER_2 CANOPY
+      minimum_energy 5 kj
+   end_region
+
+   region RED_ADV_FIGHTER_2 IRST
+      minimum_energy 10 kj
+      damage_radius 5 cm  // beam is only effective over a small region
+   end_region
+end_weapon_effects
+
+weapon HEL WSF_CUED_LASER_WEAPON
+   aux_data
+      bool auto_mode = false
+   end_aux_data
+   
+   comments enabled
+   firing_time 15.0 sec
+   weapon_effects hel_lethality
+   
+   fluence_model default
+      aperture_diameter 0.2 meters
+      power 20 kw
+      laser_type nd_yag  
+      jitter 2e-6 radians
+   end_fluence_model
+end_weapon
+
+platform_type BLUE_MULTIROLE_FIGHTER_1EF-HEL BLUE_MULTIROLE_FIGHTER_1EF
+   add weapon hel HEL
+      // Specify beam director. beam_director_right functions correctly
+      // and will successfully eliminate target platform, while
+      // beam_director_wrong does not.
+      beam_director beam_director_right
+   end_weapon
+
+   processor fuser WSF_TRACK_PROCESSOR
+      raw_track_reporting on
+      fused_track_reporting off
+      purge_interval 60.0 seconds
+      report_interval 5.0 seconds
+   end_processor
+
+   sensor all-seeing WSF_GEOMETRIC_SENSOR
+      on
+      processor fuser
+      reports_location
+      reports_velocity
+      frame_time 1.0 second
+   end_sensor
+   
+   // incorrect beam director. When selected by 'hel' weapon above,
+   // the target platform will not be destroyed
+   sensor beam_director_wrong WSF_BEAM_DIRECTOR
+      type cued
+      frame_time 1 s
+      reports_location 
+   end_sensor
+
+   // correct beam director. When selected by 'hel' weapon above,
+   // the target platform will be destroyed
+   sensor beam_director_right WSF_BEAM_DIRECTOR
+        category LASER
+        category ID
+        category BEAM-DIRECTOR
+        off                               // default
+        location                0 0 0 m  // tbd
+        slew_mode               azimuth_and_elevation
+        azimuth_slew_limits     -180.0 degrees  180 degrees
+        elevation_slew_limits   -90.0 degrees    90 degrees
+
+        selection_mode          single    // can have only one mode active at a time
+
+        mode_template
+
+          perfect_correlation enabled
+
+          maximum_range            50 nm
+          angular_resolution       1.0e-6 rad
+
+          frame_time                    1 sec
+          revisit_time                0.1 sec
+          dwell_time          0.0555555 sec       // 1/18 sec
+
+          azimuth_field_of_view   -4.0 deg 4.0 deg
+          elevation_field_of_view -4.0 deg 4.0 deg
+
+          reports_bearing
+          reports_elevation
+          reports_location
+          reports_velocity
+
+        end_mode_template
+
+        mode SCAN
+          scan_mode                 azimuth_and_elevation
+          frame_time                0.1 s
+          azimuth_scan_limits       -4.0 degrees 4.0 degrees
+          elevation_scan_limits     -4.0 degrees 4.0 degrees
+
+          track_quality             0.8  // Near 'weapon quality'
+          hits_to_establish_track   1 1  // 1 of last 1 scans to establish track
+          hits_to_maintain_track    1 5  // 1 of last 5 scans to maintain  track
+          type                      scanning
+          on_success                LOCK1
+        end_mode
+
+        mode LOCK1
+          scan_mode                 fixed
+          frame_time                5.0 s  // Implement scan mode delay here; it must be
+                                           // enforced in one of the fixed modes
+          track_quality             0.9  // 'weapon quality'
+          hits_to_establish_track   1 1  // 1 of last 1 scans to establish track
+          hits_to_maintain_track    1 5  // Allow 25 seconds of coasting (5th failure will drop)
+          type                      locked
+          on_success                CUED
+          on_failure                SCAN
+        end_mode
+
+        mode CUED
+          scan_mode                 fixed
+          frame_time                0.01 s
+          track_quality             1.0  // 'weapon quality'
+          hits_to_establish_track   1 1  // 1 of last 1 scans to establish track
+          hits_to_maintain_track    1 5  // Allow .05 seconds of coasting (5th failure will drop)
+          on_failure                LOCK1
+          type                      cued
+        end_mode
+
+   end_sensor  // beam director  
+end_platform_type
+
+platform_type RED_ADV_FIGHTER_2 WSF_PLATFORM
+   side red
+   icon SU-27
+   category RED_ADV_FIGHTER_2
+   mover WSF_AIR_MOVER end_mover
+end_platform_type
+
+platform redbird RED_ADV_FIGHTER_2
+   route
+      position 38:52n 90:20w speed 200 kts altitude 2000 meters heading 180 degrees
+   end_route
+end_platform
+
+platform bluebird BLUE_MULTIROLE_FIGHTER_1EF-HEL
+   track platform redbird end_track
+   route
+      position 38:32n 90:20w speed 400 kts altitude 2100 meters
+   end_route
+end_platform
+
+platform redbird-default RED_ADV_FIGHTER_2
+   route
+      position 38:52n 89:30w speed 200 kts altitude 2000 meters heading 180 degrees
+   end_route
+end_platform
+
+platform bluebird-default BLUE_MULTIROLE_FIGHTER_1EF-HEL
+   track platform redbird end_track
+   route
+      position 38:32n 89:30w speed 400 kts altitude 2100 meters
+   end_route
+   
+   edit weapon hel
+      // Initialize second bluebird to use default beam director. This should cause
+      // its target to not be destroyed; we verify this in the script test below.
+      use_default_beam_director 
+   end_weapon
+end_platform
+
+start_date Jan 21 2008
+start_time 14:00:00
+
+#event_pipe
+#  file FIRE_DA_LASER.aer
+#end_event_pipe
+
+end_time 2 minutes
+
+// Auto test: Use cued laser weapon and specified director to fire at enemy redbird.
+// If redbird is not initialized at fire time, or the fire fails, fail the auto test.
+// After firing, check to ensure redbird is destroyed. If it is not, fail the auto test.
+// Also, test using the incorrect beam_director using the use_default_beam_director command.
+// If it destroys redbird-default when it shouldn't, fail the test.
+// Otherwise, auto test passes.
+execute at_time 83 sec absolute
+   WsfPlatform bluebird = WsfSimulation.FindPlatform("bluebird");
+   WsfPlatform bluebird_default = WsfSimulation.FindPlatform("bluebird-default");
+   WsfPlatform redbird = WsfSimulation.FindPlatform("redbird");
+   WsfPlatform redbird_default = WsfSimulation.FindPlatform("redbird-default");
+   WsfLaserWeapon weapon_system = (WsfLaserWeapon)bluebird.Weapon("hel");
+   WsfLaserWeapon weapon_system_default = (WsfLaserWeapon)bluebird_default.Weapon("hel");
+   
+   if(!redbird.IsValid())
+   {
+      writeln("-FAIL- WsfCuedLaserWeapon target redbird is not valid");
+   }
+   if(!redbird_default.IsValid())
+   {
+      writeln("-FAIL- WsfCuedLaserWeapon target redbird-default is not valid");
+   }
+   if(!weapon_system.Fire(bluebird.MasterTrackList().TrackEntry(0).TargetName(), "IRST"))
+   {
+      writeln("-FAIL- WsfCuedLaserWeapon failed to fire at redbird");
+   }   
+   if(!weapon_system_default.Fire(bluebird_default.MasterTrackList().TrackEntry(0).TargetName(), "IRST"))
+   {
+      writeln("-FAIL- WsfCuedLaserWeapon failed to fire at redbird-default");
+   }
+end_execute
+
+execute at_time 93 sec absolute
+   WsfPlatform redbird = WsfSimulation.FindPlatform("redbird");
+   WsfPlatform redbird_default = WsfSimulation.FindPlatform("redbird-default");
+   if(redbird.IsValid())
+   {
+      writeln("-FAIL- WsfCuedLaserWeapon failed to destroy redbird, check beam director");
+   }
+   else if (!redbird_default.IsValid())
+   {
+      writeln("-FAIL- WsfCuedLaserWeapon destroyed redbird-default when it shouldn't have");
+   }
+   else
+   {
+      writeln("-PASS- WsfCuedLaserWeapon auto test passes");
+   }
+end_execute
+
+

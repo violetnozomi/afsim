@@ -1,0 +1,47 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+random_seed 98521352
+
+platform red_1 BRAWLER_TARGET
+   side red
+   icon SU-27
+   route
+      position 00:00:41.83n 00:00:00.0e altitude 20000.0 ft speed 250 knots
+      position 00:01:23.66s 00:00:00.0e altitude 20000.0 ft speed 250 knots
+   end_route
+   heading  180 deg
+end_platform
+
+platform blue_cmdr BRAWLER_COMMANDER
+   position 00:10:00.00s  00:10:00.00e
+end_platform
+
+
+execute at_time 0.001 sec absolute
+   int NUM_TESTERS = 15;
+   WsfGeoPoint origin = WsfGeoPoint.Construct(0,0,6096);
+   for(int i=1; i<=NUM_TESTERS; i+=1)
+   {
+      double north = RANDOM.Uniform(- 5.0 * MATH.M_PER_NM(), 5.0 * MATH.M_PER_NM());   # +- 5 nm
+      double east  = RANDOM.Uniform(- 5.0 * MATH.M_PER_NM(), 5.0 * MATH.M_PER_NM());   # +- 5 nm
+      double down  = RANDOM.Uniform(-10000.0 * MATH.M_PER_FT(), 9000.0 * MATH.M_PER_FT());  #9000 ft down to 10000 ft up
+      double heading = RANDOM.Uniform(   0.0,360.0);
+      double pitch   = RANDOM.Uniform( -60.0, 60.0);
+      double roll    = RANDOM.Uniform(-135.0,135.0);
+      WsfGeoPoint nextPosition = WsfGeoPoint(origin);
+      nextPosition.OffsetNED(north,east,down);
+      WsfPlatform p = WsfSimulation.CreatePlatform("BRAWLER_TESTER");
+      p.SetLocation(nextPosition);
+      p.SetOrientationNED(heading, pitch, roll);
+      string nextName = write_str("tester_",i);
+      WsfPlatform pa = WsfSimulation.AddPlatform(p, nextName);
+   }
+end_execute
+

@@ -1,0 +1,53 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test that a towed asset is deleted if its lead platform is deleted from the simulation
+
+script_variables 
+   bool towedDeleted = false;
+end_script_variables
+
+platform_type DECOY WSF_PLATFORM
+   mover WSF_TOWED_MOVER end_mover
+   script void on_platform_deleted()
+      towedDeleted = true;
+   end_script
+end_platform_type
+
+# must have some weapon effects module
+weapon_effects DUMMY_EFFECT WSF_GRADUATED_LETHALITY end_weapon_effects
+
+weapon DECOY_WEAPON WSF_EXPLICIT_WEAPON
+   launched_platform_type DECOY
+   weapon_effects DUMMY_EFFECT
+   quantity 1
+end_weapon
+
+platform lead WSF_PLATFORM
+   add weapon decoy DECOY_WEAPON end_weapon
+   execute at_time 1 sec absolute 
+      WsfWeapon weapon = PLATFORM.Weapon("decoy");
+      weapon.Fire();   
+   end_execute
+  
+   execute at_time 2 sec absolute
+      DeletePlatform();
+   end_execute
+end_platform
+
+execute at_time 3 sec absolute
+   if (!towedDeleted)
+   {
+      writeln("-FAIL- Towed platform was not deleted");
+   }
+   else 
+   {
+      writeln("-PASS-");
+   }
+end_execute

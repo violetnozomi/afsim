@@ -1,0 +1,184 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Filename: test_sensor_ignore.txt
+# This file will validate the basic Sensor ignore input commands.
+
+include_once ../auto_script/test_functions.txt
+
+# This platform will detect everything!
+#  The next platform is identical in configuration, with the exception of what it will ignore.
+platform AirRadarDetectsEverything WSF_PLATFORM
+   side blue
+   add mover WSF_AIR_MOVER
+      route
+         position 31:00:00n 111:01:00w
+            altitude 100 ft agl
+            speed 300 knots
+            heading 90 deg
+      end_route
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+
+   add sensor mySensor WSF_GEOMETRIC_SENSOR
+      on
+
+      # Test Basic Mode Commands
+      mode modeOne
+         # Detection Scheduling Commands
+         frame_time 1.0 sec
+
+         # Track Formation Commands
+         hits_to_establish_track 1 1
+         hits_to_maintain_track 1 1
+
+         # Test Track Information Reporting Commands
+         reports_range
+
+         # WSF_GEOMETRIC_SENSOR commands
+         azimuth_field_of_view -45 deg 45 deg
+         elevation_field_of_view -45 deg 45 deg
+         minimum_range 1 feet
+         maximum_range 30 miles
+         check_terrain_masking false
+      end_mode
+   end_sensor
+end_platform
+
+# This air platform will practicing ignoring targets!
+#  It's positioned just SLIGHTLY North of the platform which detects EVERYTHING.
+platform AirRadarDetectsNothing WSF_PLATFORM
+   side blue
+   add mover WSF_AIR_MOVER
+      route
+         position 31:00:01n 111:01:00w
+            altitude 100 ft agl
+            speed 300 knots
+            heading 90 deg
+      end_route
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+
+   add sensor mySensor WSF_GEOMETRIC_SENSOR
+      on
+
+      # Validate Sensor Ignore Inputs
+      ignore ignoreMePlease
+      ignore_domain land
+      ignore_side green
+      ignore_same_side
+
+      # Test Basic Mode Commands
+      mode modeOne
+         # Detection Scheduling Commands
+         frame_time 1.0 sec
+
+         # Track Formation Commands
+         hits_to_establish_track 1 1
+         hits_to_maintain_track 1 1
+
+         # Test Track Information Reporting Commands
+         reports_range
+
+         # WSF_GEOMETRIC_SENSOR commands
+         azimuth_field_of_view -45 deg 45 deg
+         elevation_field_of_view -45 deg 45 deg
+         minimum_range 1 feet
+         maximum_range 30 miles
+         check_terrain_masking false
+      end_mode
+
+   end_sensor
+
+   execute at_time 10 sec absolute
+      bool pass = true;
+      extern void writePass(bool);
+      extern bool AssertEqualsMessage(Object,Object,string);
+      WsfSensor theIgnoreSensor = PLATFORM.Sensor("mySensor");
+      WsfSensor theDetectingSensor = WsfSimulation.FindPlatform("AirRadarDetectsEverything").Sensor("mySensor");
+
+      pass = AssertEqualsMessage(theDetectingSensor.ActiveTrackCount(),5,"You should be detecting all 5 targets.") && pass;
+      pass = AssertEqualsMessage(theIgnoreSensor.ActiveTrackCount(),1,"You should only be detecting 1 target.") && pass;
+      writePass(pass);
+   end_execute
+end_platform
+
+# In detection range, this platform we'll detect
+platform target-1 WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      route
+         position 31n 110:55:00w
+            altitude 100 ft agl
+            speed 300 knots
+            heading 90 deg
+      end_route
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+end_platform
+
+# Test 1: In detection range, not detectable due to Category
+#     Validates the ignore <category> command
+platform target-2 WSF_PLATFORM
+
+   category ignoreMePlease
+   add mover WSF_AIR_MOVER
+      route
+         # This platform is positioned slightly west of target-1
+         position 31n 110:50:10w
+            altitude 100 ft agl
+            speed 300 knots
+            heading 90 deg
+      end_route
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+end_platform
+
+# Test 2: In detection range, not detectable due to domain (land)
+#     Validates the ignore_domain command
+platform target-3 WSF_PLATFORM
+   add mover WSF_GROUND_MOVER
+      route
+         position 31n 111:00:00w # Place this further east, so you don't pass it before detection attempt
+            altitude 0 ft agl
+            speed 0 knots
+            heading 90 deg
+      end_route
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+end_platform
+
+# Test 3: In detection range, not detectable due to explicitly-defined side
+#     Validates the ignore_side command
+platform target-4 WSF_PLATFORM
+   side green
+   add mover WSF_AIR_MOVER
+      route
+         position 31n 110:50:00w
+            altitude 100 ft agl
+            speed 300 knots
+            heading 90 deg
+      end_route
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+end_platform
+
+# Test 4: In detection range, not detectable due to being on same side
+#     Validates the ignore_same_side command
+platform target-5 WSF_PLATFORM
+   side blue
+   add mover WSF_AIR_MOVER
+      route
+         position 31n 110:52:00w
+            altitude 100 ft agl
+            speed 300 knots
+            heading 90 deg
+      end_route
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+end_platform

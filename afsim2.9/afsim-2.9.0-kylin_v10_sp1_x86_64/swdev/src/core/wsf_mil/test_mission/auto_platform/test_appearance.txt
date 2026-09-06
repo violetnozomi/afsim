@@ -1,0 +1,137 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test platform 'appearance' changes.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once ../auto_script/test_functions.txt
+
+infrared_signature TEST_INFRARED_SIG
+   state other
+      constant 1000 w/sr
+   state default
+      constant 100 w/sr
+end_infrared_signature
+
+optical_signature TEST_OPTICAL_SIG
+   state other
+      constant 120 m^2
+   state default
+      constant 100 m^2
+end_optical_signature
+
+radar_signature TEST_RADAR_SIG
+   state other
+      constant 10 m^2
+   state default
+      constant 0 m^2
+end_radar_signature
+
+platform test WSF_PLATFORM
+   infrared_signature TEST_INFRARED_SIG
+   optical_signature  TEST_OPTICAL_SIG
+   radar_signature    TEST_RADAR_SIG
+
+   script_variables
+      bool mPass = true;
+   end_script_variables
+
+   execute at_time 0.1 sec relative
+      writeln("Infrared: ", InfraredSigState(),
+              " Optical: ", OpticalSigState(),
+              " Radar: ", RadarSigState());
+   end_execute
+
+   execute at_time  1 sec relative
+      extern bool AssertStringEqualsMessage(string,string,string);
+      SetInfraredSigState("other");
+      mPass = AssertStringEqualsMessage("other", InfraredSigState(), "InfraredSigState(other)") && mPass;
+   end_execute
+
+   execute at_time  2 sec relative
+      extern bool AssertStringEqualsMessage(string,string,string);
+      SetInfraredSigState("default");
+      mPass = AssertStringEqualsMessage("default", InfraredSigState(), "InfraredSigState(other)") && mPass;
+   end_execute
+
+   execute at_time 11 sec relative
+      extern bool AssertStringEqualsMessage(string,string,string);
+      SetOpticalSigState("other");
+      mPass = AssertStringEqualsMessage("other", OpticalSigState(), "OpticalSigState(other)") && mPass;
+   end_execute
+
+   execute at_time 12 sec relative
+      extern bool AssertStringEqualsMessage(string,string,string);
+      SetOpticalSigState("default");
+      mPass = AssertStringEqualsMessage("default", OpticalSigState(), "OpticalSigState(other)") && mPass;
+   end_execute
+
+   execute at_time 21 sec relative
+      extern bool AssertStringEqualsMessage(string,string,string);
+      SetRadarSigState("other");
+      mPass = AssertStringEqualsMessage("other", RadarSigState(), "RadarSigState(other)") && mPass;
+   end_execute
+
+   execute at_time 22 sec relative
+      extern bool AssertStringEqualsMessage(string,string,string);
+      SetRadarSigState("default");
+      mPass = AssertStringEqualsMessage("default", RadarSigState(), "RadarSigState(other)") && mPass;
+   end_execute
+
+   execute at_time 31 sec relative
+      extern bool AssertDoubleEqualsMessage(double,double,string);
+      SetConcealmentFactor(1.0);
+      mPass = AssertDoubleEqualsMessage(1.0, ConcealmentFactor(), "ConcealmentFactor(1.0)") && mPass;
+   end_execute
+
+   execute at_time 32 sec relative
+      extern bool AssertDoubleEqualsMessage(double,double,string);
+      SetConcealmentFactor(0.0);
+      mPass = AssertDoubleEqualsMessage(0.0, ConcealmentFactor(), "ConcealmentFactor(0.0)") && mPass;
+   end_execute
+
+   execute at_time 41 sec relative
+      extern bool AssertDoubleEqualsMessage(double,double,string);
+      SetAppearance(0, 1, 1);
+      mPass = AssertDoubleEqualsMessage(1, Appearance(), "Appearance(0, 1, 1)") && mPass;
+   end_execute
+
+   execute at_time 42 sec relative
+      extern bool AssertDoubleEqualsMessage(double,double,string);
+      SetAppearance(0, 1, 0);
+      mPass = AssertDoubleEqualsMessage(0, Appearance(), "Appearance(0, 1, 0)") && mPass;
+   end_execute
+
+   script void on_platform_deleted()
+      extern void writePass(bool);
+      writePass(mPass);
+   end_script
+
+end_platform
+
+end_time 60 secs
+
+script void PlatformAppearanceChanged(WsfPlatform aPlatform, string aItem)
+   writeln("T=", TIME_NOW, " Platform appearance changed for platform: ", aPlatform.Name(),
+           ", item: ", aItem);
+end_script
+
+observer
+   enable PLATFORM_APPEARANCE_CHANGED PlatformAppearanceChanged
+end_observer
+/*
+event_output
+   file replay.evt
+   enable PLATFORM_ADDED
+   enable PLATFORM_APPEARANCE_CHANGED
+   enable PLATFORM_DELETED
+end_event_output
+*/

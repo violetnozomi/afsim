@@ -1,0 +1,88 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+################################################################################
+#        1         2         3         4         5         6         7         8
+#2345678901234567890123456789012345678901234567890123456789012345678901234567890
+################################################################################
+
+include ../../data/radars/radar_tps-1d.txt
+
+radar_signature TARGET_RADAR_SIGNATURE
+  constant 20 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+  radar_signature TARGET_RADAR_SIGNATURE
+end_platform_type
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+  side red
+  icon Ground_Radar
+  sensor radar-1 TPS-1D_SENSOR
+  end_sensor
+end_platform_type
+
+platform <default> SENSOR_PLATFORM_TYPE
+  position 38:03:48n 46:18:36e heading 90 deg
+end_platform
+
+platform <default> SENSOR_PLATFORM_TYPE
+  position 35:40:12n 51:23:48e 
+end_platform
+
+platform <default> SENSOR_PLATFORM_TYPE
+  position 35:09:12n 48:43:36e
+end_platform
+
+horizontal_map
+  target_region
+    latitude_range  30n 43n
+    longitude_range 42e 55e
+    latitude_step   0.05
+    longitude_step  0.05
+  end_target_region
+
+  target_speed 400 kts
+  target_altitude 10000 ft msl
+  target_pitch 2 deg
+
+  # The report file contains the 'defended area' report.
+  report_file coverage.rpt
+
+  # The sedit file has coverage zones.
+  sedit_file coverage.sed
+  
+  contour_level 0.1
+     line_color 0.1 0.1 0.9
+  end_contour_level
+  contour_level 0.5
+     line_color 1.0 0.5 0.0
+  end_contour_level
+  contour_level 0.9
+     line_color 0.9 0.1 0.1
+  end_contour_level
+  
+  analysis_map
+    file analysis_map.dat
+    color_range 0.9 to 1.0 0.9 0.1 0.1 1.0
+    color_range 0.5 to 0.9 1.0 0.5 0.0 1.0
+    color_range 0.1 to 0.5 0.1 0.1 0.9 1.0
+    color_range 0.0 to 0.1 0.0 0.0 0.0 0.0
+    data_title Pd
+    units Pd
+  end_analysis_map
+
+end_horizontal_map
+
+terrain
+  load_cme_terrain
+end_terrain

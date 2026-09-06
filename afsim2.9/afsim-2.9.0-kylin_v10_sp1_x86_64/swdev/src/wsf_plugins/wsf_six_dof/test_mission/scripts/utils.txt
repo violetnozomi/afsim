@@ -1,0 +1,59 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void Fail(string aMessage)
+   writeln("-FAIL- ", aMessage);
+end_script
+
+script bool ExpectDouble(double aMeasured, double aExpected, double aTolerance, string aMessage)
+   if (MATH.Fabs(aMeasured - aExpected) > aTolerance)
+   {
+      Fail(aMessage + " " + (string)aMeasured + " " + (string)aExpected);
+      return false;
+   }
+   return true;
+end_script
+
+script bool ExpectBool(bool aMeasured, bool aExpected, string aMessage)
+   if ((aMeasured && !aExpected) || (!aMeasured && aExpected))
+   {
+      Fail(aMessage);
+      return false;
+   }
+   return true;
+end_script
+
+script bool ExpectString(string aMeasured, string aExpected, string aMessage)
+   if (aMeasured != aExpected)
+   {
+      Fail(aMessage);
+      return false;
+   }
+   return true;
+end_script
+
+script bool ExpectInt(int aMeasured, int aExpected, string aMessage)
+   if (aMeasured != aExpected)
+   {
+      Fail(aMessage);
+      return false;
+   }
+   return true;
+end_script
+
+script bool ExpectAngleDegrees(double aMeasured, double aExpected, double aTolerance, string aMessage)
+   if ((MATH.Fabs(aMeasured - aExpected) > aTolerance) &&
+       (MATH.Fabs(aMeasured - aExpected + 360) > aTolerance) &&
+       (MATH.Fabs(aMeasured - aExpected - 360) > aTolerance))
+   {
+   	Fail(aMessage + " " + (string)aMeasured + " " + (string)aExpected);
+	return false;
+   }
+   return true;
+end_script

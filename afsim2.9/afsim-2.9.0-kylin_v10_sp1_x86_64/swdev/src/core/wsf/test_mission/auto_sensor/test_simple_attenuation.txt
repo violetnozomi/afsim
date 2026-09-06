@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# -----------------------------------------------------------------------------
+# A basic test of the simple attenuation. It basically just makes sure it runs,
+# accepts all of its commands, and when run under 'valgrind', doesn't trigger
+# any errors.
+# -----------------------------------------------------------------------------
+#
+# Run once to get the specific attenuation for the ITU model for the conditions
+# under test. Then update the simple model so it has the same specific attenuation.
+#
+# The resulting event_output should show the same attenuation.
+# -----------------------------------------------------------------------------
+
+attenuation_model RADAR_ATTENUATION_ITU itu
+   query
+      frequency    3 ghz
+      polarization vertical
+      altitude     9500 m              # In the middle of the layer
+      range        2 km
+      elevation    0.0 deg
+   end_query
+end_attenuation_model
+
+attenuation_model RADAR_ATTENUATION_SIMPLE simple
+   specific_attenuation 0.0011315 dB/km
+end_attenuation_model
+
+sensor RADAR WSF_RADAR_SENSOR
+   frame_time 10 sec
+   transmitter
+      frequency 3 ghz
+      polarization vertical
+      power 250 kw
+   end_transmitter
+   one_m2_detect_range 200 nm
+   reports_location
+   on
+   ignore_same_side
+end_sensor
+
+platform radar-itu WSF_PLATFORM
+   side red
+   position 0n 0w altitude 9500 m heading 90 deg
+   add sensor radar RADAR
+      transmitter
+         attenuation_model RADAR_ATTENUATION_ITU
+      end_transmitter
+   end_sensor
+end_platform
+
+platform radar-simple WSF_PLATFORM
+   side red
+   position 0n 0w altitude 9500 m heading 90 deg
+   add sensor radar RADAR
+      transmitter
+         attenuation_model RADAR_ATTENUATION_SIMPLE
+      end_transmitter
+   end_sensor
+end_platform
+
+radar_signature TARGET_RADAR_SIG
+   constant 0 dbsm
+end_radar_signature
+
+# Target will be 5 km at 0 apparent el, so we should get 10 km of attenuation
+platform target WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+   side blue
+   position 0n 0.04484895w altitude 9501.47 m heading 270 deg
+end_platform
+
+event_output
+   file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+end_time 5 sec

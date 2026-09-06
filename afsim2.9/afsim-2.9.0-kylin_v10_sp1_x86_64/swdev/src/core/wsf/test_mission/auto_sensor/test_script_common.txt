@@ -1,0 +1,149 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that the common script interface is correctly implemented on sensors.
+
+script_variables
+   int updateAttempts = 0;
+   int initializeAttempts = 0;
+   bool singleExecution = false;
+   int executionAttempts = 0;
+end_script_variables
+
+sensor GEO_1 WSF_GEOMETRIC_SENSOR
+   mode_template
+      frame_time 1 s
+      reports_location
+   end_mode_template
+   mode short_range
+      maximum_range 1 km
+   end_mode
+   mode long_range
+      platform_type WSF_PLATFORM
+         detection_range 15 km
+         pd_range_table
+            1.0    1 km
+            0.0    1.00000001 km
+            0.0    5 km
+            0.0    8 km
+            0.0    9.99999999 km
+            1.0    10 km
+         end_pd_range_table
+   end_mode
+   
+   script_variables
+      bool definedInTypeBool = false;
+   end_script_variables
+   
+   execute at_time 5 seconds absolute
+      if (SENSOR.CurrentMode() != "short_range")
+      {
+         writeln("-FAIL- WsfSensor methods are not correctly modifying sensor attributes");
+      }
+      if (PLATFORM.Side() != "magenta")
+      {
+         writeln("-FAIL- Parent WsfPlatform methods are inaccessible");
+      }
+      if (TIME_NOW != 5)
+      {
+         writeln("-FAIL- The predefined time variable was implemented incorrectly");
+      }
+      singleExecution = true;
+   end_execute
+end_sensor
+
+platform test_plat WSF_PLATFORM
+   position 0n 0e
+   add sensor geo-1 GEO_1
+      on
+      #debug
+      initial_mode long_range
+      
+      script_variables
+         // The boolean value will determine whether dummy's sign is switched on initialization
+         // The 2nd initialization verifies that the dummy was modified
+         bool definedOnSensorBool = true;
+         int changeSigns = -1;
+      end_script_variables
+      
+      on_initialize
+         initializeAttempts = initializeAttempts + 1;
+         if (definedOnSensorBool)
+         {
+            changeSigns = changeSigns * -1;
+         }
+         if (definedInTypeBool)
+         {
+            writeln(" -FAIL- Could not access script variables defined on the sensor type");
+         }
+         definedInTypeBool = true;
+      end_on_initialize
+      
+      on_initialize2
+         initializeAttempts = initializeAttempts + 1;
+         if (PLATFORM.Name() != "test_plat" || Name() != "geo-1" || TIME_NOW != 0)
+         {
+            writeln( "-FAIL- Predefined variables are inaccessible or produce incorrect values");
+         }
+         if (changeSigns < 0 || !definedInTypeBool) 
+         {
+            writeln( "-FAIL- Initialization incorrectly handled");
+         }
+         SENSOR.SelectMode("short_range");
+         PLATFORM.SetSide("magenta");
+      end_on_initialize2
+           
+      execute at_interval_of 1 minute
+         executionAttempts = executionAttempts + 1;
+      end_execute
+      
+      on_update
+         updateAttempts = updateAttempts + 1;
+      end_on_update 
+   end_sensor
+end_platform
+
+# Verify that WSF_PLATFORM is found in the sensor's platform_type data
+platform_type TARGET_TYPE WSF_PLATFORM end_platform_type
+platform test_target1 TARGET_TYPE
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 0n 0e
+         speed 100 m/s
+         altitude 1 km
+      position 1n 0e
+   end_route
+end_platform
+
+script void check_all_pass()
+   # Verify that the common scripts are actually invoked
+   if (initializeAttempts != 2)
+   {
+      writeln(" -FAIL- Common initialization scripts not invoked");
+   }
+   if (updateAttempts != 301)   # once every second, including T = 0
+   {
+      writeln(" -FAIL- Common update scripts not invoked. Expected 301 on_update executions instead of ", updateAttempts);
+   }
+   if (!singleExecution)
+   {
+      writeln(" -FAIL- The execute at_time script was not invoked.");
+   }
+   if (executionAttempts != 5) 
+   {
+      writeln(" -FAIL- Common interval execution scripts not invoked. Expected 3 executions instead of ", executionAttempts);
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE check_all_pass
+end_observer
+
+end_time 5 min

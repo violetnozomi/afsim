@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Exercise the WsfSimulation.TestFeature().
+#
+# This isn't really a 'test', it just calls the methods and displays the
+# results. We can't really test because the executable does not know
+# a prioi what features are present!
+
+on_initialize
+
+   writeln(" ");
+   write("Operating System: ");
+   if (WsfSimulation.TestFeature("os:windows"))
+   {
+      writeln("Windows");
+   }
+   else if (WsfSimulation.TestFeature("os:linux"))
+   {
+      writeln("Linux");
+   }
+   else
+   {
+      writeln("Unknown");
+   }
+
+   write("Processor       : ");
+   if (WsfSimulation.TestFeature("cpu:intel"))
+   {
+      writeln("Intel");
+   }
+   else
+   {
+      writeln("Unknown");
+   }
+
+   write("Addressing      : ");
+   if (WsfSimulation.TestFeature("addr:32-bit"))
+   {
+      writeln("32-bit");
+   }
+   else if (WsfSimulation.TestFeature("addr:64-bit"))
+   {
+      writeln("64-bit");
+   }
+   else
+   {
+      writeln("Unknown");
+   }
+
+   write("Build           : ");
+   if (WsfSimulation.TestFeature("build:debug"))
+   {
+      writeln("Debug");
+   }
+   else if (WsfSimulation.TestFeature("build:release"))
+   {
+      writeln("Release");
+   }
+   else
+   {
+      writeln("Unknown");
+   }
+   writeln(" ");
+end_on_initialize
+
+end_time 1 sec
+
+

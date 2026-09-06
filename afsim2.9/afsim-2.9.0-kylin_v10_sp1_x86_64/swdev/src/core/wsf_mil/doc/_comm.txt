@@ -1,0 +1,46 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Frequency Selection Notes
+*************************
+
+.. note::
+   This input (frequency_select_delay) is only operational for the :model:`WSF_AGILITY_EFFECT` **frequency_changing** functionality.
+
+Jamming Detection Commands
+==========================
+
+.. parsed-literal::
+
+    comm_ <name-or-type> <base-type-name>
+      # `Jamming Detection Commands`_
+
+      jamming_perception_timeout_ <time-value>
+      jamming_perception_threshold_ <ratio>
+      continuous_jamming_perception_threshold_ <ratio>
+      pulsed_jamming_perception_threshold_ <ratio>
+      coherent_jamming_perception_threshold_ <ratio>
+    end_comm
+
+These commands are can be used to assist in the simulation of an operator detecting that communications are being jammed.
+
+.. command:: jamming_perception_timeout <time-value>
+
+   Specifies the time after which jamming that was perceived is no longer perceived that the perception of jamming will be returned to a 'false' state. If jamming is perceived again before this time has elapsed then the perception of jamming will be maintained 'true'.
+
+   **Default** 0.0 seconds
+
+.. command:: jamming_perception_threshold <ratio>
+.. command:: continuous_jamming_perception_threshold <ratio>
+.. command:: pulsed_jamming_perception_threshold <ratio>
+.. command:: coherent_jamming_perception_threshold <ratio>
+
+   Specifies the minimum threshold value that jamming will be perceived by the operator. Often used in conjunction with jamming_perception_timeout_, :method:`JammingPerceived <WsfComm.JammingPerceived>` script method.
+
+   **Default** 380 dB

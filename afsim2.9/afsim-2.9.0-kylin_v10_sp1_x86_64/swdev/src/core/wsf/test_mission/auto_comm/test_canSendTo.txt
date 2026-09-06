@@ -1,0 +1,151 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   int num_messages = 0;
+end_script_variables
+
+// Because routers act as bridges allowing transfer of data between
+// different comm types, use a different router than default for
+// these interface.
+
+router WIRED_ROUTER WSF_COMM_ROUTER
+end_router
+router RADIO_ROUTER WSF_COMM_ROUTER
+end_router
+
+network NET WSF_COMM_NETWORK_MESH
+end_network
+
+comm WIRED_COMM WSF_COMM_TRANSCEIVER
+   network_name NET
+   router_name wiredRouter
+end_comm
+
+comm RADIO_COMM WSF_RADIO_TRANSCEIVER
+   network_name NET
+   router_name radioRouter
+   transmitter
+      power 1 dbw
+      frequency 1 mhz
+   end_transmitter
+   receiver
+      frequency 1 mhz
+      detection_threshold 120 db
+   end_receiver
+end_comm
+
+platform test1 WSF_PLATFORM
+   position 0n 0e
+   altitude 20000 ft
+   add comm wired1 WIRED_COMM
+   end_comm
+   add comm radio1 RADIO_COMM
+   end_comm
+   add router wiredRouter WIRED_ROUTER
+   end_router
+   add router radioRouter RADIO_ROUTER
+   end_router
+end_platform
+
+platform test2 WSF_PLATFORM
+   position 0n 0e
+   altitude 20000 ft
+   add comm wired1 WIRED_COMM
+   end_comm
+   add comm radio1 RADIO_COMM
+   end_comm
+   add router wiredRouter WIRED_ROUTER
+   end_router
+   add router radioRouter RADIO_ROUTER
+   end_router
+end_platform
+
+platform test3 WSF_PLATFORM
+   position 0n 1e
+   altitude 20000 ft
+   add comm wired1 WIRED_COMM
+   end_comm
+   add comm radio1 RADIO_COMM
+   end_comm
+   add router wiredRouter WIRED_ROUTER
+   end_router
+   add router radioRouter RADIO_ROUTER
+   end_router
+end_platform
+
+execute at_time 1 s absolute
+   WsfComm test1wired = WsfSimulation.FindPlatform("test1").Comm("wired1");
+   WsfComm test1radio = WsfSimulation.FindPlatform("test1").Comm("radio1");
+   WsfComm test2wired = WsfSimulation.FindPlatform("test2").Comm("wired1");
+   WsfComm test2radio = WsfSimulation.FindPlatform("test2").Comm("radio1");
+   WsfComm test3wired = WsfSimulation.FindPlatform("test3").Comm("wired1");
+   WsfComm test3radio = WsfSimulation.FindPlatform("test3").Comm("radio1");
+
+   WsfMessage message = {};
+   test1wired.SendMessage(message, test2wired);
+   message = {};
+   test1wired.SendMessage(message, test3wired);
+   message = {};
+   test1radio.SendMessage(message, test2radio);
+   message = {};
+   test1radio.SendMessage(message, test3radio);
+
+   if(!test1wired.CanSendTo(test2wired))
+   {
+      writeln("FAIL WIRED 1 TO WIRED 2");
+      writeln("-FAIL-");
+   }
+   if(!test1wired.CanSendTo(test3wired))
+   {
+      writeln("FAIL WIRED 1 TO WIRED 3");
+      writeln("-FAIL-");
+   }
+   if(!test1radio.CanSendTo(test2radio))
+   {
+      writeln("FAIL RADIO 1 TO RADIO 2");
+      writeln("-FAIL-");
+   }
+   if(test1radio.CanSendTo(test3radio))
+   {
+      writeln("FAIL RADIO 1 TO RADIO 3");
+      writeln("-FAIL-");
+   }
+   if(test1wired.CanSendTo(test1radio))
+   {
+      // NOTE! - This would succeed if these
+      // members are on the same router. Routers
+      // bridge connections between comms, regardless
+      // of type incompatabilities and send/receive
+      // differences.
+      writeln("FAIL WIRED 1 TO RADIO 1");
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 5 s absolute
+   if(num_messages != 3)
+   {
+      writeln("Messages received: " + (string)num_messages);
+      writeln("-FAIL-");
+   }
+end_execute
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   num_messages = num_messages + 1;
+end_script
+
+observer
+   enable MESSAGE_RECEIVED MessageReceived
+end_observer
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output

@@ -1,0 +1,359 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests the base functionality of the script WsfEM_Antenna object.
+
+antenna_pattern RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain           35 dB
+     minimum_gain       -20 dB
+     azimuth_beamwidth   5 deg
+     elevation_beamwidth 45 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+sensor TEST_RADAR WSF_RADAR_SENSOR
+   // These values are generated solely for testing and
+   // are not based on any analog
+   frame_time 5.0 sec
+   reports_side
+   
+   scan_mode both
+   scan_stabilization pitch_and_roll
+   antenna_height 0.43 m
+   antenna_pitch 0.012 rad
+   electronic_beam_steering azimuth_and_elevation
+   electronic_beam_steering_loss_exponent_azimuth 0.1
+   electronic_beam_steering_loss_exponent_elevation 0.2
+   electronic_beam_steering_limit 45 deg
+   azimuth_field_of_view -179.5 deg 122.6 deg
+   elevation_field_of_view -88.4 deg 55.3 deg
+   maximum_range 86539.0 m
+   minimum_range 1022.0 m
+   maximum_altitude 22443.0 m
+   minimum_altitude 1212.0 m
+   elevation_scan_limits -67.3 deg 75.9 deg
+   azimuth_scan_limits -144.7 deg 69.4 deg
+   
+   transmitter
+      duty_cycle 0.5
+      frequency             2.0 ghz
+      alternate_frequency 1 2.1 ghz
+      alternate_frequency 2 2.2 ghz
+      antenna_pattern_table
+         polarization default
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+      end_antenna_pattern_table
+      powers
+         frequency 2.0 ghz 75000 watts
+         frequency 2.1 ghz 70000 watts
+         frequency 2.2 ghz 55000 watts
+      end_powers
+      pulse_width 50 usec
+      pulse_repetition_frequencies
+         prf 1 500 hz
+         prf 2 350 hz
+      end_pulse_repetition_frequencies
+      internal_loss              2 db
+      pulse_compression_ratio    13 absolute
+   end_transmitter
+   
+   receiver 
+      frequency 2.0 ghz
+      beam_tilt 1.2 deg
+      bandwidth 20000 hz
+      instantaneous_bandwidth 10000 hz
+      internal_loss 1.1 db
+      antenna_pattern_table
+         polarization default
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+         polarization horizontal
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+         polarization vertical
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+      end_antenna_pattern_table
+   end_receiver
+end_sensor
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   sensor sensor TEST_RADAR
+   end_sensor
+end_platform_type
+
+platform test_radar TEST_PLATFORM
+end_platform
+
+script bool FloatEqual(double aVal1, double aVal2)
+   if((aVal1 > (aVal2 - 1.0E-10)) && (aVal1 < (aVal2 + 1.0E-10)))
+   {
+      return true;
+   }
+   return false;
+end_script
+
+script void TestAntennaEBS(string testName, WsfEM_Antenna antenna, string mode, double limitDeg, double lossAz, double lossEl)
+   double ebsAzCos = antenna.EBS_AzimuthCosineSteeringLimit();
+   double ebsElCos = antenna.EBS_ElevationCosineSteeringLimit();
+   double ebsAzLoss = antenna.EBS_AzimuthLossExponent();
+   double ebsElLoss = antenna.EBS_ElevationLossExponent();
+   string ebsMode = antenna.EBS_Mode();
+   
+   if(ebsAzCos != ebsElCos)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("EBS limit match fail.");
+   }
+   
+   if(ebsAzCos != Math.Cos(limitDeg))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("EBS limit Az fail.");   
+   }
+   
+   if(ebsElCos != Math.Cos(limitDeg))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("EBS limit El fail.");   
+   }
+   
+   if(ebsAzLoss != lossAz)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("EBS loss Az fail.");   
+   }
+   
+   if(ebsElLoss != lossEl)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("EBS loss El fail.");   
+   }   
+   
+   if(ebsMode != mode)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("EBS mode fail.");   
+   } 
+   
+   antenna.SetEBS_Mode("none");
+   if(antenna.EBS_Mode() != "none")
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("EBS set mode fail.");
+   }
+   
+   antenna.SetEBS_Mode(ebsMode);   
+end_script
+
+// passed values expected in degrees
+script void TestAntennaFOV(string testName, WsfEM_Antenna antenna, double minAz, double maxAz, double minEl, double maxEl)
+   Array<double> azFov = antenna.AzimuthFieldOfView();
+   Array<double> elFov = antenna.ElevationFieldOfView();
+   
+   if(azFov.Size() != 2 || elFov.Size() != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Az/El FOV Size Error");
+      return;
+   }
+   
+   if(!FloatEqual(azFov[0], minAz))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Az FOV min Error");   
+   }
+   
+   if(!FloatEqual(azFov[1], maxAz))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Az FOV max Error");     
+   }
+   
+   if(!FloatEqual(elFov[0], minEl))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("El FOV min Error");     
+   }
+   
+   if(!FloatEqual(elFov[1], maxEl))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("El FOV max Error");     
+   }   
+end_script
+
+script void TestAntennaAltRangeScan(string testName, WsfEM_Antenna antenna, double maxAlt, double minAlt, 
+                                    double maxRange, double minRange, double minAzScan, double maxAzScan, 
+                                    double minElScan, double maxElScan)
+                                    
+   double maxAltVal = antenna.MaximumAltitude();
+   double maxRangeVal = antenna.MaximumRange();
+   double maxAzScanVal = antenna.MaximumAzimuthScanLimit();
+   double maxElScanVal = antenna.MaximumElevationScanLimit();
+
+   double minAltVal = antenna.MinimumAltitude();
+   double minRangeVal = antenna.MinimumRange();
+   double minAzScanVal = antenna.MinimumAzimuthScanLimit();
+   double minElScanVal = antenna.MinimumElevationScanLimit();
+   
+   if(!FloatEqual(maxAltVal, maxAlt))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Max Alt Error");     
+   }
+   
+   if(!FloatEqual(minAltVal, minAlt))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Min Alt Error");     
+   }
+   
+   if(!FloatEqual(maxRangeVal, maxRange))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Max Range Error");     
+   }
+   
+   if(!FloatEqual(minRangeVal, minRange))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Min Range Error");     
+   }
+   
+   if(!FloatEqual(maxAzScanVal, maxAzScan))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Max Az Scan Error");     
+   }
+   
+   if(!FloatEqual(minAzScanVal, minAzScan))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Min Az Scan Error");     
+   }
+   
+   if(!FloatEqual(maxElScanVal, maxElScan))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Max El Scan Error");     
+   }
+   
+   if(!FloatEqual(minElScanVal, minElScan))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Min El Scan Error");     
+   }
+end_script
+
+script void TestAntennaGeneric(string testName, WsfEM_Antenna antenna, double height, double pitch, string scanMode, string scanStabilization)
+   double heightVal = antenna.Height();
+   double pitchVal = antenna.Pitch();
+   string scanModeVal = antenna.ScanMode();
+   string scanStabilizationVal = antenna.ScanStabilization();
+   
+   if(!FloatEqual(heightVal, height))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Height Error");    
+   }
+   
+   if(!FloatEqual(pitchVal, pitch * Math.DEG_PER_RAD()))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Pitch Error");    
+   }
+   
+   if(scanModeVal != scanMode)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Scan Mode Error");    
+   }
+
+   if(scanStabilizationVal != scanStabilization)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Scan Stabilization Error");    
+   }
+   
+   antenna.SetScanMode("fixed");
+   antenna.SetScanStabilization("none");
+   
+   if(antenna.ScanMode() != "fixed")
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Scan Mode Set Error");    
+   }
+
+   if(antenna.ScanStabilization() != "none")
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Scan Stabilization Set Error");    
+   }
+   
+   antenna.SetScanMode(scanModeVal);
+   antenna.SetScanStabilization(scanStabilizationVal);
+end_script
+
+execute at_time 1.0 s absolute
+   WsfPlatform platform = WsfSimulation.FindPlatform("test_radar");
+   WsfSensor sensor = platform.Sensor("sensor");
+   WsfEM_Xmtr xmtr = sensor.Xmtr(0);
+   WsfEM_Rcvr rcvr = sensor.Rcvr(0);
+
+   WsfEM_Antenna antenna = xmtr.Antenna();
+   WsfEM_Antenna antenna2 = rcvr.Antenna();
+
+   if(antenna != antenna2)
+   {
+      writeln("-FAIL-");
+      writeln("Xmtr/Rcvr Antenna match error.");
+   }
+
+   TestAntennaEBS("XMTR_EBS", antenna, "both", 45.0, 0.1, 0.2);
+   TestAntennaEBS("RCVR_EBS", antenna2, "both", 45.0, 0.1, 0.2);
+   TestAntennaFOV("XMTR_FOV", antenna, -179.5, 122.6, -88.4, 55.3);
+   TestAntennaFOV("RCVR_FOV", antenna2, -179.5, 122.6, -88.4, 55.3);
+   TestAntennaAltRangeScan("XMTR_ALT_RANGE_AND_SCAN", antenna, 22443.0, 1212.0, 86539.0, 1022.0, -144.7, 69.4, -67.3, 75.9);
+   TestAntennaAltRangeScan("RCVR_ALT_RANGE_AND_SCAN", antenna2, 22443.0, 1212.0, 86539.0, 1022.0, -144.7, 69.4, -67.3, 75.9);
+   TestAntennaGeneric("XMTR_GENERIC", antenna, 0.43, 0.012, "both", "pitch_and_roll");
+   TestAntennaGeneric("RCVR_GENERIC", antenna2, 0.43, 0.012, "both", "pitch_and_roll");
+end_execute

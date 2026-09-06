@@ -1,0 +1,97 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 10 2022
+start_time 12:00:00.000
+end_time 1 hr
+
+include_once ../utils.txt
+
+platform_type WISM WSF_PLATFORM
+   empty_mass 1 kg
+   mover WSF_INTEGRATING_SPACE_MOVER
+      dynamics 
+         term earth_monopole 
+         end_term
+      end_dynamics
+
+      orbital_state
+         position -7.723913634184e+06 8.374360562316e+05 1.958512330441e+06 m 
+         velocity -1.620093052546e+03 -5.832697902422e+03 -3.659586165126e+03 m/s 
+         epoch platform_creation_epoch
+      end_orbital_state
+      
+      integrator prince_dormand_78
+      end_integrator
+   end_mover
+end_platform_type
+
+# Exists at start of simulation.
+platform pce_rv WISM   
+end_platform
+
+# Platform type created after simulation start.
+platform_type PCE_RV_LATE WISM   
+   on_initialize2
+      Array<Object> args = {PLATFORM.Name()};
+      WsfSimulation.ExecuteAtTime(TIME_NOW, "TestKinematics", args);
+   end_on_initialize2
+end_platform_type
+
+platform pce_rv_const PCE_RV_LATE
+   creation_time 1000 s
+end_platform
+
+platform pce_rv_dist PCE_RV_LATE
+   creation_time uniform minimum 5 min maximum 15 min
+end_platform
+
+script_variables
+   double RV_CREATION_TIME = 100;
+end_script_variables
+
+platform pce_rv_var PCE_RV_LATE
+   creation_time /variable RV_CREATION_TIME 
+end_platform
+
+# Script-based creation
+execute at_time 2000 sec absolute
+   WsfPlatform script_sv = WsfSimulation.CreatePlatform("PCE_RV_LATE");
+   WsfSimulation.AddPlatform(script_sv, "script_sv");
+end_execute
+
+script_variables
+   double cTOLERANCE = 1.e-8;
+end_script_variables
+
+script void TestKinematics(string aPlatformName)
+   Vec3 posExp = Vec3.Construct(-7.723913634184e+06, 8.374360562316e+05, 1.958512330441e+06);
+   Vec3 velExp = Vec3.Construct(-1.620093052546e+03, -5.832697902422e+03, -3.659586165126e+03);
+   WsfPlatform plat = WsfSimulation.FindPlatform(aPlatformName);
+   ExpectBool(plat.IsValid(), true, "Platform " + aPlatformName + " is valid");
+   if (plat.IsValid())
+   {
+      Vec3 pos = plat.LocationECI();
+      Vec3 vel = plat.VelocityECI();
+      ExpectDouble(pos[0], posExp[0], cTOLERANCE, "Pos X");
+      ExpectDouble(pos[1], posExp[1], cTOLERANCE, "Pos Y");
+      ExpectDouble(pos[2], posExp[2], cTOLERANCE, "Pos Z");
+      ExpectDouble(vel[0], velExp[0], cTOLERANCE, "Vel X");
+      ExpectDouble(vel[1], velExp[1], cTOLERANCE, "Vel Y");
+      ExpectDouble(vel[2], velExp[2], cTOLERANCE, "Vel Z");
+   }
+end_script
+
+script void TestExistingPlatforms()
+   TestKinematics("pce_rv");
+end_script
+
+observer
+   enable SIMULATION_STARTING TestExistingPlatforms
+end_observer

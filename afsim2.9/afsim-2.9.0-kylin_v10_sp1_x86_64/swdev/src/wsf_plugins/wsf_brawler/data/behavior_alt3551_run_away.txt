@@ -1,0 +1,152 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt35.f
+// Replicates the 1v1 Defensive Maneuver 3,5,5,1 alternative behavior
+// RUN AWAY!
+
+include_once BrawlerScriptUtil.txt
+
+behavior alt3551_run_away
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3551Enabled = true;
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 5;
+      int icall  = 5;
+      int lcall  = 1;
+
+      // Maneuver Alternative flight values
+      Vec3 mDir0 = Vec3();
+      double mGMX = 1.0;
+      double mSpd0 = 3.0;
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt3551_run_away, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3551Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         writeln_d("no weapon (hostile) tasks!");
+         return Failure("no weapon (hostile) tasks!");
+      }
+      WsfTask targetTask = tasks.Entry(0);
+      WsfLocalTrack hostile = PLATFORM.MasterTrackList().Find(targetTask.LocalTrackId());
+      if (!hostile.IsValid())
+      {
+         writeln_d("no hostile track!");
+         return Failure("no hostile track!");
+      }
+
+      //TODO - change this script so it doesn't use a truth method?
+      if (hostile.TargetKilled())
+      {
+         writeln_d("hostile was destroyed!");
+         return Failure("hostile was destroyed!");
+      }
+
+     // alt35.f line 233 - 234
+#      rrunmn = 5.*ramp(twopi,obang(iac,me)+obang(me,iac),0.)
+#      if(rngun(iac)*ftnmi .lt. rrunmn) go to 205
+      double obang_hostile_me = BRAWLER.OffBoresightAngle(hostile.Target(), PLATFORM);
+      double obang_me_hostile = BRAWLER.OffBoresightAngle(PLATFORM, hostile.Target());
+      double rrunmn = 5.0 * ramp(Math.TWO_PI(), obang_hostile_me + obang_me_hostile, 0.0);
+
+      double projectionTime = TIME_NOW + BRAWLER.ProjectedTimeDelta();
+      WsfGeoPoint projectedHostileLocation = hostile.LocationAtTime(projectionTime);
+      double rangeToHostile = PLATFORM.SlantRangeTo(projectedHostileLocation);
+
+      if (rangeToHostile * Math.M_PER_NM() < rrunmn)
+      {
+         // Hostile too far
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " range to hostile < minimum range to run");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+
+      // ALL CONDITIONS PASS
+      ### Generate Maneuver Alternative
+      // alt35.f line 235 - 243
+#245   continue
+#      iactn = 4
+#      call vmult(-1.,dxeuan(1,iac),dir0)
+#      lenalt = lactn(iactn)
+#      altdsc = altpk(3,5,icall,1,iacidt(iac),0)
+#      dir0(3) = 0.
+#      gmx = gmxsu
+#      spd0 = 3.
+#      spdmod = thrttl
+
+      Vec3 dxeuan = RelativePositionNED(PLATFORM.Location(), projectedHostileLocation);
+      mDir0.SetX(dxeuan.X() * -1.0);
+      mDir0.SetY(dxeuan.Y() * -1.0);
+      mDir0.SetZ(0.0);
+      mGMX = BRAWLER.MaxSustainedGs();
+      mSpd0 = 3.0;
+
+      ### Evaluate [Projected] Maneuver Alternative
+      double score = BRAWLER.EvaluateVectorWithThrottle(mDir0, mGMX, mSpd0, ilevel, kalt, icall, lcall);
+      writeln_d("mDir0 = ", mDir0.ToString(), ", mGMX = ", mGMX, ", mSpd0 = ", mSpd0, ", score = ", score, ", my speed = ", PLATFORM.Speed());
+      return score;
+
+   end_precondition
+
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.FlyVectorWithThrottle(mDir0, mGMX, mSpd0);
+   end_execute
+
+end_behavior
+

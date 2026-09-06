@@ -1,0 +1,61 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _error_model.bistatic_error:
+
+bistatic_error
+**************
+
+This error model still uses the sensor mode's :command:`sensor_mode.azimuth_error_sigma` and :command:`sensor_mode.elevation_error_sigma`.  Its function is to use the instantaneous measurement to calculated the dynamic range sigma.  This command is mutually exclusive with range_sigma, transmit_only, and compute_measurement_errors.  The latter command would cause this model to be bypassed.  This model requires a direct line of sight to *both* the transmitter (direct signal) *and* to the target (reflected signal) to get a successful detection.
+
+The error model is based on paper "A Three-dimensional Bistatic Radar Target Position Measurement Error Model", R. K. Lynn.
+
+.. parsed-literal::
+
+ error_model <derived-name> bistatic_error
+    realistic_blurring_
+    time_reflected_sigma_ ...
+    time_direct_sigma_ ...
+    transmitter_position_sigmas_ ... end_transmitter_position_sigmas
+ end_error_model
+
+.. command:: realistic_blurring
+
+   Specifies to apply a Gaussian distrubution to the range error based on the calculated dynamic range error sigma.
+
+   **Default:** disabled
+
+.. command:: time_reflected_sigma <time-value> 
+   
+   Specifies the reflected time measurement sigma.  The reflected time, or scatter time (ts), is the time of reception of
+   a signal that travels from transmitter to target and then to receiver.
+
+.. command:: time_direct_sigma <time-value>
+   
+   Specifies the direct time measurement sigma.  The direct time (tx) is the time of reception of a signal that travels
+   from transmitter directly to the receiver.
+
+.. command:: transmitter_position_sigmas <length-value> ... end_transmitter_position_sigmas
+   :block:
+   
+   Specifies a dual-key table of transmitter platform to the sigmas associated with their location measurement sigmas. 
+   Note that the transmitter in a bistatic transaction can be on the red/opposite team. The key is a pairing of the side
+   and domain.
+   
+   The format of the table is:
+   
+   .. parsed-literal::
+
+    transmitter_position_sigmas_ *<length-value>*
+        *#  side   domain   position_sigma_x  position_sigma_y  position_sigma_z*
+        *   blue   land     10                10                10*
+        *   blue   air      20                20                20*
+        *   red    land     5000              5000              5000*
+        *   red    air      5000              5000              5000*
+    end_transmitter_position_sigmas

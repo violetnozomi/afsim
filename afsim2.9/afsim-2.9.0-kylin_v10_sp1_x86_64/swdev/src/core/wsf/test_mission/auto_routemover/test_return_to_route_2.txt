@@ -1,0 +1,58 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test ReturnToRoute after TurnToHeading()
+#
+include_once ../auto_script/test_functions.txt
+end_time 15 min
+
+platform p1 WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      update_interval 1 s
+   end_mover
+
+   route
+      position 0n 0e altitude 1 km speed 300 kts
+      position 0.5n 0e
+      position 0.5n 1e
+   end_route
+
+   execute at_time 11.0 min absolute
+      PLATFORM.TurnToHeading(180);
+   end_execute
+
+   execute at_time 12.0 min absolute
+      PLATFORM.ReturnToRoute();
+   end_execute
+
+   execute at_time 14.5 min absolute
+      extern bool AssertWithinToleranceMessage(double, double, double, string);
+      double tolAlt = 10;
+      double tolLL  = tolAlt / 1000;
+      double lat = 0.445959;
+      double lon = 0.624031;
+      double alt = 1000.0;
+      if ( AssertWithinToleranceMessage(PLATFORM.Latitude(),  lat, tolLL,  "Latitude")
+          &&
+           AssertWithinToleranceMessage(PLATFORM.Longitude(), lon, tolLL,  "Longitude")
+          &&
+           AssertWithinToleranceMessage(PLATFORM.Altitude(),  alt, tolAlt, "Alt")
+         )
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("CurrentLLA= ", PLATFORM.Latitude(), " ", PLATFORM.Longitude(), " ", PLATFORM.Altitude());
+         writeln("GoodLLA=    ", lat, " ", lon, " ", alt);
+      }
+   end_execute
+
+end_platform
+

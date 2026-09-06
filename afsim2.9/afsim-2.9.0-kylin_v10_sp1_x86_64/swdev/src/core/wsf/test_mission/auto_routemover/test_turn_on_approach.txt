@@ -1,0 +1,160 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the new turn on approach mover.
+
+#event_pipe
+#   file test_turn_on_approach.aer
+#end_event_pipe
+
+platform_type 737 WSF_PLATFORM
+   side blue
+   mover WSF_AIR_MOVER
+      # The step size is intentionally made small so as to pass the waypoint as
+      # as close to an update interval as possible.  The reported time is the
+      # advancement time and not the time the waypoint is actually crossed.
+
+      update_interval 0.1 secs
+      default_radial_acceleration 1.5 g
+   end_mover
+end_platform_type
+
+platform 100_737 737
+   script_variables
+      bool sHitLastWaypoint = false;
+      int  sWaypointCount = 0;
+      Array<double> sHitTime = Array<double>();
+      // These were determined by experiment with Windows 2005. The results
+      // were slightly different with g++ (with 0.1 secs)
+      // If something in the mover changes then we should see a mis-match.
+      sHitTime[0] = 0;
+      sHitTime[1] = 0;
+      sHitTime[2] = 22.7;
+      sHitTime[3] = 372.2;
+      sHitTime[4] = 481.5;
+      sHitTime[5] = 597.6;
+      sHitTime[6] = 713.7;
+      sHitTime[7] = 837.9;
+      sHitTime[8] = 957.1;
+      sHitTime[9] = 958.1;
+      sHitTime[10] = 1130.9;
+      sHitTime[11] = 1181.7;
+      sHitTime[12] = 1332.6;
+      sHitTime[13] = 1589.1;
+      sHitTime[14] = 1636.9;
+      sHitTime[15] = 1684.2;
+      sHitTime[16] = 1707.2;
+      sHitTime[17] = 1882.2;
+      sHitTime[18] = 1931;
+      sHitTime[19] = 1988.5;
+      sHitTime[20] = 2053.7;
+      sHitTime[21] = 2250.4;
+      sHitTime[22] = 3365.6;
+      sHitTime[23] = 3880.1;
+   end_script_variables
+
+   script void on_platform_deleted()
+      if (sWaypointCount != 23)
+      {
+         writeln("-FAIL- Final waypoint count ", sWaypointCount, ", expected 23");
+      }
+   end_script
+
+   script void WaypointHit()
+      sWaypointCount = sWaypointCount + 1;
+      if (sWaypointCount <= 23)
+      {
+         // Numerical differences resulting from the use of different
+         // compilers may cause small differences that may accumulate.
+         // Using an absolute tolerance of 0.05 seconds caused a problem
+         // for the last two legs were because they were long and there
+         // long and there was more chance for differences to accumulate.
+         double expected = sHitTime[sWaypointCount];
+         double error = (expected - TIME_NOW) / MATH.Max(expected, 1.0E-6);
+         writeln("Hit waypoint ", sWaypointCount, " T=", TIME_NOW, " expected=", expected,
+                 " %error=", error * 100.0);
+         //if (MATH.Fabs(expected - TIME_NOW) > 0.05)
+         if (MATH.Fabs(error) > .01)          // 1.0%
+         {
+            writeln("-FAIL- Hit time for waypoint ", sWaypointCount, " T=", TIME_NOW,
+                    " expected ", expected);
+         }
+      }
+      else
+      {
+         writeln("-FAIL- Waypoint count ", sWaypointCount, ", expected 23");
+      }
+      // Uncomment the following to get an output file with the waypoint hit times.
+      // (Used for updating the 'sHitTime' variable.
+      //writeln("      sHitTime[", sWaypointCount, "] = ", TIME_NOW, ";");
+   end_script
+
+   script void LastWaypointHit()
+      if (! sHitLastWaypoint)
+      {
+         sHitLastWaypoint = true;
+         WaypointHit();
+      }
+      //writeln("T=", TIME_NOW, " hit final waypoint - orbiting");
+   end_script
+
+   route
+      position 38:36:00n 115:24:00w altitude 35000 ft msl
+         speed 236.2 m/s
+         execute WaypointHit
+      position 38.571959n 115.624880w altitude 10668 m switch_on_approach radial_acceleration 3.15 m/s2
+         execute WaypointHit
+      position 37.901658n 115.658907w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.669046n 115.770449w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.536757n 116.035434w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.557993n 116.346880w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.724258n 116.579785w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.931253n 116.728079w altitude 10668 m switch_on_approach radial_acceleration 3.15 m/s2
+         execute WaypointHit
+      position 38.073354n 116.830446w altitude 10668 m switch_on_approach radial_acceleration 6.29 m/s2
+         execute WaypointHit
+      position 37.740029n 117.012378w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.656419n 117.094601w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.332443n 117.624803w altitude 10668 m switch_on_approach radial_acceleration 3.15 m/s2
+         execute WaypointHit
+      position 37.782057n 117.813510w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.881584n 117.830989w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.974297n 117.825517w altitude 10668 m switch_on_approach radial_acceleration 3.15 m/s2
+         execute WaypointHit
+      position 38.137686n 117.815841w altitude 10668 m switch_on_approach radial_acceleration 3.15 m/s2
+         execute WaypointHit
+      position 38.219746n 118.173797w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 38.217580n 118.330488w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 38.146366n 118.458517w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 38.030709n 118.513790w altitude 10668 m switch_on_approach radial_acceleration 5.00 m/s2
+         execute WaypointHit
+      position 37.452138n 118.559922w altitude 10668 m switch_on_approach radial_acceleration 3.15 m/s2
+         execute WaypointHit
+      position 37.497794n 115.501725w altitude 10668 m switch_on_approach radial_acceleration 3.15 m/s2
+         execute WaypointHit
+     label orbit
+      position 38.500004n 115.500500w altitude 10668 m switch_on_approach radial_acceleration 3.15 m/s2
+         execute LastWaypointHit
+     goto orbit
+   end_route
+end_platform
+
+end_time 6000 sec

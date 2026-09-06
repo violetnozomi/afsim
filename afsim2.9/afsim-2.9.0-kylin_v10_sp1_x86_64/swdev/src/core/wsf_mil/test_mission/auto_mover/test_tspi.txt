@@ -1,0 +1,76 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+platform_type TARGET WSF_PLATFORM
+   icon F-18E
+   mover WSF_TSPI_MOVER
+      # Configure the TSPI reader to use BLUEMAX conventions
+      altitude in feet
+      roll inverted
+      filename ../auto_mover/bluemax.tspi
+   end_mover
+end_platform_type
+
+platform test_remove TARGET
+   creation_time 0 sec
+   at_end_of_path remove
+end_platform
+
+platform test_stop TARGET
+   creation_time 100 sec
+   at_end_of_path stop
+end_platform
+
+platform test_extrap TARGET
+   creation_time 200 sec
+   at_end_of_path extrapolate
+end_platform
+
+platform test_extrap_default TARGET
+   creation_time 300 sec
+end_platform
+
+platform test_extrap_on TARGET
+   creation_time 400 sec
+   extrapolation true
+end_platform
+
+platform test_extrap_off TARGET
+   creation_time 500 sec
+   extrapolation false
+end_platform
+   
+platform test_stop-2 TARGET
+   creation_time 600 sec
+   extrapolation false
+end_platform
+
+
+include ../auto_script/test_functions.txt
+platform test_interpolate TARGET
+   execute at_time 0.9 sec absolute
+      AssertWithinToleranceMessage(-1.99637, PLATFORM.Latitude(), 0.0001, "Latitude Check");
+   end_execute
+end_platform
+
+/*
+event_output
+   file replay.evt
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+end_event_output
+
+event_pipe
+   file replay.aer
+end_event_pipe
+*/
+end_time 4800 sec

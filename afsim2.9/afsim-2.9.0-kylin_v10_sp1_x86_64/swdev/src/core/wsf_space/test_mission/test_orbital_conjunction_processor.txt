@@ -1,0 +1,86 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform target WSF_PLATFORM
+   icon satellite
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.001
+      inclination 20.0 deg
+      raan 60.0 deg
+      semi_major_axis 12000 km
+      true_anomaly 0 deg
+      argument_of_periapsis 0.0 deg
+   end_mover
+end_platform
+
+platform chaser WSF_PLATFORM
+   icon satellite
+   add mover WSF_SPACE_MOVER
+      conjunction_setup
+         from_eci 12000 km 0 km 0 km
+         with_target target
+         at_time 1 hour
+      end_conjunction_setup
+   end_mover
+end_platform
+
+platform test-commander WSF_PLATFORM
+   position 28:39:18.251n 80:42:31.178w
+
+   add processor conj WSF_ORBITAL_CONJUNCTION_PROCESSOR
+      update_interval 10 min
+      search_interval 3.0 hr
+      filter_cut_distance 5.0 km
+      search_step_size 1 deg
+      exclusion_factor 8.0
+      default_variance 100.0 m
+      default_object_size 5.0 m
+      prediction_model default
+      primary target end_primary
+      
+      script void on_conjunction_predicted(Array<WsfOrbitalConjunctionReport> aReports)
+         if (aReports.Size() == 1)
+         {
+            if (MATH.Fabs(3600.0 - aReports[0].MinimumTime()) > 0.1)
+            {
+               writeln("-FAIL- conjunction at wrong time.");
+            }
+         }
+         else
+         {
+            writeln("-FAIL- wrong number of conjunction reports.");
+         }
+      end_script
+   end_processor
+   
+   execute at_time 0.0001 s absolute
+      WsfTrackManager mgr = PLATFORM.TrackManager();
+      mgr.AddTrackReport(WsfSimulation.FindPlatform("target").MakeTrack());
+      mgr.AddTrackReport(WsfSimulation.FindPlatform("chaser").MakeTrack());
+   end_execute
+end_platform
+
+script void TestConjunction(string aTarget, string aChaser, double aTolerance)
+   WsfPlatform chaser = WsfSimulation.FindPlatform(aChaser);
+   WsfPlatform target = WsfSimulation.FindPlatform(aTarget);
+   double sep = Vec3.Subtract(chaser.LocationECI(), target.LocationECI()).Magnitude();
+   if (sep > aTolerance)
+   {
+      writeln("-FAIL- ", aTarget, " too far from ", aChaser, " sep = ", sep);
+   }
+end_script
+
+execute at_time 1 hour absolute
+   TestConjunction("target", "chaser", 15.0);
+end_execute
+
+start_date mar 18 2017
+start_time 0:00:00
+
+end_time 3 hr

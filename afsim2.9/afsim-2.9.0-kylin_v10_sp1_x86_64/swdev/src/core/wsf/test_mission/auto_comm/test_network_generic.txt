@@ -1,0 +1,108 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool testPass = false;
+end_script_variables
+
+comm TEST_COMM WSF_COMM_TRANSCEIVER
+   network_name network_generic
+end_comm
+
+comm TEST_COMM_UNASSIGNED WSF_COMM_TRANSCEIVER
+end_comm
+
+processor MESSAGE_PROC WSF_SCRIPT_PROCESSOR
+   on_message
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name());
+         testPass = true;
+      end_script
+   end_on_message
+end_processor
+
+network network_generic WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member test6 comm1
+   end_comm_list
+   comm_link_list
+      link test1 comm1 test2 comm1
+      link test2 comm1 test3 comm1
+      link test3 comm1 test4 comm1
+      link test4 comm1 test5 comm1
+      link test5 comm1 test6 comm1
+   end_comm_link_list
+end_network
+
+network network_generic_unused WSF_COMM_NETWORK_GENERIC
+end_network
+
+platform_type TEST_PLAT WSF_PLATFORM
+   add comm comm1 TEST_COMM
+      internal_link proc1
+   end_comm
+   add processor proc1 MESSAGE_PROC
+   end_processor
+end_platform_type
+
+platform_type TEST_PLAT_UNASSIGNED WSF_PLATFORM
+   add comm comm1 TEST_COMM_UNASSIGNED
+      internal_link proc1
+   end_comm
+   add processor proc1 MESSAGE_PROC
+   end_processor
+end_platform_type
+
+platform test1 TEST_PLAT
+end_platform
+
+platform test2 TEST_PLAT
+end_platform
+
+platform test3 TEST_PLAT
+end_platform
+
+platform test4 TEST_PLAT
+end_platform
+
+platform test5 TEST_PLAT
+end_platform
+
+platform test6 TEST_PLAT_UNASSIGNED
+end_platform
+
+execute at_time 2 s absolute
+   WsfMessage testMessage = WsfMessage();
+   testMessage.SetType("TEST_MESSAGE");
+
+   WsfPlatform sendPlat = WsfSimulation.FindPlatform("test1");
+   WsfPlatform receivePlat = WsfSimulation.FindPlatform("test6");
+   sendPlat.Comm("comm1").SendMessage(testMessage, receivePlat.Comm("comm1"));
+end_execute
+
+execute at_time 4.9 s absolute
+   if(testPass)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+end_time 5 s
+
+#event_output
+#   enable all
+#   file output.evt
+#end_event_output
+
+
+

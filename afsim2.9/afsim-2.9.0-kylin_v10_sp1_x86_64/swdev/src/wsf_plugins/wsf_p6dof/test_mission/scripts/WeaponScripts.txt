@@ -1,0 +1,33 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void missile_on_create(WsfPlatform aWeapon, WsfTrack aTrack)
+
+   # Cue the seeker to the track
+   WsfSensor seeker = aWeapon.Sensor( "ir_seeker" );
+   if( seeker.IsValid() )
+      {
+         seeker.TurnOn();
+
+         if( aTrack.IsValid() )
+         {
+            writeln("  ~~~ Cue seeker to track at launch..." );
+            seeker.CueToTrack(aTrack);
+         }
+         else
+         {
+            writeln("  ~~~ Unable to cue seeker to track at launch (invalid track)..." );
+         }
+      }
+      else
+      {
+         writeln("  ~~~ Invalid seeker!!!" );
+      }
+
+end_script

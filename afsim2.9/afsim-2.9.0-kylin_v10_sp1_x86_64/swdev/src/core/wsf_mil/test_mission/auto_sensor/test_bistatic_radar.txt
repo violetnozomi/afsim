@@ -1,0 +1,256 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Simple test of bistatic radar operation.
+
+# -----------------------------------------------------------------------------
+
+antenna_pattern BISTATIC_XMTR_ANTENNA
+   circular_pattern
+      peak_gain              35 db
+      beamwidth              2 deg
+end_antenna_pattern
+
+sensor BISTATIC_XMTR WSF_RADAR_SENSOR
+
+   scan_mode                 azimuth_and_elevation
+   azimuth_scan_limits       -180 deg 180 deg
+   elevation_scan_limits     -10 deg 90 deg
+
+   antenna_height            10 m
+
+   transmit_only
+
+   transmitter
+       antenna_pattern       BISTATIC_XMTR_ANTENNA
+       power                 100 kw
+       frequency             3 ghz
+   end_transmitter
+
+   ignore_same_side
+   on
+end_sensor
+
+# -----------------------------------------------------------------------------
+
+antenna_pattern BISTATIC_RCVR_ANTENNA
+   circular_pattern
+      peak_gain              35 db
+      beamwidth              2 deg
+end_antenna_pattern
+
+error_model BISTATIC_RCVR_ERROR bistatic_error
+   realistic_blurring
+   time_direct_sigma 1e-6 sec
+   time_reflected_sigma 2e-6 sec
+   transmitter_position_sigmas m
+       blue   land     10                10                10
+       blue   air      20                20                20
+       red    land     50                50                50
+       red    air      50                50                50
+   end_transmitter_position_sigmas
+end_error_model
+
+sensor BISTATIC_RCVR WSF_RADAR_SENSOR
+
+   frame_time                2 sec
+
+   scan_mode                 azimuth_and_elevation
+   azimuth_scan_limits       -180 deg 180 deg
+   elevation_scan_limits     -10 deg 90 deg
+
+   antenna_height            10 m
+
+   receive_only
+
+   receiver
+      antenna_pattern        BISTATIC_RCVR_ANTENNA
+      frequency              3 ghz
+      bandwidth              1 mhz
+   end_receiver
+
+   detection_threshold       12.8 db
+
+   error_model BISTATIC_RCVR_ERROR
+
+   azimuth_error_sigma    2 deg
+   elevation_error_sigma  5 deg
+
+   reports_range
+   reports_bearing
+   reports_elevation
+
+   ignore_same_side
+   on
+end_sensor
+
+# -----------------------------------------------------------------------------
+# The target radar signature is defined with the following in mind
+#
+# 1) The transmitter is at an aspect of 0 deg az (straight ahead)
+# 2) The receiver    is at an aspect of 90 deg az (on right side)
+# 4) We want an unique identifiable signature at 45 deg and 90 deg
+
+radar_signature BISECT_TARGET_RADAR_SIG
+   use_bisector_for_bistatic true
+   state default
+      inline_table dbsm  10  2
+                 -90   90
+           0.0     0    0
+          42.9    10   10
+          43.0    10   10
+          47.0    10   10
+          47.1     0    0
+          87.9     0    0
+          88.0    20   20
+          92.0    20   20
+          92.1     0    0
+         180.0     0    0
+      end_inline_table
+end_radar_signature
+
+radar_signature NOBISECT_TARGET_RADAR_SIG
+   use_bisector_for_bistatic false
+   state default
+      inline_table dbsm  10  2
+                 -90   90
+           0.0     0    0
+          42.9    10   10
+          43.0    10   10
+          47.0    10   10
+          47.1     0    0
+          87.9     0    0
+          88.0    20   20
+          92.0    20   20
+          92.1     0    0
+         180.0     0    0
+      end_inline_table
+end_radar_signature
+
+# -----------------------------------------------------------------------------
+
+platform bisect-target WSF_PLATFORM
+   radar_signature BISECT_TARGET_RADAR_SIG
+   side red
+   position 0n 0e altitude 30000 ft heading 90 deg
+end_platform
+
+platform nobisect-target WSF_PLATFORM
+   radar_signature NOBISECT_TARGET_RADAR_SIG
+   side red
+   position 0n 0e altitude 30000 ft heading 90 deg
+end_platform
+
+platform xmtr WSF_PLATFORM
+   side blue
+   position 0n 1e altitude 3000 ft heading 270 deg
+   add sensor xmtr BISTATIC_XMTR
+   end_sensor
+end_platform
+
+platform rcvr WSF_PLATFORM
+   side blue
+   position 1s 0e altitude 3000 ft heading 180 deg
+   add sensor rcvr BISTATIC_RCVR
+   end_sensor
+end_platform
+
+# -----------------------------------------------------------------------------
+
+/*
+event_output
+   file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SENSOR_TRACK_INITIATED
+end_event_output
+*/
+
+script_variables
+   bool gPass = true;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform          aObserver,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+   double radarSigDBSM = -999.0;
+   if (aResult.RadarSignature() > 0.0) radarSigDBSM = MATH.LinearToDB(aResult.RadarSignature());
+
+   if (aObserver.Name() != "rcvr")
+   {
+      writeln("-FAIL- Unknown obsrver: ", aObserver.Name());
+      gPass = false;
+   }
+   if (aTarget.Name() == "bisect-target")
+   {
+      if (MATH.Fabs(radarSigDBSM - 10.0) > 0.01)
+      {
+         writeln("-FAIL- bisect-target expected RCS of 10 dbsm, got ", radarSigDBSM, " dbsm");
+         gPass = false;
+      }
+   }
+   else if (aTarget.Name() == "nobisect-target")
+   {
+      if (MATH.Fabs(radarSigDBSM - 20.0) > 0.01)
+      {
+         writeln("-FAIL- nobisect-rcvr expected RCS of 20 dbsm, got ", radarSigDBSM, " dbsm");
+         gPass = false;
+      }
+   }
+   else
+   {
+      writeln("-FAIL- Unknown target: ", aTarget.Name());
+      gPass = false;
+   }
+end_script
+
+script void SensorTrackInitiated(WsfPlatform aObserver,
+                                 WsfSensor   aSensor,
+                                 WsfTrack    aTrack)
+   if (aObserver.Name() != "rcvr")
+   {
+      writeln("-FAIL- Unknown obsrver: ", aObserver.Name());
+      gPass = false;
+   }
+   if (aTrack.Target().Name() == "bisect-target")
+   {
+      if (aTrack.RangeErrorSigma() <= 0.0)
+      {
+         writeln("-FAIL- bisect-target expected a range error greater than 0, got ", aTrack.RangeErrorSigma(), " m");
+         gPass = false;
+      }
+   }
+   else if (aTrack.Target().Name() == "nobisect-target")
+   {
+      if (aTrack.RangeErrorSigma() <= 0.0)
+      {
+         writeln("-FAIL- nobisect-target expected a range error greater than 0, got ", aTrack.RangeErrorSigma(), " m");
+         gPass = false;
+      }
+   }
+   else
+   {
+      writeln("-FAIL- Unknown target: ", aTrack.Target().Name());
+      gPass = false;
+   }
+end_script
+
+script void SimulationComplete()
+   if (gPass) writeln("-PASS-");
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable SENSOR_TRACK_INITIATED SensorTrackInitiated
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+end_time 1 sec
+
+

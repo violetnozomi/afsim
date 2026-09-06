@@ -1,0 +1,68 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test Video Processors report_side input reports side correctly
+//
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+end_time 10 s
+
+platform test WSF_PLATFORM
+   position 0n 0w altitude 1 m
+   add sensor test_sensor WSF_EOIR_SENSOR
+      on
+      internal_link test_ip
+      frame_time 1 s
+      angular_resolution 0.1 deg
+      reports_location
+//       reports_side   // Purposely left off to insure video processor is correctly identifing side
+   end_sensor
+   add processor test_ip WSF_VIDEO_PROCESSOR
+      internal_link test_pass_processor
+      reports_side
+   end_processor
+   add processor test_pass_processor WSF_SCRIPT_PROCESSOR
+      script_variables
+         bool pass = false;
+      end_script_variables
+      on_message
+         type WSF_TRACK_MESSAGE
+            script
+               WsfTrackMessage trackMsg = (WsfTrackMessage)MESSAGE;
+               WsfTrack track = trackMsg.Track();
+               if (track.SideValid())
+               {
+                  writeln("on_message ", track.Side());
+                  string str = track.Side();
+                  pass = (str == "red");
+               }
+            end_script
+      end_on_message
+      script void on_platform_deleted()
+         if (pass)
+         {
+            writeln("-PASS-");
+         }
+         else
+         {
+            writeln("-FAIL-");
+         }
+      end_script
+   end_processor
+   script void on_platform_deleted()
+      PLATFORM.Processor("test_pass_processor").ExecuteScript("on_platform_deleted");
+   end_script
+end_platform
+
+platform target WSF_PLATFORM
+   position 0n 0w altitude 0 m
+   side red
+end_platform

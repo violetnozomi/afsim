@@ -1,0 +1,65 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once default_formation.txt
+include_once ../scripts/utils.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 6 min
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 min absolute
+   WsfFormation alpha = WsfFormationManager.GetFormation("yankee.alpha");
+   allPassed = ExpectBool(alpha.ExecuteCommand(WsfFormationDisbandCommand.Construct()),
+              false,
+              "cannot execute disband on non-root formations") && allPassed;
+end_execute
+
+execute at_time 2 min absolute
+   Array<WsfFormation> forms = WsfFormationManager.GetTopLevelFormations();
+   allPassed = ExpectInt(forms.Size(), 2, "should have two top-level formations") && allPassed;
+   
+   
+   WsfFormationDisbandCommand comm1 = WsfFormationDisbandCommand.Construct();
+   comm1.SetConstraint(WsfFormationCommandConstraint.AT_TIME(180.0));
+   WsfFormationManager.GetFormation("yankee").ExecuteCommand(comm1);
+   
+   WsfFormationDisbandCommand comm2 = WsfFormationDisbandCommand.Construct();
+   comm2.SetConstraint(WsfFormationCommandConstraint.AT_TIME(240.0));
+   WsfFormationManager.GetFormation("zulu").ExecuteCommand(comm2);
+end_execute
+
+execute at_time 3.5 min absolute
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   WsfFormation zulu = WsfFormationManager.GetFormation("zulu");
+   allPassed = ExpectBool(yankee.IsValid(), false, "yankee should have been disbanded") && allPassed;
+   allPassed = ExpectBool(zulu.IsValid(), true, "zulu should still exist") && allPassed; 
+end_execute
+
+execute at_time 4.5 min absolute
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   WsfFormation zulu = WsfFormationManager.GetFormation("zulu");
+   allPassed = ExpectBool(yankee.IsValid(), false, "yankee should have been disbanded") && allPassed;
+   allPassed = ExpectBool(zulu.IsValid(), false, "zulu should have been disbanded") && allPassed; 
+end_execute
+
+execute at_time 5.5 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }     
+end_execute

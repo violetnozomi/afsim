@@ -1,0 +1,136 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt34.f -> alt343.f
+// Replicates the 3,4,3,1 alternative behavior
+// alt3431_roll-15_pull
+
+behavior alt3431_roll-15_pull
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3431Enabled = true;
+      double mLongRange = 5.0 * Math.M_PER_NM();
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 4;
+      int icall  = 3;
+      int lcall  = 1;
+
+      Vec3 a0;      # maneuver plane
+      Vec3 dir0;    # direction vector
+      double gmx;   # max Gs
+      double spd0;  # throttle setting
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+      double   grav              = 32.17405;
+
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition alt3431 roll-15_pull, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3431Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      ## alt 34.f line 97, & 140
+      #lrange = rhst*ftnmi .gt. 5.0
+      #if(lrange)goto 15
+
+      WsfTrack nearestHostile = perception.NearestThreat();
+      double rangeToNearest = 999999999; # default large value, in meters
+      if (nearestHostile.IsValid() &&
+          nearestHostile.LocationValid())
+      {
+         rangeToNearest = nearestHostile.SlantRangeTo(PLATFORM);
+      }
+
+      if (!nearestHostile.IsValid())
+      {
+         writeln_d("nearest hostile not valid!");
+         return Failure("no vaild hostiles closer than 5 nautical miles");
+      }
+
+      if (rangeToNearest > mLongRange)
+      {
+         writeln_d("nearest hostile too far away! (", rangeToNearest," m)");
+         return Failure("no vaild hostiles closer than 5 nautical miles");
+      }
+
+      ##alt343.f line 99-109
+      ## ROLL -15 & PULL
+      #dir0(1) = 0.
+      #dir0(2) = -sd15
+      #dir0(3) = -cd15
+      #call vxfrmc(rwep,dir0,dir0,2)
+      ## DIR0 IS UNIT ACCELERATION VECTOR IN DESIRED MANEUVER PLANE
+      #call manpln(dir0,gmxsu)
+      double sd15 = 0.2588190;
+      double cd15 = 0.9659258;
+      dir0 = Vec3.Construct(0.0, -sd15, -cd15);
+      dir0 = BRAWLER.ConvertWindtoNED(dir0);
+      double gmxsu = BRAWLER.MaxTacticalGs();
+      #call manpln(dir0,gmxsu)
+      #manpln() - maneuver in plane: replicated in 6 lines below
+      dir0 = vorth(dir0, PLATFORM.VelocityNED());
+      dir0.Normalize();
+      int iactn = 4;
+      gmx = gmxsu;
+      spd0 = 3.0;
+      int spdmod = 2;   //thrttl
+
+      ### Project and Evaluate (Score) Maneuver Alternative
+      double score = BRAWLER.EvaluateVectorWithThrottle(dir0, gmx, spd0, ilevel, kalt, icall, lcall);
+      return score;
+
+   end_precondition
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.FlyVectorWithThrottle(dir0, gmx, spd0);
+   end_execute
+
+end_behavior
+

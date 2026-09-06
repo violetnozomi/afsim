@@ -1,0 +1,68 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the message processor with a variable delay based on run number
+#log_file replay.log
+
+script_variables
+   double DELAY_TIME = 0.0;
+end_script_variables
+
+script void SimulationInitializing()
+   # Delay 2, 4, 6, 8 ... seconds
+   DELAY_TIME = WsfSimulation.RunNumber() * 2.0;
+   writeln("Initializing run number ", WsfSimulation.RunNumber(),
+           " DELAY_TIME=", DELAY_TIME);
+end_script
+
+observer
+   enable SIMULATION_INITIALIZING SimulationInitializing
+end_observer
+
+final_run_number 4
+
+platform test WSF_PLATFORM
+
+   add processor rcvr WSF_MESSAGE_PROCESSOR
+      process
+         select
+            type TEST_MESSAGE
+         end_select
+
+         delay_time /variable DELAY_TIME
+
+         script
+            extern double DELAY_TIME;
+            double actualDelay = TIME_NOW - 1.0;
+            if ((actualDelay > DELAY_TIME - 0.1) &&
+                (actualDelay < DELAY_TIME + 0.1))
+            {
+               writeln("-PASS- expected=", DELAY_TIME, ", actual=", actualDelay);
+            }
+            else
+            {
+               writeln("-FAIL- expected=", DELAY_TIME, ", actual=", actualDelay);
+            }
+         end_script
+      end_process
+   end_processor
+
+   # Sends the message to the message processor at T=1 sec
+   add processor xmtr WSF_SCRIPT_PROCESSOR
+      execute at_time 1 sec relative
+         WsfMessage m = WsfMessage();
+         m.SetType("TEST_MESSAGE");
+         SendMessage(m);
+      end_execute
+      internal_link rcvr
+   end_processor
+end_platform
+
+end_time 10 secs
+

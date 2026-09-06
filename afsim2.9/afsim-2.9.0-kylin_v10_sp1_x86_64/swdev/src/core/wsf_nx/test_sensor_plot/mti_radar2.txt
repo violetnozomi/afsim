@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+antenna_pattern MTI_RADAR2_ANTENNA
+   alarm_pattern
+      file                             ./radar3.ant
+end_antenna_pattern
+
+clutter_model MTI_RADAR2_CLUTTER alarm
+   decay_constant                      1.0E-6 hz2
+   sigmac                              10 Hz
+   azimuth_angle_increment             .1 deg
+   azimuth_angle_limit                 20.0 deg
+   azimuth_angle_limit                 0.1 deg # TODO TEST
+   maximum_range                       50.0e3  meters
+   statistic                           mean
+end_clutter_model
+
+propagation_model MTI_RADAR2_PROPAGATION alarm
+   terrain_dielectric_constant         6.0           # epsilon_one
+   terrain_conductivity                0.006         # sigma_zero
+   terrain_scattering_coefficient      0.9           # L band rolling farm land
+   unit_test_propagation enabled
+end_propagation_model
+
+sensor MTI_RADAR2 WSF_RADAR_SENSOR
+   frame_time                          10.0 sec
+   location                            0 0 -10 m
+
+   scan_mode                           azimuth
+   azimuth_scan_limits                 -180.0 deg 180.0 deg
+   
+   scan_mode                           azimuth_and_elevation
+   elevation_scan_limits               -90 deg 90 deg
+
+   maximum_range                       1000.0 km
+
+   transmitter
+      antenna_pattern                  MTI_RADAR2_ANTENNA
+      frequency                        3000.0 mhz
+      power                            500.0 kw
+      polarization                     horizontal
+      #pulse_repetition_frequency       3000 hz
+      pulse_repetition_frequency       2866.666666667 hz   # Average
+      pulse_width                      25 usec
+      pulse_compression_ratio          13.0 absolute
+      internal_loss                    2.0 db
+      attenuation                      earce
+      earth_radius_multiplier          1.3333333
+      propagation_model                MTI_RADAR2_PROPAGATION
+   end_transmitter
+
+   receiver
+      antenna_pattern                  MTI_RADAR2_ANTENNA
+      bandwidth                        0.520 mhz
+      internal_loss                    8.0 db              # RX_LOSS + SYS_LOSS
+      internal_loss                    6.0 db              # TODO-TEST (sys_loss only)
+      noise_figure                     3.0 db
+      check_terrain_masking off
+   end_receiver
+
+   clutter_model                       MTI_RADAR2_CLUTTER
+    
+   clutter_attenuation_factor          -27.71677482 db
+#   mti_processor
+#      maximum_range                    25.0 km
+#      number_of_stages                 1
+#      interpulse_period_1              1000.0 us
+#      interpulse_period_2              1000.0 us
+#   end_mti_processor
+   
+   swerling_case                       1
+   probability_of_false_alarm          1.0E-6
+   number_of_pulses_integrated         10
+
+   reports_range
+   reports_bearing
+end_sensor

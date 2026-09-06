@@ -1,0 +1,195 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+define_path_variable CASE test_task_processor_query_weapon
+
+test_feature wsf_mil
+
+script_debug_writes off
+
+include ../auto_script/test_functions.txt
+include ../auto_script/test_pass.txt
+
+# Simple Air-to-ground weapon to fire
+weapon_effects _MY_WEAPON_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 50.0 m 1.0
+end_weapon_effects
+
+platform_type MY_WEAPON WSF_PLATFORM
+   mover WSF_STRAIGHT_LINE_MOVER
+      update_interval 1 s
+      average_speed   10000 ft/s
+   end_mover
+   processor seeker WSF_PERFECT_TRACKER
+      update_interval  0.5 s
+   end_processor
+   processor fuse WSF_GROUND_TARGET_FUSE
+   end_processor
+end_platform_type
+
+weapon MY_WEAPON WSF_EXPLICIT_WEAPON
+   launched_platform_type MY_WEAPON
+   quantity 4
+   salvo_interval 2 secs
+   weapon_effects _MY_WEAPON_LETHALITY
+end_weapon
+
+# Ground target - stationary
+platform tgt WSF_PLATFORM
+   indestructible
+   position 39.6n 90.0w
+end_platform
+
+# Global variables for booking data for tests
+script_variables
+   PassTestCount = 70;
+   int SALVO_SIZE = 2;
+   int mWeaponEntry = 0;
+   int mWeaponsFiredFromTaskMgr = 0;
+   int mWeaponsActiveFromTaskMgr = 0;
+   int mSalvosFiredFromTaskMgr = 0;
+   double mTimeLastFireForFromTaskMgr = 0.0;
+   double mTimeLastTerminatedForFromTaskMgr = 0.0;
+   int mWeaponsFired = 0;
+   int mWeaponsActive = 0;
+   int mSalvosFired = 0;
+   double mTimeLastFireFor = 0.0;
+   double mTimeLastTerminatedFor = 0.0;   
+   WsfTrackId mTrackId;
+end_script_variables
+
+# Shooter - stationary air platform
+# This platform will use a task manager to fire weapons w1 and w2.
+# It will use the WsfWeapon.Fire command to fire weapon w3.
+# All weapons are of the same type but there are separate instances on the platform
+# in order to test the accounting of weapon firing information. 
+platform shooter WSF_PLATFORM
+
+   position 39.5n 90w altitude 10000 ft
+   track platform tgt end_track
+
+   add weapon w1 MY_WEAPON end_weapon
+   add weapon w2 MY_WEAPON end_weapon
+   add weapon w3 MY_WEAPON end_weapon
+
+   // Use task manager to fire some weapons
+   // The logic will take the first weapon entry and fire a salvo and waits until those
+   // weapons are no longer active before firing from the next weapon entry.
+   // The test is only long enough to see the first two types of weapons fired, w1, & w2.
+   // This is by design.
+   add processor task_mgr WSF_TASK_PROCESSOR
+      #show_state_transitions
+      evaluation_interval DETECTED 1 s
+      state DETECTED
+         next_state ENGAGING
+           return Fire(PLATFORM.MasterTrackList().Entry(0), "ENGAGE", PLATFORM.WeaponEntry(mWeaponEntry), SALVO_SIZE);
+         end_next_state
+         on_exit
+            mSalvosFiredFromTaskMgr += 1; 
+            mSalvosFired += 1;        
+            writeln_d("T=", TIME_NOW, " Fire salvo from task mgr for ", PLATFORM.WeaponEntry(mWeaponEntry).Name(), ", Salvos = ", mSalvosFiredFromTaskMgr);  
+           
+            mWeaponsActiveFromTaskMgr += SALVO_SIZE;
+            mWeaponsActive += SALVO_SIZE;            
+            mWeaponEntry += 1;
+            mTrackId = TRACK.TrackId();          
+         end_on_exit
+      end_state
+      evaluation_interval ENGAGING 1 s
+      state ENGAGING
+         next_state DETECTED
+            return (WeaponsActiveFor(TRACK.TrackId()) == 0);
+         end_next_state
+      end_state
+   end_processor
+ 
+   // Use scripts for fire weapons directly
+   // Task Manager includes these counts in queries; the task manager used to NOT include these counts in pre v1.10
+   // The refactor of the task manager changed the behavior
+   // Commented out for now until WsfWeaponTaskManager is modified
+#   execute at_time 3.5 s absolute
+#      PLATFORM.Weapon("w1").FireSalvo(PLATFORM.MasterTrackList().Entry(0), SALVO_SIZE);
+#      writeln_d("T=", TIME_NOW, " FireSalvo from weapon for ", PLATFORM.Weapon("w1").Name());      
+#      mSalvosFired += 1;
+#      mWeaponsActive += SALVO_SIZE;
+#   end_execute
+   
+   execute at_time 3.5 s absolute
+      PLATFORM.Weapon("w3").FireSalvo(PLATFORM.MasterTrackList().Entry(0), SALVO_SIZE);
+      writeln_d("T=", TIME_NOW, " FireSalvo from weapon for ", PLATFORM.Weapon("w3").Name());      
+      mSalvosFired += 1;
+      mWeaponsActive += SALVO_SIZE;
+   end_execute  
+
+end_platform
+
+end_time 10 s
+
+// ****************************************************************************
+script void WeaponFired(WsfWeaponEngagement aWeaponEngagement, WsfTrack aTargetTrack)
+   if (((aWeaponEngagement.WeaponSystemName() == "w1") && (TIME_NOW < 3.0)) || (aWeaponEngagement.WeaponSystemName() == "w2"))
+   {
+      mWeaponsFiredFromTaskMgr += 1;
+      mTimeLastFireForFromTaskMgr = TIME_NOW;
+   }
+   mWeaponsFired += 1;
+   mTimeLastFireFor = TIME_NOW;  
+   writeln_d( "T=", TIME_NOW, " WEAPON_FIRED: ", aWeaponEngagement.WeaponPlatformName());
+end_script
+
+// ****************************************************************************
+script void WeaponTerminated(WsfWeaponEngagement aWeaponEngagement)
+   if (((aWeaponEngagement.WeaponSystemName() == "w1") && (TIME_NOW < 6.0)) || (aWeaponEngagement.WeaponSystemName() == "w2"))
+   {
+      mWeaponsActiveFromTaskMgr -= 1;
+      mTimeLastTerminatedForFromTaskMgr = TIME_NOW;
+   }
+   mWeaponsActive -= 1;
+   mTimeLastTerminatedFor = TIME_NOW;
+   writeln_d( "T=", TIME_NOW, " WEAPON_TERMINATED: ", aWeaponEngagement.WeaponPlatformName());   
+end_script
+
+observer
+   enable WEAPON_FIRED
+   enable WEAPON_TERMINATED
+end_observer
+
+on_initialize
+   // The test is performed at 1 second intervals
+   WsfSimulation.ExecuteAtTime(1.0, "Test"); 
+end_on_initialize
+
+// ****************************************************************************
+script void Test()
+   writeln("T=", TIME_NOW, " Testing:");
+   writeln_d("  Task Mgr: Active = ", mWeaponsActiveFromTaskMgr, ", Fired = ", mWeaponsFiredFromTaskMgr, ", Salvos = ", mSalvosFiredFromTaskMgr);
+   writeln_d("     Total: Active = ", mWeaponsActive, ", Fired = ", mWeaponsFired, ", Salvos = ", mSalvosFired);   
+   WsfTaskProcessor taskProc = (WsfTaskProcessor)WsfSimulation.FindPlatform("shooter").Processor("task_mgr");
+   if (taskProc.IsValid())
+   {
+      if (AssertEqualsMessage(mWeaponsActiveFromTaskMgr, taskProc.WeaponsActiveFor(mTrackId), "WeaponsActiveFor")) { pass(); }
+      if (AssertEqualsMessage(mWeaponsFiredFromTaskMgr,  taskProc.WeaponsFiredAt(mTrackId),   "WeaponsFireAt"))    { pass(); }
+      if (AssertEqualsMessage(mWeaponsFiredFromTaskMgr,  taskProc.WeaponsFiredFor(mTrackId),  "WeaponsFireFor"))   { pass(); }
+      if (AssertEqualsMessage(mWeaponsFiredFromTaskMgr,  taskProc.RoundsFiredAt(mTrackId),    "RoundsFiredAt"))    { pass(); }
+      if (AssertEqualsMessage(mSalvosFiredFromTaskMgr,   taskProc.SalvosFiredAt(mTrackId),    "SalvosFiredAt"))    { pass(); }
+      
+      double taskProcTimeSinceWeaponLastFiredFor = taskProc.TimeSinceWeaponLastFiredFor(mTrackId);
+      if (AssertTrueMessage((taskProcTimeSinceWeaponLastFiredFor < 0) ||
+                            ((TIME_NOW - mTimeLastFireForFromTaskMgr) == taskProcTimeSinceWeaponLastFiredFor),
+                            "TimeSinceWeaponLastFiredFor"))      { pass(); }
+      
+      double taskProcTimeLastTerminatedForFromTaskMgr = taskProc.TimeSinceWeaponLastTerminatedFor(mTrackId);
+      if (AssertTrueMessage((taskProcTimeLastTerminatedForFromTaskMgr < 0) ||
+                            ((TIME_NOW - mTimeLastTerminatedForFromTaskMgr) == taskProcTimeLastTerminatedForFromTaskMgr),
+                            "TimeSinceWeaponLastTerminatedFor")) { pass(); }
+                            
+      // Reschedule the event
+      WsfSimulation.ExecuteAtTime(TIME_NOW + 1.0, "Test"); 
+   }
+end_script

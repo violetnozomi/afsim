@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+/*
+NOTE: The rotorcraft mover appears to still have heading movement, separate from the commanded route heading, before weathercock_speed.
+As well, there are not yet delivered scenarios where the rotorcraft mover is applied.
+It appears that the capability may still be in development at this time.
+This test needs to be refined and enhanced later.
+*/
+script_variables
+	bool expectedValue = false;
+	bool actualValue = true;
+	double originalHeading = 0;
+	double expectedOriginalHeading = 90;
+	double actualHeading = 0;
+	bool debug = true;
+	double threshold = 10.0;
+end_script_variables
+
+platform helicopter WSF_PLATFORM
+	add mover WSF_ROTORCRAFT_MOVER
+		mode weathercock_limit
+			weathercock_speed 200 m/s
+		end_mode
+
+		start_mode weathercock_limit
+		desired_heading 90 deg
+
+		route
+			position 34:10:18.42n 103:57:32.41w altitude 10000.00 ft heading 90 deg speed 150 m/s
+			position 34:10:18.42n 100:57:32.41w altitude 10000.00 ft heading 90 deg speed 150 m/s
+		end_route
+	end_mover
+
+	script_variables
+		bool speedIncreaseCommanded = false;
+		bool actualHeadingRead = false;
+		bool originalHeadingRead = false;
+	end_script_variables
+
+	add processor thinker WSF_SCRIPT_PROCESSOR
+		update_interval 1.0 seconds
+		execute at_time 1.0 seconds absolute
+			PLATFORM.Mover().SetMode("weathercock_limit");
+		end_execute
+		on_update
+			extern double actualHeading;
+			extern double originalHeading;
+			extern bool speedIncreaseCommanded;
+			extern bool originalHeadingRead;
+			extern bool debug;
+
+			if (debug && (TIME_NOW < 5.0))
+			{
+				writeln("");
+				writeln("TIME: ", TIME_NOW);
+				writeln("Current heading: ", PLATFORM.Heading());
+				writeln("Current speed: ", PLATFORM.Speed());
+				writeln("Current ground speed: ", PLATFORM.GroundSpeed());
+				writeln("");
+			}
+
+			if ((!originalHeadingRead) && (TIME_NOW < 1.2))
+			{
+				originalHeading = PLATFORM.Heading();
+				originalHeadingRead = true;
+				if (Math.Fabs(originalHeading - expectedOriginalHeading) > threshold)
+				{
+					writeln("-FAIL- Original heading is not what it is supposed to be.");
+					writeln("Ground speed: ", PLATFORM.GroundSpeed());
+					writeln("originalHeading: ", originalHeading);
+					writeln("expectedOriginalHeading: ", expectedOriginalHeading);
+				}
+			}
+
+			if ((!speedIncreaseCommanded) && (TIME_NOW > 10.0))
+			{
+				PLATFORM.GoToSpeed(350, 50);
+				speedIncreaseCommanded = true;
+			}
+
+			if ((!actualHeadingRead) && (TIME_NOW > 20.0))
+			{
+				actualHeading = PLATFORM.Heading();
+				actualHeadingRead = true;
+			}
+		end_on_update
+	end_processor
+end_platform
+
+execute at_time 30 seconds absolute
+	extern double actualHeading;
+	extern double originalHeading;
+
+	if (actualHeading == originalHeading)
+	{
+		writeln("-FAIL- actual heading should have changed to course heading after ground speed rose above weathercock.");
+		writeln("Ground speed: ", WsfSimulation.FindPlatform("helicopter").GroundSpeed());
+		writeln("Actual heading: ", actualHeading);
+		writeln("Original heading: ", originalHeading);
+	}
+	else if (debug)
+	{
+		writeln("Ground speed: ", WsfSimulation.FindPlatform("helicopter").GroundSpeed());
+		writeln("Actual heading: ", actualHeading);
+		writeln("Original heading: ", originalHeading);
+	}
+	WsfSimulation.Terminate();
+end_execute
+
+end_time 40 sec

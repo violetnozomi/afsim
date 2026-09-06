@@ -1,0 +1,65 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies all forms of Execute() and ScriptExists() in
+# WsfProcessor,WsfPlatform,and WsfSimulation work correctly
+
+include_once test_pass.txt
+include_once test_functions.txt
+
+script_variables
+   # 8 tests each for platform, processor, and WsfSimulation
+   PassTestCount = 24;
+end_script_variables
+
+#script_listing on
+processor test-proc WSF_SCRIPT_PROCESSOR
+end_processor
+platform plat WSF_PLATFORM
+   # test processor Execute scripts
+   add processor proc test-proc
+      include execute_test_inc.txt
+
+      execute at_time 0.1 s absolute
+         # 6 passes, +2 on timed scripts = 8 passes
+         if (ScriptExists("ex_pass1") && !ScriptExists("ex_pass99"))            { pass(); }
+         if (AssertFalseMessage(ExecuteAtTime(5.0, "ex_pass99"),     "Test 0")) { pass(); }
+         if (AssertEqualsMessage((int)Execute("ex_pass1"),       42, "Test 1")) { pass(); }
+         if (AssertEqualsMessage((int)Execute("ex_pass2", {42}), 84, "Test 2")) { pass(); }
+         if (AssertTrueMessage(ExecuteAtTime(5.0, "ex_pass3"),       "Test 3")) { pass(); }
+         if (AssertTrueMessage(ExecuteAtTime(5.0, "ex_pass4", {42}), "Test 4")) { pass(); }
+      end_execute
+
+   end_processor
+
+   # test platform Execute scripts
+   include execute_test_inc.txt
+
+   execute at_time 0.1 s absolute
+      # 6 passes, +2 on timed scripts = 8 passes
+      if (ScriptExists("ex_pass1") && !ScriptExists("ex_pass99"))            { pass(); }
+      if (AssertFalseMessage(ExecuteAtTime(5.0, "ex_pass99"),     "Test 0")) { pass(); }
+      if (AssertEqualsMessage((int)Execute("ex_pass1"), 42,       "Test 1")) { pass(); }
+      if (AssertEqualsMessage((int)Execute("ex_pass2", {42}), 84, "Test 2")) { pass(); }
+      if (AssertTrueMessage(ExecuteAtTime(5.0, "ex_pass3"),       "Test 3")) { pass(); }
+      if (AssertTrueMessage(ExecuteAtTime(5.0, "ex_pass4", {42}), "Test 4")) { pass(); }
+   end_execute
+end_platform
+
+# test WsfSimulation Execute scripts
+include execute_test_inc.txt
+execute at_time 1 sec absolute
+   # 6 passes, +2 on timed scripts = 8 passes
+   if (WsfSimulation.ScriptExists("ex_pass1") && !WsfSimulation.ScriptExists("ex_pass99")) { pass(); }
+   if (AssertFalseMessage(WsfSimulation.ExecuteAtTime(5.0, "ex_pass99"),     "Test 0"))    { pass(); }
+   if (AssertEqualsMessage((int)WsfSimulation.Execute("ex_pass1"), 42,       "Test 1"))    { pass(); }
+   if (AssertEqualsMessage((int)WsfSimulation.Execute("ex_pass2", {42}), 84, "Test 2"))    { pass(); }
+   if (AssertTrueMessage(WsfSimulation.ExecuteAtTime(5.0, "ex_pass3"),       "Test 3"))    { pass(); }
+   if (AssertTrueMessage(WsfSimulation.ExecuteAtTime(5.0, "ex_pass4", {42}), "Test 4"))    { pass(); }
+end_execute

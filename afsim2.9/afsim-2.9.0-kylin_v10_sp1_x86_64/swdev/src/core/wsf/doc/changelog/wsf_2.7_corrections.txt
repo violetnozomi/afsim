@@ -1,0 +1,63 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.7.4)** Corrected a crash in :command:`osm_traffic` that occurred when background vehicles exited the :command:`route_network` via an one-way road. Vehicles are now deleted and a new vehicle is spawned at the beginning of a road that originates from an edge of the network. *(AFSIM-1677)*
+* **(2.7.4)** :model:`WSF_KINEMATIC_MOVER` now correctly reports acceleration. *(AFSIM-1730)*
+* **(2.7.4)** :model:`WSF_KINEMATIC_MOVER` now correctly reports velocity vector. *(AFSIM-1729)*
+* **(2.7.3)** Corrected the return value of script methods :method:`WsfSimulation.ExecuteAtTime`, :method:`WsfPlatform.ExecuteAtTime`, and :method:`WsfProcessor.ExecuteAtTime` to indicate whether the supplied script is valid. *(AFSIM-642)*
+* **(2.7.3)** Corrected the application of :command:`sensor_mode.range_error_sigma` value to the track measurement when *percent_of_true_range* is specified. *(AFSIM-1151)*
+* **(2.7.3)** Corrected an issue where platforms with :ref:`route<docs/predefined_mover_types:Route Types>` movers initially turned off will move along the provided route, jumping between waypoints, despite the mover being off. *(AFSIM-182)*
+* **(2.7.3)** Corrected an issue in the :command:`line_of_sight_manager` that could cause :ref:`multi-threaded<docs/simulation_control_commands:Multi-Threading Commands>` simulations to hang or crash. *(AFSIM-1244)*
+* **(2.7.3)** Corrected an issue where platforms with :ref:`route<docs/predefined_mover_types:Route Types>` movers initially turned off and given a route, if later turned on using the :method:`WsfMover.TurnOn` script method, will cause the platform to jump to the location on the route as if the mover had been on the entire time. *(AFSIM-183)*
+* **(2.7.3)** Corrected an issue in the kinematic trajectory model for the :model:`WSF_TSPI_MOVER` that is used to predict future locations and time of apogee. *(AFSIM-167)*
+* **(2.7.3)** Corrected an issue in :method:`LocationValid2D()<WsfTrack.LocationValid2D>` that caused some tracks with known 3-D location information to report false for this method and true for :method:`LocationValid()<WsfTrack.LocationValid>`.  Clarified documentation for these methods. *(AFSIM-209)*
+* **(2.7.3)** Corrected an issue where :model:`WSF_TABULAR_ATTENUATION` was limiting attenuation values to the range [0, 1] absolute. *(AFSIM-172)*
+* **(2.7.3)** Corrected an issue where the :model:`WSF_ROAD_MOVER` would not use the road network when commanded using the :method:`WsfPlatform.GoToLocation` or :method:`WsfPlatform.FollowRoute` script methods. *(AFSIM-211)*
+* **(2.7.3)** Corrected an issue where GPS :command:`_.navigation_errors` were not being converted from a platform's local XYZ coordinate frame to the WCS frame correctly. *(AFSIM-932)*
+* **(2.7.3)** Corrected an issue with the :model:`WSF_ROTORCRAFT_MOVER` not moving along a route correctly after encountering a waypoint with a :command:`route.pause_time`. *(AFSIM-150)*
+* **(2.7.3)** Corrected an issue where platforms following a route with a segment longer than ~1/4 of the earth's circumference would not reach the proper location. *(AFSIM-311)*
+* **(2.7.3)** Corrected an issue where converting MGRS coordinates to Latitude/Longitude would fail in certain cases. *(AFSIM-1039)*
+* **(2.7.3)** Corrected a crash when using :method:`ProcessInput()<WsfObject.ProcessInput>` on a command that depends on other input that has not been loaded. For example, a route referenced in the :command:`_.route_mover.use_route` command must be loaded or the scenario crashed. A :command:`console_output` Info message will get issued when using the ProcessInput script method on a command with dependencies. *(AFSIM-1071)*
+* **(2.7.3)** Added missing documentation for :ref:`signal_processor.mti_processor` commands :command:`signal_processor.mti_processor.filtered_doppler_speed` and :command:`signal_processor.mti_processor.unfiltered_doppler_speed`. Added commands to the grammar for correct parsing in Wizard. *(AFSIM-1073)*
+* **(2.7.3)** Fixed crash that could occur when sending a :class:`WsfDraw` command over XIO. *(AFSIM-1097)*
+* **(2.7.3)** Corrected :command:`observer` documentation to include missing events, remove events no longer available, and accurately reflect event signatures. *(AFSIM-1099)*
+* **(2.7.3)** Fixed crash that could occur when :command:`osm_traffic` vehicles are changing lanes to an unoccupied neighboring lane. *(AFSIM-1132)*
+* **(2.7.3)** Corrected an issue in which using the script method :method:`Array\<T\>.Insert` would result in a script compilation error if T was not an :class:`Object`. *(AFSIM-1394)*
+* **(2.7.2)** Corrected issues when using platform types with a :model:`WSF_ROAD_MOVER` in a :command:`road_traffic` block. If the :command:`WSF_ROAD_MOVER.off_road_speed` was explicitly set, then these platforms were always traveling at the off-road speed even when on the road network. Additionally, these platforms were not using the speeds specified in the :command:`road_traffic` block. *(AFSIM-151)*
+* **(2.7.2)** Corrected an issue with checking terrain masking when using the :command:`terrain.use_fast_masking_check` option. The algorithm was going one step too far, checking behind the target. This results in false-positives of terrain masking when line-of-sight isn't actually blocked. *(AFSIM-608)*
+* **(2.7.2)** Corrected an issue where the wrong reason was provided in :command:`event_output` for the failure of a :command:`behavior_tree` node to execute when calling the :method:`WsfBehaviorTreeNode.Failure` method multiple times. *(AFSIM-99)*
+* **(2.7.2)** Corrected an issue where the script method :method:`WsfZoneRouteFinder.AvoidZone` would not add the specified zone to the list of avoidance zones. *(AFSIM-163)*
+* **(2.7.2)** :command:`road_traffic` is now generated on Monte Carlo iterations of a simulation. *(AFSIM-168)*
+* **(2.7.2)** Corrected an issue where :command:`comm` messages between simulations were unreliable when more than two simulations were connected over DIS. *(AFSIM-322) (AFSIM-323)*
+* **(2.7.2)** Prevent the mover from being swapped when :method:`WsfPlatform.SwapMover` is called on an externally moved platform. This prevents external simulations controlling a platform's movement via DIS Entity State PDUs from losing control of the platform's movement. *(AFSIM-725)*
+* **(2.7.2)** Correct an issue with the Lambert orbital targeting solver that would lead to incorrect solutions for some hyperbolic transfers. *(AFSIM-908)*
+* **(2.7.2)** Changed the time used in the lunar model from UT1 to TT. *(AFSIM-886)*
+* **(2.7.2)** Corrected a crash when calling :method:`WsfXIO.Subscribe`, :method:`WsfXIO_PublishKey.Field`, or :method:`WsfXIO_PublishKey.ToString` from script. *(AFSIM-951)*
+* **(2.7.1)** Corrected deficiencies identified with the documentation of :class:`Quaternion` script methods. Removed the undocumented methods GetPsi(), GetTheta(), and GetPhi(), as these have been deprecated. The :method:`Quaternion.Psi`, :method:`Quaternion.Theta`, and :method:`Quaternion.Phi` methods were incorrectly returning angles in radians and now return angles in degrees. The documentation has been updated accordingly. *(AFSIM-308)*
+* **(2.7.1)** Corrected an issue in which brace initialization (``= {}``) on non-constructible script types resulted in null objects. Brace initialization for non-constructible types is now a script compiler error.
+* **(2.7.1)** Corrected an issue where the path computer, used by waypoint mover types, was not correctly calculating the turn radius when applying the :command:`_.route_mover.body_g_limit` constraint. The error was causing the calculated turn radius to be larger than expected. *(AFSIM-301)*
+* Corrected an issue where :method:`WsfPlatform.AccelerationNED` would sometimes yield incorrect results, depending on what other queries have been previously executed on the same platform. *(AFSIM-512)*
+* Corrected the position of waypoints within a :command:`route` when both the :command:`route.offset` and :command:`route.transform_route` commands were used. *(AFSIM-169)*
+* Added an error message on execution of a :command:`callback` defined at the global scope, if the callback script cannot be executed. *(AFSIM-191)*
+* Added an error message on initialization of a :command:`callback` defined at the platform scope. If the callback processor or script cannot be found, the simulation will fail to initialize. *(AFSIM-192)* *(AFSIM-193)*
+* Corrected a bug that resulted in an input error when attempting to reference a user-defined :command:`error_model` inside a :command:`sensor`. *(AFSIM-194)*
+* Corrected :method:`Math.AngleIsBetween` to return true if the limits represent a full circle. *(AFSIM-221)*
+* Corrected a bug where sending a message between the same :model:`WSF_SCRIPT_PROCESSOR` multiple times at the same simulation time could cause an invalid MESSAGE variable. *(AFSIM-257)*
+* Corrected a bug which prevented :method:`WsfArticulatedPart.SetXYZ` from affecting a part's location. *(AFSIM-293)*
+* Corrected a crash on application exit that resulted in some cases when using a :command:`script_struct` that contains an instance of another :command:`script_struct`. *(Issue #1730)*
+* Corrected an issue where runtime :command:`comm` deletion did not trigger the correct :command:`observer`. *(Issue #2247)*
+* Corrected an issue in which a :command:`platform` referencing an undefined signature did not result in an initialization error. *(Issue #2265)*
+* Corrected an issue with :method:`WsfPlatform.GroundRangeTo` producing different results for zero and non-zero altitudes. *(Issue #2307)*
+* Corrected a bug where :method:`WsfZone.Reference` was not returning correct values for zones that reference a platform or position. *(AFSIM-135)*
+* Corrected an issue where defining a struct in an :command:`_.aux_data` block erases previously defined values. *(Issue #2363)*
+* Corrected an issue which caused shapefiles to load very slowly. *(Issue #2404)*
+* Corrected an issue with :command:`csv_event_output` involving inconsistencies between the header and data being output in regard to :ref:`docs/event/sensor_track_events:SENSOR_TRACK_DROPPED` and :ref:`docs/event/local_track_events:LOCAL_TRACK_DROPPED`. *(AFSIM-148)*
+* Added missing grammar for :command:`air_traffic.aircraft_type.loiter_route` command for :command:`air_traffic`. *(AFSIM-176)*
+* Corrected an issue where acceleration conversions to and from ECI (inertial) and WCS were not being performed.  This bug could sometimes produce incorrect acceleration values being reported in :command:`event_output` and :command:`csv_event_output`. *(Issue #2454)*
+* Corrected an issue with incorrect functionality and instability regarding the :command:`observer` usage of :ref:`docs/event/link_events:LINK_ENABLED_ON_LOCAL`, :ref:`docs/event/link_events:LINK_DISABLED_ON_LOCAL`, :ref:`docs/event/link_events:LINK_ENABLED_ON_MANAGER`, and :ref:`docs/event/link_events:LINK_DISABLED_ON_MANAGER`. *(Issue #2507)*

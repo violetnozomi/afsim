@@ -1,0 +1,125 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// test case for weapon platform removal
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+weapon_effects keep WSF_SPHERICAL_LETHALITY
+   maximum_radius 100 m
+   minimum_damage 0.999
+   remove_weapon_platform off
+end_weapon_effects   
+
+weapon_effects delete WSF_SPHERICAL_LETHALITY
+   maximum_radius 100 m
+   minimum_damage 0.999
+end_weapon_effects   
+
+platform_type LAWN_DART WSF_PLATFORM 
+   side green
+   icon wedge
+
+   mover WSF_STRAIGHT_LINE_MOVER
+      average_speed 300 kts          
+   end_mover     
+    
+   processor fuse WSF_GROUND_TARGET_FUSE
+      on_intercept halt
+   end_processor
+
+end_platform_type
+
+platform_type KEEP LAWN_DART
+   weapon_effects keep 
+end_platform_type
+
+platform_type DELETE LAWN_DART 
+   weapon_effects delete 
+end_platform_type
+
+platform_type SHOOTER WSF_PLATFORM
+   side green
+   icon f-18
+   mover WSF_AIR_MOVER
+   end_mover
+   weapon keep WSF_EXPLICIT_WEAPON 
+      launched_platform_type KEEP
+      quantity 25
+   end_weapon
+   weapon delete WSF_EXPLICIT_WEAPON 
+      launched_platform_type DELETE
+      quantity 25
+   end_weapon
+      
+end_platform_type
+
+platform dummy_target WSF_PLATFORM   
+      indestructible 
+      position 40.18n 90w altitude 0 ft agl  
+end_platform
+
+platform shooter SHOOTER
+   route
+      position 40n 90w altitude 3000 m heading 0 deg speed 160 kts extrapolate
+   end_route
+   
+   execute at_time 1 minute absolute  
+      WsfPlatform dummy = WsfSimulation.FindPlatform("dummy_target");
+      WsfGeoPoint loc = PLATFORM.Location();
+      loc.OffsetNED(10000, 0.0, 2999.0);
+      bool ok = PLATFORM.Weapon("delete").Fire(dummy.MakeTrack());
+   end_execute
+   
+   execute at_time 2 minute absolute  
+      WsfPlatform dummy = WsfSimulation.FindPlatform("dummy_target");
+      WsfGeoPoint loc = PLATFORM.Location();
+      loc.OffsetNED(10000, 0.0, 2999.0);
+      bool ok = PLATFORM.Weapon("keep").Fire(dummy.MakeTrack());
+   end_execute
+
+   execute at_time 300 s absolute
+      bool firstDeleted  = !WsfSimulation.FindPlatform("shooter_delete_1").IsValid();
+      bool secondDeleted = !WsfSimulation.FindPlatform("shooter_keep_1").IsValid();
+      if (firstDeleted && (!secondDeleted))
+      {
+         // Pass
+      }
+      else
+      {
+         writeln("-FAIL-");
+         if (secondDeleted)
+         {
+            writeln("   Expected 'shooter_keep_1' to be retained");
+         }
+         else
+         {
+            writeln("   Expected 'shooter_delete_1' to be deleted");
+         }
+      }
+   end_execute
+   
+end_platform
+
+end_time 5 minutes
+
+/*
+event_pipe
+   file delete_and_keep_weapon_test.aer
+end_event_pipe
+
+event_output
+   file delete_and_keep_weapon_test.evt
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable PLATFORM_DELETED
+end_event_output 
+*/

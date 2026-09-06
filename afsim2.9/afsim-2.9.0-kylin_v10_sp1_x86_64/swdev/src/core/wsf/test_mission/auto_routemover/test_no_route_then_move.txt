@@ -1,0 +1,83 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Ensure that the route mover which is given no initial route can
+# later be given a route.
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   icon Car
+   mover WSF_AIR_MOVER
+      update_interval 1.0 sec
+   end_mover
+end_platform_type
+
+platform test-1 TEST_PLATFORM
+   # NOTE: agl altitude must be used or it will get clamped to zero.
+   #       (This also tests the agl offset works!)
+   position 39.5n 90w altitude 1 m agl heading 180 deg
+
+   script_variables
+      double cSPEED = 60.0 * MATH.MPS_PER_NMPH();
+   end_script_variables
+
+   # Go 60 nm/hr. In one hour one would go 1 degree of longitude on a spherical earth.
+   execute at_time 3600 sec relative
+      writeln("Command to move");
+      GoToSpeed(cSPEED);
+   end_execute
+
+   execute at_time 7200 sec relative
+      DeletePlatform();
+   end_execute
+
+   script void on_platform_deleted()
+      bool pass = true;
+      writeln("Latitude=", Latitude(), " Longitude=", Longitude(),
+              " Altitude=", Altitude(), " Heading=", Heading(),
+              " Speed=", Speed());
+      # We should have moved ABOUT 1 degree south, but that assumes a
+      # a spherical earth.  Just make sure we are *CLOSE*.
+      if (MATH.Fabs(Latitude() - (39.5 - 1.0)) > 0.002)
+      {
+         writeln("-FAIL- Latitude = ", Latitude(), ", expected ", 39.5 - 1);
+         pass = false;
+      }
+      if (MATH.Fabs(Longitude() - (- 90.0)) > 0.000001)
+      {
+         writeln("-FAIL- Longitude = ", Longitude(), ", expected -90.0");
+         pass = false;
+      }
+      if (MATH.Fabs(Altitude() - 1.0) > 0.001)
+      {
+         writeln("-FAIL- Altitude = ", Altitude(), ", expected 1.0");
+         pass = false;
+      }
+      double heading = MATH.NormalizeAngle0_360(Heading());
+      if (MATH.Fabs(heading - 180.0) > 0.001)
+      {
+         writeln("-FAIL- Heading = ", heading, ", expected 180.0");
+         pass = false;
+      }
+      if (MATH.Fabs(Speed() - cSPEED) > 0.001)
+      {
+         writeln("-FAIL- Speed = ", Speed(), ", expected ", cSPEED);
+         pass = false;
+      }
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+    end_script
+end_platform
+
+end_time 7210 secs
+
+#event_pipe
+#   file test_no_route_then_move.aer
+#end_event_pipe

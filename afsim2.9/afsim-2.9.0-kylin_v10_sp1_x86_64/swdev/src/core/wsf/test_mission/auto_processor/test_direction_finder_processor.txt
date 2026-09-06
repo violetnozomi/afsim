@@ -1,0 +1,113 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# New file created by AFSIM Wizard
+# This test ensures that the DF processor is producing reasonable results.
+
+platform_type TARGET WSF_PLATFORM
+   side red
+   icon tbm_launcher
+end_platform_type
+
+platform_type AIRCRAFT WSF_PLATFORM
+   side blue
+   icon f-18
+
+   mover WSF_AIR_MOVER
+   end_mover
+
+   sensor rb WSF_GEOMETRIC_SENSOR
+      on
+      ignore_same_side
+      reports_bearing
+      reports_elevation
+      frame_time 20 s
+      filter WSF_KALMAN_FILTER
+         process_noise_model constant_velocity
+         process_noise_sigmas_XYZ 0.3 0.3 0.3
+      end_filter
+
+      // Small errors will produce tracks near the target
+      azimuth_error_sigma 0.001 deg
+      elevation_error_sigma 0.001 deg
+      processor df
+      processor link
+   end_sensor
+
+   processor link WSF_SCRIPT_PROCESSOR
+      report_to peers via xfer
+   end_processor
+
+   processor df WSF_DIRECTION_FINDER_PROCESSOR
+      processor tp
+      maximum_expected_error 400 m
+      //test enable
+      //debug
+      use_truth_altitude enabled
+   end_processor
+
+   processor tp WSF_TRACK_PROCESSOR
+   end_processor
+
+   comm xfer WSF_COMM_TRANSCEIVER
+      internal_link tp
+   end_comm
+
+end_platform_type
+
+platform target-1 TARGET
+   position 38:53:56.941n 90:01:34.324w
+   altitude 10 meters agl
+end_platform
+
+platform df1 AIRCRAFT
+   position 38:54:03.600n 89:39:02.715w
+   altitude 20000 meters agl
+   heading 270 degrees
+   mover
+      route
+         position 38:57:31.60n 89:50:25.38w
+            altitude 20000 meters
+            agl
+            speed 200 nm/h
+         position 38:57:31.03n 90:02:23.50w
+      end_route
+   end_mover
+end_platform
+
+end_time 0.2 hour
+
+script_variables
+   int sNUM_UPDATES = 0;
+end_script_variables
+
+script void LocalTrackUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack)
+  sNUM_UPDATES = sNUM_UPDATES + 1;
+  Vec3 platformLoc = aTrack.Target().LocationWCS();
+  Vec3 trackLoc = aTrack.CurrentLocation().LocationWCS();
+  Vec3 diff = Vec3.Subtract(platformLoc, trackLoc);
+  if (diff.Magnitude() > 10000)
+  {
+     writeln("-FAIL-");
+  }
+  writeln(diff.Magnitude());
+end_script
+
+script void SimulationComplete()
+   // There should have been valid updates; otherwise
+   if (sNUM_UPDATES == 0)
+   {
+      writeln("-FAIL-");
+   }
+end_script
+
+observer
+   enable LOCAL_TRACK_UPDATED LocalTrackUpdated // got a valid update from df proc
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer

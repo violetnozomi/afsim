@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include generic_sar.txt
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+    sensor sar GENERIC_SAR
+       yaw    50 deg
+       pitch -70 deg
+#       debug
+    end_sensor
+end_platform_type
+
+platform SENSOR SENSOR_PLATFORM_TYPE
+   position 0n 0e altitude 30000 ft heading 90 deg
+
+   execute at_time 0.0001 seconds relative
+      Sensor("sar").CueToLLA(-0.5, 0.5, 0.0);
+   end_execute
+end_platform
+
+radar_signature TARGET_RADAR_SIG
+   constant 10 dbsm
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+end_platform_type
+
+horizontal_map
+   gnuplot_file hm-sar.gnu
+
+#  variable azimuth_angle
+#  variable elevation_angle
+  variable signal_at_target
+#  variable solid_angle
+#  variable ground_range
+  
+  target_region
+    down_range_limits  -60 nm 60 nm
+    down_range_step    0.25 nm
+
+    cross_range_limits -60 nm 60 nm
+    cross_range_step   0.25 nm
+  end_target_region
+
+  target_speed 0 kts
+  target_altitude 1 ft agl
+
+  # Normally the program will attempt to cue the sensor directly to the target.
+  # The following command disables that functionality and forces the program to
+  # to accept the cue we have defined.
+
+  automatic_target_cueing false
+
+end_horizontal_map

@@ -1,0 +1,35 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# UCI ESM Test Scenario (AFSIM simulation)
+# Run this scenario concurrently in Warlock with esm_test_scenario_non_afsim_proxy.txt
+# platform "sense" is externally controlled through DIS (see map_external_entity) in the other simulation,
+# whereas the ESM sensor on platfom "sense" is run in this process.
+
+include ./test_scenario_common.txt
+
+dis_interface 
+   application 2
+
+   // platform sense is externally controlled
+   // Entity type SIMPLE_SENSE maps to SENSE type
+   entity_type SENSE 1:2:225:1:12:0:0   
+   map_external_entity 1:1:1   
+end_dis_interface
+
+uci_interface
+   service_name ship2
+   service_descriptor SHIP2
+end_uci_interface
+
+platform_availability 
+   type TARGET availability 0.0
+end_platform_availability
+
+realtime

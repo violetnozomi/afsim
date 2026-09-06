@@ -1,0 +1,78 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests out switch_on_passing/switch_on_approach flags are correctly handled on
+# the mover and waypoints
+
+platform_type plat_type WSF_PLATFORM
+   side blue
+   icon 737
+   mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 0n 0e speed 400 m/s
+      position 0.1n 0e
+      position 0.1n 0.1e
+         execute test
+   end_route
+end_platform_type
+
+platform_type approach_tester plat_type
+   script void test()
+      double headingError = MATH.Fabs(90 - Heading());
+      if (headingError > 1.0)
+      {
+         writeln("-FAIL- ", Name());
+      }
+   end_script
+end_platform_type
+
+platform_type passing_tester plat_type
+   switch_on_passing
+   script void test()
+      if (Heading() < 100.0)
+      {
+         writeln("-FAIL- ", Name());
+      }
+   end_script
+end_platform_type
+
+platform mover_switch_on_approach approach_tester
+   switch_on_approach
+end_platform
+
+platform mover_switch_on_passing passing_tester
+   switch_on_passing
+end_platform
+
+platform waypoint_override_passing passing_tester
+   switch_on_approach
+   route
+      position 0n 0e speed 400 m/s
+      position 0.1n 0e
+         switch_on_passing
+      position 0.1n 0.1e
+         execute test
+   end_route
+end_platform
+
+platform waypoint_override_approach approach_tester
+   switch_on_passing
+   route
+      position 0n 0e speed 400 m/s
+      position 0.1n 0e
+         switch_on_approach
+      position 0.1n 0.1e
+         execute test
+   end_route
+end_platform
+
+end_time 5 min
+
+

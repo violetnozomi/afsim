@@ -1,0 +1,141 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test turns waypoint/route movers off and on both at the time of initialization
+# and during movement along a route.
+define_path_variable CASE test_turn_off_on
+
+include_once ../auto_script/test_functions.txt
+
+route Route-1
+   position 00:00:00.000n 00:00:00.000e altitude 25000.00 ft speed 400 mi/h
+   position 00:38:06.822n 00:37:47.744e altitude 25000.00 ft
+   position 01:03:51.139n 00:08:32.839e altitude 25000.00 ft
+   position 00:47:28.392n 00:53:27.559w altitude 25000.00 ft
+   position 00:07:41.721n 00:58:08.344w altitude 25000.00 ft
+   position 00:55:28.873s 00:53:27.559w altitude 25000.00 ft
+   position 01:03:40.246s 00:15:34.016e altitude 25000.00 ft
+   position 00:29:44.557s 00:43:38.725e altitude 25000.00 ft
+   position 00:07:41.721n 01:23:25.395e altitude 25000.00 ft
+end_route
+
+platform_type TEST_BASE_PLATFORM_TYPE WSF_PLATFORM 
+   script void Toggle()
+      if (PLATFORM.Mover().IsTurnedOn())
+      {
+         PLATFORM.Mover().TurnOff();
+      }
+      else 
+      {
+         PLATFORM.Mover().TurnOn();
+      }
+   end_script
+
+   mover WSF_AIR_MOVER
+      update_interval 1 s  
+      at_end_of_path stop
+      draw_route on 
+   end_mover
+end_platform_type
+
+platform_type TEST_PLATFORM_TYPE TEST_BASE_PLATFORM_TYPE
+   use_route Route-1
+end_platform_type
+
+# This platform is initialized off and should never move
+platform p1 TEST_PLATFORM_TYPE
+   side red
+   mover off end_mover
+end_platform
+
+# This platform is initially off and is toggled on/off
+platform p2 TEST_PLATFORM_TYPE
+   side blue
+   mover off end_mover
+   execute at_time  400 sec absolute Toggle(); end_execute
+   execute at_time 1400 sec absolute Toggle(); end_execute
+   execute at_time 2400 sec absolute Toggle(); end_execute
+end_platform
+
+# This platform is initially on and is toggled off/on
+platform p3 TEST_PLATFORM_TYPE
+   side yellow
+   execute at_time  400 sec absolute Toggle(); end_execute
+   execute at_time 1400 sec absolute Toggle(); end_execute
+   execute at_time 2400 sec absolute Toggle(); end_execute
+end_platform
+
+# This platfiorm moves throughout scenario; initially on
+platform p4 TEST_PLATFORM_TYPE
+   side green
+end_platform
+
+# This platform is created after simulation start; this one moves
+execute at_time 1 min absolute
+   WsfPlatform p = WsfSimulation.CreatePlatform("TEST_BASE_PLATFORM_TYPE");
+   p.ProcessInput("side purple");
+   p.ProcessInput("use_route Route-1");
+   WsfSimulation.AddPlatform(p,"p5");
+end_execute
+
+# This platform is created after simulation start; this one is stationary but on
+execute at_time 1 min absolute
+   WsfPlatform p = WsfSimulation.CreatePlatform("TEST_BASE_PLATFORM_TYPE");
+   p.ProcessInput("side orange");
+   WsfSimulation.AddPlatform(p,"p6");
+end_execute
+
+script void SimulationComplete()
+   WsfRoute route = WsfRoute.FindGlobal("Route-1");
+
+   # pl should be at first waypoint; no movement   
+   string actualLocStr  = WsfSimulation.FindPlatform("p1").Location().ToString();
+   string expectdLocStr = route.Waypoint(0).Location().ToString();
+   AssertEqualsMessage(expectdLocStr, actualLocStr, "Location: p1");
+   
+   # p2 starts off and is turned on and off
+   double timeMoving = TIME_NOW - 400. - 1000.;
+   double distanceTraveled = route.Waypoint(0).Speed() * timeMoving;
+   WsfGeoPoint actualLoc  = WsfSimulation.FindPlatform("p2").Location();
+   WsfGeoPoint expectdLoc = route.LocationAtDistance(distanceTraveled);
+   AssertWithinToleranceMessage(expectdLoc.Latitude(),  actualLoc.Latitude(),  0.01, "Latitude: p2");
+   AssertWithinToleranceMessage(expectdLoc.Longitude(), actualLoc.Longitude(), 0.01, "Longitude: p2");
+   
+   # p3 start on and is turned off and on
+   timeMoving = 1400.;
+   distanceTraveled = route.Waypoint(0).Speed() * timeMoving;
+   actualLoc  = WsfSimulation.FindPlatform("p3").Location();
+   expectdLoc = route.LocationAtDistance(distanceTraveled);
+   AssertWithinToleranceMessage(expectdLoc.Latitude(),  actualLoc.Latitude(),  0.01, "Latitude: p3");
+   AssertWithinToleranceMessage(expectdLoc.Longitude(), actualLoc.Longitude(), 0.01, "Longitude: p3");   
+   
+   # p4 should be at last waypoint  
+   actualLocStr  = WsfSimulation.FindPlatform("p4").Location().ToString();
+   expectdLocStr = route.Waypoint(route.Size() - 1).Location().ToString();
+   AssertEqualsMessage(expectdLocStr, actualLocStr, "Location: p4");
+   
+   # p5 should be at last waypoint  
+   actualLocStr  = WsfSimulation.FindPlatform("p5").Location().ToString();
+   expectdLocStr = route.Waypoint(route.Size() - 1).Location().ToString();
+   AssertEqualsMessage(expectdLocStr, actualLocStr, "Location: p5");
+   
+   # p6 should be at first waypoint; no movement   
+   actualLoc  = WsfSimulation.FindPlatform("p6").Location();
+   expectdLoc = route.Waypoint(0).Location();
+   AssertWithinToleranceMessage(expectdLoc.Latitude(),  actualLoc.Latitude(),  0.01, "Latitude: p6");
+   AssertWithinToleranceMessage(expectdLoc.Longitude(), actualLoc.Longitude(), 0.01, "Longitude: p6");   
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+#event_pipe file $(CASE).aer end_event_pipe
+
+end_time 4500 s

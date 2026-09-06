@@ -1,0 +1,41 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+comm TEAM_DATALINK WSF_COMM_TRANSCEIVER
+   transfer_rate 100 mbits/sec
+end_comm
+
+comm TEAM_RADIOLINK WSF_RADIO_TRANSCEIVER
+   transfer_rate 100 mbits/sec
+   transmitter
+     frequency 100 mhz
+     power 1.21 gw
+     maximum_range 100 km
+   end_transmitter
+
+   receiver
+     frequency 100 mhz
+   end_receiver
+end_comm
+
+multiresolution_comm MR_COMM WSF_MULTIRESOLUTION_COMM
+   model low_fidelity_comm
+      fidelity_range 0.0 0.5
+      comm TEAM_DATALINK
+      end_comm
+   end_model
+    
+   model high_fidelity_comm 
+      fidelity_range 0.5 1.0
+      comm TEAM_RADIOLINK
+      end_comm
+   end_model
+end_multiresolution_comm

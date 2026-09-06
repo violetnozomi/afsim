@@ -1,0 +1,21 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#This test verifies that a pd_range_table defined in a geometric sensor must have at least 2 entries
+
+expect_input_error true
+
+platform test_fail WSF_PLATFORM 
+   add sensor geo-1 WSF_GEOMETRIC_SENSOR
+      platform_type WSF_PLATFORM
+         pd_range_table
+            1.0     0.1 km
+         end_pd_range_table
+   end_sensor
+end_platform

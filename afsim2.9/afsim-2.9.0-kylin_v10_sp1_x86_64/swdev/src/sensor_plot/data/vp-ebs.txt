@@ -1,0 +1,48 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ebs.txt
+
+###############################################################################
+#                 Define the target signature and platform type
+#
+# The platform type must be "TARGET_PLATFORM_TYPE"
+
+radar_signature TARGET_RADAR_SIGNATURE
+  constant 1 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+  radar_signature TARGET_RADAR_SIGNATURE
+end_platform_type
+
+###############################################################################
+#                         Define the sensing platform
+#
+# The platform type MUST be SENSOR_PLATFORM_TYPE
+# The sensor name   MUST be TEST_SENSOR
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+  sensor TEST_SENSOR MY_RADAR
+#    debug
+  end_sensor
+end_platform_type
+
+###############################################################################
+
+vertical_coverage
+  output_base       ebs
+  elevation_range   -5 deg 85 deg
+# elevation_range   29.5 deg 29.5 deg            # TEST
+  elevation_step    0.05 deg
+  maximum_range     210 km
+end_vertical_coverage
+

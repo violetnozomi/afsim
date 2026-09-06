@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   int testsFailed = 0;
+end_script_variables
+
+sensor GEO WSF_GEOMETRIC_SENSOR
+   mode_template
+     track_quality                   1.0
+     frame_time                      1.0 sec
+     target_solar_illumination_angle 60 deg 150 deg
+   end_mode_template
+
+   # Default is a constraint of 60-150 deg
+   mode defaultConstraint end_mode
+
+   # Changes mode to have stronger constraint than the template
+   mode strongConstraint
+      target_solar_illumination_angle 80 deg 120 deg
+   end_mode
+end_sensor
+
+platform sensor_plat WSF_PLATFORM
+   add sensor defaultSensor GEO
+      on
+	  initial_mode defaultConstraint
+   end_sensor
+   add sensor strongSensor GEO
+      on
+      initial_mode strongConstraint
+   end_sensor
+end_platform
+
+route testRoute
+   position 1s 0w altitude 5000 ft msl speed 3000 kts
+   position 1n 0w altitude 5000 ft msl
+end_route
+
+platform sun_blocked WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      use_route testRoute
+   end_mover
+end_platform
+
+# Returns the current solar illumination angle of the platform from the observers location.
+script double CalculateSolarIlluminationAngle(WsfPlatform targetPlat, WsfPlatform observerPlat)
+   Vec3 targetPos = targetPlat.LocationECI();
+   Vec3 observerPos = observerPlat.LocationECI();
+   Vec3 sunPos = Sun.LocationECI(WsfDateTime.CurrentTime());
+   
+   Vec3 targToObs = Vec3.Subtract(targetPos,observerPos);
+   Vec3 targToSun = Vec3.Subtract(targetPos,sunPos);
+   
+   double numerator = Vec3.Dot(targToObs,targToSun);
+   double denominator = targToObs.Magnitude()*targToSun.Magnitude();
+   double solarIllumAngle = MATH.ACos(numerator/denominator);
+   
+   return solarIllumAngle;
+end_script
+
+# Verifies that detections occur at the right ranges
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   extern int testsFailed;
+   double illuminationAngle = CalculateSolarIlluminationAngle(aTarget, aSensor.Platform());
+   
+   if(aSensor.Name() == "defaultSensor")
+   {
+      if(!aResult.Detected() && illuminationAngle >= 60 && illuminationAngle <= 150)
+	  {
+	     writeln("-FAIL- Target should have been detected by default sensor at: ", illuminationAngle);
+		 testsFailed += 1;
+	  }
+	  if(aResult.Detected() && (illuminationAngle < 60 || illuminationAngle > 150))
+	  {
+	     writeln("-FAIL- Target should not have been detected by default sensor at: ", illuminationAngle);
+		 testsFailed += 1;
+	  }
+   }
+   else if(aSensor.Name() == "strongSensor")
+   {
+      if(!aResult.Detected() && illuminationAngle >= 80 && illuminationAngle <= 120)
+	  {
+	     writeln("-FAIL- Target should have been detected by strong sensor at: ", illuminationAngle);
+		 testsFailed += 1;
+	  }
+	  if(aResult.Detected() && (illuminationAngle < 80 || illuminationAngle > 120))
+	  {
+	     writeln("-FAIL- Target should not have been detected by strong sensor at: ", illuminationAngle);
+		 testsFailed += 1;
+	  }
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+end_observer
+
+execute at_time 149 seconds absolute
+   extern int testsFailed;
+   if(testsFailed > 0)
+   {
+      writeln(testsFailed, " tests were failed.");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+end_time 150 seconds

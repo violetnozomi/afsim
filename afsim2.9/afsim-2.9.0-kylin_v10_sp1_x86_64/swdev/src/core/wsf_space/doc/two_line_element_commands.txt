@@ -1,0 +1,76 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Orbit Command for Two-Line Elements (TLEs)
+==========================================
+
+.. command:: orbit ... end_orbit
+   
+   Specify a Two Line Element (TLE) that defines mean orbital elements and other data used to propagate a satellite.  Two Line Elements are usually acquired from an existing source such as the Spacetrak database (http://www.space-track.org) or Celestrak (http://www.celestrak.com/NORAD/elements).  Unlike ordinary AFSIM inputs, the column formatting, field length, and character format must be exactly as specified below.::
+   
+    orbit
+       *<(optional) satellite descriptor>*
+       *<first line of TLE>*
+       *<second line of TLE>*
+    end_orbit
+   
+   The exact formatting and content of two-line elements are explained below::
+   
+       TITLE INFORMATION:
+
+        Line 1
+        Column Characters Description
+        -----  |--- |----
+         1        1       Line No. Identification
+         3        5       Catalog No.
+         8        1       Security Classification
+        10        8       International Identification
+        19       14       YRDOY.FODddddd
+        34        1       Sign of first time derivative
+        35        9       1st Time Derivative
+        45        1       Sign of 2nd Time Derivative
+        46        5       2nd Time Derivative
+        51        1       Sign of 2nd Time Derivative Exponent
+        52        1       Exponent of 2nd Time Derivative
+        54        1       Sign of Bstar/Drag Term
+        55        5       Bstar/Drag Term
+        60        1       Sign of Exponent of Bstar/Drag Term
+        61        1       Exponent of Bstar/Drag Term
+        63        1       Ephemeris Type
+        65        4       Element Number
+        69        1       Check Sum, Modulo 10
+
+        Line 2
+        Column Characters Description
+        -----  |--- |----
+         1       1        Line No. Identification
+         3       5        Catalog No.
+         9       8        Inclination
+        18       8        Right Ascension of Ascending Node
+        27       7        Eccentricity with assumed leading decimal
+        35       8        Argument of the Perigee
+        44       8        Mean Anomaly
+        53      11        Revolutions per Day (Mean Motion)
+        64       5        Revolution Number at Epoch
+        69       1        Check Sum Modulo 10
+   
+   An Example TLE for the satellite Vanguard-1 is shown below::
+   
+    orbit
+    1 00005U 58002B   09105.24506411  .00000084  00000-0  11810-3 0  4337
+    2 00005 034.2551 191.5961 1850437 000.0334 000.0199 10.83999999762276
+    end_orbit
+   
+   .. _wsf_space_mover_tle_note:
+   
+   .. note:: 
+      The :model:`WSF_SPACE_MOVER` currently utilizes only the classical orbital elements contained in the TLE and interprets them as being instantaneous, not mean, elements.
+      
+   .. note::
+      Use the :ref:`modify_tle_list` perl script to convert lists of TLEs to AFSIM platform lists.

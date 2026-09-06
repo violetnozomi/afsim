@@ -1,0 +1,303 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests the OSPF protocol and area definitions.
+//! Even across networks, OSPF should share routing
+//! data, as long as a physical link exists. Every
+//! comm is on a different network, but should route
+//! successfully.
+
+script_variables
+   int num_message = 0;
+end_script_variables
+
+protocol IGMP WSF_COMM_PROTOCOL_IGMP
+end_protocol
+
+router_protocol OSPF WSF_COMM_ROUTER_PROTOCOL_OSPF
+end_router_protocol
+
+comm test_comm WSF_COMM_TRANSCEIVER
+   add protocol multicast IGMP end_protocol
+end_comm
+
+router DEFAULT WSF_COMM_ROUTER
+   use_default_protocol false
+   add router_protocol localOSPF OSPF end_router_protocol
+end_router
+
+comm outside_comm WSF_COMM_TRANSCEIVER
+end_comm
+
+processor print WSF_SCRIPT_PROCESSOR
+   on_message type TEST_MESSAGE
+      script
+         writeln("Received Message...");
+         num_message = (num_message + 1);
+      end_script
+   end_on_message
+end_processor
+
+platform_type test_platform WSF_PLATFORM
+   add processor proc_print print
+   end_processor
+   add router default DEFAULT end_router
+   add comm test test_comm
+      internal_link proc_print
+   end_comm
+end_platform_type
+
+platform_type test_outside_platform WSF_PLATFORM
+   add processor proc_print print
+   end_processor
+   add comm test outside_comm
+      internal_link proc_print
+   end_comm
+end_platform_type
+
+platform test1 test_platform
+   edit comm test
+         network_name test1
+         link test10 test
+         link test9 test
+         link test8 test
+         link test5 test
+         link test4 test
+         link test3 test
+         link test2 test
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.1/32
+         backbone 1.1.1.1/32
+      end_router_protocol
+   end_router
+   
+end_platform
+
+platform test2 test_platform
+   edit comm test
+         network_name test2
+         link test10 test
+         link test9 test
+         link test8 test
+         link test5 test
+         link test4 test
+         link test3 test
+         link test1 test
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test3 test_platform
+   edit comm test
+      network_name test3
+      link test12 test
+      link test10 test
+      link test9 test
+      link test8 test
+      link test5 test
+      link test4 test
+      link test2 test
+      link test1 test
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+      // Use the legacy protocol in this router so it is designated as an ASBR
+      // and can route externally. OSPF takes precedence until a message is routed
+      // external to OSPF. This can be tested by setting this to false, and all
+      // externally routed messages will fail.
+      use_default_protocol true 
+   end_router
+end_platform
+
+platform test4 test_platform
+   edit comm test
+      network_name test4
+      link test10 test
+      link test9 test
+      link test8 test
+      link test5 test
+      link test1 test
+      link test3 test
+      link test2 test
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test5 test_platform
+   edit comm test
+      network_name test5
+      link test10 test
+      link test9 test
+      link test8 test
+      link test1 test
+      link test4 test
+      link test3 test
+      link test2 test
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.1/32
+         ospf_area 1.1.1.2/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test8 test_platform
+   edit comm test
+      network_name test8
+      link test10 test
+      link test9 test
+      link test1 test
+      link test5 test
+      link test4 test
+      link test3 test
+      link test2 test
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.2/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test9 test_platform
+   edit comm test
+      network_name test9
+      link test10 test
+      link test1 test
+      link test8 test
+      link test5 test
+      link test4 test
+      link test3 test
+      link test2 test
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.5/32
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test10 test_platform
+   edit comm test
+      network_name test10
+      link test1 test
+      link test9 test
+      link test8 test
+      link test5 test
+      link test4 test
+      link test3 test
+      link test2 test
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.5/32
+      end_router_protocol
+   end_router
+end_platform
+
+//! These platforms are in their own OSPF AS
+platform test6 test_platform
+   edit comm test
+      network_name test6
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.3/32
+         ospf_area 1.1.1.4/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test7 test_platform
+   edit comm test
+      network_name test7
+   end_comm
+   edit router default
+      edit router_protocol localOSPF
+         ospf_area 1.1.1.4/32
+         backbone 1.1.1.4/32
+      end_router_protocol
+   end_router
+end_platform
+//! END External OSPF AS
+
+
+//! These platforms are not using OSPF
+platform test11 test_outside_platform
+   edit comm test
+      network_name notConnectedToOSPF
+   end_comm
+end_platform
+
+platform test12 test_outside_platform
+   edit comm test
+      network_name connectedToOSPF
+   end_comm
+end_platform
+//! End Non-OSPF platform
+
+execute at_time 1 s absolute
+   WsfMessage msg = {};
+   msg.SetType("TEST_MESSAGE");
+
+   //! Send within the same area (backbone)
+   WsfSimulation.FindPlatform("test1").Comm("test").SendMessage(msg, "test2", "test");
+
+   //! Send within the same area (non-backbone)
+   WsfSimulation.FindPlatform("test8").Comm("test").SendMessage(msg, "test5", "test");
+
+   //! Send from non-backbone area to backbone area.
+   WsfSimulation.FindPlatform("test8").Comm("test").SendMessage(msg, "test1", "test");
+
+   //! Send from backbone area to non-backbone area.
+   WsfSimulation.FindPlatform("test4").Comm("test").SendMessage(msg, "test8", "test");
+
+   //! Send from non-backbone area to non-backbone area (via backbone)
+   WsfSimulation.FindPlatform("test8").Comm("test").SendMessage(msg, "test10", "test");
+
+   //! Send to external non-ospf member, non connected (failure)
+   WsfSimulation.FindPlatform("test1").Comm("test").SendMessage(msg, "test11", "test");
+
+   //! Send to external non-ospf member, connected locally (success)
+   WsfSimulation.FindPlatform("test3").Comm("test").SendMessage(msg, "test12", "test");
+
+   //! Send to external non-ospf member, connected via remote area (success)
+   WsfSimulation.FindPlatform("test8").Comm("test").SendMessage(msg, "test12", "test");
+
+end_execute
+
+script void SimulationComplete()
+   if (num_message != 7)
+   {
+      writeln("-FAIL-");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output

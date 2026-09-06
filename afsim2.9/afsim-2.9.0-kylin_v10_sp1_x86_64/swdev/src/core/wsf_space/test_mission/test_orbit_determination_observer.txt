@@ -1,0 +1,118 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# test of callbacks for orbit_determination_initiated and orbit_determination_updated
+
+sensor TELESCOPE WSF_GEOMETRIC_SENSOR  
+   ignore_same_side
+   frame_time 20 seconds
+   reports_bearing
+   reports_elevation
+   azimuth_error_sigma 1.1e-6 rad
+   elevation_error_sigma 1.10e-6 rad
+end_sensor
+
+platform_type COMMANDER WSF_PLATFORM
+   side blue
+   
+   comm comm WSF_COMM_TRANSCEIVER
+      internal_link tp
+   end_comm
+
+   track_manager 
+      retain_track_history 
+      fusion_method orbit_determination
+         process_noise_sigmas_XYZ 0.1 0.1 0.1
+         number_of_angle_measurements 5
+         angles_only_linear_tolerance 10.0 m
+      end_fusion_method
+   end_track_manager
+
+   processor tp WSF_TRACK_PROCESSOR
+      update_interval 100 sec
+      purge_interval 2 days
+      track_history_retention_interval 1000 sec 
+   end_processor
+   
+end_platform_type
+
+platform commander COMMANDER
+   position 20s 145e
+end_platform
+
+platform_type SSN WSF_PLATFORM
+   side blue
+   
+   comm comm WSF_COMM_TRANSCEIVER
+   end_comm
+   
+   processor report WSF_LINKED_PROCESSOR
+      report_to commander via comm
+   end_processor
+end_platform_type
+
+platform_type SST SSN
+   icon C2
+   category TELESCOPE
+   sensor SST TELESCOPE
+      on
+      internal_link report
+   end_sensor
+end_platform_type
+
+platform sst_australia SST
+   commander commander
+   position 0.0n 0.0e
+end_platform
+
+platform test WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      position 40s 40w altitude 500 km heading 45 deg
+   end_mover
+end_platform
+
+script_variables
+   bool sOD_INITIATED = false;
+   bool sOD_UPDATED = false;
+end_script_variables
+
+script void OrbitDeterminationInitiated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack)
+   if (aPlatform.IsValid() && aLocalTrack.IsValid())
+   {
+      sOD_INITIATED = true;
+   }
+end_script
+
+script void OrbitDeterminationUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack)
+   if (aPlatform.IsValid() && aLocalTrack.IsValid())
+   {
+      sOD_UPDATED = true;
+   }
+end_script
+
+script void SimulationComplete()
+   if (sOD_INITIATED && sOD_UPDATED)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_script
+
+
+observer
+   enable ORBIT_DETERMINATION_INITIATED OrbitDeterminationInitiated
+   enable ORBIT_DETERMINATION_UPDATED OrbitDeterminationUpdated
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+start_epoch 16242.5
+end_time 20000 seconds

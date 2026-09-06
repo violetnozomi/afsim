@@ -1,0 +1,267 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# -------------------------------------------------------------------------------------------------
+# Test beam position and angle limits.
+#
+# This is a basic test to ensure that the azimuth beam position is set correctly with regard
+# to any limits that may be imposed.
+# -------------------------------------------------------------------------------------------------
+
+include ../auto_script/test_functions.txt
+
+# The antenna pattern is define such that gain will be:
+#   *) -10 db if the target is left of the beam center
+#   *    0 db if the target is centered in the beam
+#   *)  10 db if the target is right of the beam center
+#   *) if the target is left of the beam center , the antenna gain will be -10 db
+#   *) if the target is centered in the beam    , it will have a gain of 0 db
+#   *) if the target is right of the beam center, it will have a gain of 10 db
+antenna_pattern RADAR_ANTENNA
+   inline_table dB  6 2
+               -90  90
+       -180.00 -10 -10
+         -0.11 -10 -10
+         -0.10   0   0
+          0.10   0   0
+          0.11  10  10
+        180.00  10  10
+   end_inline_table
+end_antenna_pattern
+
+sensor RADAR WSF_RADAR_SENSOR
+   frame_time 1 sec
+   scan_mode both
+   antenna_height 10 m
+   transmitter
+      antenna_pattern RADAR_ANTENNA
+      power 100 kw
+      frequency 3 ghz
+   end_transmitter
+   receiver
+   end_receiver
+   one_m2_detect_range 200 nm
+   detection_threshold 12.8 db
+   reports_range
+   reports_bearing
+   reports_elevation
+   ignore_same_side
+   on
+end_sensor
+
+radar_signature TARGET_RADAR_SIG
+   constant 1 m^2
+end_radar_signature
+
+platform_type TARGET WSF_PLATFORM
+   side red
+   radar_signature TARGET_RADAR_SIG
+end_platform_type
+
+// Put the sensor platform pointing north and 8 targets N,NE,E,SE,S,SW,W,NW
+
+platform sensor WSF_PLATFORM
+   side blue
+   position 0n 0e altitude 0 m agl heading 0 deg
+
+   add sensor full RADAR
+      scan_mode both
+   end_sensor
+
+   // +/- 60 deg off right side
+   add sensor right RADAR
+      azimuth_scan_limits 30 deg 150 deg
+   end_sensor
+
+   // +/- 60 off left side
+   add sensor left RADAR
+      azimuth_scan_limits -150 deg -30 deg
+   end_sensor
+
+   add sensor cued-right RADAR
+      off
+      slew_mode azimuth
+      azimuth_scan_limits -60 deg 60 deg
+   end_sensor
+
+   add sensor cued-left RADAR
+      off
+      slew_mode azimuth
+      azimuth_scan_limits -60 deg 60 deg
+   end_sensor
+
+   execute at_time 0.001 sec relative
+      Sensor("cued-right").CueToRelativeAzEl(170.0, 0.0);
+      Sensor("cued-left").CueToRelativeAzEl(-170.0, 0.0);
+      Sensor("cued-right").TurnOn();
+      Sensor("cued-left").TurnOn();
+   end_execute
+end_platform
+
+platform target-n  TARGET
+   position 1.000000n 0.000000e altitude 750 m
+end_platform
+
+platform target-ne TARGET
+   position 0.707107n 0.707107e altitude 750 m
+end_platform
+
+platform target-e  TARGET
+   position 0.000000n 1.000000e altitude 750 m
+end_platform
+
+platform target-se TARGET
+   position 0.707107s 0.707107e altitude 750 m
+end_platform
+
+platform target-s  TARGET
+   position 1.000000s 0.000000e altitude 750 m
+end_platform
+
+platform target-sw TARGET
+   position 0.707107s 0.707107w altitude 750 m
+end_platform
+
+platform target-w  TARGET
+   position 0.000000n 1.000000w altitude 750 m
+end_platform
+
+platform target-nw TARGET
+   position 0.707107n 0.707107w altitude 750 m
+end_platform
+
+end_time 0.95 sec
+
+# -------------------------------------------------------------------------------------------------
+
+script_variables
+   bool gPass = true;
+   int  gTestCount = 0;
+   int  gExpectedTestCount = 40;    // Should be 8 times the number of number of sensors
+end_script_variables
+
+script void CheckAngle(WsfSensor            aSensor,
+                       WsfSensorInteraction aResult,
+                       double               aSide)
+
+   bool failed = false;
+   if (aSide == 0.0)
+   {
+      // Should be in scan volume
+      if (aResult.RcvrBeamGain() != 0.0) failed = true;
+   }
+   else if (aSide > 900.0)
+   {
+      // Should be outside scan volume, but too close to tell which way
+      if (aResult.RcvrBeamGain() == 0.0) failed = true;
+   }
+   else if (aSide < 0.0)
+   {
+      // Should be outside left limit
+      if (aResult.RcvrBeamGain() >= 0.0) failed = true;
+   }
+   else if (aSide > 0.0)
+   {
+      // Should be outside right limit
+      if (aResult.RcvrBeamGain() <= 0.0) failed = true;
+   }
+   if (failed)
+   {
+      writeln("-FAILED- ", aSensor.Name(), " -> ", aResult.TargetPlatformName(), " G=", aResult.RcvrBeamGain(),
+              " expected side: ", aSide);
+      gPass = false;
+   }
+   gTestCount = gTestCount + 1;
+end_script
+
+script void SensorDetectionAttempt(WsfPlatform          aPlatform,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+
+   string snrName = aSensor.Name();
+   string tgtName = aTarget.Name();
+   if (snrName == "full")
+   {
+      if (tgtName == "target-n" ) CheckAngle(aSensor, aResult,  0.0);
+      if (tgtName == "target-ne") CheckAngle(aSensor, aResult,  0.0);
+      if (tgtName == "target-e" ) CheckAngle(aSensor, aResult,  0.0);
+      if (tgtName == "target-se") CheckAngle(aSensor, aResult,  0.0);
+      if (tgtName == "target-s" ) CheckAngle(aSensor, aResult,  0.0);
+      if (tgtName == "target-sw") CheckAngle(aSensor, aResult,  0.0);
+      if (tgtName == "target-w" ) CheckAngle(aSensor, aResult,  0.0);
+      if (tgtName == "target-nw") CheckAngle(aSensor, aResult,  0.0);
+   }
+   else if (aSensor.Name() == "right")
+   {
+      if (tgtName == "target-n" ) CheckAngle(aSensor, aResult,  -1.0);
+      if (tgtName == "target-ne") CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-e" ) CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-se") CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-s" ) CheckAngle(aSensor, aResult,   1.0);
+      if (tgtName == "target-sw") CheckAngle(aSensor, aResult,   1.0);
+      if (tgtName == "target-w" ) CheckAngle(aSensor, aResult, 999.0);
+      if (tgtName == "target-nw") CheckAngle(aSensor, aResult,  -1.0);
+   }
+   else if (aSensor.Name() == "left")
+   {
+      if (tgtName == "target-n" ) CheckAngle(aSensor, aResult,   1.0);
+      if (tgtName == "target-ne") CheckAngle(aSensor, aResult,   1.0);
+      if (tgtName == "target-e" ) CheckAngle(aSensor, aResult, 999.0);
+      if (tgtName == "target-se") CheckAngle(aSensor, aResult,  -1.0);
+      if (tgtName == "target-s" ) CheckAngle(aSensor, aResult,  -1.0);
+      if (tgtName == "target-sw") CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-w" ) CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-nw") CheckAngle(aSensor, aResult,   0.0);
+   }
+   else if (aSensor.Name() == "cued-right")
+   {
+      if (tgtName == "target-n" ) CheckAngle(aSensor, aResult,  -1.0);
+      if (tgtName == "target-ne") CheckAngle(aSensor, aResult,  -1.0);
+      if (tgtName == "target-e" ) CheckAngle(aSensor, aResult,  -1.0);
+      if (tgtName == "target-se") CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-s" ) CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-sw") CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-w" ) CheckAngle(aSensor, aResult,   1.0);
+      if (tgtName == "target-nw") CheckAngle(aSensor, aResult,   1.0);
+   }
+   else if (aSensor.Name() == "cued-left")
+   {
+      if (tgtName == "target-n" ) CheckAngle(aSensor, aResult,   1.0);
+      if (tgtName == "target-ne") CheckAngle(aSensor, aResult,  -1.0);
+      if (tgtName == "target-e" ) CheckAngle(aSensor, aResult,  -1.0);
+      if (tgtName == "target-se") CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-s" ) CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-sw") CheckAngle(aSensor, aResult,   0.0);
+      if (tgtName == "target-w" ) CheckAngle(aSensor, aResult,   1.0);
+      if (tgtName == "target-nw") CheckAngle(aSensor, aResult,   1.0);
+   }
+   else
+   {
+      writeln("-FAIL- Detection result for unexpected sensor ", aSensor.Name());
+   }
+end_script
+
+script void SimulationComplete()
+   if (gTestCount != gExpectedTestCount)
+   {
+      writeln("-FAIL- Processed ", gTestCount, " detections, expected ", gExpectedTestCount);
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+/*
+event_output
+   file replay.evt
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+*/

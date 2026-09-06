@@ -1,0 +1,22 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* Added the capability to :model:`WSF_TRACK_EFFECT` to enter a :command:`delay, holdout and/or recycle time table<WSF_TRACK_EFFECT.delay_table>` as a function of J/S and within a specified time range for uniform random number draws.
+* **(Issue #409)** Numerous improvements to :model:`WSF_GUIDED_MOVER` and :model:`WSF_GUIDANCE_COMPUTER`:
+
+  * Added the :command:`WSF_GUIDED_MOVER.angle_of_attack` and :command:`WSF_GUIDED_MOVER.bank_to_turn` commands to
+    :model:`WSF_GUIDED_MOVER` to allow the vehicle attitude to be updated so sensors see a more representative aspect.
+  * Added the :command:`WSF_GUIDED_MOVER.throttle` command to :model:`WSF_GUIDED_MOVER` and the 
+    :method:`WsfGuidanceComputer.SetCommandedThrottle` and :method:`WsfGuidanceComputer.ClearCommandedThrottle`
+    script methods to provide predefined and dynamic throttle control.
+  * Added the :method:`WsfGuidanceComputer.EjectStage` script method that allows finer control of staging.
+  * Formally introduced the guidance program capability of :model:`WSF_GUIDANCE_COMPUTER`. This was implemented and used as part
+    of the launch-to-orbit capabilities implemented in version 2.1, but was not documented (see
+    :command:`WSF_GUIDANCE_COMPUTER.program` and :ref:`Guidance_Program_Types`.)
+* **(Issue #419)** Added warnings to :model:`WSF_WEAPON_TRACK_PROCESSOR` when the the current target track is only a 2-D track. This processor relies on a valid 3-D track for correctly calculating intercept location.

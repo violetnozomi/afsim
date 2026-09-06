@@ -1,0 +1,434 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+# This is a simple parsing test of all guided mover and guidance computer inputs.
+#
+# Technically WSF_GUIDANCE_COMPUTER is a processor and its tests should be in
+# auto_processor, but WSF_GUIDED_MOVER and WSF_GUIDANCE_COMPUTER are tightly linked.
+
+mover MISSILE WSF_GUIDED_MOVER
+  show_status
+  show_trajectory
+  check_for_ground_impact
+  time_history_path .
+  allow_inconsistent_mass_values
+  //route
+  //end_route
+
+  integration_timestep 0.01 sec
+  time_constant 0.05 sec
+
+  divert_thrust                        1 Nt
+  divert_fuel_mass                     1 kg
+  #divert_fuel_flow_rate                0.01 kg/sec
+  divert_altitude_limits               1 m 2 m
+  integration_method                   trapezoidal
+  integration_method                   rk2
+  integration_method                   rk4
+  coordinate_frame                     wcs
+  coordinate_frame                     eci
+  launch_to_orbit                      true
+  maintain_inclination                 true
+
+  stage 1
+     aero                              DUMMY_AERO
+     aero                              none
+
+     total_mass                        1 kg
+
+     launch_mass                       1 kg                # Old form
+     mass                              1 kg                # Old form
+     initial_mass                      1 kg                # Old form
+
+     #weight                            1 lbm
+     empty_mass                        1 kg
+     fuel_mass                         1 kg
+
+     thrust                            1 nt
+     vacuum_thrust                     1 nt
+     sea_level_thrust                  1 nt
+
+     thrust_table
+        1 sec 1 nt
+        2 sec 2 nt
+     end_thrust_table
+
+     vacuum_thrust_table
+        1 sec 1 nt
+        2 sec 2 nt
+     end_vacuum_thrust_table
+
+     sea_level_thrust_table
+        1 sec 1 nt
+        2 sec 2 nt
+     end_sea_level_thrust_table
+
+     nozzle_exit_area                  1 m^2
+
+     specific_impulse                  1 sec
+     vacuum_specific_impulse           1 sec
+     sea_level_specific_impulse        1 sec
+
+     burn_rate                         1 kg/sec
+
+     burn_rate_table
+       1 sec 1 kg/s
+       2 sec 2 kg/s
+     end_burn_rate_table
+
+     throttle
+        curve independent_variable time
+           0.0   sec 1.0
+          45.0   sec 1.0
+        end_curve
+
+     angle_of_attack
+        irregular_table
+           independent_variable altitude    units m    precision float
+           independent_variable speed       units m/s  precision float
+           dependent_variable               units deg  precision float
+           altitude 0.0
+              speed      0.0    2000.0
+              values     8.0       8.0
+           altitude 50000.0
+               speed     0.0    2000.0
+              values     8.0       8.0 
+        end_irregular_table
+        
+     angle_of_attack 5 deg
+     
+     thrust_duration                   1 sec
+     burn_time                         1 sec               # Synonym
+
+     pre_ignition_coast_time           1 sec
+     pre_burn_coast_time               1 sec               # Synonym
+     thrust_delay                      1 sec               # Old form
+
+     pre_separation_coast_time         1 sec
+     post_burn_coast_time              1 sec               # Synonym
+     staging_delay                     1 sec               # Old form
+
+     thrust_vectoring_angle_limit      10 deg
+     max_tvc_angle                     10 deg              # Old form
+
+     thrust_vectoring_time_limits      1 sec 2 sec
+     max_tvc_time                      2 sec               # Old form
+
+     lateral_thrust_gain               2.0
+
+     engine_type                       rocket
+     engine_type                       turbojet
+     engine_type                       turbofan
+     engine_type                       ramjet
+     engine_type                       none
+
+     integration_timestep              0.02 sec
+
+     time_constant                     0.5 sec
+
+     reverse_thrust
+
+     ignition_failure_probability      0.0001
+     separation_failure_probability    0.0001
+     bank_to_turn
+     skid_to_turn
+  end_stage
+
+end_mover
+
+processor SIMPLE WSF_GUIDANCE_COMPUTER
+   show_status
+   show_commands
+   show_evaluations
+   show_graphics
+   guide_to_truth true
+   guide_to_truth false
+   time_constant 0.01 sec
+   proportional_navigation_gain 2
+end_processor
+
+processor MULTI-PHASE WSF_GUIDANCE_COMPUTER
+
+   program NULL NULL_PROGRAM
+   end_program
+
+   program ALTITUDE ALTITUDE_PROGRAM
+      altitude 10000 m agl
+      altitude 10000 m msl
+      altitude 10000 m
+   end_program
+   
+   program ATTITUDE ATTITUDE_PROGRAM
+      yaw 10 deg
+      yaw_rate 10 deg/sec
+      roll 10 deg
+      roll_rate 10 deg/sec
+      pitch 10 deg
+      pitch_rate 10 deg/sec
+      yaw_fixed 10 deg
+      pitch_fixed 10 deg
+      reset
+   end_program
+
+   program PITCH_OVER FLIGHT_PATH_ANGLE_PROGRAM
+      flight_path_angle 85 deg
+      pitch_rate 0.15 deg/sec
+      time_constant 1.0 sec
+   end_program
+
+   program PITCH_OVER_2 PITCH_OVER_PROGRAM  # synonym for FLIGHT_PATH_ANGLE_PROGRAM
+      flight_path_angle 80 deg
+      pitch_rate 0.5 deg/sec
+      time_constant 2.0 sec
+   end_program
+   
+   program GRAVITY_BIAS GRAVITY_BIAS_PROGRAM
+      gravity_bias 0.1
+      g_bias 0.1
+   end_program
+
+   program GRAVITY_TURN GRAVITY_TURN_PROGRAM
+   end_program
+
+   program INTERCEPT INTERCEPT_PROGRAM
+      proportional_navigation_gain     4.0
+      proportional_navigation_limit_angle 40 deg
+      proportional_navigation_method   pure
+      velocity_pursuit_gain            10.0
+   end_program
+
+   program PITCH_OVER_3 LEGACY_FLIGHT_PATH_ANGLE_PROGRAM
+      flight_path_angle 45 deg
+   end_program
+   
+   program ORBIT_INSERTION ORBIT_INSERTION_PROGRAM
+      ascent_gravity_bias 0.1
+      ascent_g_bias 0.1
+      maximum_lateral_acceleration 0.1 g
+      minimum_insertion_altitude 100000 m
+      coarse_adjustment_threshold 0.5 deg
+      fine_adjustment_threshold 0.05 deg
+      on_insertion eject_stage
+      on_insertion continue
+      show_orbit true
+    end_program
+
+   phase_template
+   end_phase_template
+
+   script_variables
+      double mDummy;
+   end_script_variables
+
+   on_initialize2
+      SetGuidanceDelay("PHASE1", 2.0);
+
+      SetGuidanceTarget("PHASE1", "default");
+      SetAllowRouteFollowing("PHASE1", true);
+      SetAimpointAltitudeOffset("PHASE1", 100.0);
+      SetAimpointAzimuthOffset("PHASE1", 40.0, "either");
+      SetAimpointRangeOffset("PHASE1", 10000.0);
+      SetAimpointEvaluationInterval("PHASE1", 1.0);
+
+      SetProportionalNavigationGain("PHASE1", 4.0);
+      SetProportionalNavigationLimitAngle("PHASE1", 45.0);
+      SetProportionalNavigationMethod("PHASE1", "pure");
+      SetVelocityPursuitGain("PHASE1", 1.0);
+
+      SetGeeBias("PHASE1", 1.0);
+      SetLateralGeeBias("PHASE1", 0.0);
+      ClearCommandedAltitude("PHASE1");
+      ClearCommandedFlightPathAngle("PHASE1");
+      ClearCommandedSpeed("PHASE1");
+      SetCommandedAltitude("PHASE1", 10000.0);
+      SetCommandedAltitudeAGL("PHASE1", 100.0);
+      SetCommandedAzimuthOffset("PHASE1", 10.0);
+      SetCommandedMach("PHASE1", 2.0);
+      SetCommandedSpeed("PHASE1", 1000.0);
+
+      SetMaximumCommandedGees("PHASE1", 20.0);
+      SetMaximumAscentRate("PHASE1", 0.0);
+      SetMaximumDescentRate("PHASE1", 0.0);
+      SetMaximumPitchAngle("PHASE1", 0.0);
+      SetPitchChangeGain("PHASE1", 1.0);
+   end_on_initialize2
+
+   phase PHASE1
+      on_entry
+         SelectPhase("PHASE2");
+         SetGuidanceDelay(2.0);
+         SetGuidanceTarget("default");
+         SetAllowRouteFollowing(true);
+         SetAimpointAltitudeOffset(100.0);
+         SetAimpointAzimuthOffset(40.0, "either");
+         SetAimpointRangeOffset(10000.0);
+         SetAimpointEvaluationInterval(1.0);
+
+         SetProportionalNavigationGain(4.0);
+         SetProportionalNavigationLimitAngle(45.0);
+         SetProportionalNavigationMethod("pure");
+         SetVelocityPursuitGain(1.0);
+
+         SetGeeBias(1.0);
+         SetLateralGeeBias(0.0);
+         ClearCommandedAltitude();
+         ClearCommandedFlightPathAngle();
+         ClearCommandedSpeed();
+         SetCommandedAltitude(10000.0);
+         SetCommandedAltitudeAGL(100.0);
+         SetCommandedAzimuthOffset(10.0);
+         SetCommandedMach(2.0);
+         SetCommandedSpeed(1000.0);
+
+         SetMaximumCommandedGees(20.0);
+         SetMaximumAscentRate(0.0);
+         SetMaximumDescentRate(0.0);
+         SetMaximumPitchAngle(0.0);
+         SetPitchChangeGain(1.0);
+      end_on_entry
+
+      on_exit
+      end_on_exit
+
+      on_update
+      end_on_update
+
+      guidance_delay                   1.0 sec
+      time_constant                    0.01 sec
+
+      guidance_target                  truth
+      guidance_target                  perception
+      guidance_target                  predicted_intercept
+      guide_to_truth                   true
+      aimpoint_altitude_offset         100 ft
+      aimpoint_azimuth_offset          40 deg left
+      aimpoint_azimuth_offset          40 deg right
+      aimpoint_azimuth_offset          40 deg either
+      aimpoint_range_offset            10 mi
+      aimpoint_evaluation_interval     10 sec
+
+      proportional_navigation_gain     4.0
+      proportional_navigation_limit_angle 40 deg
+      aspect_angle_for_pro_nav_switch  40 deg
+      proportional_navigation_method   pure
+      velocity_pursuit_gain            10.0
+
+      g_bias                           1.2
+      lateral_g_bias                   0.0
+      commanded_altitude               20000 ft
+      commanded_altitude               20000 ft agl
+      commanded_altitude               20000 ft msl
+      commanded_azimuth_offset         10 deg
+      commanded_flight_path_angle      from_launch_computer
+      commanded_flight_path_angle      40 deg
+      commanded_mach                   0.7
+      commanded_speed                  500 mi/hr
+
+      maximum_commanded_g              20 g
+      maximum_ascent_rate              1000 ft/sec
+      maximum_descent_rate             1000 ft/sec
+      maximum_pitch_angle              10 deg
+      pitch_change_gain                1.0
+
+      # ALL of the next_phase
+
+      # Boolean tests
+      next_phase PHASE2 if end_of_route
+      next_phase PHASE2 if boost_complete
+      next_phase PHASE2 if stage_ignition
+      next_phase PHASE2 if stage_burnout
+      next_phase PHASE2 if stage_separation
+      next_phase PHASE2 if sensor_track_initiated
+      next_phase PHASE2 if on_commanded_flight_path_angle
+      next_phase PHASE2 when program NULL_PROGRAM complete
+
+      # Binary tests with constants
+      next_phase PHASE2 if phase_time > 1.0 sec
+      next_phase PHASE2 if flight_time >= 1.0 sec
+      next_phase PHASE2 if altitude == 1 ft
+      next_phase PHASE2 if speed < 1 mi/hr
+      next_phase PHASE2 if vertical_speed < 1 mi/hr
+      next_phase PHASE2 if flight_path_angle <= 1 deg
+      next_phase PHASE2 if dynamic_pressure > 1 psf
+      next_phase PHASE2 if target_altitude > 1 m
+      next_phase PHASE2 if target_speed > 1 m/s
+      next_phase PHASE2 if target_flight_path_angle > 1 deg
+      next_phase PHASE2 if closing_speed > 1 m/s
+      next_phase PHASE2 if time_to_intercept > 1 sec
+      next_phase PHASE2 if range_to_intercept > 1 m
+      next_phase PHASE2 if target_slant_range > 1 m
+      next_phase PHASE2 if target_ground_range > 1 m
+      next_phase PHASE2 if target_elevation > 1 deg
+      next_phase PHASE2 if target_azimuth > 1 deg
+      next_phase PHASE2 if los_target_elevation > 1 deg
+      next_phase PHASE2 if los_target_azimuth > 1 deg
+      next_phase PHASE2 if los_target_angle > 1 deg
+
+      # Binary tests with variables (new preferred form)
+
+      next_phase PHASE2 if phase_time >= /variable mDummy
+      next_phase PHASE2 if flight_time >= /variable mDummy
+      next_phase PHASE2 if altitude == /variable mDummy
+      next_phase PHASE2 if speed < /variable mDummy
+      next_phase PHASE2 if vertical_speed < /variable mDummy
+      next_phase PHASE2 if flight_path_angle <= /variable mDummy
+      next_phase PHASE2 if dynamic_pressure > /variable mDummy
+      next_phase PHASE2 if target_altitude > /variable mDummy
+      next_phase PHASE2 if target_speed > /variable mDummy
+      next_phase PHASE2 if target_flight_path_angle > /variable mDummy
+      next_phase PHASE2 if closing_speed > /variable mDummy
+      next_phase PHASE2 if time_to_intercept > /variable mDummy
+      next_phase PHASE2 if range_to_intercept > /variable mDummy
+      next_phase PHASE2 if target_slant_range > /variable mDummy
+      next_phase PHASE2 if target_ground_range > /variable mDummy
+      next_phase PHASE2 if target_elevation > /variable mDummy
+      next_phase PHASE2 if target_azimuth > /variable mDummy
+      next_phase PHASE2 if los_target_elevation > /variable mDummy
+      next_phase PHASE2 if los_target_azimuth > /variable mDummy
+      next_phase PHASE2 if los_target_angle > /variable mDummy
+
+      # Binary tests with variables (old form)
+
+      next_phase PHASE2 if phase_time >= variable mDummy sec
+      next_phase PHASE2 if flight_time >= variable mDummy sec
+      next_phase PHASE2 if altitude == variable mDummy ft
+      next_phase PHASE2 if speed < variable mDummy mi/hr
+      next_phase PHASE2 if vertical_speed < variable mDummy mi/hr
+      next_phase PHASE2 if flight_path_angle <= variable mDummy deg
+      next_phase PHASE2 if dynamic_pressure > variable mDummy psf
+      next_phase PHASE2 if target_altitude > variable mDummy m
+      next_phase PHASE2 if target_speed > variable mDummy m/s
+      next_phase PHASE2 if target_flight_path_angle > variable mDummy deg
+      next_phase PHASE2 if closing_speed > variable mDummy m/s
+      next_phase PHASE2 if time_to_intercept > variable mDummy sec
+      next_phase PHASE2 if range_to_intercept > variable mDummy m
+      next_phase PHASE2 if target_slant_range > variable mDummy m
+      next_phase PHASE2 if target_ground_range > variable mDummy m
+      next_phase PHASE2 if target_elevation > variable mDummy deg
+      next_phase PHASE2 if target_azimuth > variable mDummy deg
+      next_phase PHASE2 if los_target_elevation > variable mDummy deg
+      next_phase PHASE2 if los_target_azimuth > variable mDummy deg
+      next_phase PHASE2 if los_target_angle > variable mDummy deg
+   end_phase
+
+   phase PHASE2
+      use_program NULL
+      use_program ATTITUDE
+      use_program GRAVITY_BIAS
+      use_program GRAVITY_TURN
+      use_program INTERCEPT
+      use_program ORBIT_INSERTION
+      use_program PITCH_OVER
+      program NULL_PROGRAM end_program
+   end_phase
+
+end_processor

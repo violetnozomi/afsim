@@ -1,0 +1,141 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests of WsfSAR_Sensor script method functionality
+
+include ../auto_script/test_functions.txt
+include ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 16;
+end_script_variables
+
+antenna_pattern SAR_ANTENNA
+   circular_pattern
+      peak_gain                        34.7 db
+      beamwidth                        3.17 deg
+end_antenna_pattern
+
+sensor SAR WSF_SAR_SENSOR
+
+   slew_mode                           azimuth_and_elevation
+   azimuth_slew_limits                 -60 deg 60 deg
+   elevation_slew_limits               -60 deg 60 deg
+
+   mode_template
+
+      maximum_range                    100 nm
+      azimuth_field_of_view            -1.58 deg 1.58 deg
+      elevation_field_of_view          -1.58 deg 1.58 deg
+
+      electronic_beam_steering         azimuth_and_elevation
+      electronic_beam_steering_limit   60.0 deg
+      electronic_beam_steering_loss_exponent 1.4
+
+      transmitter
+         antenna_pattern               SAR_ANTENNA
+         frequency                     10 ghz
+         power                         8008.0 w            # 1001 modules * 8 watts/module
+         pulse_width                   50 us
+         #pulse_repetition_frequency    1000 hz
+         internal_loss                 5.4 db
+         attenuation_model             blake
+      end_transmitter
+
+      receiver
+         # Assume a matched-filter for a pulse width of 50 us
+         bandwidth                     20 khz
+         noise_figure                  6.1 absolute
+      end_receiver
+
+      resolution                       10 ft
+      maximum_dwell_time               10 sec
+      minimum_clutter_to_noise_ratio   6 db
+
+      doppler_filter_broadening_factor 1.20                # Ka
+      doppler_foldover_margin_factor   1.20                # Kd
+
+      reports_location
+   end_mode_template
+
+   mode SPOT
+      operating_mode                   spot
+   end_mode
+
+   mode STRIP
+      operating_mode                   strip
+   end_mode
+
+end_sensor
+
+platform p WSF_PLATFORM
+   script_variables
+      WsfSAR_Sensor sar1 = (WsfSAR_Sensor)Sensor("sar-1");
+      WsfSAR_Sensor sar2 = (WsfSAR_Sensor)Sensor("sar-2");
+   end_script_variables
+   
+   add sensor sar-1 SAR
+      mode SPOT
+         dwell_time 10 sec
+      end_mode
+      mode STRIP
+         dwell_time 15 sec
+      end_mode
+   end_sensor
+   
+   add sensor sar-2 SAR
+      mode SPOT
+         resolution 1 m
+      end_mode
+      mode STRIP
+         resolution 5 m
+      end_mode 
+   end_sensor
+
+   # Test GetDwellTime and GetResolution for spot mode
+   execute at_time 1 sec absolute
+      if (AssertEqualsMessage("SPOT", sar1.CurrentMode(),         "Unexpected sar1 current mode"))    { pass(); }
+      if (AssertEqualsMessage(10,     sar1.GetDwellTime(),        "Unexpected sar1 spot dwell time")) { pass(); }
+      if (AssertEqualsMessage(10,     sar1.GetDwellTime("SPOT"),  "Unexpected sar1 spot dwell time")) { pass(); }
+      
+      if (AssertEqualsMessage("SPOT", sar2.CurrentMode(),         "Unexpected sar2 current mode"))    { pass(); }
+      if (AssertEqualsMessage(1,      sar2.GetResolution(),       "Unexpected sar2 spot resolution")) { pass(); }
+      if (AssertEqualsMessage(1,      sar2.GetResolution("SPOT"), "Unexpected sar2 spot resolution")) { pass(); }      
+   end_execute
+   
+   # Test SetDwellTime and SetResolution
+   execute at_time 2 sec absolute
+      sar1.SetDwellTime(12);
+      if (AssertEqualsMessage(12,     sar1.GetDwellTime(),        "Unexpected sar1 spot dwell time")) { pass(); }
+      sar1.SetDwellTime(13, "SPOT");
+      if (AssertEqualsMessage(13,     sar1.GetDwellTime("SPOT"),  "Unexpected sar1 spot dwell time")) { pass(); }
+      
+      sar2.SetResolution(2);
+      if (AssertEqualsMessage(2,      sar2.GetResolution(),       "Unexpected sar2 spot resolution")) { pass(); }
+      sar2.SetResolution(3, "SPOT");
+      if (AssertEqualsMessage(3,      sar2.GetResolution("SPOT"), "Unexpected sar2 spot resolution")) { pass(); }      
+   end_execute
+   
+   # Change mode to strip
+   execute at_time 3 sec absolute
+      sar1.SelectMode("STRIP");
+      sar2.SelectMode("STRIP");
+   end_execute
+   
+   # Test GetDwellTime and GetResolution for strip mode
+   execute at_time 4 sec absolute
+      if (AssertEqualsMessage("STRIP", sar1.CurrentMode(),          "Unexpected sar1 current mode"))     { pass(); }
+      if (AssertEqualsMessage(15,      sar1.GetDwellTime(),         "Unexpected sar1 strip dwell time")) { pass(); }
+      if (AssertEqualsMessage(15,      sar1.GetDwellTime("STRIP"),  "Unexpected sar1 strip dwell time")) { pass(); }
+      
+      if (AssertEqualsMessage("STRIP", sar2.CurrentMode(),          "Unexpected sar2 current mode"))     { pass(); }
+      if (AssertEqualsMessage(5,       sar2.GetResolution(),        "Unexpected sar2 strip resolution")) { pass(); }
+      if (AssertEqualsMessage(5,       sar2.GetResolution("STRIP"), "Unexpected sar2 strip resolution")) { pass(); }
+   end_execute
+end_platform

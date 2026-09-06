@@ -1,0 +1,46 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# New file created by Wizard
+# Example 3-15 from Vallado, Fundamentals of Astrodynamics and Applications, 4th ed.
+
+platform test WSF_PLATFORM
+   add mover WSF_NORAD_SPACE_MOVER
+      orbit
+1 00005U 58002B   00179.78495062  .00000023  00000-0  28098-4 0  4753
+2 00005  34.2682 348.7242 1859667 331.7664  19.3264 10.82419157413667      
+      end_orbit 
+   end_mover 
+end_platform
+
+delta_atomic_time 32
+delta_universal_time 0.22 s
+
+start_epoch 00179.78495062
+end_time 3.001 days
+
+execute at_time 3 days absolute
+   Vec3 EXPECTED_LOC = Vec3.Construct(-9059.941386, 4659.697200, 813.9588875);
+   EXPECTED_LOC.Scale(1000.0);
+   Vec3 EXPECTED_VEL = Vec3.Construct(-2.233348094, -4.110136162, -3.157394074);
+   EXPECTED_VEL.Scale(1000.0);
+   WsfPlatform test = WsfSimulation.FindPlatform("test");
+   Vec3 locECI = test.LocationECI();
+   Vec3 locDiff = Vec3.Subtract(locECI, EXPECTED_LOC);
+   if (locDiff.Magnitude() > 2.0)
+   {
+      writeln("-FAIL-");
+   }
+   Vec3 velECI = test.VelocityECI();
+   Vec3 velDiff = Vec3.Subtract(velECI, EXPECTED_VEL);
+   if (velDiff.Magnitude() > 2.0)
+   {
+      writeln("-FAIL-");
+   }
+end_execute

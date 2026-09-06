@@ -1,0 +1,24 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.7.3)** Corrected a problem where :doc:`orbit_determination<../orbit_determination_fusion>` fusion method was not producing a valid Initial Orbit Determination (IOD) result in the angles-only case (where only sensors that report bearing and elevation contribute to the IOD), particularly for satellites in Geosynchronous orbits. *(AFSIM-291)*
+* **(2.7.3)** Corrected an issue with :method:`WsfSolarTerminator.PlatformSolarIllumination` for platforms on the surface of the Earth, or which had no mover. *(AFSIM-1111)*
+* **(2.7.3)** Corrected a problem where the three argument, :class:`WsfTrackId` accepting version of :method:`WsfInterceptManeuver.Construct` would silently fail and halt the simulation when used outside a platform's script context. *(AFSIM-555)*
+* **(2.7.3)** Corrected an issue where :method:`WsfSpaceMover.RIC_AtTime` would report incorrect results for platforms with no mover. *(AFSIM-1360)*
+* **(2.7.2)** Corrected an issue with :doc:`change_raan<../change_raan>` and :doc:`change_raan_inclination<../change_raan_inclination>` attempting to execute for equatorial orbits, resulting in an infinite loop. *(AFSIM-861)*
+* **(2.7.2)** Corrected a problem with the documented description of the rotating frame used by the :class:`WsfLibrationPoint` script class. *(AFSIM-854)*
+* **(2.7.2)** Corrected a problem with the :command:`relative_time` orbital event constraint failing for unbounded orbits. *(AFSIM-557)*
+* **(2.7.2)** Corrected problems with special cases of :doc:`change_inclination<../change_inclination>` maneuvers. This issue caused the :model:`WSF_NORAD_SPACE_MOVER` to enter an infinite loop when attempting to change to an equatorial, non-circular orbit. *(AFSIM-315)*
+* **(2.7.1)** :method:`WsfPlatform.FutureLocation` is now valid for platforms with a :model:`WSF_INTEGRATING_SPACE_MOVER`. *(AFSIM-640)*
+* **(2.7.1)** Corrected a problem where the :model:`WSF_ORBIT_DETERMINATION_FILTER` was not working properly due to incorrect initialization.
+* **(2.7.1)** Corrected a problem where an :command:`inherent_contrast` warning would be displayed on :model:`WSF_SPACE_OPTICAL_SIGNATURE`, which does not require it.
+* Corrected an issue where the :model:`WSF_SPACE_OPTICAL_SIGNATURE` was providing incorrect values in the special case where the target platform has no mover, due to eclipsing.
+* Corrected an issue where the *EclipseExit* script method was being called on the :ref:`ECLIPSE_ENTRY` :command:`observer` callback.
+* Fixed an issue where :method:`WsfSpaceMover.EclipsedState` would never return the penumbral state. *(Issue #2530)*
+* Corrected a problem where :method:`WsfSpaceMover.SetOrbit` could fail on a platform with an insufficiently defined space mover.

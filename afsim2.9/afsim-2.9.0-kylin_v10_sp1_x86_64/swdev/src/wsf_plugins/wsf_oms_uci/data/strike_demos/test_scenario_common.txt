@@ -1,0 +1,141 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// test of architecture for oms / uci messaging
+
+include ./platform_definitions.txt
+
+include weapon_definitions.txt
+
+platform_type SIMPLE_SENSE WSF_PLATFORM
+   side blue
+   icon f-18
+   uci_component computer COMPUTER
+
+   end_uci_component
+
+   script_variables
+      Set<string> systemIds = {};
+      Map<string, UCI_CapabilityId> controlRequests = {};
+      Array<UCI_CapabilityId> capabilities = {};
+      bool useDMPI = false;
+   end_script_variables
+
+   script void RequestControl(UCI_StrikeCapabilityMessage aMsg)
+      string systemID = aMsg.Header().SystemId().UUID();
+      if (!systemIds.Exists(systemID))
+      {
+         writeln_d("Adding system: ", systemID);
+         int size = aMsg.Size();
+         for(int i = 0; i < size; i = i +1)
+         {
+            UCI_CapabilityId capabilityId = aMsg.Capability(i).CapabilityId();
+            if (!capabilityId.IsNull() && capabilityId.IsValid())
+            {
+               WsfProcessor sp = PLATFORM.Processor("strike_command");
+
+               string uuid = capabilityId.UUID();
+               string description = capabilityId.Descriptor();
+               writeln_d(i, " : ", uuid, " : ", description);
+
+               // send a esm control request message
+               UCI_Control controlType = UCI_Control.CAPABILITY_PRIMARY();
+               UCI_ControlRequest requestType = UCI_ControlRequest.ACQUIRE();
+               UCI_ControlRequestMessage crm = UCI_ControlRequestMessage.Construct(controlType,
+                                                                                   requestType,
+                                                                                   aMsg.Header().SystemId(),
+                                                                                   capabilityId);
+
+               controlRequests.Set(crm.UUID(), capabilityId);
+               sp.SendMessage(crm);   
+               systemIds.Insert(systemID); 
+               capabilities.PushBack(capabilityId);
+            }
+         }
+      }
+   end_script
+
+   script void SendDMPI_Command()
+      WsfProcessor sp = PLATFORM.Processor("strike_command");
+
+      WsfGeoPoint target = WsfGeoPoint.Construct("38:49:07n 90:29:17w");
+      UCI_DMPI_Message dmpi = UCI_DMPI_Message.Construct(target.Latitude() * Math.RAD_PER_DEG(),
+                                                         target.Longitude() * Math.RAD_PER_DEG(),
+                                                         0);
+      dmpi.SetWeaponeering(1, UCI_StoreCategory.AIR(), 3);
+      sp.SendMessage(dmpi);
+
+      UCI_StrikeWeaponCommand wpnCmd = UCI_StrikeWeaponCommand.AssignDMPI_ID(dmpi.DMPI_ID());
+      
+      UCI_StrikeCapabilityCommand capCmd = UCI_StrikeCapabilityCommand.Construct(capabilities.Back(),
+                                                                                 wpnCmd);
+      UCI_StrikeCommand strikeCmd = UCI_StrikeCommand.Construct(capCmd);
+      UCI_StrikeCommandMessage cmdMsg = UCI_StrikeCommandMessage.Construct(strikeCmd);
+      sp.SendMessage(cmdMsg);
+   end_script
+
+   script void SendStrikeCommand()
+      WsfProcessor sp = PLATFORM.Processor("strike_command");
+      writeln_d("Sending strike command");
+      UCI_StrikeWeaponCommand command = UCI_StrikeWeaponCommand.SelectForRelease(true);
+      UCI_StrikeCapabilityCommand capCmd = UCI_StrikeCapabilityCommand.Construct(capabilities.Front(),
+                                                                                 command);
+      UCI_StrikeCommand strikeCmd = UCI_StrikeCommand.Construct(capCmd);
+      UCI_StrikeCommandMessage cmdMsg = UCI_StrikeCommandMessage.Construct(strikeCmd);
+      sp.SendMessage(cmdMsg);
+   end_script
+
+   mover WSF_AIR_MOVER
+   end_mover
+
+end_platform_type
+
+platform_type SENSE FIGHTER_BOMBER 
+   side blue
+
+   uci_component computer COMPUTER
+      internal_link weapon_component
+   end_uci_component
+
+   uci_component weapon_component WEAPON 
+      update_message_interval 10 s
+      capability bomb_1000_lb
+         uuids
+            8BEDF810-EC9D-40E4-8F4A-000000000000
+            8BEDF810-EC9D-40E4-8F4A-000000000001
+            8BEDF810-EC9D-40E4-8F4A-000000000002
+         end_uuids
+         store_category air
+         store_type 1
+      end_capability
+      debug
+      internal_link computer
+   end_uci_component
+
+end_platform_type
+
+platform_type TARGET EW_RADAR_SITE 
+end_platform_type
+
+dis_interface
+   exercise 1
+   site 1
+   autostart
+
+   connections
+      broadcast 255.255.255.255 port 3000
+   end_connections
+
+   entity_type TARGET 1:2:222:1:19:11:0
+
+end_dis_interface
+
+start_time_now
+end_time 3 min
+realtime

@@ -1,0 +1,272 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+thread_count 5
+
+file_path ..
+
+include lrsam.txt
+include lrsam_ttr.txt
+include mar.txt
+include utility_scripts.txt
+include reactive_maneuvers_processor_basic.txt
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+   constant 1.0 m^2
+end_radar_signature
+
+platform_type LAUNCHER_TYPE WSF_PLATFORM
+   side red
+   icon SA-10_Launcher
+
+   comm comm WSF_COMM_TRANSCEIVER
+      internal_link operator
+   end_comm
+
+   processor operator WSF_TASK_PROCESSOR
+   end_processor
+
+   weapon lrsam LRSAM
+     quantity 1
+
+   end_weapon
+
+end_platform_type
+
+platform_type TRACKER_TYPE WSF_PLATFORM
+   side red
+   icon Flap_Lid
+
+   on_initialize
+      sites.Insert(PLATFORM.Index());
+   end_on_initialize
+
+   comm comm WSF_COMM_TRANSCEIVER
+      internal_link operator
+   end_comm
+
+   #track
+   #   platform target
+   #end_track
+
+   sensor find WSF_GEOMETRIC_SENSOR
+      ignore_same_side
+      frame_time 10 sec
+      reports_location
+      on
+      track_quality 0.5
+      internal_link tracker
+   end_sensor
+
+   sensor ttr LRSAM_TTR
+      on
+      internal_link tracker
+   end_sensor
+
+   processor tracker WSF_TRACK_PROCESSOR
+   end_processor
+
+   processor operator WSF_TASK_PROCESSOR
+      #show_state_transitions
+
+      evaluation_interval DETECTED 0.5 sec
+      state DETECTED
+         next_state TRY_TO_ACQUIRE
+            return StartTracking(TRACK, "DUMMY", PLATFORM.Sensor("ttr"), "SEARCH");
+         end_next_state
+      end_state
+
+      evaluation_interval TRY_TO_ACQUIRE 0.5 sec
+      state TRY_TO_ACQUIRE
+         next_state TRY_TO_TRACK
+            #First run indicates acquisition mode
+            if(!acquisitionTime.Exists(PLATFORM.Index()))
+            {
+               acquisitionTime[PLATFORM.Index()] = TIME_NOW;
+            }
+
+            bool status = false;
+            if (TRACK.TrackQuality() > 0.65)
+            {
+               status = StartTracking(TRACK, "DUMMY", PLATFORM.Sensor("ttr"), "ACQUIRE");
+            }
+            return status;
+         end_next_state
+      end_state
+
+      evaluation_interval TRY_TO_TRACK 0.5 sec
+      state TRY_TO_TRACK
+         next_state TRY_TO_FIRE
+            #First run indicates track mode
+            if(!trackTime.Exists(PLATFORM.Index()))
+            {
+               trackTime[PLATFORM.Index()] = TIME_NOW;
+            }
+            #Could also possibly be the beginning of illumination
+            #TODO: DETERMINE IF SAM MODE IS ILLUMX
+            if(!illuminationTime.Exists(PLATFORM.Index()))
+            {
+               illuminationTime[PLATFORM.Index()] = TIME_NOW;
+            }
+
+
+            bool status = false;
+            if (TRACK.TrackQuality() > 0.85)
+            {
+               status = StartTracking(TRACK, "DUMMY", PLATFORM.Sensor("ttr"), "TRACK");
+            }
+            return status;
+         end_next_state
+      end_state
+
+      evaluation_interval TRY_TO_FIRE 0.5 sec
+      state TRY_TO_FIRE
+         next_state FIRED
+            bool status = false;
+            if (TRACK.TrackQuality() > 0.95)
+            {
+               WsfPlatform launcher = WsfSimulation.FindPlatform("launcher");
+               status = FireAt(TRACK, "DUMMY", "lrsam", 1, launcher);
+            }
+            return status;
+         end_next_state
+      end_state
+
+      evaluation_interval FIRED 0.1 sec
+      state FIRED
+         next_state FIRED
+            return true;
+         end_next_state
+      end_state
+   end_processor
+
+end_platform_type
+
+
+platform_type TARGET_TYPE WSF_PLATFORM
+   side blue
+   icon F-18E
+   radar_signature FIGHTER_RADAR_SIGNATURE
+   mover WSF_AIR_MOVER
+      #Some examples of commands useful to limiting/setting physical constraints
+      #on maneuverability of the target. Use these in lieu of the reactive manuever
+      #variables dictating these values
+
+#      bank_angle_limit 90 deg
+#      body_g_limit 6 g
+#      maximum_climb_rate 60 m/s
+#      maximum_flight_path_angle 70 deg
+#      maximum_linear_acceleration 6 g
+#      maximum_radial_acceleration 6 g
+#      roll_rate_limit 2 rad/s
+#      turn_rate_limit .5 rad/s
+
+      #Set the maximum speed value here
+      #Important to set this, so that slice
+      #maneuvers (which increase speed to maximum)
+      #are bounded by a realistic velocity
+      maximum_speed 600 knots
+      maximum_altitude 50000 ft
+   end_mover
+
+   on_initialize2
+      target = PLATFORM.Index();
+   end_on_initialize2
+
+   #Track incoming weapons with this track list, as once detected,
+   #weapon tracks shouldn't be dropped (per ESAMS functionality)
+   #Do it in a non-master track list to avoid polluting
+   #standard tracking, if needed in the future for other tasks
+   processor mar_track_list WSF_TRACK_PROCESSOR
+      non_master_track_processor
+      retain_track_history
+      uncorrelated_track_drops off
+
+      #report incoming weapon tracks to the reactive manuever processor,
+      #so the target may make evasive maneuvers
+      internal_link maneuver
+   end_processor
+
+   #ESAMS to AFSIM variables for the MAR can be set in the following file
+   include mar_esams.txt
+
+   processor maneuver BASIC_MANEUVER_PROCESSOR
+      #Esams-like definition of reactive_maneuvers are in this file
+      include reactive_maneuvers_esams.txt
+   end_processor
+
+end_platform_type
+
+random_seed 1
+
+frame_time 0.01 sec
+end_time 100 secs
+
+# Redefine the default output_rate table
+output_rate default
+   time     0.0 secs period  1.0 sec
+   time   500.0 secs period 10.0 sec
+   time   800.0 secs period 50.0 sec
+   time   950.0 secs
+end_output_rate
+
+run
+   #record_file_base_name grid
+
+   target_grid
+      down_range  from -100 km to 100 km by 100 km
+      cross_range from  -20 km to  20 km by  40 km
+      altitude    from  30 kft to 30 kft by 10 kft
+      speed 262 kts
+
+      #down_range  from 100 km to 100 km by 100 km
+      #cross_range from  20 km to  20 km by 40 km
+   end_target_grid
+
+   output
+      file fort.6.lis
+      phase all
+
+      items
+         variable time format "%.2f"
+         variable target_x units km format " %7.3f"
+         variable target_y units km format " %7.3f"
+         variable target_z units m
+      end_items
+   end_output
+
+   output
+      file fort.7.lis
+      phase flying
+      items
+         variable weapon_flight_time format "%.2f"
+         variable target_x units km format " %7.3f"
+         variable target_y units km format " %7.3f"
+         variable target_z units m format " %7.1f"
+         variable weapon_x units km format " %7.3f"
+         variable weapon_y units km format " %7.3f"
+         variable weapon_z units m format " %7.1f"
+         variable weapon_to_target_range units m format " %7.1f"
+      end_items
+   end_output
+
+   output
+     file fort.6.lis
+     event_output true
+     summary_output true
+   end_output
+
+end_run
+
+/*
+event_output
+  file replay.evt
+  enable all
+end_event_output
+*/
+

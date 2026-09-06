@@ -1,0 +1,386 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test retrieving groups sorted through various means, both in ascending and descending order:
+# - prioritized threat and taret groups
+# - distance
+# - altitude
+# - radius
+# - entity count
+#
+include_once ../auto_script/utility_test_functions.txt
+include_once platforms/tracking_platform.txt
+include_once platforms/target_platform.txt
+
+end_time 1 min
+
+script_variables
+   bool allTestsPassed = true; // any failure turns it false
+end_script_variables
+
+platform red-1-1 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-1 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:0e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-2 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:10e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-3 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:20e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-4 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:30e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-5 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:40e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3-1 TARGET_PLATFORM
+
+   route
+      position 0:40:0n 0:05:0w
+      altitude 45000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3-2 TARGET_PLATFORM
+
+   route
+      position 0:40:0n 0:05:30w
+      altitude 45000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4-1 TARGET_PLATFORM
+
+   route
+      position 0:35:0n 0:05:0e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4-2 TARGET_PLATFORM
+
+   route
+      position 0:35:0n 0:05:20e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4-3 TARGET_PLATFORM
+
+   route
+      position 0:35:0n 0:05:10e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+# This platform uses defaults for all SA processor update intervals
+platform platform-1 TEST_PLATFORM
+
+   route
+      position 0:0:0n 0:0:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   edit processor sa-proc
+      max_threat_load -1
+      
+      include scripts/threat_target_scoring.txt
+      
+   end_processor
+   
+   execute at_time 55 s absolute
+      // Test PrioritizedThreatGroups.
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      if (proc.IsValid())
+      {
+         Array<WsfSA_Group> groups = proc.PrioritizedThreatGroups();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, groups.Size(), "Incorrect number of prioritized threat groups.");
+         double furthest = MATH.DOUBLE_MAX();
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.ThreatLevel() > 0.0, "Threat value was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.ThreatLevel() < furthest, "Prioritized threat groups out of order.");
+            furthest = group.ThreatLevel();
+         }
+         double best = groups[0].ThreatLevel();
+         //allTestsPassed = allTestsPassed && AssertEqualsMessage(proc.HighestThreatGroup().ThreatLevel(), best, "Incorrect highest threat group.");
+         
+         // Test PrioritizedTargetGroups.
+         groups = proc.PrioritizedTargetGroups();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, groups.Size(), "Incorrect number of prioritized target groups.");
+         // By default, they should be sorted by distance.
+         // Their relative distances can be approximated by their latitude.
+         furthest = MATH.DOUBLE_MAX();
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.TargetValue() > 0.0, "Target value was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.TargetValue() < furthest, "Prioritized target groups out of order.");
+            furthest = group.TargetValue();
+         }
+         best = groups[0].TargetValue();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(proc.BestTargetGroup().TargetValue(), best, "Incorrect highest threat group.");
+      }
+   end_execute
+   
+   execute at_time 50 s absolute
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      if (proc.IsValid())
+      {
+         // Test general data.
+         Array<WsfSA_Group> groups = proc.PerceivedGroups();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(11, proc.PerceivedItemCount(), "Incorrect number of PIs.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of groups.");
+         
+         // Test SortedGroups failure.
+         // This next line issues two warnings. That is expected behavior.
+         groups = proc.SortedGroups("invalid sort");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(0, groups.Size(), "Invalid sort returned a value.");
+         
+         // Test sorting by ascending threat level.
+         groups = proc.SortedGroups("ascending threat");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of increasing threat sorted groups.");
+         double closest = 0.0;
+         double furthest = MATH.DOUBLE_MAX();
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.ThreatLevel() > 0.0, "Increasing threat was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.ThreatLevel() > closest, "Increasing threat sorted groups out of order.");
+            closest = group.ThreatLevel();
+         }
+         
+         // Test sorting by descending threat level.
+         // The result of this call should be equivalent to
+         // PrioritizedThreatGroups.
+         groups = proc.SortedGroups("descending threat");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of decreasing threat sorted groups.");
+         furthest = MATH.DOUBLE_MAX();
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.ThreatLevel() > 0.0, "Decreasing threat was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.ThreatLevel() < furthest, "Decreasing threat sorted groups out of order.");
+            furthest = group.ThreatLevel();
+         }
+         
+         // Test sorting by ascending target value.
+         groups = proc.SortedGroups("ascending threat");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of increasing threat sorted groups.");
+         closest = 0.0;
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.ThreatLevel() > 0.0, "Increasing threat was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.ThreatLevel() > closest, "Increasing threat sorted groups out of order.");
+            closest = group.ThreatLevel();
+         }
+         
+         // Test sorting by descending target value.
+         // The result of this call should be equivalent to
+         // PrioritizedTargetGroups.
+         groups = proc.SortedGroups("descending target");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of decreasing target sorted groups.");
+         furthest = MATH.DOUBLE_MAX();
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.TargetValue() > 0.0, "Decreasing target was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.TargetValue() < furthest, "Decreasing target sorted groups out of order.");
+            furthest = group.TargetValue();
+         }
+         
+         // Test sorting by ascending distance.
+         groups = proc.SortedGroups("ascending distance");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of increasing distance sorted groups.");
+         closest = 0.0;
+         foreach (WsfSA_Group group in groups)
+         {
+            WsfGeoPoint here = PLATFORM.Location();
+            WsfGeoPoint there = WsfGeoPoint.Construct(group.Lat(), group.Lon(), group.Altitude());
+            double dist = here.SlantRangeTo(there);
+            allTestsPassed = allTestsPassed && AssertTrueMessage(dist > closest, "Increasing distance sorted groups out of order.");
+            closest = dist;
+         }
+         
+         // Test sorting by descending distance.
+         groups = proc.SortedGroups("descending distance");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of decreasing distance sorted groups.");
+         furthest = MATH.DOUBLE_MAX();
+         foreach (WsfSA_Group group in groups)
+         {
+            WsfGeoPoint here = PLATFORM.Location();
+            WsfGeoPoint there = WsfGeoPoint.Construct(group.Lat(), group.Lon(), group.Altitude());
+            double dist = here.SlantRangeTo(there);
+            allTestsPassed = allTestsPassed && AssertTrueMessage(dist < furthest, "Decreasing distance sorted groups out of order.");
+            furthest = dist;
+         }
+         
+         // Test sorting by ascending altitude.
+         groups = proc.SortedGroups("ascending altitude");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of increasing altitude sorted groups.");
+         closest = 0.0;
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.Altitude() > 0.0, "Increasing altitude was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.Altitude() > closest, "Increasing altitude sorted groups out of order.");
+            closest = group.Altitude();
+         }
+         
+         // Test sorting by descending altitude.
+         groups = proc.SortedGroups("descending altitude");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of decreasing altitude sorted groups.");
+         furthest = MATH.DOUBLE_MAX();
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.Altitude() > 0.0, "Decreasing altitude was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.Altitude() < furthest, "Decreasing altitude sorted groups out of order.");
+            furthest = group.Altitude();
+         }
+         
+         // Test sorting by ascending radius.
+         groups = proc.SortedGroups("ascending radius");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of increasing radius sorted groups.");
+         closest = 0.0;
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.RadiusCurrent() > 0.0, "Increasing radius was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.RadiusCurrent() > closest, "Increasing radius sorted groups out of order.");
+            closest = group.RadiusCurrent();
+         }
+         
+         // Test sorting by descending radius.
+         groups = proc.SortedGroups("descending radius");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of decreasing radius sorted groups.");
+         furthest = MATH.DOUBLE_MAX();
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.RadiusCurrent() > 0.0, "Decreasing radius was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.RadiusCurrent() < furthest, "Decreasing radius sorted groups out of order.");
+            furthest = group.RadiusCurrent();
+         }
+         
+         // Test sorting by ascending entity count.
+         groups = proc.SortedGroups("ascending entity count");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of increasing entity count sorted groups.");
+         closest = 0.0;
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.NumElements() > 0, "Increasing entity count was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.NumElements() > closest, "Increasing entity count sorted groups out of order.");
+            closest = group.NumElements();
+         }
+         
+         // Test sorting by descending entity count.
+         groups = proc.SortedGroups("descending entity count");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of decreasing entity count sorted groups.");
+         furthest = MATH.DOUBLE_MAX();
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.NumElements() > 0, "Decreasing entity count was invalid.");
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.NumElements() < furthest, "Decreasing entity count sorted groups out of order.");
+            furthest = group.NumElements();
+         }
+         
+         // set up for the next test by unfocusing all groups
+         foreach (WsfSA_Group group in groups)
+         {
+            proc.SetFocus(group, false);
+         }
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

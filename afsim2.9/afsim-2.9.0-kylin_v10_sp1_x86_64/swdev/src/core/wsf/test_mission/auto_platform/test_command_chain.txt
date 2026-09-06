@@ -1,0 +1,256 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Command chain test...
+
+script_variables
+   bool gPass = true;
+   bool gSubDeleted = false;
+   bool gCmdrDeleted = false;
+   bool gPeerDeleted = false;
+end_script_variables
+
+platform_type BASE_TYPE WSF_PLATFORM
+
+   script void CheckPlatformList(WsfPlatformList aPlatformList,
+                                 Array<string>   aExpectedList)
+      extern bool gPass;
+
+      Array<string> actualList = Array<string>();
+      foreach (WsfPlatform actualPlatform in aPlatformList)
+      {
+         actualList.PushBack(actualPlatform.Name());
+
+         bool found = false;
+         foreach (string expectedName in aExpectedList)
+         {
+            if (expectedName == actualPlatform.Name())
+            {
+               found = true;
+               break;
+            }
+         }
+         if (! found)
+         {
+            writeln("-FAIL- ", Name(), " Actual platform ", actualPlatform.Name(),
+                    " not in expected list ", aExpectedList);
+            gPass = false;
+         }
+      }
+
+      foreach (string expectedName in aExpectedList)
+      {
+         bool found = false;
+         foreach (WsfPlatform actualPlatform in aPlatformList)
+         {
+            if (expectedName == actualPlatform.Name())
+            {
+               found = true;
+               break;
+            }
+         }
+         if (! found)
+         {
+            writeln("-FAIL- ", Name(), " Expected platform ", expectedName,
+                    " not in actual list ", actualList);
+            gPass = false;
+         }
+      }
+
+      # Checks internal consistency of WsfPlatformList methods.
+      if (aPlatformList.Count() != aPlatformList.Size())                      # These a synonyms
+      {
+         writeln("-FAIL-", Name(), " INCONSISTENCY in WsfPlatformList methods; Count()=", aPlatformList.Count(),
+                 " Size()=", aPlatformList.Size());
+         gPass = false;
+      }
+      if ((aPlatformList.Empty()  && (aPlatformList.Size() != 0)) ||          # Make sure Count and Empty agree
+          ((!aPlatformList.Empty()) && (aPlatformList.Size() == 0)))
+      {
+         writeln("-FAIL-", Name(), " INCONSISTENCY in WsfPlatformList methods; Empty()=", aPlatformList.Empty(),
+                 " Size()=", aPlatformList.Size());
+         gPass = false;
+      }
+   end_script
+
+end_platform_type
+
+# ------------------------------------------------------------------------------
+
+platform_type COMMANDER BASE_TYPE
+
+   script void on_subordinate_deleted(WsfPlatform aSubordinate)
+      gSubDeleted = true;
+      writeln("T=", TIME_NOW, " ", Name(), ": subordinate ", aSubordinate.Name(), " deleted");
+   end_script
+
+end_platform_type
+
+# ------------------------------------------------------------------------------
+
+platform_type SUBORDINATE BASE_TYPE
+
+   script void on_commander_deleted(WsfPlatform aCommander)
+      gCmdrDeleted = true;
+      writeln("T=", TIME_NOW, " ", Name(), ": Commander ", aCommander.Name(), " deleted");
+   end_script
+
+   script void on_peer_deleted(WsfPlatform aPeer)
+      gPeerDeleted = true;
+      writeln("T=", TIME_NOW, " ", Name(), ": Peer ", aPeer.Name(), " deleted");
+   end_script
+
+end_platform_type
+
+# ------------------------------------------------------------------------------
+
+platform CMDR-1 COMMANDER
+   commander SELF
+   execute at_time 4.5 sec  absolute CheckPlatformList(Subordinates(), { "SUB-11", "SUB-12", "SUB-13" }); end_execute
+   execute at_time 4.5 sec absolute CheckPlatformList(Peers(), {}); end_execute
+   execute at_time 10.0 sec absolute DeletePlatform(); end_execute
+   execute at_time 5.5 sec  absolute CheckPlatformList(Subordinates(), { "SUB-11", "SUB-12" }); end_execute
+   execute at_time 15.5 sec absolute CheckPlatformList(Subordinates(), { "SUB-11" }); end_execute
+end_platform
+
+platform SUB-11 SUBORDINATE
+   commander CMDR-1
+   execute at_time 4.5 sec absolute CheckPlatformList(Peers(), { "SUB-12", "SUB-13" }); end_execute
+   execute at_time 5.5 sec absolute CheckPlatformList(Peers(), { "SUB-12" }); end_execute
+end_platform
+
+platform SUB-12 SUBORDINATE
+   commander CMDR-1
+   execute at_time 4.5  sec absolute CheckPlatformList(Peers(), { "SUB-11", "SUB-13" }); end_execute
+   execute at_time 5.5  sec absolute CheckPlatformList(Peers(), { "SUB-11" }); end_execute
+   execute at_time 15.0 sec absolute DeletePlatform(); end_execute
+end_platform
+
+platform SUB-13 SUBORDINATE
+   commander CMDR-1
+   execute at_time 4.5 sec absolute CheckPlatformList(Peers(), { "SUB-11", "SUB-12" }); end_execute
+   execute at_time 5.0 sec absolute DeletePlatform(); end_execute
+end_platform
+
+platform CMDR-2 COMMANDER
+   commander SELF
+end_platform
+
+# ------------------------------------------------------------------------------
+# This chain isn't really necessary at the current time. It will eventually be
+# used when the functions are used to dynamically alter the command chain.
+
+/*
+
+platform SUB-21 SUBORDINATE
+   commander CMDR-2
+   execute at_time 1 sec absolute DeletePlatform(); end_execute
+end_platform
+
+platform SUB-22 SUBORDINATE
+   commander CMDR-2
+   execute at_time 2 sec absolute DeletePlatform(); end_execute
+end_platform
+
+platform SUB-23 SUBORDINATE
+   commander CMDR-2
+   execute at_time 3 sec absolute DeletePlatform(); end_execute
+end_platform
+
+*/
+
+#Test for re-assignment of command-chain platforms 
+platform cmdr1 BASE_TYPE
+end_platform
+
+platform cmdr2 BASE_TYPE
+   commander cmdr1
+   execute at_time 1 s absolute DeletePlatform(); end_execute
+   execute at_time 4 s absolute CheckPlatformList(Subordinates(), {"sub1"}); end_execute
+   execute at_time 4 s absolute CheckPlatformList(Peers(), {}); end_execute
+end_platform
+
+platform sub1 BASE_TYPE
+   commander cmdr2  
+   execute at_time 4 s absolute CheckPlatformList(Subordinates(), {"sub2", "sub3"}); end_execute
+   execute at_time 4 s absolute CheckPlatformList(Peers(), {}); end_execute
+end_platform
+
+platform sub2 BASE_TYPE
+   commander cmdr2 
+   execute at_time 4 s absolute CheckPlatformList(Subordinates(), {}); end_execute
+   execute at_time 4 s absolute CheckPlatformList(Peers(), {"sub3"}); end_execute  
+end_platform
+
+platform sub3 BASE_TYPE
+   commander cmdr2    
+   execute at_time 4 s absolute CheckPlatformList(Subordinates(), {}); end_execute
+   execute at_time 4 s absolute CheckPlatformList(Peers(), {"sub2"}); end_execute   
+end_platform
+
+#Replace the deleted cmdr2 by moving sub1 and making it into a commander
+execute at_time 3 s absolute
+   WsfSimulation.FindPlatform("sub1").SetCommander(WsfSimulation.FindPlatform("cmdr1"));
+   WsfSimulation.FindPlatform("sub2").SetCommander(WsfSimulation.FindPlatform("sub1"));  
+   WsfSimulation.FindPlatform("sub3").SetCommander(WsfSimulation.FindPlatform("sub1"));    
+end_execute
+
+#Test for deletion when both a named and default command chain are present
+#Note: Default command chains also include any named command_chain that also exists on the platform
+platform cmdr1_2 BASE_TYPE
+   commander SELF
+   command_chain TEST_CC cmdr2_2
+   execute at_time 4 s absolute CheckPlatformList(Subordinates(), {"sub1_2"}); end_execute
+   execute at_time 4 s absolute CheckPlatformList(Peers(), {"sub1_2"}); end_execute   
+   execute at_time 4 s absolute CheckPlatformList(Subordinates("TEST_CC"), {}); end_execute
+   execute at_time 4 s absolute CheckPlatformList(Peers("TEST_CC"), {"sub1_2"}); end_execute  
+end_platform
+
+platform cmdr2_2 BASE_TYPE
+   commander SELF
+   command_chain TEST_CC SELF
+   execute at_time 4 s absolute CheckPlatformList(Subordinates("TEST_CC"), {"cmdr1_2", "sub1_2"}); end_execute
+   execute at_time 4 s absolute CheckPlatformList(Subordinates(), {"cmdr1_2", "sub1_2"}); end_execute
+end_platform
+
+platform sub1_2 BASE_TYPE
+   commander cmdr1_2
+   command_chain TEST_CC cmdr2_2 
+   execute at_time 4 s absolute CheckPlatformList(Peers(), {"cmdr1_2"}); end_execute 
+   execute at_time 4 s absolute CheckPlatformList(Peers("TEST_CC"), {"cmdr1_2"}); end_execute  
+end_platform
+
+platform sub2_2 BASE_TYPE
+   commander cmdr1
+   command_chain TEST_CC cmdr2_2 
+   execute at_time 2 s absolute DeletePlatform(); end_execute 
+end_platform
+
+execute at_time 29.0 secs absolute
+   if (!gSubDeleted)
+   {
+      writeln("-FAIL- Expected subordinate deleted");
+      gPass = false;
+   }
+   if (!gCmdrDeleted)
+   {
+      writeln("-FAIL- Expected commander deleted");
+      gPass = false;
+   }
+   if (!gPeerDeleted)
+   {
+      writeln("-FAIL- Expected peer deleted");
+      gPass = false;
+   }
+    
+   if (gPass) writeln("-PASS-");
+end_execute
+
+end_time 30 secs
+

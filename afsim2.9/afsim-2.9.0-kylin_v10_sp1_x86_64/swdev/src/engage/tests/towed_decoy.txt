@@ -1,0 +1,121 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+radar_signature TOWED-SIG
+   constant 1 m2
+end_radar_signature
+
+platform_type TOWED_TYPE WSF_PLATFORM
+   side blue
+   icon F-18
+   radar_signature TOWED-SIG
+
+   script_variables
+      WsfDraw       mDraw = WsfDraw();
+      WsfPlatform   mLeadPlatform;
+      WsfTowedMover mTowedMover;
+   end_script_variables
+
+   mover WSF_TOWED_MOVER
+     # update_interval    0.25 s
+      tow_length         250 m
+      reel_out_speed     25 m/s
+      reel_in_speed      25 m/s
+      reel_in_time_after_deployed 25 s
+      restore_quantity true
+      follow_lead_trajectory false
+      azimuth_relative_to_lead 0 deg
+      elevation_relative_to_lead 10 deg
+   end_mover
+
+   execute at_interval_of 1 sec
+      mDraw.Erase("decoy_state");
+      mDraw.SetId("decoy_state");
+      string state = mTowedMover.State();
+      state = state + write_str(",", "Tow Length= ", mTowedMover.Distance(),
+      " m, ", "SRange= ", PLATFORM.SlantRangeTo(mLeadPlatform), " m");
+      state = state + write_str("\n", "Speed= ", PLATFORM.Speed(), " m/s");
+      mDraw.BeginText(state);
+        mDraw.Vertex(PLATFORM);
+      mDraw.End();
+   end_execute
+
+   execute at_time 0.1 sec absolute
+      mDraw.SetId("towed_line");
+      mDraw.BeginLines();
+         mDraw.Vertex(PLATFORM);
+         mDraw.Vertex(mLeadPlatform);
+      mDraw.End();
+   end_execute
+
+   on_initialize2
+      mLeadPlatform = WsfSimulation.FindPlatform("lead");
+      mTowedMover = (WsfTowedMover)Mover();
+
+      mDraw.SetColor(1.0, 0.5, 0.0, 1.0);
+      mDraw.SetLineSize(3);
+   end_on_initialize2
+end_platform_type
+
+
+# must have some weapon effects module
+# will not be used per se other than
+# to get the launcher and notify
+# the mover with that information
+# Done internally, so using a simple effect
+weapon_effects TOWED-EFFECTS WSF_SPHERICAL_LETHALITY
+   minimum_radius 0.1 m
+   maximum_radius 0.2 m
+end_weapon_effects
+
+
+weapon TOWED_WEAPON WSF_EXPLICIT_WEAPON
+   launched_platform_type TOWED_TYPE
+   weapon_effects TOWED-EFFECTS
+   quantity 4
+end_weapon
+
+platform lead WSF_PLATFORM
+  side blue
+  icon F-18
+  add weapon decoy TOWED_WEAPON
+  end_weapon
+
+  add mover WSF_AIR_MOVER
+  update_interval 0.25 s
+  end_mover
+
+  route
+    position 38:41n 90:25w altitude 10000 ft speed 400 m/s
+    turn_right 45 deg
+  end_route
+
+  execute at_time 5 sec absolute
+    WsfWeapon weapon = PLATFORM.Weapon("decoy");
+    weapon.Fire();
+  end_execute
+
+  execute at_time 20 sec absolute
+    PLATFORM.TurnToRelativeHeading(90);
+  end_execute
+
+  execute at_time 30 sec absolute
+     PLATFORM.TurnToRelativeHeading(-90);
+  end_execute
+
+  #execute at_time 10 sec absolute
+  #   WsfSimulation.DeletePlatform(PLATFORM.Name());
+  #end_execute
+end_platform
+
+end_time 1 min
+
+dis_interface
+  record output/towed_decoy.rep
+end_dis_interface

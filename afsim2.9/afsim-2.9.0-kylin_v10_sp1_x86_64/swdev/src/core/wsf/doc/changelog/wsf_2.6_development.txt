@@ -1,0 +1,36 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.6.2)** Provided a public accessor ``GetMaximumRange()`` to return the maximum range of a ``WsfSensorMode``. *(AFSIM-302)*
+* **(2.6.2)** ``UtInputPreprocessor`` now stores default values for all usages of preprocessor variables. *(AFSIM-303)*
+* **(2.6.2)** Fixed an issue in ``WsfDisData`` where the constructor would incorrectly override request ID values from externally received ``DisData`` PDUs. *(AFSIM-216)*
+* **(2.6.1)** Corrected an issue where retaining the application object while creating more than one scenario object could cause a segmentation fault due to missing :command:`medium` component factories. *(Issue #2226)*
+* **(2.6.1)** Corrected an issue where the internal linkage class variable was referred to as external linkage and vice versa in ``WsfMessageProcessor``. *(AFSIM-285)*
+* AFSIM has officially deprecated the 32-bit compilation option starting in version 2.6. Not all AFSIM features are 32-bit compatible.
+* CMake cache entry ``WSF_ADD_EXTENSION_PATH`` can now specify multiple search paths for extensions in a ``;``-separated list. *(Issue #1649)*
+* Relaxed the compiler version check for compatible plugins on Windows (MSVC). Only the first two digits, indicating C++ toolset major number and binary compatibility, are compared to those of the host application. *(ELSZ #133)*
+* Removed support for running the automated tests using Perl. Python 3 is now required for the ``REGRESSION_TEST`` and ``AUTO_TEST`` targets.
+* Corrected the source value used for WCS velocity in the ``UtEntity`` copy constructor. *(ELSZ #272)*
+* Added the directory containing plugins to library search path for Windows to allow plugins to have dependencies on other plugins. *(ELSZ #172)*
+* Refactored ``WsfEventOutput`` and ``WsfCSV_EventOutput`` so that events derive from a common base class. *(Issue #302)*
+* Converted ``UtBlackBody`` class into a ``BlackBody`` namespace, nested within the ``ut`` namespace.
+* ``UtVec3dX`` now overloads the ``operator<<`` to write a formatted vector to a ``std::ostream``. *(Issue #1773)*
+* Fixed a bug in the ``add_wsf_doxygen_input`` CMake macro that prevented Doxygen from generating documentation for the files in the core/wsf/source directory. *(Issue #1785)*
+* Corrected an issue where the computed ECI-referenced orientation of ``WsfArticulatedPart`` (``UtEntityPart``) was incorrect. *(Issue #1829)*
+* Added a logging framework to be used in place of ``std::cout``. See ``UtLog.hpp`` for basic usage. *(Issue #566)*
+* Renamed ``WsfEventPipeInterface::Send`` to ``SendImmediate``, changing its signature to use ``std::unique_ptr`` to transfer ownership of the message and take an additional boolean argument indicating whether the event originated in an external simulation. Also added a method ``SendDependent`` to cache platform dependent messages until a PlatformInfo message is sent. *(Issue #1797) (Issue #1996)*
+* Added special field types ``index`` and ``time`` to ``*.utpack`` files to support combining AER files. *(Issue #1797)*
+* Refactored ``UtTextRange`` to ensure that the beginning of the range is always greater than or equal the end. *(Issue #1946)*
+* Corrected an infinite loop in ``UtStringUtil::ReplaceAll`` when the replacement string contains the part of the string to be replaced. *(Issue #2010)*
+* Corrected an issue where the wrong ``swap`` function could be called for ``UtScriptData`` and ``UtVariant``. *(ELSZ #298)*
+* Corrected an issue where ``UtVariant`` was using undefined behavior with respect to type punning in unions. *(ELSZ #299)*
+* Corrected an issue with an incorrect coefficient in ``UtQuinticSpline::TwoPoint``. *(Issue #1997)*
+* Added a ``SlewCompleted`` callback for ``WsfArticulatedPart``. *(Issue #2025)*
+* Corrected an issue that produced incorrect inertial to WCS acceleration conversions. *(Issue #2111)*
+* Added ``WsfSensorSchedulerTypes`` which provides the mechanism for developers to register their own sensor :command:`scheduler<scheduler_type>` types, via the ``AddObjectFactory`` method.

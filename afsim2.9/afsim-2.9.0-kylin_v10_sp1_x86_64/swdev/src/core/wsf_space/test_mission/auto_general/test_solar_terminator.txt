@@ -1,0 +1,136 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date mar 20 2019
+start_time 12:00:00.000
+end_time 1 hr
+
+script_variables
+   bool gAllPass = true;
+end_script_variables
+
+script string IlluminationStateToString(int aState)
+   if (aState == WsfSolarTerminator.ILLUMINATED())
+   {
+      return "ILLUMINATED";
+   }
+   else if (aState == WsfSolarTerminator.EARTH_PENUMBRA())
+   {
+      return "EARTH_PENUMBRA";
+   }
+   else if (aState == WsfSolarTerminator.EARTH_UMBRA())
+   {
+      return "EARTH_UMBRA";
+   }
+   else
+   {
+      return "ERROR - NO SUCH STATE";
+   }
+end_script
+
+script void TestPlatformSolarIllumination(WsfPlatform aPlatform, int aExpectedResult)
+   int illum = WsfSolarTerminator.PlatformSolarIllumination(aPlatform);
+   if (illum != aExpectedResult)
+   {
+      writeln("-FAIL- Platform ", aPlatform.Name(),
+              " has solar illumination state ",
+              IlluminationStateToString(illum), " when ",
+              IlluminationStateToString(aExpectedResult), " was expected."); 
+      gAllPass = false;
+   }
+end_script
+
+platform ground WSF_PLATFORM
+   position 0n 88e
+   
+   execute at_time 1 s absolute
+      TestPlatformSolarIllumination(PLATFORM, WsfSolarTerminator.ILLUMINATED());
+   end_execute
+   
+   execute at_time 1 hr absolute
+      TestPlatformSolarIllumination(PLATFORM, WsfSolarTerminator.EARTH_UMBRA());
+   end_execute
+end_platform
+
+platform_type SATELLITE WSF_PLATFORM
+   icon satellite
+   
+   mover WSF_SPACE_MOVER
+      eccentricity 0.0001
+      argument_of_periapsis 0 deg
+      raan 0 deg
+      inclination 1 deg
+      true_anomaly 0 deg
+      semi_major_axis 8000 km
+   end_mover
+   
+   script_variables 
+      int expectedIllumination = WsfSolarTerminator.ILLUMINATED();
+   end_script_variables
+   
+   execute at_time 0.1 sec absolute
+      TestPlatformSolarIllumination(PLATFORM, expectedIllumination);
+   end_execute
+end_platform_type
+
+platform starts_illuminated SATELLITE
+end_platform
+
+platform starts_umbra SATELLITE
+   edit mover
+      true_anomaly 150 deg
+   end_mover
+   
+   on_initialize 
+      expectedIllumination = WsfSolarTerminator.EARTH_UMBRA();
+   end_on_initialize
+end_platform
+
+platform near_limit_above SATELLITE
+   edit mover
+      true_anomaly 125 deg
+   end_mover
+end_platform
+
+platform near_limit_between SATELLITE
+   edit mover
+      true_anomaly 125 deg
+      semi_major_axis 7800 km
+   end_mover
+   
+   on_initialize 
+      expectedIllumination = WsfSolarTerminator.EARTH_PENUMBRA();
+   end_on_initialize
+end_platform
+
+platform near_limit_below SATELLITE
+   edit mover
+      true_anomaly 125 deg
+      semi_major_axis 7600 km
+   end_mover
+   
+   on_initialize 
+      expectedIllumination = WsfSolarTerminator.EARTH_UMBRA();
+   end_on_initialize
+end_platform
+
+script void FinalReport()
+   if (gAllPass)
+   {
+      writeln("-PASS- All tests passed.");
+   }
+   else
+   {
+      writeln("-FAIL- Not all tests passed.");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE FinalReport
+end_observer

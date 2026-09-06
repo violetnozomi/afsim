@@ -1,0 +1,298 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test the functionality of user provided parameters with script effects.
+script_variables
+   WsfPlatform target1;
+   WsfPlatform target2;
+   int msgRcvd = 0;
+   int sensorOff = 0;
+end_script_variables
+
+script_struct MessageStruct
+   script_variables
+      Array<string> messageArray = {
+      "Open the pod bay doors please, HAL.",
+      "I am afraid I can't do that Dave.",
+      "This mission is too important for me to allow you to jeopardize it.",
+      "Daisy, daisy.",
+      "My God, it's full of stars." };
+   end_script_variables
+end_script_struct
+
+cyber_effect ILLUMINATE WSF_CYBER_SCRIPT_EFFECT_ENHANCED
+   platform_type TEST_PLATFORM
+      script void Attack(WsfCyberEngagement aEngagement, WsfCyberAttackParameters aParameters)
+         WsfPlatform victim = aEngagement.VictimPlatform();
+         // Parameters provide a string reference to a signature state to apply to the victim.
+         string state = aParameters.GetEffectEntryByIndex("ILLUMINATE", 0).AuxDataString("ILLUMINATE");
+         victim.SetSignatureState(state);
+      end_script
+
+      script void Restore(WsfCyberEngagement aEngagement, WsfCyberAttackParameters aParameters)
+         WsfPlatform victim = aEngagement.VictimPlatform();
+         string state = aParameters.GetEffectEntryByIndex("ILLUMINATE", 1).AuxDataString("ILLUMINATE");
+         victim.SetSignatureState(state);      
+      end_script
+   end_platform_type
+end_cyber_effect
+
+cyber_effect SEND_MESSAGE WSF_CYBER_SCRIPT_EFFECT_ENHANCED
+   platform_type TEST_PLATFORM
+      script void Attack(WsfCyberEngagement aEngagement, WsfCyberAttackParameters aParameters)
+         WsfPlatform victim = aEngagement.VictimPlatform();
+         // Parameters provide various objects to determine messaging characteristics.
+         int numMessages = aParameters.GetEffectEntryByIndex("SEND_MESSAGE", 0).AuxDataInt("SEND_MESSAGE");
+         MessageStruct messages = (MessageStruct)aParameters.GetEffectEntryByIndex("SEND_MESSAGE", 1).AuxDataObject("SEND_MESSAGE");
+         string recipient_platform = aParameters.GetEffectEntryByIndex("SEND_MESSAGE", 2).AuxDataString("SEND_MESSAGE");
+         string recipient_comm = aParameters.GetEffectEntryByIndex("SEND_MESSAGE", 3).AuxDataString("SEND_MESSAGE");
+         string victim_comm = aParameters.GetEffectEntryByIndex("SEND_MESSAGE", 4).AuxDataString("SEND_MESSAGE");
+         
+         for(int i = 0; i < numMessages; i = i + 1)
+         {
+            WsfMessage message = {};
+            message.SetType(messages.messageArray[i]);
+            victim.Comm(victim_comm).SendMessage(message, recipient_platform, recipient_comm);
+         }
+      end_script
+
+      script void Restore(WsfCyberEngagement aEngagement, WsfCyberAttackParameters aParameters)   
+      end_script
+   end_platform_type
+end_cyber_effect
+
+cyber_effect TOGGLE_RADAR WSF_CYBER_TOGGLE_SENSORS_EFFECT
+   default
+      select_all
+   end_default
+end_cyber_effect
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+   effect ILLUMINATE
+   effect SEND_MESSAGE
+   effect TOGGLE_RADAR
+   
+   probability_of_scan_detection 0.0
+   probability_of_attack_success 1.0
+   probability_of_status_report 1.0
+   probability_of_attack_detection 1.0
+   probability_of_future_immunity 0.0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 0 s
+   delivery_delay_time 0 s
+end_cyber_attack
+
+radar_signature radarSig
+   state default
+     inline_table dbsm 20 2
+               -90.0  90.0
+       -180.0    0.0   0.0
+       -137.5    0.0   0.0
+       -135.0   20.0  20.0
+       -132.5    0.0   0.0
+        -92.5    0.0   0.0
+        -90.0   20.0  20.0
+        -87.5    0.0   0.0
+        -47.5    0.0   0.0
+        -45.0   20.0  20.0
+        -42.5    0.0   0.0
+         42.5    0.0   0.0
+         45.0   20.0  20.0
+         47.5    0.0   0.0
+         87.5    0.0   0.0
+         90.0   20.0  20.0
+         92.5    0.0   0.0
+        132.5    0.0   0.0
+        135.0   20.0  20.0
+        137.5    0.0   0.0
+        180.0    0.0   0.0
+     end_inline_table
+  state illuminated
+    inline_table dbsm 20 2
+               -90.0  90.0
+       -180.0   20.0  20.0
+       -137.5   20.0  20.0
+       -135.0   60.0  60.0
+       -132.5   20.0  20.0
+        -92.5   20.0  20.0        
+        -90.0   60.0  60.0
+        -87.5   20.0  20.0
+        -47.5   20.0  20.0        
+        -45.0   60.0  60.0
+        -42.5   20.0  20.0
+         42.5   20.0  20.0         
+         45.0   60.0  60.0
+         47.5   20.0  20.0
+         87.5   20.0  20.0         
+         90.0   60.0  60.0
+         92.5   20.0  20.0
+        132.5   20.0  20.0        
+        135.0   60.0  60.0
+        137.5   20.0  20.0
+        180.0   20.0  20.0
+     end_inline_table
+end_radar_signature
+
+cyber_protect TEST_PROTECT WSF_CYBER_PROTECT
+   attack_response TEST_ATTACK
+      probability_of_scan_detection 0.0
+      probability_of_attack_success 1.0
+      probability_of_status_report 1.0
+      probability_of_attack_detection 1.0
+      probability_of_future_immunity 0.0
+      
+      attack_detection_delay_time 0 s
+      attack_recovery_delay_time 5 s
+      restore      
+    end_attack_response     
+end_cyber_protect
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   cyber_protect TEST_PROTECT
+   end_cyber_protect
+   radar_signature radarSig
+   comm comm1 WSF_COMM_TRANSCEIVER
+      on
+      internal_link msgProc
+   end_comm
+   
+   processor msgProc WSF_MESSAGE_PROCESSOR
+      on_message
+         script
+            writeln(MESSAGE.Type());
+         end_script
+      end_on_message
+   end_processor
+   
+   comm comm2 WSF_COMM_XMTR
+      on
+   end_comm
+   
+   sensor sensor1 WSF_GEOMETRIC_SENSOR
+      on
+      reports_location
+      frame_time 10 s
+   end_sensor
+   
+   sensor sensor2 WSF_RADAR_SENSOR
+      on
+      reports_location
+      frame_time 10 s
+      transmitter
+         power 100 kw
+         frequency 100 ghz
+      end_transmitter
+      receiver
+         frequency 10 ghz
+      end_receiver
+   end_sensor
+end_platform_type
+
+platform attack1 TEST_PLATFORM
+   position 39n 90:20w
+   icon EA-6B
+   altitude 10000 m
+end_platform
+
+platform target1 TEST_PLATFORM
+   position 38:45n 90:20w
+   icon AAA
+   on_initialize
+      target1 = PLATFORM;
+   end_on_initialize
+end_platform
+
+platform target2 TEST_PLATFORM
+   position 38:45n 90:40w
+   icon AAA
+   on_initialize
+      target2 = PLATFORM;
+   end_on_initialize
+end_platform
+
+execute at_time 1 s absolute
+   WsfCyberAttackParameterObject illuminate_object1 = {};
+   illuminate_object1.SetAuxData("ILLUMINATE", "illuminated");
+   WsfCyberAttackParameterObject illuminate_object2 = {};
+   illuminate_object2.SetAuxData("ILLUMINATE", "default");
+
+   WsfCyberAttackParameterObject send_message_object1 = {};
+   send_message_object1.SetAuxData("SEND_MESSAGE", 5);
+   WsfCyberAttackParameterObject send_message_object2 = {};
+   MessageStruct messages = MessageStruct();
+   send_message_object2.SetAuxData("SEND_MESSAGE", messages);
+   WsfCyberAttackParameterObject send_message_object3 = {};
+   send_message_object3.SetAuxData("SEND_MESSAGE", "target2");
+   WsfCyberAttackParameterObject send_message_object4 = {};
+   send_message_object4.SetAuxData("SEND_MESSAGE", "comm1");
+   WsfCyberAttackParameterObject send_message_object5 = {};
+   send_message_object5.SetAuxData("SEND_MESSAGE", "comm1");
+
+   WsfCyberAttackParameters parameters = {};
+   parameters.AddParameter(illuminate_object1);
+   parameters.AddParameter(illuminate_object2);
+   parameters.AddParameter(send_message_object1);
+   parameters.AddParameter(send_message_object2);
+   parameters.AddParameter(send_message_object3);
+   parameters.AddParameter(send_message_object4);
+   parameters.AddParameter(send_message_object5);
+
+   WsfSimulation.FindPlatform("attack1").CyberAttack(target1, "TEST_ATTACK", parameters);
+end_execute
+
+end_time 10 s
+
+observer
+   enable MESSAGE_RECEIVED MessageReceived
+   enable SENSOR_TURNED_OFF SensorOff
+end_observer
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   msgRcvd = msgRcvd + 1;
+end_script
+
+script void SensorOff(WsfPlatform aPlatform, WsfSensor aSensor)
+   sensorOff = sensorOff + 1;
+end_script
+
+execute at_time 1.1 s absolute
+   if(target1.RadarSigState() != "illuminated")
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 6.1 s absolute
+   if(target1.RadarSigState() != "default")
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 9.9 s absolute
+   if(msgRcvd != 5)
+   {
+      writeln("-FAIL-");
+   }
+   if(sensorOff != 2)
+   {
+      writeln("-FAIL-");
+   }   
+end_execute
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output

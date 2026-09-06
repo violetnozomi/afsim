@@ -1,0 +1,154 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests attenuation of radar signals using a zone_set defined by a shapefile
+
+zone_set buildings
+  attenuation_parameters
+     file shapefile/Buildings
+     height_parameter height  # the name in the field of the dbf file that contains the data   
+     sensor_modifier  zone_atten 1.0    # 100% signal attenuation after 1 meter of zone width interference
+  end_attenuation_parameters
+end_zone_set
+
+antenna_pattern RADAR_SENSOR_ANTENNA_PATTERN
+  uniform_pattern
+    peak_gain             30 db
+    azimuth_beamwidth     360 degrees
+    elevation_beamwidth   180 degrees
+  end_uniform_pattern
+end_antenna_pattern
+
+sensor RADAR_SENSOR  WSF_RADAR_SENSOR
+   on
+   azimuth_field_of_view   -45.0 degrees  45.0 degrees
+   elevation_field_of_view -60.0 degrees -10.0 degrees
+   minimum_range 0 km
+   maximum_range 20 km   
+
+   frame_time              0.5 sec
+  
+   signal_processor simple_doppler
+      minimum_doppler_speed   1 m/s   
+   end_signal_processor
+
+   transmitter
+      antenna_pattern       RADAR_SENSOR_ANTENNA_PATTERN
+      power                 20 mw
+      frequency             3 ghz
+      pulse_repetition_frequency 250 hz
+      internal_loss         10 db
+   end_transmitter
+
+   receiver
+      antenna_pattern       RADAR_SENSOR_ANTENNA_PATTERN
+      bandwidth             1.6 mhz
+      detection_threshold   13 db
+      noise_power           -110 dbw
+      internal_loss         10 db
+   end_receiver
+   
+   hits_to_establish_track 2 3
+   hits_to_maintain_track  2 3
+   reports_location   
+end_sensor
+
+platform_type  AIRCRAFT  WSF_PLATFORM
+   mover WSF_AIR_MOVER end_mover
+
+   sensor radar RADAR_SENSOR
+      internal_link data_mgr 
+      modifier_category zone_atten
+   end_sensor
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval 1 sec
+   end_processor
+   
+   script_variables
+      bool pass = true;
+   end_script_variables
+   
+   execute at_time 30.0 sec absolute
+      if (PLATFORM.MasterTrackList().Count() != 1)
+      {
+         writeln("-FAIL- T=", TIME_NOW, " Expected track list size 1");
+         pass = false;
+      }
+   end_execute
+   
+   execute at_time 53.0 sec absolute
+      if (PLATFORM.MasterTrackList().Count() != 0)
+      {
+         writeln("-FAIL- T=", TIME_NOW, " Expected track list size 0");
+         pass = false;
+      }
+   end_execute
+
+   execute at_time 74.0 sec absolute
+      if (PLATFORM.MasterTrackList().Count() != 1)
+      {
+         writeln("-FAIL- T=", TIME_NOW, " Expected track list size 1");
+         pass = false; 
+      }
+   end_execute
+
+   execute at_time 86.0 sec absolute
+      if (PLATFORM.MasterTrackList().Count() != 0)
+      {
+         writeln("-FAIL- T=", TIME_NOW, " Expected track list size 0");
+         pass = false; 
+      }
+   end_execute
+
+   execute at_time 111.0 sec absolute
+      if (PLATFORM.MasterTrackList().Count() != 0)
+      {
+         writeln("-FAIL- T=", TIME_NOW, " Expected track list size 0");
+         pass = false; 
+      }
+   end_execute
+    
+   execute at_time 130.0 sec absolute
+      if (PLATFORM.MasterTrackList().Count() != 1)
+      {
+         writeln("-FAIL- T=", TIME_NOW, " Expected track list size 1");
+         pass = false; 
+      }
+      
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+   end_execute
+
+end_platform_type
+
+radar_signature CUEBALL
+   constant 10 m^2
+end_radar_signature
+
+platform target WSF_PLATFORM
+   side red
+   radar_signature CUEBALL
+   add mover WSF_GROUND_MOVER
+      route
+         position 51:02:56.11n 13:45:05.88e altitude 3.28 ft msl speed 15 kts
+         position 51.043221n 13.765846e
+      end_route 
+   end_mover
+end_platform
+
+platform aircraft AIRCRAFT
+   side blue
+   heading 195 deg
+   position 51:03:37.60n 13:45:37.77e altitude 2000 ft
+end_platform
+
+end_time 131 sec

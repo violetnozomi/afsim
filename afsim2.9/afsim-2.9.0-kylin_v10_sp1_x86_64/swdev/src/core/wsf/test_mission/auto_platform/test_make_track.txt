@@ -1,0 +1,27 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// MakeTrack should create a track that Is3D.
+//
+// LocationValid exposes the Is3D track parameter to script.
+//
+
+platform test_plat WSF_PLATFORM
+   execute at_time 1 s absolute
+      WsfTrack track = PLATFORM.MakeTrack();
+      if (track.LocationValid())
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_execute
+end_platform

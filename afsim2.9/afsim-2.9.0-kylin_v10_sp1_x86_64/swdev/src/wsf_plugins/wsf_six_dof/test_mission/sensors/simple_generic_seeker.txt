@@ -1,0 +1,52 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+###############################################################################
+# This is a generic missile seeker. It uses a WSF_GEOMETRIC_SENSOR with
+# a +/-5deg FOV that can slew anywhere in the forward hemisphere.
+###############################################################################
+
+sensor SIMPLE_GENERIC_SEEKER WSF_GEOMETRIC_SENSOR
+
+   on
+   azimuth_field_of_view     -120 degrees 120 degrees
+   elevation_field_of_view    -90 degrees  90 degrees
+   maximum_range             200 nm
+   frame_time                0.01 sec
+
+   scan_mode                 both
+   slew_mode                 both
+
+   track_quality 1.0
+
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_range_rate
+   reports_iff
+   reports_location
+   reports_velocity
+   reports_range_rate
+   reports_iff
+   reports_side
+   reports_type
+#  reports_signal_to_noise
+#  reports_frequency
+#  reports_pulsewidth
+#  reports_pulse_repetition_interval
+
+   ignore_same_side
+#  ignore_domain air
+   ignore_domain surface
+   ignore_domain subsurface
+   ignore_domain space
+
+   hits_to_establish_track 2 3
+   hits_to_maintain_track  1 4
+
+end_sensor

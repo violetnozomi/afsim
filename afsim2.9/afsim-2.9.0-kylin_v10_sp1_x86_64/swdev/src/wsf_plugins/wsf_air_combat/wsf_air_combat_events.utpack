@@ -1,0 +1,520 @@
+// ****************************************************************************
+// CUI//REL TO USA ONLY
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+// Air Combat Events
+
+Settings {
+   message_id_or: 7
+}
+
+// ..................................................................................
+
+// Engagement Data
+// ---------------
+
+// This data supports air combat engagements, focused primarily on air-to-air combat
+// engagements, but suitable for air-to-surface and surface-to-air engagements as
+// well.
+
+// This provides data for a single 1-v-1 engagement. Note that the risk, 
+// defensiveness, and urgency are only for this single opponent, considered as a
+// single threat.
+
+Struct {
+   id: SA_EngagementData
+   Field { id: targetIndex          type: index  }
+   Field { id: targetName           type: string }
+   Field { id: targetType           type: string }
+   Field { id: angleOff_deg         type: float  }
+   Field { id: aspectAngle_deg      type: float  }
+   Field { id: currentRange_nm      type: float  }
+   Field { id: currentDeltaAlt_ft   type: float  }   
+   Field { id: trackQuality         type: float  }
+   Field { id: targetCID            type: string }
+   Field { id: threatLevel          type: float  }
+   Field { id: targetValue          type: float  }
+   Field { id: detectionRange_nm    type: float  }
+   Field { id: wezDesiredRange_nm   type: float  }
+   Field { id: wezMinimum_nm        type: float  }
+   Field { id: wezMaximum_nm        type: float  }
+   Field { id: wezNoEscape_nm       type: float  }   
+   Field { id: risk                 type: float  }
+   Field { id: defensiveness        type: float  }
+   Field { id: urgency              type: float  }   
+   Field { id: tgtTracked           type: bool bit: 0 }
+   Field { id: acceptableWez        type: bool bit: 1 }
+}
+
+// This is a list of potential engagements
+
+List { id: SA_EngagementDataList type: SA_EngagementData }
+
+// This provides a set of engagement data for a specified platform. Note that the
+// risk, defensiveness, and urgency are aggregate values, and pertain to the overall
+// conditions posed by all perceived threats.
+
+Struct {
+   id: MsgSA_EngagementSummaryData
+   message: 1
+   base: MsgBase
+   Field { id: platformIndex          type: index       }
+   Field { id: radarEmitting          type: bool bit: 0 }
+   Field { id: jammerEmitting         type: bool bit: 1 }
+   Field { id: otherEmitting          type: bool bit: 2 }
+   Field { id: afterburner            type: bool bit: 3 }
+   Field { id: contrails              type: bool bit: 4 }
+   Field { id: missionTask            type: string      }
+   Field { id: riskAcceptable         type: uint8       }
+   Field { id: riskCurrent            type: float       }
+   Field { id: defensiveness          type: float       }
+   Field { id: urgency                type: float       }
+   Field { id: selfRisk               type: float       }
+   Field { id: flightRisk             type: float       }
+   Field { id: packageRisk            type: float       }
+   Field { id: missionRisk            type: float       }
+   Field { id: prioritizedTargetList  type: StringList  }
+   Field { id: prioritizedThreatList  type: StringList  }
+   Field { id: trackedPlatformList    type: StringList  }
+   Field { id: engagementDataList     type: SA_EngagementDataList }
+}
+
+// ..................................................................................
+
+// Flight Kinematics Data
+// ----------------------
+
+// This provides various kinematic data related to flight. It provides more
+// detailed data, required for air combat, than is included in the "standard"
+// platform event pipes. Fuel, navigation, controls, and weapons data are not
+// included.
+
+Struct {
+   id: MsgSA_FlightKinematicsData
+   message: 2
+   base: MsgBase
+   Field { id: platformIndex            type: index  }
+   Field { id: flightId                 type: uint16 }      
+   Field { id: idFlag                   type: string }
+   Field { id: lat_deg                  type: double }
+   Field { id: lon_deg                  type: double }
+   Field { id: kcas                     type: float  }
+   Field { id: ktas                     type: float  }
+   Field { id: mach                     type: float  }
+   Field { id: altBaro_ft               type: float  }
+   Field { id: altRadar_ft              type: float  }
+   Field { id: vertSpd_fpm              type: float  }
+   Field { id: alpha_deg                type: float  }
+   Field { id: beta_deg                 type: float  }
+   Field { id: gLoad                    type: float  }
+   Field { id: gAvail                   type: float  }
+   Field { id: heading_deg              type: float  }
+   Field { id: pitch_deg                type: float  }
+   Field { id: roll_deg                 type: float  }
+   Field { id: gX                       type: float  }
+   Field { id: gY                       type: float  }
+   Field { id: pilotType                type: string }
+   Field { id: afterburnerOn            type: bool bit: 0 }
+   Field { id: contrailing              type: bool bit: 1 }
+   Field { id: stallWarning             type: bool bit: 2 }
+   Field { id: alphaValid               type: bool bit: 3 }
+   Field { id: betaValid                type: bool bit: 4 }
+   Field { id: kcasValid                type: bool bit: 5 }
+   Field { id: nxValid                  type: bool bit: 6 }
+   Field { id: nyValid                  type: bool bit: 7 }
+   Field { id: nzValid                  type: bool bit: 8 }
+   Field { id: gAvailValid              type: bool bit: 9 }
+} 
+
+// ..................................................................................
+
+// Fuel Data
+// ---------
+
+// This provides fuel data for an aircraft, including internal and external fuel
+// quantities and capacities, joker/bingo fuel levels, current total fuel flow,
+// and external tank data.
+
+Struct {
+   id: MsgSA_FuelData
+   message: 3
+   base: MsgBase
+   Field { id: platformIndex         type: index }
+   Field { id: fuelInternal_lbs      type: float }
+   Field { id: fuelExternal_lbs      type: float }
+   Field { id: fuelCapInt_lbs        type: float }
+   Field { id: fuelCapExt_lbs        type: float }
+   Field { id: grossWgt_lbs          type: float }
+   Field { id: joker_lbs             type: float }
+   Field { id: bingo_lbs             type: float }
+   Field { id: fuelFlow_pph          type: float }   
+   Field { id: normalizedFuelQty     type: float }   
+   Field { id: numExtTanks           type: uint8 }
+   Field { id: dropTanksPresent      type: bool bit: 0 }
+   Field { id: fuelValid             type: bool bit: 1 }
+} 
+
+// ..................................................................................
+
+// Nav Data
+// --------
+
+// This provides nav data for an aircraft, including:
+//   * List of waypoints
+//   * Heading to next waypoint
+//   * Distance to next waypoint
+//   * Time to reach next waypoint
+
+Struct {
+   id: WaypointLatLon
+   Field { id: lat_deg               type: float }
+   Field { id: lon_deg               type: float }
+}
+
+List { id: WaypointList type: WaypointLatLon }
+
+Struct {
+   id: WaypointData
+   Field { id: numWaypoints           type: uint8        }
+   Field { id: waypoints              type: WaypointList }
+   Field { id: currentWaypoint        type: uint8        }
+   Field { id: headingBug_deg         type: float        }
+   Field { id: distanceToWaypoint_nm  type: float        }
+   Field { id: timeToWaypoint_sec     type: float        }   
+}
+
+Struct {
+   id: MsgSA_NavData
+   message: 4
+   base: MsgBase
+   Field { id: platformIndex         type: index        }
+   Field { id: waypointData          type: WaypointData }
+   Field { id: wayptDataValid        type: bool bit: 0  }
+} 
+
+// ..................................................................................
+
+// Flight Controls Data
+// --------------------
+
+// This provides data for control inputs and control surfaces for an aircraft.
+
+Struct {
+   id: MsgSA_FlightControlsData
+   message: 5
+   base: MsgBase
+   Field { id: platformIndex           type: index }
+   Field { id: stickRgtInput           type: float }
+   Field { id: stickBackInput          type: float }
+   Field { id: rudderRgtInput          type: float }
+   Field { id: speedBrakeInput         type: float }
+   Field { id: throttleInput           type: float }   
+   Field { id: aileronRgtNormalized    type: float }
+   Field { id: aileronLftNormalized    type: float }
+   Field { id: flapRgtNormalized       type: float }
+   Field { id: flapLftNormalized       type: float }
+   Field { id: stabilizerRgtNormalized type: float }
+   Field { id: stabilizerLftNormalized type: float }
+   Field { id: rudderRgtNormalized     type: float }
+   Field { id: rudderLftNormalized     type: float }
+   Field { id: rudderNormalized        type: float }
+   Field { id: speedBrakeNormalized    type: float }
+   Field { id: thrustNormalized        type: float }   
+   Field { id: landingGear             type: float }
+   Field { id: throttleValid           type: bool bit: 0 }
+   Field { id: aileronsValid           type: bool bit: 1 }
+   Field { id: flapsValid              type: bool bit: 2 }
+   Field { id: twinRuddersValid        type: bool bit: 3 }
+   Field { id: singleRudderValid       type: bool bit: 4 }   
+} 
+
+// ..................................................................................
+
+// Weapons Data
+// ------------
+
+// This provides weapons data for an aircraft, including:
+//   * List of weapons and quantities
+//   * Selected weapon
+//   * Engaged target list, with Rmax, Rne, Rmin
+//   * Numbers of expendable countermeasures
+//   * Master arm setting
+//   * Weapon bay doors conditions
+//   * Various warnings and cues
+
+Struct {
+   id: WeaponNameQty
+   Field { id: weaponName            type: string }
+   Field { id: quantity              type: uint16 }
+}
+
+List { id: WeaponList  type: WeaponNameQty }
+
+Struct {
+   id: EngagedTargetData
+   Field { id: targetIndex           type: index }
+   Field { id: rangeMax_nm           type: float }
+   Field { id: rangeNe_nm            type: float }
+   Field { id: rangeMin_nm           type: float }
+   Field { id: rangeCurrent_nm       type: float }
+   Field { id: rangeClosureRate_kts  type: float }
+   Field { id: timeToIntercept_sec   type: float }
+   Field { id: timeToActive_sec      type: float }
+   Field { id: targetKTAS            type: float }
+   Field { id: targetAspect_deg      type: float }
+   Field { id: targetAz_deg          type: float }
+   Field { id: targetEl_deg          type: float }
+}
+
+List { id: EngagedTargetList  type: EngagedTargetData }
+
+Struct {
+   id: MsgSA_WeaponsData
+   message: 6
+   base: MsgBase
+   Field { id: platformIndex         type: index             }
+   Field { id: weaponList            type: WeaponList        }
+   Field { id: selectedWeapon        type: string            }
+   Field { id: numSelectedWeapon     type: uint16            }
+   Field { id: initialNumWeapons     type: uint16            }
+   Field { id: engagedTargetList     type: EngagedTargetList }
+   Field { id: numChaff              type: uint8             }
+   Field { id: numFlares             type: uint8             }
+   Field { id: numDecoys             type: uint8             }
+   Field { id: weaponBayDoorsOpen    type: bool bit: 0       }
+   Field { id: supportingWeapon      type: bool bit: 1       }
+   Field { id: masterWarning         type: bool bit: 2       }
+   Field { id: masterCaution         type: bool bit: 3       }
+   Field { id: shootCueActive        type: bool bit: 4       }
+   Field { id: shootCueBlink         type: bool bit: 5       }
+   Field { id: masterArmActive       type: bool bit: 6       }
+   Field { id: jammingDetected       type: bool bit: 7       }
+}
+
+// ..................................................................................
+
+// Track Data
+// ----------
+
+// This provides track data related to air combat and custom displays.
+// It supports data from multiple track processors.
+
+Struct {
+   id: TargetTrack
+   Field { id: targetPlatformIndex   type: index        }
+   Field { id: lat_deg               type: double       }
+   Field { id: lon_deg               type: double       }
+   Field { id: altitude_ft           type: float        }
+   Field { id: bearing_deg           type: float        }
+   Field { id: elevation_deg         type: float        }
+   Field { id: range_nm              type: float        }
+   Field { id: rangeRate_kts         type: float        }
+   Field { id: targetSpeed_kts       type: float        }
+   Field { id: targetHdg_deg         type: float        }
+   Field { id: targetAspect_deg      type: float        }
+   Field { id: idString              type: string       }
+   Field { id: tgtPlatformName       type: string       }
+   Field { id: tgtTypeName           type: string       }
+   
+   // Uses: UNKNOWN=0,FRIENDLY=1,NEUTRAL=2,BOGIE=3,BANDIT=4
+   Field { id: identification        type: uint8        }
+
+   Field { id: latLonValid           type: bool bit: 0  }
+   Field { id: altitudeValid         type: bool bit: 1  }
+   Field { id: bearingValid          type: bool bit: 2  }
+   Field { id: elevationValid        type: bool bit: 3  }
+   Field { id: rangeValid            type: bool bit: 4  }
+   Field { id: rangeRateValid        type: bool bit: 5  }
+   Field { id: targetSpeedValid      type: bool bit: 6  }
+   Field { id: targetHdgValid        type: bool bit: 7  }
+   Field { id: targetAspectValid     type: bool bit: 8  }
+   Field { id: idIffValid            type: bool bit: 9  }
+   Field { id: idAuxValid            type: bool bit: 10 }
+   Field { id: idSideValid           type: bool bit: 11 }
+   Field { id: idTypeValid           type: bool bit: 12 }
+   Field { id: isMissile             type: bool bit: 13 }
+}
+
+List { id: TargetTrackList           type: TargetTrack }
+
+Struct {
+   id: TrackProcessorTracks
+   Field { id: trackProcessorName    type: string          }   
+   Field { id: tracks                type: TargetTrackList }
+   Field { id: isMasterProcessor     type: bool bit: 0     }
+}
+
+List { id: TrackProcessorList  type: TrackProcessorTracks }
+
+Struct {
+   id: MsgSA_TrackData
+   message: 7
+   base: MsgBase
+   Field { id: platformIndex         type: index              }
+   Field { id: trackProcessors       type: TrackProcessorList }
+   Field { id: esmTrackProcessor     type: string             }
+   Field { id: mwsTrackProcessor     type: string             }
+   Field { id: radarTrackProcessor   type: string             }
+   Field { id: irstTrackProcessor    type: string             }
+   Field { id: dasTrackProcessor     type: string             }
+   Field { id: flirTrackProcessor    type: string             }
+   Field { id: eyesTrackProcessor    type: string             }
+}
+
+// ..................................................................................
+
+// Entity Perception Definitions
+// -----------------------------
+
+// This provides a definition of perceived entities, which are used in several lists.
+// Perceptions alway include the lat/lon values, even for angle-only targets, in 
+// which case, they use an assumed range.
+
+// This will be used in the future
+// Struct {
+//    id: SA_EntitySystem
+//    Field { id: systemKind            type: int    }
+//    Field { id: systemType            type: string }
+//    Field { id: systemName            type: string }
+//    Field { id: readyAssignment       type: int    }
+//    Field { id: quantityRemaining     type: double }
+// }
+//
+// List { id: SystemsList type: SA_EntitySystem }
+
+Struct {
+   id: SA_EntityPerception
+   Field { id: lat_deg         type: double }
+   Field { id: lon_deg         type: double }
+   Field { id: altitude_ft     type: float  }
+   Field { id: bearing_deg     type: float  }
+   Field { id: speed_kts       type: float  }
+   Field { id: heading_deg     type: float  }
+   Field { id: threatLevel     type: float  }
+   Field { id: targetValue     type: float  }
+   Field { id: risk            type: float  }
+   Field { id: defensiveness   type: float  }
+   Field { id: urgency         type: float  }
+   Field { id: idString        type: string }
+   Field { id: perceivedIndex  type: index  }
+   Field { id: perceivedName   type: string }
+   Field { id: perceivedType   type: string }
+   Field { id: flightId        type: uint16 }
+   Field { id: idFlag          type: string }
+
+   // Uses: UNKNOWN=0,FRIENDLY=1,NEUTRAL=2,BOGIE=3,BANDIT=4
+   Field { id: identification  type: uint8  }
+   
+   Field { id: friendlyAsset   type: bool bit: 0  }
+   Field { id: angleOnly       type: bool bit: 1  }
+   Field { id: idIffFriend     type: bool bit: 2  }
+   Field { id: idIffFoe        type: bool bit: 3  }
+   Field { id: idIffNeutral    type: bool bit: 4  }
+   Field { id: idIffUnknown    type: bool bit: 5  }
+   Field { id: idAuxFriend     type: bool bit: 6  }
+   Field { id: idAuxFoe        type: bool bit: 7  }
+   Field { id: idAuxNeutral    type: bool bit: 8  }
+   Field { id: idAuxUnknown    type: bool bit: 9  }
+   Field { id: idSideFriend    type: bool bit: 10 }
+   Field { id: idSideFoe       type: bool bit: 11 }
+   Field { id: idSideNeutral   type: bool bit: 12 }
+   Field { id: idSideUnknown   type: bool bit: 13 }
+   Field { id: idTypeFriend    type: bool bit: 14 }
+   Field { id: idTypeFoe       type: bool bit: 15 }
+   Field { id: idTypeNeutral   type: bool bit: 16 }
+   Field { id: idTypeUnknown   type: bool bit: 17 }
+   Field { id: isHostile       type: bool bit: 18 }
+   Field { id: altitudeValid   type: bool bit: 19 }
+   Field { id: speedValid      type: bool bit: 20 }
+   Field { id: headingValid    type: bool bit: 21 }
+   Field { id: isMissile       type: bool bit: 22 }
+   Field { id: focus           type: bool bit: 23 }
+   Field { id: isCoasting      type: bool bit: 24 }
+   Field { id: isImportant     type: bool bit: 25 }
+}
+
+List { id: SA_EntityPerceptionList type: SA_EntityPerception }
+
+// ..................................................................................
+
+// Assets Data
+// -----------
+
+// This provides a list of perceived assets (unsorted).
+
+Struct {
+   id: MsgSA_PerceivedAssetsData
+   message: 8
+   base: MsgBase
+   Field { id: platformIndex         type: index                   }
+   Field { id: assetsList            type: SA_EntityPerceptionList }
+}
+
+// ..................................................................................
+
+// Bogies and Bandits Data
+// -----------------------
+
+// This provides lists of perceived bogies and bandits (unsorted).
+
+Struct {
+   id: MsgSA_PerceivedBogiesAndBanditsData
+   message: 9
+   base: MsgBase
+   Field { id: platformIndex         type: index                   }
+   Field { id: bogiesList            type: SA_EntityPerceptionList }
+   Field { id: banditsList           type: SA_EntityPerceptionList }
+}
+
+// ..................................................................................
+
+// Groups Data
+// -----------
+
+// This provides lists of perceived/assessed groups (unsorted).
+
+Struct {
+   id: PerceivedGroup
+   Field { id: groupName             type: string                  }
+   Field { id: centroidLat_deg       type: double                  }
+   Field { id: centroidLon_deg       type: double                  }
+   Field { id: centroidAlt_ft        type: float                   }
+   Field { id: centroidHeading_deg   type: float                   }
+   Field { id: centroidSpeed_kts     type: float                   }
+   Field { id: radiusCurrent_nm      type: float                   }
+   Field { id: radiusMinimum_nm      type: float                   }
+   Field { id: elementList           type: SA_EntityPerceptionList }
+   Field { id: focus                 type: bool bit: 0             }
+   Field { id: isImportant           type: bool bit: 1             }
+}
+
+List { id: PerceivedGroupList        type: PerceivedGroup }
+
+Struct {
+   id: MsgSA_GroupsData
+   message: 10
+   base: MsgBase
+   Field { id: platformIndex         type: index              }
+   Field { id: groupList             type: PerceivedGroupList }
+}
+
+// ..................................................................................
+
+// Prioritized Threats and Targets
+// -------------------------------
+
+// This provides lists of sorted/prioritized threats and targets.
+
+Struct {
+   id: MsgSA_PrioritizedThreatsAndTargetsData
+   message: 11
+   base: MsgBase
+   Field { id: platformIndex           type: index              }
+   Field { id: prioritizedThreatsList  type: SA_EntityPerceptionList }
+   Field { id: prioritizedTargetsList  type: SA_EntityPerceptionList }
+}

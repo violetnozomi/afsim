@@ -1,0 +1,90 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test shows that a velocity offset is not used by intercept (or target) maneuvers
+# when computing the solution.
+
+include_once utils.txt
+
+end_time 1 hr
+
+# A chief
+platform target WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.01
+      inclination 15 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      revs_per_day 12
+      true_anomaly 0 deg
+   end_mover
+end_platform
+
+# An input velocity offset intercept
+platform input_chaser WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.01
+      inclination 20 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      revs_per_day 12
+      true_anomaly 10 deg
+      
+      mission_sequence
+         maneuver intercept
+            execute_at relative_time 0 seconds
+            delta_time 1000 seconds
+            tolerance 1e-09
+            target
+               platform target
+               velocity_offset ric 1 2 3 m/s
+            end_target
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+script Vec3 RIC_RelativeVelocity(WsfPlatform aTargetPlatform, Vec3 aChaserVelocity)
+   Vec3 rVec = aTargetPlatform.LocationECI().Normal();
+   Vec3 cVec = Vec3.Cross(aTargetPlatform.LocationECI(), aTargetPlatform.VelocityECI()).Normal();
+   Vec3 iVec = Vec3.Cross(cVec, rVec).Normal();
+   
+   Vec3 delta = Vec3.Subtract(aChaserVelocity, aTargetPlatform.VelocityECI());
+   return Vec3.Construct(Vec3.Dot(delta, rVec),
+                         Vec3.Dot(delta, iVec),
+                         Vec3.Dot(delta, cVec));
+end_script
+
+script void CheckRelativeVelocity(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() != "INTERCEPT")
+   {
+      return;
+   }
+   
+   if (aPlatform.Name() == "input_chaser")
+   {
+      ExpectDouble(TIME_NOW, 1000.0, 1.0e-12, "input intercept completion time");
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      Vec3 ricVel = RIC_RelativeVelocity(target, aPlatform.VelocityECI());
+      
+      // The resulting velocity should be not at all close to the input offset.
+      Vec3 expectedRicVel = Vec3.Construct(1.0, 2.0, 3.0);
+      ExpectBool(Math.Fabs(ricVel.X() - expectedRicVel.X()) > 1.0e-1, true, "input intercept V_R");
+      ExpectBool(Math.Fabs(ricVel.Y() - expectedRicVel.Y()) > 1.0e-1, true, "input intercept V_I");
+      ExpectBool(Math.Fabs(ricVel.Z() - expectedRicVel.Z()) > 1.0e-1, true, "input intercept V_C");
+      
+      ExpectDouble(aPlatform.LocationECI().X(), target.LocationECI().X(), 1.0e-3, "input intercept X");
+      ExpectDouble(aPlatform.LocationECI().Y(), target.LocationECI().Y(), 1.0e-3, "input intercept Y");
+      ExpectDouble(aPlatform.LocationECI().Z(), target.LocationECI().Z(), 1.0e-3, "input intercept Z");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED CheckRelativeVelocity
+end_observer

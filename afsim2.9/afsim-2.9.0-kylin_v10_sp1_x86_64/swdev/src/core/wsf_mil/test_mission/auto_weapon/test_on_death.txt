@@ -1,0 +1,138 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+####################################################################################################
+# A simple test of the on_death capability
+####################################################################################################
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once bomber.txt
+
+# --------------------------------------------------------------------------------------------------
+
+radar_signature PICKUP_TRUCK_RADAR_SIG
+   constant 10 m^2
+end_radar_signature
+
+platform_type PICKUP_TRUCK WSF_PLATFORM
+   icon Pickup_Truck
+
+   radar_signature PICKUP_TRUCK_RADAR_SIG
+
+   mover WSF_GROUND_MOVER
+   end_mover
+
+   script void on_damage_received()
+      writeln("T=", TIME_NOW, " ", Name(), " received damage, new factor=", DamageFactor());
+      Pause(1.0E+30);
+   end_script
+      
+end_platform_type
+
+# --------------------------------------------------------------------------------------------------
+
+platform bomber BOMBER
+   side blue
+   route
+      position 40.25n 89w altitude 30000 ft heading 270 deg speed 400 kts
+   end_route
+end_platform
+
+platform truck_1 PICKUP_TRUCK
+   side red
+   route
+      position 40n 90w heading 90 deg speed 30 kts
+   end_route
+   
+   on_death disable
+   
+   # Add some dummy systems so we can test to make sure they are turned off when
+   # death occurs.
+   
+   add comm dummy_comm WSF_COMM_TRANSCEIVER
+   end_comm
+   
+   add sensor dummy_sensor WSF_GEOMETRIC_SENSOR
+      on
+      frame_time 1 sec
+      ignore_side red
+      ignore_side blue
+      reports_location
+   end_sensor
+   
+   add processor dummy_processor WSF_SCRIPT_PROCESSOR
+   end_processor
+   
+   add weapon dummy_weapon SDB
+   end_weapon
+   
+end_platform
+
+platform truck_2 PICKUP_TRUCK
+   creation_time 5 min
+   side red
+   route
+      position 40n 90.25w heading 90 deg speed 30 kts
+   end_route
+   
+   on_death remove
+end_platform
+
+/*
+event_output
+   file replay.evt
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable WEAPON_TERMINATED
+   #enable LOCAL_TRACK_INITIATED
+   #enable LOCAL_TRACK_DROPPED
+   #enable SENSOR_TRACK_INITIATED
+   #enable SENSOR_TRACK_DROPPED
+   
+   enable PLATFORM_BROKEN
+   enable PLATFORM_DELETED
+   enable COMM_TURNED_OFF
+   enable COMM_TURNED_ON
+   enable COMM_NON_OPERATIONAL
+   enable MOVER_TURNED_ON
+   enable MOVER_TURNED_OFF
+   enable PROCESSOR_TURNED_OFF
+   enable PROCESSOR_TURNED_ON
+   enable PROCESSOR_NON_OPERATIONAL
+   enable SENSOR_TURNED_OFF
+   enable SENSOR_TURNED_ON
+   enable SENSOR_NON_OPERATIONAL
+   enable WEAPON_TURNED_OFF
+   enable WEAPON_TURNED_ON
+   enable WEAPON_NON_OPERATIONAL
+   
+end_event_output
+*/
+
+execute at_time 3599.0 sec absolute
+   WsfPlatform truck_1 = WsfSimulation.FindPlatform("truck_1");
+   if (! truck_1.IsValid()) writeln("-FAIL- truck_1 does not exist");
+   if (truck_1.IsValid())
+   {
+      if (truck_1.DamageFactor() < 1.0) writeln("-FAIL- truck_1 has not been killed");
+      if (truck_1.Speed() > 0.0) writeln("-FAIL- truck_1 is still moving");
+   }
+   
+   WsfPlatform truck_2 = WsfSimulation.FindPlatform("truck_2");
+   if (truck_2.IsValid()) writeln("-FAIL- truck_2 was not killed/removed");
+end_execute
+/*
+event_pipe
+   file replay.aer
+end_event_pipe
+*/
+end_time 1 hr

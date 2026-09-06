@@ -1,0 +1,203 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2013 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# ==================================================================================================
+# A notional mid-to-long-range SAM. Loosely modeled after the SA-10C
+# ==================================================================================================
+
+# Signature data is unknown...
+
+infrared_signature LRSAM_INFRARED_SIGNATURE
+   constant 1 watts/steradian
+end_infrared_signature
+
+optical_signature  LRSAM_OPTICAL_SIGNATURE
+   constant 1 m^2
+end_optical_signature
+
+radar_signature    LRSAM_RADAR_SIGNATURE
+   constant 1 m^2
+end_radar_signature
+
+processor LRSAM_GUIDANCE WSF_GUIDANCE_COMPUTER
+
+   # No datalink or seeker is being used, so we must guide to the true target
+   guide_to_truth                      true
+   
+   phase LAUNCH
+      guidance_delay                   100.0 sec
+      next_phase TERMINAL when phase_time >= 0.8 sec
+   end_phase
+
+   phase TERMINAL
+      proportional_navigation_gain     4.0
+      g_bias                           1.0
+   end_phase
+end_processor
+
+# ==================================================================================================
+
+weapon_effects LRSAM_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 100 m 0.9
+end_weapon_effects
+
+# ==================================================================================================
+
+aero LRSAM_AERO WSF_AERO
+   # Values estimated from Hoerner's Drag book
+   cd_zero_subsonic    0.10 
+   cd_zero_supersonic  0.25
+   mach_begin_cd_rise  0.95
+   mach_end_cd_rise    1.30
+   mach_max_supersonic 4.00
+   reference_area      0.159 m2 # 0.45 m. body dia
+   cl_max             10.0
+   aspect_ratio       16.0 // 32.0 // AR = B^2/Sref assume span = 5Xdia
+end_aero
+
+# ==================================================================================================
+
+mover LRSAM_MOVER WSF_GUIDED_MOVER
+   update_interval                  0.00525 sec
+   integration_timestep             0.00525 sec
+   update_interval                  0.01 sec
+   integration_timestep             0.01 sec
+
+   stage 1
+      aero                          LRSAM_AERO
+      total_mass                    0.0078 kg
+      empty_mass                    0.0001 kg
+      thrust                        51479.4 nt
+      thrust_duration               0.77 sec
+   end_stage
+      
+   stage 2
+      aero                          LRSAM_AERO
+      total_mass                    1284.001 kg
+      fuel_mass                     1284 kg
+      thrust_duration               20.0 sec
+      thrust                        157386.0 nt
+
+      thrust_vectoring_time_limits  0.77 sec 5.0 sec
+      thrust_vectoring_angle_limit  15 deg
+   end_stage
+      
+   stage 3
+      aero                          LRSAM_AERO
+      total_mass                    854.0 kg
+   end_stage
+end_mover
+
+# ==================================================================================================
+
+platform_type LRSAM WSF_PLATFORM
+   icon SA-10_Missile
+  
+  infrared_signature LRSAM_INFRARED_SIGNATURE
+  optical_signature  LRSAM_OPTICAL_SIGNATURE
+  radar_signature    LRSAM_RADAR_SIGNATURE
+
+   weapon_effects LRSAM_LETHALITY
+   
+   #category definition for reporting filtering by the track processor
+   category SAM
+   
+   mover LRSAM_MOVER
+      #time_history_path .
+      #show_status
+   end_mover
+   
+   processor guidance LRSAM_GUIDANCE
+      #show_status
+      #show_evaluations
+   end_processor
+
+   processor seeker WSF_PERFECT_TRACKER
+      update_interval 0.1 sec
+   end_processor
+
+   processor fuse WSF_AIR_TARGET_FUSE
+      #max_time_of_flight_to_detonate   320 sec
+      #coast_time_on_loss_of_target    4.0
+      gross_proximity_range  100 km
+      hit_proximity_range   90 km
+   end_processor
+
+   script void PrintAvailableGs()
+      Array<double> results = PLATFORM.Mover().PropertyDouble("available_maneuvering_force");
+      if (! results.Empty())
+      {
+         double force = results[0];
+         double mass  = TotalMass();
+         writeln("T=", TIME_NOW, " F=", force, " M=", mass,
+                 " A=", Altitude(), " Mach=", MachNumber(),
+                 " Gs=", force / mass / Earth.ACCEL_OF_GRAVITY());
+      }
+   end_script
+/*   
+   script void on_weapon_target_engagement(WsfWeaponEngagement aEngagement,
+                                           WsfPlatform         aTarget)
+      double timeOfFlight = aEngagement.TimeSinceStarted();
+      WsfGeoPoint launchLoc = aEngagement.WeaponLocationAtLaunch();
+      WsfGeoPoint finalLoc  = PLATFORM.Location();
+      double slantRange = launchLoc.SlantRangeTo(finalLoc);
+      writeln(" ");
+      writeln("  Time of flight: ", timeOfFlight);
+      writeln("  Slant range   : ", slantRange);
+      writeln("  Average speed : ", slantRange / timeOfFlight);
+      writeln("  Current speed : ", PLATFORM.Speed());
+      PrintAvailableGs();
+   end_script
+*/
+#
+#   script void on_platform_deleted()
+#      PrintAvailableGs();
+#   end_script
+   
+#   execute at_interval_of 5 secs
+#      #PrintAvailableGs();
+#   end_execute
+
+end_platform_type
+
+# ==================================================================================================
+
+weapon LRSAM WSF_EXPLICIT_WEAPON
+   
+   cue_to_predicted_intercept true
+  
+   launched_platform_type LRSAM
+
+   # Janes indicates the missile is ejected from the canister and ignites at 25 m altitude.
+   launch_delta_v 22.4 0 0 m/s
+      
+   # The missiles are launched vertically from the canisters.
+   # We can't specify 90 degrees because of a singularity
+   tilt  89.9 degrees
+   tilt 90.0 degrees
+   tilt 89.999 degrees
+
+   # The user should cue the weapon to the target track before launching.
+   # This is a bit of a hack until the missile guidance computer will roll.
+   slew_mode azimuth
+   azimuth_slew_limits -180 deg 180 deg
+      
+   # Janes indicates there are 4 canisters per TEL
+   quantity 4
+      
+   # Janes had no value here. Assume there is some reaction time.
+   firing_delay   1.0 secs
+   firing_delay   0.0 secs
+      
+   # Janes indicated the salvo interval for an SA-10 was 3-5 seconds
+   salvo_interval uniform minimum 3.0 secs maximum 5.0 secs
+   
+end_weapon

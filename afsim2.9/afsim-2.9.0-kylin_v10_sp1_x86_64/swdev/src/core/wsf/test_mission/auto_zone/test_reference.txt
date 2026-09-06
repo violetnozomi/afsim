@@ -1,0 +1,100 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of a zone relative to a platform or a position.
+# Specifically the Reference is tested and the WsfGeoPoint it returns. 
+
+include ../auto_script/test_functions.txt
+
+zone REF_ZONE_PLATFORM
+  reference_platform ref_platform
+  circular
+     maximum_radius 112 km
+     start_angle    -80 deg
+     stop_angle     80 deg
+end_zone
+
+zone REF_ZONE_POSITION
+  position 1n 1e
+  circular
+     maximum_radius 112 km
+     start_angle    -80 deg
+     stop_angle     80 deg
+end_zone
+
+platform ref_platform WSF_PLATFORM
+   position 0n 0e heading 90 deg
+   
+   creation_time 5.5 sec
+   
+   execute at_time 14.5 sec absolute
+      DeletePlatform();
+   end_execute
+   
+end_platform
+
+platform test_platform WSF_PLATFORM
+   position 0n 0.3w heading 270 deg              # Should be close to reference point, but not exactly
+   
+   use_zone REF_ZONE_PLATFORM as ref_zone_platform
+   use_zone REF_ZONE_POSITION as ref_zone_position
+   
+   script void ZoneTest(string aTargetName, string aZoneName, bool aShouldBeValid)
+      WsfZone zone = PLATFORM.Zone(aZoneName);
+      if (!zone.IsValid())
+      {
+         writeln("-FAIL- Unable to find zone ", aZoneName);
+         return;
+      }
+      WsfGeoPoint point = zone.Reference();
+      if (aShouldBeValid && point.IsValid())      
+      {      
+         if (aTargetName.Length() > 0)
+         {
+            WsfPlatform refPlatform = WsfSimulation.FindPlatform(aTargetName);
+            if (AssertWithinToleranceMessage(refPlatform.X(), point.X(), 0.001, "X location") &&
+                AssertWithinToleranceMessage(refPlatform.Y(), point.Y(), 0.001, "Y location") &&
+                AssertWithinToleranceMessage(refPlatform.Z(), point.Z(), 0.001, "Z location"))
+            {
+               writeln("-PASS- ", aZoneName, " ", point.X(), " ", point.Y(), " ", point.Z());
+            }
+         }
+         else
+         {
+            if (AssertWithinToleranceMessage(1.0, point.Latitude(), 0.001, "Latitude") &&
+                AssertWithinToleranceMessage(1.0, point.Longitude(), 0.001, "Longitude") &&
+                AssertWithinToleranceMessage(0.0, point.Altitude(), 0.001, "Altitude"))
+            {
+               writeln("-PASS- ", aZoneName, " ", point.Latitude(), " ", point.Longitude(), " ", point.Altitude());
+            }            
+         }            
+      }
+      else
+      {
+         writeln("-PASS- ", aZoneName, " ", point.IsValid());
+      }    
+   end_script
+
+   execute at_time 5 sec absolute
+      writeln("\nTest platform with ref_zone_platform - no ref"); 
+      ZoneTest("ref_platform", "ref_zone_platform", false);
+      writeln("\nTest platform 3 with ref_zone_position");      
+      ZoneTest("", "ref_zone_position", true);
+   end_execute
+   execute at_time 10 sec absolute
+      writeln("\nTest platform with ref_zone_platform");    
+      ZoneTest("ref_platform", "ref_zone_platform", true);  
+   end_execute 
+   execute at_time 15 sec absolute
+      writeln("\nTest platform with ref_zone_platform - no ref again");
+      ZoneTest("ref_platform", "ref_zone_platform", false);
+   end_execute     
+end_platform
+
+end_time 20 sec

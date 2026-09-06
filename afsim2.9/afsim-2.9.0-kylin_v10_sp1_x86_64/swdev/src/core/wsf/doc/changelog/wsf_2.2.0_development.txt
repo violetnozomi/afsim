@@ -1,0 +1,25 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* Relocated changelogs into a subfolder in the docs directories to enable appending sections of the changelog by projects. This enhancement allows for changelogs to be built by the projects that are included, alleviating the issue with having a single source.
+* Code signature of WsfApplicationExtension::ProcessCommandLine changed to pass the Options structure from WsfStandardApplication to the extension when processing command line arguments.
+* **(Issue #457)** UtMath has been converted to constexpr constants and into a namespace
+* **(Issue #479)** Refactored of sensor detector and error models to classes and sensor support for compositional architecture of these sub-models.
+* **(MANTIS #305)** Fixed a possible overflow condition with :command:`random_seed_time` due to casting from double to integer. Now using a long int type to cast to for initial random seed value.
+* Updated :doc:`../developer/build_instructions` documentation to add in regression testing instructions.
+* Updates to CMake to include GENERATE_EXPORT_HEADER commands for plug-ins. Also added in static compilation of included libraries into plug-ins to enhance ease of sharing through less file includes.
+* Removed many of the include directories in the projects to simplify CMake files and ease integration with external tools.
+* Coding standards and formatting updates.
+* Updated :doc`../developer/integration_guide` to support changes in interface for projects and plug-ins.
+* **(Issue #172)** Replaced the use of the so-called 'fast' versions of the sin() and cos() math functions with those from the standard library. Using the standard library versions results in approximately 10% increase in CPU utilization, but results in improved precision that is beneficial in certain situations (e.g. vertical flight of a rocket) where the approximations caused by the 'fast' versions were causing problems. **NOTE:** This change can result in small differences to event output, and could even result in different simulation outcomes (although not likely).
+* **(Issue #210)** Fix multiple issues with VS2017 compiling code-base.
+* **(Issue #214)** Modified UtEntity::GetSpeed so it always returns the speed in whatever coordinate system was last used to update the position of the object (e.g.: ECI speed if ECI coordinates were used, WCS for WCS/LLA coordinates). Also added UtEntity::GetSpeedECI and UtEntity::GetSpeedWCS when a specific speed must be used.
+* **(Issue #380)** Replaced the so-called 'fast' versions of the map call ***fast_map*** in the util project with C++ STL map and unordered_map as appropriate throughout the code-base.
+* **(Issue #389)** Changed underlying graph representations used throughout AFSIM to accept floating point values for future usage with enhanced communications.
+* **(Issue #432)** Changed WsfSimpleComponentT class template to use component type rather than parent type as template argument, providing flexibility to create simple components for specialized component types (such as WsfWeaponComponent rather than WsfComponentT<WsfWeapon>).

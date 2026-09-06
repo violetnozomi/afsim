@@ -1,0 +1,136 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test calling entity and group methods on coasting PIs.
+# First, test on 4 entities, one of which is coasting.
+# Then, test on 3 entities, all of which are coasting.
+# Finally, test on only the empty coasting groups.
+#
+include_once ../auto_script/utility_test_functions.txt
+include_once platforms/tracking_platform.txt
+include_once platforms/target_platform.txt
+
+end_time 70 sec
+
+script_variables
+   bool allTestsPassed = true; // any failure turns it false
+end_script_variables
+
+platform blue_2 TEST_PLATFORM
+
+   commander blue-1
+
+   route
+      position 0:10:0n 0:00:00e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   edit processor sa-proc
+      flight_id     1
+      id_flag       2
+   end_processor
+   
+   execute at_time 57 sec absolute
+      PLATFORM.DeletePlatform();
+   end_execute
+
+end_platform
+
+# This platform uses defaults for all SA processor update intervals
+platform blue-1 TEST_PLATFORM
+
+   commander SELF
+
+   route
+      position 0:0:0n 0:0:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   edit processor sa-proc
+      bandit_coast_time 5 sec
+      asset_coast_time 5 sec
+      
+      flight_id     1
+      id_flag       1
+      
+   end_processor
+   
+   execute at_time 55 s absolute
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      string testNum = " (test 1)";
+      if (proc.IsValid())
+      {
+         Array<WsfSA_EntityPerception> assets = proc.PerceivedAssets();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, assets.Size(), "Incorrect initial number of assets.");
+         int index = assets[0].PerceivedIndex();
+         allTestsPassed = allTestsPassed && AssertTrueMessage(WsfSimulation.FindPlatform(index).IsValid(), "Platform not found.");
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+   
+   execute at_time 60 s absolute
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      string testNum = " (test 2)";
+      if (proc.IsValid())
+      {
+         Array<WsfSA_EntityPerception> assets = proc.PerceivedAssets();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, assets.Size(), "Asset is not coasting as it should.");
+         int index = assets[0].PerceivedIndex();
+         allTestsPassed = allTestsPassed && AssertFalseMessage(WsfSimulation.FindPlatform(index).IsValid(), "Platform found.");
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+   
+   execute at_time 65 s absolute
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      string testNum = " (test 3)";
+      if (proc.IsValid())
+      {
+         Array<WsfSA_EntityPerception> assets = proc.PerceivedAssets();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(0, assets.Size(), "Outdated asset never removed.");
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

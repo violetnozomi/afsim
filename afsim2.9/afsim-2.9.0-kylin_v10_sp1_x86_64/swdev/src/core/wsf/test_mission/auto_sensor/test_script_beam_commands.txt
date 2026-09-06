@@ -1,0 +1,108 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# ==================================================================================================
+# Test sensor script "BeamCount" commands
+# ==================================================================================================
+
+sensor TEST_SENSOR WSF_RADAR_SENSOR
+   slew_mode                 azimuth_and_elevation
+   azimuth_slew_limits       -60 deg 60 deg
+   elevation_slew_limits     -80 deg 80 deg
+
+   mode_template
+      frame_time             1 sec
+      reports_location
+   end_mode_template
+
+   mode mode1
+      # No FOV limits
+      beam 1
+         transmitter
+            power 1 Mw
+            frequency 1 Ghz
+         end_transmitter
+
+      end_beam
+
+      beam 2
+         transmitter
+            power 0.5 Mw
+            frequency 1 Ghz
+         end_transmitter
+      end_beam
+
+   end_mode
+
+   mode mode2
+      beam 1
+         transmitter
+            power 1 Mw
+            frequency 1 Ghz
+         end_transmitter
+      end_beam
+
+      beam 2
+         transmitter
+            power 0.5 Mw
+            frequency 1 Ghz
+         end_transmitter
+      end_beam
+
+      beam 3
+         transmitter
+            power 0.5 Mw
+            frequency 1 Ghz
+         end_transmitter
+      end_beam
+   end_mode
+
+   mode mode3
+      // no beam definition
+      transmitter
+         power 0.5 Mw
+         frequency 1 Ghz
+      end_transmitter
+   end_mode
+end_sensor
+
+sensor GEO WSF_GEOMETRIC_SENSOR
+   reports_location
+   frame_time 5 s
+end_sensor
+
+platform test WSF_PLATFORM
+
+   position 0n 0w altitude 40000 ft heading 0 deg
+
+   add sensor sensor TEST_SENSOR
+   end_sensor
+
+   add sensor geo GEO
+   end_sensor
+
+   execute at_time 1.0 s absolute
+      WsfSensor sensor = WsfSimulation.FindPlatform("test").Sensor("sensor");
+      if (sensor.BeamCount() != 2) writeln("-FAIL-");
+      if (sensor.BeamCount(0) != 2) writeln("-FAIL-");
+      if (sensor.BeamCount(1) != 3) writeln("-FAIL-");
+      if (sensor.BeamCount(2) != 1) writeln("-FAIL-");
+      if (sensor.BeamCount(3) != 0) writeln("-FAIL-");
+      if (sensor.BeamCount("mode1") != 2) writeln("-FAIL-");
+      if (sensor.BeamCount("mode2") != 3) writeln("-FAIL-");
+      if (sensor.BeamCount("mode3") != 1) writeln("-FAIL-");
+      if (sensor.BeamCount("mode4") != 0) writeln("-FAIL-");
+      WsfSensor geo = WsfSimulation.FindPlatform("test").Sensor("geo");
+      if (geo.BeamCount(0) != 0) writeln("-FAIL-");
+      if (geo.BeamCount() != 0) writeln("-FAIL-");
+   end_execute
+end_platform
+
+end_time 2 sec
+

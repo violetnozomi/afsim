@@ -1,0 +1,209 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Weapon and Electronic Warfare Specific
+======================================
+
+.. parsed-literal::
+
+   dis_interface_
+      # `Weapon and EW Mapping Commands`_
+
+      munition_type_ <platform_type> <dis-entity-type>
+      ew_technique_type_ <ew-technique-type> <dis-jamming-mode-sequence-enum>
+      warhead_ <category> <dis-warhead-enum>
+
+
+      # `Other Weapon and EW Commands`_
+
+      debug_warfare_pdu_ <level>
+      simple_detonations_ <boolean-value>
+      simple_detonations_exclude_ platform_type <type-name>
+      simple_detonations_exclude_ weapon_effects <type-name>
+      simple_kill_range_ <length-value>
+      simple_miss_reporting_ <boolean-value>
+      suppress_directed_energy_data_ <boolean-value>
+      suppress_cme_detect_beam_ <boolean-value>
+      suppress_cme_entity_data_ <boolean-value>
+      suppress_cme_draw_data_ <boolean-value>
+      suppress_cme_passive_sensor_ <boolean-value>
+      use_deprecated_cme_draw_data_ <boolean-value>
+      target_priority_ <platform_type> <real-value>
+      use_track_jam_for_tracking_requests_ <boolean-value>
+
+      # `Weapon Transfer Commands`_
+
+      incoming_weapon_transfer_ <dis-entity-type> [ from <dis-entity-id> ] using <weapon-system-type>
+      outgoing_weapon_transfer_ <weapon-system-type>
+   end_dis_interface
+
+.. _dis_interface.Weapon_and_EW_Mapping_Commands:
+
+Weapon and EW Mapping Commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. command:: munition_type <platform_type> <dis-entity-type>
+
+   Specify the DIS entity type to be used when sending PDUs for platforms or munitions with the indicated WSF platform type.  This command should be specified for each WSF platform type that is present in the scenario. If the type of a platform does not have a corresponding DIS entity type then 0:0:0:0:0:0:0 will be used.  For proper WSF interaction of received DIS entities from other networked simulations, a corresponding simple :command:`platform.platform_type` must be created with defined signatures.
+
+   Example::
+
+    entity_type F-15E 1:2:225:1:5:5:0
+    entity_type F-18E 1:2:225:1:9:10:0
+
+   .. note::
+      **entity_type** and **munition_type** are synonymous.
+
+.. command:: ew_technique_type <ew-technique-type> <dis-jamming-mode-sequence-enum>
+
+   Specify the DIS jamming mode sequence enumeration associated with a specified WSF Electronic Warfare (EW) technique. For outbound electromagnetic emission PDUs this defines the value for the 'jamming mode sequence' field in the PDU for a given WSF defined EW technique for a sensor/jammer. For inbound PDUs, a reverse lookup is performed to determine the WSF EW technique type to be used by the sensor/jammer that needs to be used to provide the additional characteristics needed to properly model interactions with the externally modeled EW techniques. If multiple EW techniques are being used on a beam, only one of them will be sent. Currently, this is only valid for (:command:`electronic_attack`) techniques.
+
+.. command:: warhead <category> <dis-warhead-enum>
+
+   Specify the DIS warhead enumeration to be used within the burst descriptor field of the DIS fire and detonate PDUs.  This enumeration is mapped to an WSF category.
+
+   Example::
+
+    warhead HEL 3000  # Maps weapon category HEL to
+                      # DIS warhead enum 3000 (Illumination).
+
+.. _dis_interface.Other_Weapon_and_EW_Commands:
+
+Other Weapon and EW Commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. command:: debug_warfare_pdu <level>
+
+   Specify the level of debugging information for warfare PDUs.  This is a bitmask.  If bit zero is set, verbose information about received fire and detonate PDUs will be printed to the console.  If bit one is set, verbose information about weapon transfers will be printed to the console.
+
+   **Default:** 3 (Both fire and weapon transfer information are printed to the console.)
+
+.. command:: simple_detonations <boolean-value>
+
+   Indicates that simpler rules will be applied to determine the effect of detonation event in a received Fire PDU. If this is enabled and simple_detonations_exclude_ do not exclude the weapon from simple detonation processing, the following rules will be applied:
+
+   * If the PDU specifies a specific target entity and that entity is locally controlled and not marked as being indestructible, it will be killed if the PDU indicates that the target was hit (DIS result code of 1)
+   * If a target entity was not explicitly specified and the PDU indicates either a hit or some sort of detonation occurred, a target will be selected (see target_priority_ for the algorithm) and will be killed if the distance between it and the detonation point is less than or equal to the value of simple_kill_range_.
+   * No entity will be killed if the DIS result code indicates some sort of detonation did not occur (e.g., codes 0, 6 and 31-33).
+
+   **Default:** on
+
+.. command:: simple_detonations_exclude platform_type <type-name>
+             simple_detonations_exclude weapon_effects <type-name>
+
+   If simple_detonations_ are enabled, this prevents simple detonation processing from occurring for specific weapon platform types or weapon_effects types. Simple detonation processing will not occur if:
+
+    * The platform type of the weapon appears in a **simple_detonations_exclude platform_type** command.
+    * The weapon_effects associated with the weapon platform appears in a **simple_detonations_exclude weapons_effects** command.
+
+   This command may be repeated multiple times to build the exclusion list.
+
+   .. note::
+      This command should be used if the associated :command:`weapon_effects` has an associated on_weapon_target_engagement script that must be executed in order to achieve the desired effect (often used with countermeasure or nonlethal effect modeling).
+
+.. command:: simple_kill_range <length-value>
+
+   If simple_detonations_ are enabled and a target was not specified in a received Fire PDU, a target will be selected (see target_priority for the algorithm). The selected target will be killed if distance between it and the detonation point is less than or equal to the value specified by this command.
+
+   **Default:** 100 meters
+
+.. command:: simple_miss_reporting <boolean-value>
+
+   If true, causes any reported detonation that did not result in the target being killed to be reported as a 6 (NoneOrNoDetonationDud). Only when the target is killed will the reported detonation result be 1 (EntityImpact). This is used when some receiving applications have limited processing of detonation results.
+
+   **Default:** false
+
+.. command:: suppress_directed_energy_data <boolean-value>
+
+   Directed energy data include PDUs that are part of the new extended DIS standard; these include the directed energy fire and entity part damage status PDUs.  If this flag is set, only the basic fire and detonate PDUs that correspond with the IEEE 1278.1 DIS standard, will be sent for directed energy weapons.
+
+   **Default:** enabled
+
+.. command:: suppress_cme_detect_beam [ <boolean-value> ] (deprecated)
+
+   Specifies whether the Electromagnetic Emissions PDU will NOT include the supplemental beam that indicates targets the sensor is detecting but not yet tracking. The CME applications VESPA and Clouseau use this to draw the white detection lines between the sensor and the target.
+   
+   **Default:** true
+
+   .. note::
+      The supplemental beam specifies extremely low power (about 1 milliwatt) so as to reduce any potential for interference for those applications that are tracking received power. 
+
+.. command:: suppress_cme_entity_data [ <boolean-value> ] (deprecated)
+
+   Specifies whether the supplemental DIS 'Other' PDU containing additional entity data for the CME applications VESPA and Clouseau will NOT be sent.
+
+   **Default:** true
+
+.. command:: suppress_cme_draw_data [ <boolean-value> ] (deprecated)
+
+   Specifies whether the WsfDraw DIS 'Other' PDUs containing draw commands will NOT be sent.
+   
+   **Default:** true
+	  
+.. command:: suppress_cme_passive_sensor [ <boolean-value> ] (deprecated)
+
+   Specifies whether emissions PDUs for passive sensors will NOT be sent.
+   
+   **Default:** true
+
+.. command:: use_deprecated_cme_draw_data <boolean-value> (deprecated)
+
+   If this is set to true, the WsfDraw DIS 'Other' PDUs containing draw commands will be sent using the deprecated format.
+   
+   **Default:** false
+
+   .. note::
+      The deprecated format is required for VESPA v5.3.2 and older.
+
+.. command:: target_priority <platform_type> <real-value>
+
+   This command is used when a Fire PDU is received and a target entity was not specified in the PDU. When a target entity was not specified in the Fire PDU, the simulation will assign each locally-controlled hostile entity (those that are on a side different from the detonating weapon) a priority based on the following formula and then select the entity with the highest priority:
+
+   ::
+
+     Priority = target_priority - distance_from_target_location
+
+   Where *target_priority* is the value of the **target_priority** for the associated entity.
+
+   Note that in the absence of any **target_priority** commands, this algorithm simply results in the selection of the locally-controlled hostile entity closest to the target location.  This would work just fine except for the fact that many government-supplied databases contain colocated entities (e.g., all elements of a SAM site are colocated) and the selection of a target could result in ambiguities that cause the wrong target to be selected. The **target_priority** command can be used to create a bias that will allow the high value targets to be selected.
+
+   Example::
+
+    target_priority SAM_FC_RADAR 1000
+
+   Would cause platforms of type SAM_FC_RADAR to be selected if they were colocated with another platform.
+
+.. command:: use_track_jam_for_tracking_requests <boolean-value>
+
+   If 'true', this provides an approximate method for a receiver to determine all the places an AESA beam may be pointing. Because a single ESA beam can track many targets and moves faster than any reasonable update rate of the Electromagnetic Emissions PDU, it becomes impossible using the standard DIS protocol for receivers to determine where the beam is looking, thus making it impossible for a high-fidelity ESM model to determine if it could detect the beam.
+
+   This change modifies the track-jam list of such sensors so they contain the entity IDs of the entities which the sensor WANTS to track rather than the entity IDs of the entities it is actually tracking. So even if the sensor cannot detect the target, the receiving application can determine where the beam is approximately pointing.
+
+   **Default:** false
+
+.. _dis_interface.Weapon_Transfer_Commands:
+
+Weapon Transfer Commands
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. command:: incoming_weapon_transfer <dis-entity-type> [ from <dis-entity-id> ] using <weapon-system-type>
+
+   A Fire PDU can be used to signify that a weapon that was fired by an external entity is to modeled ('flown-out') locally. The weapon entity in a Fire PDU will be transferred to local control if the Munition field in the Burst Descriptor in the Fire PDU, and optionally the Firing Entity ID, match the *<dis-entity-type>* and *<dis-entity-id>* values, respectively. If they match, a weapon will be fired from a :command:`weapon` system of type *<weapon-system-type>* in order to model the weapon fly-out.
+
+   If *<dis-entity-id>* is provided, components that are specified as 0 will be treated as 'wild-cards' and will match any incoming value of that component.
+
+   .. note::
+      *<weapon-system-type>* should be the name of a weapon system type defined with the :command:`weapon` command. It is **NOT** the name of the launched platform type.
+
+.. command:: outgoing_weapon_transfer <weapon-system-type>
+
+   Specifies that weapons that are launched from the indicated weapon system are to be transferred to external control. Some external application is expected to respond to the Fire PDU and assume control of the launched weapon.
+
+   .. note::
+      *<weapon-system-type>* should be the name of a weapon system type defined with the :command:`weapon` command. It is **NOT** the name of the launched platform type.

@@ -1,0 +1,96 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test RoadMover for having
+//    route          no
+//    start_position yes
+//    end_position   yes
+//    RoadMover should use roads to go from start to end
+//
+
+include_once ../auto_script/test_functions.txt
+
+route_network roads
+   route
+      position 31:00:00n 110:00:00w
+      position 31:00:00n 110:00:10w
+         node_id pt_1
+      position 31:00:00n 110:00:20w
+         execute bad_destination
+      position 31:00:10n 110:00:20w
+         node_id pt_2
+      position 31:00:20n 110:00:20w
+   end_route
+   route
+      position 31:00:00n 110:00:10w
+         node_id pt_1
+      position 31:00:10n 110:00:20w
+         node_id pt_2
+   end_route
+end_route_network
+
+platform_type TEST_ROAD_MOVER WSF_PLATFORM
+   mover WSF_ROAD_MOVER
+      road_network roads
+      speed 50 mph
+   end_mover
+   script_variables
+      bool initPosition = false;
+      double initLatitude = 0.0;
+      bool badDestination = false;
+   end_script_variables
+   execute at_time 0.001 s absolute
+      extern bool AssertDoubleEqualsMessage(double, double, string);
+      initPosition = AssertDoubleEqualsMessage(initLatitude, Latitude(), "Incorrect initial position");
+   end_execute
+   execute at_time 1 s absolute
+      // Create a route with waypoints that lie
+      // around/near the current route network
+      WsfRoute route = WsfRoute();
+      route.Append(WsfGeoPoint.Construct("31:00:10n 110:00:10w"), 50. * MATH.MPS_PER_MPH());
+      route.Append(WsfGeoPoint.Construct("31:00:30n 110:00:20w"), 50. * MATH.MPS_PER_MPH());
+      
+      // Command the road mover to follow the new route
+      // The mover will use the road network to get to all
+      // waypoints on the provided route. It will not follow the new route
+      // without the interleaving effect!
+      FollowRoute(route);
+   end_execute
+   script void bad_destination()
+      badDestination = true;
+      writeln("Arrived at bad destination");
+   end_script
+   script void on_platform_deleted()
+      if (initPosition && !badDestination)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+end_platform_type
+
+# Start off road network
+platform near_start TEST_ROAD_MOVER
+   script_variables
+      initLatitude = 30.999;
+   end_script_variables
+   edit mover
+      start_position 30.999n 109.999w
+      end_position 31:00:25n 110:00:30w
+   end_mover
+end_platform
+
+end_time 2 minutes
+
+#event_pipe
+#   file test_road_mover_route_n_startend_y.aer
+#end_event_pipe

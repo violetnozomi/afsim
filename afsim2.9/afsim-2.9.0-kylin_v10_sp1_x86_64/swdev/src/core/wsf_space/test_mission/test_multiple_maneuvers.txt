@@ -1,0 +1,190 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 6 hours
+
+platform_type SAT WSF_PLATFORM
+   icon satellite
+   side blue
+   mover WSF_SPACE_MOVER
+      semi_major_axis 8000 km
+      inclination 45 deg
+      raan        0 deg
+      eccentricity 0.0
+   end_mover
+end_platform_type
+
+platform test-raan SAT
+         mission_sequence
+            maneuver hohmann_transfer
+               final_semi_major_axis 10000 km
+            end_maneuver
+            maneuver change_raan
+               execute_at northern_intersection
+               raan 179.0 deg
+            end_maneuver
+         end_mission_sequence
+end_platform
+
+platform test-raan-inc SAT
+         mission_sequence
+            maneuver hohmann_transfer
+               final_semi_major_axis 10000 km
+            end_maneuver
+            maneuver change_raan_inclination
+               execute_at northern_intersection
+               raan 150.0 deg
+               inclination 40 deg
+            end_maneuver
+         end_mission_sequence
+end_platform
+
+platform test-inc SAT
+         mission_sequence
+            maneuver change_semi_major_axis
+               semi_major_axis 10000 km
+            end_maneuver
+            maneuver change_inclination
+               execute_at ascending_node
+               inclination 110 deg
+            end_maneuver
+         end_mission_sequence
+end_platform
+
+platform target SAT
+         edit mover
+            raan 2 deg
+            inclination 30 deg
+         end_mover
+end_platform
+
+platform test-intercept SAT
+         edit mover
+            raan 40 deg
+            inclination 40 deg
+         end_mover
+         mission_sequence
+            maneuver change_semi_major_axis
+               semi_major_axis 9000 km
+            end_maneuver
+            maneuver intercept
+               target
+                  platform target
+               end_target
+               debug
+               execute_at relative_time 500 s
+               maximum_delta_v 200 km/s
+            end_maneuver
+         end_mission_sequence
+end_platform
+
+platform test-rendezvous SAT
+         edit mover
+            inclination 40 deg
+            raan 41 deg
+         end_mover
+         mission_sequence
+            maneuver change_semi_major_axis
+               semi_major_axis 9000 km
+            end_maneuver
+            maneuver rendezvous
+               target
+                  platform target
+               end_target
+               debug
+               execute_at relative_time 100 s
+               maximum_delta_v 200 km/s
+            end_maneuver
+         end_mission_sequence
+end_platform
+
+script void CheckIntercept(WsfPlatform aChaser, WsfPlatform aTarget)
+   Vec3 loc1 = aChaser.LocationECI();
+   Vec3 loc2 = aTarget.LocationECI();
+   Vec3 delta = Vec3.Subtract(loc2, loc1);
+   double ddist = delta.Magnitude();
+
+   if (ddist > 1000)
+   {
+      writeln("-FAIL- distance too large (", aChaser.Name(), ").", ddist);
+   }
+   else
+   {
+      writeln("-PASS- distance: ", ddist);
+   }
+end_script
+
+script bool WithinTolerance(double aVal, double aRef, double aTol)
+   return (Math.Fabs(aVal - aRef) < aTol);
+end_script
+
+script void AfterManeuverTests(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aPlatform.Name() == "test-intercept" && aManeuver.ManeuverType() == "INTERCEPT")
+   {
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      CheckIntercept(aPlatform, target);
+   }
+   if (aPlatform.Name() == "test-rendezvous" && aManeuver.ManeuverType() == "RENDEZVOUS")
+   {
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      CheckIntercept(aPlatform, target);
+   }
+end_script
+
+script void SimulationComplete()
+   double tolA = 0.001;
+   double tolL = 0.8;
+   WsfPlatform tr = WsfSimulation.FindPlatform("test-raan");
+   if (tr.IsValid())
+   {      
+      WsfSpaceMover trsm = (WsfSpaceMover)tr.Mover();
+      if (WithinTolerance(trsm.SemiMajorAxis(), 10000000.0, tolL) && WithinTolerance(trsm.RAAN(), 179.0, tolA))
+      {
+         writeln("-PASS- 1");
+      }
+      else
+      {
+         writeln("-FAIL- 1 ", Format.Scientific(trsm.SemiMajorAxis(), 8));
+      }
+   }
+   WsfPlatform tri = WsfSimulation.FindPlatform("test-raan-inc");
+   if (tri.IsValid())
+   {
+      WsfSpaceMover trism = (WsfSpaceMover)tri.Mover();
+      if (WithinTolerance(trism.SemiMajorAxis(), 10000000.0, tolL) &&
+          WithinTolerance(trism.RAAN(), 150.0, tolA) && 
+          WithinTolerance(trism.Inclination(), 40.0, tolA))
+      {
+         writeln("-PASS- 2");
+      }
+      else
+      {
+         writeln("-FAIL- 2");
+      }
+   }
+   WsfPlatform ti = WsfSimulation.FindPlatform("test-inc");
+   if (ti.IsValid())
+   {
+      WsfSpaceMover tism = (WsfSpaceMover)ti.Mover();
+      if (WithinTolerance(tism.SemiMajorAxis(), 10000000.0, tolL) && 
+          WithinTolerance(tism.Inclination(), 110.0, tolA))
+      {
+         writeln("-PASS- 3");
+      }
+      else
+      {
+         writeln("-FAIL- 3");
+      }
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED AfterManeuverTests
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer

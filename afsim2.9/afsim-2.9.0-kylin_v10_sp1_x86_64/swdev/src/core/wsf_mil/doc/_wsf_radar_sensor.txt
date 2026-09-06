@@ -1,0 +1,196 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _WSF_RADAR_SENSOR.Jam_Strobe_Detector:
+
+Jam Strobe Detector
+===================
+
+.. command:: jam_strobe_detector ... end_jam_strobe_detector
+   :block:
+
+   The **jam_strobe_detector** allows a :model:`WSF_RADAR_SENSOR` mode to detect and report the azimuth and/or elevation of jamming power it receives via indicator or strobe tracks. These recorded strobes can be combined with angle-only measurements from other radars using a jam strobe estimator (JSE) algorithm to produce pseudo-measurements passed to a tracking algorithm. Reporting information as well as errors are specified outside the general sensor error models due to differences in the error calculations.
+
+   The implementation includes support for Gaussian or uniform errors, specification of error as a fraction of the receiver beamwidth, and jamming perception thresholds.
+
+   .. note::
+      This capability is not fully implemented and will require further use and test cases to enable it to work fully to user specifications. Track fusion currently does not allow for bearing only tracks, which could be a shortfall of the use of this capability.
+
+   .. parsed-literal::
+
+      ...
+      mode ...
+         ...
+         jam_strobe_detector_
+            gaussian_azimuth_error_sigma_ ...
+            gaussian_elevation_error_sigma_ ...
+            uniform_azimuth_error_sigma_ ...
+            uniform_elevation_error_sigma_ ...
+            uniform_azimuth_error_bound_ ...
+            uniform_elevation_error_bound_ ...
+
+            # `Jamming Perception Commands`_
+            jamming_perception_threshold_ ...
+            continuous_jamming_perception_threshold_ ...
+            pulsed_jamming_perception_threshold_ ...
+            coherent_jamming_perception_threshold_ ...
+
+            reports_bearing_
+            reports_elevation_
+            reports_nothing_
+            track_quality_ ...
+         end_jam_strobe_detector
+         ...
+      end_mode
+      ...
+
+   .. command:: gaussian_azimuth_error_sigma [ <angle-value> | <real-value> fraction_of_beamwidth ]
+
+   .. command:: gaussian_elevation_error_sigma [ <angle-value> | <real-value> fraction_of_beamwidth ]
+
+   .. command:: uniform_azimuth_error_sigma [ <angle-value> | <real-value> fraction_of_beamwidth ]
+
+   .. command:: uniform_elevation_error_sigma [ <angle-value> | <real-value> fraction_of_beamwidth ]
+
+   .. command:: uniform_azimuth_error_bound [ <angle-value> | <real-value> fraction_of_beamwidth ]
+
+   .. command:: uniform_elevation_error_bound [ <angle-value> | <real-value> fraction_of_beamwidth ]
+
+      Specifies the standard deviation for a Gaussian or Uniform distribution of errors to be applied to the azimuth and elevation of the track. The standard deviation may be specified directly as an angle value or as a fraction of the beamwidth of the receiver. In the case of a Uniform distribution, the error bound :math:`B` may be specified instead of the standard deviation. The standard deviation of a symmetric Uniform distribution on the interval :math:`[-B, B]` is defined to be :math:`\sigma = \frac{B} {\sqrt{3}}`.
+
+   These commands determine the target information reported in a given sensor's track report by the jam strobe detector.
+
+   .. note::
+      If a filter (e.g., :model:`WSF_KALMAN_FILTER`, :model:`WSF_ALPHA_BETA_FILTER`) is being used, the reported tracks are marked as being filtered, and reported position information (bearing/elevation) will be the filtered position.
+
+   .. command:: reports_bearing
+
+      The bearing from the sensor to the target is reported.  This angle is measured in radians from the sensor's north orientation, and it is in the range :math:`[ -\pi, \pi ]`.
+
+   .. command:: reports_elevation
+
+      The elevation angle from the sensor to the target is reported.
+
+   .. command:: reports_nothing
+
+      Has the effect of canceling any previous 'reports' commands. This is useful if one wants to reuse an existing sensor definition with embedded 'reports' commands but needs to change what is reported.
+
+   .. command:: track_quality [0 .. 1]
+
+      Specify the 'quality' of the track when produced from this jam strobe detector.
+
+      Default: 1.0
+
+.. end::
+
+.. _WSF_RADAR_SENSOR.Jamming_Perception_Commands:
+
+Jamming Perception Commands
+===========================
+
+These commands are beam level commands, except when used inside the `jam_strobe_detector`_
+
+.. command:: jamming_perception_timeout <time-value>
+
+   Specifies the time after which jamming that was perceived is no longer perceived, so that the perception of jamming will be returned to a 'false' state. If jamming is perceived again before this time has elapsed then the perception of jamming will remain or become 'true'.
+
+   Default: :command:`sensor` frame_time
+
+.. command:: jamming_perception_threshold <ratio-value>
+.. command:: continuous_jamming_perception_threshold <ratio-value>
+.. command:: pulsed_jamming_perception_threshold <ratio-value>
+.. command:: coherent_jamming_perception_threshold <ratio-value>
+
+   Specifies the minimum threshold value that jamming will be perceived by the operator. Often used in conjunction with jamming_perception_timeout_, :method:`JammingPerceived <WsfSensor.JammingPerceived>` script method and :command:`electronic_protect` techniques.
+
+   Default: 380 dB
+
+.. _WSF_RADAR_SENSOR.Close_Target_Detection_Commands:
+
+Close Target Detection Commands
+===============================
+
+.. command:: close_target_detection ... end_close_target_detection
+   :block:
+
+   The Close Target Detection (CTD) model allows for closely spaced targets and other platform types to be detected and their results used for location measurement and track creation.
+
+   This capability is primarily used in tracking radars. Current implementation utilizes the acquire_deltas_ to initially acquire nearby targets and select their results measurement if they fall within ALL of the acquire criteria.
+
+   The reacquire_deltas_ are utilized to prevent target tracking radar types from reacquiring the target if ANY of the specified criteria is outside the limits for reacquiring the requested (i.e. tracked) target. In the case that reacquire is not allowed the track will be dropped and proper behavior of the sensor will need to be implemented to handle this case, e.g. a state machine or scripted method monitoring the sensor track drop.
+
+   .. parsed-literal::
+
+       ...
+       beam ...
+          ...
+          close_target_detection_
+             debug_
+             acquire_deltas_ ..  end_acquire_deltas
+             reacquire_deltas_ ... end_reacquire_deltas
+          end_close_target_detection
+          ...
+      end_beam
+      ...
+
+   .. command:: debug
+
+      If specified debug messages to standard output are available.
+
+   .. command:: acquire_deltas ... end_acquire_deltas
+      :block:
+
+      Defines the deltas for azimuth, elevation and range, with-respect-to the current target cue or request, for which targets will be acquired.
+
+      .. command:: azimuth_delta <angle-value>
+
+        Specifies the azimuth delta wrt to the current target cue or request for which other targets will be considered. Value must be >= 0.0.
+
+        Default: Do not consider the parameter if not set.
+
+      .. command:: elevation_delta <angle-value>
+
+        Specifies the elevation delta wrt to the current target cue or request for which other targets will be considered. Value must be >= 0.0.
+
+        Default: Do not consider the parameter if not set.
+
+      .. command:: range_delta <length-value>
+
+        Specifies the range delta wrt to the current target cue or request for which other targets will be considered. Value must be >= 0.0.
+
+        Default: Do not consider the parameter if not set.
+
+   .. end::
+
+   .. command:: reacquire_deltas ... end_reacquire_deltas
+      :block:
+
+      Defines the deltas for azimuth, elevation and range, with-respect-to the current target cue or request, for which the target can no longer be reacquired.
+
+      .. command:: azimuth_delta <angle-value>
+
+        Specifies the azimuth delta wrt to the current target cue or request for which the target may be reacquired. Value must be >= 0.0.
+
+        Default: Do not consider the parameter if not set.
+
+      .. command:: elevation_delta <angle-value>
+
+        Specifies the elevation delta wrt to the current target cue or request for which the target may be reacquired. Value must be >= 0.0.
+
+        Default: Do not consider the parameter if not set.
+
+      .. command:: range_delta <length-value>
+
+        Specifies the range delta wrt to the current target cue or request for which the target may be reacquired. Value must be >= 0.0.
+
+        Default: Do not consider the parameter if not set.
+
+   .. end::
+
+.. end::

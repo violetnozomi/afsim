@@ -1,0 +1,116 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies the correct operation of the 'execute at_time' and
+# 'execute at_interval' commands,
+
+# replay.log will contain the reference variable resolutions
+#log_file replay.log
+
+script_variables
+   bool   FAILED              = false;
+   bool   RUN_FAILED          = false;
+   double SIMULATION_DELAY    = 0.0;
+   double PLATFORM_DELAY      = 0.0;
+   double PLATFORM_PART_DELAY = 0.0;
+   double CALL_COUNT          = 0;
+end_script_variables
+
+script void CheckTime(string aMessage,
+                      double aExpectedTime)
+   CALL_COUNT = CALL_COUNT + 1;
+   if (MATH.Fabs(TIME_NOW - aExpectedTime) > 1.0E-6)
+   {
+      writeln("-FAIL- ", aMessage, ": expected ", aExpectedTime, ", got ", TIME_NOW);
+      RUN_FAILED = true;
+   }
+   else
+   {
+      writeln("-PASS- ", aMessage, ": expected ", aExpectedTime);
+   }
+end_script
+
+script void SimulationComplete()
+   if (CALL_COUNT != 8)
+   {
+      writeln("-FAIL- Call count=", CALL_COUNT, ", expected 8");
+      RUN_FAILED = true;
+   }
+   if (RUN_FAILED) FAILED = true;
+   if ((WsfSimulation.RunNumber() == 3) &&
+       (! FAILED))
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+on_initialize
+   CALL_COUNT = 0;
+   RUN_FAILED = false;
+   SIMULATION_DELAY    = WsfSimulation.RunNumber() * 2.0;
+   PLATFORM_DELAY      = SIMULATION_DELAY + 0.1;
+   PLATFORM_PART_DELAY = SIMULATION_DELAY + 0.2;
+end_on_initialize
+
+execute at_time 1 sec absolute
+   CheckTime("Simulation absolute-constant", 1.0);
+end_execute
+
+execute at_time /variable SIMULATION_DELAY /default 1.5 sec absolute
+   CheckTime("Simulation absolute-variable", SIMULATION_DELAY);
+end_execute
+
+platform test WSF_PLATFORM
+   creation_time 1.5 sec
+
+   execute at_time 2.5 sec absolute
+      extern void CheckTime(string, double);
+      CheckTime("platform absolute-constant", 2.5);
+   end_execute
+
+   execute at_time /variable PLATFORM_DELAY absolute
+      extern void CheckTime(string, double);
+      extern double PLATFORM_DELAY;
+      CheckTime("platform absolute-variable", PLATFORM_DELAY);
+   end_execute
+
+   execute at_time 1.1 sec relative
+      extern void CheckTime(string, double);
+      CheckTime("platform relative-constant", 2.6);
+   end_execute
+
+   add processor test WSF_SCRIPT_PROCESSOR
+
+      execute at_time 3.5 sec absolute
+         extern void CheckTime(string, double);
+         CheckTime("platform-part absolute-constant", 3.5);
+      end_execute
+
+      execute at_time /variable PLATFORM_PART_DELAY absolute
+         extern void CheckTime(string, double);
+         extern double PLATFORM_PART_DELAY;
+         CheckTime("platform-part absolute-variable", PLATFORM_PART_DELAY);
+      end_execute
+
+      execute at_time 2.1 sec relative
+         extern void CheckTime(string, double);
+         CheckTime("platform-part relative-constant", 3.6);
+      end_execute
+
+   end_processor
+end_platform
+
+initial_run_number 1
+final_run_number   3
+
+end_time 10.0 sec

@@ -1,0 +1,348 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests the correct functionality of input and script for the WsfEM_Xmtr
+
+antenna_pattern RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain           35 dB
+     minimum_gain       -20 dB
+     azimuth_beamwidth   5 deg
+     elevation_beamwidth 45 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+sensor TEST_RADAR WSF_RADAR_SENSOR
+   // These values are generated solely for testing and
+   // are not based on any analog
+   frame_time 5.0 sec
+   reports_side
+
+   transmitter
+      duty_cycle 0.5
+      frequency             2.0 ghz
+      alternate_frequency 1 2.1 ghz
+      alternate_frequency 2 2.2 ghz
+      antenna_pattern_table
+         polarization default
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+      end_antenna_pattern_table
+      powers
+         frequency 2.0 ghz 75000 watts
+         frequency 2.1 ghz 70000 watts
+         frequency 2.2 ghz 55000 watts
+      end_powers
+      pulse_width 50 usec
+      pulse_repetition_frequencies
+         prf 1 500 hz
+         prf 2 350 hz
+      end_pulse_repetition_frequencies
+      internal_loss              2 db
+      pulse_compression_ratio    13 absolute
+   end_transmitter
+end_sensor
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   sensor sensor TEST_RADAR
+   end_sensor
+end_platform_type
+
+platform test_radar TEST_PLATFORM
+end_platform
+
+script void TestPulseRepetitionInterval(WsfEM_Xmtr aXmtr, Array<double> aInputFrequencies)
+      
+   Array<double> pulseRepIntervals = aXmtr.PulseRepetitionIntervals();
+   if(pulseRepIntervals.Size() != aInputFrequencies.Size())
+   {
+      writeln("-FAIL-");
+      writeln("FAIL REP INTERVAL SIZE");
+   }
+   
+   if(pulseRepIntervals.Size() != aXmtr.PulseRepetitionIntervalCount())
+   {
+      writeln("-FAIL-");
+      writeln("FAIL REP INTERVAL COUNT");
+   }
+   
+   double freqSum = 0.0;
+   
+   for(int i = 0; i < pulseRepIntervals.Size(); i = i + 1)
+   {
+      if(pulseRepIntervals[i] != (1.0 / aInputFrequencies[i]))
+      {
+         writeln("-FAIL-");
+         writeln("FAIL REP INTERVAL VALUE INDEX: " + (string)i);
+      }
+      
+      if(pulseRepIntervals[i] != aXmtr.PulseRepetitionInterval(i + 1))
+      {
+         writeln("-FAIL-");
+         writeln("FAIL REP INTERVAL SCRIPT VALUE INDEX: " + (string)i);
+      }
+      
+      freqSum = freqSum + aInputFrequencies[i];
+   }
+     
+   double avgPulseRepInterval = (1.0 / (freqSum / aXmtr.PulseRepetitionFrequencyCount()));   
+   if(aXmtr.PulseRepetitionInterval() != avgPulseRepInterval)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL REP INTERVAL AVG");
+   }
+   
+   if(aXmtr.PulseRepetitionInterval(0) != avgPulseRepInterval)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL REP INTERVAL AVG SCRIPT");
+   }
+   
+end_script
+
+script void TestPulseRepetitionFrequency(WsfEM_Xmtr aXmtr, Array<double> aInputFrequencies)
+   double freqAvg = 0.0;
+   for(int i = 0; i < aInputFrequencies.Size(); i = i + 1)
+   {
+      if(aXmtr.PulseRepetitionFrequency(i + 1) != aInputFrequencies[i])
+      {
+         writeln("-FAIL-");
+         writeln("FAIL REP FREQ SCRIPT VALUE INDEX: " + (string)i);
+      }
+           
+      freqAvg = freqAvg + aInputFrequencies[i];
+   }
+
+   if(aXmtr.PulseRepetitionFrequency(0) != (freqAvg / aInputFrequencies.Size()))
+   {
+      writeln("-FAIL-");
+      writeln("FAIL REP FREQ AVG");
+   }
+   
+   if(aXmtr.PulseRepetitionFrequency() != aXmtr.PulseRepetitionFrequency(0))
+   {
+      writeln("-FAIL-");
+      writeln("FAIL REP FREQ AVG SCRIPT");
+   }
+   
+   Array<double> pulseFreqs = aXmtr.PulseRepetitionFrequencies();
+   if(pulseFreqs.Size() != aInputFrequencies.Size())
+   {
+      writeln("-FAIL-");
+      writeln("FAIL REP FREQ SIZE");
+   }
+   
+   for(int i = 0; i < aInputFrequencies.Size(); i = i + 1)
+   {
+      if(pulseFreqs[i] != aInputFrequencies[i])
+      {
+         writeln("-FAIL-");
+         writeln("FAIL REP FREQ CHECK INDEX: " + (string)i);
+      }
+   }
+     
+   if(aXmtr.PulseRepetitionFrequencyCount() != pulseFreqs.Size())
+   {
+      writeln("-FAIL-");
+      writeln("FAIL REP FREQ COUNT");
+   }
+  
+end_script
+
+execute at_time 1 s absolute
+   WsfSensor sensor = WsfSimulation.FindPlatform("test_radar").Sensor("sensor");
+   WsfEM_Xmtr xmtr = sensor.Xmtr(0);
+   if((WsfSensor)xmtr.ArticulatedPart() != sensor)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL PART EQUALITY");
+   }
+   
+   double bandwidth = 100.0;
+   xmtr.SetBandwidth(bandwidth);
+   if(xmtr.Bandwidth() != bandwidth)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL BANDWIDTH");
+   }
+   
+   double frequency = xmtr.Frequency();
+   if(frequency != 2000000000.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL FREQ");
+   }
+   
+   frequency = 1999999999.0;
+   xmtr.SetFrequency(frequency);
+   if(frequency != xmtr.Frequency())
+   {
+      writeln("-FAIL-");
+      writeln("FAIL SET FREQ");
+   }
+   
+   double freqCount = xmtr.AlternateFrequencyCount();
+   if(freqCount != 3.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL ALT FREQ");
+   }
+   
+   double freq0 = xmtr.AlternateFrequency(0);
+   double freq1 = xmtr.AlternateFrequency(1);
+   double freq2 = xmtr.AlternateFrequency(2);
+   
+   if(freq0 != 2000000000.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL ALT FREQ0");
+   }
+   if(freq1 != 2100000000.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL ALT FREQ1");
+   }
+   if(freq2 != 2200000000.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL ALT FREQ2");
+   }
+
+   double duty = xmtr.DutyCycle();
+   if(duty != 0.5)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL DUTY CYCLE");
+   }
+   
+   duty = 0.75;
+   xmtr.SetDutyCycle(duty);
+   if(duty != xmtr.DutyCycle())
+   {
+      writeln("-FAIL-");
+      writeln("FAIL SET DUTY CYCLE");
+   }
+   
+   xmtr.SetDutyCycle(1.0);
+   double power = xmtr.Power();
+   if(power != 75000.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL POWER");
+   }
+   
+   double powerFreq0 = xmtr.Power(freq0);
+   if(powerFreq0 != 75000.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL POWER SET 0");
+   }
+   
+   double powerFreq1 = xmtr.Power(freq1);
+   if(powerFreq1 != 70000.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL POWER SET 1");
+   }
+   
+   double powerFreq2 = xmtr.Power(freq2);
+   if(powerFreq2 != 55000.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL POWER SET 2");
+   }
+   
+   double powerFreq3 = 50000.0;
+   double freq3 = 2300000000.0;
+   xmtr.SetPower(powerFreq3, freq3);
+   if(powerFreq3 != xmtr.Power(freq3))
+   {
+      writeln("-FAIL-");
+      writeln("FAIL POWER FREQ SET");
+   }
+  
+   double peakPower = xmtr.PeakPower();
+   double peakPowerFreq3 = xmtr.PeakPower(freq3);
+   double checkIntermediatePowerFreq = xmtr.PeakPower(freq3 - 0.00001);
+   if(peakPower != powerFreq0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL PEAK POWER");
+   }
+   
+   if(peakPowerFreq3 != powerFreq3)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL PEAK POWER FREQ");
+   }
+   
+   if(checkIntermediatePowerFreq != powerFreq2)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL PEAK POWER INTERPOLATE");
+   }
+
+   power = 74000.0;
+   xmtr.SetPower(power);
+   power = (power * xmtr.DutyCycle());
+   if(power != xmtr.Power())
+   {
+      writeln("-FAIL-");
+      writeln("FAIL SET POWER");
+   }
+   if(xmtr.PeakPower() != power)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL PEAK POWER NEW PEAK SET");
+   }
+   
+   if(xmtr.PulseCompressionRatio() != 13.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL COMPRESSION RATIO");
+   }
+   
+   Array<double> inputFreqs = { 500.0, 350.0 };
+   TestPulseRepetitionFrequency(xmtr, inputFreqs);
+   TestPulseRepetitionInterval(xmtr, inputFreqs);
+
+   if(!((xmtr.PulseWidth() >= (5.0e-05 - 1.0e-10)) && (xmtr.PulseWidth() <= (5.0e-05 + 1.0e-10))))
+   {
+      writeln("-FAIL-");
+      writeln("FAIL PULSE WIDTH");
+   }
+   
+   xmtr.SetPulseWidth(4.5e-05);
+   if(!((xmtr.PulseWidth() >= (4.5e-05 - 1.0e-10)) && (xmtr.PulseWidth() <= (4.5e-05 + 1.0e-10))))
+   {
+      writeln("-FAIL-");
+      writeln("FAIL SET PULSE WIDTH");
+   }
+   
+   xmtr.SetPulseCompressionRatio(11.0);
+   if(xmtr.PulseCompressionRatio() != 11.0)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL SET COMPRESSION RATIO");
+   }
+   
+   xmtr.SetPulseRepetitionFrequency(200.0);
+   inputFreqs.Clear();
+   inputFreqs.PushBack(200.0);
+   TestPulseRepetitionFrequency(xmtr, inputFreqs);
+   TestPulseRepetitionInterval(xmtr, inputFreqs);   
+   
+   xmtr.SetPulseRepetitionFrequency(330.0, 2);
+   inputFreqs.PushBack(330.0);
+   TestPulseRepetitionFrequency(xmtr, inputFreqs);
+   TestPulseRepetitionInterval(xmtr, inputFreqs);  
+end_execute
+
+end_time 2 s

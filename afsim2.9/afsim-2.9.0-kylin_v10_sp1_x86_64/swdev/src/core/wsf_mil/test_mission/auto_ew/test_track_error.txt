@@ -1,0 +1,372 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Track error jamming example where a radar and a missile is induced 
+# with track error from jammer-1
+
+define_path_variable CASE test_track_error
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once ../auto_script/test_functions.txt
+
+# ****************************************************************************
+# Define the system types (movers, sensors, weapons, etc.)
+# ****************************************************************************
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+radar_signature WIDE_BODY_SIGNATURE
+   constant 100 m^2
+end_radar_signature
+
+# ****************************************************************************
+# Aircraft Jammer
+
+weapon JAMMER WSF_RF_JAMMER
+   transmitter
+      power             1 w
+      frequency       900 mhz
+      bandwidth         1 mhz
+      electronic_attack
+         technique track_error_inducement
+            default_on
+            effect track_effect WSF_TRACK_EFFECT
+               track_behavior  distort
+               azimuth_error    2 deg
+               elevation_error  3 deg
+               range_error     10 m
+            end_effect
+         end_technique
+      end_electronic_attack
+   end_transmitter
+end_weapon
+
+# ****************************************************************************
+# SAM
+
+aero SAM_MISSILE_AERO WSF_AERO
+   cd_zero_subsonic    0.30
+   cd_zero_supersonic  0.50
+   mach_begin_cd_rise  0.95
+   mach_end_cd_rise    1.3
+   mach_max_supersonic 2.3
+   reference_area      0.017 m2
+   cl_max              3.5
+end_aero
+
+# ****************************************************************************
+# SAM Launcher
+
+processor SAM_TACTICS_PROCESSOR WSF_TASK_PROCESSOR
+
+#   script_debug_writes on
+#   show_state_evaluations
+#   show_state_transitions
+#   show_task_messages
+
+   script_variables
+      string SENSOR_NAME               = "radar_set";
+      string SENSOR_TRACK_MODE         = "default";
+      string WEAPON_NAME               = "sam_missile";
+      double REQUIRED_TRACK_QUALITY    = 0.49;
+      int SALVO_SIZE                   = 2;
+
+      # the following are used internally and should not be modified
+      string mTrackTaskStr      = "Track";
+      string mShootTaskStr      = "Shoot";
+   end_script_variables
+
+   script bool InInterceptEnvelopeOf(WsfWeapon aWeapon)
+       bool canIntercept = false;
+       double maxRng = 35000;
+       double minRng = 300;
+       WsfTrackId id = TRACK.TrackId();
+       double targetrange = PLATFORM.SlantRangeTo(TRACK);
+       writeln_d("Target range is " , targetrange);
+       if ((targetrange > minRng) && (targetrange < maxRng))
+       {
+         canIntercept = true;
+       }
+       return canIntercept;
+   end_script
+
+   script bool IsEngageable()
+      return (((PLATFORM == PLATFORM.Commander()) ||
+               (TasksReceivedFor(TRACK.TrackId()) > 0) ||
+               (OperatingLevelFor("ENGAGE") > 0))) &&
+               (TRACK.AirDomain());
+   end_script
+
+   script bool TrackingNow()
+      if (SENSOR_NAME == "")
+      {
+         return (TRACK.TrackQuality() > REQUIRED_TRACK_QUALITY);
+      }
+      else
+      {
+         return (TRACK.TrackQuality() > 0.95);
+      }
+   end_script
+
+   script bool LaunchWeapon()
+      WsfWeapon   weapon;
+      weapon = PLATFORM.Weapon(WEAPON_NAME);
+      bool canInterceptNow = false;
+      if (weapon.IsTurnedOn() &&
+          (weapon.QuantityRemaining() >= SALVO_SIZE))
+      {
+         canInterceptNow = InInterceptEnvelopeOf(weapon);
+      }
+      bool launched = false;
+      if (canInterceptNow)
+      {
+         launched = weapon.FireSalvo(TRACK, SALVO_SIZE);
+         if (launched)
+         {
+            writeln_d("*** T=", TIME_NOW, " ", PLATFORM.Name(), " ",
+                      TRACK.TargetName(), " R=", PLATFORM.SlantRangeTo(TRACK),
+                      " FIRE!!!!");
+         }
+      }
+      return launched;
+   end_script
+
+#-----------------------begin state machine-----------------------
+   evaluation_interval DETECTED 2.0 sec
+   state DETECTED
+      next_state ENGAGE
+         return (TRACK.BelievedAlive() &&
+                 IsEngageable());
+      end_next_state
+   end_state
+
+   evaluation_interval ENGAGE 2.0 sec
+   state ENGAGE  # Engages and fires the weapon if it can
+      next_state DETECTED
+         return false;
+      end_next_state
+
+      next_state ENGAGE
+         writeln_d(TIME_NOW, " ", PLATFORM.Name(), " ", TRACK.TargetName());
+         bool launched = false;
+         if (InInterceptEnvelopeOf(PLATFORM.Weapon(WEAPON_NAME)))
+         {
+             writeln_d("Trying to launch weapon " );
+             launched = LaunchWeapon();
+         }
+         return false;
+      end_next_state
+   end_state
+end_processor
+
+weapon_effects SAM_MISSILE_EFFECT WSF_GRADUATED_LETHALITY
+   radius_and_pk 20.0 m 0.8
+end_weapon_effects
+
+weapon SAM_MISSILE WSF_EXPLICIT_WEAPON
+   launched_platform_type SAM_MISSILE
+   weapon_effects SAM_MISSILE_EFFECT
+   quantity 8
+   firing_delay           1.0 sec
+   firing_interval        20 sec
+   salvo_interval         3.0 sec
+   slew_mode              azimuth_and_elevation
+   azimuth_slew_limits    -180.0 deg 180.0 deg
+   elevation_slew_limits  10.0 deg 80.0 deg
+end_weapon
+
+sensor RADAR_SET WSF_RADAR_SENSOR
+   #show_calibration_data
+   frame_time                     2.0 sec
+   maximum_request_count          0
+   slew_mode                      both
+   one_m2_detect_range            20 km
+   maximum_range                  60 km
+
+   transmitter
+      power         15000 kw
+      frequency       900 mhz
+      bandwidth       0.1 mhz
+     pulse_width                  50  usec
+     pulse_repetition_interval    750 usec // max PRI range of 225 km
+   end_transmitter
+
+   receiver
+      frequency       900 mhz
+      bandwidth         1 mhz
+   end_receiver
+
+  hits_to_establish_track  2 2
+  hits_to_maintain_track   1 3
+  track_quality            1.0
+
+  ignore_domain land
+  ignore_domain surface
+  ignore_domain subsurface
+  ignore_domain space
+
+  reports_range
+  reports_bearing
+  reports_elevation
+  reports_velocity
+end_sensor
+
+# ****************************************************************************
+# Define the platform types
+
+platform_type AIRPLANE WSF_PLATFORM
+   icon F-18
+   mover WSF_AIR_MOVER end_mover
+   radar_signature WIDE_BODY_SIGNATURE
+   weapon wpn JAMMER
+      pitch   -10 deg                  // Aim jammer slightly toward the ground
+   end_weapon
+
+   processor track_manager WSF_TRACK_PROCESSOR
+   end_processor
+end_platform_type
+
+platform_type SAM_LAUNCHER WSF_PLATFORM
+   icon Launcher
+   sensor radar_set RADAR_SET
+      on
+      internal_link data_mgr
+      internal_link task_mgr
+      internal_link test_proc
+      ignore_same_side
+   end_sensor
+
+   weapon sam_missile SAM_MISSILE
+      internal_link data_mgr
+      internal_link task_mgr
+   end_weapon
+
+   comm uplink WSF_COMM_TRANSCEIVER
+     internal_link data_mgr
+   end_comm
+
+   processor task_mgr SAM_TACTICS_PROCESSOR
+   end_processor
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+   end_processor
+   
+   processor test_proc WSF_SCRIPT_PROCESSOR 
+      on_message
+         type WSF_TRACK_MESSAGE
+         script
+            WsfTrackMessage msg = (WsfTrackMessage)MESSAGE;
+            WsfTrack track = msg.Track();
+            WsfPlatform tgt = WsfSimulation.FindPlatform("target1");            
+            AssertEqualsMessage(track.Range(),     PLATFORM.SlantRangeTo(tgt) + 10., "Range");
+            AssertEqualsMessage(track.Bearing(),   PLATFORM.RelativeBearingTo(tgt) + 2., "Bearing");            
+            AssertEqualsMessage(track.Elevation(), PLATFORM.RelativeElevationOf(tgt.Location()) + 3., "Elevation");  
+         end_script
+      end_on_message
+   end_processor 
+end_platform_type
+
+platform_type SAM_MISSILE WSF_PLATFORM
+  icon Missile
+
+  mover WSF_GUIDED_MOVER
+    #show_status
+    total_mass       84.5 kg
+    fuel_mass        25.45 kg
+    thrust           5200 lbf
+    thrust_duration  20.0 sec
+    update_interval  0.10 s
+    aero             SAM_MISSILE_AERO
+  end_mover
+
+  comm uplink WSF_COMM_TRANSCEIVER
+     internal_link data_mgr
+  end_comm
+
+  processor data_mgr WSF_WEAPON_TRACK_PROCESSOR
+  end_processor
+
+  processor computer WSF_GUIDANCE_COMPUTER
+    proportional_navigation_gain  6.0
+    velocity_pursuit_gain         6.0
+    g_bias                        1.2
+    maximum_commanded_g           25.0 g
+    update_interval               0.1 s
+  end_processor
+
+  processor fuse WSF_AIR_TARGET_FUSE
+    max_time_of_flight_to_detonate  45.0 sec
+  end_processor
+
+   # --------------------------------------
+   # Draw track to targets
+   # --------------------------------------
+   script_variables
+      # Create a WsfDraw object.
+      WsfDraw draw = WsfDraw();
+   end_script_variables
+
+   execute at_interval_of 1.0 s
+      WsfTrack track = PLATFORM.CurrentTargetTrack();
+      if (track.IsValid())
+      {      
+        # use the track ID as a unique draw ID
+        # a track icon and a line to the track icon
+        # is drawn at each track update
+        string trackId = track.TrackId().ToString();
+        draw.SetId(trackId);
+        draw.SetDuration(1.0); # this is faster than calling erase every time
+
+        # Draw a track icon
+        draw.SetColor(0,1,0);
+        draw.BeginIcons(track.Heading(), "Wedge");
+           draw.Vertex(track.CurrentLocation());
+        draw.End();
+
+        # Draw a line to the track
+        draw.SetLineStyle("solid");
+        draw.BeginLines();
+           draw.Vertex(PLATFORM);
+           draw.Vertex(track.CurrentLocation());
+        draw.End();
+      }
+   end_execute
+   # ---------------------------------------
+end_platform_type
+#
+# ****************************************************************************
+#                        Define the platform instances
+platform target1 AIRPLANE
+   side blue
+   icon C-130
+   indestructible
+   route
+    position 34:42:32n 76:52:56w altitude 4000 ft msl
+      linear_acceleration 0.20 g
+    position 36:03:28n 75:47:28w altitude 5000 ft msl
+      speed 175 kts
+   end_route
+   weapon wpn
+      on
+   end_weapon
+end_platform
+
+platform sam_site SAM_LAUNCHER
+   side red
+   icon SA-11_Launcher
+   position 35:32n 76:13w altitude 0 ft msl
+   heading 0 deg
+end_platform
+
+#event_pipe file $(CASE).aer end_event_pipe
+
+end_time 900 sec

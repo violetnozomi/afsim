@@ -1,0 +1,191 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../scripts/utils.txt
+
+include_once ../platforms/fa-lgt.txt
+
+platform_type SIMPLE FA-LGT_RB6
+   side blue
+   icon f-18
+   update_interval 0.01 sec
+
+   follow_vertical_track
+end_platform_type
+
+platform alpha SIMPLE
+   route
+      position 40:00:00.000n 90:00:00.000w
+      altitude 6000 meters
+      heading 90 deg
+      speed 500 kts
+   end_route
+end_platform
+
+platform bravo SIMPLE
+   route
+      position 00:00:00.000n 10:00:00.000w
+      altitude 5000 meters
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform charlie SIMPLE
+   route
+      position 00:00:00.000n 20:00:00.000w
+      altitude 3000 m
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform delta SIMPLE
+   route
+      position 00:00:00.000n 30:00:00.000w
+      altitude 7000 meters
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+six_dof_formation yankee
+   lead six_dof_section alpha
+      lead six_dof_unit one
+         member_platform alpha
+      end_six_dof_unit
+
+      six_dof_unit two
+         offset 300 m -90 deg 5 m fixed_altitude
+         member_platform bravo
+      end_six_dof_unit
+   end_six_dof_section
+
+   six_dof_section beta
+      offset 3000 m 90 deg 15 m fixed_altitude
+
+      lead six_dof_unit one
+         member_platform charlie
+      end_six_dof_unit
+
+      six_dof_unit two
+         offset 300 m 90 deg 5 m fixed_altitude
+         member_platform delta
+      end_six_dof_unit
+   end_six_dof_section
+end_six_dof_formation
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 11 min
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+script void CheckHeading(string aName, double aTargetDeg)
+   WsfPlatform plat = WsfSimulation.FindPlatform(aName);
+   allPassed = ExpectBool(plat.IsValid(), true, aName + " should exist") && allPassed;
+   Vec3 orient = plat.OrientationNED();
+   allPassed = ExpectDouble(MATH.NormalizeAngleMinus180_180(orient.X() - aTargetDeg), 0.0, 1.0,
+                aName + " is not at the target heading of " + (string)aTargetDeg) && allPassed;
+end_script
+
+script void CheckAttached(string aFormationName, bool aIsAttached)
+   WsfSixDOF_Formation form = WsfSixDOF_FormationManager.GetFormation(aFormationName);
+   allPassed = ExpectBool(form.IsValid(), true, aFormationName + " should exist") && allPassed;
+   allPassed = ExpectBool(form.IsAttached(), aIsAttached, aFormationName + " does not have the expected attachment: " + (string)aIsAttached) && allPassed;
+end_script
+
+script void CheckRightOffset(string aFormationName, double aRightOffset)
+   WsfSixDOF_Formation form = WsfSixDOF_FormationManager.GetFormation(aFormationName);
+   allPassed = ExpectBool(form.IsValid(), true, aFormationName + " should exist") && allPassed;
+   WsfSixDOF_FormationOffset offset = form.GetOffset();
+   allPassed = ExpectDouble(offset.GetRight(), aRightOffset, 0.5, aFormationName + " should have a right offset of " + (string)aRightOffset) && allPassed;
+end_script
+
+execute at_time 1 min absolute
+   CheckAttached("yankee.alpha", true);
+   CheckAttached("yankee.alpha.one", true);
+   CheckAttached("yankee.alpha.two", true);
+   CheckAttached("yankee.beta", true);
+   CheckAttached("yankee.beta.one", true);
+   CheckAttached("yankee.beta.two", true);
+
+   CheckHeading("alpha", 0.0);
+   CheckHeading("bravo", 0.0);
+   CheckHeading("charlie", 0.0);
+   CheckHeading("delta", 0.0);
+
+   CheckRightOffset("yankee.alpha.two", -300.0);
+   CheckRightOffset("yankee.beta.two", 300.0);
+   CheckRightOffset("yankee.beta", 3000.0);
+end_execute
+
+execute at_time 2 min absolute
+   WsfSixDOF_Formation yankee = WsfSixDOF_FormationManager.GetFormation("yankee");
+   WsfSixDOF_FormationTurnToHeadingCommand cmd = WsfSixDOF_FormationTurnToHeadingCommand.Construct(90.0);
+   cmd.SetMaxBankAngle(45.0);
+   yankee.ExecuteCommand(cmd);
+end_execute
+
+execute at_time 3.5 min absolute
+   CheckHeading("alpha", 90.0);
+   CheckHeading("bravo", 90.0);
+   CheckHeading("charlie", 90.0);
+   CheckHeading("delta", 90.0);
+
+   CheckRightOffset("yankee.alpha.two", -300.0);
+   CheckRightOffset("yankee.beta.two", 300.0);
+   CheckRightOffset("yankee.beta", -3000.0);
+
+   // detach beta
+   WsfSixDOF_Formation yankeeBeta = WsfSixDOF_FormationManager.GetFormation("yankee.beta");
+   WsfSixDOF_FormationDetachCommand cmd = WsfSixDOF_FormationDetachCommand.Construct();
+   yankeeBeta.ExecuteCommand(cmd);
+end_execute
+
+execute at_time 4 min absolute
+   WsfSixDOF_Formation yankeeBeta = WsfSixDOF_FormationManager.GetFormation("yankee.beta");
+   WsfSixDOF_FormationTurnToHeadingCommand cmdYankeeBeta = WsfSixDOF_FormationTurnToHeadingCommand.Construct(180.0);
+   yankeeBeta.ExecuteCommand(cmdYankeeBeta);
+
+   WsfSixDOF_Formation yankee = WsfSixDOF_FormationManager.GetFormation("yankee");
+   WsfSixDOF_FormationTurnToHeadingCommand cmdYankee = WsfSixDOF_FormationTurnToHeadingCommand.Construct(0.0);
+   yankee.ExecuteCommand(cmdYankee);
+end_execute
+
+execute at_time 5 min absolute
+   CheckAttached("yankee.alpha", true);
+   CheckAttached("yankee.alpha.one", true);
+   CheckAttached("yankee.alpha.two", true);
+   CheckAttached("yankee.beta", false);
+   CheckAttached("yankee.beta.one", true);
+   CheckAttached("yankee.beta.two", true);
+
+   CheckHeading("alpha", 0.0);
+   CheckHeading("bravo", 0.0);
+   CheckHeading("charlie", 180.0);
+   CheckHeading("delta", 180.0);
+
+   CheckRightOffset("yankee.alpha.two", -300.0);
+   CheckRightOffset("yankee.beta.two", 300.0);
+   CheckRightOffset("yankee.beta", -3000.0);
+end_execute
+
+execute at_time 6 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   } 
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

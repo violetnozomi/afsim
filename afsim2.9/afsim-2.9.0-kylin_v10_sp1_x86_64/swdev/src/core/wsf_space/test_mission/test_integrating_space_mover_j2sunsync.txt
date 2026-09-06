@@ -1,0 +1,119 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 1 2020
+start_time 12:00:00.000
+end_time 1 day
+
+platform sync WSF_PLATFORM
+   side blue
+   icon cubesat
+   
+   empty_mass 100 kg
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0.001
+      inclination 98 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      semi_major_axis 7.027139935616e+06 m
+      
+      integrator prince_dormand_78 
+         error_criterion L_2
+         tolerance 1.0e-11
+      end_integrator
+      
+      dynamics
+         term earth_monopole 
+         end_term
+         
+         term earth_j2
+         end_term
+      end_dynamics
+   end_mover
+end_platform
+
+# Compute the orbital elements for a given inclination and eccentricity that
+# gives a sun-sync orbit. This will spit out the elements into the output
+# stream, which can then be copied into the mover's definition above.
+script void ComputeICs()
+   double inclinationDeg  = 98.0;
+   double eccentricity    = 0.001;
+   double raanDeg         = 0.0;
+   double argPDeg         = 0.0;
+   double trueAnomDeg     = 0.0;
+   
+   double cJ2             = 0.0010826267;   // See Vallado
+   double cOMEGA_SUN_SYNC = 1.991063853e-7; // [rad/s]
+   
+   double sma7o2 = -(3.0 * Math.Pow(Earth.MEAN_RADIUS(), 2.0) * cJ2 * Math.Sqrt(Earth.GRAVITATIONAL_PARAMETER())) / (2.0 * cOMEGA_SUN_SYNC * Math.Pow(1.0 - eccentricity * eccentricity, 2.0)) * Math.Cos(inclinationDeg);
+   double sma = Math.Pow(sma7o2, 2.0/7.0);
+   
+   writeln("      eccentricity ", eccentricity);
+   writeln("      inclination ", inclinationDeg, " deg");
+   writeln("      raan ", raanDeg, " deg");
+   writeln("      argument_of_periapsis ", argPDeg, " deg");
+   writeln("      true_anomaly ", trueAnomDeg, " deg");
+   writeln("      semi_major_axis ", Format.Scientific(sma, 12), " m");
+   
+   if (sma > Earth.MEAN_RADIUS())
+   {
+      writeln("OKAY");
+   }
+end_script
+
+script_variables
+   double gInitialDotProduct = 0.0;
+   bool   gInitialSet        = false;
+   double gInterval          = 600.0;
+   double gTolerance         = 1.0e-4;
+   double gAnyFailure        = false;
+end_script_variables
+
+script void CompareAngle()
+   WsfPlatform sync = WsfSimulation.FindPlatform("sync");
+   Vec3 pos = sync.LocationECI();
+   Vec3 vel = sync.VelocityECI();
+   Vec3 normal = Vec3.Cross(pos, vel).Normal();
+   Vec3 sunVec = Sun.UnitVecECI(WsfDateTime.CurrentTime());
+   double dotprod = Vec3.Dot(normal, sunVec);
+   
+   if (!gInitialSet)
+   {
+      gInitialDotProduct = dotprod;
+      gInitialSet = true;
+   }
+   else
+   {
+      if (Math.Fabs(dotprod - gInitialDotProduct) > gTolerance)
+      {
+         gAnyFailure = true;
+         writeln("-FAIL- drift in angle too large: ", gInitialDotProduct, " -> ", dotprod);
+      }
+   }
+
+   if (!gAnyFailure)
+   {
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gInterval, "CompareAngle");
+   }
+end_script
+
+script void FinalReport()
+   if (!gAnyFailure)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   #enable SIMULATION_STARTING ComputeICs
+   enable SIMULATION_STARTING CompareAngle
+   enable SIMULATION_COMPLETE FinalReport
+end_observer

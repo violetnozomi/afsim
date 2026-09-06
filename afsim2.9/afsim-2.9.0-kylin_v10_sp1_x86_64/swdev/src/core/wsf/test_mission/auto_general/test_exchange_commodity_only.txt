@@ -1,0 +1,366 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#stream_debug_on
+#non_realtime # (For interactive environment only)
+
+// Test Platform-to-Platform Exchanges - COMMODITY TRANSFER
+
+// Tanker mySmallJetTanker starts with 8000 kg of fuel in his 10000 kg tank, and Reserves it all to offload to others.
+// Then mySmallThirstyJet starts with 2000 kg in his 3000 kg tank, requests 1000 kg for a fill-up, and gets fully satisfied.
+// Afterward, myBigThirstyJet, who starts with 5500 kg in his 15000 kg tank, asks for a 5000 kg on-load, gets it, ending at 10500.
+// So mySmallJetTanker starts with 8000, gives 1000, then 5000 more, and ends up with 2000 left.
+// Finally, myFarThirstyJet begins with 1500 kg in his 3500 kg tank.  Proximity check fails.  +This is the same amount he ends with.
+
+include_once ../auto_script/test_functions.txt
+
+end_time 4200 s
+
+script_variables
+   bool passed = true;
+end_script_variables
+
+platform_type SmallJetTanker WSF_PLATFORM
+
+   position 1.03n 1.03e
+
+   processor exchange_proc WSF_EXCHANGE_PROCESSOR
+debug
+      script_variables
+         bool isReserved = false;
+      end_script_variables
+
+      #debug
+      update_interval 2 sec
+
+      // This is used to allow DIS to publish what we provide to the outside workd.
+      commodity_and_capability_pairing JP8_FUEL SUPPLY_FUEL
+
+      container SUPPLY_TANK
+         commodity JP8_FUEL
+            maximum_mass_quantity 10000 kg
+            maximum_mass_rate        45 kg/sec
+         end_commodity
+         initial_mass_quantity 8000 kg
+      end_container
+
+      transactor fuel_provider
+         # === TANKER WITH FUEL === (OFFERS)
+         container_name SUPPLY_TANK
+         is_offeror
+         hook_to_payload  true             # As transactions are completed, the exchanged quantity
+         exclusive_hook_to_payload true    # is DECREMENTED from the payload attribute of the platform.
+         continue_to_offer  true           # If we are an Offeror, and one 'supply' Transaction is successful,
+                                           # continue to be willing/available to supply another request,
+                                           # until the reserved amount is exhausted.
+         proximity_limit   10000 m         # Defaults to zero, or not used.
+         #maximum_mass_rate 45 kg/sec
+      end_transactor
+
+      on_update
+         if (TIME_NOW > 20 && ! isReserved)
+         {
+            WsfExchangeProcessor exProc = (WsfExchangeProcessor)PROCESSOR;
+            if (exProc.IsValid())
+            {
+               Transactor trans = exProc.FindTransactor("fuel_provider");
+               if (trans.IsValid())
+               {
+                  Tender futureOffer = Tender.Construct("JP8_FUEL", 8000, 50.0, false);
+                  isReserved = trans.ReserveTender(futureOffer);
+                  if (isReserved)
+                  {
+                     writeln("At t=", TIME_NOW, ", mySmallJetTanker reserved some fuel.");
+                  }
+               }
+            }
+         }
+      end_on_update
+
+      script void on_transaction_complete(Transactor aTransactor)
+         writeln(" ");
+         writeln("*** ON_TRANSACTION_COMPLETE SCRIPT CALLED ***");
+         writeln("    This platform = ", PLATFORM.Name());
+         writeln("    This processor = ", PROCESSOR.Name());
+         writeln("    This Container = ", aTransactor.Container().Name());
+         writeln("    This Transactor = ", aTransactor.Name());
+         writeln("    Stuff Transacted = ", aTransactor.Query().ItemName());
+         writeln("    Quantity Desired = ", aTransactor.Query().DesiredQuantity());
+         writeln("    Quantity Offered = ", aTransactor.Query().OfferedQuantity());
+         writeln("    Quantity Negotiated = ", aTransactor.Query().NegotiatedQuantity());
+         writeln("    Direction of Transaction => I am Offeror = ", aTransactor.Query().IsOfferor());
+         writeln("    Container Quantity After Transaction = ", aTransactor.Container().CurrentQuantity());
+         writeln("    (Container Maximum is = ", aTransactor.Container().MaximumQuantity(), ")");
+         writeln("");
+      end_script
+
+      script void on_request_failed(Transactor aTransactor)
+         #writeln(" request-timed-out"); // You may define this script if needed.
+      end_script
+
+   end_processor
+
+   script void on_platform_deleted()
+      extern bool passed;
+      extern bool AssertWithinToleranceMessage(double, double, double, string);
+      passed = AssertWithinToleranceMessage(2000.0, PLATFORM.PayloadMass(), 0.5,
+                  "mySmallJetTanker expected to end with 8000 - (1000 + 5000) = 2000 payload fuel.") && passed;
+   end_script
+
+end_platform_type
+
+platform_type FarThirstyJet WSF_PLATFORM
+
+   // This platform will be too far away to get its request satisfied...
+
+   position 20n 20e
+
+   processor exchange_proc WSF_EXCHANGE_PROCESSOR
+
+      script_variables
+         bool isRequested = false;
+      end_script_variables
+
+      #debug
+      update_interval 2 sec
+
+      commodity_and_capability_pairing JP8_FUEL  SUPPLY_FUEL
+
+      container FUEL_CONTAINER
+         commodity JP8_FUEL
+            maximum_mass_quantity 3500 kg
+            maximum_mass_rate       60 kg/sec
+         end_commodity
+         initial_mass_quantity 1500 kg
+      end_container
+
+      transactor far_thirsty
+         # === AIRPLANE NEEDING FUEL === (REQUESTS)
+         is_requestor
+         container_name FUEL_CONTAINER
+         time_out_clock_interval         20 sec
+         hook_to_fuel  true            # As transactions are completed, the exchanged quantity
+         exclusive_hook_to_fuel true   # is set to the fuel attribute of the platform.
+         proximity_limit   1000 m       # Defaults to zero, or not used.
+         #maximum_mass_rate 45 kg/sec
+      end_transactor
+
+      on_update
+         if (TIME_NOW > 600 && ! isRequested)
+         {
+            WsfExchangeProcessor exProc = (WsfExchangeProcessor)PROCESSOR;
+            if (exProc.IsValid())
+            {
+               Transactor trans = exProc.FindTransactor("far_thirsty");
+               if (trans.IsValid())
+               {
+                  Tender myRequest = Tender.Construct("JP8_FUEL", 2000, 50.0, false);
+                  isRequested = trans.ReserveTender(myRequest);
+                  if (isRequested)
+                  {
+                     writeln("At t=", TIME_NOW, ", myFarThirstyJet requested some fuel.");
+                  }
+               }
+            }
+         }
+      end_on_update
+
+   end_processor
+
+   script void on_platform_deleted()
+      extern bool passed;
+      extern bool AssertWithinToleranceMessage(double, double, double, string);
+      passed = AssertWithinToleranceMessage(1500.0, PLATFORM.FuelMass(), 0.5,
+         "myFarThirstyJet asked for fuel but was too far away, expect to end with 1500 kg + 0 kg = 1500 kg fuel.") && passed;
+   end_script
+
+end_platform_type
+
+platform_type SmallThirstyJet WSF_PLATFORM
+
+   position 1.04n 1.04e
+
+   processor exchange_proc WSF_EXCHANGE_PROCESSOR
+
+      script_variables
+         bool requestIsMade = false;
+      end_script_variables
+
+      #debug
+      update_interval 2 sec
+
+      force_transactions_instantaneous false
+      ignore_all_proximity_checks      false
+
+      commodity_and_capability_pairing JP8_FUEL  SUPPLY_FUEL
+
+      container FUEL_CONTAINER
+         commodity JP8_FUEL
+            maximum_mass_quantity 3000 kg
+            maximum_mass_rate 41 kg/sec
+         end_commodity
+         initial_mass_quantity 2000 kg
+      end_container
+
+      transactor little_thirsty
+         # === AIRPLANE NEEDING FUEL === (REQUESTS)
+         is_requestor
+         container_name                 FUEL_CONTAINER
+         time_out_clock_interval        20 sec
+         #request_resend_interval        60 sec
+         #request_resend_limit           20
+         #response_time_out_interval     30 sec
+         hook_to_fuel  true             # As transactions are completed, the exchanged quantity
+         exclusive_hook_to_fuel true   # is INCREMENTED to the fuel attribute of the platform.
+         proximity_limit     100000000 m       # Defaults to zero, or not used.
+      end_transactor
+
+      on_update
+         if (TIME_NOW > 60 && ! requestIsMade)
+         {
+            WsfExchangeProcessor exProc = (WsfExchangeProcessor)PROCESSOR;
+            if (exProc.IsValid())
+            {
+               Transactor trans = exProc.FindTransactor("little_thirsty");
+               if (trans.IsValid())
+               {
+                  WsfPlatform supplier = WsfSimulation.FindPlatform("mySmallJetTanker");
+                  if (supplier.IsValid())
+                  {
+                     Tender thisRequest = Tender.Construct("JP8_FUEL", 1000, 40.0, false);
+                     requestIsMade = trans.RequestFrom(supplier, thisRequest);
+                     if (requestIsMade)
+                     {
+                        writeln("At t=", TIME_NOW, ", mySmallThirstyJet has made a Request.");
+                     }
+                  }
+                  else
+                  {
+                     writeln(" Tanker named mySmallJetTanker not found.");
+                     requestIsMade = true;
+                  }
+               }
+            }
+         }
+      end_on_update
+
+   end_processor
+
+   script void on_platform_deleted()
+      extern bool passed;
+      extern bool AssertWithinToleranceMessage(double, double, double, string);
+      passed = AssertWithinToleranceMessage(3000.0, PLATFORM.FuelMass(), 0.5,
+         "mySmallThirstyJet expected to end with 2000 kg + 1000 kg = 3000 kg fuel.") && passed;
+   end_script
+
+end_platform_type
+
+platform_type BigThirstyJet WSF_PLATFORM    // Consumes a COMMODITY
+
+   position 1.05n 1.05e
+
+   processor exchange_proc WSF_EXCHANGE_PROCESSOR
+
+      script_variables
+         bool requestIsMade = false;
+      end_script_variables
+
+      #debug
+      update_interval 2 sec
+
+      commodity_and_capability_pairing JP8_FUEL SUPPLY_FUEL
+
+      container FUEL_CONTAINER
+         commodity JP8_FUEL
+            maximum_mass_quantity 15000 kg
+            maximum_mass_rate     50 kg/sec
+         end_commodity
+         initial_mass_quantity 5500 kg
+      end_container
+
+      transactor big_thirsty
+         # === BIG AIRPLANE NEEDING MUCH FUEL === (REQUESTS)
+         container_name FUEL_CONTAINER
+         # Test Note:  mySmallJetTanker first provides 1000 kg of 8000 kg available for offload
+         #             to SmallThirstyJet.  That leaves 7000 kg left for offload, which are given
+         #             to BigThirstyJet.  BigThirstyJet starts with 5500 kg, ends with 12500 kg.
+         #             (Even though he wants more, he cannot get it from the small Tanker.)
+         is_requestor
+         #maximum_time_per_exchange       11 sec
+         #request_resend_interval         60 sec
+         #request_resend_limit            50
+         time_out_clock_interval           20 sec
+         hook_to_fuel  true             # As tranactions are completed, the exchanged quantity
+         exclusive_hook_to_fuel true    # is set to the fuel attribute of the platform.
+         proximity_limit   1000000000 m       # Defaults to zero, or not used.
+      end_transactor
+
+      on_update
+         if (TIME_NOW > 400 && ! requestIsMade)
+         {
+            WsfExchangeProcessor exProc = (WsfExchangeProcessor)PROCESSOR;
+            if (exProc.IsValid())
+            {
+               WsfPlatform supplier = WsfSimulation.FindPlatform("mySmallJetTanker");
+               if (supplier.IsValid())
+               {
+                  Transactor trans = exProc.FindTransactor("big_thirsty");
+                  if (trans.IsValid())
+                  {
+                     Tender thisRequest = Tender.Construct("JP8_FUEL", 5000, 40.0, false);
+                     bool success = trans.RequestFrom(supplier, thisRequest);
+                     if (success)
+                     {
+                        writeln("At t=", TIME_NOW, ", myBigThirstyJet has made a Request.");
+                        requestIsMade = true;
+                     }
+                  }
+               }
+            }
+         }
+      end_on_update
+
+   end_processor
+
+   script void on_platform_deleted()
+      extern bool passed;
+      extern bool AssertWithinToleranceMessage(double, double, double, string);
+      passed = AssertWithinToleranceMessage(10500.0, PLATFORM.FuelMass(), 0.5,
+         "myBigThirstyJet expected to end with 5500 kg + 5000 kg = 10500 kg fuel.") && passed;
+   end_script
+
+end_platform_type
+
+# =================================== Start Platform Instances =================
+platform mySmallJetTanker  SmallJetTanker  end_platform
+platform myFarThirstyJet   FarThirstyJet   end_platform
+platform mySmallThirstyJet SmallThirstyJet end_platform
+platform myBigThirstyJet   BigThirstyJet   end_platform
+# =================================== End Platform Instances =================
+
+script void SimulationComplete()
+   extern bool passed;
+   extern void writePass(bool);
+   writePass(passed);
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+/*event_output
+   file test_exchange_commodity_only.evt
+   #enable EXCHANGE_QUERIED     # Warning:  This output is quite extensive !!!
+   enable EXCHANGE_NEGOTIATED
+   enable EXCHANGE_COMPLETED
+   enable EXCHANGE_REQUEST_FAILED
+   enable PLATFORM_CAPABILITY_CHANGED
+end_event_output*/
+
+

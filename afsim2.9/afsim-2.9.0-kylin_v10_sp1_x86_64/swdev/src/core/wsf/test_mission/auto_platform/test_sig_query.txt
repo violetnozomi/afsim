@@ -1,0 +1,97 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# ==============================================================================
+# Test the signature query script methods.
+# ==============================================================================
+#
+# The signatures are defined so the last digit is the quadrant with 1 being the
+# rear, 2 being the pilot-left, 3 being front and 4 being pilot-right.
+#
+# Test queries are performed for the left, front and right quadrants.
+
+radar_signature TEST_RADAR_SIG
+   polarization vertical
+      inline_table m^2 10 2
+               -90  90
+         -180  201 201
+         -136  201 201
+         -135  202 202
+          -46  202 202
+          -45  203 203
+           45  203 203
+           46  204 204
+          135  204 204
+          136  201 201
+          180  201 201
+      end_inline_table
+   polarization default
+      inline_table m^2 10 2
+               -90  90
+         -180  101 101
+         -136  101 101
+         -135  102 102
+          -46  102 102
+          -45  103 103
+           45  103 103
+           46  104 104
+          135  104 104
+          136  101 101
+          180  101 101
+      end_inline_table
+end_radar_signature
+
+platform test WSF_PLATFORM
+   radar_signature    TEST_RADAR_SIG
+
+   position 39n 90w heading 90 deg
+
+   script_variables
+      bool mPass = true;
+   end_script_variables
+
+   script void TestRadar(string aMessage, string aPolarization,
+                         double aX_ECS, double aY_ECS, double aExpected)
+      WsfGeoPoint viewer = PLATFORM.Location();
+      viewer.Offset(PLATFORM.Heading(), aX_ECS, aY_ECS, -10000.0);
+      double rcs1 = PLATFORM.RadarCrossSection(viewer, 1.0, aPolarization, 0.0);
+      if (Math.Fabs(aExpected - rcs1) > 0.001)
+      {
+         writeln("-FAIL- Radar (", aPolarization, ") ", aMessage,
+                 "; got ", rcs1, ", expected ", aExpected);
+         mPass = false;
+      }
+	  
+      Array<double> aspect = PLATFORM.ApparentAspectOf(viewer, 1.0);
+      double rcs2 = PLATFORM.RadarCrossSection(aspect[0], aspect[1], aPolarization, 0.0);
+      if (Math.Fabs(aExpected - rcs2) > 0.001)
+      {
+         writeln("-FAIL- Radar (", aPolarization, ") ", aMessage,
+                 "; got ", rcs2, ", expected ", aExpected);
+         mPass = false;
+      }
+   end_script
+
+   execute at_time 1 sec relative
+      # Radar signature
+
+      string pol = "";
+      TestRadar("Az=-90", pol,     0.0, -10000.0, 102.0);
+      TestRadar("Az=  0", pol, 10000.0,      0.0, 103.0);
+      TestRadar("Az= 90", pol,     0.0,  10000.0, 104.0);
+
+      pol = "vertical";
+      TestRadar("Az=-90", pol,     0.0, -10000.0, 202.0);
+      TestRadar("Az=  0", pol, 10000.0,      0.0, 203.0);
+      TestRadar("Az= 90", pol,     0.0,  10000.0, 204.0);
+
+
+      if (mPass) writeln("-PASS-");
+   end_execute
+end_platform

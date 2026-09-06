@@ -1,0 +1,150 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform_type  BRAWLER_TEST_AIRMOVER  WSF_PLATFORM
+   icon f15c
+   category AIRCRAFT
+   category EZJA
+
+   aux_data 
+      bool captured = false // set to true if captured which is brawler lingo meaning landed at a base
+   end_aux_data
+
+   processor assessment WSF_SA_PROCESSOR 
+      on
+      update_interval 1.0 sec
+
+      # Flight Information
+      flight_id  1
+      id_flag    1
+      
+      # Joker/Bingo Fuel States
+      joker_fuel 4000 lbs
+      bingo_fuel 3000 lbs
+      
+      # filter_assets_from_bogies false
+      # filter_assets_from_tracks false         
+      
+      # Data collection rates
+      report_interval                              1.00 sec
+      engagement_data_update_interval              1.00 sec
+      flight_data_update_interval                  1.00 sec
+      fuel_data_update_interval                    1.00 sec
+      nav_data_update_interval                     1.00 sec
+      flight_controls_data_update_interval         1.00 sec
+      weapons_data_update_interval                 1.00 sec
+      track_data_update_interval                   1.00 sec
+      
+      asset_data_update_interval                   1.00 sec
+      perceived_item_data_update_interval          1.00 sec
+      prioritized_item_data_update_interval        1.00 sec
+      perceived_item_calculation_update_interval   1.00 sec
+      prioritized_item_calculation_update_interval 1.00 sec      
+      
+      max_range_for_perceived_assets               150 nm
+      max_range_for_perceived_bogies_and_bandits   150 nm
+      max_range_for_engagement_data                200 nm
+      assumed_range_for_angle_only_targets         150 nm      
+      
+      #filter_requires_same_side
+      #filter_requires_not_same_side               true
+      filter_requires_air_domain                   true
+      #filter_requires_not_air_domain              true
+      #filter_requires_land_or_surface_domain      true
+      #filter_requires_not_subsurface_domain       true
+      #filter_requires_not_space_domain            true
+      filter_requires_sa_processor                 true
+
+      report_to commander    via datalink
+      report_to peers        via datalink
+      report_to subordinates via datalink
+
+      # Assets/friends settings
+      asset_perception           truth commander:peers:subordinates
+      perceive_self              false
+      reporting_self             true
+      reporting_others           true
+      max_asset_load             100
+
+      # Bogie and bandit/threat settings
+      max_threat_load            100
+      
+      # Expendable countermeasures
+      use_simple_countermeasures true
+      num_chaff                  60
+      num_flares                 40
+      num_decoys                 20  
+
+   end_processor
+   
+   comm datalink WSF_COMM_TRANSCEIVER
+      propagation_speed 0 m/s   #instantaneous propagation (faster than speed of light)
+      network_name brawler_net
+      internal_link data_mgr
+      internal_link tsk_mgr
+      internal_link thinker
+      internal_link perception
+      internal_link assessment
+   end_comm
+
+   comm wpn_datalink WSF_COMM_XMTR 
+      propagation_speed 0 m/s   #instantaneous propagation (faster than speed of light)
+      network_name weapons_subnet
+      internal_link data_mgr
+      internal_link raw_data_mgr
+   end_comm
+
+   processor raw_data_mgr WSF_TRACK_PROCESSOR
+      non_master_track_processor 
+      purge_interval  60 sec
+      update_interval 2.0 sec
+      report_interval 2.0 sec 
+      drop_after_inactive 30 sec
+      
+      # unchanged_track_reporting false   #TEST
+      # report_raw_tracks 
+      report_fused_tracks
+      # circular_report_rejection enable
+      internal_link data_mgr
+      // fuze my own ship tracks, link to master track processor
+      track_manager 
+         fusion_method weighted_average       
+         end_fusion_method
+      end_track_manager
+   end_processor
+
+   processor data_mgr WSF_TRACK_PROCESSOR 
+      master_track_processor 
+      purge_interval  60 sec
+      report_interval 10.0 sec 
+      unchanged_track_reporting false   #TEST
+      circular_report_rejection enable
+      # report_raw_tracks 
+      internal_link tsk_mgr
+      report_fused_tracks 
+      # report_to command_chain IFLITE commander via datalink
+      # report_to command_chain IFLITE peers via datalink
+      # report_to command_chain IFLITE subordinates via datalink
+      report_to commander via datalink
+      report_to subordinates via datalink
+      report_to peers via datalink
+      report_to subordinates via wpn_datalink to uplink
+   end_processor
+
+   track_manager 
+      fusion_method weighted_average
+      end_fusion_method
+   end_track_manager
+   
+   processor tsk_mgr WSF_TASK_PROCESSOR 
+      on
+      internal_link data_mgr
+   end_processor
+
+end_platform_type

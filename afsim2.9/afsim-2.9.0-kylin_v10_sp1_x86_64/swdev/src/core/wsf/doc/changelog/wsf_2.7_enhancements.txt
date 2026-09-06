@@ -1,0 +1,31 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.7.3)** Optimized the performance of a graph pathfinding algorithm, resulting in improved runtimes for scenarios utilizing communications. *(AFSIM-1117)*
+* **(2.7.2)** Added :method:`WsfArticulatedPart.TimeToCueToLLA`, :method:`WsfArticulatedPart.TimeToCueToWCS`, :method:`WsfArticulatedPart.TimeToCueToPoint`, :method:`WsfArticulatedPart.TimeToCueToTrack`, :method:`WsfArticulatedPart.TimeToCueToAbsoluteAzEl`, and :method:`WsfArticulatedPart.TimeToCueToRelativeAzEl`. Each of these methods returns the time required for the part to orient to a given location. *(AFSIM-108)*
+* **(2.7.2)** Added new :ref:`field_of_view_commands.equatorial` :command:`field_of_view` type. *(AFSIM-314)*
+* **(2.7.2)** Added script method :method:`Vec3.AngleWith` to obtain the angle between two arbitrary vectors. *(AFSIM-647)*
+* **(2.7.2)** Added script method :method:`Vec3.Negate` to reverse the direction of a vector. *(AFSIM-661)*
+* **(2.7.1)** Added new :command:`observer` for the :ref:`docs/event/sensor_events:IMAGE_CREATED` event.
+* **(2.7.1)** Added new script methods :method:`Quaternion.Multiply` and :method:`Quaternion.Slerp` to :class:`Quaternion`. *(AFSIM-333)*
+* **(2.7.1)** Added script methods to :class:`Moon` and :class:`Sun` to get the :ref:`WCS` location of those bodies.
+* **(2.7.1)** Added methods to :class:`Earth` to convert :ref:`ECI` locations to and from :ref:`WCS`, and to get the geostationary orbital radius.
+* **(2.7.1)** Added methods to :class:`Earth` to provide the sub-solar and sub-lunar points, and the Camera-Target-Earth angle.
+* Added new script method :method:`Array\<T\>.Insert`, which can be used to insert one or more new elements into a script :class:`Array<Array\<T\>>` at a specified position. This method has replaced the undocumented method ``__Insert``. *(AFSIM-103)*
+* Changed return type of :class:`WsfArticulatedPart` cueing methods from ``void`` to ``bool``, to indicate whether the requested cue is within slew limits. *(AFSIM-107)*
+* Added commands to set the :command:`zone.fill_color` and :command:`zone.line_color` of a :command:`zone` or :command:`zone_set`, as well as methods on :class:`WsfZone` to access and modify the colors via script. *(Issue #1480)*
+* Added :command:`sensor_mode.solar_exclusion_angle` and :command:`sensor_mode.lunar_exclusion_angle` commands to :command:`sensor` to consider line-of-sight to the sun or moon in detection attempts. *(Issue #1818)* *(Issue #2194)*
+* Added platform :command:`_.aux_data` values to the :command:`event_pipe`. *(Issue #1856)*
+* Added the static method :method:`WsfRoute.GlobalRoutes` to provide a list of all global routes. *(Issue #1880)*
+* Added support for loading :command:`terrain.geotiff` files to supply terrain elevation.  *(Issue #2080)*
+* Added the ability to name composite nodes in :doc:`Advanced Behavior Trees<../advanced_behavior_tree>`. *(Issue #2291)*
+* Added script methods for :class:`Earth`, :class:`Moon`, and :class:`Sun` to check if line of sight between two locations is blocked by them. *(Issue #2367)*
+* Added script method :method:`WsfGeoPoint.LocationECI`. *(Issue #2425)*
+* Expanded and documented use of user-defined :command:`atmosphere_table` data by enabling speed-of-sound inputs and allowing for larger input sets. *(Issue #2413)*
+* Added ability to define a contrailing band in input via :command:`contrailing_altitude_floor` and :command:`contrailing_altitude_ceiling`. *(Issue #2413)*

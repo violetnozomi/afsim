@@ -1,0 +1,162 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This file tests the execution order of the 'on_new_execute'
+# block of a behavior node. It should run before the 'execute'
+# block
+
+## PLATFORM/BEHAVIOR DEFINITIONS ##
+behavior first
+   precondition
+      if (TIME_NOW <= 3)
+      {
+         return true;
+      }
+      else
+      {
+         return false;
+      }
+   end_precondition
+
+   execute
+      if (PLATFORM.AuxDataExists("executeFirst"))
+      {
+         PLATFORM.SetAuxData("executeFirst", true);
+      }
+      else
+      {
+         writeln("-FAIL- test platform aux data missing");
+         WsfSimulation.Terminate();
+      }
+   end_execute
+end_behavior
+
+behavior second
+   precondition
+      if (TIME_NOW > 3)
+      {
+         return true;
+      }
+      else
+      {
+         return false;
+      }
+   end_precondition
+
+   on_new_execute
+      if (PLATFORM.AuxDataExists("executeSecond") &&
+          PLATFORM.AuxDataExists("newExecuteSecond") &&
+          PLATFORM.AuxDataExists("orderFail"))
+      {
+         PLATFORM.SetAuxData("newExecuteSecond", true);
+         if (PLATFORM.AuxDataBool("executeSecond"))
+         {
+            # execute block already ran, execution order fail
+            PLATFORM.SetAuxData("orderFail", true);
+         }
+      }
+      else
+      {
+         writeln("-FAIL- test platform aux data missing");
+         WsfSimulation.Terminate();
+      }
+   end_on_new_execute
+
+   execute
+      if (PLATFORM.AuxDataExists("executeSecond"))
+      {
+         PLATFORM.SetAuxData("executeSecond", true);
+      }
+      else
+      {
+         writeln("-FAIL- test platform aux data missing");
+         WsfSimulation.Terminate();
+      }
+   end_execute
+end_behavior
+
+platform_type BEHAVIOR_PLATFORM WSF_PLATFORM
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval 60 sec
+   end_processor
+
+   processor task_mgr WSF_SCRIPT_PROCESSOR
+      update_interval 1 sec
+
+      behavior_tree
+         selector
+            behavior_node first
+            behavior_node second
+         end_selector
+      end_behavior_tree
+   end_processor
+
+   # Variables for keeping track of what parts of the
+   # behaviors have been executed.
+   aux_data
+      bool executeFirst = false
+      bool newExecuteSecond = false
+      bool executeSecond = false
+      bool orderFail = false
+   end_aux_data
+
+end_platform_type
+
+## SCENARIO ##
+platform test_platform BEHAVIOR_PLATFORM
+  side blue
+  position 38:44:00.00n 90:20:00.00w altitude 30000.00 ft agl
+  heading 90 deg
+end_platform
+
+## TEST CASE ##
+execute at_time 5 sec absolute
+   # This must be run at T=5 because it will execute
+   # before the second behavior if run at the same time
+   WsfPlatform testPlatform = WsfSimulation.FindPlatform("test_platform");
+   bool orderFail = testPlatform.AuxDataBool("orderFail");
+   if (orderFail)
+   {
+     writeln("-FAIL-");
+     writeln("T=", TIME_NOW, " platform ", testPlatform.Name(),
+             " executed behavior 'second' execute block before on_new_execute block.");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+
+## RUN CONFIG ##
+define_path_variable CASE test_behavior_tree_on_new_exec
+
+# Uncomment these for ouput, normally disabled for test
+/*
+event_output
+   file $(CASE).evt
+   time_format h:m:s.1
+   lat_lon_format d:m:s.2
+   print_track_in_message true
+
+   enable BTREE_NODE_CHILDREN
+   enable BTREE_NODE_EXEC
+   enable MESSAGE_RECEIVED
+   enable MESSAGE_TRANSMITTED
+   enable TASK_ASSIGNED
+   enable TASK_CANCELED
+   enable TASK_COMPLETED
+end_event_output
+
+event_pipe
+   file $(CASE).aer
+end_event_pipe
+*/
+end_time 5 sec

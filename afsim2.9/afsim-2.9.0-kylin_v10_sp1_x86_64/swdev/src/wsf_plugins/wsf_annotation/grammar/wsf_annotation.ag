@@ -1,0 +1,119 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+(enumeration PresetType (values 
+   one 1 two 2 three 3 four 4 
+   heart 5 diamond 6 spade 7 club 8)
+{
+   one      [this=1]
+ | two      [this=2]
+ | three    [this=3]
+ | four     [this=4]
+ | heart    [this=5]
+ | diamond  [this=6]
+ | spade    [this=7]
+ | club     [this=8]
+})
+
+(enumeration DecorationType (values 
+   text 1 preset 2 image 3)
+{
+   text   [this=1]
+ | preset [this=2]
+ | image  [this=3]
+})
+
+(struct Decoration :symbol (type decorations WSF_DECORATIONS)
+   (var DecorationType type)
+   (var QuotableString path)
+   (var QuotableString text)
+   (var PresetType     preset)
+{
+     text   <QuotableString>   [text=$$;type=1]
+   | preset <PresetType>       [preset=$$;type=2]
+   | image  <QuotableString>   [path=$$;type=3]
+})
+
+(struct Poi :symbol (type pois WSF_POIS)
+   (var Position position)
+   (var Length altitude :default "0 m")
+   (var Bool bullseye :default false)
+{
+   <$position>
+   | altitude <$altitude>
+   | bullseye [bullseye=true]
+})
+
+(struct RangeRing :symbol (type rangeRings WSF_RANGERINGS)
+   (var String entityName)
+   (var Bool showRangeLabels :default false) 
+   (var Color rangeLabelColor)
+   (var Color ringColor)
+   (var Int ringWidth :default 1)
+   (var Length centerRadius :default "111120 m")
+   (var Int additionalRings :default 0)
+   (var Length additionalRadii :default "18520 m")
+   (var Bool showAngleLabels :default false)
+   (var Color angleLabelColor)
+   (var Color radialColor)
+   (var Int radialWidth :default 1)
+   (var Angle centerAngle :default "0.0 deg")
+   (var Angle angleWidth :default "360 deg")
+   (var Angle radialRate :default "0.0 deg")
+   (var Bool alignNorth :default false)
+{
+     entity <$entityName>
+   | show_range_labels [showRangeLabels=true]
+   | range_label_color <$rangeLabelColor>
+   | ring_color <$ringColor>
+   | ring_width <$ringWidth>
+   | center_radius <$centerRadius>
+   | additional_rings <$additionalRings>
+   | additional_radii <$additionalRadii>
+   | show_angle_labels [showAngleLabels=true]
+   | angle_label_color <$angleLabelColor>
+   | radial_color <$radialColor>
+   | radial_width <$radialWidth>
+   | center_angle <$centerAngle>
+   | angle_width <$angleWidth>
+   | radial_rate <$radialRate>
+   | align_north [alignNorth=true]
+})
+
+(struct root 
+   (var ObjectMap/Decoration decorations)
+   (var ObjectMap/Poi pois)
+   (var ObjectMap/RangeRing rangeRings)
+
+   #Decorations allow multiple definition to make it easier later to potentially draw multiple decoration types on a single entity (just ignore type variable)
+   (rule decoration-rule {
+      decoration <string> (new (type decorations $1) (type decorations WSF_DECORATIONS)) [apply($$)] <Decoration>* end_decoration
+      | (error { decoration <ignore>* end_decoration } )
+   })
+
+   #Intuitively, something like "poi { [pushBack(poiNameList)] <string> } [new(pois, $1)] <Poi>* end_poi" makes more sense, but the "type" keyword is necessary for correct syntax highlighting even if not used
+   (rule poi-rule {
+      poi <string> (new (type pois $1) (type pois WSF_POIS)) [apply($$)] <Poi>* end_poi 
+      | (error { poi <ignore>* end_poi } )
+   })
+
+   (rule rangeRing-rule {
+      range_ring <string> (new (type rangeRings $1) (type rangeRings WSF_RANGERINGS)) [apply($$)] <RangeRing>* end_range_ring
+      | (error { range_ring <ignore>* end_range_ring })
+   })
+
+   (rule annotation {
+       <decoration-rule>
+     | <poi-rule>
+     | <rangeRing-rule>
+   })
+{
+   visual_elements <annotation>* end_visual_elements
+}
+)

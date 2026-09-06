@@ -1,0 +1,169 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test to check the values being returned for the semi-axis values for an Ellipsoid script object
+# and the major and minor axes of a WsfCovariance script object
+
+define_path_variable CASE test_covariance_ellipsoid_axes
+
+include_once ../auto_script/test_functions.txt
+
+// Enable if running manually in order to visually inspect calculated values
+#script_debug_writes on
+
+#------------------------------------------------------------------------------
+radar_signature DEFAULT_SIG
+   constant 0 dbsm
+end_radar_signature
+
+platform 101_FLYER WSF_PLATFORM
+   side blue
+   icon f-18
+   radar_signature DEFAULT_SIG
+   position 0:05:00n 02:35:00e heading -90 degrees altitude 1 kft
+end_platform
+
+#------------------------------------------------------------------------------
+# Notional AN/FPS-115 Pave Paws radar
+antenna_pattern GS_RADAR_ANTENNA
+  uniform_pattern
+    peak_gain 37.92 db               # From www.fas.org for AN/FPS-115 PAVE PAWS
+  end_uniform_pattern
+end_antenna_pattern
+
+sensor AN_FPS-115 WSF_RADAR_SENSOR
+  on
+  frame_time 1 s
+  hits_to_establish_track 3 5
+  hits_to_maintain_track 1 2
+  transmitter
+    power           145.6 kw          # average
+    frequency       435 mhz           # 420-450 mhz
+    antenna_pattern GS_RADAR_ANTENNA
+  end_transmitter
+
+  reports_range
+  reports_bearing
+  reports_elevation
+
+end_sensor
+
+#------------------------------------------------------------------------------
+platform 500_RADAR_SITE WSF_PLATFORM
+   side red
+   icon Ground_Radar
+   radar_signature DEFAULT_SIG   
+   position 0:05:00n 02:30:00e heading 90 deg //altitude 5 kft  
+   add sensor radar AN_FPS-115      
+      range_error_sigma 1 m             // Keep the range error small
+      elevation_error_sigma 10 deg      // Set azimuth and elevation error 
+      azimuth_error_sigma 10 deg        // to equivalent values to make the computations easy
+   end_sensor      
+end_platform
+
+#------------------------------------------------------------------------------
+script_variables
+   WsfDraw draw = WsfDraw();
+end_script_variables
+
+script void Draw(WsfPlatform aPlatform, WsfTrack aTrack)
+   if (aTrack.IsValid())
+   {
+      // use the track ID as a unique draw ID
+      string trackId = aTrack.TrackId().ToString();
+      draw.SetId(trackId);
+      draw.SetEllipseMode("line");
+      draw.SetLineSize(1);
+      
+      // Draw the reported location
+      draw.SetPointSize(10);          
+      draw.SetColor(1,0,0);   // red
+      draw.BeginPoints();
+         draw.Vertex(aTrack.ReportedLocation());  # Red dot is fused track reported location is sensor track reported location
+      draw.End();
+  
+      writeln_d("***********************************");
+      writeln_d("T=", TIME_NOW, " ", aTrack.TargetName());                                    
+ 
+      WsfCovariance measCov = aTrack.MeasurementCovariance();
+      if (measCov.IsValid())
+      {
+         Ellipsoid ell = measCov.EllipsoidNED();
+         
+         // Draw the measurement covariance ellipsoid using Ellipsoid SemiAxis values
+         //
+         // It should look like a large flat disk perpendicular to the radar
+         // centered around the target truth location
+         
+         draw.SetColor(0.0, 1.0, 0.0, 0.6); // green         
+         draw.BeginEllipsoid(ell.OrientationHeading() * MATH.DEG_PER_RAD(),
+                             ell.OrientationPitch() * MATH.DEG_PER_RAD(),
+                             ell.OrientationRoll() * MATH.DEG_PER_RAD(),
+                             ell.SemiAxisForward(),
+                             ell.SemiAxisSide(),
+                             ell.SemiAxisUp());
+            draw.Vertex(aTrack.Target().Location());
+         draw.End();
+            
+         // Draw the measurement covariance using WsfCovariance Major and Minor axis values
+         //
+         // It should have the same dimension in azimuth as the ellipsiod drawn above
+         draw.SetColor(0,1,1); // cyan          
+         draw.BeginEllipse(measCov.Bearing(), measCov.MinorAxis()/2.0, measCov.MajorAxis()/2.0);
+            draw.Vertex(aTrack.Target());
+         draw.End(); 
+ 
+         // Since the azimuth and elevation errors are both set to 10 degrees
+         // the radius of the disk should be approximately tan(10 degrees) = radius / ground range
+         // Draw a red line from the sensor to the expected extent of the ellipsoid and ellipse        
+         double radius = aPlatform.GroundRangeTo(aTrack.Target()) * MATH.Tan(10.0);
+         writeln_d("   Expected ellipsoid diameter: ", radius * 2.0, " m");
+         draw.SetColor(1,0,0);   // red         
+         draw.BeginLines();
+            draw.Vertex(aPlatform);
+            draw.VertexECS(aTrack.Target(), 0, radius, 0);
+         draw.End();
+         
+         // Check the values                           
+         writeln_d("   Major Axis: ", measCov.MajorAxis(), " m | Minor Axis: ", measCov.MinorAxis(),  " m | Bearing: ", measCov.Bearing(), " deg");
+         writeln_d("   SemiAxisForward: ", ell.SemiAxisForward(), " m | SemiAxisSide: ", ell.SemiAxisSide(), " m | SemiAxisUp: ", ell.SemiAxisUp(), " m");         
+         AssertWithinToleranceMessage(radius * 2.0, measCov.MajorAxis(), 50.0, "WsfCovariance.MajorAxis (m)");
+         AssertWithinToleranceMessage(radius,ell.SemiAxisSide(), 50.0, "Ellipsoid.SemiAxisSide (m)");
+         AssertWithinToleranceMessage(radius,ell.SemiAxisUp(), 50.0, "Ellipsoid.SemiAxisUp (m)");
+      }
+      writeln_d("***********************************");      
+   }
+end_script
+
+script void SensorTrackUpdated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+   Draw(aPlatform, aTrack);  
+end_script
+
+observer
+   enable SENSOR_TRACK_UPDATED
+end_observer
+
+# This is for visually inspecting the covariance data written to event output
+#event_output
+#   file STDOUT
+#   print_track_covariance true
+#   enable SENSOR_TRACK_UPDATED
+#end_event_output
+
+# This is for visually inspecting the covariance data written to csv event output
+#csv_event_output
+#   file STDOUT
+#   enable SENSOR_TRACK_UPDATED
+#end_csv_event_output
+
+// Run for a very short time just to get a track created with a covariance
+end_time 3.5 s
+
+#dis_interface record $(CASE).rep end_dis_interface
+#event_pipe file $(CASE).aer end_event_pipe

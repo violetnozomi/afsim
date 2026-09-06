@@ -1,0 +1,185 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+//****************************************************************
+// This file is included to be included at the platform level.
+// It will not execute properly if included at the global level.
+//****************************************************************
+
+script void FollowRouteWithCallback(WsfPlatform aPlatform, string aRouteName, string aCallbackName)
+   WsfRoute route = WsfRoute.CopyGlobal(aRouteName);
+   route.Back().SetCallback(aCallbackName);
+   aPlatform.FollowRoute(route);
+end_script
+
+//*************************************************************
+// Engine Functions
+//*************************************************************
+script void TurnOffEngines(WsfPlatform aPlatform)
+   WsfSixDOF_Mover mover = (WsfSixDOF_Mover)aPlatform.Mover();
+   if(mover.IsValid())
+   {
+      mover.ShutdownEngines(TIME_NOW);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void TurnOnEngines(WsfPlatform aPlatform)
+   WsfSixDOF_Mover mover = (WsfSixDOF_Mover)aPlatform.Mover();
+   if(mover.IsValid())
+   {
+      mover.StartupEngines(TIME_NOW);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+//*************************************************************
+// Pushback Functions
+//*************************************************************
+script_variables
+   //This is total weight including fuel.
+   static double PushbackScriptCalibratedPlatformWeight_lbs = 16300.0;
+end_script_variables
+
+script double GetPushbackForceMultiplier(double aPlatformWeight_lbs)
+   double multiplier = aPlatformWeight_lbs / PushbackScriptCalibratedPlatformWeight_lbs;
+   if(multiplier > 1.0)
+   {
+      multiplier = ((multiplier - 1.0) * 0.85) + 1.0;
+   }
+   else if( multiplier < 1.0)
+   {
+      multiplier = 1.0 - ((1.0 - multiplier) * 0.85);
+   }
+   return multiplier;
+end_script
+
+script void Pushback(WsfPlatform aPlatform, double aForceMultiplier, double aAngleMultiplier, string aCallbackName)
+   aPlatform.ExecuteAtTime(TIME_NOW, "ReleaseWheelBrakes", {aPlatform});
+   aPlatform.ExecuteAtTime(TIME_NOW, "ApplyExternalForce",   {aPlatform, 1200.0 * aForceMultiplier, -180 * aAngleMultiplier});
+   aPlatform.ExecuteAtTime(TIME_NOW + 2.0, "ApplyExternalForce",   {aPlatform, 600.0 * aForceMultiplier, -180 * aAngleMultiplier});
+   aPlatform.ExecuteAtTime(TIME_NOW + 10.0, "ApplyExternalForce",   {aPlatform, 600.0 * aForceMultiplier, -175.5 * aAngleMultiplier});
+   aPlatform.ExecuteAtTime(TIME_NOW + 31.5, "RemoveExternalForce", {aPlatform});
+   aPlatform.ExecuteAtTime(TIME_NOW + 32.0, "SetParkingBrake",   {aPlatform});
+   if(aCallbackName != "")
+   {
+      aPlatform.ExecuteAtTime(TIME_NOW + 33.0, aCallbackName);
+   }
+end_script
+
+script void PushbackLeft(WsfPlatform aPlatform, string aCallbackName)
+   double multiplier = 1.0;
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      multiplier = GetPushbackForceMultiplier(p6dofMover.GetTotalWeight() * Math.LB_PER_KG());
+      Pushback(aPlatform, multiplier, -1.0, aCallbackName);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void PushbackRight(WsfPlatform aPlatform, string aCallbackName)
+   double multiplier = 1.0;
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      multiplier = GetPushbackForceMultiplier(p6dofMover.GetTotalWeight() * Math.LB_PER_KG());
+      Pushback(aPlatform, multiplier, 1.0, aCallbackName);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+//*************************************************************
+// Take Off Functions
+//*************************************************************
+script void CheckForAltitude(WsfPlatform aPlatform, double aTargetAlt_m, string aCallback)
+
+   if(aPlatform.Altitude() > aTargetAlt_m)
+   {
+      if(aCallback != "")
+      {
+         # Release throttle to synthetic pilot common controller
+         ReleaseDirectThrottleInput(aPlatform);
+         // aPlatform.ReturnToRoute(); not needed
+         aPlatform.Execute(aCallback);
+      }
+   }
+   else
+   {
+      aPlatform.ExecuteAtTime(TIME_NOW + 0.5, "CheckForAltitude", {aPlatform, aTargetAlt_m, aCallback});
+   }
+
+end_script
+
+script void TakeoffGearUp(WsfPlatform aPlatform, double aClimbOutAngle_deg, string aCallback)
+
+   RetractLandingGear(aPlatform);
+   SetTaxiMode(aPlatform, false);
+
+   double heading_deg = aPlatform.Heading();
+   aPlatform.TurnToHeading(heading_deg);
+
+   #SetAutopilotVerticalSpeed(aPlatform, aClimbOutSpeed_fpm);
+   SetAutopilotPitchAngle(aPlatform, aClimbOutAngle_deg);
+
+   double targetAlt_m = 12000.0/3.28;
+   CheckForAltitude(aPlatform, targetAlt_m, aCallback);
+
+end_script
+
+script void CheckForWeightOnWheels(WsfPlatform aPlatform, double aClimbOutAngle_deg, string aCallback)
+   if(!WeightOnWheels(aPlatform))
+   {
+      TakeoffGearUp(aPlatform, aClimbOutAngle_deg, aCallback);
+//    SetAutopilotVerticalSpeed(aPlatform, aClimbOutSpeed_fpm);
+//    aPlatform.ExecuteAtTime(TIME_NOW + 1.0, "CheckForAltitude", {aPlatform, aCallback});
+   }
+   else
+   {
+      aPlatform.ExecuteAtTime(TIME_NOW + .05, "CheckForWeightOnWheels", {aPlatform, aClimbOutAngle_deg, aCallback});
+   }
+end_script
+
+script void BeginSteepTakeOff(WsfPlatform aPlatform, double aMinRotateSpeed_mps, double aClimbOutAngle_deg, string aCallback)
+   if(aPlatform.Speed() >= aMinRotateSpeed_mps)
+   {
+     SetAutopilotPitchAngle(aPlatform, 30.0);
+     CheckForWeightOnWheels(aPlatform, aClimbOutAngle_deg, aCallback);
+   }
+   else
+   {
+      aPlatform.ExecuteAtTime(TIME_NOW + .05, "BeginSteepTakeOff", {aPlatform, aMinRotateSpeed_mps, aClimbOutAngle_deg, aCallback});
+   }
+end_script
+
+script void BeginTakeOff(WsfPlatform aPlatform, double aMinRotateSpeed_mps, double aClimbOutSpeed_fpm, string aCallback)
+   if(aPlatform.Speed() >= aMinRotateSpeed_mps)
+   {
+     SetAutopilotPitchAngle(aPlatform, 30.0);
+     CheckForWeightOnWheels(aPlatform, aClimbOutSpeed_fpm, aCallback);
+   }
+   else
+   {
+      aPlatform.ExecuteAtTime(TIME_NOW + .05, "BeginTakeOff", {aPlatform, aMinRotateSpeed_mps, aClimbOutSpeed_fpm, aCallback});
+   }
+end_script
+

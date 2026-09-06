@@ -1,0 +1,98 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include test_functions.txt
+include test_pass.txt
+
+script_variables
+   PassTestCount = 20;
+end_script_variables
+
+script Object GetObject(int aIndex)
+   if (aIndex == 0)
+   {
+      return 5;
+   }
+   else if(aIndex == 1)
+   {
+      return 1.234;
+   }
+   else if(aIndex == 2)
+   {
+      return "hello";
+   }
+   else if(aIndex == 3)
+   {
+      return true;
+   }
+   //else if(aIndex == 4)
+   //{
+   //   return WsfTrack();
+   //}
+   return null;
+end_script
+#script_listing on
+on_initialize
+
+   Array<Object> a = { 5, 1.234, "hello", true };
+
+   // Test the array iterator.
+   ArrayIterator arrayIter = a.GetIterator();
+   int i = 0;
+   while (arrayIter.HasNext())
+   {
+      arrayIter.Next();
+      if (AssertEqualsMessage(GetObject(i), arrayIter.Data(), "ArrayIterator")) { pass(); }
+      i = i + 1;
+   }
+   if (AssertEqualsMessage(4, i, "array iterator count")) { pass(); }
+
+   if (AssertEqualsMessage(4, a.Size(), "array size")) { pass(); }
+   for (i = 0; i < a.Size(); i = i + 1)
+   {
+      if (AssertEqualsMessage(GetObject(i), a[i], "Array[" + (string)i + "]")) { pass(); }
+   }
+   
+   // Test array insertion
+   //    single element at end
+   a.Insert(a.Size(), a.Front());
+   if (AssertEqualsMessage(5, a.Size(), "array size")) { pass(); }
+   if (AssertEqualsMessage(a.Front(), a.Back(), "array insertion at end")) { pass(); }
+   a.PopBack();
+
+   //    single element at beginning
+   a.Insert(0, a.Back());
+   if (AssertEqualsMessage(5, a.Size(), "array size")) { pass(); }
+   if (AssertEqualsMessage(a.Back(), a.Front(), "array insertion at beginning")) { pass(); }
+   a.EraseAt(0);
+   
+   //    multiple elements in middle
+   a.Insert(2, true, "hello", 1.234, 5);
+   if (AssertEqualsMessage(8, a.Size(), "array size")) { pass(); }
+   for (i = 0; i < 4; i += 1)
+   {
+      if (AssertEqualsMessage(GetObject(3-i), a[i+2], "Array[" + (string)(i+2) + "]")) { pass(); }
+   } 
+   
+   a.Clear();
+   a.PushBack(null);
+   if (AssertTrueMessage((a[0] == null) && (a == {null}), "null in Array")) { pass(); }
+
+   /*
+   i = 0;
+   int expectedSize = a.Size();
+   while (0 < a.Size() && expectedSize > 0)
+   {
+      i = i + 1;
+      a.Erase(a[0]);
+      expectedSize = expectedSize - 1;
+      pass = AssertEqualsMaessage(expectedSize, a.Size(), "array size after erase element [0] iteration: " + (string)i) && pass;
+   }
+   */
+end_on_initialize

@@ -1,0 +1,134 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests that we get identical results when using identical signatures, but with one 
+# attached to a platform in the standard way and one using multiresolution_radar_signature.
+
+end_time 600 sec
+
+### Sensor types ###
+sensor RADAR WSF_RADAR_SENSOR
+   one_m2_detect_range            50.0 nm
+   antenna_height                 5.0 m
+   frame_time                     10.0 sec
+   scan_mode                      azimuth_and_elevation
+   azimuth_scan_limits            -180 deg 180 deg
+   elevation_scan_limits          0.0 deg 50.0 deg
+   reports_range 
+   ignore_same_side
+   transmitter
+      power                       1000.0 kw
+      frequency                   3000 mhz
+   end_transmitter
+   receiver
+      bandwidth                   2.0 mhz
+      noise_power                 -160 dBw  # will be calibrated for 1 m^2
+      internal_loss               7 dB
+   end_receiver
+end_sensor
+
+platform_type SENSOR_SITE WSF_PLATFORM
+   processor track_mgr WSF_TRACK_PROCESSOR
+   end_processor
+   
+   sensor radar RADAR
+      on
+      internal_link track_mgr
+   end_sensor
+end_platform_type
+
+### Fighter platform types ###
+radar_signature LOW_RADAR_SIGNATURE
+   constant 1 m^2
+end_radar_signature
+
+radar_signature HIGH_RADAR_SIGNATURE
+   constant 100 m^2
+end_radar_signature
+
+platform_type SIMPLE_FIGHTER WSF_PLATFORM
+   mover WSF_AIR_MOVER end_mover
+   route
+      position 40.2n 89.5w altitude 20000 ft heading 270 deg speed 500 kts
+   end_route
+end_platform_type
+
+### Platform instantiations
+platform sr_detection_site SENSOR_SITE
+   side red
+   position 40n 90w
+   heading 0 deg
+end_platform
+
+platform sr_sig_fighter SIMPLE_FIGHTER
+   side blue
+   radar_signature HIGH_RADAR_SIGNATURE
+end_platform
+
+platform mr_detection_site SENSOR_SITE
+   side blue
+   position 40n 90w
+   heading 0 deg
+end_platform
+
+platform mr_sig_fighter SIMPLE_FIGHTER
+   side red
+   add multiresolution_radar_signature WSF_MULTIRESOLUTION_RADAR_SIGNATURE
+      fidelity 0.9
+      model low_fidelity_sig
+         fidelity_range 0.0 0.5
+         radar_signature LOW_RADAR_SIGNATURE  end_radar_signature
+      end_model
+      model high_fidelity_sig 
+         fidelity_range 0.5 1.0
+         radar_signature HIGH_RADAR_SIGNATURE end_radar_signature
+      end_model
+   end_multiresolution_radar_signature
+end_platform
+
+### Observer for testing ###
+script_variables
+   double mrSensorRadarSignature = 0.0;
+   bool mrSensorHasUpdate = false;
+   double srSensorRadarSignature = 0.0;
+   bool srSensorHasUpdate = false;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult) 
+   if(mrSensorHasUpdate && aTarget.Name() == "mr_sig_fighter") {
+      writeln("-FAIL- Got two mr_sig_fighter detection attempts, expected an sr_sig_fighter attempt");
+   }
+   if(srSensorHasUpdate && aTarget.Name() == "sr_sig_fighter") {
+      writeln("-FAIL- Got two sr_sig_fighter detection attempts, expected an mr_sig_fighter attempts");
+   }
+   
+   if(!srSensorHasUpdate && aTarget.Name() == "sr_sig_fighter") {
+      srSensorRadarSignature = aResult.RadarSignature();
+      srSensorHasUpdate = true;
+   } else if(!mrSensorHasUpdate && aTarget.Name() == "mr_sig_fighter") {
+      mrSensorRadarSignature = aResult.RadarSignature();
+      mrSensorHasUpdate = true;
+   }
+   if(mrSensorHasUpdate && srSensorHasUpdate){
+      if(mrSensorRadarSignature != srSensorRadarSignature){
+         writeln("Optical signatures don't match: MR: ", mrSensorRadarSignature, ", SR: ", srSensorRadarSignature);
+         writeln("-FAIL-");
+      } else {
+         writeln("-PASS- MR Optical signature: ", mrSensorRadarSignature, ", SR Optical signature: ", srSensorRadarSignature);
+      }
+      mrSensorHasUpdate = false;
+      srSensorHasUpdate = false;
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT
+end_observer

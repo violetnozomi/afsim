@@ -1,0 +1,115 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2019 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void ExpectDouble(double aValue, double aExpectation, double aTolerance, string aMessage)
+   if (MATH.Fabs(aValue - aExpectation) > aTolerance)
+   {
+      writeln("-FAIL- ", aMessage, ": Value was ", aValue, " but expected ", aExpectation);
+   }
+end_script
+
+script void ExpectInt(int aValue, int aExpectation, string aMessage)
+   if (aValue != aExpectation)
+   {
+      writeln("-FAIL- ", aMessage, ": Value was ", aValue, " but expected ", aExpectation);
+   }
+end_script
+
+script void ExpectString(string aValue, string aExpectation, string aMessage)
+   if (aValue != aExpectation)
+   {
+      writeln("-FAIL- ", aMessage, ": Value was \n", aValue, " but expected \n", aExpectation);
+   }
+end_script
+
+platform twobodyj2 WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      oblate_earth enable
+
+      inclination 30 deg
+      revs_per_day 12
+      raan 10 deg
+      eccentricity 0.01
+      argument_of_periapsis 10 deg
+      true_anomaly 0 deg
+   end_mover
+
+   execute at_time 12 h absolute
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      ExpectDouble(mover.InitialArgumentOfPeriapsis(), 10.0, 0.001, "Argument of Periapsis");
+      ExpectDouble(mover.InitialEccentricity(), 0.01, 0.00001, "Eccentricity");
+      ExpectDouble(mover.InitialInclination(), 30.0, 0.001, "Inclination");
+      ExpectDouble(mover.InitialMeanAnomaly(), 0.0, 0.001, "Mean Anomaly");
+      ExpectDouble(mover.InitialMeanMotion(), 0.05, 0.000001, "Mean Motion");
+      ExpectDouble(mover.InitialRAAN(), 10, 0.001, "RAAN");
+      ExpectDouble(mover.InitialTrueAnomaly(), 0, 0.0001, "True Anomaly");
+
+      double sma = MATH.Pow(Earth.GRAVITATIONAL_PARAMETER() * 7200.0 * 7200.0 / (MATH.TWO_PI() * MATH.TWO_PI()),
+                            1.0/3.0);
+      ExpectDouble(mover.InitialSemiMajorAxis(), sma, 0.1, "Semi-major axis");
+
+      Calendar epoch = mover.InitialEpoch();
+      ExpectInt(epoch.Year(), 2019, "Epoch year");
+      ExpectInt(epoch.Month(), 6, "Epoch month");
+      ExpectInt(epoch.Day(), 26, "Epoch day");
+      ExpectInt(epoch.Hour(), 0, "Epoch hour");
+      ExpectInt(epoch.Minute(), 0, "Epoch minute");
+      ExpectDouble(epoch.Second(), 0, 0.000001, "Epoch second");
+
+      string tle = "1 00000U 00001A   19177.00000000  .00000000 +00000-0 +00000-0 9 00008\n2 00000 030.0000 010.0000 0100000 010.0000 000.0000 12.00000000000001\n";
+      ExpectString(mover.InitialTwoLineElement(), tle, "twobodyj2 TLE");
+   end_execute
+end_platform
+
+platform tle-hst WSF_PLATFORM
+   add mover WSF_NORAD_SPACE_MOVER
+      orbit
+         0 HST
+         1 20580U 90037B   19176.30423610  .00000333  00000-0  92680-5 0  9996
+         2 20580  28.4681 168.2117 0002666 190.3324 294.3699 15.09238375401891
+      end_orbit
+   end_mover
+
+   execute at_time 18 h absolute
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      ExpectDouble(mover.InitialArgumentOfPeriapsis(), 190.3324, 0.00001, "Argument of Periapsis");
+      ExpectDouble(mover.InitialEccentricity(), 0.0002666, 0.0000001, "Eccentricity");
+      ExpectDouble(mover.InitialInclination(), 28.4681, 0.00001, "Inclination");
+      ExpectDouble(mover.InitialMeanAnomaly(), 294.3699, 0.00001, "Mean Anomaly");
+
+      double revsperday = 15.09238375;
+      double meanmotion = revsperday * 360.0 / (3600.0 * 24);
+      ExpectDouble(mover.InitialMeanMotion(), meanmotion, 0.000001, "Mean Motion");
+      ExpectDouble(mover.InitialRAAN(), 168.2117, 0.00001, "RAAN");
+      // We skip true anomaly because there is no good way (short of solving Kepler's problem)
+      // to get the true anomaly from the mean anomaly.
+
+      double period = 360.0 / meanmotion;
+      double sma = MATH.Pow(Earth.GRAVITATIONAL_PARAMETER() * period * period / (MATH.TWO_PI() * MATH.TWO_PI()),
+                            1.0/3.0);
+      ExpectDouble(mover.InitialSemiMajorAxis(), sma, 0.1, "Semi-major axis");
+
+      Calendar epoch = mover.InitialEpoch();
+      ExpectInt(epoch.Year(), 2019, "Epoch year");
+      ExpectInt(epoch.Month(), 6, "Epoch month");
+      ExpectInt(epoch.Day(), 25, "Epoch day");
+      ExpectInt(epoch.Hour(), 7, "Epoch hour");
+      ExpectInt(epoch.Minute(), 18, "Epoch minute");
+      ExpectDouble(epoch.Second(), 5.99904, 0.000001, "Epoch second");
+
+      string tle = "HST\n1 20580U 90037B   19176.30423610  .00000333 +00000-0 +92680-5 0 09996\n2 20580 028.4681 168.2117 0002666 190.3324 294.3699 15.09238375401891\n";
+      ExpectString(mover.InitialTwoLineElement(), tle, "tle-hst TLE");
+   end_execute
+end_platform
+
+start_date jun 26 2019
+start_time 00:00:00.000
+end_time 24 hours

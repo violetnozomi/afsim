@@ -1,0 +1,22 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.4.3)** Corrected an issue in which a :command:`processor` of type :model:`WSF_WEAPON_FUSE` could not be cast to a :class:`WsfWeaponFuse` in script.
+* **(2.4.3)** Corrected an issue with the :model:`WSF_JTIDS_TERMINAL` in which a failed message delivery attempt for any member in a JTIDS slot group resulted in a delivery failure for any subsequent member in the slot group. *(Issue #2012)*
+* **(2.4.3)** Corrected an issue with the script methods :method:`WsfTaskManager.WeaponsFiredAt` and :method:`WsfTaskManager.WeaponsActiveFor` not returning correct values after firing a :model:`WSF_IMPLICIT_WEAPON`. *(ELSZ #246)*
+* **(2.4.3)** Corrected a crash when constructing a :class:`WsfQuantumTask` in a custom allocator in a :model:`WSF_QUANTUM_TASKER_PROCESSOR`. *(ELSZ #247)*
+* **(2.4.3)** Corrected a crash while updating :command:`false_target` blip positions when using :model:`WSF_FALSE_TARGET_EFFECT`. 
+* **(2.4.2)** Corrected a crash that occurred when a platform, towing an asset with a :model:`WSF_TOWED_MOVER`, is removed from the simulation. *(ELSZ #221)*
+* **(2.4.2)** Corrected an issue with the WEAPON_FIRED script :command:`observer` where :model:`implicit weapons<WSF_IMPLICIT_WEAPON>` would provide a :method:`null<Object.IsNull>` reference to the target track. *(ELSZ #222)*
+* Corrected an issue with :command:`weapon` reload functionality where weapons in the reload inventory could be lost if :command:`weapon.maximum_quantity` was specified, and the :command:`weapon.reload_increment` is greater than the difference of the reload_threshold and maximum_quantity. *(Issue #1181)*
+* Corrected a crash when restarting simulations with :command:`false_target` jamming effects. *(Issue #1182)*
+* Corrected an issue in :model:`WSF_GUIDED_MOVER` where the magnitude of the thrust was being changed if thrust vectoring was used (the magnitude of the thrust should be the same, only the direction should change.) **NOTE:** In many cases the results should barely be evident, but if thrust vectoring is used then launch computers may need to be regenerated. Also, for orbital launch vehicles, the value for pitch_rate in the :ref:`guidance_program_types.flight_path_angle_program` in the guidance computer may need to be re-tuned. *(Issue #1139)*
+* Corrected an issue in the :ref:`error_model.bistatic_error` where errors were being applied in the NED coordinate frame rather than PCS. *(ELSZ #114)*
+* Corrected a small performance issue when using :command:`false_target.persistence` command in :command:`false_target` when the :command:`false_target.false_target_behavior` is *consistent_scan_to_scan*. *(ELSZ #117)*
+* Corrected an issue where a default :model:`WSF_PERCEPTION_PROCESSOR` is not created when one is not defined on a :command:`platform` and a :model:`WSF_QUANTUM_TASKER_PROCESSOR` is defined on the :command:`platform`. *(ELSZ# 150)*

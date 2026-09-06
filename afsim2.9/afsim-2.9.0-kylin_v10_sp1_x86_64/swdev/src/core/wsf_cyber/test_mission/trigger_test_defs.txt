@@ -1,0 +1,960 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# A separate include file used for variables and definitions for trigger script tests.
+
+script void PrintResult(bool aResult, string aMessage)
+   if(!aResult)
+   {
+      writeln("-FAIL-");
+      writeln(aMessage);
+   }
+end_script
+
+script_variables
+   int trigger1_executed = 0;
+   int trigger1_evals = 0;
+   int trigger2_executed = 0;
+   int trigger2_evals = 0;
+   int trigger3_executed = 0;
+   int trigger3_evals = 0;
+   int trigger4_executed = 0;
+   int trigger4_evals = 0;
+   int trigger5_executed = 0;
+   int trigger5_evals = 0;
+   int trigger6_executed = 0;
+   int trigger6_evals = 0;
+   int trigger7_executed = 0;
+   int trigger7_evals = 0;
+   int trigger8_executed = 0;
+   int trigger8_evals = 0;
+   int trigger9_executed = 0;
+   int trigger9_evals = 0;
+   int trigger10_executed = 0;
+   int trigger10_evals = 0;
+   int trigger11_executed = 0;
+   int trigger11_evals = 0;
+   int trigger12_executed = 0;
+   int trigger12_evals = 0;
+   
+   int static_global_evals = 0;
+   int static_plat_evals = 0;
+   int dynamic_global_evals = 0;
+   int dynamic_plat_evals = 0;
+   
+   bool DEBUG1 = false;
+   bool DEBUG2 = false;
+   bool DEBUG3 = false;
+   bool DEBUG4 = false;
+   bool DEBUG5 = false;
+   bool DEBUG6 = false;
+   bool DEBUG7 = false;
+   bool DEBUG8 = false;
+   bool DEBUG9 = false;
+   bool DEBUG10 = false;
+   bool DEBUG11 = false;
+   bool DEBUG12 = false;
+   
+   bool DEBUG_STATIC_GLOBAL_EVAL = false;
+   bool DEBUG_STATIC_PLAT_EVAL = false;
+   bool DEBUG_DYNAMIC_GLOBAL_EVAL = false;
+   bool DEBUG_DYNAMIC_PLAT_EVAL = false;
+end_script_variables
+
+///////////////////////////Trigger Prototypes///////////////////////////
+cyber_trigger TEST_TRIGGER_TYPE WSF_CYBER_TRIGGER
+   debug
+   extrapolated_trigger true
+   execute_trigger false
+end_cyber_trigger
+
+cyber_trigger COMPOSITE_TRIGGER_TYPE WSF_CYBER_COMPOSITE_TRIGGER
+   debug
+   extrapolated_trigger true
+   execute_trigger false
+   
+   update_interval
+      to 3.0 min every 30.0 s
+   end_update_interval
+end_cyber_trigger
+///////////////////////////End Trigger Prototypes///////////////////////////
+
+///////////////////////////Static Eval Triggers///////////////////////////
+// These triggers are static definitions only used to add additional triggers
+// to a composite trigger at runtime.
+cyber_trigger static_global_trigger WSF_CYBER_TRIGGER
+   debug
+   execute_trigger false
+   
+   script bool OnEvaluate()
+      static_global_evals = (static_global_evals + 1);
+      if(DEBUG_STATIC_GLOBAL_EVAL)
+      {
+         writeln("static_global_trigger evaluating at t = " + (string)TIME_NOW);
+      }
+      if(TIME_NOW < 121.0)
+      {
+         return false;
+      }
+      return true;
+   end_script 
+end_cyber_trigger
+
+cyber_trigger static_plat_trigger WSF_CYBER_TRIGGER
+   debug
+   execute_trigger false
+   
+   script bool OnEvaluate()
+      static_plat_evals = (static_plat_evals + 1);
+      if(DEBUG_STATIC_PLAT_EVAL)
+      {
+         writeln("static_plat_evals evaluating at t = " + (string)TIME_NOW);
+      }
+      if(TIME_NOW < 121.0)
+      {
+         return false;
+      }
+      return true;
+   end_script 
+end_cyber_trigger
+///////////////////////////End Static Eval Triggers///////////////////////////
+
+///////////////////////////Dynamic Eval Scripts///////////////////////////
+// These are the scripts used to create dynamic triggers for addition to
+// a composite trigger at runtime.
+script bool DynamicGlobalTriggerScript()
+   dynamic_global_evals = (dynamic_global_evals + 1);
+   if(DEBUG_DYNAMIC_GLOBAL_EVAL)
+   {
+      writeln("dynamic_global_trigger evaluating at t = " + (string)TIME_NOW);
+   }
+   if(TIME_NOW < 121.0)
+   {
+      return false;
+   }
+   return true;
+end_script
+
+script bool DynamicPlatTriggerScript()
+   dynamic_plat_evals = (dynamic_plat_evals + 1);
+   if(DEBUG_DYNAMIC_PLAT_EVAL)
+   {
+      writeln("dynamic_plat_trigger evaluating at t = " + (string)TIME_NOW);
+   }
+   if(TIME_NOW < 121.0)
+   {
+      return false;
+   }
+   return true;
+end_script
+///////////////////////////End Dynamic Eval Scripts///////////////////////////
+
+///////////////////////////Trigger 1///////////////////////////
+cyber_trigger test_trigger1_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger1_evals = (trigger1_evals + 1);
+      if(DEBUG1)
+      {
+         writeln("test_trigger1_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger1_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger1_evals = trigger1_evals + 1;
+      if(DEBUG1)
+      {
+         writeln("test_trigger1_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger1_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger1_evals = trigger1_evals + 1;
+      if(DEBUG1)
+      {
+         writeln("test_trigger1_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER1_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger1_1
+      test_trigger1_2
+      not test_trigger1_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG1)
+      {
+         writeln("trigger1 executing at t = " + (string)TIME_NOW);
+      }
+      trigger1_executed = trigger1_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 1///////////////////////////
+
+///////////////////////////Trigger 2///////////////////////////
+cyber_trigger test_trigger2_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger2_evals = (trigger2_evals + 1);
+      if(DEBUG2)
+      {
+         writeln("test_trigger2_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger2_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger2_evals = trigger2_evals + 1;
+      if(DEBUG2)
+      {
+         writeln("test_trigger2_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger2_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger2_evals = trigger2_evals + 1;
+      if(DEBUG2)
+      {
+         writeln("test_trigger2_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER2_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger2_1
+      test_trigger2_2
+      not test_trigger2_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG2)
+      {
+         writeln("trigger2 executing at t = " + (string)TIME_NOW);
+      }
+      trigger2_executed = trigger2_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 2///////////////////////////
+
+///////////////////////////Trigger 3///////////////////////////
+cyber_trigger test_trigger3_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger3_evals = (trigger3_evals + 1);
+      if(DEBUG3)
+      {
+         writeln("test_trigger3_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger3_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger3_evals = trigger3_evals + 1;
+      if(DEBUG3)
+      {
+         writeln("test_trigger3_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger3_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger3_evals = trigger3_evals + 1;
+      if(DEBUG3)
+      {
+         writeln("test_trigger3_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER3_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger3_1
+      test_trigger3_2
+      not test_trigger3_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG3)
+      {
+         writeln("trigger3 executing at t = " + (string)TIME_NOW);
+      }
+      trigger3_executed = trigger3_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 3///////////////////////////
+
+///////////////////////////Trigger 4///////////////////////////
+cyber_trigger test_trigger4_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger4_evals = (trigger4_evals + 1);
+      if(DEBUG4)
+      {
+         writeln("test_trigger4_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger4_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger4_evals = trigger4_evals + 1;
+      if(DEBUG4)
+      {
+         writeln("test_trigger4_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger4_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger4_evals = trigger4_evals + 1;
+      if(DEBUG4)
+      {
+         writeln("test_trigger4_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER4_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger4_1
+      test_trigger4_2
+      not test_trigger4_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG4)
+      {
+         writeln("trigger4 executing at t = " + (string)TIME_NOW);
+      }
+      trigger4_executed = trigger4_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 4///////////////////////////
+
+///////////////////////////Trigger 5///////////////////////////
+cyber_trigger test_trigger5_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger5_evals = (trigger5_evals + 1);
+      if(DEBUG5)
+      {
+         writeln("test_trigger5_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger5_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger5_evals = trigger5_evals + 1;
+      if(DEBUG5)
+      {
+         writeln("test_trigger5_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger5_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger5_evals = trigger5_evals + 1;
+      if(DEBUG5)
+      {
+         writeln("test_trigger5_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER5_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger5_1
+      test_trigger5_2
+      not test_trigger5_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG5)
+      {
+         writeln("trigger5 executing at t = " + (string)TIME_NOW);
+      }
+      trigger5_executed = trigger5_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 5///////////////////////////
+
+///////////////////////////Trigger 6///////////////////////////
+cyber_trigger test_trigger6_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger6_evals = (trigger6_evals + 1);
+      if(DEBUG6)
+      {
+         writeln("test_trigger6_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger6_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger6_evals = trigger6_evals + 1;
+      if(DEBUG6)
+      {
+         writeln("test_trigger6_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger6_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger6_evals = trigger6_evals + 1;
+      if(DEBUG6)
+      {
+         writeln("test_trigger6_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER6_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger6_1
+      test_trigger6_2
+      not test_trigger6_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG6)
+      {
+         writeln("trigger6 executing at t = " + (string)TIME_NOW);
+      }
+      trigger6_executed = trigger6_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 6///////////////////////////
+
+///////////////////////////Trigger 7///////////////////////////
+cyber_trigger test_trigger7_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger7_evals = (trigger7_evals + 1);
+      if(DEBUG7)
+      {
+         writeln("test_trigger7_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger7_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger7_evals = trigger7_evals + 1;
+      if(DEBUG7)
+      {
+         writeln("test_trigger7_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger7_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger7_evals = trigger7_evals + 1;
+      if(DEBUG7)
+      {
+         writeln("test_trigger7_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER7_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger7_1
+      test_trigger7_2
+      not test_trigger7_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG7)
+      {
+         writeln("trigger7 executing at t = " + (string)TIME_NOW);
+      }
+      trigger7_executed = trigger7_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 7///////////////////////////
+
+///////////////////////////Trigger 8///////////////////////////
+cyber_trigger test_trigger8_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger8_evals = (trigger8_evals + 1);
+      if(DEBUG8)
+      {
+         writeln("test_trigger8_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger8_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger8_evals = trigger8_evals + 1;
+      if(DEBUG8)
+      {
+         writeln("test_trigger8_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger8_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger8_evals = trigger8_evals + 1;
+      if(DEBUG8)
+      {
+         writeln("test_trigger8_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER8_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger8_1
+      test_trigger8_2
+      not test_trigger8_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG8)
+      {
+         writeln("trigger8 executing at t = " + (string)TIME_NOW);
+      }
+      trigger8_executed = trigger8_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 8///////////////////////////
+
+///////////////////////////Trigger 9///////////////////////////
+cyber_trigger test_trigger9_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger9_evals = (trigger9_evals + 1);
+      if(DEBUG9)
+      {
+         writeln("test_trigger9_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger9_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger9_evals = trigger9_evals + 1;
+      if(DEBUG9)
+      {
+         writeln("test_trigger9_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger9_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger9_evals = trigger9_evals + 1;
+      if(DEBUG9)
+      {
+         writeln("test_trigger9_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER9_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger9_1
+      test_trigger9_2
+      not test_trigger9_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG9)
+      {
+         writeln("trigger9 executing at t = " + (string)TIME_NOW);
+      }
+      trigger9_executed = trigger9_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 9///////////////////////////
+
+///////////////////////////Trigger 10///////////////////////////
+cyber_trigger test_trigger10_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger10_evals = (trigger10_evals + 1);
+      if(DEBUG10)
+      {
+         writeln("test_trigger10_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger10_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger10_evals = trigger10_evals + 1;
+      if(DEBUG10)
+      {
+         writeln("test_trigger10_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger10_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger10_evals = trigger10_evals + 1;
+      if(DEBUG10)
+      {
+         writeln("test_trigger10_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER10_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger10_1
+      test_trigger10_2
+      not test_trigger10_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG10)
+      {
+         writeln("trigger10 executing at t = " + (string)TIME_NOW);
+      }
+      trigger10_executed = trigger10_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 10///////////////////////////
+
+///////////////////////////Trigger 11///////////////////////////
+cyber_trigger test_trigger11_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger11_evals = (trigger11_evals + 1);
+      if(DEBUG11)
+      {
+         writeln("test_trigger11_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger11_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger11_evals = trigger11_evals + 1;
+      if(DEBUG11)
+      {
+         writeln("test_trigger11_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger11_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger11_evals = trigger11_evals + 1;
+      if(DEBUG11)
+      {
+         writeln("test_trigger11_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER11_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger11_1
+      test_trigger11_2
+      not test_trigger11_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG11)
+      {
+         writeln("trigger11 executing at t = " + (string)TIME_NOW);
+      }
+      trigger11_executed = trigger11_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 11///////////////////////////
+
+///////////////////////////Trigger 12///////////////////////////
+cyber_trigger test_trigger12_1 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger12_evals = (trigger12_evals + 1);
+      if(DEBUG12)
+      {
+         writeln("test_trigger12_1 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger12_2 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger12_evals = trigger12_evals + 1;
+      if(DEBUG12)
+      {
+         writeln("test_trigger12_2 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_trigger12_3 TEST_TRIGGER_TYPE
+   script bool OnEvaluate()
+      trigger12_evals = trigger12_evals + 1;
+      if(DEBUG12)
+      {
+         writeln("test_trigger12_3 evaluating at t = " + (string)TIME_NOW);
+      }
+      if (TIME_NOW < 61.0)
+      {
+         return true;
+      }
+      
+      return false;
+   end_script
+end_cyber_trigger
+
+cyber_trigger TRIGGER12_BASE COMPOSITE_TRIGGER_TYPE
+   execute_trigger false
+   triggers
+      test_trigger12_1
+      test_trigger12_2
+      not test_trigger12_3
+   end_triggers
+   
+   script void OnExecute()
+      if(DEBUG12)
+      {
+         writeln("trigger12 executing at t = " + (string)TIME_NOW);
+      }
+      trigger12_executed = trigger12_executed + 1;
+   end_script
+end_cyber_trigger
+///////////////////////////End Trigger 12///////////////////////////

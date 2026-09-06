@@ -1,0 +1,126 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests the script functions NearestAsset() and
+# NearestThreat() for WsfPerceptionProcessor
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+platform_type VIPER_MK_II WSF_PLATFORM
+   icon F-35
+   comm comm_1 WSF_COMM_TRANSCEIVER 
+   end_comm
+   processor brain WSF_PERCEPTION_PROCESSOR 
+      report_to commander via comm_1
+      reporting_self true
+      report_interval 1 sec
+      asset_perception status_messages 
+   end_processor
+end_platform_type
+
+platform_type BATTLESTAR WSF_PLATFORM
+   icon Carrier 
+   comm comm_1 WSF_COMM_TRANSCEIVER 
+      internal_link brain
+   end_comm
+   processor data_mgr WSF_TRACK_PROCESSOR
+   end_processor
+   sensor simple_sensor WSF_GEOMETRIC_SENSOR
+      on
+      azimuth_field_of_view   -45.0 degrees  45.0 degrees
+      elevation_field_of_view  -20.0 degrees   20.0 degrees
+      maximum_range 175940 m     //about  95 nm
+      frame_time    0.5 sec
+      reports_location
+      reports_velocity
+      reports_iff
+      track_quality 1.0
+      internal_link data_mgr
+      ignore_same_side
+   end_sensor
+   processor brain WSF_PERCEPTION_PROCESSOR 
+      asset_perception status_messages 
+      max_asset_load 100
+      asset_update_interval 1 s
+      max_threat_load 100
+      threat_update_interval 10 s
+   end_processor
+end_platform_type
+
+platform test BATTLESTAR
+   side blue
+   position 0:0:0.0n 0:0:0.0w altitude 1000.00 m agl
+end_platform
+
+platform asset_near VIPER_MK_II
+   side blue
+   commander test
+   position 0:10:0.0s 0:5:0.0w altitude 1000.00 m agl
+end_platform
+
+platform asset_far VIPER_MK_II
+   side blue
+   commander test
+   position 0:15:0.0s 0:0:0.0w altitude 1000.00 m agl
+end_platform
+
+platform threat_near VIPER_MK_II
+   side red
+   position 0:10:0.0n 0:0:0.0w altitude 1000.00 m agl
+end_platform
+
+platform threat_far VIPER_MK_II
+   side red
+   position 0:15:0.0n 0:5:0.0w altitude 1000.00 m agl
+end_platform
+
+execute at_time 30 sec absolute
+   WsfPlatform testPlatform = WsfSimulation.FindPlatform("test");
+   WsfPerceptionProcessor perception = testPlatform.PerceptionProcessor();
+   string testStatus = "-FAIL-";
+   WsfAssetPerception nearestAsset = perception.NearestAsset();
+   if (nearestAsset.IsValid())
+   {
+      if (nearestAsset.Name() == "asset_near")
+      {
+         testStatus = "-PASS-";
+      }
+      else
+      {
+         testStatus = "-FAIL-";
+      }
+      writeln(testStatus, " test platform had ", nearestAsset.Name(), " as the nearest asset.");
+   }
+   else
+   {
+      writeln("-FAIL- test platform has no assets, should have two.");
+   }
+      
+   WsfTrack nearestThreat = perception.NearestThreat();
+   if (nearestThreat.IsValid())
+   {
+      if (nearestThreat.TargetName() == "threat_near")
+      {
+         testStatus = "-PASS-";
+      }
+      else
+      {
+         testStatus = "-FAIL-";
+      }
+      writeln(testStatus, " test platform had ", nearestThreat.TargetName(), " as the nearest threat.");
+   }
+   else
+   {
+      writeln("-FAIL- test platform has no tracks/threats, should have two.");
+   }
+
+end_execute 
+
+end_time 35 sec

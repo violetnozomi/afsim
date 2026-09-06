@@ -1,0 +1,167 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#------------------------------------------------------------------------------
+# Test the reporting of 'type' by the passive sensor
+#
+# Based on test_passive_sensor_transient.txt
+#------------------------------------------------------------------------------
+
+script_variables
+   bool gPass = true;
+end_script_variables
+
+script void SimulationComplete()
+   extern bool gPass;
+   if (gPass)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_script
+
+observer
+  enable SIMULATION_COMPLETE
+end_observer
+
+# -----------------------------------------------------------------------------
+
+sensor PASSIVE_SENSOR WSF_PASSIVE_SENSOR
+   frame_time                1 sec
+   frequency_band            1 ghz 18 ghz
+
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_frequency
+   reports_type
+end_sensor
+
+comm RADIO WSF_RADIO_TRANSCEIVER
+
+   transfer_rate             1 kbits/sec
+
+   transmitter
+      power                  100 kw
+      frequency              1.3 ghz
+   end_transmitter
+
+   receiver
+      bandwidth              100 khz
+      detection_threshold    12 db
+   end_receiver
+end_comm
+
+platform sigint_cmdr WSF_PLATFORM
+   side blue
+   position 0.05n 0e altitude 0 ft heading 0 deg
+
+   add processor track_proc WSF_TRACK_PROCESSOR
+   end_processor
+
+   add comm datalink WSF_COMM_TRANSCEIVER
+      internal_link track_proc
+   end_comm
+
+   # This executes periodically to check to see that the passive sensor is
+   # reporting types as expected.
+   script void CheckTracks()
+      extern bool gPass;
+      if (MasterRawTrackList().Count() > 0)
+      {
+         # Should only be 1
+         WsfTrack t =  MasterRawTrackList().Entry(0);
+         int numSignals = t.SignalCount();
+         for (int i = 0; i < numSignals; i=i+1)
+         {
+            if (t.SignalEmitterType(i) != "RADIO")
+            {
+               writeln("-FAIL- Expected signal type of 'RADIO', got ", t.SignalEmitterType(i));
+               gPass = false;
+            }
+         }
+      }
+      ExecuteAtTime(TIME_NOW + 1.0, "CheckTracks");
+   end_script
+
+   # Wait until subordinate is reporting something
+   execute at_time 1.0 sec absolute
+      CheckTracks();
+   end_execute
+
+end_platform
+
+platform sigint WSF_PLATFORM
+   side blue
+   commander sigint_cmdr
+   position 0n 0e altitude 30000 ft heading 0 deg
+
+   add processor track_proc WSF_TRACK_PROCESSOR
+      external_link commander via datalink
+   end_processor
+
+   add comm datalink WSF_COMM_TRANSCEIVER
+   end_comm
+
+   add sensor passive_sensor PASSIVE_SENSOR
+      on
+      internal_link track_proc
+      ignore same_side
+      ignore IGNORED_BY_PASSIVE_SENSOR     # See notes below
+   end_sensor
+
+end_platform
+
+platform target-1 WSF_PLATFORM
+   side red
+   position 0n 0.05e altitude 6 ft heading 90 deg
+
+   add comm radio RADIO
+   end_comm
+
+   execute at_time 1.5 sec absolute
+      WsfMessage message = WsfMessage();
+      message.SetSizeInBits(1000);     // 1 second of transmission time
+      message.SetType("CONTROL");
+      message.SetSubType("WAIT");
+      Comm("radio").SendMessage(message, "target-2", "radio");
+   end_execute
+
+   execute at_time 20.5 sec absolute
+      WsfMessage message = WsfMessage();
+      message.SetSizeInBits(10000);    // 10 sec of transmission time
+      message.SetType("CONTROL");
+      message.SetSubType("GO");
+      Comm("radio").SendMessage(message, "target-2", "radio");
+   end_execute
+
+end_platform
+
+platform target-2 WSF_PLATFORM
+   side red
+   category IGNORED_BY_PASSIVE_SENSOR  # See notes in passive sensor platform
+   position 0n 0.05w altitude 6 ft heading 270 deg
+
+   add comm radio RADIO
+   end_comm
+end_platform
+
+end_time 1 min
+/*
+event_output
+   file replay.evt
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_UPDATED
+   enable SENSOR_TRACK_DROPPED
+end_event_output
+*/

@@ -1,0 +1,30 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform plat WSF_PLATFORM
+   icon 737
+   side blue
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 0n 0e
+         speed 300 kts
+      position 0.1n 0e
+         heading 90 deg
+   end_route
+
+   execute at_time 4 min absolute
+      double headingError = Heading() - 90.0;
+      if (headingError > .1)
+      {
+         writeln("-FAIL- Heading of last point was not used");
+      }
+   end_execute
+end_platform
+end_time 5 min

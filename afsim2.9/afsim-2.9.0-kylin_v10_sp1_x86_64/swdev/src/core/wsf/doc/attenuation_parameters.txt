@@ -1,0 +1,67 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. command:: attenuation_parameters ... end_attenuation_parameters
+   :block:
+
+   Defines the variables necessary to define attenuation to the given :command:`zone_set`. :ref:`zone-based_attenuation` provides a mechanism to attenuate an RF or optical signal from a communications or sensor device without resorting to complex propagation algorithms. In order to use this capability, the user must first create :command:`comm <comm.modifier_category>` and sensor definitions which include the :command:`sensor.modifier_category` command. Then the user must create one or more :command:`zone_set`\ s which define the attenuation to be applied for signals that pass through the zone.
+
+   .. parsed-literal::
+
+      attenuation_parameters_
+       file_ <file-name>
+       use_dted_
+       height_parameter_ <dbf file-name>
+       constant_height_ <height-value> <unit-type>
+       base_altitude_parameter_ <dbf file-name>
+       constant_base_altitude_ <base altitude-value> <unit-type>
+       projection_ <projection-type>
+       sensor_modifier_ <modifier-name> <modifier-value>
+       comm_modifier_ <modifier-name> <modifier-value>
+      end_attenuation_parameters
+
+   .. block:: zone_set.attenuation_parameters
+
+   .. command:: file <file-name>
+
+     Declare shape file (.shp) to be imported to represent this :command:`zone_set`. *<file-name>* is the name of the ESRI shapefile.  Leave the extension off.
+
+   .. command:: use_dted
+
+     If included, the vertical offsets defined in the currently loaded DTED file will be used.
+
+   .. command:: height_parameter <dbf file-name>
+
+     A parameter in the .dbf file used to define the height of the individual shapes. "" is acceptable input.
+
+   .. command:: constant_height <height-value> <unit-type>
+
+     A constant height to use for all shapes.  height_parameter_ overrides this value.
+
+   .. command:: base_altitude_parameter <dbf file-name>
+
+     A parameter in the .dbf file used to define the base altitude of the individual shapes. "" is acceptable input.
+
+   .. command:: constant_base_altitude <base altitude-value> <unit-type>
+
+     A constant base altitude to use for all shapes.  base_altitude_parameter_ overrides this value.
+
+   .. command:: projection <projection-type>
+
+     Define the projection type to be used.  Currently **geocentric** and **geodetic** are acceptable.
+
+     **Default** geodetic
+
+   .. command:: sensor_modifier <modifier-name> <modifier-value>
+
+     Declare that this zone_set modifies all sensors with :command:`sensor.modifier_category` *<modifier-name>* with the attenuation value defined in *<modifier-value>*
+
+   .. command:: comm_modifier <modifier-name> <modifier-value>
+
+     Declare that this zone_set modifies all comm devices with :command:`comm <comm.modifier_category>` *<modifier-name>* with the attenuation value defined in *<modifier-value>*

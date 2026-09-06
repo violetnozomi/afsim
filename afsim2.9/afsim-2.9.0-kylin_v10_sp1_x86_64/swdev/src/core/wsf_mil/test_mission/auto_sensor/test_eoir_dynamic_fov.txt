@@ -1,0 +1,118 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that the EOIR sensor computes pixel counts correctly
+# when using the pixel_resolution command.  The FOV is changed
+# programatically to zoom in on the target.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+sensor TEST_IR_CAMERA WSF_EOIR_SENSOR
+   frame_time 1 s
+   off
+   slew_mode both
+
+   pixel_count 1280 800
+   receiver
+      azimuth_field_of_view -18.0 deg 18.0 deg
+      elevation_field_of_view -18.0 deg 18.0 deg
+   end_receiver
+
+   reports_location
+   yaw   0 deg
+   pitch 0 deg
+end_sensor
+
+platform_type TARGET WSF_PLATFORM
+   # This should effectively yield a 100 m^2 optical signature.
+   length 10 m
+   width  10 m
+   height 10 m
+end_platform_type
+
+platform t-1 TARGET
+   side red
+   position 55n 20w
+end_platform
+
+platform s-1 WSF_PLATFORM
+   side blue
+   position 55n 20w altitude 10000 m
+   add sensor cam TEST_IR_CAMERA
+      processor msg-tester
+      ignore_same_side
+   end_sensor
+   script_variables
+      int passCount = 0;
+      int failCount = 0;
+   end_script_variables
+   execute at_time 0.01 s absolute
+      WsfGeoPoint pt = Location();
+      pt.SetAltitudeAGL(0);
+      Sensor("cam").CueToPoint(pt);
+   end_execute
+   # Reduce FOV every 5 seconds
+   execute at_interval_of 5 s 
+      WsfSensor cam = Sensor("cam");
+      cam.TurnOn();
+      double fovAz = (cam.FOV_MaximumAzimuth() - cam.FOV_MinimumAzimuth());
+      double fovEl = (cam.FOV_MaximumElevation() - cam.FOV_MinimumElevation());
+      cam.SetFOV_Azimuth(-fovAz / 3.0, fovAz / 3.0);
+      cam.SetFOV_Elevation(-fovEl / 3.0, fovEl / 3.0);
+   end_execute
+   add processor msg-tester WSF_SCRIPT_PROCESSOR
+      on_message
+         type WSF_VIDEO_MESSAGE script
+            # estimate pixels and compare with output from sensor
+            WsfVideoMessage msg = (WsfVideoMessage)MESSAGE;
+            WsfSensor cam = PLATFORM.Sensor("cam");
+            double fovAz = (cam.FOV_MaximumAzimuth() - cam.FOV_MinimumAzimuth());
+            double fovEl = (cam.FOV_MaximumElevation() - cam.FOV_MinimumElevation());
+            double fa = fovAz * MATH.RAD_PER_DEG();
+            double fe = fovEl * MATH.RAD_PER_DEG();
+            double R = 10000.0;
+            double arcA = fa * R;
+            double arcE = fa * R;
+            double pixX = 10.0 / arcA * 1280;
+            double pixY = 10.0 / arcE * 800;
+            double measuredPixels = msg.Image().PixelCount(0);
+            double estPixels = pixX * pixY;
+            double diff = MATH.Fabs(measuredPixels - estPixels);
+            double errRatio = diff / estPixels;
+            # record errors > 5%
+            if (errRatio > .05)
+            {
+               writeln("-FAIL- Computed bad pixel value: ", measuredPixels, " expected ", estPixels);
+               extern int failCount;
+               failCount = failCount + 1;
+            }
+            else
+            {
+               extern int passCount;
+               passCount = passCount + 1;
+            }
+            writeln("T=",TIME_NOW," pass=",passCount," fail=",failCount);
+         end_script
+      end_on_message
+   end_processor
+   script void on_platform_deleted()
+      if ((failCount > 0) || (passCount != 59))
+      {
+         writeln("-FAIL- not enough video messages processed.");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+   end_script
+end_platform
+
+end_time 61 s
+

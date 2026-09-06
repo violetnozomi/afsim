@@ -1,0 +1,99 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform dummy WSF_PLATFORM
+   side blue
+   position 0n 0w
+
+   aux_data
+      string STRING = "platform"
+      struct S
+         string STRING = "S.STRING"
+      end_struct
+      S STRUCT
+   end_aux_data
+
+   track
+      aux_data
+         string STRING = "track"
+      end_aux_data
+      position 0n 0w
+   end_track
+
+   add processor proc WSF_SCRIPT_PROCESSOR
+      aux_data
+         string STRING = "processor"
+      end_aux_data
+
+      execute at_time 1.0 sec absolute
+        Map<string, string> aux = GetAllAuxDataTypes();
+        if (! aux.Exists("STRING"))                 writeln("-FAIL-");
+        if (aux["STRING"] != "string")              writeln("-FAIL-");
+        if (! AuxDataExists("STRING"))              writeln("-FAIL- processor: var not present");
+        if (AuxDataString("STRING") != "processor") writeln("-FAIL- processor: var invalid content");
+        if (! DeleteAuxData("STRING"))              writeln("-FAIL- processor: var delete return not true");
+        if (AuxDataExists("STRING"))                writeln("-FAIL- processor: var present after delete");
+        if (CheckAuxData("STRING"))                 writeln("-FAIL- processor: var present after delete-2");
+      end_execute
+   end_processor
+
+   execute at_time 1.0 sec absolute
+      Map<string, string> aux = GetAllAuxDataTypes();
+      if (! aux.Exists("STRING"))                writeln("-FAIL-");
+      if (aux["STRING"] != "string")             writeln("-FAIL-");
+      if (! AuxDataExists("STRING"))             writeln("-FAIL- platform: var not present");
+      if (AuxDataString("STRING") != "platform") writeln("-FAIL- platform: var invalid content");
+      if (! DeleteAuxData("STRING"))             writeln("-FAIL- platform: var delete return not true");
+      if (AuxDataExists("STRING"))               writeln("-FAIL- platform: var present after delete");
+      if (CheckAuxData("STRING"))                writeln("-FAIL- platform: var present after delete-2");
+
+      if (! AuxDataExists("STRUCT"))             writeln("-FAIL- struct: var not present");
+      
+      // There is currently no way to access data inside of structs in aux data.
+      // Once this bug is fixed, this code should be uncommented and modified for testing.
+      /*
+      if (! AuxDataExists("STRUCT.STRING"))      writeln("-FAIL- struct.string: var not present");
+      if (AuxDataString("STRUCT.STRING") != "S.STRING")
+                                                 writeln("-FAIL- struct.string: var invalid content");
+      if (! DeleteAuxData("STRUCT.STRING"))      writeln("-FAIL- struct.string: var delete return not true");
+      if (AuxDataExists("STRUCT.STRING"))        writeln("-FAIL- struct.string: var present after delete");
+      if (CheckAuxData("STRUCT.STRING"))         writeln("-FAIL- struct.string: var present after delete-2");
+      */
+      
+      if (! aux.Exists("STRUCT"))                writeln("-FAIL-");
+      if (aux["STRUCT"] != "S")                  writeln("-FAIL-");
+      if (! DeleteAuxData("STRUCT"))             writeln("-FAIL- struct: var delete return not true");
+      if (AuxDataExists("STRUCT"))               writeln("-FAIL- struct: var present after delete");
+      if (CheckAuxData("STRUCT"))                writeln("-FAIL- struct: var present after delete-2");
+
+      WsfTrack t = MasterTrackList().Entry(0);
+      Map<string, string> trackAux = t.GetAllAuxDataTypes();
+      if (! trackAux.Exists("STRING"))            writeln("-FAIL-");
+      if (trackAux["STRING"] != "string")         writeln("-FAIL-");
+      if (! t.AuxDataExists("STRING"))            writeln("-FAIL- track: var not present");
+      if (t.AuxDataString("STRING") != "track")   writeln("-FAIL- track: var invalid content");
+      if (! t.DeleteAuxData("STRING"))            writeln("-FAIL- track: var delete return not true");
+      if (t.AuxDataExists("STRING"))              writeln("-FAIL- track: var present after delete");
+      if (t.CheckAuxData("STRING"))               writeln("-FAIL- track: var present after delete-2");
+
+      WsfMessage m = WsfMessage();
+      m.SetAuxData("STRING", "message");
+      Map<string, string> msgAux = m.GetAllAuxDataTypes();
+      if (! msgAux.Exists("STRING"))              writeln("-FAIL-");
+      if (msgAux["STRING"] != "string")           writeln("-FAIL-");
+      if (! m.AuxDataExists("STRING"))            writeln("-FAIL- message: var not present");
+      if (m.AuxDataString("STRING") != "message") writeln("-FAIL- message: var invalid content");
+      if (! m.DeleteAuxData("STRING"))            writeln("-FAIL- message: var delete return not true");
+      if (m.AuxDataExists("STRING"))              writeln("-FAIL- message: var present after delete");
+      if (m.CheckAuxData("STRING"))               writeln("-FAIL- message: var present after delete-2");
+   end_execute
+end_platform
+
+end_time 2 sec
+

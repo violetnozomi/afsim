@@ -1,0 +1,148 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+
+# This script is set up to test WsfRadioXmtrRcvr transfer rate when using
+# Eb/No and bit error rate (BER) to calculate the transfer rate
+#
+# Setup for this test:
+# Transmitter and receiver located 92.25 nmi apart both operating
+#  at 10 GHz with 1MHz bandwidth.
+# Transmitter is operating at 10 kW (40 dBw)
+# BER is 0.000001 and Eb/No is 10.3
+# Expected transfer rate approximately 45 Mbps
+
+script_variables
+  global double messageDeliveryAttemptTime = 0;
+  global double messageReceptionTime = 0;
+end_script_variables
+
+script void MessageDeliveryAttempt(WsfComm aXmtr,
+                                   WsfComm aRcvr,
+                                   WsfMessage aMsg, 
+                                   WsfCommInteraction aResult)
+
+   extern double messageDeliveryAttemptTime;
+
+   messageDeliveryAttemptTime = TIME_NOW;
+end_script
+
+script void MessageReceived(WsfComm aXmtr,
+                            WsfComm aRcvr,
+                            WsfMessage aMsg, 
+                            WsfCommInteraction aResult)
+
+   extern double messageReceptionTime;
+
+   messageReceptionTime = TIME_NOW;
+end_script
+
+observer
+  enable MESSAGE_DELIVERY_ATTEMPT
+  enable MESSAGE_RECEIVED
+end_observer
+
+script bool ValidateExpectedTransferRate()
+   if (! WithinTolerance(messageDeliveryAttemptTime, 5.0, 0.001))
+   {
+      return false;
+   }
+
+   if (! WithinTolerance(messageReceptionTime, 7.0, 0.1))
+   {
+      writeln("Error: Message Reception time: ", messageReceptionTime, " is outside of expected range.");
+      return false;
+   }
+
+   return true;
+
+end_script
+
+comm MY_COMM WSF_RADIO_TRANSCEIVER
+
+   # Example BER and Eb/No data for BPSK digital modulation
+   bit_error_probability 0.000001
+
+   bit_error_rate_ebno_table
+     0.00000001 12
+     0.0000001  11.3
+     0.000001   10.3
+     0.00001    9.5
+     0.0001     8.3
+     0.001      6.5
+     0.01       4.3
+     0.1        0
+   end_bit_error_rate_ebno_table
+
+   # Default transfer rate set for Wsf_Comm_Transceiver
+   # This value will be overidden in this test
+   transfer_rate 1 bit/s
+
+   receiver
+      frequency 10 ghz
+      bandwidth 1 mhz
+   end_receiver
+
+   transmitter
+      power 10 kw
+      frequency 10 ghz
+      bandwidth 1 mhz
+   end_transmitter
+
+   retransmit_attempts 4
+   retransmit_delay 1 second
+end_comm
+platform_type base WSF_PLATFORM
+   comm com-1 MY_COMM
+   end_comm
+end_platform_type
+
+message_table
+   default_comm_type
+      type WSF_CONTROL_MESSAGE 90000000 bits # approx. 2 seconds to send this message
+      default 40 bits
+end_message_table
+
+platform cmd1 base
+   position 40n 0e
+   execute at_time 5 s absolute
+      WsfControlMessage msg1 = WsfControlMessage();
+      Comm("com-1").SendMessage(msg1, "sub1", "com-1");
+   end_execute
+   heading 0 deg
+   altitude 0 feet
+end_platform
+
+platform sub1 base
+   position 40n 2e
+   commander cmd1
+   altitude 10000 feet
+end_platform
+
+execute at_time 20 seconds absolute
+   if ( ValidateExpectedTransferRate() )
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+
+end_execute
+
+/*
+event_output
+  enable MESSAGE_DELIVERY_ATTEMPT
+  file test_ebnoTransferRateTest.evt
+end_event_output
+*/
+
+end_time 30 seconds

@@ -1,0 +1,100 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Filename: test_sensor_basic.txt
+# This file will test the Sensor basic input commands, common mode commands, detection
+#   scheduling commands, track formation commands, and track information reporting commands.
+# The specific implementations of a Sensor each have their additional specific commands
+#   (possibly basic & mode).  A geometric sensor is used to test the commands and methods, acting as the
+#   basic implemented Sensor capability.
+
+include_once ../auto_script/test_functions.txt
+
+platform InputDiagnosticRadar WSF_PLATFORM
+   # Test Function 1: Test declaration and initialization of the sensor commands
+   add sensor mySensor WSF_GEOMETRIC_SENSOR
+      on
+
+      # Test Sensor Unique Inputs
+      ignore this_category
+      ignore_domain subsurface
+      ignore_side blue
+      ignore_same_side
+      selection_mode multiple
+      initial_mode modeTwo
+      maximum_track_count 15
+
+      # Test Basic Mode Commands
+      mode modeOne
+         required_pd 0.7
+         cue_mode fixed
+         azimuth_cue_limits 10.0 deg 50.0 deg
+         elevation_cue_limits 9.0 deg 49.0 deg
+
+         # Test Detection Scheduling Commands
+         frame_time 1.0 sec
+         maximum_request_count 20
+         revisit_time 0.2 sec
+         dwell_time 0.5 sec
+         search_while_track
+         disables_search
+
+         # Test Track Formation Commands
+         azimuth_error_sigma 2 deg
+         elevation_error_sigma 2.0 percent_of_true_range
+         range_error_sigma 1.0 feet
+         hits_to_establish_track 1 5
+         hits_to_maintain_track 1 5
+
+         # Test Track Information Reporting Commands
+         reports_range
+         reports_bearing
+         reports_elevation
+         reports_location
+         reports_velocity
+         reports_iff
+         reports_side
+         reports_type
+         reports_signal_to_noise
+         reports_frequency
+         reports_other
+         track_quality 0.6
+         on_success modeOne
+         on_failure modeTwo
+
+      end_mode
+
+      # Test multiple mode capability, by defining a second mode
+      # Your methods will be verify this testing at a later point
+      mode modeTwo
+         required_pd 0.99
+         frame_time 1.2 sec
+         reports_range
+      end_mode
+
+      # Track Information Reporting Command (outside of mode definition)
+      message_length 10 bits
+   end_sensor
+
+   execute at_time 1 sec absolute
+      bool pass = true;
+      extern void writePass(bool);
+      extern bool AssertEqualsMessage(Object,Object,string);
+      WsfSensor theSensor = PLATFORM.Sensor("mySensor");
+
+      # Test Function 1: Validate the "maximum_request_count" command
+      # Test Function 2: Test the "MaximumRequestCount()" method
+      pass = AssertEqualsMessage(theSensor.MaximumRequestCount(),20,
+                                    "The maximum request count was not set correctly.") && pass;
+
+      pass = AssertEqualsMessage(theSensor.MaximumTrackCount(),15,
+                                    "The maximum track count was not set correctly.") && pass;
+      writePass(pass);
+   end_execute
+end_platform

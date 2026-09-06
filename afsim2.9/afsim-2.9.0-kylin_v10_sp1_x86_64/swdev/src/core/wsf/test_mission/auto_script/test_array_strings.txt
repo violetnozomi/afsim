@@ -1,0 +1,123 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#script_listing on
+
+include ../auto_script/test_functions.txt
+
+script_variables
+   global bool cell0swapped = false;
+end_script_variables
+
+script string GetObject(int aIndex)
+   if (aIndex == 0)
+   {
+      if (cell0swapped)
+      {
+         return "fello";
+      }
+      else
+      {
+         return "hello";
+      }
+   }
+   else if(aIndex == 1)
+   {
+      return "jello";
+   }
+   else if(aIndex == 2)
+   {
+      return "mello";
+   }
+   return "unknown";
+end_script
+
+on_initialize
+   extern bool cell0swapped;
+   bool pass = true;
+
+   Array<string> a1 = Array<string>();
+   a1.PushBack("mello");
+   a1.Insert(0, "hello"); // insert at front
+   a1.Insert(1, "jello"); // insert in middle
+   
+   int count = 0;
+   foreach (string aString in a1)
+   {
+      pass = pass && AssertEqualsMessage(GetObject(count), aString, "foreach");
+      count = count + 1;
+   }
+
+   a1.Erase("mello");
+   pass = AssertEqualsMessage(2, a1.Size(), "a1 Size after erase") && pass;
+   for (int i = 0; i < a1.Size(); i = i + 1)
+   {
+      pass = pass && AssertEqualsMessage(GetObject(i), a1.Get(i), "for loop Get - post removal");
+   }
+
+   int expectedSize = a1.Size();
+   int iteration = 0;
+   while (a1.Size() > 0)
+   {
+      a1.Erase(a1[0]);
+      expectedSize = expectedSize - 1;
+      iteration = iteration + 1;
+      writeln("Iteration:", iteration, " Size:", a1.Size());
+      pass = pass && AssertEqualsMessage(expectedSize, a1.Size(), "a1 Size after erase element [0] pass " + (string)iteration);
+   }
+
+   Array<string> a2 = Array<string>(a1);
+   a2[0] = "fello";
+   cell0swapped = true;
+
+   pass = pass && (a2.Size() == 2);
+   for (int i = 0; i < a2.Size(); i = i + 1)
+   {
+      pass = pass && AssertEqualsMessage(GetObject(i), a2[i], "for loop [] - cell swap");
+   }
+   if (pass)
+   {
+      writeln("Pass");
+   }
+
+   # Test the Sort() method
+   Array<string> original  = {"hello", "jello", "mello"};
+   Array<string> ascending = {"hello", "jello", "mello"};
+   Array<string> descending = {"hello", "jello", "mello"};
+   ascending.Sort(true);
+   descending.Sort(false);
+   if ((original == ascending) && (ascending != descending) && (descending == {"mello", "jello", "hello"}))
+   {
+      writeln("Pass");
+   }
+   else
+   {
+      writeln("-FAIL- Sort test");
+      pass = false;
+   }
+
+   # Test EraseAt()
+   Array<string> eraseAtTest = {"one", "two", "three"};
+   pass = pass && eraseAtTest.EraseAt(1);
+   pass = pass && (eraseAtTest == {"one", "three"});
+   pass = pass && !eraseAtTest.EraseAt(2);
+
+end_on_initialize
+
+script Array script_array_return_type()
+   Array retValue = Array();
+   retValue.PushBack(true);
+   retValue.PushBack(false);
+   return retValue;
+end_script
+
+// TODO: Add functionality to return Array of specific type
+// script Array<bool> script_array_bool_return_type()
+//    return Array<bool>();
+// end_script

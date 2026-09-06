@@ -1,0 +1,51 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This file helps you ensure your tests are all run correctly by requiring a specific number of passes occur.
+#
+# To use, include this file and then set the PassTestCount variable:
+# script_variables
+#   PassTestCount = 1;
+# end_script_variables
+#
+# And then call pass() each time your test successfully completes a test.
+#
+
+script_variables
+   # This can be overwritten to change the total test count
+   int PassTestCount = 0;
+
+   int _PassAmount = 0;
+end_script_variables
+
+script void pass()
+   _PassAmount = _PassAmount + 1;
+end_script
+
+script void check_all_pass()
+   int failCount = PassTestCount - _PassAmount;
+   if (failCount > 0)
+   {
+      writeln("-FAIL- ", failCount, " tests didnt pass");
+   }
+   else if (failCount < 0)
+   {
+      writeln("-FAIL- More tests passed than expected: ", -failCount);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE check_all_pass
+end_observer
+
+

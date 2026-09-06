@@ -1,0 +1,141 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+################################################################################
+# Exercising bi-directional fused track-reporting.
+#
+# This does not yet test pass/fail. It is just an 'exercise'.
+################################################################################
+
+platform_type LEADER WSF_PLATFORM
+   icon C4I
+
+   comm sub_net WSF_COMM_TRANSCEIVER
+      network_name <local:master>
+      internal_link data_mgr
+   end_comm
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval  61 sec
+
+      report_method   on_update_fused
+      report_interval 0.01 secs
+      report_to       subordinates via sub_net
+   end_processor
+end_platform_type
+
+platform_type REPORT_CENTER WSF_PLATFORM
+   icon Command_Truck
+
+   comm cmdr_net WSF_COMM_TRANSCEIVER
+      network_name <local:slave>
+      internal_link data_mgr
+   end_comm
+
+   comm sub_net WSF_COMM_TRANSCEIVER
+      network_name <local:master>
+      internal_link data_mgr
+   end_comm
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval  61 sec
+
+      report_method   on_update_fused
+      report_interval 0.01 secs
+      report_to       commander via cmdr_net
+   end_processor
+
+end_platform_type
+
+platform_type RADAR_POST WSF_PLATFORM
+   icon Ground_Radar
+
+   comm datalink WSF_COMM_TRANSCEIVER
+      network_name <local:slave>
+   end_comm
+
+   processor data_mgr WSF_LINKED_PROCESSOR
+      report_to commander via datalink
+   end_processor
+
+   sensor radar WSF_GEOMETRIC_SENSOR
+      on
+      frame_time                       10 sec
+      azimuth_field_of_view            -45 deg 45 deg
+      elevation_field_of_view          -90 deg 90 deg
+      reports_location
+      internal_link                    data_mgr
+   end_sensor
+end_platform_type
+
+platform_type TARGET WSF_PLATFORM
+   icon Wedge
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+# ------------------------------------------------------------------------------
+
+platform soc LEADER
+   side red
+   commander SELF
+   position 1.0s 0.0e heading 0 deg
+end_platform
+
+platform crc-1 REPORT_CENTER
+   side red
+   commander soc
+   position 0.5s 0.2w heading 0 deg
+end_platform
+
+platform radar-11 RADAR_POST
+   side red
+   commander crc-1
+   position 0.0s 0.2w heading 0 deg
+end_platform
+
+platform crc-2 REPORT_CENTER
+   side red
+   commander soc
+   position 0.5s 0.2e heading 0 deg
+end_platform
+
+platform radar-21 RADAR_POST
+   side red
+   commander crc-2
+   position 0.0s 0.2e heading 0 deg
+end_platform
+
+platform target TARGET
+   route
+      position 0.3n 0.55w altitude 30000 ft heading 90 deg speed 600 kts
+   end_route
+end_platform
+
+# ------------------------------------------------------------------------------
+/*
+event_output
+   file replay.evt
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_UPDATED
+   enable SENSOR_TRACK_DROPPED
+   enable LOCAL_TRACK_INITIATED
+   enable LOCAL_TRACK_UPDATED
+   enable LOCAL_TRACK_DROPPED
+   enable MESSAGE_TRANSMITTED
+   enable MESSAGE_RECEIVED
+end_event_output
+
+event_pipe
+   file replay.aer
+end_event_pipe
+*/
+
+end_time 500 secs
+

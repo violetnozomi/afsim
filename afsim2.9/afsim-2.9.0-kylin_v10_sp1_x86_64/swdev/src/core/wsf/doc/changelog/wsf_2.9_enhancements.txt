@@ -1,0 +1,49 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* Set the script type to "WSF_DIS_MOVER" for DIS mover instances. It was previously unset and so :method:`mover.Type()<WsfObject.Type>` returned an empty string. (:issue:`AFSIM-2117`)
+* Applied optimizations throughout the comm framework to realize performance gains in comms usage. Improvements are mostly realized through elimination of unnecessary data copying and using map lookup O(lg(N)) instead of array find O(N) in the comm :command:`medium` for finding messages in flight. (:issue:`AFSIM-1270`)
+* Applied optimizations throughout the framework and scripting engine to realize performance gains in script execution runtimes. (:issue:`AFSIM-762`)
+* Improved :ref:`multi-threaded<docs/simulation_control_commands:Multi-Threading Commands>` performance in the simulation and :command:`line_of_sight_manager`. (:issue:`AFSIM-1244`)
+* The :command:`regular_table<table.regular_table>` format now supports loading binary table files, allowing terabyte sized tables to be easily loaded into AFSIM, through use of the memory mapping technique. The :command:`table.save_as_rectangular_indexed_binary_file` command is provided as a convenience for converting the old ASCII format to the new binary format, to allow speeding up the loading of pre-existing tables. (:issue:`AFSIM-1242`)
+* The :command:`table.linear_equation` command for :command:`regular_table<table.regular_table>` is now provided as a shorthand for specifying independent variables of equally-spaced datapoints. (:issue:`AFSIM-1242`)
+* Added option to use nearest :command:`table.interpolation` in :command:`regular_table<table.regular_table>` instead of linear. Default interpolation behavior remains linear. (:issue:`AFSIM-1242`)
+* Added the option to declare a :command:`platform.category` as :command:`dis_interface.private` in :command:`dis_interface`. (:issue:`AFSIM-244`)
+* Added :method:`WsfSensor.TrackQuality` methods that allow a user to access :command:`sensor_mode.track_quality` inputs per sensor :command:`sensor.mode`. (:issue:`AFSIM-245`)
+* Added and modified various script methods and expanded blackboard variable support for :doc:`Advanced Behavior Trees<../advanced_behavior_tree>`. (:issue:`AFSIM-977`)
+* Added support for methods :method:`WsfZone.Draw` and :method:`WsfZone.DebugDrawZone` to draw all types of polygonal zones as well as absolute ones. (:issue:`AFSIM-203`)
+* Added command :command:`xio_interface.falling_behind_threshold` in :command:`xio_interface` to control how far a simulation can fall behind before notifying connected simulations. (:issue:`AFSIM-1062`)
+* Added a version of :method:`WsfPlatform.RadarCrossSection` that allows a user to query a platform's bistatic RCS using both receiver and transmitter aspect angles. (:issue:`AFSIM-952`)
+* Added command :command:`console_output.force_flushing` to configure the automatic flushing of :command:`console_output`. (:issue:`AFSIM-953`)
+* Added additional functionality to :class:`FileIO` for users to query mode and path information for opened files. (:issue:`AFSIM-820`)
+* Added new versions of :method:`WsfPlatform.SlantRangeTo`, :method:`WsfTrack.SlantRangeTo`, and :method:`WsfGeoPoint.SlantRangeTo` that perform the slant range calculation with spherical coordinates. (:issue:`AFSIM-996`)
+* Added new script method :method:`KeySet<Map\<T1,T2\>.KeySet>` to access the full set of keys for a :class:`Map<Map\<T1,T2\>>`. (:issue:`AFSIM-1056`)
+* Optimized the performance of a graph pathfinding algorithm, resulting in improved runtimes for scenarios utilizing communications. (:issue:`AFSIM-1117`)
+* Added methods :method:`WsfGeoPoint.ApparentTimeNow` and :method:`WsfGeoPoint.ApparentTime` for querying the mean solar time of a :class:`WsfGeoPoint`. (:issue:`AFSIM-1153`)
+* Added a method :method:`WsfPlatform.ApparentTime` for querying the mean solar time of a :class:`WsfPlatform`. (:issue:`AFSIM-1153`)
+* Added the ability to dynamically change :doc:`fields of view<../field_of_view_commands>` on :class:`sensors<WsfSensor>`, using a new field of view class hierarchy: :class:`WsfFieldOfView`, :class:`WsfCircularFieldOfView`, :class:`WsfRectangularFieldOfView`, :class:`WsfPolygonalFieldOfView`, and :class:`WsfEquatorialFieldOfView`. (:issue:`AFSIM-406`)
+* Added the option to forward :command:`console_output` to a file. (:issue:`AFSIM-1166`)
+* Added the :command:`_.transmitter` command :command:`_.transmitter.use_peak_power` for allowing the use of peak power instead of average power for all predicated transmitter power algorithms. (:issue:`AFSIM-1007`)
+* Added new command :command:`sensor_mode.solar_elevation_at_target` to all passive IR and passive visual sensors, as well as :model:`WSF_GEOMETRIC_SENSOR`. (:issue:`AFSIM-722`)
+* Platform :command:`_.aux_data` is now updated over the :command:`xio_interface`. (:issue:`AFSIM-1320`)
+* Added the :ref:`absolute error model <error_model.absolute_sensor_error>` that defines a one standard deviation absolute position error measurement in two or three dimensions about the sensor detection target. (:issue:`AFSIM-1054`)
+* Added :method:`Sun.Elevation` and :method:`Sun.Azimuth` for querying information about the sun's position. (:issue:`AFSIM-1321`)
+* Added support for scripted :command:`sensor` detection constraints via the :command:`sensor.OnSensorDetectionAttempt` method. Sensors can now also utilize the capabilities of the :ref:`Common_Script_Interface`. (:issue:`AFSIM-1334`)
+* Added new script method :method:`WsfEM_XmtrRcvr.Index` and alias :method:`WsfEM_Xmtr.BeamNumber`.
+* Improved error messages when the application crashes. (:issue:`AFSIM-1515`)
+* Added the ability for all nodes to use precondition/execute blocks, and added safety/convenience to all script functions for :doc:`Advanced Behavior Trees<../advanced_behavior_tree>`. (:issue:`AFSIM-1298`)
+* Added :method:`GetAllAuxDataTypes<WsfPlatform.GetAllAuxDataTypes>` methods to all classes supporting :command:`_.aux_data` for querying for information about available aux data attributes and their types. (:issue:`AFSIM-1521`)
+* Added new script methods :method:`WsfTrack.RangeRate` and :method:`WsfTrack.RangeRateErrorSigma`. (:issue:`AFSIM-1664`)
+* Added variants of script methods :method:`WsfAntennaPattern.AzimuthBeamwidth` and :method:`WsfAntennaPattern.ElevationBeamwidth` to account for electronic beam steering. (:issue:`AFSIM-1006`)
+* Added the capability to clone :command:`script_struct` s. (:issue:`AFSIM-1757`)
+* Exception logs are now saved to a file when the application unexpectedly closes due to an exception. (:issue:`AFSIM-1733`)
+* :method:`WsfEventPipe.Record` may now publish integer, boolean, and string type data in addition to double. (:issue:`AFSIM-2053`)
+* Added the :class:`Matrix` script class. (:issue:`AFSIM-1952`)
+* Added a new :command:`_.gps_status` option in the :command:`_.navigation_errors` block (option **3**).  Selecting this option using :command:`_.gps_status` or :method:`SetGPS_Status <WsfPlatform.SetGPS_Status>` enables GPS errors to be set in script using :method:`WsfPlatform.SetPerceivedLocationErrorWCS`. (:issue:`AFSIM-2404`)
+* Added new sensor scheduler :ref:`scheduler_commands.spin` to model spinning radars. (:issue:`AFSIM-1882`)

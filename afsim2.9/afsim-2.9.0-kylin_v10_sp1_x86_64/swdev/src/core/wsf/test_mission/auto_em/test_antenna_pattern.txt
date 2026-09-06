@@ -1,0 +1,158 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests the base functionality of the script antenna pattern class.
+
+antenna_pattern RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain           35 dB
+     minimum_gain       -20 dB
+     azimuth_beamwidth   5 deg
+     elevation_beamwidth 45 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+antenna_pattern RADAR_ANTENNA_OTHER
+  rectangular_pattern
+     peak_gain           30 dB
+     minimum_gain       -15 dB
+     azimuth_beamwidth   10 deg
+     elevation_beamwidth 55 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+sensor TEST_RADAR WSF_RADAR_SENSOR
+   // These values are generated solely for testing and
+   // are not based on any analog
+   frame_time 5.0 sec
+   reports_side
+
+   transmitter
+      duty_cycle 0.5
+      frequency             2.0 ghz
+      alternate_frequency 1 2.1 ghz
+      alternate_frequency 2 2.2 ghz
+      antenna_pattern_table
+         polarization default
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+      end_antenna_pattern_table
+      powers
+         frequency 2.0 ghz 75000 watts
+         frequency 2.1 ghz 70000 watts
+         frequency 2.2 ghz 55000 watts
+      end_powers
+      pulse_width 50 usec
+      pulse_repetition_frequencies
+         prf 1 500 hz
+         prf 2 350 hz
+      end_pulse_repetition_frequencies
+      internal_loss              2 db
+      pulse_compression_ratio    13 absolute
+   end_transmitter
+   
+   receiver
+      frequency 2.0 ghz
+      beam_tilt 1.2 deg
+      bandwidth 20000 hz
+      instantaneous_bandwidth 10000 hz
+      internal_loss 1.1 db
+      antenna_pattern_table
+         polarization default
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+         polarization horizontal
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA_OTHER
+            frequency 2.2 ghz RADAR_ANTENNA
+         polarization vertical
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+      end_antenna_pattern_table
+   end_receiver
+end_sensor
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   sensor sensor TEST_RADAR
+   end_sensor
+end_platform_type
+
+platform test_radar TEST_PLATFORM
+end_platform
+
+script bool FloatEqual(double aVal1, double aVal2)
+   if((aVal1 > (aVal2 - 1.0E-10)) && (aVal1 < (aVal2 + 1.0E-10)))
+   {
+      return true;
+   }
+   return false;
+end_script
+
+script void TestAntennaPattern(string testName, WsfAntennaPattern pattern, double freq,
+                               double azBeam, double elBeam, double minGain, double peakGain, double gainAdjustment)
+
+   double azBeamVal = pattern.AzimuthBeamwidth(freq);
+   double elBeamVal = pattern.ElevationBeamwidth(freq);
+   double gainAdjustmentVal = pattern.GainAdjustment();
+   double minGainVal = pattern.MinimumGain();
+   double peakGainVal = pattern.PeakGain(freq);
+   
+   if(!FloatEqual(azBeamVal, azBeam))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Az Beam Error");
+   }
+   
+   if(!FloatEqual(elBeamVal, elBeam))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("El Beam Error");  
+   }
+   
+   if(!FloatEqual(gainAdjustmentVal, gainAdjustment))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Gain Adjustment Error");  
+   }
+   
+   if(!FloatEqual(minGainVal, minGain))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Min gain Error");  
+   }
+   
+   if(!FloatEqual(peakGainVal, peakGain))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Peak gain Error");  
+   }
+end_script
+
+execute at_time 1 s absolute
+   WsfPlatform platform = WsfSimulation.FindPlatform("test_radar");
+   WsfSensor sensor = platform.Sensor("sensor");
+   WsfEM_Xmtr xmtr = sensor.Xmtr(0);
+   WsfEM_Rcvr rcvr = sensor.Rcvr(0);
+   
+   WsfAntennaPattern pattern1 = xmtr.AntennaPattern(2000000000, "default");
+   WsfAntennaPattern pattern2 = rcvr.AntennaPattern(2100000000, "horizontal");
+   
+   TestAntennaPattern("XMTR_PATTERN", pattern1, 2000000000, 5, 45, -20, 35, 0);
+   TestAntennaPattern("RCVR_PATTERN", pattern2, 2100000000, 10, 55, -15, 30, 0);
+end_execute
+
+end_time 2 s

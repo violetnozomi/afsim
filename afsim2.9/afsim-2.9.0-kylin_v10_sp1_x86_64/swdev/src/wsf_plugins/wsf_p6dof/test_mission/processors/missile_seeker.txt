@@ -1,0 +1,96 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+processor verbose_seeker_activation WSF_SCRIPT_PROCESSOR
+
+   script_variables
+      double turnOnRange_m = 40000.0;
+      bool   sttMode       = false;
+   end_script_variables
+
+   on_initialize
+   end_on_initialize
+
+   on_initialize2
+   end_on_initialize2
+
+   update_interval 0.01 sec
+   on_update
+
+      WsfTrack trk = PLATFORM.CurrentTargetTrack();
+
+      if( trk.IsValid() )
+      {
+        WsfSensor seeker = PLATFORM.SensorEntry(0);
+        if( seeker.IsValid() )
+        {
+#         writeln("...cue to CurrentTargetTrack..." );
+          seeker.CueToTrack(trk);
+        }
+      }
+
+   end_on_update
+
+   on_message
+      type WSF_TRACK_MESSAGE
+         script
+            WsfSensor seeker         = PLATFORM.SensorEntry(0);
+            WsfTrackMessage trackMsg = (WsfTrackMessage)MESSAGE;
+            WsfTrack trk             = trackMsg.Track();
+
+            WsfTrack currentTrk = PLATFORM.CurrentTargetTrack();
+            
+            if( !currentTrk.IsValid() )
+            {
+               # writeln("Current track not valid for missile seeker");
+            }
+            else
+            {
+               if( !trk.IsValid() )
+               {
+                  writeln("Track in track msg is not valid for missile seeker");
+               }
+               else
+               {
+                  if( trk.TargetIndex() == currentTrk.TargetIndex() )
+                  {
+                     seeker.CueToTrack(trk);
+                  }
+               }
+            }
+
+         end_script
+
+      type WSF_DROP_TRACK_MESSAGE
+         script
+            WsfSensor seeker = PLATFORM.SensorEntry(0);
+            #writeln("!!! T=", TIME_NOW, " ", PLATFORM.Name(), " dropped track (WSF_DROP_TRACK_MESSAGE)");
+         end_script
+
+      type WSF_TRACK_DROP_MESSAGE
+         script
+            WsfSensor seeker = PLATFORM.SensorEntry(0);
+            WsfLocalTrackList trackList = PLATFORM.MasterTrackList();
+            #writeln("!!! T=", TIME_NOW, " ", PLATFORM.Name(), " dropped track (WSF_TRACK_DROP_MESSAGE)");
+         end_script
+
+      type WSF_STATUS_MESSAGE
+         script
+            #writeln("T=", TIME_NOW, " Missile WSF_STATUS_MESSAGE received...");
+            WsfStatusMessage statMsg = (WsfStatusMessage)MESSAGE;
+            #writeln("     System:", statMsg.SystemName(), " has status=", statMsg.Status());
+         end_script
+
+      default
+         script
+            #writeln("T=", TIME_NOW, " Missile received other message (", MESSAGE.Type(), ")");
+         end_script
+   end_on_message
+
+end_processor

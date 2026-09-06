@@ -1,0 +1,312 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# New file created by AFSIM Wizard
+antenna_pattern S-BAND_EW_RADAR_ANTENNA
+ circular_pattern
+      peak_gain 30 db
+      beamwidth 7 deg
+      minimum_gain 20 db
+end_antenna_pattern
+
+sensor S-BAND_EW_RADAR_SENSOR WSF_RADAR_SENSOR
+
+   one_m2_detect_range            100.0 nm
+   antenna_height                 6.0 m
+   frame_time                     10.0 sec
+   maximum_range                  150 nmi
+   scan_mode                      azimuth
+   azimuth_scan_limits         -180 deg 180 deg
+   elevation_scan_limits        -90.0 deg 90.0 deg
+
+   slew_mode both
+   azimuth_slew_rate   30 deg/s
+   elevation_slew_rate 30 deg/s
+   field_of_view rectangular
+      azimuth_field_of_view -0.5 deg 0.5 deg
+      elevation_field_of_view -0.5 deg 0.5 deg
+   end_field_of_view
+
+   transmitter
+      antenna_pattern             S-BAND_EW_RADAR_ANTENNA
+      beam_tilt                   10.0 deg
+      power                       1000.0 kw
+      frequency                   2500 mhz
+      internal_loss               2 db
+	   pulse_repetition_frequency  400 Hz
+   end_transmitter
+
+   receiver
+      antenna_pattern             S-BAND_EW_RADAR_ANTENNA
+      beam_tilt                   10.0 deg
+      bandwidth                   2.0 mhz
+      noise_power                 -160 dBw  # will be calibrated for 1 m^2 anyway
+      internal_loss               7 dB
+   end_receiver
+
+   probability_of_false_alarm     1.0e-6
+   required_pd                    0.5
+   swerling_case                  1
+
+   azimuth_error_sigma     0.3 deg
+   elevation_error_sigma   0.3 deg
+   range_error_sigma       100.0 m
+
+   hits_to_establish_track        1 1
+   hits_to_maintain_track         1 20
+
+   track_quality 0.5         # This sensor produces a relatively low fidelity track.
+
+   reports_range
+   reports_bearing
+   reports_iff
+end_sensor
+
+script void MakeHorizontalTargets(string aTargetType, int aNumTargets, double aRadius)
+   for (int i = 0; i < aNumTargets; i=i+1)
+   {
+      WsfPlatform p = WsfSimulation.CreatePlatform(aTargetType);
+      string name = aTargetType + "_" + (string)i;
+      WsfGeoPoint gp = WsfGeoPoint.Construct(45.0, -90.0, 10.0);
+      double angle = 360.0 / (double)aNumTargets * (double)i;
+      Vec3 ned = Vec3.Construct(aRadius * Math.Cos(angle), aRadius * Math.Sin(angle), 0.0);
+      gp.OffsetNED(ned);
+      p.SetLocation(gp);
+      WsfSimulation.AddPlatform(p, name);
+   }
+end_script
+
+script void MakeVerticalTargets(string aTargetType, int aNumTargets, double aRadius)
+   for (int i = 0; i < aNumTargets; i=i+1)
+   {
+      WsfPlatform p = WsfSimulation.CreatePlatform(aTargetType);
+      string name = aTargetType + "_" + (string)(i + 360);
+      WsfGeoPoint gp = WsfGeoPoint.Construct(45.0, -90.0, 10.0);
+      double angle = 45.0 + 90.0 / (double)aNumTargets * (double)i;
+      Vec3 ned = Vec3.Construct(aRadius * Math.Cos(angle), 0.0, -aRadius * Math.Sin(angle));
+      gp.OffsetNED(ned);
+      p.SetLocation(gp);
+      WsfSimulation.AddPlatform(p, name);
+   }
+end_script
+
+execute at_time 0.001 s absolute
+   MakeHorizontalTargets("TARGET", 360,  10000.0);
+   MakeVerticalTargets("TARGET", 90,  10000.0);
+end_execute
+
+radar_signature target_sig WSF_RADAR_SIGNATURE
+   constant 1 dbsm
+end_radar_signature
+
+platform_type TARGET WSF_PLATFORM
+   side red
+   icon truck
+   radar_signature target_sig
+end_platform_type
+
+platform_type RADAR WSF_PLATFORM
+   side blue
+   icon ew
+
+   sensor ew S-BAND_EW_RADAR_SENSOR
+      on
+      ignore_same_side
+      update_interval 0.01 s
+   end_sensor
+end_platform_type
+
+platform radar_az_continuous RADAR
+   position 45n 90w altitude 10 ft agl
+   edit sensor ew
+      on
+      scheduler sector_scan
+         sector
+            type azimuth
+            start_azimuth -180 deg
+            end_azimuth 180 deg
+            azimuth_rate 10 deg/s
+            elevation 0 deg
+         end_sector
+      end_scheduler
+   end_sensor
+end_platform
+
+platform radar_az_continuous_negative RADAR
+   position 45n 90w altitude 10 ft agl
+   edit sensor ew
+      on
+      scheduler sector_scan
+         sector
+            type azimuth
+            start_azimuth 180 deg
+            end_azimuth -180 deg
+            azimuth_rate 10 deg/s
+            elevation 0 deg
+            azimuth_scan_direction negative
+         end_sector
+      end_scheduler
+   end_sensor
+end_platform
+
+platform radar_az_sector RADAR
+   position 45n 90w altitude 10 ft agl
+   edit sensor ew
+      on
+      azimuth_slew_rate 100 deg/s
+      elevation_slew_rate 100 deg/s
+      scheduler sector_scan
+         sector
+            type azimuth
+            start_azimuth 120 deg
+            end_azimuth -120 deg
+            azimuth_rate 10 deg/s
+            elevation 0 deg
+         end_sector
+      end_scheduler
+   end_sensor
+end_platform
+
+platform radar_az_with_scan_dir RADAR
+   position 45n 90w altitude 10 ft agl
+   edit sensor ew
+      on
+      azimuth_slew_rate 100 deg/s
+      elevation_slew_rate 100 deg/s
+      scheduler sector_scan
+         sector
+            type azimuth
+            start_azimuth 120 deg
+            end_azimuth -120 deg
+            azimuth_scan_direction positive
+            azimuth_rate 10 deg/s
+            elevation 0 deg
+         end_sector
+      end_scheduler
+   end_sensor
+end_platform
+
+platform radar_el_sector RADAR
+   position 45n 90w altitude 10 ft agl
+   edit sensor ew
+      on
+      scheduler sector_scan
+         sector
+            type elevation
+            start_elevation 20 deg
+            end_elevation 90 deg
+            elevation_rate 10 deg/s
+            azimuth 0 deg
+         end_sector
+         sector
+            type elevation
+            start_elevation 90 deg
+            end_elevation 20 deg
+            elevation_rate 10 deg/s
+            azimuth 180 deg
+         end_sector
+      end_scheduler
+   end_sensor
+end_platform
+
+platform radar_az_el_sector RADAR
+   position 45n 90w altitude 10 ft agl
+   edit sensor ew
+      on
+      scheduler sector_scan
+         sector
+            type azimuth_and_elevation
+            start_elevation -0.5 deg
+            end_elevation 0.5 deg
+            elevation_rate 10 deg/s
+            start_azimuth -120 deg
+            end_azimuth 120 deg
+            azimuth_rate 10 deg/s
+         end_sector
+         sector
+            type azimuth_and_elevation
+            start_elevation 0.5 deg
+            end_elevation -0.5 deg
+            elevation_rate 10 deg/s
+            start_azimuth 120 deg
+            end_azimuth -120 deg
+            azimuth_rate 10 deg/s
+         end_sector
+      end_scheduler
+   end_sensor
+end_platform
+
+end_time 2 minutes
+
+script_variables
+   Map<string, Set<string> > gDetMap = {};
+   Map<string, Set<string> > gAttemptMap = {};
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   if (aResult.Detected())
+   {
+      //writeln(aTarget.Name());
+      if (! gDetMap.Exists(aPlatform.Name()))
+      {
+         gDetMap.Set(aPlatform.Name(), Set<string>() );
+      }
+      gDetMap[aPlatform.Name()].Insert(aTarget.Name());
+   }
+   if (! gAttemptMap.Exists(aPlatform.Name()))
+   {
+      gAttemptMap.Set(aPlatform.Name(), Set<string>() );
+   }
+   gAttemptMap[aPlatform.Name()].Insert(aTarget.Name());
+end_script
+
+script void SimulationComplete()
+   foreach(string name : Set<string> set in gDetMap)
+   {
+      writeln(name, ": ", set.Size());
+   }
+   // Test can currently return either 241 or 240 depending on the build, due to effects of roundoff error.
+   // This may be examined/changed in a new issue.
+   if ((gDetMap["radar_az_sector"].Size() != 241) &&
+       (gDetMap["radar_az_sector"].Size() != 240))
+   {
+      writeln("-FAIL- 1 ");
+   }
+   if (gDetMap["radar_el_sector"].Size() != 90)
+   {
+      writeln("-FAIL- 2 ");
+   }
+   // Test can currently return either 241 or 240 depending on the build, due to effects of roundoff error.
+   // This may be examined/changed in a new issue.
+   if ((gDetMap["radar_az_el_sector"].Size() != 241) &&
+       (gDetMap["radar_az_el_sector"].Size() != 240))
+   {
+      writeln("-FAIL- 3 ");
+   }
+   if (gDetMap["radar_az_continuous"].Size() != 360)
+   {
+      writeln("-FAIL- 4 ", gAttemptMap["radar_az_continuous"].Size());
+   }
+   if (gDetMap["radar_az_continuous_negative"].Size() != 360)
+   {
+      writeln("-FAIL- 5 ", gDetMap["radar_az_continuous_negative"].Size());
+   }
+   // Test can currently return either 121 or 120 depending on the build, due to effects of roundoff error.
+   // This may be examined/changed in a new issue.
+   if ((gDetMap["radar_az_with_scan_dir"].Size() != 121) &&
+       (gDetMap["radar_az_with_scan_dir"].Size() != 120))
+   {
+      writeln("-FAIL- 6 ");
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer

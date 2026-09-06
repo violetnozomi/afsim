@@ -1,0 +1,136 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Filename: test_platform_part_internal_link_linkedProcessors.txt
+# This file tests the Platform Part linked processor capability using the "internal_link" and "processor" commands.
+
+include_once ../auto_script/test_functions.txt
+
+script_variables
+   global bool pass = true;
+end_script_variables
+
+processor MessageHandler WSF_SCRIPT_PROCESSOR
+   script_variables
+      bool expectControlMessage;
+      bool expectTrackMessage;
+      bool gotControlMessage = false;
+      bool gotTrackMessage = false;
+   end_script_variables
+
+   on_message
+      type WSF_CONTROL_MESSAGE
+         script
+            gotControlMessage = true;
+         end_script
+   end_on_message
+   on_message
+      type WSF_TRACK_MESSAGE
+         script
+            gotTrackMessage = true;
+         end_script
+   end_on_message
+
+   script void on_platform_deleted()
+      extern bool pass;
+      extern bool AssertEqualsMessage(Object,Object,string);
+      pass = AssertEqualsMessage(expectControlMessage, gotControlMessage, Name() +
+                                 " Incorrectly received Control message") && pass;
+      pass = AssertEqualsMessage(expectTrackMessage,   gotTrackMessage,   Name() +
+                                 " Incorrectly received Track message")   && pass;
+   end_script
+end_processor
+
+platform radar_platform WSF_PLATFORM
+   add sensor myRadar WSF_RADAR_SENSOR
+      on
+      operational
+      internal_link myIntInternallyLinkedProcessor
+      processor myProcInternallyLinkedProcessor
+
+      frame_time 1.0 sec
+      beam 1
+         transmitter
+            power 50 watts
+            frequency 50 hz
+         end_transmitter
+         receiver
+            frequency 20 hz
+         end_receiver
+      end_beam
+
+      reports_range
+   end_sensor
+
+   # Processor 1 <myIntInternallyLinkedProcessor> : This processor should receive the non-explicit messages sent.
+   add processor myIntInternallyLinkedProcessor MessageHandler
+      script_variables
+         expectControlMessage = true;
+         expectTrackMessage   = false;
+      end_script_variables
+   end_processor
+
+   # Processor 2 <myProcInternallyLinkedProcessor> : This processor should receive the non-explicit messages sent.
+   add processor myProcInternallyLinkedProcessor MessageHandler
+      script_variables
+         expectControlMessage = true;
+         expectTrackMessage   = false;
+      end_script_variables
+   end_processor
+
+   # Processor 3 <never_called_processor> : This processor should never receive any messages.
+   #  It is neither linked, nor sent a message explicitly.
+   add processor never_called_processor MessageHandler
+      script_variables
+         expectControlMessage = false;
+         expectTrackMessage   = false;
+      end_script_variables
+   end_processor
+
+   # Processor 4 <explicit_processor> : This processor should receive a message explicitly.
+   add processor explicit_processor MessageHandler
+      script_variables
+         expectControlMessage = false;
+         expectTrackMessage   = true;
+      end_script_variables
+   end_processor
+
+   # Execution of message sending
+   execute at_time 5 sec absolute
+      WsfSensor mySensor = PLATFORM.Sensor("myRadar");
+
+      # Test the non-explicit SendMessage functionality.
+      #  We'll test the actual reception of this message by the linked processor at a later time
+      WsfControlMessage myControlMessage = WsfControlMessage();
+      mySensor.SendMessage(myControlMessage);
+
+      # Test the explicit SendMessage functionality
+      # We'll send this message to another one of our processor's specifically.  Our internally-linked processor
+      #   should NOT receive the message, but the explicitly defined processor SHOULD receive the message.
+      WsfTrackMessage myTrackMessage = WsfTrackMessage();
+      WsfTrack myTrack = WsfTrack();
+      myTrack.SetType("aLargeVehicle");
+      myTrackMessage.SetTrack(myTrack);
+      mySensor.SendMessage(myTrackMessage, "explicit_processor");
+   end_execute
+
+   script void on_platform_deleted()
+      extern bool pass;
+      extern void writePass(bool);
+
+      for (int i = 0; i < ProcessorCount(); i = i + 1)
+      {
+         ProcessorEntry(i).ExecuteScript("on_platform_deleted");
+      }
+
+      writePass(pass);
+   end_script
+end_platform
+
+end_time 7 sec

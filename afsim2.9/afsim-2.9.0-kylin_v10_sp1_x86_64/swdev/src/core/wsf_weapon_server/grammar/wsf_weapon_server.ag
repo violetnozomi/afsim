@@ -1,0 +1,41 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+(rule weapon-server-interface-command
+   (rule tn-to-disid-command {
+      tn_to_disid <integer> <string>
+   })
+   (rule weapon-lar-command {
+      enum_to_type <integer> <string>
+   })
+   (rule platform-command {
+      disid <string>
+    | name <string>
+    | station_mapping <string> <string>
+   })
+   (rule weapon-mapping-command {
+      lar <string> <string>
+    | weapon_name_mapping <string> <string>
+    | platform <platform-command>* end_platform
+   })
+{
+   debug
+ | outgoing_weapon_server <string> <integer>
+ | outgoing_weapon_type <string>
+ | host <string>
+ | port <integer>
+ | tn_to_disid_mapping <tn-to-disid-command>* end_tn_to_disid_mapping
+ | weapon_lar_mapping <weapon-lar-command>* end_weapon_lar_mapping
+ | weapon_mapping <weapon-mapping-command>* end_weapon_mapping
+})
+
+(struct root
+{
+   wsf_weapon_server <weapon-server-interface-command>* end_wsf_weapon_server
+})

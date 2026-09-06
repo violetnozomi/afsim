@@ -1,0 +1,129 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test redefinition of command chain during input processing.
+
+script_variables
+   bool gPass = true;
+end_script_variables
+
+platform_type BASE_PLATFORM WSF_PLATFORM
+   script void CheckCommander(string aExpected)
+      extern bool gPass;
+      if (CommanderName() != aExpected)
+      {
+         writeln("-PASS ", Name(), ", Commander: ", CommanderName(),
+                 " Expected: ", aExpected);
+         gPass = false;
+      }
+   end_script
+
+   script void CheckPlatformList(WsfPlatformList aPlatformList,
+                                 Array<string>   aExpectedList)
+      extern bool gPass;
+
+      Array<string> actualList = Array<string>();
+      foreach (WsfPlatform actualPlatform in aPlatformList)
+      {
+         actualList.PushBack(actualPlatform.Name());
+
+         bool found = false;
+         foreach (string expectedName in aExpectedList)
+         {
+            if (expectedName == actualPlatform.Name())
+            {
+               found = true;
+               break;
+            }
+         }
+         if (! found)
+         {
+            writeln("-FAIL- ", Name(), " Actual platform ", actualPlatform.Name(),
+                    " not in expected list ", aExpectedList);
+            gPass = false;
+         }
+      }
+
+      foreach (string expectedName in aExpectedList)
+      {
+         bool found = false;
+         foreach (WsfPlatform actualPlatform in aPlatformList)
+         {
+            if (expectedName == actualPlatform.Name())
+            {
+               found = true;
+               break;
+            }
+         }
+         if (! found)
+         {
+            writeln("-FAIL- ", Name(), " Expected platform ", expectedName,
+                    " not in actual list ", actualList);
+            gPass = false;
+         }
+      }
+   end_script
+end_platform_type
+
+# ------------------------------------------------------------------------------
+
+platform cmdr-1 BASE_PLATFORM
+   commander SELF
+end_platform
+
+platform cmdr-2 BASE_PLATFORM
+   commander SELF
+end_platform
+
+platform sub-11 BASE_PLATFORM
+   commander cmdr-1
+end_platform
+
+platform sub-21 BASE_PLATFORM
+   commander cmdr-2
+end_platform
+
+# ------------------------------------------------------------------------------
+
+edit platform cmdr-1
+   execute at_time 1.0 sec absolute
+      Array<string> emptyList = { };
+      CheckCommander("cmdr-1");
+      CheckPlatformList(Subordinates(), emptyList);
+   end_execute
+end_platform
+
+edit platform cmdr-2
+   execute at_time 1.1 sec absolute
+      CheckCommander("cmdr-2");
+      CheckPlatformList(Subordinates(), { "sub-11", "sub-21" });
+   end_execute
+end_platform
+
+edit platform sub-11
+   commander cmdr-2
+   execute at_time 2.0 sec absolute
+      CheckCommander("cmdr-2");
+      CheckPlatformList(Peers(), { "sub-21" });
+   end_execute
+end_platform
+
+edit platform sub-21
+   execute at_time 2.1 sec absolute
+      CheckCommander("cmdr-2");
+      CheckPlatformList(Peers(), { "sub-11" });
+   end_execute
+end_platform
+
+execute at_time 9.0 secs absolute
+   if (gPass) writeln("-PASS-");
+end_execute
+
+end_time 10 secs
+

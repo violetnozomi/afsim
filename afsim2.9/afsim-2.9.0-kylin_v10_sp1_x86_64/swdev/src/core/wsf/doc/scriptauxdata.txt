@@ -1,0 +1,43 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+*Auxiliary Data* is a collection of optional named user data attributes that can be stored with the object. The framework will maintain the attributes but in no other way attempts to use the data contained within. The definition and use of any attribute is defined purely by the user.
+
+.. method:: bool AuxDataBool(string aName)
+.. method:: int AuxDataInt(string aName)
+.. method:: double AuxDataDouble(string aName)
+.. method:: string AuxDataString(string aName)
+.. method:: Object AuxDataObject(string aName)
+
+   Retrieve the value of the auxiliary data attribute with the indicated name. If the attribute does not exist then a default value will be returned (false for bool, 0 for int and 0.0 for double).
+
+.. method:: bool AuxDataExists(string aName)
+.. method:: bool CheckAuxData(string aName)
+
+   Returns true if an auxiliary data member exists with the specified name.
+
+.. method:: bool HasAuxData()
+
+   Returns true if the object has auxiliary data.
+
+.. method:: bool DeleteAuxData(string aName)
+
+   Delete the auxiliary data attribute with the indicated name. Returns true if the attribute exists and was deleted, or false if the attribute did not exist.
+
+.. method:: void SetAuxData(string aName, bool aValue)
+            void SetAuxData(string aName, int aValue)
+            void SetAuxData(string aName, double aValue)
+            void SetAuxData(string aName, string aValue)
+            void SetAuxData(string aName, Object aValue)
+
+   Set the value of the auxiliary data attribute with the indicated name. The last form of SetAuxData() can store any script object type.
+
+.. method:: Map<string, string> GetAllAuxDataTypes()
+
+   Return the names and types of all auxiliary data attributes in the form of a :class:`Map\<string,string\><Map\<T1,T2\>>`. Map keys are valid names of auxiliary data attributes. Map values are type names corresponding to valid auxiliary data attribute names.

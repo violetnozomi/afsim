@@ -1,0 +1,37 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# A simple check of dted/terrain functionality.
+
+terrain 
+   raw_dted 1 ../dted/ 69 -109 70 -108
+end_terrain
+
+platform test_platform WSF_PLATFORM
+   position 69.5n 108.5w
+   altitude 120.0 m
+end_platform
+
+execute at_time 0.5 s absolute
+   WsfTerrain terrain = {};
+   double approx = terrain.TerrainElevApprox(69.5, -108.5);
+   double interp = terrain.TerrainElevInterp(69.5, -108.5);  
+   double platAGV = WsfSimulation.FindPlatform("test_platform").HeightAboveTerrain();
+   
+   #writeln("Approximate elevation is: " + (string)approx);
+   #writeln("Interpolated elevation is: " + (string)interp);
+   #writeln("Platform height AGV is: " + (string)platAGV);
+   
+   if((approx != 118.0) || (interp != 118.0) || (platAGV != 2.0))
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+end_time 1 s

@@ -1,0 +1,67 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# New file created by Wizard
+# Example 3-14 from Vallado, Fundamentals of Astrodynamics and Applications, 4th ed.
+
+platform test WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      initial_state_eci 5102.508958 km 6123.011401 km 6378.136928 km
+                        -4.74322016 km/s 0.79053650 km/s 5.53375528 km/s
+   end_mover 
+end_platform
+
+platform test2 WSF_PLATFORM 
+   execute at_time 1.0e-13 s absolute
+      PLATFORM.SetLocation(WsfGeoPoint.ConstructWCS(
+         -1033479.383, 7901295.2754, 6380356.5958));
+   end_execute
+end_platform
+
+global_environment
+   polar_offset_angles -0.140682 arcseconds 0.333309 arcseconds
+end_global_environment
+
+delta_atomic_time 32
+delta_universal_time -0.439961 s
+
+start_date apr 6 2004
+start_time 07:51:28.386009
+
+execute at_time 2.0e-13 s absolute
+   Vec3 EXPECTED_LOC = Vec3.Construct(-1033.479383, 7901.2952754, 6380.3565958);
+   EXPECTED_LOC.Scale(1000.0);
+   Vec3 EXPECTED_VEL = Vec3.Construct(-3.225636520, -2.872451450, 5.531924446);
+   EXPECTED_VEL.Scale(1000.0);
+   WsfPlatform test = WsfSimulation.FindPlatform("test");
+   Vec3 locWCS = test.LocationWCS();
+   Vec3 locDiff = Vec3.Subtract(locWCS, EXPECTED_LOC);
+   if (locDiff.Magnitude() > 2.0)
+   {
+      writeln("-FAIL-");
+      writeln(locWCS);
+   }   
+   Vec3 velWCS = test.VelocityWCS();
+   Vec3 velDiff = Vec3.Subtract(velWCS, EXPECTED_VEL);
+   if (velDiff.Magnitude() > 2.0)
+   {
+      writeln("-FAIL-");
+      writeln(velWCS);
+   }
+
+   Vec3 EXPECTED_LOC_ECI = Vec3.Construct(5102508.958, 6123011.401, 6378136.928);
+   WsfPlatform test2 = WsfSimulation.FindPlatform("test2");
+   Vec3 locECI = test.LocationECI();
+   locDiff = Vec3.Subtract(locECI, EXPECTED_LOC_ECI);
+   if (locDiff.Magnitude() > 0.1)
+   {
+      writeln("-FAIL-");
+      writeln(locECI);
+   }         
+end_execute

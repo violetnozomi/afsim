@@ -1,0 +1,68 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests that externed scripts are called correctly, and that they can be
+# declared with argument names
+#
+# Also test that extern is not required if the definition is before its use
+
+script_variables
+   double global1=5;
+end_script_variables
+
+script int extern_script(int aValue)
+   writeln(aValue);
+   double x = global1;  # global1 should be available
+   return 5;
+end_script
+script int extern_script_2(int aValue, string aValue2)
+   writeln(aValue, aValue2);
+   return 6;
+end_script
+
+processor script_proc WSF_SCRIPT_PROCESSOR
+   on_initialize
+      extern_script_2(1, "HI"); // extern is unnecessary here
+      // These externs are needed
+      extern void script_on_platform(int val);
+      extern double platGlobal;
+      script_on_platform(platGlobal);
+   end_on_initialize
+end_processor
+
+platform p WSF_PLATFORM
+   script_variables
+      double platGlobal=5;
+   end_script_variables
+   script void script_on_platform(int val)
+      writeln("script_on_platform ", val);
+   end_script
+   script void other_script_on_platform(int val)
+      writeln("other_script_on_platform ", val);
+   end_script
+   add processor sp script_proc
+      execute at_time 1 s absolute
+         other_script_on_platform(5);        // extern is unnecessary
+         double x = platGlobal;              // should be available
+      end_execute
+   end_processor
+   execute at_time 5 s absolute
+      extern int extern_script(int aValue );
+      extern int extern_script_2(int aValue, string aValue2);
+      if (extern_script(10) + extern_script_2(11, "HI") == 11)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_execute
+end_platform
+

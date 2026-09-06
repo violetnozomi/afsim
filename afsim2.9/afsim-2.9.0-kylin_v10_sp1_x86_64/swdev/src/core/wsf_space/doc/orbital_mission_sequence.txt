@@ -1,0 +1,58 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Orbital Mission Sequence
+========================
+
+.. contents::
+   :local:
+
+.. parsed-literal::
+
+   :ref:`mission_sequence<orbital_mission_sequence>`
+      :ref:`<constraint><orbital_event.constraints>`
+      :doc:`event<orbital_event>`
+         :ref:`Common Mission Event Commands<orbital_event.common_commands>`
+         mission event-specific commands ...
+      end_event
+      
+      ... additional mission event definitions
+   end_mission_sequence
+
+.. command:: mission_sequence ... end_mission_sequence
+
+   Specify a sequence of pre-determined orbital :doc:`mission events<orbital_event>`.  The first mission event specified is executed first, then the second, etc.  An optional :ref:`constraint<orbital_event.constraints>` can be specified to delay execution of the sequence; otherwise the mission event will begin executing at the creation time of the platform.
+
+Event types that can be placed in a :command:`sequence<mission_sequence>` include the following:
+   
+.. include:: orbital_event_types_list.txt
+   
+.. parsed-literal::
+
+   // Example: Two mission events to raise a satellite
+   // from an initial injection point
+   // into a geosynchronous transfer orbit  (GTO) 
+   mission_sequence
+      // Constraint: delay two full orbits before executing
+      execute_at orbit 2 relative_time 0.0 s 
+
+      // intermediate orbit
+      event change_semi_major_axis
+         semi_major_axis  9000 km
+         execute_at orbit 2 ascending_node // Constraint with orbit delay
+      end_event
+
+      // GTO
+      maneuver change_semi_major_axis  // "maneuver ... end maneuver" block may be used with orbital maneuver types.
+         semi_major_axis 24821 km
+         execute_at ascending_node // Constraint without orbit delay
+      end_maneuver
+   end_mission_sequence
+
+.. note:: :doc:`Orbital mission events<orbital_event>` and :ref:`mission event sequences<orbital_mission_sequence>` are scriptable using the script methods :method:`WsfSpaceMover.ExecuteEvent` (:method:`WsfSpaceMover.ExecuteManeuver`) and :method:`WsfSpaceMover.ExecuteMissionSequence`.

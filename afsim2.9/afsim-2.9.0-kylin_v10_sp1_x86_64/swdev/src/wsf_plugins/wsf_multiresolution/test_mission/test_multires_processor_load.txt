@@ -1,0 +1,69 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+processor LOW_FIDELITY_PROCESSOR WSF_PERFECT_TRACKER   
+end_processor
+
+processor HIGH_FIDELITY_PROCESSOR WSF_PERFECT_TRACKER
+end_processor
+
+platform_type SIMPLE_FIGHTER WSF_PLATFORM
+   icon F-18  
+
+   mover WSF_AIR_MOVER
+      update_interval 30 sec
+   end_mover
+
+   multiresolution_processor my_processor WSF_MULTIRESOLUTION_PROCESSOR
+     model high_fidelity_processor
+        fidelity_range 0.5 1.0
+        processor HIGH_FIDELITY_PROCESSOR
+        end_processor
+     end_model
+    
+     add model low_fidelity_processor
+        fidelity_range 0.0 0.5
+        processor LOW_FIDELITY_PROCESSOR
+        end_processor
+     end_model
+     fidelity 1.0
+   end_multiresolution_processor
+end_platform_type
+
+platform test SIMPLE_FIGHTER
+  
+  multiresolution_processor my_processor
+     common
+        update_interval 0.25 sec
+     end_common
+  end_multiresolution_processor
+  
+  on_initialize2
+    // Check that the correct processor was loaded by checking its type
+    WsfProcessor processor = PLATFORM.Processor("my_processor");
+    if(processor != NULL){
+      // Check type
+      if(!processor.IsA_TypeOf("HIGH_FIDELITY_PROCESSOR")){
+        writeln("Wrong processor. Expected HIGH_FIDELITY_PROCESSOR, got ", processor.Type());
+        writeln("-FAIL-");
+      }
+      // Check that FOV was set with processoron block
+      if(processor.UpdateInterval() != 0.25)
+      {
+         writeln("Wrong update interval. Expected 0.25, got ", processor.UpdateInterval());
+         writeln("-FAIL-");
+      }
+    } else {
+      writeln("No processor with name my_processor");
+      writeln("-FAIL-");
+    }
+  end_on_initialize2
+end_platform

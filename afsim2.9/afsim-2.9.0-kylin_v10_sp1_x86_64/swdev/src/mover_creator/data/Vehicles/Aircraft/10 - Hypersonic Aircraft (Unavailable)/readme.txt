@@ -1,0 +1,1 @@
+Aircraft template files (*.amc) will be placed here in the future.

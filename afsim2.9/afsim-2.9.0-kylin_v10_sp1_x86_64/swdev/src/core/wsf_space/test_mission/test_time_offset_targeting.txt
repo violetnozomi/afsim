@@ -1,0 +1,116 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test sets up 'chaser' to rendezvous with 'target', but with a time offset
+# of 10 s. So after the maneuver, 'chaser' should be where 'target' was 10 s
+# ago.
+
+start_date jan 20 2021
+start_time 17:00:00.000
+end_time 4 hr
+
+include_once utils.txt
+
+platform_type TEST_SAT WSF_PLATFORM
+   empty_mass 1 kg
+   mover WSF_INTEGRATING_SPACE_MOVER
+      integrator prince_dormand_78
+         error_criterion L_infinity
+         tolerance 1.0e-9
+      end_integrator
+
+      dynamics
+         term earth_monopole
+         end_term
+      end_dynamics
+   end_mover
+end_platform_type
+
+platform target TEST_SAT
+   icon cubesat
+   side blue
+
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 45 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 10 deg
+      revolutions_per_day 12
+   end_mover
+end_platform
+
+platform chaser TEST_SAT
+   icon cubesat
+   side red
+
+   edit mover
+      eccentricity 0
+      raan 10 deg
+      inclination 35 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      revolutions_per_day 12
+
+      mission_sequence
+         maneuver rendezvous
+            execute_at periapsis
+            delta_time 20 min
+            tolerance 1e-09
+            target
+               platform target
+               lag_time 10 s
+            end_target
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+script_variables
+   Vec3 gPos = {};
+   Vec3 gVel = {};
+   double gTimeOffset = 10.0;       // [s] Must match offset in maneuver above
+   double gTestInterval = 600.0;    // [s] 10 min. testing interval; must be greater than gTimeOffset
+end_script_variables
+
+# Save off the state of 'target'
+script void SaveTargetState()
+   WsfPlatform target = WsfSimulation.FindPlatform("target");
+   gPos = target.LocationECI();
+   gVel = target.VelocityECI();
+
+   WsfSimulation.ExecuteAtTime(TIME_NOW + gTimeOffset, "CompareStates");
+   WsfSimulation.ExecuteAtTime(TIME_NOW + gTestInterval, "SaveTargetState");
+end_script
+
+# Compare the state of 'chaser' to 'target's state from 10 s in the past.
+script void CompareStates()
+   WsfPlatform chaser = WsfSimulation.FindPlatform("chaser");
+   Vec3 pos = chaser.LocationECI();
+   Vec3 vel = chaser.VelocityECI();
+
+   ExpectDouble(pos.X(), gPos.X(), 1.0e-4, "X position at time " + (string)TIME_NOW);
+   ExpectDouble(pos.Y(), gPos.Y(), 1.0e-4, "Y position at time " + (string)TIME_NOW);
+   ExpectDouble(pos.Z(), gPos.Z(), 1.0e-4, "Z position at time " + (string)TIME_NOW);
+
+   ExpectDouble(vel.X(), gVel.X(), 1.0e-4, "X velocity at time " + (string)TIME_NOW);
+   ExpectDouble(vel.Y(), gVel.Y(), 1.0e-4, "Y velocity at time " + (string)TIME_NOW);
+   ExpectDouble(vel.Z(), gVel.Z(), 1.0e-4, "Z velocity at time " + (string)TIME_NOW);
+end_script
+
+script void InitiateTesting(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "RENDEZVOUS")
+   {
+      SaveTargetState();
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED InitiateTesting
+end_observer

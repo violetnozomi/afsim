@@ -1,0 +1,221 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test script access to the perception track delay setting of the SA Processor:
+#  - Verify that visual_perception_delay and display_perception_delay defaults to zero
+#  - Verify that visual_perception_delay and display_perception_delay can be retrieved and modified
+#  - Verify that the delay is being properly applied
+#
+include_once ../auto_script/utility_test_functions.txt
+
+end_time 30 sec
+
+script_variables
+   bool allTestsPassed = true; // any failure turns it false
+   double defaultPerceptionDelay = 0.0;
+   double displayStartupPerceptionDelay = 12.0;
+   Array<double> newVisualPerceptionDelayValues = 
+   {
+      0,
+      5.3,
+      -1,
+      60, 
+      -5
+   };
+   Array<double> newDisplayPerceptionDelayValues =
+   {
+      10,
+      0,
+      -5,
+      60,
+      -1
+   };
+end_script_variables
+
+#event_output
+#   file STDOUT
+#   file test_update_rates_via_script.evt
+#   flush_output true
+#   enable EVENT_OF_INTEREST
+#   enable SIMULATION_STARTING
+#end_event_output
+
+# ****************************************************************************
+# Define the SA Processor used for testing
+# ****************************************************************************
+
+processor SA_PROCESSOR_TEST WSF_SA_PROCESSOR 
+   on
+   update_interval 1.0 sec
+   
+#   script_variables
+      # TBD
+#   end_script_variables
+
+#   on_initialize 
+      # TBD
+#   end_on_initialize
+         
+#   on_update 
+      # TBD
+#   end_on_update
+
+end_processor
+   
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   icon F-18E
+   side blue
+   
+   mover WSF_AIR_MOVER
+   end_mover
+   
+   processor sa-proc SA_PROCESSOR_TEST
+      on
+   end_processor
+   
+end_platform_type
+# ****************************************************************************
+# Define the platform instances
+# ****************************************************************************
+
+# This platform uses the default track_perception_delay and then changes the value
+platform platform-1 TEST_PLATFORM
+   side red
+   indestructible 
+   commander SELF
+   command_chain IFLITE  SELF
+   command_chain ELEMENT SELF
+   
+   route
+      position 36:27:36.87n 115:15:54.71w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   # Verify startup default for display_perception_delay and visual_perception_delay
+   execute at_time 1 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      string errStr = Name() + ": Unexpected default display_perception_delay";
+      allTestsPassed = AssertDoubleEqualsMessage(defaultPerceptionDelay, saProc.GetDisplayPerceptionDelay(), errStr) && allTestsPassed;
+      errStr = Name() + ": Unexpected default visual_perception_delay";
+      allTestsPassed = AssertDoubleEqualsMessage(defaultPerceptionDelay, saProc.GetVisualPerceptionDelay(), errStr) && allTestsPassed;
+   end_execute
+
+   # Verify ability to override perception delays defaults at runtime
+   execute at_time 2 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      for (int i=0 ; i<newVisualPerceptionDelayValues.Size() ; i = i + 1)
+      {
+         string errStr = Name() + ": SetVisualPerceptionDelay failed!";
+         if (newVisualPerceptionDelayValues[i] >= 0)
+         {
+            allTestsPassed = AssertTrueMessage(saProc.SetVisualPerceptionDelay(newVisualPerceptionDelayValues[i]), errStr) && allTestsPassed; 
+            errStr = Name() + ": Unexpected read-back of modified rate for visual_perception_delay";
+            allTestsPassed = AssertDoubleEqualsMessage(newVisualPerceptionDelayValues[i], saProc.GetVisualPerceptionDelay(), errStr) && allTestsPassed;       
+         }
+         else
+         {
+            //Output errors from source will be expected
+            double prevValue = saProc.GetVisualPerceptionDelay();
+            allTestsPassed = AssertFalseMessage(saProc.SetVisualPerceptionDelay(newVisualPerceptionDelayValues[i]), errStr) && allTestsPassed;
+            allTestsPassed = AssertDoubleEqualsMessage(prevValue, saProc.GetVisualPerceptionDelay(), errStr) && allTestsPassed;
+         }
+      }
+      for (int i=0 ; i<newDisplayPerceptionDelayValues.Size() ; i = i + 1)
+      {
+         string errStr = Name() + ": SetDisplayPerceptionDelay failed!";
+         if (newDisplayPerceptionDelayValues[i] >= 0)
+         {
+            allTestsPassed = AssertTrueMessage(saProc.SetDisplayPerceptionDelay(newDisplayPerceptionDelayValues[i]), errStr) && allTestsPassed; 
+            errStr = Name() + ": Unexpected read-back of modified rate for display_perception_delay";
+            allTestsPassed = AssertDoubleEqualsMessage(newDisplayPerceptionDelayValues[i], saProc.GetDisplayPerceptionDelay(), errStr) && allTestsPassed;       
+         }
+         else
+         {
+            //Output errors from source will be expected
+            double prevValue = saProc.GetDisplayPerceptionDelay();
+            allTestsPassed = AssertFalseMessage(saProc.SetDisplayPerceptionDelay(newDisplayPerceptionDelayValues[i]), errStr) && allTestsPassed;
+            allTestsPassed = AssertDoubleEqualsMessage(prevValue, saProc.GetDisplayPerceptionDelay(), errStr) && allTestsPassed;
+         }
+      }
+   end_execute
+
+end_platform
+
+# This platform sets track_perception_delay at startup and verifies GetPerceivedBogies list size
+platform platform-2 TEST_PLATFORM
+   track platform platform-1 end_track
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   indestructible 
+   side blue 
+   commander SELF
+   command_chain IFLITE  SELF
+   command_chain ELEMENT SELF
+   
+   edit processor sa-proc
+      perceived_item_calculation_update_interval 1.0 s
+      display_perception_delay 12.0 s
+      neutral_side red
+      mission_task  SWEEP
+   end_processor
+
+   # Verify startup setting for track_perception_delay
+   execute at_time 0.5 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      string errStr = Name() + ": Unexpected startup display_perception_delay";
+      allTestsPassed = AssertDoubleEqualsMessage(displayStartupPerceptionDelay, saProc.GetDisplayPerceptionDelay(), errStr) && allTestsPassed;
+   end_execute
+
+   # Verify that track perceptions are properly delayed
+   execute at_interval_of 0.5 sec
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      Array<WsfSA_EntityPerception> bogiesList = saProc.PerceivedBogies();
+      string errStr = Name() + ": Unexpected read back on bogies array size!";
+      if (TIME_NOW < (displayStartupPerceptionDelay + saProc.GetUpdateInterval("perceived_item_calculation_update_interval")))
+      {
+         allTestsPassed = AssertDoubleEqualsMessage(0, bogiesList.Size(), errStr) && allTestsPassed;
+      }
+      else
+      {
+         allTestsPassed = AssertDoubleEqualsMessage(1, bogiesList.Size(), errStr) && allTestsPassed;
+      }
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

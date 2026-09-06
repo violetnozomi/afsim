@@ -1,0 +1,91 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Filename: test_ripr_behavior_tree_1.txt
+# This file will validate the operation of a selector node in behavior trees
+
+test_feature ripr
+
+script_variables
+   int should_run_count = 0;
+   int not_reached_count = 0;
+end_script_variables
+
+behavior should_run
+   precondition
+      return true;
+   end_precondition
+   execute
+      extern int should_run_count;
+      should_run_count = should_run_count + 1;
+   end_execute
+end_behavior
+
+behavior not_reached
+   precondition
+      return true;
+   end_precondition
+   execute
+      extern int not_reached_count;
+      not_reached_count = not_reached_count + 1;
+   end_execute
+end_behavior
+
+behavior pass
+   precondition
+      return true;
+   end_precondition
+   execute
+      int nothing = 0;
+   end_execute
+end_behavior
+
+behavior fail
+   precondition
+      return false;
+   end_precondition
+   execute
+      int nothing = 0;
+   end_execute
+end_behavior
+
+processor test_proc WSF_RIPR_PROCESSOR
+   update_interval 10 seconds
+   behavior_tree
+      selector
+         behavior_node fail        
+         behavior_node fail        
+         behavior_node should_run  
+         behavior_node not_reached 
+         behavior_node not_reached 
+      end_selector
+   end_behavior_tree
+end_processor
+
+platform test_plat WSF_PLATFORM
+   add processor test test_proc end_processor
+   position 0n 0e altitude 100 m
+end_platform
+
+script void SimulationComplete()
+   if (!(should_run_count>0))
+   {
+      writeln("-FAIL- A behavior that should have been selected did not execute!");
+   }
+   if (!(not_reached_count==0))
+   {
+      writeln("-FAIL- A behavior that should not have been reached was executed!");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 15 seconds

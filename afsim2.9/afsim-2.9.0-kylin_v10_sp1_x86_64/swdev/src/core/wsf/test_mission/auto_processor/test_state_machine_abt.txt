@@ -1,0 +1,82 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test GetStates and GetStateAdvancedBehaviorTree, as well as calling Name on WsfAdvancedBehaviorTree
+
+advanced_behavior do_stuff
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+processor statemachine_with_abt WSF_STATE_MACHINE
+
+   script void EvaluateState()
+      STATE_MACHINE.Evaluate("X");
+   end_script
+
+   state X
+      next_state Y
+         return true;
+      end_next_state
+
+      advanced_behavior_tree
+         name tree_X
+         sequence
+            behavior_node do_stuff
+            behavior_node do_stuff
+            behavior_node do_stuff
+         end_sequence
+      end_advanced_behavior_tree
+   end_state
+
+   state Y
+      advanced_behavior_tree
+         name tree_Y
+         sequence
+            behavior_node do_stuff
+            behavior_node do_stuff
+            behavior_node do_stuff
+         end_sequence
+      end_advanced_behavior_tree
+   end_state
+end_processor
+
+platform p WSF_PLATFORM
+   add processor sm statemachine_with_abt
+      execute at_time 1 s absolute
+         EvaluateState();
+         Array<string> states = GetStates();
+         int findCount = 0;
+         for (int i = 0; i < states.Size(); i = i + 1)
+         {
+            if (states[i] == "X")
+            {
+               if (GetStateAdvancedBehaviorTree(states[i]).Name() == "tree_X")
+               {
+                  findCount = findCount + 1;
+               }
+            }
+            if (states[i] == "Y")
+            {
+               if (GetStateAdvancedBehaviorTree(states[i]).Name() == "tree_Y")
+               {
+                  findCount = findCount + 1;
+               }
+            }
+         }
+         if (findCount == 2) writeln("-PASS-");
+         else writeln("-FAIL-");
+      end_execute
+   end_processor
+end_platform

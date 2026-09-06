@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt34.f -> alt347.f
+// Replicates the 3,4,7,4 alternative behavior
+// alt3474_slow_pull_current_plane
+
+behavior alt3474_slow_pull_current_plane
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3474Enabled = true;
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 4;
+      int icall  = 7;
+      int lcall  = 4;
+
+      Vec3 a0;      # maneuver plane
+      double gmx;   # max Gs
+      double spd0;  # throttle setting
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+      double   grav              = 32.17405;
+
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition alt3474 slow_pull_current_plane, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3474Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      ##alt347.f line 108    //initialize value
+      #call vnorm(vp(1,me),myvdir)
+      ##alt347.f line 165 - 183
+      #if(xmag(ap(1,me)).lt.0.1)then
+      #   //FAIL
+      #endif
+      #iactn=3
+      #call cross(myvdir,ap(1,me),a0)
+      #call vnorm(a0,a0)
+      #gmx = gmxsu*grav
+      #--spd0 is a throttle setting under the NEW  iactn=3  format
+      #spd0 = -1.0
+
+      Vec3 myvdir = PLATFORM.VelocityNED().Normal();
+      Vec3 ap = PLATFORM.AccelerationNED();   //meters/sec^2
+      ap.Scale(Math.FT_PER_M());   //convert to feet/sec^2
+      if(ap.Magnitude() < 0.1)
+      {
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " acceleration not high enough to clearly define a maneuever plane!");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+      int iactn = 3;
+      a0 = Vec3.Cross(myvdir, ap).Normal();
+      double gmxsu = BRAWLER.MaxTacticalGs();
+      gmx = gmxsu*grav;
+      #--spd0 is a throttle setting under the NEW  iactn=3  format
+     #spd0 = -1.0;   //this means 100% thrust reversal setting
+      spd0 =  1.0;   //NO thrust reversal in brawler -> -1 gets converted to 1 (mil power)
+
+      ### Project and Evaluate (Score) Maneuver Alternative
+      double score = BRAWLER.EvaluateTurnInPlaneWithThrottle(a0, gmx, spd0, ilevel, kalt, icall, lcall);
+      return score;
+
+   end_precondition
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.PullGsInPlaneWithThrottle(a0, gmx, spd0);
+   end_execute
+
+end_behavior
+

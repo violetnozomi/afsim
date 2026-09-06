@@ -1,0 +1,430 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2019 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Test of attitude change event
+
+platform_type SAT WSF_PLATFORM
+   icon satellite
+   side green
+   mover WSF_SPACE_MOVER
+      position 40n 90w altitude 800 km heading 45 deg   
+   end_mover
+end_platform_type
+
+platform_type ATTITUDE_CHANGE SAT
+   script_variables 
+      string REF = ""; // initialized to name of each orientation reference platform, below.
+      bool mCheckOrientation = true;
+   end_script_variables
+
+   side blue
+   execute at_time 110 s absolute
+      if (mCheckOrientation)
+      {
+         WsfPlatform refPlatform = WsfSimulation.FindPlatform(REF);
+         Vec3 myOrientation = PLATFORM.OrientationECI();
+         Vec3 refOrientation = refPlatform.OrientationECI();
+         static double sTol = 0.001;
+         if ( (MATH.Fabs(myOrientation[0] - refOrientation[0]) > sTol) ||
+              (MATH.Fabs(myOrientation[1] - refOrientation[1]) > sTol) ||
+              (MATH.Fabs(myOrientation[2] - refOrientation[2]) > sTol))
+         {
+            writeln("-FAIL- (", PLATFORM.Name(), ")");
+            writeln(myOrientation);
+            writeln(refOrientation);
+         }
+      }           
+   end_execute
+end_platform_type
+
+platform sat_ref_nadir_solar SAT
+   edit mover
+      attitude_controller instant 
+         orientation nadir_with_solar_constraint
+      end_attitude_controller
+   end_mover
+end_platform
+
+platform sat_changeto_nadir_solar_input ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_nadir_solar";
+   end_script_variables
+   side blue
+   edit mover
+      position 40n 90w altitude 800 km heading 45 deg
+      mission_sequence 
+         event change_attitude
+             orientation nadir_with_solar_constraint 
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform sat_changeto_nadir_solar_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_nadir_solar";
+   end_script_variables
+   side red
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0), 
+                                                         WsfSpaceOrientation.NADIR_WITH_SOLAR_CONSTRAINT());
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+end_platform
+
+platform sat_ref_solar_with_nadir_constraint SAT
+   edit mover
+      attitude_controller instant 
+         orientation solar_with_nadir_constraint 
+      end_attitude_controller
+   end_mover
+end_platform
+
+platform sat_changeto_solar_with_nadir_constraint_input ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_solar_with_nadir_constraint";
+   end_script_variables
+
+   side blue
+   edit mover
+      mission_sequence 
+         event change_attitude
+             orientation solar_with_nadir_constraint  
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform sat_changeto_solar_with_nadir_constraint_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_solar_with_nadir_constraint";
+   end_script_variables
+   side red
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0), 
+                                                         WsfSpaceOrientation.SOLAR_WITH_NADIR_CONSTRAINT());
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+end_platform
+
+platform target SAT
+   edit mover      
+      position 40n 89.1w altitude 800 km heading 45 deg
+   end_mover
+end_platform
+
+platform sat_ref_entity_nadir SAT
+   edit mover
+      attitude_controller instant 
+         orientation entity_with_nadir_constraint target 
+      end_attitude_controller
+   end_mover
+end_platform
+
+platform sat_changeto_entity_nadir ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_entity_nadir";
+   end_script_variables
+   side blue
+   edit mover
+      mission_sequence 
+         event change_attitude
+             orientation entity_with_nadir_constraint target  
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform sat_changeto_entity_nadir_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_entity_nadir";
+   end_script_variables
+   side red
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0), 
+                                                         WsfSpaceOrientation.ENTITY_WITH_NADIR_CONSTRAINT(WsfSimulation.FindPlatform("target")));
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+end_platform
+
+platform sat_ref_entity_solar SAT
+   edit mover
+      attitude_controller instant 
+         orientation entity_with_solar_constraint target 
+      end_attitude_controller
+   end_mover
+end_platform
+
+platform sat_changeto_entity_solar ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_entity_solar";
+   end_script_variables
+   side blue
+   edit mover
+      mission_sequence 
+         event change_attitude
+             orientation entity_with_solar_constraint  target  
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform sat_changeto_entity_solar_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_entity_solar";
+   end_script_variables
+   side red
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0), 
+                                                         WsfSpaceOrientation.ENTITY_WITH_SOLAR_CONSTRAINT(WsfSimulation.FindPlatform("target")));
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+end_platform
+
+platform sat_ref_entity_orbit_plane SAT
+   edit mover
+      attitude_controller instant 
+         orientation entity_with_orbit_plane_constraint target 
+      end_attitude_controller
+   end_mover
+end_platform
+
+platform sat_changeto_entity_orbit_plane ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_entity_orbit_plane";
+   end_script_variables
+   side blue
+   edit mover
+      mission_sequence 
+         event change_attitude
+             orientation entity_with_orbit_plane_constraint  target  
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform sat_changeto_entity_orbit_plane_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_entity_orbit_plane";
+   end_script_variables
+   side red
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0), 
+                                                         WsfSpaceOrientation.ENTITY_WITH_ORBIT_PLANE_CONSTRAINT(WsfSimulation.FindPlatform("target")));
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+end_platform
+
+platform sat_ref_point_orbit_plane SAT
+   edit mover
+      attitude_controller instant 
+         orientation point_with_orbit_plane_constraint fred 
+      end_attitude_controller
+   end_mover
+   geo_point fred 0n 0e 800 km
+end_platform
+
+platform sat_changeto_point_orbit_plane ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_point_orbit_plane";
+   end_script_variables
+   edit mover
+      mission_sequence 
+         event change_attitude
+             orientation point_with_orbit_plane_constraint  fred  
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+   
+   geo_point fred 0n 0e 800 km
+end_platform
+
+platform sat_changeto_point_orbit_plane_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_point_orbit_plane";
+   end_script_variables
+   side red
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0), 
+                                                         WsfSpaceOrientation.POINT_WITH_ORBIT_PLANE_CONSTRAINT(PLATFORM.GeoPoint("fred")));
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+   geo_point fred 0n 0e 800 km
+end_platform
+
+platform sat_ref_nadir_with_ecef_velocity_constraint SAT
+   edit mover
+      attitude_controller instant 
+         orientation nadir_with_ecef_velocity_constraint 
+      end_attitude_controller
+   end_mover
+end_platform
+
+platform sat_changeto_nadir_with_ecef_velocity_constraint_input ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_nadir_with_ecef_velocity_constraint";
+   end_script_variables
+
+   side blue
+   edit mover
+      mission_sequence 
+         event change_attitude
+             orientation nadir_with_ecef_velocity_constraint  
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform sat_changeto_nadir_with_ecef_velocity_constraint_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_nadir_with_ecef_velocity_constraint";
+   end_script_variables
+   side red
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0), 
+                                                         WsfSpaceOrientation.NADIR_WITH_ECEF_VELOCITY_CONSTRAINT());
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+end_platform
+
+platform sat_ref_eci_velocity_with_nadir_constraint SAT
+   edit mover
+      attitude_controller instant 
+         orientation eci_velocity_with_nadir_constraint 
+      end_attitude_controller
+   end_mover
+end_platform
+
+platform sat_changeto_eci_velocity_with_nadir_constraint_input ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_eci_velocity_with_nadir_constraint";
+   end_script_variables
+
+   side blue
+   edit mover
+      mission_sequence 
+         event change_attitude
+             orientation eci_velocity_with_nadir_constraint  
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform sat_changeto_eci_velocity_with_nadir_constraint_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_eci_velocity_with_nadir_constraint";
+   end_script_variables
+   side red
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0), 
+                                                         WsfSpaceOrientation.ECI_VELOCITY_WITH_NADIR_CONSTRAINT());
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+end_platform
+
+platform sat_ref_eci_velocity_with_solar_constraint SAT
+   edit mover
+      attitude_controller instant 
+         orientation eci_velocity_with_solar_constraint 
+      end_attitude_controller
+   end_mover
+end_platform
+
+platform sat_changeto_eci_velocity_with_solar_constraint_input ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_eci_velocity_with_solar_constraint";
+   end_script_variables
+
+   side blue
+   edit mover
+      mission_sequence 
+         event change_attitude
+             orientation eci_velocity_with_solar_constraint  
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform sat_changeto_eci_velocity_with_solar_constraint_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_eci_velocity_with_solar_constraint";
+   end_script_variables
+   side red
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0), 
+                                                         WsfSpaceOrientation.ECI_VELOCITY_WITH_SOLAR_CONSTRAINT());
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+end_platform
+
+platform sat_ref_nadir_with_eci_velocity_constraint SAT
+   edit mover
+      attitude_controller instant 
+         orientation nadir_with_eci_velocity_constraint 
+      end_attitude_controller
+   end_mover
+end_platform
+
+platform sat_changeto_nadir_with_eci_velocity_constraint_input ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_nadir_with_eci_velocity_constraint";
+   end_script_variables
+
+   side blue
+   edit mover
+      attitude_controller instant 
+         orientation none 
+      end_attitude_controller
+      mission_sequence 
+         event change_attitude
+             orientation nadir_with_eci_velocity_constraint  
+             execute_at relative_time 100 s
+         end_event
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform sat_changeto_nadir_with_eci_velocity_constraint_script ATTITUDE_CHANGE
+   script_variables 
+      REF = "sat_ref_nadir_with_eci_velocity_constraint";
+   end_script_variables
+   side red
+   edit mover
+      attitude_controller instant 
+         orientation none 
+      end_attitude_controller
+   end_mover   
+   execute at_time 1.0e-12 s absolute
+      WsfChangeAttitude ca = WsfChangeAttitude.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0),
+                                                         WsfSpaceOrientation.NADIR_WITH_ECI_VELOCITY_CONSTRAINT());
+      WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+      sm.ExecuteOrbitalEvent(ca);
+   end_execute
+end_platform
+
+end_time 120 sec

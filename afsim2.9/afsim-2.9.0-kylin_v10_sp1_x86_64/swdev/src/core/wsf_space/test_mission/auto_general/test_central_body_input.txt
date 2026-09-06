@@ -1,0 +1,53 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date mar 20 2018
+start_time 17:15:00.000
+end_time 1.72 hours
+
+//in global environment
+global_environment 
+   central_body moon
+      polar_offset_angles 1.0e-6 rad 1.0e-7 rad
+   end_central_body
+end_global_environment
+
+global_environment
+   polar_offset_angles 1.0e-6 rad 1.0e-7 rad // deprecated
+   central_body earth_egm96
+      polar_offset_angles 1.0e-6 rad 1.0e-7 rad
+   end_central_body
+end_global_environment
+
+platform sun_center WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 10000000 km
+      central_body sun
+         polar_offset_angles 0.0 rad 0.00001 rad
+      end_central_body
+   end_mover
+end_platform
+
+platform earth_center1 WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 10000 km
+      central_body earth_wgs72
+         // No other input
+      end_central_body      
+   end_mover
+end_platform
+
+platform earth_center3 WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 10000 km
+      central_body earth_egm96
+         polar_offset_angles 0.0 rad 0.00001 rad
+      end_central_body
+   end_mover
+end_platform

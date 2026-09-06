@@ -1,0 +1,71 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#script_listing on
+
+# Testing some special cases for GoToSpeed() with the 'stay on route' option.
+platform p WSF_PLATFORM
+   add mover WSF_GROUND_MOVER
+      maximum_linear_acceleration 100 m/s2
+   end_mover
+
+   route
+      position 85n 90w
+         speed 100 kts
+      position 85n 89.9w
+         speed 100 kts
+         execute stop_here
+      position 85n 89w
+         speed 100 kts
+         execute end_of_route
+   end_route
+
+   # At this point, the mover should have processed the next point
+   # Setting the speed should override the new route speed
+   script void stop_here()
+      writeln("Stopping");
+      GoToSpeed(0.0, 0, true);
+      ExecuteAtTime(TIME_NOW + 10, "resume");
+   end_script
+
+   script void resume()
+      if (Speed() != 0)
+      {
+         writeln("-FAIL-");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+      writeln("Resuming");
+      GoToSpeed(50, 100, true);
+   end_script
+
+   # GoToSpeed() should do nothing here because there is no route left
+   script void end_of_route()
+      GoToSpeed(50, 100, true);
+      writeln("End of route");
+   end_script
+
+   # Ensure we stopped at the end of path
+   script void on_platform_deleted()
+      if (Speed() > 0.0)
+      {
+         writeln("-FAIL- Speed at end of route");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+   end_script
+
+end_platform
+
+end_time 10 min
+

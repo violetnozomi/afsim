@@ -1,0 +1,487 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This test is similar to the non-script version of the test. However, this tests script functionality.
+// Multiple instances of the same trigger will be used in different contexts to fully test scripts,
+// especially mutators. Only the original (control) platform and global instances of the composite trigger will
+// have accessors tested, as all versions of these will have the same result as we are testing the accessors
+// prior to the mutators.
+//
+// There are four mutators of note:
+// AddCompositeTrigger
+// RemoveCompositeTriggerEntry
+// EraseCompositeTriggers
+// SetCompositeTriggerEntryNOT
+//
+// In addition, AddCompositeTrigger must be tested for both a statically defined trigger, and a user defined trigger.
+//
+// Composite triggers:
+// trigger1 (global, control variable)
+// trigger2 (platform, control variable)
+// trigger3 (global, AddCompositeTrigger - static definition)
+// trigger4 (platform, AddCompositeTrigger - static definition)
+// trigger5 (global, AddCompositeTrigger - dynamic definition)
+// trigger6 (platform, AddCompositeTrigger - dynamic definition)
+// trigger7 (global, RemoveCompositeTriggerEntry)
+// trigger8 (platform, RemoveCompositeTriggerEntry)
+// trigger9 (global, EraseCompositeTriggers)
+// trigger10 (platform, EraseCompositeTriggers)
+// trigger11 (global, SetCompositeTriggerEntryNOT)
+// trigger12 (platform, SetCompositeTriggerEntryNOT)
+//
+// Evaluations and execution will be tracked for each separate trigger, such that definitions for each trigger
+// will be exactly the same except for the usage of these global variables.
+include_once trigger_test_defs.txt
+
+//Define trigger usage, via global and platform usage.
+cyber_trigger trigger1 TRIGGER1_BASE
+   policy or
+   execute_trigger true
+end_cyber_trigger
+
+platform plat_trigger2 WSF_PLATFORM
+   add cyber_trigger trigger2 TRIGGER2_BASE
+      policy or
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+cyber_trigger trigger3 TRIGGER3_BASE
+   policy or
+   execute_trigger true
+end_cyber_trigger
+
+platform plat_trigger4 WSF_PLATFORM
+   add cyber_trigger trigger4 TRIGGER4_BASE
+      policy or
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+cyber_trigger trigger5 TRIGGER5_BASE
+   policy or
+   execute_trigger true
+end_cyber_trigger
+
+platform plat_trigger6 WSF_PLATFORM
+   add cyber_trigger trigger6 TRIGGER6_BASE
+      policy or
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+cyber_trigger trigger7 TRIGGER7_BASE
+   policy or
+   execute_trigger true
+end_cyber_trigger
+
+platform plat_trigger8 WSF_PLATFORM
+   add cyber_trigger trigger8 TRIGGER8_BASE
+      policy or
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+cyber_trigger trigger9 TRIGGER9_BASE
+   policy or
+   execute_trigger true
+end_cyber_trigger
+
+platform plat_trigger10 WSF_PLATFORM
+   add cyber_trigger trigger10 TRIGGER10_BASE
+      policy or
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+cyber_trigger trigger11 TRIGGER11_BASE
+   policy or
+   execute_trigger true
+end_cyber_trigger
+
+platform plat_trigger12 WSF_PLATFORM
+   add cyber_trigger trigger12 TRIGGER12_BASE
+      policy or
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+
+execute at_time 1 s absolute
+   // These are accessor tests for the script methods. Since all the triggers are functionally
+   // equivalent (the only difference is which global variables track evaluations and executions)
+   // we will only test a single platform trigger and a single global trigger.
+   WsfCyberTrigger globalTrigger = WsfCyberTrigger.GetTrigger("trigger1");
+   WsfCyberTrigger platformTrigger = WsfCyberTrigger.GetTrigger("plat_trigger2", "trigger2");
+   
+   WsfCyberTriggerComposite globalCompTrigger = (WsfCyberTriggerComposite)globalTrigger;
+   WsfCyberTriggerComposite platformCompTrigger = (WsfCyberTriggerComposite)platformTrigger;
+   
+   if(globalCompTrigger.IsNull() || !globalCompTrigger.IsValid())
+   {
+      writeln("-FAIL-");
+      writeln("Invalid global composite trigger.");
+   }
+   
+   if(platformCompTrigger.IsNull() || !platformCompTrigger.IsValid())
+   {
+      writeln("-FAIL-");
+      writeln("Invalid platform composite trigger.");
+   }
+   
+   bool global_AND = globalCompTrigger.IsPolicyAND();
+   bool global_OR = globalCompTrigger.IsPolicyOR();
+   int global_trigger_count = globalCompTrigger.GetTriggersSize();
+   bool platform_AND = globalCompTrigger.IsPolicyAND();
+   bool platform_OR = globalCompTrigger.IsPolicyOR();
+   int platform_trigger_count = globalCompTrigger.GetTriggersSize();
+   
+   if(global_AND)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid global AND policy check.");
+   }
+   
+   if(!global_OR)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid global OR policy check.");
+   }
+   
+   if(global_trigger_count != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid global trigger count.");
+   }
+   
+   if(platform_AND)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid platform AND policy check.");
+   }
+   
+   if(!platform_OR)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid platform OR policy check.");
+   }
+   
+   if(platform_trigger_count != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid platform trigger count.");
+   }
+   
+   for(int i = 0; i < global_trigger_count; i = i + 1)
+   {
+      WsfCyberTrigger localTrigger = globalCompTrigger.GetTriggerEntry(i);
+      if(localTrigger.IsNull() || !localTrigger.IsValid())
+      {
+         writeln("-FAIL-");
+         writeln("Invalid global composite trigger entry number: " + (string)i);
+         
+         if(localTrigger.IsExecutingTrigger())
+         {
+            writeln("-FAIL-");
+            writeln("Invalid global composite trigger entry number: " + (string)i + " execution check.");
+         }
+      }
+      
+      bool isNOT = globalCompTrigger.IsTriggerEntryNOT(i);
+      if((i == 2 && !isNOT) || (i != 2 && isNOT))
+      {
+         writeln("-FAIL-");
+         writeln("Invalid global composite trigger entry number: " + (string)i + " NOT check.");
+      }
+   }
+   
+   for(int i = 0; i < platform_trigger_count; i = i + 1)
+   {
+      WsfCyberTrigger localTrigger = platformCompTrigger.GetTriggerEntry(i);
+      if(localTrigger.IsNull() || !localTrigger.IsValid())
+      {
+         writeln("-FAIL-");
+         writeln("Invalid platform composite trigger entry number: " + (string)i);
+         
+         if(localTrigger.IsExecutingTrigger())
+         {
+            writeln("-FAIL-");
+            writeln("Invalid platform composite trigger entry number: " + (string)i + " execution check.");
+         }
+      }
+      
+      bool isNOT = platformCompTrigger.IsTriggerEntryNOT(i);
+      if((i == 2 && !isNOT) || (i != 2 && isNOT))
+      {
+         writeln("-FAIL-");
+         writeln("Invalid platform composite trigger entry number: " + (string)i + " NOT check.");
+      }
+   }
+end_execute
+
+execute at_time 15.0 s absolute
+   //None of the triggers are evaluated yet, but are scheduled for their first evaluation interval at
+   //t = 30s. At this point, we will test the various triggers by using script mutators. The first two triggers
+   //will not be modified as control variables. The expected outcome for each change will be described below.
+   
+   //No changes to trigger1 and trigger2 - the outcome is akin to the associated trigger tests using the OR policy.
+   //(test_cyber_trigger_composite_OR.txt) except this test runs for an additional evaluation.
+   
+   //trigger3 and trigger4 will ADD an evaluation, using triggers statically defined via the scenario input, and not
+   //used in any other context. These will add an additional evaluation to the composite trigger.
+   WsfCyberTrigger globalTrigger3 = WsfCyberTrigger.GetTrigger("trigger3");
+   WsfCyberTrigger platformTrigger4 = WsfCyberTrigger.GetTrigger("plat_trigger4", "trigger4");
+   WsfCyberTriggerComposite globalCompTrigger3 = (WsfCyberTriggerComposite)globalTrigger3;
+   WsfCyberTriggerComposite platformCompTrigger4 = (WsfCyberTriggerComposite)platformTrigger4;
+   
+   //Since evaluations have not yet occurred, and the evaluations at t = 30 and t = 60 fail all other evaluations,
+   //these two evaluations will be run at t = 30 and t = 60. In the case of the platform trigger with 'not' set to
+   //true, this will create two additional executions (since it evaluates to true when set to not for t < 120).
+   bool result3 = globalCompTrigger3.AddTrigger("static_global_trigger", false);   // 'not' set to false
+   PrintResult(result3, "Fail trigger3 AddTrigger.");
+   bool result4 = platformCompTrigger4.AddTrigger("static_plat_trigger", true);    // 'not' set to true
+   PrintResult(result4, "Fail trigger4 AddTrigger.");
+   
+   //trigger5 and trigger6 will ADD an evaluation, using triggers defined here in the script context.
+   WsfCyberTrigger globalTrigger5 = WsfCyberTrigger.GetTrigger("trigger5");
+   WsfCyberTrigger platformTrigger6 = WsfCyberTrigger.GetTrigger("plat_trigger6", "trigger6");
+   WsfCyberTriggerComposite globalCompTrigger5 = (WsfCyberTriggerComposite)globalTrigger5;
+   WsfCyberTriggerComposite platformCompTrigger6 = (WsfCyberTriggerComposite)platformTrigger6;
+   
+   //Note that setting the trigger identifier is required. Triggers created in this way, without
+   //deriving from an existing trigger (or obtaining an existing trigger) have no name, and it is
+   //required for subsequent usage by the composite trigger.
+   WsfCyberTrigger scriptGlobalTrigger = {};
+   scriptGlobalTrigger.SetIdentifier("script_trigger_global");
+   bool resultScript5 = scriptGlobalTrigger.SetOnEvaluate("DynamicGlobalTriggerScript");
+   PrintResult(resultScript5, "Fail add global script eval.");
+   WsfCyberTrigger scriptPlatformTrigger = {};
+   scriptPlatformTrigger.SetIdentifier("script_trigger_plat");
+   bool resultScript6 = scriptPlatformTrigger.SetOnEvaluate("DynamicPlatTriggerScript");
+   PrintResult(resultScript6, "Fail add platform script eval.");
+   
+   //Note that adding these triggers requires the usage of the alternate "AddTrigger" method, 
+   //since these triggers are created in the script context and not managed by the simulation.
+   //The results should be the same as the triggers added for composite triggers 3 and 4.
+   bool result5 = globalCompTrigger5.AddTrigger(scriptGlobalTrigger, false);      // 'not' set to false
+   PrintResult(result5, "Fail trigger5 AddTrigger.");
+   bool result6 = platformCompTrigger6.AddTrigger(scriptPlatformTrigger, true);   // 'not' set to true
+   PrintResult(result6, "Fail trigger6 AddTrigger.");
+   
+   //Remove a trigger entry from triggers 7 and 8
+   WsfCyberTrigger globalTrigger7 = WsfCyberTrigger.GetTrigger("trigger7");
+   WsfCyberTrigger platformTrigger8 = WsfCyberTrigger.GetTrigger("plat_trigger8", "trigger8");
+   WsfCyberTriggerComposite globalCompTrigger7 = (WsfCyberTriggerComposite)globalTrigger7;
+   WsfCyberTriggerComposite platformCompTrigger8 = (WsfCyberTriggerComposite)platformTrigger8;
+   
+   //Removing trigger entry 0 results in three less evaluations. Executions remain the same. (7/3)
+   bool result7 = globalCompTrigger7.RemoveTriggerEntry(0);
+   PrintResult(result7, "Fail trigger7 RemoveTriggerEntry.");
+   bool result8 = platformCompTrigger8.RemoveTriggerEntry(0);
+   PrintResult(result8, "Fail trigger8 RemoveTriggerEntry.");
+   
+   //Erase all triggers. Result is no evaluations and no executions.
+   WsfCyberTrigger globalTrigger9 = WsfCyberTrigger.GetTrigger("trigger9");
+   WsfCyberTrigger platformTrigger10 = WsfCyberTrigger.GetTrigger("plat_trigger10", "trigger10");
+   WsfCyberTriggerComposite globalCompTrigger9 = (WsfCyberTriggerComposite)globalTrigger9;
+   WsfCyberTriggerComposite platformCompTrigger10 = (WsfCyberTriggerComposite)platformTrigger10;
+   
+   globalCompTrigger9.EraseTriggers();
+   platformCompTrigger10.EraseTriggers();
+   
+   //Swap a trigger entry to evaluate with NOT.
+   WsfCyberTrigger globalTrigger11 = WsfCyberTrigger.GetTrigger("trigger11");
+   WsfCyberTrigger platformTrigger12 = WsfCyberTrigger.GetTrigger("plat_trigger12", "trigger12");
+   WsfCyberTriggerComposite globalCompTrigger11 = (WsfCyberTriggerComposite)globalTrigger11;
+   WsfCyberTriggerComposite platformCompTrigger12 = (WsfCyberTriggerComposite)platformTrigger12;
+   
+   //Setting the first trigger to NOT results in the following:
+   //t = 30 (1 eval, 1 exec)
+   //t = 60 (1 eval, 1 exec)
+   //t = 90 (1 eval, 1 exec)
+   //t = 120 (2 eval, 1 exec)
+   //t = 150 (2 eval, 1 exec)
+   globalCompTrigger11.SetTriggerEntryNOT(0, true);
+   platformCompTrigger12.SetTriggerEntryNOT(0, true);
+   
+end_execute
+
+execute at_time 151 s absolute
+   if(trigger1_executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger1 executions.");
+      writeln("Executions counted: " + (string)trigger1_executed);
+   }
+   if(trigger1_evals != 10)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger1 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger1_evals);
+   }
+   if(trigger2_executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger2 executions.");
+      writeln("Executions counted: " + (string)trigger2_executed);
+   }
+   if(trigger2_evals != 10)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger2 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger2_evals);
+   }
+   if(trigger3_executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger3 executions.");
+      writeln("Executions counted: " + (string)trigger3_executed);
+   }
+   if(trigger3_evals != 10)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger3 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger3_evals);
+   }
+   if(trigger4_executed != 5)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger4 executions.");
+      writeln("Executions counted: " + (string)trigger4_executed);
+   }
+   if(trigger4_evals != 10)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger4 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger4_evals);
+   }
+   if(trigger5_executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger5 executions.");
+      writeln("Executions counted: " + (string)trigger5_executed);
+   }
+   if(trigger5_evals != 10)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger5 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger5_evals);
+   }
+   if(trigger6_executed != 5)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger6 executions.");
+      writeln("Executions counted: " + (string)trigger6_executed);
+   }
+   if(trigger6_evals != 10)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger6 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger6_evals);
+   }
+   if(trigger7_executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger7 executions.");
+      writeln("Executions counted: " + (string)trigger7_executed);
+   }
+   if(trigger7_evals != 7)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger7 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger7_evals);
+   }
+   if(trigger8_executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger8 executions.");
+      writeln("Executions counted: " + (string)trigger8_executed);
+   }
+   if(trigger8_evals != 7)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger8 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger8_evals);
+   }
+   if(trigger9_executed != 0)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger9 executions.");
+      writeln("Executions counted: " + (string)trigger9_executed);
+   }
+   if(trigger9_evals != 0)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger9 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger9_evals);
+   }
+   if(trigger10_executed != 0)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger10 executions.");
+      writeln("Executions counted: " + (string)trigger10_executed);
+   }
+   if(trigger10_evals != 0)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger10 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger10_evals);
+   }
+   if(trigger11_executed != 5)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger11 executions.");
+      writeln("Executions counted: " + (string)trigger11_executed);
+   }
+   if(trigger11_evals != 7)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger11 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger11_evals);
+   }
+   if(trigger12_executed != 5)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger12 executions.");
+      writeln("Executions counted: " + (string)trigger12_executed);
+   }
+   if(trigger12_evals != 7)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger12 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger12_evals);
+   }
+
+   if(static_global_evals != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of static_global_evals evaluations.");
+      writeln("Evaluations counted: " + (string)static_global_evals);
+   }
+   if(static_plat_evals != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of static_plat_evals evaluations.");
+      writeln("Evaluations counted: " + (string)static_plat_evals);
+   }
+   if(dynamic_global_evals != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of dynamic_global_evals evaluations.");
+      writeln("Evaluations counted: " + (string)dynamic_global_evals);
+   }
+   if(dynamic_plat_evals != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of dynamic_plat_evals evaluations.");
+      writeln("Evaluations counted: " + (string)dynamic_plat_evals);
+   }
+end_execute
+
+end_time 152 s

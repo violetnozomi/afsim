@@ -1,0 +1,19 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.4.2)** Corrected a problem where targeting solutions for some orbital propagators could fail, leading to a crash. *(Issue #1852)*
+* **(2.4.1)** Corrected an issue where space domain DIS entities cause a crash. *(Issue #1466)*
+* Corrected an output formatting issues for :ref:`two line elements <docs/wsf_space_mover:Orbital Element Commands>`. *(Issue #1014)*
+* Corrected several maneuvering-related issues with the :model:`WSF_SPACE_MOVER`. One issue concerned the inability to maneuver from an equatorial, prograde orbit to an equatorial retrograde orbit using a :doc:`change inclination <../change_inclination>` maneuver. Other issues were corrected when performing :doc:`change raan <../change_raan>` and :doc:`change raan & inclination <../change_raan_inclination>` maneuvers, where maneuvers with negative RAAN changes, changes in RAAN of 180 degrees, and changes to or from inclinations of 90 degrees did not succeed. *(Issue #1023)*
+* Corrected a grammar issue with a missing command to include :doc:`match velocity maneuver <../match_velocity>`. *(Issue #1172)*
+* Corrected a problem when invoking the :doc:`change inclination maneuver <../change_inclination>`, some special cases of inclination change 0-180; 180-0; 0-<i>, and <i>-0 (where <i> is an arbitrary inclination value) were producing final orbits with large eccentricities, rather than keeping the eccentricity constant. *(Issue #1202)*
+* Corrected an issue where the :model:`WSF_ORBITAL_CONJUNCTION_PROCESSOR` or script :method:`WsfSpaceMover.ComputeIntercept` methods were not providing answers that are as accurate as they could have been.  Typical results are now within one meter of the true target location. *(Issue #1226)*
+* Corrected an issue where a compound orbital mission event could cause a simulation to crash during verification. *(Issue #1255)*
+* Corrected :model:`WSF_SPACE_MOVER` to produce an initialization error for an incomplete orbit definition (neither :command:`semi_major_axis<WSF_SPACE_MOVER.semi_major_axis>`, nor :command:`revolutions_per_day<WSF_SPACE_MOVER.revolutions_per_day>` are specified). *(Issue #1258)*
+* Corrected an issue where providing a target platform name referring to a nonexistent or deleted platform, as used by :doc:`Intercept<../intercept>`, :doc:`Rendezvous<../rendezvous>`, :doc:`Target<../target>`, and :doc:`Match Velocity<../match_velocity>` orbital maneuvers, caused a crash. *(Issue #1289)*

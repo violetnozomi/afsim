@@ -1,0 +1,51 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+# This test verifies that a task list will not crash if tasks
+# are removed.
+platform_type myplat WSF_PLATFORM 
+   
+   processor tm WSF_TASK_PROCESSOR
+      show_uncompleted_tasks 
+      script_variables 
+         WsfTrackId trackId;
+      end_script_variables
+      execute at_time 1 s absolute
+         WsfTrack t = PLATFORM.MakeTrack();
+         trackId = t.TrackId();
+         AssignTask(t, "blah1");
+         AssignTask(t, "blah2");
+         AssignTask(t, "blah3");
+         writeln("Tasks added");
+      end_execute
+      execute at_time 2 s absolute
+         int nullTasks=0;
+         WsfTaskList list = AssignedTaskList();
+         CancelTask(trackId);
+         # At this point, each task should be null
+         foreach (WsfTask t in list) {
+            if (t == null)
+               nullTasks = nullTasks + 1;
+            else
+               print(t, " is not null.\n");
+         }
+         if (nullTasks == 3)
+            writeln("--PASS--");
+         else 
+            writeln("--FAIL--  Tasks were not null");
+      end_execute
+   end_processor 
+end_platform_type 
+
+platform p myplat 
+end_platform
+

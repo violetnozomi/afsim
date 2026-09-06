@@ -1,0 +1,140 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This is a striped-down version of demos/base_types/weapons/ssm/df-21b.txt
+# It is used for testing various things with the WSF_GUIDED_MOVER and WSF_GUIDANCE_COMPUTER.
+#
+# The user must derive from SSM_MOVER_BASE to create SSM_MOVER and SSM_GUIDANCE_BASE
+# to create SSM_GUIDANCE and update as needed. They should use these to create the platform
+# type SSM which must derive from SSM_BASE.
+
+###############################################################################
+
+aero SSM_STAGE_1_AERO WSF_AERO
+   reference_area            1.539 m^2           # 1.4 m diameter (Ref 1)
+   aspect_ratio              2.0
+   cl_max                    4.5
+   
+   # Values estimated from Hoerner's Drag book
+   cd_zero_subsonic          0.10
+   cd_zero_supersonic        0.35
+   mach_begin_cd_rise        0.95
+   mach_end_cd_rise          1.30
+   mach_max_supersonic       6.00
+end_aero
+
+aero SSM_STAGE_2_AERO WSF_AERO
+   reference_area            1.539 m^2           # 1.4 m diameter (Ref 1)
+   aspect_ratio              2.0
+   cl_max                    4.5
+   
+   # Values estimated from Hoerner's Drag book
+   cd_zero_subsonic          0.10
+   cd_zero_supersonic        0.35
+   mach_begin_cd_rise        0.95
+   mach_end_cd_rise          1.30
+   mach_max_supersonic       6.00
+end_aero
+
+aero SSM_RV_AERO WSF_AERO
+   # Based on the line drawing from Janes, it appears the RV is about 60% of the
+   # stage 1/2 diameter. So, 1.4 * 0.6 = 0.84m
+
+   reference_area            0.554 m^2           # 0.84 m diameter
+   aspect_ratio              2.0
+   cl_max                    4.5
+   
+   # Values estimated from Hoerner's Drag book
+   cd_zero_subsonic          0.10
+   cd_zero_supersonic        0.35
+   mach_begin_cd_rise        0.95
+   mach_end_cd_rise          1.30
+   mach_max_supersonic       6.00
+end_aero
+
+###############################################################################
+
+mover SSM_MOVER_BASE WSF_GUIDED_MOVER
+   integration_timestep      0.01 secs
+   update_interval           0.01 secs
+
+   # The original version used thrust_duration and specific impulse to define the
+   # burn_rate that would use all of the fuel in the specified time.
+   
+   stage 1
+      aero                   SSM_STAGE_1_AERO
+      total_mass             10454 kg
+      fuel_mass              8844 kg             # 10,454 * 0.846 (using Ref 3)
+      specific_impulse       260 sec             # Ref 4/5
+      thrust_duration        90 sec
+      burn_rate              98.267 kg/sec       # 8844 kg / 90 sec
+   end_stage
+
+   stage 2
+      aero                   SSM_STAGE_2_AERO
+      total_mass             4246 kg             # Stage + shroud = 4182 + 64
+      fuel_mass              3538 kg             # 4182 * 0.846 (using Ref 3)
+      specific_impulse       260 sec             # Ref 4/5
+      thrust_duration        36 sec
+      burn_rate              98.278 kg/sec       # 3538 kg / 36 sec
+   end_stage
+   
+   stage 3
+      aero                   SSM_RV_AERO
+      total_mass             500 kg              # Ref 1
+   end_stage
+end_mover
+
+###############################################################################
+
+processor SSM_GUIDANCE_BASE WSF_GUIDANCE_COMPUTER
+
+   # Go vertical for a short time.
+   phase LIFTOFF
+      program NULL_PROGRAM end_program
+      next_phase PITCH_OVER when speed > 75 m/s
+   end_phase
+   
+   # Pitch over to the desired flight path angle from the launch computer.
+   phase PITCH_OVER
+      commanded_flight_path_angle      from_launch_computer
+      proportional_navigation_gain     0.0                 # Don't guide to target
+      velocity_pursuit_gain            0.0                 # Don't guide to target
+      maximum_commanded_g              1.0 g
+      next_phase ASCENT when on_commanded_flight_path_angle
+   end_phase
+  
+end_processor
+
+###############################################################################
+
+weapon_effects SSM_EFFECT WSF_GRADUATED_LETHALITY
+   radius_and_pk 1000 m 0.8
+end_weapon_effects
+
+platform_type SSM_BASE WSF_PLATFORM
+   #icon Scud_Missile
+   icon HARM
+   
+   weapon_effects SSM_EFFECT
+
+   processor fuse WSF_GROUND_TARGET_FUSE
+   end_processor
+
+   script_variables
+      int mShotNumber = 0;
+   end_script_variables
+
+   on_initialize
+      extern int gShotCount;
+      gShotCount = gShotCount + 1;
+      mShotNumber = gShotCount;
+   end_on_initialize
+
+end_platform_type

@@ -1,0 +1,157 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+antenna_pattern EW_RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain           35 dB
+     minimum_gain       -20 dB
+     azimuth_beamwidth   10 deg
+     elevation_beamwidth 45 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+# A simple EW radar
+
+sensor EW_RADAR WSF_RADAR_SENSOR
+
+   slew_mode               both
+   # Specify the location and orientation of the sensor on the platform.
+   location                  0.0 0.0 -30 m
+
+   mode_template 
+   
+   transmitter
+      power           750 kw
+      frequency       900 mhz
+      bandwidth       0.1 mhz
+      pulse_width                  10  usec
+      pulse_repetition_interval    750 usec // max PRI range of 225 km
+      antenna_pattern EW_RADAR_ANTENNA
+      antenna_tilt     10 deg
+   end_transmitter
+   
+   receiver
+      antenna_pattern EW_RADAR_ANTENNA
+      antenna_tilt     10 deg
+      frequency       900 mhz
+      bandwidth         1 mhz
+   end_receiver
+
+   frame_time                1  sec
+
+   # The sensor sweeps only in azimuth
+   scan_mode                 azimuth
+   azimuth_scan_limits       -45 deg 45 deg
+
+   # The field of view, minimum_range and maximum_range are not required.
+   # They are simply used for quick culling and should be generous.
+   # (i.e. the field_of_view limits should be probably be larger than the
+   # corresponding slew limit because the beam can probably detect things
+   # outside the slew limit).
+   elevation_field_of_view  -2.5 deg 42.5 deg
+   azimuth_field_of_view -30 deg 30 deg
+
+   minimum_range        0 nm
+   maximum_range        2 km  
+
+   one_m2_detect_range 225 km
+
+   hits_to_establish_track   3 5   # 3 of last 5 scans to establish track
+   hits_to_maintain_track    1 4   # 1 of last 4 scans to maintain  track
+
+   reports_location
+   reports_velocity
+   reports_signal_to_noise
+   reports_range
+   reports_bearing
+   reports_elevation 
+   
+   end_mode_template
+
+   mode commandable
+      cue_mode both
+   end_mode
+   
+   mode non_commandable
+      cue_mode fixed
+   end_mode
+
+end_sensor
+
+# ****************************************************************************
+#                       ESM Detector
+
+antenna_pattern ESM_ANTENNA
+   uniform_pattern
+      azimuth_beamwidth 45 deg
+      elevation_beamwidth 10 deg
+end_antenna_pattern
+
+sensor ESM_SENSOR WSF_ESM_SENSOR
+   
+   frame_time              4 sec
+   maximum_range           4 km
+
+   receiver
+      antenna_pattern      ESM_ANTENNA
+      detection_threshold  5 db
+      noise_power          -180 dbw
+      internal_loss        0 db
+   end_receiver
+
+   frequency_band          0.1 ghz  20 ghz
+
+   reports_location
+   reports_type
+   reports_frequency
+   scan_stabilization pitch_and_roll
+   reports_iff
+   slew_mode               both 
+end_sensor
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+
+platform_type ESM_PLATFORM WSF_PLATFORM
+   icon f-18
+
+   mover WSF_AIR_MOVER end_mover
+
+   sensor esm ESM_SENSOR
+      on
+      processor track_manager
+      ignore_same_side
+   end_sensor   
+
+   processor track_manager WSF_TRACK_PROCESSOR
+   end_processor
+end_platform_type
+
+platform_type STRIKER_PLATFORM WSF_PLATFORM
+   icon F-18E
+   side blue
+
+   radar_signature FIGHTER_RADAR_SIGNATURE
+
+   mover WSF_AIR_MOVER end_mover
+
+   sensor ew_radar EW_RADAR
+      on
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   processor track_manager WSF_TRACK_PROCESSOR
+   end_processor
+end_platform_type

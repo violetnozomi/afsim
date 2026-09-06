@@ -1,0 +1,73 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform ptlr WSF_PLATFORM
+   add mover WSF_GROUND_MOVER end_mover
+   heading 0 degrees
+   
+   script void test_normalized_location(int i, double heading)
+      double plat_lat = PLATFORM.Location().Latitude();
+      double plat_lon = PLATFORM.Location().Longitude();
+      double wypt_lat = PLATFORM.Mover().Route().Waypoint(i).Latitude();
+      double wypt_lon = PLATFORM.Mover().Route().Waypoint(i).Longitude();
+      double tolerance = 0.0005;
+      if (MATH.Fabs(plat_lat - wypt_lat) < tolerance 
+         && MATH.Fabs(plat_lon - wypt_lon) < tolerance
+         && MATH.Fabs(PLATFORM.Heading() - heading) < tolerance)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- Waypoint ", i, " was not normalized correctly. Latitude error = ", plat_lat - wypt_lat, "; Longitude error = ", plat_lon - wypt_lon, "; Heading error = ", PLATFORM.Heading() - heading);
+      }
+   end_script
+   
+   script void test_waypoint_1()
+      test_normalized_location(1, 45.57182);
+   end_script
+   
+   script void test_waypoint_3()
+      test_normalized_location(3, 170.2378);
+   end_script
+
+   route
+      label ptlr-start
+      position 47:56:06.67n 120:37:47.32w
+      speed 50 mph
+      altitude 0 km agl
+      turn_right 45 deg
+      distance 50 miles
+      execute test_waypoint_1
+      position 44:28:58.38n 110:37:43.34w
+      label ptlr-end
+      turn_right 45 deg
+      distance 50 miles
+      execute test_waypoint_3
+   end_route
+   
+   execute at_time 44510 seconds absolute
+      double tolerance = 0.0005;
+      double heading = 170.2378;
+      if (MATH.Fabs(PLATFORM.Heading() - heading) < tolerance)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- Heading error = ", PLATFORM.Heading() - heading);
+      }
+   end_execute
+end_platform
+
+#event_pipe
+#file $(CASE).aer
+#end_event_pipe
+
+end_time 1 day

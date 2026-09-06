@@ -1,0 +1,235 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Basic test to ensure WSF_EOIR_SENSOR and WSF_VIDEO_PROCESSOR work somewhat properly
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include ../auto_script/test_functions.txt
+
+radar_signature GROUND_SITE_RADAR_SIG
+   constant 50 m^2
+end_radar_signature
+
+optical_signature GROUND_SITE_OPTICAL_SIG
+   constant 50 m^2
+end_optical_signature
+
+platform_type GROUND_SITE WSF_PLATFORM
+   icon Ground_Radar
+   radar_signature      GROUND_SITE_RADAR_SIG
+   optical_signature    GROUND_SITE_OPTICAL_SIG
+   mover WSF_GROUND_MOVER
+   end_mover
+end_platform_type
+
+sensor GENERIC_EOIR WSF_EOIR_SENSOR
+
+   frame_time                          2 sec     # sample rate
+   
+   slew_mode                           azimuth_and_elevation
+   azimuth_slew_limits                 -180 deg 180 deg
+   elevation_slew_limits               -90 deg 10 deg
+   
+   azimuth_field_of_view               -1.58 deg 1.58 deg
+   elevation_field_of_view             -1.58 deg 1.58 deg
+   maximum_range                       200 km
+
+   angular_resolution                  0.001 deg
+
+   reports_location
+
+# Uncommenting the following, and the section in the UAV track manager will
+# cause a covariance to eventually get created, but it will also cause bigger
+# velocity errors. It just exists here so it can be uncommented and make
+# sure the error sigmas go through the reporting process.
+
+#   azimuth_error_sigma                 0.0015 rad
+#   elevation_error_sigma               0.00075 rad
+#   range_error_sigma                   4 m
+
+end_sensor
+
+platform_type UAV WSF_PLATFORM
+   track_manager
+#      filter WSF_KALMAN_FILTER
+#      end_filter
+#      fusion_method weighted_average   
+   end_track_manager
+   
+   mover WSF_AIR_MOVER
+   end_mover
+   
+   processor data_mgr WSF_TRACK_PROCESSOR
+      # Do not specify a purge interval. We want a raw track drop to cause an
+      # immediate local track drop.
+   end_processor
+   
+   processor video_processor WSF_VIDEO_PROCESSOR
+      internal_link data_mgr
+   end_processor
+   
+   sensor eoir GENERIC_EOIR
+      internal_link video_processor
+   end_sensor
+end_platform_type
+
+# ==============================================================================
+
+platform target_01 GROUND_SITE
+   side red
+   route
+      position 34:45:00n 116:45w heading 180 deg speed 30 kts
+   end_route
+end_platform
+
+platform target_01a GROUND_SITE
+   side red
+   route
+      position 34:45:10n 116:45w heading 180 deg speed 0 kts
+   end_route
+end_platform
+
+platform target_02 GROUND_SITE
+   side red
+   route
+      position 34:47:00n 116:45w heading 180 deg speed 30 kts
+   end_route
+end_platform
+
+platform target_03 GROUND_SITE
+   side red
+   route
+      position 34:49:00n 116:45w heading 180 deg speed 0 kts
+   end_route
+end_platform
+
+platform target_04 GROUND_SITE
+   side red
+   route
+      position 34:51:00n 116:45w heading 180 deg speed 0 kts
+   end_route
+end_platform
+
+platform uav UAV
+   side blue
+   
+   route
+      position 34:45:00n 116:00w altitude 30000 ft speed 350 kts heading 0 deg
+   end_route
+
+   track
+      position 34:40:00n 116:45w altitude 0 ft
+   end_track
+   
+   execute at_time 1 sec relative
+      WsfTrack track = MasterTrackList().Entry(0);
+      WsfGeoPoint point = track.CurrentLocation();
+      double az = RelativeAzimuthOf(point);
+      double el = RelativeElevationOf(point);
+      Sensor("eoir").CueToRelativeAzEl(az, el);
+      Sensor("eoir").TurnOn();
+   end_execute
+   
+   execute at_time 151 sec relative
+      Sensor("eoir").TurnOff();
+   end_execute
+                             
+   script void CheckSpeed(WsfTrack aTrack,
+                          double   aExpectedSpeed)
+      if (aTrack.UpdateCount() == 0)
+      {
+         if (aTrack.VelocityValid() && (aTrack.Speed() != 0.0))
+         {
+            writeln("-FAIL- T=", TIME_NOW, " ", aTrack.TargetName(), " Should not have velocity when first seen");
+         }
+      }
+      else if (aTrack.VelocityValid())
+      {
+         if (Math.Fabs(aTrack.Speed() - aExpectedSpeed) > 1.0)
+         {
+            writeln("-FAIL- T=", TIME_NOW, " ", aTrack.TargetName(), " Velocity: ", aTrack.Speed(),
+                    " Expected: ", aExpectedSpeed);
+         }
+      }
+      else
+      {
+         writeln("-FAIL- ", aTrack.TargetName(), " Track did not have valid velocity");
+      }
+   end_script
+
+   script void CheckTrack(string aTargetName,
+                          double aInitTime,
+                          double aDropTime,
+                          double aExpectedSpeed)
+      bool found = false;
+      foreach (WsfTrack track in MasterTrackList())
+      {
+         if (track.TargetName() == aTargetName)
+         {
+            found = true;
+            if ((TIME_NOW < aInitTime) || (TIME_NOW >= aDropTime))
+            {
+               writeln("-FAIL- T=", TIME_NOW, " ", aTargetName, " exists outside the expected window");
+            }
+            CheckSpeed(track, aExpectedSpeed);
+            break;
+         }
+      }
+      
+      if (! found)
+      {
+         if ((TIME_NOW >= aInitTime) && (TIME_NOW < aDropTime))
+         {
+            writeln("-FAIL- T=", TIME_NOW, " ", aTargetName, " does not exist in the expected window");
+         }
+      }
+   end_script
+      
+   # This will execute on the even numbered seconds while the sensor is updating on the odd numbered seconds
+   script void CheckTracks()
+      writeln("T=",TIME_NOW);
+      CheckTrack("target_01",   39.0,  59.0, 15.44);
+      CheckTrack("target_01a",  45.0,  65.0, 0.0);
+      CheckTrack("target_02",   59.0,  79.0, 15.44);
+      CheckTrack("target_03",   83.0, 105.0, 0.0);
+      CheckTrack("target_04",  105.0, 125.0, 0.0);
+      ExecuteAtTime(TIME_NOW + 2.0, "CheckTracks");
+   end_script
+   
+   execute at_time 2 sec relative
+      CheckTracks();
+   end_execute
+end_platform
+/*
+event_pipe
+   file replay.aer
+end_event_pipe
+
+event_output
+   file replay.evt
+   print_track_covariance true
+   enable IMAGE_CREATED
+   enable LOCAL_TRACK_INITIATED
+   enable LOCAL_TRACK_UPDATED
+   enable LOCAL_TRACK_DROPPED
+#  enable SENSOR_DETECTION_ATTEMPT
+#  enable SENSOR_DETECTION_CHANGED
+   enable SENSOR_MODE_ACTIVATED
+   enable SENSOR_MODE_DEACTIVATED
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_UPDATED
+   enable SENSOR_TRACK_DROPPED
+   enable SENSOR_TURNED_ON
+   enable SENSOR_TURNED_OFF
+end_event_output
+*/
+end_time 180 secs
+

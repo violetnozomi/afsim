@@ -1,0 +1,62 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 1 2020
+start_time 12:00:00.000
+end_time 21 min
+
+platform target WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      revolutions_per_day 12
+      inclination 20 deg
+      eccentricity 0.0
+      true_anomaly 0 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+   end_mover
+end_platform
+
+platform test WSF_PLATFORM
+   empty_mass 100 kg
+
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      initial_state
+         epoch_date_time jan 1 2020 12:00:00.000
+         position 8058904.612733793445 m -35450.989064758010 m -15403.162906290168 m
+         velocity 33.668486970276 m/s 6608.578194373978 m/s 2405.382055049745 m/s
+      end_initial_state
+
+      integrator prince_dormand_45
+         tolerance 1.0e-11
+      end_integrator
+
+      dynamics
+         term earth_monopole
+            wgs84
+         end_term
+      end_dynamics
+   end_mover
+end_platform
+
+execute at_time 20 min absolute
+   WsfPlatform target = WsfSimulation.FindPlatform("target");
+   Vec3 targetLoc = target.LocationECI();
+   WsfPlatform test = WsfSimulation.FindPlatform("test");
+   Vec3 testLoc = test.LocationECI();
+   Vec3 diff = Vec3.Subtract(targetLoc, testLoc);
+   double diffMag = diff.Magnitude();
+   if (diffMag > 1.0e-2)
+   {
+      writeln("-FAIL- ", diffMag);
+   }
+   else
+   {
+      writeln("-PASS- ", diffMag);
+   }
+end_execute

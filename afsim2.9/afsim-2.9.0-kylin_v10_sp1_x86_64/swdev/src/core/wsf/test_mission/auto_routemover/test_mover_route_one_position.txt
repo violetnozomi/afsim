@@ -1,0 +1,50 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Insure RoadMover correctly responds with movement when
+// initially stationary then given a GoToLocation command.
+//
+
+include_once ../auto_script/test_functions.txt
+
+route_network network
+   route
+      position 0n 0w
+         node_id start_node
+      position 0n 1w
+         node_id end_node
+   end_route
+end_route_network
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_ROAD_MOVER
+      route
+         position 0n 0w
+      end_route
+      speed 10 mph
+      road_network network
+   end_mover
+   execute at_time 1 s absolute
+      PLATFORM.GoToLocation(0, 1);
+   end_execute
+   script void on_platform_deleted()
+      extern bool AssertTrueMessage(bool, string);
+      string message = "Road mover did not get a new heading.";
+      if (AssertTrueMessage(MATH.AngleIsBetween(Heading(), 85, 95), message))
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln(" Heading ", Heading(), " expected ", 90);
+      }
+   end_script
+end_platform
+
+end_time 5 s

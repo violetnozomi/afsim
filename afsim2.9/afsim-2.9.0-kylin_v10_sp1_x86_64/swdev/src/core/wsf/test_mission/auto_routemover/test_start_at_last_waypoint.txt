@@ -1,0 +1,69 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test for correctly setting new route when platform starts at the
+// last waypoint of initial route.
+//
+// Platform test should move from (0,1n)->(1n,1w)
+//
+//
+// route_1 intentially has more waypoints than route_2 because current
+// waypoint index will be out bounds for route_2 if not properly
+// managed during the switch to route_2
+
+route route_1
+   position 0n 0w altitude 1000 ft speed 100 knots
+   position 0.5n 0w altitude 1000 ft speed 100 knots
+   position 0.6n 0w altitude 1000 ft speed 100 knots
+      label startHere
+   position 1n 0w altitude 1000 ft speed 100 knots
+      execute setNextRoute
+end_route
+
+route route_2
+   position 1n 0w altitude 1000 ft speed 100 knots
+      execute start_route_2
+   position 1n 1w altitude 1000 ft speed 100 knots
+      execute setPassTrue
+end_route
+
+end_time 2169 s
+
+platform test WSF_PLATFORM
+   script_variables
+      bool pass = false;
+   end_script_variables
+   add mover WSF_GROUND_MOVER
+      start_at startHere
+      use_route route_1
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+   script void setNextRoute()
+      writeln(TIME_NOW, " end_route_1");
+      PLATFORM.FollowRoute("route_2");
+   end_script
+   script void start_route_2()
+      writeln(TIME_NOW, " start_route_2");
+   end_script
+   script void setPassTrue()
+      writeln(TIME_NOW, " end_route_2");
+      pass = true;
+   end_script
+   script void on_platform_deleted()
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- - mover failed to set next route properly.");
+      }
+   end_script
+end_platform
+

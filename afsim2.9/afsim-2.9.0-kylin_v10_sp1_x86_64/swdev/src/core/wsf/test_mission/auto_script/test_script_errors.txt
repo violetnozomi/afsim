@@ -1,0 +1,83 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test for MANTIS #156 Invalid Syntax Fails to cause Error
+
+script void DoSomething()
+   writeln("Doing something...");
+end_script
+
+script int GetValue()
+   return 123;
+end_script
+
+# Check for missing argument lists in user-defined script calls
+script_expect_error true
+script void BadCall_1()
+   DoSomething;                        # Should be DoSomething();
+end_script
+
+script_expect_error true
+script void BadCall_2()
+   int i = GetValue;                   # Should be GetValue();
+end_script
+
+script_expect_error true
+script void BadCall_3()
+   writeln("Value=", GetValue);        # Should be GetValue();
+end_script
+
+script_expect_error true
+script void BadCall_4()
+   double x = Math.Sin;                # Should be Math.Sin(something)
+end_script
+
+script_expect_error true
+script void BadCall_5()
+   WsfTrackId tid = WsfTrackId;
+end_script
+
+script_expect_error true
+script void BadCall_6()
+   WsfTrackId tid = WsfTrackId(1);     # Copy constructor must be able to cast argument to same type
+end_script
+
+script_expect_error true
+script void BadCall_7()
+   WsfTrackId tid = WsfTrackId("test", 1);     # Copy constructor can only have one argument
+end_script
+
+# Now repeat the above but using the proper syntax...
+script void GoodCalls()
+   DoSomething();
+   int i = GetValue();
+   writeln("Value=", GetValue());
+   double x = Math.Sin(90.0);
+
+   # Make sure we didn't break implicit refeor explicit reference to builtins
+   writeln("writeln");
+   __BUILTIN__.writeln("__BUILTIN__.writeln");
+
+   WsfTrackId tid1 = WsfTrackId.Construct("test", 1);
+   WsfTrackId tid2 = WsfTrackId(tid1);
+end_script
+
+platform test WSF_PLATFORM
+   on_initialize
+      writeln("Name(): ", Name());
+      writeln("this.Name(): ", this.Name());
+   end_on_initialize
+end_platform
+
+
+
+on_initialize
+   GoodCalls();
+end_on_initialize
+

@@ -1,0 +1,82 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _error_model.trimsim_error:
+
+trimsim_error
+**************
+
+.. seealso::
+   :model:`WSF_TRIMSIM_PROCESSOR` to fully implement and apply this error model's errors.
+
+This error model is a required companion to :model:`WSF_TRIMSIM_PROCESSOR` to provide the parameters for error calculations. The commands for this error model define the various sources of error used in the TDOA algorithm. Establish TDOA parameters for master and slave TDOA ESM sensors, if applicable.
+
+.. note::
+   Sensor mode errors are ignored when these are defined.
+
+.. parsed-literal::
+
+ error_model <derived-name> trimsim_error
+    north_position_error_sigma_ ...
+    east_position_error_sigma_ ...
+    down_position_error_sigma_ ...
+    reference_time_error_ ...
+    inter_system_time_delay_ ...
+    sensor_timing_error_ ...
+    atmospheric_refraction_residual_ ...
+    ground_target_altitude_error_ ...
+ end_error_model
+
+.. command:: north_position_error_sigma <length-value>
+
+     Defines the sensing platform's north target location error.
+
+     Default: 0 m
+
+.. command:: east_position_error_sigma <length-value>
+
+   Defines the sensing platform's east target location error.
+
+   Default: 0 m
+
+.. command:: down_position_error_sigma <length-value>
+
+   Defines the sensing platform's down target location errors.
+
+   Default: 0 m
+
+.. command:: reference_time_error <time-value>
+
+   Needs description.
+
+   Default: 0 sec
+
+.. command:: inter_system_time_delay <time-value>
+
+   Defines the relative timing error between the targeting sensor and the reference system (e.g., INS/GPS).
+
+   Default: 0 sec
+
+.. command:: sensor_timing_error <time-value>
+
+   Defines the targeting sensor's internal time measurement error.
+
+   Default: 0 sec
+
+.. command:: atmospheric_refraction_residual <unitless>
+
+   Defines the atmospheric refraction compensation error, residual part.
+
+   Default: 0.0
+
+.. command:: ground_target_altitude_error <length-value>
+
+   Defines the altitude error to use for the special case of 3 platforms detecting a "land" or "surface" target. The
+   algorithm still requires a master node and at least 3 slave nodes detecting the target for all other types of targets
+   (e.g., air, unknown) or if this value is not defined.

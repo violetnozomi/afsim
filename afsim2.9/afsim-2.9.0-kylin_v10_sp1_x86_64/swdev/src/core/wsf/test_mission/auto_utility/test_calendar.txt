@@ -1,0 +1,123 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test Calendar Utility
+
+script_variables
+   bool gPass = true;
+end_script_variables
+
+script void Test(Object aTestValue, Object aExpectedValue)
+   if (aTestValue != aExpectedValue)
+   {
+      writeln("-FAIL-");
+      gPass = false;
+   }
+end_script
+
+script void TestGetSetAdvanceTime()
+   // test calendar
+   // init at Jan 31 2014, 12:00 p.m.
+   Calendar cal = Calendar();
+   cal.SetEpoch(2014031.5);
+
+   //expect 2456689.0
+   Test(cal.Month(), 1);
+   Test(cal.JulianDate(), 2456689.0);
+
+   cal.AdvanceTime(86400.0);
+   Test(cal.JulianDate(), 2456690.0);
+   Test(cal.Day(), 1);
+
+   cal.AdvanceTime(43200.0);
+   Test(cal.JulianDay(), 2456690);
+   Test(cal.SecondsPastMidnight(), 0.0); // (Julian days start at noon)
+
+   double j2000Date = 2456690.5 - 2451545.0;
+   Test(cal.J2000_Date(), (j2000Date));
+   Test(cal.Month(), 2);
+
+   Test(cal.Day(), 2);
+   Test(cal.Hour(), 0);
+   Test(cal.ToStringTime(), ("00:00:00"));
+
+   cal.AdvanceTime(86399);
+   Test(cal.Hour(), 23);
+   Test(cal.ToStringTime(), ("23:59:59"));
+   Test(cal.ToStringDate(), "feb 2 2014");
+
+   cal.SetDate(2014, 2, 1);
+   cal.SetTime(2, 0, 0.0);
+   Test(cal.ToStringLocalDate(-3), "jan 31 2014");
+
+   cal.SetDate(2014, 1, 1);
+   cal.SetTime(0, 0, 0.0);
+   double oneYear = 86400 * 365.0;
+   cal.AdvanceTime(2.0 * oneYear - 1.0);
+   Test(cal.ToStringDate(), "dec 31 2015");
+   Test(cal.ToStringTime(), "23:59:59");
+   cal.AdvanceTime(-2.0 * oneYear + 1.0);
+   Test(cal.ToStringDate(), "jan 1 2014");
+   Test(cal.ToStringTime(), "00:00:00");
+
+   // leap year
+   cal.SetDate(2012, 2, 29);
+   Test(cal.ToStringDate(), "feb 29 2012");
+   cal.SetDate(2012, 12, 31);
+   Test(cal.Epoch(), 12366.0);
+
+   // roundoff error issue (pre-2.2.1)
+   cal.SetTime(12, 0, 0.0);
+   for (int minute = 0; minute < 719; minute=minute+1)
+   {
+      cal.AdvanceTime(60.0);
+   }
+   cal.AdvanceTime(59.99999);
+   Calendar refTime = {};
+   refTime.SetJ2000_Date(4748.5);
+   if(MATH.Fabs(cal.TimeSince(refTime)) > 0.001)
+   {
+      writeln("-FAIL-");
+   }
+
+   cal.SetJulianDate(2451544.0);
+   Test(cal.J2000_Date(), -1.0);
+end_script
+
+script void TestSystemTimeFractionalSecond()
+   // Compare three consecutive system clock times t1, t2, t3 and ensure that t1 < t2 < t3
+   // Assume that the returned time has enough resolution that the times are not the same.
+   double t1 = Calendar.Construct().Second();
+   double t2 = Calendar.Construct().Second();
+   double t3 = Calendar.Construct().Second();
+
+   if ((t1 < t2) && (t2 < t3)) {} // t1 < t2 < t3 (pass)
+   else
+   {
+      writeln("-FAIL- Sequential times not monotonically increasing.");
+      gPass = false;
+   }
+
+   if ((t1 == (int)t1) && (t2 == (int)t2) && (t3 == (int)t3))
+   {
+      writeln("-FAIL- Seconds have no fractional part");
+      gPass = false;
+   }
+end_script
+
+// Run tests
+execute at_time 1.0 s absolute
+   TestGetSetAdvanceTime();
+   TestSystemTimeFractionalSecond(); 
+   
+   if (gPass)
+   {
+      writeln("-PASS-");
+   }
+end_execute

@@ -1,0 +1,45 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+Weapon Server Processor Related
+===============================
+
+.. method:: bool AllocateTheWeapon(WsfTrack aTrack, int aWpnId)
+   
+   Returns true if weapon in Ready State (value of 4). The weapon id being sent in should be a unique value and will need
+   to be assigned to the missile prior to launch. The **dis_entity_id_offset** value for the
+   :command:`WsfExplicitWeapon <WSF_EXPLICIT_WEAPON>` input will automatically be added to this value by the
+   weapon processor, in order for each weapon suite to have its own range of id numbers. Set the dis_entity_id_offset if
+   input if this behavior is desired.
+   
+   The dis_entity_id_offset blocks needs to be unique for each weapon type and the ranges should not overlap. Also, make
+   sure enough slots are allotted for the total weapon quantities, especially if weapons are to be reloaded.
+   If all communication was successful between WSF and the off-board Weapon Server Application and the weapon is in the
+   READY STATE the weapon server processor will automatically set the assigned weapon track pairing list.
+
+.. method:: int SetState(int aState)
+   
+   Set the state of the weapon being launched.  Should match the state returned from the weapon server processor.  This
+   should be called immediately before the Fire command.
+
+    * 0 = not initialized
+    * 1 = Allocated
+    * 2 = Deallocated
+              3 = NACK
+              4 = Ready
+
+.. method:: int State()
+   
+   Returns the state of this weapon.
+              0 = not initialized
+              1 = Allocated
+              2 = Deallocated
+              3 = NACK
+              4 = Ready

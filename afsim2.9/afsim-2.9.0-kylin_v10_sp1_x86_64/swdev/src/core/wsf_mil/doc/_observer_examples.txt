@@ -1,0 +1,49 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+This is another example of using the observer block to update a global variable used in the simulation as well as
+writing information::
+
+ script_variables
+   global Map< int, double > mPlatformDamageFactor = Map< int, double >();
+ end_script_variables
+
+ script void WeaponTerminated(WsfWeaponEngagement aWeaponEngagement)
+   extern Map< int, double > mPlatformDamageFactor;
+   // Save the platform damage truth information
+   WsfPlatform platform = aWeaponEngagement.TargetPlatform();
+   if (platform.IsValid()  && platform.Name() == "target3")
+   {
+      int platformIndex  = platform.Index();
+      mPlatformDamageFactor[platformIndex] = platform.DamageFactor();
+      writeln(",Platform Damage=," , platform.DamageFactor(),
+              ",Platform Name=," , platform.Name(),
+              ",Platform Speed=," , platform.Speed(),
+              ",Platform Heading=," , platform.Heading());
+   }
+ end_script
+ observer
+   enable WEAPON_TERMINATED
+ end_observer
+
+
+This example writes out information for every successful (HIT) weapon engagement.::
+
+ script void WeaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+    WsfPlatform weapon = aWeaponEngagement.WeaponPlatform();
+    WsfGeoPoint launchpoint = aWeaponEngagement.WeaponLocationAtLaunch();
+    WsfGeoPoint weaponpoint = aWeaponEngagement.WeaponLocation();
+    double groundrange = launchpoint.GroundRangeTo(weaponpoint);
+    double timeofflight = aWeaponEngagement.TimeSinceStarted();
+    writeln(weapon.MachNumber(), "  ", weapon.Speed(), "  ", weapon.Pitch(), " ", groundrange, "  ",timeofflight);
+ end_script
+ observer
+    enable WEAPON_HIT
+ end_observer

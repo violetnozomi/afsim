@@ -1,0 +1,132 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+#
+#                          ------ UNCLASSIFIED ------
+#          AIM-9X (Sidewinder) Short-Range Infrared Air-To-Air Missile
+#
+# This file contains definitions for the 'mover', guidance computer, fuse and
+# lethality and a base platform type.  It should be considered a rudimentary
+# beginning point for further refinement.  The user is then responsible for:
+#
+# A) Creating a 'platform_type' that derives from AIM-9X_BASE which defines
+#    the seeker and any other subsystems that may be required.
+#
+# B) Creating a 'platform_type' that represents the launcher.
+#
+# The last part of the file is commented out and demonstrates the above steps.
+#
+# All information below is representative only, and is estimated or obtained
+# from open sources.
+################################################################################
+
+aero AIM-9X_AERO WSF_AERO
+   
+   mach_and_cd    0.0 1.35 # ref AIAA 79-0091
+   mach_and_cd    0.8 1.35 # ref AIAA 79-0091
+   mach_and_cd    1.0 1.85 # ref AIAA 79-0091
+   mach_and_cd    1.2 2.0  # ref AIAA 79-0091
+   mach_and_cd    1.5 1.8  # ref AIAA 79-0091
+   mach_and_cd    2.0 1.65 # ref AIAA 79-0091
+   mach_and_cd    3.0 1.2  # ref AIAA 79-0091
+   mach_and_cd    4.0 1.0  # ref AIAA 79-0091
+
+   reference_area 0.13635 ft2 # 5.0 in body dia
+   
+   cl_max 10.0 # Experimentally set, to cause approx 30G max turn rate
+   
+   # Note:  Pi * AR * e = 50 => AR = 50 / Pi / e = 17.7 # ref Steve Knapp
+   aspect_ratio   17.7
+   oswalds_factor  0.9 # Approximate Guess
+
+end_aero
+
+platform_type AIM-9X_BASE WSF_PLATFORM
+
+  icon AIM-9X
+
+  mover WSF_GUIDED_MOVER
+    total_mass       188.0 lbm # init=188, bo=127
+    fuel_mass         61.0 lbm
+    # Isp values of 250 are typical of solid rocket motors of
+    # today, but that value would not close, so was reduced.
+    specific_impulse 222.0 sec
+    thrust          2700.0 lbf
+    thrust_duration    5.1 sec
+    update_interval 0.10 s
+    aero AIM-9X_AERO 
+    #show_status # Turns on some mass properties diagnostic output
+  end_mover
+
+  processor aim-9x_autopilot WSF_GUIDANCE_COMPUTER
+    proportional_navigation_gain  30.0
+    velocity_pursuit_gain         30.0
+    g_bias                         1.0
+    maximum_commanded_g           40.0 g
+    update_interval                0.1 s
+  end_processor
+
+  processor aim-9x_seeker WSF_PERFECT_TRACKER
+    update_interval 0.10 s
+  end_processor
+
+  processor aim-9x_fuse WSF_AIR_TARGET_FUSE
+    max_time_of_flight_to_detonate  120.0 sec
+  end_processor
+
+end_platform_type
+
+weapon_effects AIM-9X_EFFECT WSF_SPHERICAL_LETHALITY
+  # Note:  Does not consider the hardness of any target.  All are treated the same.
+  minimum_radius  50.0 ft # largest blast radius at which damage inflicted is maximum.
+  maximum_damage   1.0    # maximum damage level achievable upon the target.
+  maximum_radius  60.0 ft # blast radius beyond which the damage inflicted is Zero.
+  minimum_damage   0.2    # damage level acheived at the maximum radius.
+  threshold_damage 0.20   # initial damage level which must be acheived
+                          # before effects begin to accumulate upon the target 
+  exponent         1.00   # exponent of proportionality of damage with radius.
+end_weapon_effects
+
+weapon AIM-9X WSF_EXPLICIT_WEAPON
+   #debug
+   launched_platform_type AIM-9X_BASE
+   quantity 2
+   launch_delta_v 10.0 0.0 0.0 m/s
+   weapon_effects AIM-9X_EFFECT
+end_weapon
+
+# Following is an example launch computer for this weapon,
+# valid only at the specified launch altitude and speed.
+#include_once aim-9x_ata_launch_computer_alt10kft_0.6mach.txt
+
+###############################################################################
+#                         START OF EXAMPLE SECTION
+###############################################################################
+
+/* <----- START BLOCK COMMENT
+
+platform_type AIM-9X AIM-9X_BASE
+   comm uplink <comm-type>
+      <comm-data>
+   end_comm
+   sensor seeker <sensor-type>
+      <sensor-data>
+   end_sensor
+end_platform_type
+
+platform_type AIM-9X_LAUNCHER WSF_PLATFORM
+   #icon <unknown>
+   weapon aim-9x AIM-9X
+      launched_platform_type AIM-9X
+   end_weapon
+end_platform_type
+
+-----> END BLOCK COMMENT */
+

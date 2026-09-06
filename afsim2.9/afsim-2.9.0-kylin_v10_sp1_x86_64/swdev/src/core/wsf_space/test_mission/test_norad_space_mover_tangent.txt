@@ -1,0 +1,82 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 24 hours
+
+platform test-tangent WSF_PLATFORM
+   icon satellite
+   side blue
+   
+   add mover WSF_NORAD_SPACE_MOVER
+      eccentricity 0.0
+      semi_major_axis 10000 km
+      inclination 1 deg
+      raan 0 deg
+   end_mover
+
+   maneuvering simple
+      maximum_acceleration 2 g
+   end_maneuvering
+
+   mission_sequence
+      maneuver tangent
+         delta_v 100.0 m/s          
+      end_maneuver
+   end_mission_sequence
+   
+   execute at_time 13 hours absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      WsfOrbitalManeuver maneuver = WsfTangentManeuver.Construct(WsfOrbitalEventCondition.NONE(), 100.0);
+      bool result = mover.ExecuteManeuver(maneuver);
+      if(result){
+         writeln("tangent: true");
+      } else {
+         writeln("tangent: false");
+      }
+   end_execute
+end_platform
+
+script_variables
+   double sSpeed = 0.0;
+   int sNumCompleted = 0;
+end_script_variables
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; begin ", aManeuver.ManeuverType());
+   sSpeed = aSM.Platform().Speed(); 
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; end ", aManeuver.ManeuverType());
+   double newSpeed = aSM.Platform().Speed();
+   double deltaSpeed = newSpeed - sSpeed;
+   writeln("NewSpeed ", newSpeed, " initial: ", sSpeed, " delta:", deltaSpeed);
+   if ((deltaSpeed < 99.99) || (deltaSpeed > 100.01))
+   {
+      writeln("-FAIL-");
+   }
+   sNumCompleted += 1;
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 2)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+end_script
+
+observer   
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated 
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted 
+   enable SIMULATION_COMPLETE
+end_observer 

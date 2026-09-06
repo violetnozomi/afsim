@@ -1,0 +1,262 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This file tests the behavior node last executed script functions:
+# WsfBehaviorTreeNode.Executed()
+# WsfScriptProcessor.BehaviorsExecuted()
+
+## PLATFORM/BEHAVIOR DEFINITIONS ##
+behavior one
+   precondition
+      return true;
+   end_precondition
+
+   execute
+      writeln_d("Executing behavior one");
+   end_execute
+end_behavior
+
+behavior two
+   precondition
+      return false;
+   end_precondition
+
+   execute
+      writeln_d("Executing behavior two");
+   end_execute
+end_behavior
+
+behavior three
+   precondition
+      return true;
+   end_precondition
+
+   execute
+      writeln_d("Executing behavior three");
+   end_execute
+end_behavior
+
+platform_type BEHAVIOR_PLATFORM WSF_PLATFORM
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval 60 sec
+   end_processor
+
+   processor proc1 WSF_SCRIPT_PROCESSOR
+      update_interval 1 sec
+
+      behavior_tree
+         behavior_node one
+         behavior_node two
+         behavior_node three
+      end_behavior_tree
+   end_processor
+
+   processor proc2 WSF_SCRIPT_PROCESSOR
+      update_interval 1 sec
+
+      behavior_tree
+         selector
+            behavior_node one
+            behavior_node two
+            behavior_node three
+         end_selector
+      end_behavior_tree
+   end_processor
+
+   processor proc3 WSF_SCRIPT_PROCESSOR
+      update_interval 1 sec
+
+      behavior_tree
+         behavior_node two
+      end_behavior_tree
+   end_processor
+
+end_platform_type
+
+## SCENARIO ##
+platform test_platform BEHAVIOR_PLATFORM
+  side blue
+  position 38:44:00.00n 90:20:00.00w altitude 30000.00 ft agl
+  heading 90 deg
+end_platform
+
+## TEST CASES ##
+execute at_time 3 sec absolute
+   bool testPass = true; # defualt to pass, changed to false if checks fail
+   WsfPlatform testPlatform = WsfSimulation.FindPlatform("test_platform");
+   WsfProcessor proc1 = testPlatform.Processor("proc1");
+   WsfProcessor proc2 = testPlatform.Processor("proc2");
+   WsfProcessor proc3 = testPlatform.Processor("proc3");
+
+   ## TEST CASE 1
+   # Processor 1 should execute behavior one and three, not two
+   if (proc1.IsValid())
+   {
+      Array<WsfBehaviorTreeNode> p1Executed = proc1.BehaviorsExecuted();
+      if (p1Executed.Size() != 2)
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc1.Name(),
+                 " executed ", p1Executed.Size(), " behaviors, expected 2");
+      }
+      else
+      {
+         WsfBehaviorTreeNode node1 = p1Executed.Get(0);
+         WsfBehaviorTreeNode node2 = p1Executed.Get(1);
+         if (node1.Type() != "one")
+         {
+            testPass = false;
+            writeln("-FAIL-");
+            writeln("T=", TIME_NOW, " processor ", proc1.Name(),
+                    " executed '", node1.Type(), "' behavior, expected 'one'");
+         }
+         if (node2.Type() != "three")
+         {
+            testPass = false;
+            writeln("-FAIL-");
+            writeln("T=", TIME_NOW, " processor ", proc1.Name(),
+                    " executed '", node2.Type(), "' behavior, expected 'three'");
+         }
+      }
+
+      WsfBehaviorTreeNode one = proc1.FindBehavior("one");
+      WsfBehaviorTreeNode two = proc1.FindBehavior("two");
+      WsfBehaviorTreeNode three = proc1.FindBehavior("three");
+
+      if (!one.IsValid() || !one.Executed())
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc1.Name(),
+                 " expected a behavior 'one' to execute");
+      }
+      if (!two.IsValid() || two.Executed())
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc1.Name(),
+                 " expected a behavior 'two' to not execute");
+      }
+      if (!three.IsValid() || !three.Executed())
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc1.Name(),
+                 " expected a behavior 'three' to execute");
+      }
+   }
+
+   ## TEST CASE 2
+   # Processor 2 should execute behavior one, not two and three
+   if (proc2.IsValid())
+   {
+      Array<WsfBehaviorTreeNode> p2Executed = proc2.BehaviorsExecuted();
+      if (p2Executed.Size() != 1)
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc2.Name(),
+                 " executed ", p2Executed.Size(), " behaviors, expected 1");
+      }
+      else
+      {
+         WsfBehaviorTreeNode node = p2Executed.Get(0);
+         if (node.Type() != "one")
+         {
+            testPass = false;
+            writeln("-FAIL-");
+            writeln("T=", TIME_NOW, " processor ", proc2.Name(),
+                    " executed '", node.Type(), "' behavior, expected 'one'");
+         }
+      }
+
+      WsfBehaviorTreeNode one = proc2.FindBehavior("one");
+      WsfBehaviorTreeNode two = proc2.FindBehavior("two");
+      WsfBehaviorTreeNode three = proc2.FindBehavior("three");
+
+      if (!one.IsValid() || !one.Executed())
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc2.Name(),
+                 " expected a behavior 'one' to execute");
+      }
+      if (!two.IsValid() || two.Executed())
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc2.Name(),
+                 " expected a behavior 'two' to not execute");
+      }
+      if (!three.IsValid() || three.Executed())
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc2.Name(),
+                 " expected a behavior 'three' to not execute");
+      }
+   }
+
+   ## TEST CASE 3
+   # Processor 3 should execute no behaviors
+   if (proc3.IsValid())
+   {
+      Array<WsfBehaviorTreeNode> p3Executed = proc3.BehaviorsExecuted();
+      if (p3Executed.Size() != 0)
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc3.Name(),
+                 " executed ", p3Executed.Size(), " behaviors, expected 0");
+      }
+
+      WsfBehaviorTreeNode two = proc3.FindBehavior("two");
+      if (!two.IsValid() || two.Executed())
+      {
+         testPass = false;
+         writeln("-FAIL-");
+         writeln("T=", TIME_NOW, " processor ", proc3.Name(),
+                 " expected a behavior 'two' to not execute");
+      }
+   }
+
+   if (testPass)
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+
+## RUN CONFIG ##
+define_path_variable CASE test_behavior_node_last_exec
+
+# Uncomment these for ouput, normally disabled for test
+/*
+event_output
+   file $(CASE).evt
+   time_format h:m:s.1
+   lat_lon_format d:m:s.2
+   print_track_in_message true
+
+   enable BTREE_NODE_CHILDREN
+   enable BTREE_NODE_EXEC
+   enable MESSAGE_RECEIVED
+   enable MESSAGE_TRANSMITTED
+   enable TASK_ASSIGNED
+   enable TASK_CANCELED
+   enable TASK_COMPLETED
+end_event_output
+
+event_pipe
+   file $(CASE).aer
+end_event_pipe
+*/
+end_time 4 sec

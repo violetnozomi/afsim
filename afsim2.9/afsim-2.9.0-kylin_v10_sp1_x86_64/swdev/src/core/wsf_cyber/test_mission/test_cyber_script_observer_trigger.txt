@@ -1,0 +1,216 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This test ensures the correct functionality of script observers for triggers.
+// Event and CSV output are also provided, but commented out for typical test usage.
+
+script_variables
+   int Eval1 = 0;
+   int Exec1 = 0;
+   int Eval2 = 0;
+   int Exec2 = 0;
+   int Eval3 = 0;
+   int Exec3 = 0;
+   int Eval4 = 0;
+   int Exec4 = 0;
+end_script_variables
+
+cyber_trigger trigger1 WSF_CYBER_TRIGGER
+   extrapolated_trigger true
+   execute_trigger true
+   update_interval 
+      every 30.0 s
+   end_update_interval
+   
+   script bool OnEvaluate()
+      if(TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+   
+   script void OnExecute()
+      //writeln("T=" + (string)TIME_NOW + " EXECUTING trigger1");
+   end_script
+   
+end_cyber_trigger
+
+platform plat_trigger2 WSF_PLATFORM
+   add cyber_trigger trigger2 trigger1
+      script void OnExecute()
+         //writeln("T=" + (string)TIME_NOW + " EXECUTING trigger2");
+      end_script
+   end_cyber_trigger
+end_platform
+
+cyber_trigger trigger3 WSF_CYBER_TRIGGER
+   extrapolated_trigger true
+   execute_trigger false
+   
+   script bool OnEvaluate()
+      if(TIME_NOW > 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script   
+end_cyber_trigger
+
+cyber_trigger trigger4 WSF_CYBER_COMPOSITE_TRIGGER
+   policy and
+   extrapolated_trigger true
+   execute_trigger true
+   update_interval
+      every 30.0001 s
+   end_update_interval
+   
+   triggers
+      trigger1
+      trigger3
+   end_triggers
+   
+   script void OnExecute()
+      //writeln("T=" + (string)TIME_NOW + " EXECUTING trigger4");
+   end_script
+end_cyber_trigger
+
+end_time 152 s
+
+observer
+   enable CYBER_TRIGGER_EVALUATION Eval
+   enable CYBER_TRIGGER_EXECUTION Exec
+end_observer
+
+script void Eval(WsfCyberTrigger aTrigger, bool aResult)
+   string name = aTrigger.Name();
+   if(name.Length() == 0)
+   {
+      name = aTrigger.Type();
+   }
+   string result = "false";
+   if(aResult)
+   {
+      result = "true";
+   }
+   #writeln("T=" + (string)TIME_NOW + " EVALUATING " + name + " result:" + result);
+   
+   if(name == "trigger1")
+   {
+      Eval1 = Eval1 + 1;
+   }
+   else if(name == "trigger2")
+   {
+      Eval2 = Eval2 + 1;
+   }
+   else if(name == "trigger3")
+   {
+      Eval3 = Eval3 + 1;
+   }
+   else if(name == "trigger4")
+   {
+      Eval4 = Eval4 + 1;
+   }
+   else
+   {
+      writeln("-FAIL-");
+      writeln("Unknown trigger evaluation with name: " + name);
+   }
+end_script
+
+script void Exec(WsfCyberTrigger aTrigger)
+   string name = aTrigger.Name();
+   if(name.Length() == 0)
+   {
+      name = aTrigger.Type();
+   }
+   #writeln("T=" + (string)TIME_NOW + " EXECUTING " + name);
+   
+   if(name == "trigger1")
+   {
+      Exec1 = Exec1 + 1;
+   }
+   else if(name == "trigger2")
+   {
+      Exec2 = Exec2 + 1;
+   }
+   else if(name == "trigger3")
+   {
+      Exec3 = Exec3 + 1;
+   }
+   else if(name == "trigger4")
+   {
+      Exec4 = Exec4 + 1;
+   }
+   else
+   {
+      writeln("-FAIL-");
+      writeln("Unknown trigger evaluation with name: " + name);
+   }   
+end_script
+
+execute at_time 151 s absolute
+   if(Eval1 != 10)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid Eval1");
+   }
+   if(Eval2 != 5)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid Eval2");
+   }
+   if(Eval3 != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid Eval3");
+   }
+   if(Eval4 != 5)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid Eval4");
+   }
+   
+   if(Exec1 != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid Exec1");
+   }
+   if(Exec2 != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid Exec2");
+   }
+   if(Exec3 != 0)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid Exec3");
+   }
+   if(Exec4 != 1)
+   {
+      writeln("-FAIL-");
+      writeln("Invalid Exec4");
+   }
+end_execute
+
+#event_output
+#   disable all
+#   enable CYBER_TRIGGER_EVALUATION
+#   enable CYBER_TRIGGER_EXECUTION
+#   file replay.evt
+#end_event_output
+#
+#csv_event_output
+#   disable all
+#   enable CYBER_TRIGGER_EVALUATION
+#   enable CYBER_TRIGGER_EXECUTION
+#   file replay.csv
+#end_csv_event_output

@@ -1,0 +1,205 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# =============================================================================
+
+radar_signature BOMBER_RADAR_SIGNATURE
+
+   state bays_closed
+      constant 1 m^2
+      
+   state default
+      constant 1 m^2
+      
+   state bays_open
+      constant 100 m^2
+      
+end_radar_signature
+
+platform_type BOMBER WSF_PLATFORM
+   icon B-52
+   
+   # ==========================================================================
+   # BEGIN - DIS signature change interface
+   #
+   # The enclosed data forms the interface between the 'dis_interface' and this
+   # platform type. The 'dis_interface' block contains 'entity_appearance'
+   # entries that define the script variables that will be updated when an
+   # articulated part changes and the script that will be called when a change
+   # occurs. For example
+   #
+   # dis_interface
+   #    entity_appearance
+   #       type BOMBER articulation 3179 left_bay_state    bay_state_changed
+   #       type BOMBER articulation 3211 right_bay_state   bay_state_changed
+   #       type BOMBER articulation 1274 forward_bay_state bay_state_changed
+   #       type BOMBER articulation 1291 aft_bay_state     bay_state_changed
+   #   end_entity_appearance
+   # end_dis_interface
+
+   script_variables
+      double left_bay_state    = 0.0;
+      double right_bay_state   = 0.0;
+      double forward_bay_state = 0.0;
+      double aft_bay_state     = 0.0;
+   end_script_variables
+   
+   script void bay_state_changed()
+      writeln("T=",TIME_NOW," ",Name()," bay_state_changed");
+      writeln("  left     bay state: ", left_bay_state);
+      writeln("  right    bay state: ", right_bay_state);
+      writeln("  forward  bay state: ", forward_bay_state);
+      writeln("  aft      bay state: ", aft_bay_state);
+      if ((left_bay_state    == 0.0) &&
+          (right_bay_state   == 0.0) &&
+          (forward_bay_state == 0.0) &&
+          (aft_bay_state     == 0.0))
+      {
+         writeln(" Change signature to bays_closed");
+         SetRadarSigState("bays_closed");
+      }
+      else
+      {
+         writeln(" Change signature to bays_open");
+         SetRadarSigState("bays_open");
+      }
+   end_script
+   
+   # END - DIS signature change interface
+   # ==========================================================================
+
+   radar_signature BOMBER_RADAR_SIGNATURE
+
+   mover WSF_AIR_MOVER
+      update_interval 1.0 sec
+   end_mover
+
+   visual_part left_bay_door    WSF_VISUAL_PART
+   end_visual_part
+
+   visual_part right_bay_door   WSF_VISUAL_PART
+   end_visual_part
+
+   visual_part forward_bay_door WSF_VISUAL_PART
+   end_visual_part
+
+   visual_part aft_bay_door     WSF_VISUAL_PART
+   end_visual_part
+
+   script void CloseDoor(string aDoor)
+      writeln("T=", TIME_NOW, " ", Name(), " close door ", aDoor);
+      WsfVisualPart part = VisualPart(aDoor);
+      if (part.IsValid())
+      {
+         part.SetRoll(0);
+         writeln("  Angle is now ", part.Roll());
+      }
+      else
+      {
+         writeln("***** ERROR: Invalid door: ", aDoor);
+      }
+   end_script
+   
+   script void OpenDoor(string aDoor)
+      writeln("T=", TIME_NOW, " ", Name(), " open door ", aDoor);
+      WsfVisualPart part = VisualPart(aDoor);
+      if (part.IsValid())
+      {
+         part.SetRoll(80);
+         writeln("  Angle is now ", part.Roll());
+      }
+      else
+      {
+         writeln("***** ERROR: Invalid door: ", aDoor);
+      }
+   end_script
+end_platform_type
+
+# =============================================================================
+
+
+platform_type RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+
+   sensor radar WSF_RADAR_SENSOR
+      show_calibration_data
+      frame_time 1 sec
+      maximum_range 300 km
+      
+      on
+      transmitter
+         power     100 kw
+         frequency 3 ghz
+      end_transmitter
+      receiver
+      end_receiver
+      
+      one_m2_detect_range 150 km
+      
+      reports_location
+      reports_iff
+   end_sensor
+end_platform_type
+
+# =============================================================================
+
+dis_interface
+   
+   log_created_entities
+   exercise    1
+   site        25
+   application 1
+   multicast   224.2.25.54 192.168.10
+   port        3225
+   autostart
+   
+   entity_type RADAR_SITE       2:1:222:1:22:0:0
+   entity_type BOMBER           1:2:225:1:9:10:0
+
+   entity_appearance
+      type BOMBER articulation 3183 left_bay_state    bay_state_changed
+      type BOMBER articulation 3215 right_bay_state   bay_state_changed
+      type BOMBER articulation 1263 forward_bay_state bay_state_changed
+      type BOMBER articulation 1295 aft_bay_state     bay_state_changed
+   end_entity_appearance
+   
+   articulated_part BOMBER left_bay_door    3168
+      publish rotation                           # parameter type 3183
+   end_articulated_part
+
+   articulated_part BOMBER right_bay_door   3200
+      publish rotation                           # parameter type 3215
+   end_articulated_part
+
+   articulated_part BOMBER forward_bay_door 1248
+      publish rotation                           # parameter type 1263
+   end_articulated_part
+
+   articulated_part BOMBER aft_bay_door     1280
+      publish rotation                           # parameter type 1295
+   end_articulated_part
+
+end_dis_interface
+
+event_output
+   //file   replay.evt
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable PLATFORM_KILLED
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_DROPPED
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_TERMINATED
+end_event_output
+
+realtime
+end_time 30 sec

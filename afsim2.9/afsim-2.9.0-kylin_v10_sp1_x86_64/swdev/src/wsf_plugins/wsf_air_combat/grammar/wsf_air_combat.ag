@@ -1,0 +1,180 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#-----------------------AirCombatGrammar--------------------
+
+# WsfSA_Processor.cpp
+
+(struct SA_Perceive
+   (rule recipient-list {
+      (rule recipient {
+         <:ExternalLink.recipient>
+         | all_commanders
+         | all_subordinates
+      })
+      {
+         <recipient>
+       | (delimited <recipient> \: <recipient>)
+       | (delimited <recipient> \: <recipient> \: <recipient>) 
+       | (delimited <recipient> \: <recipient> \: <recipient>) \: <recipient>
+       | (delimited <recipient> \: <recipient> \: <recipient>) \: <recipient> \: <recipient>
+      }
+   })
+   (var ObjectMap/Bool ignoredCategories)
+{
+   reporting_self <Bool>
+ | reports_self <Bool>
+ | reporting_others <Bool>
+ | reports_others <Bool>
+ | asset_perception status_messages
+ | asset_perception truth <recipient-list>
+ | asset_ignore (name category)        [mapSet(ignoredCategories,$1)]
+ | perceive_self <Bool>
+ | max_threat_load <integer>
+ | max_asset_load <integer>
+ | asset_coast_time <Time>
+ | bandit_coast_time <Time>
+ | bogey_coast_time <Time>
+ | use_simple_countermeasures <Bool>
+ | num_chaff <integer>
+ | num_flares <integer>
+ | num_decoys <integer>
+ | filter_assets_from_bogies <Bool>
+ | consideration_score_randomness <real>
+})
+
+(struct SA_Assess
+   (rule wez-commands {
+        side { blue | red }
+      | type { mrm | srm }
+      | avg_speed <Speed>
+      | max_time_of_flight <Time>
+      | max_off_boresight_angle <Angle>
+      | min_time_of_flight <Time>
+      | nominal_pk <real>
+      | head_on_pk_reduction <real>
+      | broadside_pk_reduction <real>
+   })
+   (rule signature-commands {
+        side { blue | red }
+      | fuselage_frontal_area <Area>
+      | wing_area <Area>
+      | tail_area <Area>
+      | engine_inlet_area <Area>
+      | engine_exit_area <Area>
+      | sweep_angle <Angle>
+      | signature_reduction_factor_overall <real>
+      | signature_reduction_factor_nose <real>
+      | nose_signature_reduction_angle <Angle>
+   })
+{
+   bogie_threat_score_multiplier <real>
+ | bogie_target_score_multiplier <real>
+ | ignore_bogies_when_grouping <Bool>
+ | mission_task <String>
+ | max_prioritized_threats <integer>
+ | max_prioritized_targets <integer>
+ | max_grouping_distance_centroid <Length>
+ | max_grouping_distance_neighbor <Length>
+ | max_grouping_speed_difference <Speed>
+ | max_grouping_heading_difference <Angle>
+ | min_group_radius <Length>
+ | use_centroid_grouping <Bool>
+ | use_neighbor_grouping <Bool>
+ | use_speed_grouping <Bool>
+ | use_heading_grouping <Bool>
+ | use_type_grouping <Bool>
+ | ignore_missiles_as_threats <Bool>
+ | ignore_bogies_as_threats <Bool>
+ | ignore_missiles_as_targets <Bool>
+ | ignore_bogies_as_targets <Bool>
+ | missile_wez_parameters 
+      <wez-commands>* 
+   end_missile_wez_parameters
+ | aircraft_signature_parameters 
+      <signature-commands>* 
+   end_aircraft_signature_parameters 
+})
+
+(struct SA_Predict)
+
+(struct WSF_SA_PROCESSOR :symbol (type processorType WSF_SA_PROCESSOR)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WsfSA_Processor PROCESSOR :this 1) 
+{
+   report_interval <Time>
+ | update_interval <Time>
+ | engagement_data_update_interval <Time>
+ | flight_data_update_interval <Time>
+ | fuel_data_update_interval <Time>
+ | nav_data_update_interval <Time>
+ | flight_controls_data_update_interval <Time>
+ | weapons_data_update_interval <Time>
+ | track_data_update_interval <Time>
+ | asset_data_update_interval <Time>
+ | asset_purge_lifetime <Time>
+ | perceived_item_data_update_interval <Time>
+ | prioritized_item_data_update_interval <Time>
+ | perceived_item_calculation_update_interval <Time>
+ | prioritized_item_calculation_update_interval <Time>
+ | behavior_calculation_update_interval <Time>
+ | cognitive_update_interval <Time>
+ | platform_update_interval <Time>
+ | universal_update_interval <Time>
+ | display_perception_delay <Time>
+ | visual_perception_delay <Time>
+ | enemy_side (name side)
+ | friendly_side (name side)
+ | neutral_side (name side)
+ | enemy_type (typeref platformType)
+ | enemy_type (typeref sensorType)
+ | friendly_type (typeref platformType)
+ | friendly_type (typeref sensorType)
+ | neutral_type (typeref platformType)
+ | neutral_type (typeref sensorType)
+ | missile_type (typeref platformType)
+ | missile_type (typeref sensorType)
+ | use_iff_id <Bool>
+ | use_simple_id_by_type <Bool>
+ | missile_speed_any_alt <Speed>
+ | missile_alt_any_speed <Length>
+ | missile_speed_with_alt <Speed>
+ | missile_alt_with_speed <Length>
+ | missile_nose_angle <Angle>
+ | missile_time_to_intercept <Time>
+ | missile_distance <Length>
+ | max_range_for_perceived_assets <Length>
+ | max_range_for_perceived_bogies_and_bandits <Length>
+ | max_range_for_engagement_data <Length>
+ | assumed_range_for_angle_only_targets <Length>
+ | filter_requires_same_side <Bool>
+ | filter_requires_not_same_side <Bool>
+ | filter_requires_air_domain <Bool>
+ | filter_requires_not_air_domain <Bool>
+ | filter_requires_land_or_surface_domain <Bool>
+ | filter_requires_not_subsurface_domain <Bool>
+ | filter_requires_not_space_domain <Bool>
+ | filter_requires_sa_processor <Bool>
+ | flight_id <integer>
+ | id_flag <String>
+ | bingo_fuel <Mass>
+ | joker_fuel <Mass>
+ | filter_assets_from_tracks <Bool>
+ | esm_track_processor (typeref .processors)
+ | mws_track_processor (typeref .processors)
+ | radar_track_processor (typeref .processors)
+ | irst_track_processor (typeref .processors)
+ | das_track_processor (typeref .processors)
+ | flir_track_processor (typeref .processors)
+ | eyes_track_processor (typeref .processors)
+ | perception_master_track_processor (typeref .processors)
+ | <:SA_Perceive>
+ | <:SA_Assess> 
+ | <:SA_Predict>
+ | <WSF_SCRIPT_PROCESSOR>
+})

@@ -1,0 +1,148 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Traffic Platforms
+include platforms/traffic_vehicles.txt
+// Route Network File
+include roads/avonParkNetwork.txt
+include_once ../auto_script/collect_stats.txt
+
+random_seed 2
+ 
+osm_traffic
+   network avonParkNetwork 
+
+   vehicle_count 400  
+            
+   vehicle SEDAN
+      fraction       1
+      mean_speed     15 mph
+      sigma_speed    2 mph 
+   end_vehicle            
+
+   # Aux data for routes.  Variable names, ie maxspeed, can be decided by user   
+   route_aux_data_mapping
+      maximum_speed maxspeed
+      lanes lanes
+      one_way oneway
+   end_route_aux_data_mapping
+   
+   # Aux data for specific waypoints.  Variable names, ie stop_sign, can be decided by user   
+   waypoint_aux_data_mapping
+      stop stop_sign
+      traffic_signals traffic_signals
+   end_waypoint_aux_data_mapping
+      
+  end_network
+end_osm_traffic
+
+end_time 1 min
+
+observer
+   enable SIMULATION_STARTING simStart
+   enable SIMULATION_COMPLETE simComplete
+end_observer
+
+script bool compareDouble(double aExpected, double aActual, double aFactor)
+   return MATH.Fabs((aExpected / aActual) - 1.0) < aFactor;
+end_script
+
+//Note: If lane changes work correctly, other behavior related to road congestion
+//      such as vehicles slowing down should also work as intended
+script void checkLaneChange(WsfPlatform aPlatform, string aRoute)
+   if (aPlatform->Mover()->Route()->Name() == aRoute)
+      writeln("-PASS-");
+   else
+      writeln("-FAIL- vehicle did not change lanes.");
+end_script
+
+conditional_section
+   conditionals
+      feature_present os:linux
+   end_conditionals
+   //TODO: Modify these script variables to be accurate for linux random distribution
+   //      Make an execute at_time block for lane change as well
+   script_variables
+      string initialPlatform = "SEDAN_286";
+      string expectedInitialRoute = "segment_134__2__normal1";
+      string expectedInitialPosition = "27:40:36.8n 81:19:22.9w";
+      string expectedLaneChangeRoute = "segment_134__2__normal2";
+      string expectedEndRoute = "segment_134__3__normal1";
+      string expectedEndPosition = "27:40:36.1n 81:19:05.1w";
+      double expectedAliveTime = 24000.40;
+      double expectedDistanceTraveled = 128096.68;
+   end_script_variables
+   
+   script void simStart() end_script
+   script void simComplete() end_script
+end_conditional_section
+
+conditional_section
+   conditionals
+      feature_present os:windows
+   end_conditionals
+   script_variables
+      string initialPlatform = "SEDAN_286";
+      string expectedInitialRoute = "segment_134__2__normal1";
+      string expectedInitialPosition = "27:40:36.8n 81:19:22.9w";
+      string expectedLaneChangeRoute = "segment_134__2__normal2";
+      string expectedEndRoute = "segment_134__3__normal1";
+      string expectedEndPosition = "27:40:36.1n 81:19:05.1w";
+      double expectedAliveTime = 24000.40;
+      double expectedDistanceTraveled = 128096.68;
+   end_script_variables
+   
+   //TODO: Move the following 2 scripts outside of the conditional block once linux test is written
+   script void simStart() 
+      //Check that the initial placement of a random vehicle is consistent
+      WsfPlatform p = WsfSimulation.FindPlatform(initialPlatform);
+      WsfRoute r = p->Mover()->Route();
+      bool routeCheck = r->Name() == expectedInitialRoute;
+
+      WsfGeoPoint expectedLoc = WsfGeoPoint.Construct(expectedInitialPosition);
+      expectedLoc.SetAltitudeAGL(5);
+      bool locCheck = compareDouble(expectedLoc.Latitude(), p->Latitude(), 0.01)
+                   && compareDouble(expectedLoc.Longitude(), p->Longitude(), 0.01)
+                   && compareDouble(expectedLoc.Altitude(), p->Altitude(), 0.01);
+      if (routeCheck && locCheck)
+         writeln("-PASS-");
+      else
+         writeln("-FAIL- initial placement of vehicles is inconsistent, position is at ",
+                  p->Location()->ToString(), " instead of ", expectedInitialPosition, " 5");
+   end_script
+
+   script void simComplete()
+      //Check that ending location of moving vehicles is consistent
+      WsfPlatform p = WsfSimulation.FindPlatform(initialPlatform);
+      WsfGeoPoint expectedLoc = WsfGeoPoint.Construct(expectedEndPosition);
+      bool locCheck = compareDouble(expectedLoc.Latitude(), p->Latitude(), 0.01)
+                && compareDouble(expectedLoc.Longitude(), p->Longitude(), 0.01);
+      if (locCheck)
+         writeln("-PASS-");
+      else
+         writeln("-FAIL- Final placement of vehicles is inconsistent, position is at ",
+                  p->Location()->ToString(), " instead of ", expectedEndPosition);
+
+      struct sum = collect_Summarize("");
+      sum->Print();
+      #Samples: 400
+      if (!sum->ExpectedAliveTime(expectedAliveTime, 0.01) ||
+          !sum->ExpectedDistanceTravelled(expectedDistanceTraveled, 0.01))
+         writeln("-FAIL-");
+      else
+         writeln("-PASS-");
+      
+   end_script
+   //On Windows, SEDAN_286 performs a lane change at T = 10 seconds. Make sure the route changed.
+   execute at_time 10.5 seconds absolute 
+      WsfPlatform p = WsfSimulation.FindPlatform(initialPlatform);
+      checkLaneChange(p, expectedLaneChangeRoute);
+   end_execute
+end_conditional_section
+

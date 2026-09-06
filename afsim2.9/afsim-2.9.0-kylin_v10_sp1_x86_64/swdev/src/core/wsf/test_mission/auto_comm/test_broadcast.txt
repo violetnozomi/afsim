@@ -1,0 +1,94 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   int num_message = 0;
+end_script_variables
+
+network bus WSF_COMM_NETWORK_GENERIC
+   comm_link_list
+      link test1 test test2 test
+      link test2 test test3 test
+      link test3 test test4 test
+      link test4 test test5 test
+      link test5 test test6 test
+      link test6 test test5 test
+      link test5 test test4 test
+      link test4 test test3 test
+      link test3 test test2 test
+      link test2 test test1 test
+   end_comm_link_list
+end_network
+
+comm testComm WSF_COMM_TRANSCEIVER
+   network_name bus
+end_comm
+
+platform_type testPlatform WSF_PLATFORM
+   add comm test testComm
+   end_comm
+end_platform_type
+
+platform test1 testPlatform
+end_platform
+
+platform test2 testPlatform
+end_platform
+
+platform test3 testPlatform
+end_platform
+
+platform test4 testPlatform
+end_platform
+
+platform test5 testPlatform
+end_platform
+
+platform test6 testPlatform
+end_platform
+
+execute at_time 1 s absolute
+
+   WsfComm test3Comm = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfAddress test3Address = test3Comm.GetAddress();
+   string broadcastString = test3Address.GetBroadcastAddress();
+   WsfMessage msg = {};
+   WsfAddress broadcastAddress = {};
+   broadcastAddress.SetAddress(broadcastString, 32);
+
+   test3Comm.SendMessage(msg, broadcastAddress);
+end_execute
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   if(aMsg.Type() == "WSF_MESSAGE")
+   {
+      num_message = (num_message + 1);
+   }
+   writeln("Message received from: " + aXmtr.GetAddress().GetAddress() + " at: " + aRcvr.GetAddress().GetAddress());
+end_script
+
+script void SimulationComplete()
+   if (num_message != 5)
+   {
+      writeln("-FAIL-");
+      writeln("Messages received was: " + (string)num_message);
+   }
+end_script
+
+#event_output
+#   enable all
+#   file output.txt
+#end_event_output
+
+observer
+   enable MESSAGE_RECEIVED MessageReceived
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+end_time 10 s

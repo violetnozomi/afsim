@@ -1,0 +1,91 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Filename: test_sensor_mode.txt
+# This file will test the Sensor mode selection functionality.
+
+include_once ../auto_script/test_functions.txt
+
+platform MultiModeRadar WSF_PLATFORM
+   # Test Function 1: Test declaration and initialization of the sensor commands
+   add sensor mySensor WSF_GEOMETRIC_SENSOR
+      on
+
+      selection_mode single
+      initial_mode modeTwo
+
+      mode modeOne
+         frame_time 1.0 sec
+         reports_range
+         maximum_request_count 20
+         track_quality 0.7
+      end_mode
+
+      mode modeTwo
+         frame_time 1.2 sec
+         reports_range
+         maximum_request_count 25
+         track_quality 0.3
+      end_mode
+   end_sensor
+
+   execute at_time 1 sec absolute
+      bool pass = true;
+      extern void writePass(bool);
+      extern bool AssertEqualsMessage(Object,Object,string);
+      WsfSensor theSensor = PLATFORM.Sensor("mySensor");
+
+      # Test Function 1: Validate the initial_mode command
+      # Test Function 2: Test the CurrentMode() function
+      pass = AssertEqualsMessage(theSensor.CurrentMode(),"modeTwo",
+                                    "The mode did not initialize correctly.") && pass;
+
+      # Test Function 3: Test the ModeCount() function
+      pass = AssertEqualsMessage(theSensor.ModeCount(),2,
+                                 "The ModeCount() funct. returned an incorrect number of modes.") && pass;
+
+      # Test Function 4: Test the ModeName(int modeIndex) function
+      pass = AssertEqualsMessage(theSensor.ModeName(0),"modeOne",
+                                 "The first Mode Index referenced has an incorrect name.") && pass;
+      pass = AssertEqualsMessage(theSensor.ModeName(1),"modeTwo",
+                                 "The second Mode Index referenced has an incorrect name.") && pass;
+
+      # Test Function 5: Test the MaximumRequestCount for the current mode
+      pass = AssertEqualsMessage(theSensor.MaximumRequestCount(),45,
+                                 "The track request count for the initial mode is incorrect.") && pass;
+
+      # Test Function 6: Test the MaximumRequestCount for the specified mode
+      pass = AssertEqualsMessage(theSensor.MaximumRequestCount("modeOne"),20,
+                                 "The track request count for the initial mode is incorrect.") && pass;
+      pass = AssertEqualsMessage(theSensor.MaximumRequestCount("modeTwo"),25,
+                                 "The track request count for the initial mode is incorrect.") && pass;
+
+
+      #Test Function 7a: Test the SelectMode(string aMode) function
+      theSensor.SelectMode("modeOne");
+
+      # Test Function 7b: Validate the SelectMode(...) function
+      pass = AssertEqualsMessage((theSensor.CurrentMode() == "modeTwo"),false,
+                                 "The new mode did not select as expected.") && pass;
+      pass = AssertEqualsMessage((theSensor.CurrentMode() == "modeOne"),true,
+                                 "The new mode did not select as expected.") && pass;
+      
+      #Test Function 8: Test the TrackQuality for the current, specified or nonexistent mode
+      pass = AssertDoubleEqualsMessage(theSensor.TrackQuality(),0.7,
+                                       "The track quality for the current mode is incorrect.") && pass;
+      pass = AssertDoubleEqualsMessage(theSensor.TrackQuality(1),0.3,
+                                       "The track quality for the selected mode index is incorrect.") && pass;
+      pass = AssertDoubleEqualsMessage(theSensor.TrackQuality("modeTwo"),0.3,
+                                       "The track quality for the selected mode name is incorrect.") && pass;
+      pass = AssertDoubleEqualsMessage(theSensor.TrackQuality("badMode"),-1.0,
+                                       "The track quality should be a defined invalid value when the mode doesn't exist.") && pass;
+      
+      writePass(pass);
+   end_execute
+end_platform

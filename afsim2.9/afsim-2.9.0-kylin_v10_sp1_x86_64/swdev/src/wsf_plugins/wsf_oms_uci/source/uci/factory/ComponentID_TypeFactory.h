@@ -1,0 +1,174 @@
+// This file was generated  on 12/5/2018 at 1:1:45 PM by the Boeing OMS CAL generation tools
+// @warning  This file was automatically generated, edit at your own risk
+
+/**
+* Unclassified               U N C L A S S I F I E D               Unclassified
+*
+* DEVELOPMENT:
+*    This document wholly developed with USG funds.
+*    For additional information, contact the AFRCO.
+*
+* ‒  DISTRIBUTION STATEMENT D.  Distribution authorized to the Department
+*    of Defense and U.S. DoD contractors only; Critical Technology; 17 Sep 2015.
+*    Other requests shall be referred to Air Force Rapid Capabilities Office,
+*    Bolling AFB, Washington DC 20032-6400. 
+*
+* EXPORT CONTROL:
+*    WARNING - ITAR CONTROLLED - US ONLY
+*    This distribution contains technical data whose export is restricted by
+*    the Arms Export Control Act (Title 22, U.S.C., Sec. 2751 et seq. or the
+*    Export Administration Act of 1979 as amended Title 50, U.S.C., App.
+*    2401-2420 et seq.), as amended. Violation of these export laws are subject
+*    to severe criminal penalties.  Disseminate in accordance with provisions of DoD
+*    Directive 5230.25.
+*/
+#ifndef Uci__Factory__ComponentID_TypeFactory_h
+#define Uci__Factory__ComponentID_TypeFactory_h 1
+
+#if !defined(Uci__Base__AbstractServiceBusConnection_h)
+# include "uci/base/AbstractServiceBusConnection.h"
+#endif
+
+#if !defined(Uci__Base__Factory_h)
+# include "uci/base/Factory.h"
+#endif
+
+#if !defined(Uci__Type__ComponentID_Type_h)
+# include "uci/type/ComponentID_Type.h"
+#endif
+
+
+//  The namespace in which all UAS C2 Initiative data types are declared
+namespace uci {
+
+   //  The namespace in which all factories are declared
+   namespace factory {
+
+      class ComponentID_TypeFactory;
+   } // Namespace: factory
+} // Namespace: uci
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+//  Creates a new ComponentID_TypeFactory
+//  
+//   @returns The newly created factory
+//  
+UCI_EXPORT uci::factory::ComponentID_TypeFactory* uci_getComponentID_TypeFactory(uci::base::AbstractServiceBusConnection* abstractServiceBusConnection) throw(uci::base::UCIException);
+
+
+//   Destroys a ComponentID_TypeFactory
+//  
+//   @param factory The factory to be destroyed.
+//  
+UCI_EXPORT void uci_destroyComponentID_TypeFactory(uci::factory::ComponentID_TypeFactory* factory) throw(uci::base::UCIException);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+
+//  The namespace in which all UAS C2 Initiative data types are declared
+namespace uci {
+
+   //  The namespace in which all factories are declared
+   namespace factory {
+
+      /** The Factory provides the support to create and destroy messages */
+      class ComponentID_TypeFactory : public virtual uci::base::Factory {
+      public:
+
+         /** The destructor */
+         virtual ~ComponentID_TypeFactory()
+         { }
+
+
+
+         //  Typedefs to support template programming in services
+         typedef  uci::factory::ComponentID_TypeFactory FactoryType;
+         typedef  uci::type::ComponentID_Type ObjectType;
+
+         //  Static method to construct a new SomeType object
+         static UCI_EXPORT uci::factory::ComponentID_TypeFactory* getFactory( uci::base::AbstractServiceBusConnection* abstractServiceBusConnection )
+         {
+            return uci_getComponentID_TypeFactory( abstractServiceBusConnection );
+         }
+
+         static UCI_EXPORT void destroyFactory( uci::factory::ComponentID_TypeFactory* factory )
+         {
+            uci_destroyComponentID_TypeFactory( factory );
+         }
+
+         /** This method constructs a new ComponentID_Type message, returning an accessor to that message that can be used to
+           * access that message.
+           *
+           * @return A message accessor that can be used to access the newly created ComponentID_Type message
+           */
+         virtual uci::type::ComponentID_Type& create()
+            throw(uci::base::UCIException) = 0;
+
+
+         /** This method constructs a new ComponentID_Type message, returning an accessor to that message that can be used to
+           * access that message.
+           *
+           * @param accessor A message accessor that provides access to the message that is to be used to initialize the new
+           *      message (basically cloned)
+           * @return A message accessor that can be used to access the newly created ComponentID_Type message
+           */
+         virtual uci::type::ComponentID_Type& create(const uci::type::ComponentID_Type& accessor)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** This method destroys a ComponentID_Type message accessor, along with the message that the accessor was providing
+           * access to, that was created using the createMessage() method
+           *
+           * @param accessor A message accessor returned by the constructMessage() method.
+           */
+         virtual void destroy(uci::type::ComponentID_Type& accessor)
+            throw(uci::base::UCIException) = 0;
+
+
+
+      protected:
+
+         /** The constructor [only available to derived classes]. */
+         ComponentID_TypeFactory()
+         { }
+
+         /** The copy constructor [only available to derived classes]
+           *
+           * @param rhs The ComponentID_TypeFactory to copy from
+           */
+         ComponentID_TypeFactory(const ComponentID_TypeFactory& rhs)
+         {
+            (void)rhs;
+         }
+
+         /** The assignment operator. Sets the contents of this ComponentID_TypeFactory to the contents of the
+           * ComponentID_TypeFactory on the right hand side (rhs) of the assignment operator.ComponentID_TypeFactory [only
+           * available to derived classes]
+           *
+           * @param rhs The ComponentID_TypeFactory on the right hand side (rhs) of the assignment operator whose contents are
+           *      used to set the contents of this uci::factory::ComponentID_TypeFactory
+           * @return A constant reference to this ComponentID_TypeFactory.
+           */
+         const ComponentID_TypeFactory& operator=(const ComponentID_TypeFactory& rhs)
+         {
+            (void)rhs;
+
+            return *this;
+         }
+
+
+      }; // ComponentID_TypeFactory
+
+
+   } // Namespace: factory
+} // Namespace: uci
+
+#endif // Uci__Factory__ComponentID_TypeFactory_h
+

@@ -1,0 +1,128 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This tests the script method overload available to mediums to determine
+// which mode is to be used at the time of message transmission.
+
+medium TEST_MEDIUM WSF_COMM_MEDIUM_GUIDED
+   channels 10
+   transfer_rate 1 bits/s   // default mode
+   mode first
+      transfer_rate 10 bits/s
+   end_mode
+   mode second
+      transfer_rate 20 bits/s
+   end_mode
+   mode third
+      transfer_rate 100 bits/s
+   end_mode
+   
+   # This method is called on EVERY transmission in which this medium is used.
+   # The user may dictate which mode to use for that transmission in the logic
+   # for this script call, and return the mode to be used by its string name.
+   # If the user does not want to use this method for this particular message,
+   # returning an empty string will default to normal medium processing (by using
+   # the currently selected mode for transmission, or the "default" mode if not indicated)
+   script string ModeOnTransmit(WsfCommMessage aMessage, WsfComm aXmtr, WsfComm aRcvr)
+      string mode = "";
+      if(aMessage.GetSourceMessage().Type() == "NORMAL_PRIORITY")
+      {
+         mode = "first";
+      }
+      else if(aMessage.GetSourceMessage().Type() == "HIGH_PRIORITY")
+      {
+         mode = "second";
+      }
+      else if(aMessage.GetSourceMessage().Type() == "CRITICAL_PRIORITY")
+      {
+         mode = "third";
+      }
+      else
+      {
+         // Do nothing. Return an empty string. Uses default mode.
+      }
+      
+      return mode;
+   end_script
+end_medium
+
+comm DEFAULT_COMM WSF_COMM_TRANSCEIVER
+   channels 4
+   add medium TEST_MEDIUM end_medium
+end_comm
+
+platform sender WSF_PLATFORM
+   add comm comm DEFAULT_COMM end_comm
+end_platform
+
+platform receiver WSF_PLATFORM
+   add comm comm DEFAULT_COMM end_comm
+end_platform
+
+execute at_time 1 s absolute
+   // Unhandled message type - 1 bit/s rate, 10 s transmission
+   WsfMessage message1 = {};
+   message1.SetSizeInBits(10);
+   message1.SetType("NO_PRIORITY");
+   
+   // Normal priority type - 10 bits/s rate, 1 s transmission
+   WsfMessage message2 = {};
+   message2.SetSizeInBits(10);
+   message2.SetType("NORMAL_PRIORITY");
+   
+   // High priority type - 20 bits/s rate, 0.5 s transmission
+   WsfMessage message3 = {};
+   message3.SetSizeInBits(10);
+   message3.SetType("HIGH_PRIORITY");
+   
+   // Critical priority type - 100 bits/s rate, 0.1 s transmission
+   WsfMessage message4 = {};
+   message4.SetSizeInBits(10);
+   message4.SetType("CRITICAL_PRIORITY");
+   
+   WsfComm sender = WsfSimulation.FindPlatform("sender").Comm("comm");
+   sender.SendMessage(message1, "receiver", "comm");
+   sender.SendMessage(message2, "receiver", "comm");
+   sender.SendMessage(message3, "receiver", "comm");
+   sender.SendMessage(message4, "receiver", "comm");
+end_execute
+
+end_time 15 s
+
+observer
+   enable MESSAGE_RECEIVED MessageReceived
+end_observer
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   bool okay = false;
+   if((TIME_NOW < 1.11) && (aMsg.Type() == "CRITICAL_PRIORITY"))
+   {
+      return;
+   }
+   else if((TIME_NOW < 1.51) && (aMsg.Type() == "HIGH_PRIORITY"))
+   {
+      return;
+   }
+   else if((TIME_NOW < 2.01) && (aMsg.Type() == "NORMAL_PRIORITY"))
+   {
+      return;
+   }
+   else if((TIME_NOW < 11.01) && (aMsg.Type() == "NO_PRIORITY"))
+   {
+      return;
+   }
+   
+   writeln("-FAIL-");
+   writeln("Failure, message received at time: " + (string)TIME_NOW + " of message type: " + aMsg.Type());
+end_script
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output

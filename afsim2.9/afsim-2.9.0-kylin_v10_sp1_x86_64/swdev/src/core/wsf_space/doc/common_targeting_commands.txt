@@ -1,0 +1,48 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. command:: delta_time <time-value>
+
+   The desired time past the current time for execution of the maneuver.  No Optimizations are performed.
+
+   .. note:: One of delta_time, maximum_delta_time_ or maximum_delta_v_ must be set.  If maximum_delta_time_ is not set and maximum_delta_v_ is set, maximum_delta_time_ will be set to one orbital period of the target platform.
+
+.. command:: maximum_delta_time <time-value>
+
+   The maximum time after the current time to be considered for execution of the maneuver.  Optimizations in time will occur between the time of the :ref:`constraint<orbital_event.constraints>` and the provided time.
+
+.. command:: maximum_delta_v <speed-value>
+
+   The maximum delta_v to be considered for execution of the maneuver. Optimizations in time to find minimum delta-v will occur between the time of the :ref:`constraint<orbital_event.constraints>` and any time limit set by maximum_delta_time_.
+
+   .. note:: This value is constrained to be less than or equal to the delta-v specified in the :ref:`maneuvering model<orbital_maneuvering_models>`.
+
+.. command:: optimize_time
+
+   Optimize the targeting solution such that it executes at the earliest possible time.  This optimization is also constrained by the maximum_delta_v_ value, if provided.
+
+.. command:: optimize_delta_v
+
+   Optimize the targeting solution such that it executes at a time that minimizes total delta-v expended.
+
+.. command:: optimize_cost <cost_type> ...
+
+   Optimize the targeting solution such that the specified cost is minimized. The available cost functions are:
+
+   * **blended** <A value> <B value> <C value>
+
+      This cost function depends on the transfer duration, :math:`\Delta t`, and the change in velocity, :math:`\Delta V` as follows:
+
+         :math:`g(\Delta t, \Delta V) = A \Delta t + B \Delta V + C \Delta t \Delta V`.
+
+      The values of :math:`A`, :math:`B`, and :math:`C` are provided as additional real arguments after the specification of the 'blended' cost.
+
+.. command:: tolerance <real-value>
+
+   Specify the solution search tolerance. The default tolerance is 1.0e-9.

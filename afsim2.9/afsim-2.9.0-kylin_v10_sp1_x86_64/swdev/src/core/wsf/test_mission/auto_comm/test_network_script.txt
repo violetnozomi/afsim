@@ -1,0 +1,1402 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool pass = true;
+   int test_mesh_count = 0;
+   int test_mesh_legacy_count = 0;
+   int test_p2p_count = 0;
+   int test_generic_count = 0;
+   int test_star_count = 0;
+   int test_ring_count = 0;
+   int test_directed_ring_count = 0;
+   int test_ad_hoc_count = 0;
+   int networks_created = 0;
+   int networks_deleted = 0;
+end_script_variables
+
+comm TEST_COMM WSF_COMM_TRANSCEIVER
+   //This automatically goes to the "default" network, as
+   //no address or network is specified.
+   transfer_rate 2048 bytes/s
+end_comm
+
+// Define a default router for usage in this test that does not use automated linking.
+// Using automated linking will fail for certain network types since it tries to create
+// links between all members, when that linkage may invalidate the network topology
+router DEFAULT_ROUTER WSF_COMM_ROUTER
+   automated_interface_linking false
+end_router
+
+processor MESSAGE_PROC WSF_SCRIPT_PROCESSOR
+   on_message type TEST_MESH
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name() + " at time: " + (string)TIME_NOW + " with serial: " + (string)MESSAGE.SerialNumber());
+         test_mesh_count = test_mesh_count + 1;
+      end_script
+   end_on_message
+   on_message type TEST_MESH_LEGACY
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name() + " at time: " + (string)TIME_NOW + " with serial: " + (string)MESSAGE.SerialNumber());
+         test_mesh_legacy_count = test_mesh_legacy_count + 1;
+      end_script
+   end_on_message
+   on_message type TEST_P2P
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name() + " at time: " + (string)TIME_NOW + " with serial: " + (string)MESSAGE.SerialNumber());
+         test_p2p_count = test_p2p_count + 1;
+      end_script
+   end_on_message
+   on_message type TEST_GENERIC
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name() + " at time: " + (string)TIME_NOW + " with serial: " + (string)MESSAGE.SerialNumber());
+         test_generic_count = test_generic_count + 1;
+      end_script
+   end_on_message
+   on_message type TEST_AD_HOC
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name() + " at time: " + (string)TIME_NOW + " with serial: " + (string)MESSAGE.SerialNumber());
+         test_ad_hoc_count = test_ad_hoc_count + 1;
+      end_script
+   end_on_message
+   on_message type TEST_STAR
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name() + " at time: " + (string)TIME_NOW + " with serial: " + (string)MESSAGE.SerialNumber());
+         if((TIME_NOW > 6.49) && (TIME_NOW < 6.51))
+         {
+            test_star_count = test_star_count + 1;
+         }
+         else
+         {
+            pass = false;
+         }
+      end_script
+   end_on_message
+   on_message type TEST_RING
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name() + " at time: " + (string)TIME_NOW + " with serial: " + (string)MESSAGE.SerialNumber());
+         if((TIME_NOW > 9.24) && (TIME_NOW < 9.26))
+         {
+            test_ring_count = test_ring_count + 1;
+         }
+         else
+         {
+            pass = false;
+         }
+      end_script
+   end_on_message
+   on_message type TEST_DIRECTED_RING
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name() + " at time: " + (string)TIME_NOW + " with serial: " + (string)MESSAGE.SerialNumber());
+         if((TIME_NOW > 12.99) && (TIME_NOW < 13.01))
+         {
+            test_directed_ring_count = test_directed_ring_count + 1;
+         }
+         else if ((TIME_NOW > 13.74) && (TIME_NOW < 13.76))
+         {
+            test_directed_ring_count = test_directed_ring_count + 1;
+         }
+         else
+         {
+            pass = false;
+         }
+      end_script
+   end_on_message
+end_processor
+
+platform_type TEST_PLAT WSF_PLATFORM
+   add processor msgProc MESSAGE_PROC
+   end_processor
+   add comm test TEST_COMM
+      internal_link msgProc
+   end_comm
+   add router default DEFAULT_ROUTER
+   end_router
+end_platform_type
+
+platform test1 TEST_PLAT
+end_platform
+
+platform test2 TEST_PLAT
+end_platform
+
+platform test3 TEST_PLAT
+end_platform
+
+platform test4 TEST_PLAT
+end_platform
+
+platform test5 TEST_PLAT
+end_platform
+
+//! This scenario tests the basic scripting capabilities of the pre-defined
+//! network objects. Users should be able to manipulate networks at sim
+//! runtime in the following ways:
+//! A. Creation of networks (all types)
+//!    1. Creation of networks is a default network object.
+//!    2. Address and name must be set prior to usage.
+//!    3. Network object must be added to Network Manager for tracking and usage.
+//! B. Removal of networks (all types)
+//!    1. Removal of networks with existing members results in those members
+//!       becoming unassigned.
+//!    2. Unassigned comms cannot be retrieved via API, as they are no longer tracked.
+//!       They must be assigned to a new network to function normally again. (send/receive)
+//! C. Addition/removal of members
+//!    1. Addition of members is forbidden without removal from an existing network.
+//!    2. Removal of members results in a null address assignment.
+//!    3. Network topology should be enforced with these actions.
+//! D. Addition/removal of links (where applicable/currently only WsfNetworkGeneric)
+//!    1. Link addition should only be available for existing members.
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_MEM_ALLOC//////////////////////////////////
+///////////////////////////////////////////////////////////////////
+//! This is just for valgrind purposes, to ensure these objects
+//! are correctly destroyed when going out of scope without being
+//! added to the network manager.
+execute at_time 0.1 s absolute
+   WsfNetworkMesh mesh = {};
+   WsfNetworkMeshLegacy meshLegacy = {};
+   WsfNetworkP2P p2p = {};
+   WsfNetworkRing ring = {};
+   WsfNetworkDirectedRing dRing = {};
+   WsfNetworkStar star = {};
+   WsfNetworkGeneric generic = {};
+   WsfNetworkAdHoc adHoc = {};
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_MESH_1/////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 1 s absolute
+   //! There should only be one network, "default"
+   Array<string> networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 1)
+   {
+      pass = false;
+   }
+
+   WsfNetwork network = WsfNetwork.GetNetwork("default");
+   
+   // Test the script for getting network member addresses
+   Array<WsfAddress> networkMembers = network.GetMembers();
+   if(networkMembers.Size() != 5)
+   {
+      pass = false;
+      writeln("-FAIL-");
+      writeln("Error with WsfNetwork::GetMembers()");
+      return;
+   }
+
+   //! Create a new network.
+   WsfNetworkMesh networkTest = {};
+   WsfAddress testAddress = networkTest.GetAddress();
+   if(!testAddress.IsNull())
+   {
+      pass = false;
+   }
+
+   testAddress.SetAddress("192.168.1.1", 24);
+   networkTest.SetAddress(testAddress);
+   networkTest.SetName("network_test");
+
+   WsfAddress testNewAddress = networkTest.GetAddress();
+   if(testNewAddress.GetAddress() != testAddress.GetAddress())
+   {
+      pass = false;
+   }
+   if(networkTest.GetName() != "network_test")
+   {
+      pass = false;
+   }
+
+   pass = WsfNetwork.AddNetwork(networkTest);
+   networkTest = (WsfNetworkMesh)WsfNetwork.GetNetwork("network_test");
+   networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 2)
+   {
+      pass = false;
+   }
+
+   //! Remove the comms from the default network, add them to
+   //! our script defined network.
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   WsfNetwork defaultNetwork = WsfNetwork.GetNetwork("default");
+   pass = WsfNetwork.RemoveMember(comm1.GetAddress()) && pass;
+   pass = WsfNetwork.RemoveMember(comm2.GetAddress()) && pass;
+   pass = WsfNetwork.RemoveMember(comm3.GetAddress()) && pass;
+   pass = WsfNetwork.RemoveMember(comm4.GetAddress()) && pass;
+   pass = WsfNetwork.RemoveMember(comm5.GetAddress()) && pass;
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+
+   pass = networkTest.AddMember(comm1) && pass;
+   pass = networkTest.AddMember(comm2) && pass;
+   pass = networkTest.AddMember(comm3) && pass;
+   pass = networkTest.AddMember(comm4) && pass;
+   pass = networkTest.AddMember(comm5) && pass;
+
+   testNullAddress = comm1.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+
+   //! Test by sending a message in the mesh network.
+   WsfMessage message = {};
+   message.SetType("TEST_MESH");
+   comm1.SendMessage(message, WsfSimulation.FindPlatform("test5").Comm("test"));
+
+   //! Try adding an assigned comms back to another network. (not allowed without first removing)
+   //! This will generate output: "WARNING: The comm: test1.test is already managed by the Network Manager."
+   pass = !defaultNetwork.AddMember(comm1);
+
+   //! We need to break and let the simulation advance a small step to allow the message
+   //! to be delivered. Otherwise, altering the network at this point would cause
+   //! the previously sent message to fail.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_MESH_2/////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 2 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Now that the previous message was delivered, remove a member and
+   //! try again. The message being sent should fail.
+   pass = pass && WsfNetwork.RemoveMember(comm5.GetAddress());
+   WsfMessage message = {};
+   message.SetType("TEST_MESH");
+   comm1.SendMessage(message, WsfSimulation.FindPlatform("test5").Comm("test"));
+
+   //! Need another short break for potential message delivery.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_MESH_3/////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 3 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Remove the members this time by just removing the network.
+   //! Validate null address assignments.
+   WsfNetwork.RemoveNetwork(networkTest);
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_MESH_LEGACY_1//////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 4 s absolute
+   //! There should only be one network, "default"
+   Array<string> networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 1)
+   {
+      pass = false;
+   }
+
+   WsfNetwork network = WsfNetwork.GetNetwork("default");
+
+   //! Create a new network.
+   WsfNetworkMeshLegacy networkTest = {};
+   WsfAddress testAddress = networkTest.GetAddress();
+   if(!testAddress.IsNull())
+   {
+      pass = false;
+   }
+
+   testAddress.SetAddress("192.168.1.1", 24);
+   networkTest.SetAddress(testAddress);
+   networkTest.SetName("network_test");
+
+   WsfAddress testNewAddress = networkTest.GetAddress();
+   if(testNewAddress.GetAddress() != testAddress.GetAddress())
+   {
+      pass = false;
+   }
+   if(networkTest.GetName() != "network_test")
+   {
+      pass = false;
+   }
+
+   pass = WsfNetwork.AddNetwork(networkTest);
+   networkTest = (WsfNetworkMeshLegacy)WsfNetwork.GetNetwork("network_test");
+   networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 2)
+   {
+      pass = false;
+   }
+
+   //! Add the non-managed comms to our network.
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+
+   pass = networkTest.AddMember(comm1) && pass;
+   pass = networkTest.AddMember(comm2) && pass;
+   pass = networkTest.AddMember(comm3) && pass;
+   pass = networkTest.AddMember(comm4) && pass;
+   pass = networkTest.AddMember(comm5) && pass;
+
+   testNullAddress = comm1.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+
+   //! Test by sending a message in the mesh network.
+   WsfMessage message = {};
+   message.SetType("TEST_MESH_LEGACY");
+   comm1.SendMessage(message, comm5);
+
+   //! We need to break and let the simulation advance a small step to allow the message
+   //! to be delivered. Otherwise, altering the network at this point would cause
+   //! the previously sent message to fail.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_MESH_LEGACY_2//////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 5 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Now that the previous message was delivered, remove a member and
+   //! try again. The message being sent should fail.
+   pass = pass && WsfNetwork.RemoveMember(comm5.GetAddress());
+   WsfMessage message = {};
+   message.SetType("TEST_MESH_LEGACY");
+   comm1.SendMessage(message, comm5);
+
+   //! Need another short break for potential message delivery.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_MESH_LEGACY_3//////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 5 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Remove the members this time by just removing the network.
+   //! Validate null address assignments.
+   WsfNetwork.RemoveNetwork(networkTest);
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_STAR_1/////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 6 s absolute
+   //! There should only be one network, "default"
+   Array<string> networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 1)
+   {
+      pass = false;
+   }
+
+   WsfNetwork network = WsfNetwork.GetNetwork("default");
+
+   //! Create a new network.
+   WsfNetworkStar networkTest = {};
+   WsfAddress testAddress = networkTest.GetAddress();
+   if(!testAddress.IsNull())
+   {
+      pass = false;
+   }
+
+   testAddress.SetAddress("192.168.1.1", 24);
+   networkTest.SetAddress(testAddress);
+   networkTest.SetName("network_test");
+
+   WsfAddress testNewAddress = networkTest.GetAddress();
+   if(testNewAddress.GetAddress() != testAddress.GetAddress())
+   {
+      pass = false;
+   }
+   if(networkTest.GetName() != "network_test")
+   {
+      pass = false;
+   }
+
+   pass = WsfNetwork.AddNetwork(networkTest);
+   networkTest = (WsfNetworkStar)WsfNetwork.GetNetwork("network_test");
+   networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 2)
+   {
+      pass = false;
+   }
+
+   //! Add the non-managed comms to our network.
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+
+   pass = networkTest.AddMember(comm1) && pass;
+   pass = networkTest.AddMember(comm2) && pass;
+   pass = networkTest.AddMember(comm3) && pass;
+   pass = networkTest.AddMember(comm4) && pass;
+   pass = networkTest.AddMember(comm5) && pass;
+
+   //! For the star network, we also need to identify a hub.
+   //! We'll make comm2 the hub in this network
+   networkTest.AddHub(comm2.GetAddress());
+
+   testNullAddress = comm1.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+
+   //! Test by sending a message in the mesh network.
+   WsfMessage message = {};
+   message.SetSizeInBytes(512); // .25 s delivery time per hop, 2 hops (comm1 -> hub/comm2 -> comm5)
+   message.SetType("TEST_STAR");
+   comm1.SendMessage(message, comm5);
+
+   //! We need to break and let the simulation advance a small step to allow the message
+   //! to be delivered. Otherwise, altering the network at this point would cause
+   //! the previously sent message to fail.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_STAR_2/////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 7 s absolute
+   WsfNetworkStar networkTest = (WsfNetworkStar)WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Now that the previous message was delivered, remove the hub and
+   //! try again. The message being sent should fail.
+   pass = pass && networkTest.RemoveHub(comm5.GetAddress());
+   WsfMessage message = {};
+   message.SetType("TEST_STAR");
+   comm1.SendMessage(message, comm5);
+
+   //! Need another short break for potential message delivery.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_STAR_3/////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 8 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Remove the members this time by just removing the network.
+   //! Validate null address assignments.
+   WsfNetwork.RemoveNetwork(networkTest);
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_RING_1/////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 9 s absolute
+   //! There should only be one network, "default"
+   Array<string> networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 1)
+   {
+      pass = false;
+   }
+
+   WsfNetwork network = WsfNetwork.GetNetwork("default");
+
+   //! Create a new network.
+   WsfNetworkRing networkTest = {};
+   WsfAddress testAddress = networkTest.GetAddress();
+   if(!testAddress.IsNull())
+   {
+      pass = false;
+   }
+
+   testAddress.SetAddress("192.168.1.1", 24);
+   networkTest.SetAddress(testAddress);
+   networkTest.SetName("network_test");
+
+   WsfAddress testNewAddress = networkTest.GetAddress();
+   if(testNewAddress.GetAddress() != testAddress.GetAddress())
+   {
+      pass = false;
+   }
+   if(networkTest.GetName() != "network_test")
+   {
+      pass = false;
+   }
+
+   pass = WsfNetwork.AddNetwork(networkTest);
+   networkTest = (WsfNetworkRing)WsfNetwork.GetNetwork("network_test");
+   networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 2)
+   {
+      pass = false;
+   }
+
+   //! Add the non-managed comms to our network.
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+
+   pass = networkTest.AddMember(comm1) && pass;
+   pass = networkTest.AddMember(comm2) && pass;
+   pass = networkTest.AddMember(comm3) && pass;
+   pass = networkTest.AddMember(comm4) && pass;
+   pass = networkTest.AddMember(comm5) && pass;
+
+   testNullAddress = comm1.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+
+   //! Test by sending a message in the ring network.
+   WsfMessage message = {};
+   message.SetSizeInBytes(512); // .25 s delivery time per hop, 1 hop (comm1 -> comm5)
+   message.SetType("TEST_RING");
+   comm1.SendMessage(message, comm5);
+
+   //! We need to break and let the simulation advance a small step to allow the message
+   //! to be delivered. Otherwise, altering the network at this point would cause
+   //! the previously sent message to fail.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_RING_2/////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 10 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Now that the previous message was delivered, remove three members, and
+   //! try again. There should be insufficient members for a ring network, and
+   //! all linkage should be invalidated, causing a message send failure between
+   //! the sender and receiver still in the network, comm1 and comm5.
+   pass = pass && WsfNetwork.RemoveMember(comm2.GetAddress());
+   pass = pass && WsfNetwork.RemoveMember(comm3.GetAddress());
+   pass = pass && WsfNetwork.RemoveMember(comm4.GetAddress());
+   WsfMessage message = {};
+   message.SetType("TEST_RING");
+   comm1.SendMessage(message, comm5);
+
+   //! Need another short break for potential message delivery.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_RING_3/////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 11 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Remove the members this time by just removing the network.
+   //! Validate null address assignments.
+   WsfNetwork.RemoveNetwork(networkTest);
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_DIRECTED_RING_1////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 12 s absolute
+   //! There should only be one network, "default"
+   Array<string> networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 1)
+   {
+      pass = false;
+   }
+
+   WsfNetwork network = WsfNetwork.GetNetwork("default");
+
+   //! Create a new network.
+   WsfNetworkDirectedRing networkTest = {};
+   WsfAddress testAddress = networkTest.GetAddress();
+   if(!testAddress.IsNull())
+   {
+      pass = false;
+   }
+
+   testAddress.SetAddress("192.168.1.1", 24);
+   networkTest.SetAddress(testAddress);
+   networkTest.SetName("network_test");
+
+   WsfAddress testNewAddress = networkTest.GetAddress();
+   if(testNewAddress.GetAddress() != testAddress.GetAddress())
+   {
+      pass = false;
+   }
+   if(networkTest.GetName() != "network_test")
+   {
+      pass = false;
+   }
+
+   pass = WsfNetwork.AddNetwork(networkTest);
+   networkTest = (WsfNetworkDirectedRing)WsfNetwork.GetNetwork("network_test");
+   networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 2)
+   {
+      pass = false;
+   }
+
+   //! Add the non-managed comms to our network.
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+
+   pass = networkTest.AddMember(comm1) && pass;
+   pass = networkTest.AddMember(comm2) && pass;
+   pass = networkTest.AddMember(comm3) && pass;
+   pass = networkTest.AddMember(comm4) && pass;
+   pass = networkTest.AddMember(comm5) && pass;
+
+   testNullAddress = comm1.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+
+   //! Test by sending a message in the ring network.
+   WsfMessage message = {};
+   message.SetSizeInBytes(512); // .25 s delivery time per hop, 4 hops (comm1 -> comm2 -> comm3 -> comm4 -> comm5)
+   message.SetType("TEST_DIRECTED_RING");
+   comm1.SendMessage(message, comm5);
+
+   //! We need to break and let the simulation advance a small step to allow the message
+   //! to be delivered. Otherwise, altering the network at this point would cause
+   //! the previously sent message to fail.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_DIRECTED_RING_2////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 13 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Now that the previous message was delivered, reorder the comms
+   //! by removing then re-adding them to achieve a different order.
+   //! This message will succeed, but with a different timing than
+   //! the previous message.
+   pass = pass && WsfNetwork.RemoveMember(comm1.GetAddress());
+   pass = pass && WsfNetwork.RemoveMember(comm3.GetAddress());
+   pass = pass && networkTest.AddMember(comm3);
+   pass = pass && networkTest.AddMember(comm1);
+
+
+   WsfMessage message = {};
+   message.SetType("TEST_DIRECTED_RING");
+   message.SetSizeInBytes(512);
+   //! .25 s delivery time per hop, 3 hops (comm1 -> comm2 -> comm4 -> comm5)
+   comm1.SendMessage(message, comm5);
+
+   //! Need another short break for potential message delivery.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_DIRECTED_RING_3////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 14 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Remove the members this time by just removing the network.
+   //! Validate null address assignments.
+   WsfNetwork.RemoveNetwork(networkTest);
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_P2P_1//////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 15 s absolute
+   //! There should only be one network, "default"
+   Array<string> networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 1)
+   {
+      pass = false;
+   }
+
+   WsfNetwork network = WsfNetwork.GetNetwork("default");
+
+   //! Create a new network.
+   WsfNetworkP2P networkTest = {};
+   WsfAddress testAddress = networkTest.GetAddress();
+   if(!testAddress.IsNull())
+   {
+      pass = false;
+   }
+
+   testAddress.SetAddress("192.168.1.1", 24);
+   networkTest.SetAddress(testAddress);
+   networkTest.SetName("network_test");
+
+   WsfAddress testNewAddress = networkTest.GetAddress();
+   if(testNewAddress.GetAddress() != testAddress.GetAddress())
+   {
+      pass = false;
+   }
+   if(networkTest.GetName() != "network_test")
+   {
+      pass = false;
+   }
+
+   pass = WsfNetwork.AddNetwork(networkTest);
+   networkTest = (WsfNetworkP2P)WsfNetwork.GetNetwork("network_test");
+   networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 2)
+   {
+      pass = false;
+   }
+
+   //! Add the non-managed comms to our network. The last 3 should
+   //! fail due to the limited size of P2P being 2 comms.
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+
+   pass = networkTest.AddMember(comm1) && pass;
+   pass = networkTest.AddMember(comm2) && pass;
+   pass = (!networkTest.AddMember(comm3)) && pass;
+   pass = (!networkTest.AddMember(comm4)) && pass;
+   pass = (!networkTest.AddMember(comm5)) && pass;
+
+   testNullAddress = comm1.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = (testNullAddress.IsNull()) && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = (testNullAddress.IsNull()) && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = (testNullAddress.IsNull()) && pass;
+
+   //! Test by sending a message in the network.
+   WsfMessage message = {};
+   message.SetSizeInBytes(512); // .25 s delivery time per hop, 1 hop (comm1 -> comm2)
+   message.SetType("TEST_P2P");
+   comm1.SendMessage(message, comm2);
+
+   //! We need to break and let the simulation advance a small step to allow the message
+   //! to be delivered. Otherwise, altering the network at this point would cause
+   //! the previously sent message to fail.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+/////////////////////////////TEST_P2P_2////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 16 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Now that the previous message was delivered, remove a member.
+   //! The message send will fail.
+   pass = pass && WsfNetwork.RemoveMember(comm2.GetAddress());
+
+   WsfMessage message = {};
+   message.SetType("TEST_P2P");
+   message.SetSizeInBytes(512);
+   comm1.SendMessage(message, comm2);
+
+   //! Need another short break for potential message delivery.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+/////////////////////////////TEST_P2P_3////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 17 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Remove the members this time by just removing the network.
+   //! Validate null address assignments.
+   WsfNetwork.RemoveNetwork(networkTest);
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_GENERIC_1//////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 18 s absolute
+   //! There should only be one network, "default"
+   Array<string> networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 1)
+   {
+      pass = false;
+   }
+
+   WsfNetwork network = WsfNetwork.GetNetwork("default");
+
+   //! Create a new network.
+   WsfNetworkGeneric networkTest = {};
+   WsfAddress testAddress = networkTest.GetAddress();
+   if(!testAddress.IsNull())
+   {
+      pass = false;
+   }
+
+   testAddress.SetAddress("192.168.1.1", 24);
+   networkTest.SetAddress(testAddress);
+   networkTest.SetName("network_test");
+
+   WsfAddress testNewAddress = networkTest.GetAddress();
+   if(testNewAddress.GetAddress() != testAddress.GetAddress())
+   {
+      pass = false;
+   }
+   if(networkTest.GetName() != "network_test")
+   {
+      pass = false;
+   }
+
+   pass = WsfNetwork.AddNetwork(networkTest);
+   networkTest = (WsfNetworkGeneric)WsfNetwork.GetNetwork("network_test");
+   networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 2)
+   {
+      pass = false;
+   }
+
+   //! Add the non-managed comms to our network.
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+
+   pass = networkTest.AddMember(comm1) && pass;
+   pass = networkTest.AddMember(comm2) && pass;
+   pass = networkTest.AddMember(comm3) && pass;
+   pass = networkTest.AddMember(comm4) && pass;
+   pass = networkTest.AddMember(comm5) && pass;
+
+   testNullAddress = comm1.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+
+   //! Unlike other predefined networks, this one does not implicitly create
+   //! linkage with the addition of members. All links must be specified.
+   //! comm1 -> comm2 -> comm5 <-> comm3 <- comm4
+   pass = pass && networkTest.AddLink(comm1.GetAddress(), comm2.GetAddress());
+   pass = pass && networkTest.AddLink(comm2.GetAddress(), comm5.GetAddress());
+   pass = pass && networkTest.AddLink(comm5.GetAddress(), comm3.GetAddress());
+   pass = pass && networkTest.AddLink(comm3.GetAddress(), comm5.GetAddress());
+   pass = pass && networkTest.AddLink(comm4.GetAddress(), comm3.GetAddress());
+
+   //! Test by sending a message in the ring network.
+   WsfMessage message = {};
+   message.SetSizeInBytes(512); // .25 s delivery time per hop, 2 hops (comm1 -> comm2 -> comm5)
+   message.SetType("TEST_GENERIC");
+   comm1.SendMessage(message, comm5);
+
+   //! We need to break and let the simulation advance a small step to allow the message
+   //! to be delivered. Otherwise, altering the network at this point would cause
+   //! the previously sent message to fail.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_GENERIC_2//////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 19 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Now that the previous message was delivered, remove the connections
+   //! from comm5. It will still be in the network, but without connectivity,
+   //! it can't receive messages.
+   pass = pass && networkTest.RemoveLink(comm5.GetAddress(), comm3.GetAddress());
+   pass = pass && networkTest.RemoveLink(comm3.GetAddress(), comm5.GetAddress());
+   pass = pass && networkTest.RemoveLink(comm2.GetAddress(), comm5.GetAddress());
+
+   WsfMessage message = {};
+   message.SetType("TEST_GENERIC");
+   message.SetSizeInBytes(512);
+   //! .25 s delivery time per hop, 3 hops (comm1 -> comm2 -> comm4 -> comm5)
+   comm1.SendMessage(message, comm5);
+
+   //! Need another short break for potential message delivery.
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_GENERIC_3//////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 20 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Remove the members this time by just removing the network.
+   //! Validate null address assignments.
+   WsfNetwork.RemoveNetwork(networkTest);
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+end_execute
+
+///////////////////////////////////////////////////////////////////
+////////////////////TEST_AD_HOC_1//////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 21 s absolute
+   //! There should only be one network, "default"
+   Array<string> networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 1)
+   {
+      pass = false;
+   }
+
+   WsfNetwork network = WsfNetwork.GetNetwork("default");
+
+   //! Create a new network.
+   WsfNetworkAdHoc networkTest = {};
+   WsfAddress testAddress = networkTest.GetAddress();
+   if(!testAddress.IsNull())
+   {
+      pass = false;
+   }
+
+   testAddress.SetAddress("192.168.1.1", 24);
+   networkTest.SetAddress(testAddress);
+   networkTest.SetName("network_test");
+
+   WsfAddress testNewAddress = networkTest.GetAddress();
+   if(testNewAddress.GetAddress() != testAddress.GetAddress())
+   {
+      pass = false;
+   }
+   if(networkTest.GetName() != "network_test")
+   {
+      pass = false;
+   }
+
+   pass = WsfNetwork.AddNetwork(networkTest);
+   networkTest = (WsfNetworkAdHoc)WsfNetwork.GetNetwork("network_test");
+   networkNames = WsfNetwork.GetManagedNetworks();
+   if(networkNames.Size() != 2)
+   {
+      pass = false;
+   }
+   
+   //! For the ad-hoc network, update rates must be specified
+   //! before adding the comm, otherwise it will not take effect
+   //! until after the first update. Since the default update rate
+   //! never occurs, it is important to set this value BEFORE
+   //! adding comms to the network.
+   WsfRandomVariable rand = {};
+   rand.Set("constant", 2.0, 0.0, "");
+   networkTest.ChangeUpdateRate(rand);
+
+   //! Add the non-managed comms to our network.
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+
+   pass = networkTest.AddMember(comm1) && pass;
+   pass = networkTest.AddMember(comm2) && pass;
+   pass = networkTest.AddMember(comm3) && pass;
+   pass = networkTest.AddMember(comm4) && pass;
+   pass = networkTest.AddMember(comm5) && pass;
+
+   testNullAddress = comm1.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = (!testNullAddress.IsNull()) && pass;
+
+   //! Unlike other predefined networks, this one does not implicitly create
+   //! linkage with the addition of members. They are created automatically
+   //! at the specified update rate. This will occur two second from now. 
+   //! Since all the members are wired/perfect comms, the resulting network
+   //! will act the same as a mesh network once established.
+
+   //! Test by sending a message in the ad hoc network (this will fail)
+   WsfMessage message = {};
+   message.SetSizeInBytes(512); // .25 s delivery time per hop, 2 hops (comm1 -> comm2 -> comm5)
+   message.SetType("TEST_AD_HOC");
+   comm1.SendMessage(message, comm5);
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_AD_HOC_2///////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 24 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+   
+   //! Test by sending a message in the ad hoc network (this will now succeed)
+   WsfMessage message = {};
+   message.SetSizeInBytes(512); // .25 s delivery time per hop, 2 hops (comm1 -> comm5)
+   message.SetType("TEST_AD_HOC");
+   comm1.SendMessage(message, comm5);
+end_execute
+
+///////////////////////////////////////////////////////////////////
+///////////////////TEST_AD_HOC_3///////////////////////////////////
+///////////////////////////////////////////////////////////////////
+execute at_time 25 s absolute
+   WsfNetwork networkTest = WsfNetwork.GetNetwork("network_test");
+   WsfComm comm1 = WsfSimulation.FindPlatform("test1").Comm("test");
+   WsfComm comm2 = WsfSimulation.FindPlatform("test2").Comm("test");
+   WsfComm comm3 = WsfSimulation.FindPlatform("test3").Comm("test");
+   WsfComm comm4 = WsfSimulation.FindPlatform("test4").Comm("test");
+   WsfComm comm5 = WsfSimulation.FindPlatform("test5").Comm("test");
+
+   //! Remove the members this time by just removing the network.
+   //! Validate null address assignments.
+   WsfNetwork.RemoveNetwork(networkTest);
+
+   WsfAddress testNullAddress = comm1.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm2.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm3.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm4.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+   testNullAddress = comm5.GetAddress();
+   pass = testNullAddress.IsNull() && pass;
+end_execute
+
+script void NetworkCreated(WsfNetwork aNetwork)
+   networks_created = networks_created + 1;
+end_script
+
+script void NetworkDeleted(WsfNetwork aNetwork)
+   networks_deleted = networks_deleted + 1;
+end_script
+
+observer
+   enable NETWORK_ADDED NetworkCreated
+   enable NETWORK_REMOVED NetworkDeleted
+end_observer
+
+#event_output
+#   enable all
+##   enable NETWORK_ADDED
+##   enable NETWORK_REMOVED
+##   enable MESSAGE_RECEIVED
+#   file testOutput.evt
+#end_event_output
+#
+#csv_event_output
+#   enable NETWORK_ADDED
+#   enable NETWORK_REMOVED
+#   file testCSV_Output.csv
+#end_csv_event_output
+
+execute at_time 26 s absolute
+   if(pass &&
+      (test_mesh_count == 1) &&
+      (test_mesh_legacy_count == 1) &&
+      (test_star_count == 1) &&
+      (test_ring_count == 1) &&
+      (test_directed_ring_count == 2) &&
+      (test_p2p_count == 1) &&
+      (test_generic_count == 1) &&
+      (test_ad_hoc_count == 1) &&
+      (networks_created == 8) && // 8 explicit calls to "AddNetwork"
+      (networks_deleted == 8)
+     )
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+
+      ////////////////////////DEBUG INFO/////////////////////////
+#      if(pass)
+#      {
+#         writeln("pass value is: true");
+#      }
+#      else
+#      {
+#         writeln("pass value is: false");
+#      }
+#      writeln("test_mesh_count: " + (string)test_mesh_count);
+#      writeln("test_mesh_legacy_count: " + (string)test_mesh_legacy_count);
+#      writeln("test_star_count: " + (string)test_star_count);
+#      writeln("test_ring_count: " + (string)test_ring_count);
+#      writeln("test_directed_ring_count: " + (string)test_directed_ring_count);
+#      writeln("test_p2p_count: " + (string)test_p2p_count);
+#      writeln("test_generic_count: " + (string)test_generic_count);
+#      writeln("networks_created: " + (string)networks_created);
+#      writeln("networks_deleted: " + (string)networks_deleted);
+      ////////////////////////DEBUG INFO/////////////////////////
+   }
+end_execute
+
+end_time 27 s

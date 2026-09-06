@@ -1,0 +1,86 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Note that there doesn't seem to be any way of interacting with acoustic signatures
+# in script, so this test just serves to check the grammar.
+
+acoustic_signature LOW_FIDELITY_ACOUSTIC_SIGNATURE # MADE UP NUMBERS
+   state default
+   spectrum_data
+        freq    31.5 hz   noise_pressure 20.3 dB_20uPa
+        freq   1000.0 hz  noise_pressure 20.3 dB_20uPa
+        freq   6000.0 hz  noise_pressure 20.3 dB_20uPa
+   end_spectrum_data
+end_acoustic_signature
+
+platform_type SIMPLE_FIGHTER WSF_PLATFORM
+   icon F-18  
+
+   multiresolution_acoustic_signature WSF_MULTIRESOLUTION_ACOUSTIC_SIGNATURE
+     model high_fidelity_sig
+        fidelity_range 0.5 1.0
+        acoustic_signature HIGH_FIDELITY_ACOUSTIC_SIGNATURE
+        end_acoustic_signature
+     end_model
+    
+     add model low_fidelity_sig
+        fidelity_range 0.0 0.5 
+        acoustic_signature HIGH_FIDELITY_ACOUSTIC_SIGNATURE
+        end_acoustic_signature
+     end_model
+     common
+        data_reference_range 10 feet
+     end_common
+   end_multiresolution_acoustic_signature
+end_platform_type
+
+acoustic_signature HIGH_FIDELITY_ACOUSTIC_SIGNATURE # MADE UP NUMBERS
+   state default
+   spectrum_data
+        freq    31.5 hz   noise_pressure 20.3 dB_20uPa
+        freq    40.0 hz   noise_pressure 20.3 dB_20uPa
+        freq    50.0 hz   noise_pressure 20.3 dB_20uPa
+        freq    63.0 hz   noise_pressure 20.3 dB_20uPa
+        freq    80.0 hz   noise_pressure 20.3 dB_20uPa
+        freq    100.0 hz  noise_pressure 20.3 dB_20uPa
+        freq    200.0 hz  noise_pressure 20.3 dB_20uPa
+        freq    400.0 hz  noise_pressure 20.3 dB_20uPa
+        freq    800.0 hz  noise_pressure 20.3 dB_20uPa
+        freq    900.0 hz  noise_pressure 20.3 dB_20uPa
+        freq   1000.0 hz  noise_pressure 20.3 dB_20uPa
+        freq   2000.0 hz  noise_pressure 78.3 dB_20uPa
+        freq   2500.0 hz  noise_pressure 30.3 dB_20uPa
+        freq   3000.0 hz  noise_pressure 20.3 dB_20uPa
+        freq   4000.0 hz  noise_pressure 20.3 dB_20uPa
+        freq   5000.0 hz  noise_pressure 20.3 dB_20uPa
+        freq   6000.0 hz  noise_pressure 20.3 dB_20uPa
+   end_spectrum_data
+end_acoustic_signature
+
+platform test SIMPLE_FIGHTER
+  multiresolution_acoustic_signature
+     fidelity 0.25
+  end_multiresolution_acoustic_signature
+end_platform
+
+platform test2 SIMPLE_FIGHTER
+   multiresolution_acoustic_signature
+      model low_fidelity_sig # Implicit edit
+         fidelity_range 0.3 0.5
+      end_model
+      edit model high_fidelity_sig # Explicit edit
+         default
+         acoustic_signature
+            data_reference_range 5 feet
+         end_acoustic_signature
+      end_model
+   end_multiresolution_acoustic_signature
+end_platform

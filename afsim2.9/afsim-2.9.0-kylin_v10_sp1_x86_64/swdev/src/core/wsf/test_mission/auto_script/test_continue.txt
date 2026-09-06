@@ -1,0 +1,39 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_continue.txt
+# Test the functionality of the continue command.
+
+on_initialize
+   int i = 0;
+   int counter = 0;
+
+   while (i < 10)
+   {
+      i = i + 1;
+
+      if (i > 5)
+      {
+         continue;
+      }
+
+      # Counter made it PAST the continue statement if this point is reached.
+      counter = counter + 1;
+   }
+
+   if (counter != 5)
+   {
+      writeln("-FAIL- : The forced continue is not preventing counter from counting");
+   }
+   else
+   {
+      writeln("-PASS- : The forced continue is preventing counter from counting past 6, as expected.");
+   }
+
+end_on_initialize

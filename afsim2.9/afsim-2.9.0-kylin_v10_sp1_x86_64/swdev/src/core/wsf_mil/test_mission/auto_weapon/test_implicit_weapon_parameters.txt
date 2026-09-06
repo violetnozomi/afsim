@@ -1,0 +1,162 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test implicit weapon parameter support by verifying issues corrected by AFSIM-361.
+# Parameters tested include quantity-related settings, reload-related settings,
+# firing_interval and salvo_interval. These parameters are most relevant for
+# discrete-fire implicit weapons.
+#
+# Test sequence for wpn:
+#     Initial quantity=10, reload at threshold=5 with +5, firing_interval 1.5 sec
+#     Fire                 --> q=9
+#     Fire too soon / fail --> q=9
+#     Salvo(4)             --> reload, q=10
+#     Salvo(4)             --> q=6
+#     Fire                 --> reload, q=10
+#
+# Test sequence for wpn_unlimited:
+#     Initial quantity unspecified
+#     Verify default quantity of DOUBLE_MAX
+#
+#  Test sequence for wpn_empty:
+#     Initial quantity=0, no reloading configured
+#     Verify Fire attempt fails
+#
+include_once ../auto_script/test_functions.txt
+
+test_feature wsf_mil
+
+end_time 30 sec
+
+script_variables
+    int engage_count = 0;
+    int fire_count = 0;
+    int reload_count = 0;
+end_script_variables
+
+platform target WSF_PLATFORM
+   side blue
+end_platform
+
+platform shooter WSF_PLATFORM
+   position 39n 90:10w altitude 30000 ft heading 0 deg
+   side red
+      
+   # Weapon used for most tests   
+   add weapon wpn WSF_IMPLICIT_WEAPON
+      #debug
+      quantity 10
+      maximum_quantity 10
+      firing_interval 1.5 sec
+      salvo_interval 2 sec
+      reload_inventory 100
+      reload_increment 5
+      reload_threshold 5
+   end_weapon
+
+   # Weapon to verify ~infinite default quantity
+   add weapon wpn_unlimited WSF_IMPLICIT_WEAPON
+      #debug
+   end_weapon
+
+   # Weapon to verify quantity=0 prevents firing
+   add weapon wpn_empty WSF_IMPLICIT_WEAPON
+      #debug
+      quantity 0
+   end_weapon
+
+   # Verify initial quantities and fire first shot
+   execute at_time 1 s absolute
+      WsfWeapon wpn_unlimited = Weapon("wpn_unlimited");
+      AssertDoubleEqualsMessage(MATH.DOUBLE_MAX(), wpn_unlimited.QuantityRemaining(), "wpn_unlimited default quantity incorrect");
+
+      WsfWeapon wpn_empty = Weapon("wpn_empty");
+      AssertDoubleEqualsMessage(0.0, wpn_empty.QuantityRemaining(), "wpn_empty initial quantity incorrect");
+      bool success_fire = wpn_empty.Fire(WsfSimulation.FindPlatform("target").MakeTrack());
+      AssertFalseMessage(success_fire, "wpn_empty fire attempt expected to fail");
+
+      WsfWeapon wpn = Weapon("wpn");
+      AssertDoubleEqualsMessage(10, wpn.QuantityRemaining(), "initial quantity incorrect");
+      success_fire = wpn.Fire(WsfSimulation.FindPlatform("target").MakeTrack());
+      AssertTrueMessage(success_fire, "first shot failed");
+   end_execute
+   
+   # Verify remaining quantity and fire second shot too soon (expect firing_interval to prevent firing)
+   execute at_time 2 s absolute
+      WsfWeapon wpn = Weapon("wpn");
+      AssertDoubleEqualsMessage(9, wpn.QuantityRemaining(), "quantity incorrect (after first shot)");
+      bool success_fire = wpn.Fire(WsfSimulation.FindPlatform("target").MakeTrack());
+      AssertFalseMessage(success_fire, "second shot was expected to fail (firing_interval violation)");
+   end_execute
+   
+   # Verify reloads/quantity and fire first salvo
+   execute at_time 3 s absolute
+      AssertEqualsMessage(0, reload_count, "reload count incorrect (unexpected reload)");
+      WsfWeapon wpn = Weapon("wpn");
+      AssertDoubleEqualsMessage(9, wpn.QuantityRemaining(), "quantity incorrect (after second shot attempt)");
+      bool success_salvo = wpn.FireSalvo(WsfSimulation.FindPlatform("target").MakeTrack(), 4);
+      AssertTrueMessage(success_salvo, "first salvo attempt was expected to succeed");
+   end_execute
+   
+   # Verify reloads/quantity and fire second salvo
+   execute at_time 13 s absolute
+      AssertEqualsMessage(1, reload_count, "reload count incorrect (after first salvo)");
+      WsfWeapon wpn = Weapon("wpn");
+      AssertDoubleEqualsMessage(10, wpn.QuantityRemaining(), "quantity incorrect (after first salvo + reload)");
+      bool success_salvo = wpn.FireSalvo(WsfSimulation.FindPlatform("target").MakeTrack(), 4);
+      AssertTrueMessage(success_salvo, "second salvo attempt was expected to succeed");
+   end_execute
+   
+   # Verify reloads/quantity and fire last shot
+   execute at_time 23 s absolute
+      AssertEqualsMessage(1, reload_count, "reload count incorrect (after second salvo)");
+      WsfWeapon wpn = Weapon("wpn");
+      AssertDoubleEqualsMessage(6, wpn.QuantityRemaining(), "quantity incorrect (after second salvo)");
+      bool success_fire = wpn.Fire(WsfSimulation.FindPlatform("target").MakeTrack());
+      AssertTrueMessage(success_fire, "final shot was expected to succeed");
+   end_execute
+   
+   # Verify reloads/quantity
+   execute at_time 30 s absolute
+      AssertEqualsMessage(2, reload_count, "reload count incorrect (after final shot)");
+      WsfWeapon wpn = Weapon("wpn");
+      AssertDoubleEqualsMessage(10, wpn.QuantityRemaining(), "quantity incorrect (after final shot + reload)");
+   end_execute
+end_platform
+
+observer
+    enable IMPLICIT_WEAPON_BEGIN_ENGAGEMENT
+    enable WEAPON_FIRED
+    enable WEAPON_RELOAD_STARTED
+    enable SIMULATION_COMPLETE
+end_observer
+
+// IMPLICIT_WEAPON_BEGIN_ENGAGEMENT observer:  Count engagements
+script void ImplicitWeaponBeginEngagement(WsfImplicitWeapon aWeapon, WsfWeaponEngagement aWeaponEngagement)
+   engage_count += 1;
+end_script
+
+// WEAPON_FIRED observer:  Count weapon shots fired
+script void WeaponFired(WsfWeaponEngagement aWeaponEngagement, WsfTrack aTargetTrack)
+   fire_count += 1;
+end_script
+
+// WEAPON_RELOAD_STARTED observer:  Count weapon reloads
+script void WeaponReloadStarted(WsfWeapon aWeapon)
+   reload_count += 1;
+end_script
+
+// SIMULATION_COMPLETE observer:  Expect 10 engagements, 10 shots fired and 2 reloads
+script void SimulationComplete()
+    bool success_engage = AssertEqualsMessage(10, engage_count, "final engagement count incorrect");
+    bool success_fire = AssertEqualsMessage(10, fire_count, "final shots fired count incorrect");
+    bool success_reload = AssertEqualsMessage(2, reload_count, "final reload count incorrect");
+    writePass(success_engage && success_fire && success_reload);
+end_script

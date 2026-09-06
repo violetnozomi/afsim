@@ -1,0 +1,37 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test RoadMover for having
+//    route          no
+//    start_position no
+//    end_position   no
+//    RoadMover should remain stationary at initial position
+//
+
+include_once ../auto_script/test_functions.txt
+
+platform plat WSF_PLATFORM
+   position 31n 110w
+   add mover WSF_ROAD_MOVER
+      speed 50 mph
+      off_road_speed 30 mph
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+   script void on_platform_deleted()
+      extern bool AssertDoubleEqualsMessage(double, double, string);
+      if (AssertDoubleEqualsMessage(31, Latitude(), "Incorrect Latitude") &&
+          AssertDoubleEqualsMessage(-110, Longitude(), "Incorrect Longitude"))
+      {
+         writeln("-PASS-");
+      }
+   end_script
+end_platform
+
+end_time 50 s
+

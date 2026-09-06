@@ -1,0 +1,58 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_for_each.txt
+# Test to make sure that each of the elements inside of maps and inside of Arrays are traversed with the foreach loop.
+
+include test_functions.txt
+
+on_initialize
+   bool pass = true;
+   int counter = 0;
+
+   # 1. Foreach loop traversing an array
+
+   Array<int> myArray = Array<int>();
+   myArray[0] = 3;
+   myArray[1] = 2;
+   myArray[2] = 1;
+   myArray[3] = 0;
+
+   foreach(int aValue in myArray)
+   {
+      counter = counter + 1;
+   }
+
+   if (counter != 4)
+   {
+      pass = false;
+      writeln("-FAIL- on: foreach Array traversal");
+   }
+
+   # 2. Foreach loop traversing a map
+   counter = 0;
+   Map<int, string> myMap = Map<int, string>();
+   myMap[3] = "hello";
+   myMap[2] = "jello";
+   myMap[1] = "mello";
+   myMap[0] = "fello";
+
+   foreach(int aKey : string aValue in myMap)
+   {
+      counter = counter + 1;
+   }
+
+   if (counter != 4)
+   {
+      pass = false;
+      writeln("-FAIL- on: foreach Map traversal");
+   }
+
+   writePass(pass);
+end_on_initialize

@@ -1,0 +1,126 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# A simple test of the uplink_send_interval command on a WSF_TASK_PROCESSOR
+# The uplinking sensor has a frame time of 1 second
+# The uplink interval is set to 2 seconds
+# A weapon is fired at T=1s
+# The first track update occurs at T=2s
+# Uplinks are expected at times T=2s and T=4s
+# The weapon terminates at about T=5.3s
+
+define_path_variable CASE test_uplinking_4
+
+test_feature wsf_mil
+
+include_once ../auto_script/test_functions.txt
+
+script_variables
+   double timeCheck = -1.0;
+end_script_variables
+
+weapon_effects SIMPLE_EFFECT WSF_GRADUATED_LETHALITY
+   radius_and_pk  100.0 m  0.75
+end_weapon_effects
+
+platform_type MISSILE_TYPE WSF_PLATFORM
+
+   icon Scud_Missile
+   mover WSF_STRAIGHT_LINE_MOVER
+      average_speed           3221.5 kts     # mach 5
+      update_interval         0.006  sec     
+      update_time_tolerance   0.0006 sec     # this mover travels 1 meter in 0.00060339 seconds
+      maximum_lateral_acceleration  15.0 g   # average turner
+      guidance_mode           lead_pursuit   # or pure_pursuit
+      guide_to_truth          false          # guide to perception
+   end_mover
+
+   processor fuse WSF_AIR_TARGET_FUSE
+      max_time_of_flight_to_detonate 100.0 sec
+   end_processor
+   
+   comm weapon_downlink WSF_COMM_RCVR
+      network_name weapons_subnet
+      internal_link tester
+   end_comm
+   
+   processor tester WSF_SCRIPT_PROCESSOR
+      on_message
+          type WSF_TRACK_MESSAGE
+             script 
+                // An uplink has been received
+                AssertWithinToleranceMessage(timeCheck, TIME_NOW, 0.001, "Unexpected time for uplink");
+                // Since the uplink_send_interval is set to 2.0, expect the next one in 2 seconds from now
+                timeCheck = TIME_NOW + 2.0;
+             end_script 
+      end_on_message
+   end_processor   
+
+end_platform_type
+
+platform blue-1 WSF_PLATFORM
+   side blue
+   icon f-18    
+   add comm weapon_uplink WSF_COMM_TRANSCEIVER 
+      network_name weapons_subnet
+   end_comm 
+   add mover WSF_AIR_MOVER end_mover
+   route
+      position 35:35n 117:55w altitude 10000 ft speed 200.0 m/s 
+      position 35:35n 120:30w
+   end_route
+   add sensor geo WSF_GEOMETRIC_SENSOR 
+      on
+      frame_time 1 s
+      reports_location 
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+   add processor data_mgr WSF_TRACK_PROCESSOR end_processor
+   add processor uplink_mgr WSF_TASK_PROCESSOR 
+      uplink_send_interval 2 s
+       on_message
+          type WSF_STATUS_MESSAGE
+             script
+                WsfStatusMessage msg = (WsfStatusMessage)MESSAGE;
+                if (msg.Status() == "WEAPON_FIRED")
+                {
+                   // A weapon has been fired so start uplinking
+                   WsfLocalTrack lt = PLATFORM.MasterTrackList().Find(msg.RequestId());
+                   StartUplinking(lt, "UPLINK", msg.Platform());
+                   // Expect the first uplink in one second from now because
+                   // this will be the first sensor track update since firing 
+                   timeCheck = TIME_NOW + 1.0;
+                }
+             end_script  
+       end_on_message   
+   end_processor  
+   execute at_time 1 s absolute
+      PLATFORM.Weapon("mrum").Fire(PLATFORM.MasterTrackList().Entry(0));
+   end_execute
+   
+   add weapon mrum WSF_EXPLICIT_WEAPON
+      internal_link uplink_mgr 
+      launched_platform_type MISSILE_TYPE
+      weapon_effects SIMPLE_EFFECT   
+      quantity 4      
+   end_weapon   
+end_platform
+
+platform red-1 WSF_PLATFORM 
+   side red
+   icon f-18  
+   add mover WSF_AIR_MOVER end_mover
+   route
+      position 35:35:00n 118:00w altitude 10000 ft speed 200.0 m/s 
+      position 35:36:55n 118:00w altitude 10000 ft
+   end_route    
+end_platform
+
+end_time 6 s

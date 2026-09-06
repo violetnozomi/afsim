@@ -1,0 +1,280 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#---------------------------------------------
+# Generic static HEL tests
+# Test of hel capability with several
+# geometries and hel types
+#
+#---------------------------------------------
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once ./COEFS1000_1.txt
+
+platform_type HEL_PLATFORM WSF_PLATFORM
+
+   add processor auto_fire auto_fire_computer
+      on
+   end_processor
+
+   processor fuser WSF_TRACK_PROCESSOR
+     purge_interval 60.0 seconds
+   end_processor
+
+   sensor all-seeing WSF_GEOMETRIC_SENSOR
+      on
+      processor fuser
+      reports_location
+      reports_velocity
+      frame_time 1.0 second
+   end_sensor
+
+end_platform_type
+
+processor auto_fire_computer WSF_SCRIPT_PROCESSOR
+   on
+   update_interval 1.0 s
+
+   script bool Fire(string aWeaponName)
+      WsfLaserWeapon hel = (WsfLaserWeapon)WsfSimulation.FindPlatform("redeye").Weapon(aWeaponName);
+
+      WsfPlatform target = WsfSimulation.FindPlatform("su-37");
+      bool isFiring = hel.IsFiring();
+      bool canLase = hel.CanLase();
+
+      if (target.IsValid())
+      {
+         if (canLase && (! isFiring))
+         {
+            WsfTrack track = target.MakeTrack();
+            hel.Fire(track);
+            //writeln(TIME_NOW, "Firing");
+          }
+      }
+      return canLase;
+   end_script
+
+   on_update
+      static bool fireFirst = true;
+      static bool fireSecond = true;
+      static bool fireThird = true;
+      static bool printDone = true;
+      if (fireFirst)
+      {
+         fireFirst = Fire("hel_simple");
+      }
+      else if (fireSecond)
+      {
+         fireSecond = Fire("hel_detailed");
+      }
+      else if (fireThird)
+      {
+         fireThird = Fire("hel_no_ts");
+      }
+      else if (printDone)
+      {
+         writeln("done...");
+         printDone = false;
+      }
+   end_on_update
+end_processor
+
+weapon_effects AA_SELF_PROTECT_LETHALITY WSF_HEL_LETHALITY
+   target_type SU-37
+     damage_radius 2 cm
+     minimum_energy_density 10.0 kj/cm^2
+     damage_radius 1.0 cm
+   end_target_type
+
+end_weapon_effects
+
+weapon AA_SELF_PROTECT_HEL WSF_LASER_WEAPON
+
+   aux_data
+      bool auto_mode = false
+   end_aux_data
+
+   comments enabled
+
+   salvo_interval 2.0 seconds
+
+   // The lethalitiy model used by this HEL.
+   weapon_effects AA_SELF_PROTECT_LETHALITY
+
+   //-------------------------------------------------------------------
+   //  The following begins the hel-specific block of data.
+   //-------------------------------------------------------------------
+
+   fluence_model default
+
+      // The aperture for the HEL beam.
+      // The beam diffraction is inversely proportional to the aperture diameter.
+      aperture_diameter 0.2 meters
+
+      // The laser power (typically, expressed in kw).
+      power 20 kw
+
+      // The characteristic wavelength for the measurement.
+      //wavelength 1.064 microns
+
+      wavelength 1000 nanometers  // wavelength in nm for which table is valid
+      atmosphere_model 2 // 1-6; see explanation
+      haze_model  1 // 1-6; see explanation
+
+
+      // The total jitter of the beam on target.
+      // More jitter gives a larger spot size and less power/area.
+      jitter 2e-6 radians
+
+      // A measure of how close the beam is to a perfect gaussian.
+      // Valid values are >= 1.0, where 1.0 is best.
+      beam_quality 1.2
+
+   end_fluence_model
+
+end_weapon
+
+weapon AA_SELF_PROTECT_HEL_DETAILED AA_SELF_PROTECT_HEL
+   // Thermal system definition
+  thermal_system
+
+     // Any new types defined in a component_type block.
+     // The specific heat capacity must be specified.
+     component_type antifreeze
+        specific_heat_capacity 1000 //J/kg/degree(K)
+        specific_heat_capacity_high_temp 2000
+        enthalpy 300000 //J/kg
+        phase_change_temperature -20 C
+     end_component_type
+
+     // Define components using existing and new types
+     // are the only pre-defined types.
+     component antifreeze 40 lb
+     component aluminum 200 lb  // a default component
+     initial_temperature -21 C
+
+     // The target temperature is the goal temperature for cooling.
+     // The temperature will not go below this value.
+     target_temperature -21 C
+
+     // This is the power taken out of the system for cooling.
+     // You must specify a value in order for cooling to occur.
+     heat_sink 10000 W
+  end_thermal_system
+  high_temperature_limit -10 C
+  low_temperature_limit -21 C
+  minimum_total_firing_time 5.0 s
+end_weapon
+
+weapon AA_SELF_PROTCECT_HEL_SIMPLE AA_SELF_PROTECT_HEL
+   // Thermal system definition
+  thermal_system
+     // Using the "simple" thermal system.
+     simple                 // Use simple thermal system.
+     heating_time 60.0 s   // same as total firing time
+     recharge_rate 0.1     // sec of firing time regained per second of clock time (dimensionless).
+     //debug enabled
+  end_thermal_system
+  minimum_total_firing_time 5.0 s
+end_weapon
+
+weapon AA_SELF_PROTCECT_HEL_NO_TS AA_SELF_PROTECT_HEL
+   number_of_shots 2
+   firing_time 5 seconds
+   cooling_time 20 seconds
+end_weapon
+
+platform_type FA-18EF-HEL HEL_PLATFORM
+
+   spatial_domain air
+   icon F-18E
+   side blue
+
+   add weapon hel_simple AA_SELF_PROTCECT_HEL_SIMPLE
+      //debug
+   end_weapon
+
+   add weapon hel_detailed AA_SELF_PROTECT_HEL_DETAILED
+      //debug
+   end_weapon
+
+   add weapon hel_no_ts AA_SELF_PROTCECT_HEL_NO_TS
+      //debug
+   end_weapon
+
+end_platform_type
+
+platform redeye FA-18EF-HEL
+    position 40n 90.0383w altitude 3000 meters // static
+end_platform
+
+platform_type SU-37 WSF_PLATFORM
+   category AIRCRAFT
+end_platform_type
+
+platform su-37 SU-37
+   side red
+   icon SU-27
+   category SU-37
+   indestructible // to test thermal cooldown
+   position 40:03:00n 90.0383w altitude 2000 meters heading 180 degrees
+end_platform
+
+execute at_time 10 seconds absolute
+end_execute
+
+/*
+event_pipe
+   file thermal_system_test.aer
+end_event_pipe
+
+event_output
+  file thermal_system_test.evt
+  enable DIRECTED_ENERGY_WEAPON_BEGIN_SHOT
+  enable DIRECTED_ENERGY_WEAPON_END_SHOT
+  enable DIRECTED_ENERGY_WEAPON_COOLDOWN_COMPLETE
+  flush_output enabled
+end_event_output
+*/
+
+script void TestCanLase(string aWeaponName, bool aCanLase)
+   WsfLaserWeapon hel = (WsfLaserWeapon)WsfSimulation.FindPlatform("redeye").Weapon(aWeaponName);
+   if (hel.CanLase() != aCanLase)
+   {
+      writeln("-FAIL-");
+   }
+   //else
+   //{
+   //   writeln("-PASS-");
+   //}
+end_script
+
+// Each of these exhausts its firing ability so that a call to CanLase returns false.
+execute at_time 60 sec absolute
+   TestCanLase("hel_simple", false);
+end_execute
+
+execute at_time 240 sec absolute
+   TestCanLase("hel_detailed", false);
+end_execute
+
+execute at_time 260 sec absolute
+   TestCanLase("hel_no_ts", false);
+end_execute
+
+// Make sure they have all recovered ability to fire at a later time.
+execute at_time 800 sec absolute
+   TestCanLase("hel_simple", true);
+   TestCanLase("hel_detailed", true);
+   TestCanLase("hel_no_ts", true);
+end_execute
+
+end_time 1000.0 seconds

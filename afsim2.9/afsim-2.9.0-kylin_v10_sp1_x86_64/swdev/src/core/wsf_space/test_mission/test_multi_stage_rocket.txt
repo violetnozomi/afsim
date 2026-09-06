@@ -1,0 +1,138 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once utils.txt
+
+end_time 1 day
+
+script_variables
+   bool gStageEvent = false;
+   double gExpectedDeltaV; 
+   double gExpectedStageOneDeltas = 1000.0;
+   double gExpectedStageTwoDeltas = 665.0;
+end_script_variables
+
+platform proton-rocket-test WSF_PLATFORM
+   icon satellite
+   side blue
+
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 7000 km
+      eccentricity 0.0
+      inclination 10 deg
+     
+      maneuvering rocket
+         debug
+         stage  // breeze-M
+            specific_impulse 328 seconds
+            thrust 19620 newtons
+            empty_mass 2.5 tons
+            fuel_mass 19.9 tons            
+         end_stage
+         
+         stage  // mr-107 aerojet small thrusters
+            specific_impulse 236 s
+            thrust           1028 newtons // assume x4
+            empty_mass       3000 lb // assume this includes satellite mass
+            fuel_mass        1000  lb // guess
+         end_stage
+      end_maneuvering
+      
+      mission_sequence
+         maneuver tangent
+            delta_v 1000.0 m/s
+            execute_at periapsis
+         end_maneuver       
+         maneuver tangent
+            delta_v 1000.0 m/s
+            execute_at apoapsis
+         end_maneuver       
+         maneuver tangent
+            delta_v 1000.0 m/s
+            execute_at apoapsis
+         end_maneuver       
+         maneuver tangent
+            delta_v 1000.0 m/s
+            execute_at periapsis
+         end_maneuver
+         maneuver tangent
+            delta_v -1000.0 m/s
+            execute_at relative_time 1000 s
+         end_maneuver
+         event perform_staging
+         end_event
+         maneuver tangent
+            delta_v 665.0 m/s
+            execute_at relative_time 1000 s
+         end_maneuver       
+      end_mission_sequence
+      
+   end_mover
+   
+   on_initialize2
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      gExpectedDeltaV = mover.AvailableDeltaV();
+   end_on_initialize2
+
+end_platform
+
+
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSpaceMover,
+                                     WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "PERFORM_STAGING")
+   {
+      return;
+   }
+   ExpectDouble(aSpaceMover.AvailableDeltaV(),
+                gExpectedDeltaV,
+                0.0001,
+                "Available delta-v is not the expected value at time " + (string)TIME_NOW);
+   if (gStageEvent)
+   {
+      gExpectedDeltaV -= gExpectedStageTwoDeltas;
+   }
+   else
+   {
+      gExpectedDeltaV -= gExpectedStageOneDeltas;
+   }
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSpaceMover,
+                                     WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "PERFORM_STAGING")
+   {
+      return;
+   }
+   ExpectDouble(aSpaceMover.AvailableDeltaV(),
+                gExpectedDeltaV,
+                0.0001,
+                "Available delta-v is not the expected value at time " + (string)TIME_NOW);
+end_script
+
+script void MoverStaged(WsfPlatform aPlatform, WsfMover aMover)
+   WsfSpaceMover mover = (WsfSpaceMover)aMover;
+   ExpectBool(mover.IsValid(), true, "Mover staged event should occur");
+   ExpectString(aPlatform.Name(), "proton-rocket-test", "Expected platform should have staging event");
+   gStageEvent = true;
+   gExpectedDeltaV = mover.AvailableDeltaV();
+end_script
+
+script void SimulationComplete()
+   ExpectBool(gStageEvent, true, "Staging event should have occurred");
+end_script
+
+observer   
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable MOVER_STAGED MoverStaged
+   enable SIMULATION_COMPLETE
+end_observer

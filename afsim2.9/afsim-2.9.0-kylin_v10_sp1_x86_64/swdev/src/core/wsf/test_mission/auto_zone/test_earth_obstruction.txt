@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of zone containment using a relative zone with an altitude constraint.
+# If the viewed point is on the opposite side of the earth then it is not
+# counted as in the zone.
+
+platform_type OBSERVER WSF_PLATFORM
+   side blue
+   icon Wedge
+
+   zone circle_zone_1
+      circular
+         maximum_radius 100.0 nm
+         minimum_radius 0.0 nm
+         minimum_altitude 0 ft
+         maximum_altitude 100000 ft
+   end_zone
+
+   script void TestContainment(string aTargetName,
+                               bool   aExpectedInside)
+      WsfPlatform target = WsfSimulation.FindPlatform(aTargetName);
+      if (! target.IsValid())
+      {
+         writeln("-FAIL- target platform ", aTargetName, " does not exist");
+         return;
+      }
+
+      WsfGeoPoint location = target.Location();
+      WsfZone zone = PLATFORM.Zone("circle_zone_1");
+      bool inside = zone.PointIsInside(PLATFORM, location);
+      if (inside == aExpectedInside)
+      {
+         writeln("-PASS- ", PLATFORM.Name(), " vs. ", aTargetName,
+                 "; Inside=", inside, ", Expected=", aExpectedInside);
+      }
+      else
+      {
+         writeln("-FAIL- ", PLATFORM.Name(), " vs. ", aTargetName,
+                 "; Inside=", inside, ", Expected=", aExpectedInside);
+      }
+    end_script
+end_platform_type
+
+platform observer_0n_0e OBSERVER
+   position 0n 0e altitude 100 nm
+   execute at_time 1 sec absolute
+      TestContainment("target_0n_0e", true);
+      TestContainment("target_0n_1e", true);
+      TestContainment("target_0n_2e", false);
+   end_execute
+end_platform
+
+platform observer_0n_180e OBSERVER
+   position 0n 180e altitude 100 nm
+   execute at_time 2 sec absolute
+      TestContainment("target_0n_0e", false);
+   end_execute
+end_platform
+
+platform target_0n_0e WSF_PLATFORM
+   side red
+   icon C4I
+   position 0n 0e altitude 0 m
+end_platform
+
+platform target_0n_1e WSF_PLATFORM
+   side red
+   icon C4I
+   position 0n 1e altitude 0 m
+end_platform
+
+platform target_0n_2e WSF_PLATFORM
+   side red
+   icon C4I
+   position 0n 2e altitude 0 m
+end_platform
+
+end_time 1 min

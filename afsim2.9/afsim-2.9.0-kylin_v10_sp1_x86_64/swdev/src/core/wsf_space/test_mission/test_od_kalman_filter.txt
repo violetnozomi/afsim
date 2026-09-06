@@ -1,0 +1,234 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 2 2020
+start_time 13:00:00.000
+end_time 80 min
+
+platform test_integrating_propagator WSF_PLATFORM
+   side red
+   empty_mass 100 kg
+   category integrating
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      initial_state
+         epoch_date_time jan 1 2020 12:00:00.000
+         position 32000 km 0 km 0 km
+         velocity 0 km/s 2.550 km/s 0 km/s
+      end_initial_state
+
+      integrator prince_dormand_45
+         tolerance 1.0e-11
+      end_integrator
+
+      dynamics
+         term earth_monopole
+            wgs84
+         end_term
+      end_dynamics
+   end_mover
+end_platform
+
+platform test_j2_perturbation WSF_PLATFORM
+   side blue
+   add mover WSF_SPACE_MOVER
+      oblate_earth enable // j2 perturbation  
+      inclination 0.01 deg
+      eccentricity 0.01
+      semi_major_axis 32000 km
+   end_mover
+end_platform
+
+platform test_keplerian WSF_PLATFORM
+   side green
+   add mover WSF_SPACE_MOVER  
+      inclination 0.01 deg
+      eccentricity 0.01
+      semi_major_axis 32000 km
+   end_mover
+end_platform
+
+platform test_norad_sdp WSF_PLATFORM
+   side orange
+   add mover WSF_NORAD_SPACE_MOVER
+      semi_major_axis 40000 km           
+      inclination 0.01 rad
+      eccentricity 0.0001
+   end_mover
+end_platform
+
+platform test_norad_sgp WSF_PLATFORM
+   side orange
+   add mover WSF_NORAD_SPACE_MOVER
+      semi_major_axis 8000 km           
+      inclination 60 deg
+      eccentricity 0.0001
+      raan 30 deg
+   end_mover
+end_platform
+
+script_variables
+   bool failed = false; 
+   Set<string> updated = {};
+end_script_variables
+
+script void TestLocationAccuracy(WsfLocalTrack aTrack, WsfPlatform aPlatform)
+   //writeln("   ",TIME_NOW, " TLA");
+   Vec3 trackLoc = aTrack.CurrentLocation().LocationWCS();
+   Vec3 truthLoc = aPlatform.LocationWCS();
+   Vec3 diff = Vec3.Subtract(trackLoc, truthLoc);
+   double maxError = 1.0;
+   if (aPlatform.Name() == "test_j2_perturbation")
+   {
+      maxError = 35.0; // TODO revisit why this is large compared with others
+   }
+   else if (aPlatform.Name() == "test_norad_sdp")
+   {
+      maxError = 100.0; // TODO revisit why this is large compared with others
+   }
+   if (diff.Magnitude() > maxError)
+   {
+      writeln(TIME_NOW, "-FAIL- ", aTrack.TrackId().Name(), " : ", aPlatform.Name(), "; track/truth difference was ", diff.Magnitude());
+      failed = true;
+   }
+end_script
+
+script void LocalTrackUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aRawTrack)
+   updated.Insert(aPlatform.Name());
+end_script
+
+script void SimulationComplete()
+   if ((updated.Size() == 5) && (!failed))
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable LOCAL_TRACK_UPDATED 
+   enable SIMULATION_COMPLETE
+end_observer
+
+sensor SENSE WSF_GEOMETRIC_SENSOR
+   ignore_same_side
+   frame_time 60 s
+   scan_mode both
+   slew_mode both
+   reports_range
+   reports_bearing
+   reports_elevation
+   range_error_sigma 0.01 m  // highly accurate tracks
+   azimuth_error_sigma 0.0000001 deg
+   elevation_error_sigma 0.0000001 deg   
+end_sensor
+
+platform_type RADAR WSF_PLATFORM
+   add sensor sense SENSE
+      on
+      processor tp
+   end_sensor
+   
+   add processor tp WSF_TRACK_PROCESSOR
+      track_history_retention_interval 1 day
+   end_processor
+   
+   execute at_interval_of 60 seconds
+      if (TIME_NOW > 200) // allow the filter to stabilize
+      {
+         WsfLocalTrack flt = PLATFORM.TrackManager().FilteredRawTrackList().Entry(0);
+         TestLocationAccuracy(flt, flt.Target());
+      }
+   end_execute 
+end_platform_type
+
+platform radar_integrating_propagator RADAR
+   position 0n 37e
+   edit sensor sense
+      ignore_side blue
+      ignore_side green
+      ignore_side orange
+   end_sensor
+   track_manager
+      filter WSF_ORBIT_DETERMINATION_FILTER
+         process_noise_sigmas_XYZ 0.01 0.01 0.01
+         propagator WSF_INTEGRATING_PROPAGATOR 
+            integrator prince_dormand_45
+               tolerance 1.0e-11
+            end_integrator
+            dynamics
+               term earth_monopole
+                  wgs84
+               end_term
+            end_dynamics
+         end_propagator
+      end_filter
+   end_track_manager 
+end_platform
+
+platform radar_j2_perturbation RADAR
+   position 0n 37e
+   edit sensor sense
+      ignore_side red
+      ignore_side green
+      ignore_side orange
+   end_sensor
+   track_manager
+      filter WSF_ORBIT_DETERMINATION_FILTER
+         process_noise_sigmas_XYZ 0.01 0.01 0.01
+         propagator WSF_J2_PERTURBATION_PROPAGATOR
+         end_propagator
+      end_filter
+   end_track_manager 
+end_platform
+
+platform radar_keplerian RADAR
+   position 0n 37e
+   edit sensor sense
+      ignore_side red
+      ignore_side blue
+      ignore_side orange
+   end_sensor
+   track_manager
+      filter WSF_ORBIT_DETERMINATION_FILTER
+         process_noise_sigmas_XYZ 0.01 0.01 0.01
+         propagator WSF_KEPLERIAN_PROPAGATOR
+         end_propagator
+      end_filter
+   end_track_manager 
+end_platform
+
+platform radar_norad RADAR
+   position 0n 37e
+   edit sensor sense
+      ignore_side red
+      ignore_side blue
+      ignore_side green      
+   end_sensor
+   track_manager
+      filter WSF_ORBIT_DETERMINATION_FILTER
+         process_noise_sigmas_XYZ 0.01 0.01 0.01
+         propagator WSF_NORAD_PROPAGATOR
+         end_propagator
+      end_filter
+   end_track_manager 
+end_platform
+
+platform radar_keplerian_no_config RADAR // default
+   position 0n 37e
+   edit sensor sense
+      ignore_side red
+      ignore_side blue
+      ignore_side orange
+   end_sensor
+   track_manager
+      filter WSF_ORBIT_DETERMINATION_FILTER
+         process_noise_sigmas_XYZ 0.01 0.01 0.01
+      end_filter
+   end_track_manager 
+end_platform

@@ -1,0 +1,137 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This test checks on-road and off-road speeds for WSF_ROAD_MOVERs
+
+script_debug_writes off 
+
+include_once ../auto_script/test_functions.txt
+include_once ../auto_script/test_pass.txt
+include_once ../road_networks/scal_roadnetwork.txt
+
+script_variables
+   PassTestCount = 12;
+   double tolerance = 1.e-6;
+end_script_variables
+
+platform_type VEHICLE WSF_PLATFORM
+   icon Car
+   
+   add mover WSF_ROAD_MOVER
+      start_position 35:30n 119:30w
+      end_position   35n    119:15w
+      road_network scal_roadnetwork
+      speed 100 mph
+      #draw_route on
+   end_mover 
+   
+   script void CheckSpeed(double aExpected, string aTestString)
+      double speed_mph = PLATFORM.Speed() * MATH.MPH_PER_MPS();
+      if (AssertWithinToleranceMessage(aExpected, speed_mph, tolerance, aTestString)) pass();
+      writeln_d("T=", TIME_NOW, " mph=", speed_mph); 
+   end_script   
+   
+end_platform_type
+
+// Test off-road with implicit off-road speed 
+platform no_off_road_speed VEHICLE
+   side red
+
+   execute at_time 10 min absolute
+      // Vehicle is on off-road segment; speed should be 100 mph      
+      CheckSpeed(100., "Test 1: no_off_road_speed");           
+   end_execute
+   
+   execute at_time 60 min absolute
+      // Vehicle is on road; speed should be 100 mph  
+      CheckSpeed(100., "Test 2: no_off_road_speed");          
+   end_execute
+   
+   execute at_time 120 min absolute
+      // Vehicle is on off-road segment; speed should be 100 mph 
+      CheckSpeed(100., "Test 3: no_off_road_speed");           
+   end_execute   
+   
+end_platform
+
+// Test off-road with explicit off-road speed that is same as speed 
+platform explicit_off_road_speed VEHICLE
+   side blue
+   
+   edit mover
+      off_road_speed 100 mph
+   end_mover   
+
+   execute at_time 10 min absolute
+      // Vehicle is on off-road segment; speed should be 100 mph      
+      CheckSpeed(100., "Test 1: explicit_off_road_speed");           
+   end_execute
+   
+   execute at_time 60 min absolute
+      // Vehicle is on road; speed should be 100 mph  
+      CheckSpeed(100., "Test 2: explicit_off_road_speed");          
+   end_execute
+   
+   execute at_time 120 min absolute
+      // Vehicle is on off-road segment; speed should be 100 mph 
+      CheckSpeed(100., "Test 3: explicit_off_road_speed");           
+   end_execute
+   
+end_platform
+
+platform explicit_off_road_speed_slow VEHICLE
+   side green
+   
+   edit mover
+      off_road_speed 10 mph
+   end_mover   
+
+   execute at_time 10 min absolute
+      // Vehicle is on off-road segment; speed should be 10 mph      
+      CheckSpeed(10., "Test 1: explicit_off_road_speed_slow");           
+   end_execute
+   
+   execute at_time 240 min absolute
+      // Vehicle is on road; speed should be 100 mph  
+      CheckSpeed(100., "Test 2: explicit_off_road_speed_slow");          
+   end_execute
+   
+   execute at_time 360 min absolute
+      // Vehicle is on off-road segment; speed should be 10 mph 
+      CheckSpeed(10., "Test 3: explicit_off_road_speed_slow");           
+   end_execute
+   
+end_platform
+
+platform explicit_off_road_speed_not VEHICLE
+   side orange
+   
+   edit mover
+      off_road_speed 10 mph
+      use_closest_waypoint
+   end_mover   
+
+   execute at_time 10 min absolute
+      // Vehicle is on road; speed should be 100 mph      
+      CheckSpeed(100., "Test 1: explicit_off_road_speed_not");           
+   end_execute
+   
+   execute at_time 60 min absolute
+      // Vehicle is on road; speed should be 100 mph  
+      CheckSpeed(100., "Test 2: explicit_off_road_speed_not");          
+   end_execute
+   
+   execute at_time 120 min absolute
+      // Vehicle is at end point 
+      CheckSpeed(0., "Test 3: explicit_off_road_speed_not");           
+   end_execute
+   
+end_platform
+
+end_time 10 hr

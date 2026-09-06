@@ -1,0 +1,232 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+# COMM TEST - Retransmit link
+###############################################################################
+
+//! NOTE:
+//! This test has been modified with the update to enhanced comms.
+//! "retransmit_link" commands are deprecated, and are no longer tested here.
+//! An naive equivalent is used below, where a processor on the platform attempts
+//! to periodically send a message until it succeeds. The order of the comms
+//! used are not guaranteed, and once comm-4 is attempted and the message
+//! successfully reaches the destination, no other attempts are made.
+//! The test is considered a success if the destination platform receives the
+//! message explicitly on comm-4.
+
+include ../auto_script/test_functions.txt
+
+//! We only want a path from cmdr->sub-in-between->sub1
+//! Technically, each comm group should be on its own network,
+//! but this works just fine.
+network NET WSF_COMM_NETWORK_GENERIC
+   comm_link_list
+      link cmd1 comm-1 sub_in_between comm-1
+      link cmd1 comm-2 sub_in_between comm-2
+      link cmd1 comm-3 sub_in_between comm-3
+      link cmd1 comm-4 sub_in_between comm-4
+      link sub_in_between comm-1 sub1 comm-1
+      link sub_in_between comm-2 sub1 comm-2
+      link sub_in_between comm-3 sub1 comm-3
+      link sub_in_between comm-4 sub1 comm-4
+   end_comm_link_list
+end_network
+
+script_variables
+  bool destinationReceive = false;
+  int numQueued = 0;
+end_script_variables
+
+script void MessageDeliveryAttempt(WsfComm aXmtr,
+                                   WsfComm aRcvr,
+                                   WsfMessage aMsg,
+                                   WsfCommInteraction aResult)
+   if (aResult.Succeeded())
+   {
+      writeln("Delivery success.");
+      writeln("Sender: " + aXmtr.Platform().Name() + "." + aXmtr.Name());
+      writeln("Receiver: " + aRcvr.Platform().Name() + "." + aRcvr.Name());
+   }
+end_script
+
+script void MessageReceived(WsfComm aXmtr,
+                            WsfComm aRcvr,
+                            WsfMessage aMsg,
+                            WsfCommInteraction aResult)
+   if((aRcvr.Platform() == WsfSimulation.FindPlatform("sub1")) && (aRcvr.Name() == "comm-4"))
+   {
+      destinationReceive = true;
+   }
+end_script
+
+
+script void MessageQueued(WsfComm aComm, WsfMessage aMsg, int aQueueSize)
+   numQueued = numQueued + 1;
+end_script
+
+observer
+  enable MESSAGE_DELIVERY_ATTEMPT
+  enable MESSAGE_RECEIVED
+  enable MESSAGE_QUEUED
+end_observer
+
+comm MY_COMM WSF_RADIO_TRANSCEIVER
+   transfer_rate 1 kbyte/s
+
+   receiver
+      frequency 10 ghz
+   end_receiver
+
+   transmitter
+      power 1000 kw
+      frequency 10 ghz
+   end_transmitter
+
+   retransmit_attempts 0
+   retransmit_delay 1 second
+end_comm
+
+platform_type base WSF_PLATFORM
+   comm comm-1 MY_COMM
+      network_name NET
+   end_comm
+
+   comm comm-2 MY_COMM
+      network_name NET
+   end_comm
+
+   comm comm-3 MY_COMM
+      network_name NET
+   end_comm
+
+   comm comm-4 MY_COMM
+      network_name NET
+   end_comm
+
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+message_table
+   default_comm_type
+      type WSF_CONTROL_MESSAGE 1 kbytes # 1 second to send this message
+      default 40 bits
+end_message_table
+
+platform cmd1 base
+   position 40n 0e
+
+   add processor resend_proc WSF_SCRIPT_PROCESSOR
+      script_variables
+         Set<WsfComm> attemptSet = {};
+      end_script_variables
+      update_interval 6 s
+      on_update
+         WsfControlMessage msg1 = WsfControlMessage();
+         if(!attemptSet.Empty() && !destinationReceive)
+         {
+            WsfComm curComm = (WsfComm)attemptSet.GetIterator().Next();
+            curComm.SendMessage(msg1, "sub1", "comm-4");
+            attemptSet.Erase(curComm);
+         }
+      end_on_update
+
+      on_initialize
+         int numComms = PLATFORM.CommCount();
+         for(int i = 0; i < numComms; i = i + 1)
+         {
+            attemptSet.Insert(PLATFORM.CommEntry(i));
+         }
+      end_on_initialize
+   end_processor
+   heading 0 deg
+
+   route
+      position 40n 0e altitude 10000 ft msl speed 450 kts
+   end_route
+
+   altitude 10000.00 ft
+
+  side blue
+  icon Wedge
+end_platform
+
+platform sub1 base
+   position 40n 06e   commander cmd1
+   altitude 10000 ft
+   heading 0 deg
+
+   route
+      position 40n 06e altitude 10000 ft msl
+         speed 450 kts
+   end_route
+
+   side blue
+   icon Wedge
+end_platform
+
+# Platform in between the 2 platforms
+platform sub_in_between base
+   position 39n 03e   commander cmd1
+   altitude 10000 ft
+   heading 0 deg
+   route
+      position 39n 03e altitude 10000 ft msl
+         speed 450 kts
+   end_route
+   edit comm comm-1
+      off
+   end_comm
+
+   edit comm comm-2
+      off
+   end_comm
+
+   edit comm comm-3
+      off
+   end_comm
+
+   edit comm comm-4
+   end_comm
+
+  side blue
+  icon Wedge
+end_platform
+
+
+execute at_time 30 seconds absolute
+   if (destinationReceive)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+
+   if(numQueued != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of queued messages.");
+   }
+end_execute
+
+
+end_time 30 seconds
+/*
+event_output
+   file test_reXmitLink.evt
+   enable MESSAGE_QUEUED
+   enable MESSAGE_TRANSMITTED
+   enable MESSAGE_RECEIVED
+   enable MESSAGE_DISCARDED
+   enable MESSAGE_DELIVERY_ATTEMPT
+end_event_output
+*/

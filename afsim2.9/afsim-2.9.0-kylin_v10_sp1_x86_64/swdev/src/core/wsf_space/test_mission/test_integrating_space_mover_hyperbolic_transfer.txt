@@ -1,0 +1,126 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date Sep 24 2020
+start_time 18:00:00
+end_time 92000 sec
+
+platform intercept WSF_PLATFORM
+   empty_mass 1 kg
+   fuel_mass 100 kg
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      epoch_date_time Sep 24 2020 18:00:00
+      semi_major_axis 39940 km
+      eccentricity 0.05
+      inclination 1 deg
+      raan 0 deg
+      argument_of_periapsis 269 deg
+      true_anomaly 180 deg
+      
+      integrator prince_dormand_45
+      end_integrator
+   
+      dynamics
+         term earth_monopole end_term
+         term moon_monopole end_term
+      end_dynamics
+      
+      maneuvering simple
+         delta_v 100 km/s
+      end_maneuvering
+   end_mover
+end_platform
+
+platform target WSF_PLATFORM
+   empty_mass 1 kg
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      epoch_date_time Sep 24 2020 18:00:00
+      semi_major_axis 157060 km
+      eccentricity 0.2
+      inclination 27 deg
+      raan 0 deg
+      argument_of_periapsis 146 deg
+      true_anomaly 133 deg
+      
+      integrator prince_dormand_45
+      end_integrator
+   
+      dynamics
+         term earth_monopole end_term
+         term moon_monopole end_term
+      end_dynamics
+   end_mover
+end_platform
+
+script_variables
+   bool gAllPass = true;
+   bool gDidManeuver = false;
+end_script_variables
+
+execute at_time 8000 s absolute
+   WsfPlatform interceptPlat = WsfSimulation.FindPlatform("intercept");
+
+   WsfTrackManager mgr = interceptPlat.TrackManager();
+   mgr.AddTrackReport(WsfSimulation.FindPlatform("target").MakeTrack());
+   WsfTargetPoint tgtPoint = WsfTargetPoint.ConstructFromTrack(mgr.LocalTrackList().Get(0).TrackId());
+
+   WsfSpaceMover mov = (WsfSpaceMover)interceptPlat.Mover();
+   double remainingDeltaV = mov.AvailableDeltaV();
+   WsfOrbitalManeuver manv = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.NONE(),
+                                                             tgtPoint,
+                                                             WsfRendezvousManeuver.EARLIEST_TIME(),
+                                                             172000,
+                                                             remainingDeltaV);
+   mov.ExecuteManeuver(manv);
+end_execute
+
+script void TestRendezvous(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "RENDEZVOUS")
+   {
+      gDidManeuver = true;
+   
+      WsfPlatform targetPlat = WsfSimulation.FindPlatform("target");
+      double xDiff = Vec3.Subtract(targetPlat.LocationECI(), aPlatform.LocationECI()).Magnitude();
+      double vDiff = Vec3.Subtract(targetPlat.VelocityECI(), aPlatform.VelocityECI()).Magnitude();
+      if (xDiff > 1.0e-5)
+      {
+         gAllPass = false;
+         writeln("-FAIL- Position difference at rendezvous too great: ", xDiff);
+      }
+      if (vDiff > 1.0e-10)
+      {
+         gAllPass = false;
+         writeln("-FAIL- Velocity difference at rendezvous too great: ", vDiff);
+      }
+   }
+end_script
+
+script void FinalAssessment()
+   if (!gDidManeuver)
+   {
+      gAllPass = false;
+      writeln("-FAIL- platform did not maneuver");
+   }
+   
+   if (gAllPass)
+   {
+      writeln("-PASS- All tests passed.");
+   }
+   else
+   {
+      writeln("-FAIL- Not all tests passed.");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED TestRendezvous
+   enable SIMULATION_COMPLETE FinalAssessment
+end_observer

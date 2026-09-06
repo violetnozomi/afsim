@@ -1,0 +1,153 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+test_feature wsf_mil
+
+include_once ../auto_script/test_functions.txt
+
+script_variables
+   int numMessagesDiscarded = 0;
+end_script_variables
+
+script void MessageDiscarded(WsfComm aComm, WsfMessage aMsg, string aReason)
+   numMessagesDiscarded = numMessagesDiscarded + 1;
+end_script
+
+script void SimulationComplete()
+   string errStr = "Message discarded error";
+   if(numMessagesDiscarded != 6)
+   {
+      writeln("-FAIL- discarded ", numMessagesDiscarded, " should be 6 ");
+   }
+end_script
+
+observer
+   enable MESSAGE_DISCARDED
+   enable SIMULATION_COMPLETE
+end_observer
+
+# --------------------------------------------------------------
+#                         Vehicle Signatures
+# --------------------------------------------------------------
+infrared_signature  VEHICLE_INFRARED_SIGNATURE
+   constant  10 watts/steradian
+end_infrared_signature
+
+optical_signature   VEHICLE_OPTICAL_SIGNATURE
+   constant  10 m^2
+end_optical_signature
+
+radar_signature     VEHICLE_RADAR_SIGNATURE
+   constant  1 m^2
+end_radar_signature
+
+# --------------------------------------------------------------
+#                         Comm definitions
+# --------------------------------------------------------------
+
+comm RED_COMM WSF_COMM_TRANSCEIVER
+   transfer_rate 56 kbits/sec    # 10 seconds to transmit our message
+end_comm
+
+platform_type RED_PLAYER WSF_PLATFORM
+
+   side red
+
+   infrared_signature VEHICLE_INFRARED_SIGNATURE
+   optical_signature  VEHICLE_OPTICAL_SIGNATURE
+   radar_signature    VEHICLE_RADAR_SIGNATURE
+   
+   comm red-net RED_COMM 
+      network_name red-net
+      debug
+   end_comm
+
+end_platform_type
+
+# --------------------------------------------------------------
+platform cmdr RED_PLAYER
+
+   icon Command_Truck
+   commander SELF
+   position 37:29:25n 122:07:42w altitude 1 m agl
+
+   edit comm red-net
+      purge_interval 5 sec
+   end_comm
+
+   execute at_time 2 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 4 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 6 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 8 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 10 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 12 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 14 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 16 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 18 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 20 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 22 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+   execute at_time 24 s absolute
+      SendMessageTest(PLATFORM);
+   end_execute
+
+end_platform
+
+platform radar RED_PLAYER
+
+   icon Ground_Radar
+   commander cmdr
+   position 37:32:30n 122:05:00w altitude 1 m agl heading -90 deg  
+
+   comm red-net
+   end_comm
+
+end_platform
+
+script void SendMessageTest(WsfPlatform aPlatform)
+      writeln("T=",TIME_NOW,"; Sending...");
+      WsfControlMessage cntrlMsg = WsfControlMessage();
+      cntrlMsg.SetSizeInBits(560000);
+      cntrlMsg.SetFunction("I COMMAND YOU");
+      aPlatform.Comm("red-net").SendMessageToSubordinates("", cntrlMsg);
+end_script
+
+end_time 25 secs

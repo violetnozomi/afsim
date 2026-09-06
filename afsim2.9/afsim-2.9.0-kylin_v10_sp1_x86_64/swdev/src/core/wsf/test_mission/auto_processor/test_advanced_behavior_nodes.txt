@@ -1,0 +1,1712 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 6 min # test needs 6 minutes of time to complete
+random_seed 1234567890 # psel3, wr1, wr2, wr3 tests use this seed
+
+script_variables
+   bool fail = false; # track if a failure already occured so the general test doesn't double up on output
+   string testString = ""; # used for storing output strings from test function
+end_script_variables
+
+script bool TestInitPrecExecBlocks(WsfAdvancedBehaviorTreeNode node, string nodeBBName)
+   testString = "-PASS- " + nodeBBName + " test passed.";
+   if (!node->SharedBlackboardVarExists(nodeBBName, "on_init"))
+   {
+      fail = true;
+      testString = "-FAIL- " + nodeBBName + " on_init test failed!";
+      return false;
+   }
+   
+   if (!node->SharedBlackboardVarExists(nodeBBName, "precondition"))
+   {
+      fail = true;
+      testString = "-FAIL- " + nodeBBName + " precondition test failed!";
+      return false;
+   }
+   
+   if (!node->SharedBlackboardVarExists(nodeBBName, "execute"))
+   {
+      fail = true;
+      testString = "-FAIL- " + nodeBBName + " execute test failed!";
+      return false;
+   }
+   return true;
+end_script
+
+advanced_behavior run_then_disable
+   script_variables 
+      int ticks = 0;
+   end_script_variables
+
+   precondition
+      return Success();
+   end_precondition
+   
+   execute
+      if (ticks < 5)
+      {
+         ticks = ticks + 1;
+         return Running();
+      }
+      TurnOff();
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior run_then_fail
+
+   script_variables 
+      int ticks = 0;
+   end_script_variables
+
+   precondition
+      return Success();
+   end_precondition
+   
+   execute
+      if (ticks < 5)
+      {
+         ticks = ticks + 1;
+         return Running();
+      }
+      return Failure();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior run_then_succeed
+
+   script_variables 
+      int ticks = 0;
+   end_script_variables
+
+   precondition
+      return Success();
+   end_precondition
+   
+   execute
+      if (ticks < 5)
+      {
+         ticks = ticks + 1;
+         return Running();
+      }
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior gets_halted
+   script_variables 
+      int ticks = 0;
+   end_script_variables
+
+   precondition
+      return Success();
+   end_precondition
+   
+   execute
+      if (ticks < 5)
+      {
+         ticks = ticks + 1;
+         return Running();
+      }
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior run_then_succeed_weighted
+   script_variables 
+      int ticks = 0;
+   end_script_variables
+
+   precondition
+      return 2.0;
+   end_precondition
+   
+   execute
+      if (ticks < 5)
+      {
+         ticks = ticks + 1;
+         return Running();
+      }
+      return Success();
+   end_execute
+end_advanced_behavior
+
+condition seq1_tests
+   precondition
+      string testName = "seq1";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition seq2_tests
+   precondition
+      string testName = "seq2";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition seq_with_mem1_tests
+   precondition
+      string testName = "seq_with_mem1";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition seq_with_mem2_tests
+   precondition
+      string testName = "seq_with_mem2";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition sel1_tests
+   precondition
+      string testName = "sel1";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition sel2_tests
+   precondition
+      string testName = "sel2";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition sel_with_mem1_tests
+   precondition
+      string testName = "sel_with_mem1";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition sel_with_mem2_tests
+   precondition
+      string testName = "sel_with_mem2";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition par1_tests
+   precondition
+      string testName = "par1";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition par2_tests
+   precondition
+      string testName = "par2";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition par3_tests
+   precondition
+      string testName = "par3";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition par4_tests
+   precondition
+      string testName = "par4";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition par5_tests
+   precondition
+      string testName = "par5";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition par6_tests
+   precondition
+      string testName = "par6";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition psel1_tests
+   precondition
+      string testName = "psel1";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+condition psel2_tests
+   precondition
+      string testName = "psel2";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      SetSharedBlackboardVar("tests", testName, retVal);
+      writeln(testString);
+      if (retVal)
+      {
+         return Success(testString);
+      }
+      else
+      {
+         fail = true;
+         return Failure(testString);
+      }
+   end_precondition
+end_condition
+
+advanced_behavior psel3_wr1_weighted_counter_a
+   on_init
+      SetSharedBlackboardVar("psel3", "wr1a", 0);
+   end_on_init
+
+   precondition
+      return RANDOM.Uniform();
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("psel3", "wr1a") + 1;
+      SetSharedBlackboardVar("psel3", "wr1a", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior psel3_wr1_weighted_counter_b
+   on_init
+      SetSharedBlackboardVar("psel3", "wr1b", 0);
+   end_on_init
+
+   precondition
+      return RANDOM.Uniform();
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("psel3", "wr1b") + 1;
+      SetSharedBlackboardVar("psel3", "wr1b", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior psel3_wr2_weighted_counter_a
+   on_init
+      SetSharedBlackboardVar("psel3", "wr2a", 0);
+   end_on_init
+
+   precondition
+      return RANDOM.Uniform();
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("psel3", "wr2a") + 1;
+      SetSharedBlackboardVar("psel3", "wr2a", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior psel3_wr2_weighted_counter_b
+   on_init
+      SetSharedBlackboardVar("psel3", "wr2b", 0);
+   end_on_init
+
+   precondition
+      return RANDOM.Uniform();
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("psel3", "wr2b") + 1;
+      SetSharedBlackboardVar("psel3", "wr2b", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior psel3_wr3_weighted_counter_a
+   on_init
+      SetSharedBlackboardVar("psel3", "wr3a", 0);
+   end_on_init
+
+   precondition
+      return RANDOM.Uniform();
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("psel3", "wr3a") + 1;
+      SetSharedBlackboardVar("psel3", "wr3a", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior psel3_wr3_weighted_counter_b
+   on_init
+      SetSharedBlackboardVar("psel3", "wr3b", 0);
+   end_on_init
+
+   precondition
+      return RANDOM.Uniform();
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("psel3", "wr3b") + 1;
+      SetSharedBlackboardVar("psel3", "wr3b", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+condition psel3_tests
+   precondition
+      string testName = "psel3";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      if (!retVal)
+      {
+         SetSharedBlackboardVar("tests", testName, false);
+         writeln(testString);
+         fail = true;
+         return Failure(testString);
+      }
+      
+      int wr1a = (int)GetSharedBlackboardVar(testName, "wr1a");
+      int wr1b = (int)GetSharedBlackboardVar(testName, "wr1b");
+      int wr2a = (int)GetSharedBlackboardVar(testName, "wr2a");
+      int wr2b = (int)GetSharedBlackboardVar(testName, "wr2b");
+      int wr3a = (int)GetSharedBlackboardVar(testName, "wr3a");
+      int wr3b = (int)GetSharedBlackboardVar(testName, "wr3b");
+   
+      # This tests if all the randoms are the right number.
+      # If the seed changes or the node is moved in the tree
+      # these values will change
+      if (wr1a != 7 ||
+          wr1b != 5 ||
+          wr2a != 6 ||
+          wr2b != 4 ||
+          wr3a != 3 ||
+          wr3b != 5)
+      {
+         SetSharedBlackboardVar("tests", testName, false);
+         writeln("-FAIL- " + testName + " multiple weighted_random test failed!");
+         fail = true;
+         return Failure("-FAIL- " + testName + " multiple weighted_random test failed!");
+      }
+      
+      SetSharedBlackboardVar("tests", testName, true);
+      writeln(testString);
+      return Success(testString);
+   end_precondition
+end_condition
+
+advanced_behavior wr1_weighted_counter_a
+   on_init
+      SetSharedBlackboardVar("wr1", "wr1a", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr1", "wr1a") + 1;
+      SetSharedBlackboardVar("wr1", "wr1a", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior wr1_weighted_counter_b
+   on_init
+      SetSharedBlackboardVar("wr1", "wr1b", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr1", "wr1b") + 1;
+      SetSharedBlackboardVar("wr1", "wr1b", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior wr1_weighted_counter_c
+   on_init
+      SetSharedBlackboardVar("wr1", "wr1c", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr1", "wr1c") + 1;
+      SetSharedBlackboardVar("wr1", "wr1c", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+condition wr1_tests
+   precondition
+      string testName = "wr1";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      if (!retVal)
+      {
+         SetSharedBlackboardVar("tests", testName, false);
+         writeln(testString);
+         fail = true;
+         return Failure(testString);
+      }
+      
+      int wr1a = (int)GetSharedBlackboardVar(testName, "wr1a");
+      int wr1b = (int)GetSharedBlackboardVar(testName, "wr1b");
+      int wr1c = (int)GetSharedBlackboardVar(testName, "wr1c");
+   
+      # This tests if all the randoms are the right number.
+      # If the seed changes or the node is moved in the tree
+      # these values will change
+      if (wr1a != 8 ||
+          wr1b != 3 ||
+          wr1c != 4)
+      {
+         SetSharedBlackboardVar("tests", testName, false);
+         writeln("-FAIL- " + testName + " weighted_random test failed!");
+         fail = true;
+         return Failure("-FAIL- " + testName + " weighted_random test failed!");
+      }
+      
+      SetSharedBlackboardVar("tests", testName, true);
+      writeln(testString);
+      return Success(testString);
+   end_precondition
+end_condition
+
+advanced_behavior wr2_weighted_counter_a
+   on_init
+      SetSharedBlackboardVar("wr2", "wr2a", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr2", "wr2a") + 1;
+      SetSharedBlackboardVar("wr2", "wr2a", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior wr2_weighted_counter_b
+   on_init
+      SetSharedBlackboardVar("wr2", "wr2b", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr2", "wr2b") + 1;
+      SetSharedBlackboardVar("wr2", "wr2b", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior wr2_weighted_counter_c
+   on_init
+      SetSharedBlackboardVar("wr2", "wr2c", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr2", "wr2c") + 1;
+      SetSharedBlackboardVar("wr2", "wr2c", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+condition wr2_tests
+   precondition
+      string testName = "wr2";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      if (!retVal)
+      {
+         SetSharedBlackboardVar("tests", testName, false);
+         writeln(testString);
+         fail = true;
+         return Failure(testString);
+      }
+      
+      int wr2a = (int)GetSharedBlackboardVar(testName, "wr2a");
+      int wr2b = (int)GetSharedBlackboardVar(testName, "wr2b");
+      int wr2c = (int)GetSharedBlackboardVar(testName, "wr2c");
+   
+      # This tests if all the randoms are the right number.
+      # If the seed changes or the node is moved in the tree
+      # these values will change
+      if (wr2a != 4 ||
+          wr2b != 7 ||
+          wr2c != 4)
+      {
+         SetSharedBlackboardVar("tests", testName, false);
+         writeln("-FAIL- " + testName + " weighted_random test failed!");
+         fail = true;
+         return Failure("-FAIL- " + testName + " weighted_random test failed!");
+      }
+      
+      SetSharedBlackboardVar("tests", testName, true);
+      writeln(testString);
+
+      return Success(testString);
+   end_precondition
+end_condition
+
+advanced_behavior wr3_wr1_weighted_counter_a
+   on_init
+      SetSharedBlackboardVar("wr3", "wr1a", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr3", "wr1a") + 1;
+      SetSharedBlackboardVar("wr3", "wr1a", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior wr3_wr1_weighted_counter_b
+   on_init
+      SetSharedBlackboardVar("wr3", "wr1b", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr3", "wr1b") + 1;
+      SetSharedBlackboardVar("wr3", "wr1b", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior wr3_wr2_weighted_counter_a
+   on_init
+      SetSharedBlackboardVar("wr3", "wr2a", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr3", "wr2a") + 1;
+      SetSharedBlackboardVar("wr3", "wr2a", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior wr3_wr2_weighted_counter_b
+   on_init
+      SetSharedBlackboardVar("wr3", "wr2b", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr3", "wr2b") + 1;
+      SetSharedBlackboardVar("wr3", "wr2b", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior wr3_wr3_weighted_counter_a
+   on_init
+      SetSharedBlackboardVar("wr3", "wr3a", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr3", "wr3a") + 1;
+      SetSharedBlackboardVar("wr3", "wr3a", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior wr3_wr3_weighted_counter_b
+   on_init
+      SetSharedBlackboardVar("wr3", "wr3b", 0);
+   end_on_init
+
+   precondition
+      return 1.0;
+   end_precondition
+   
+   execute
+      int num = (int)GetSharedBlackboardVar("wr3", "wr3b") + 1;
+      SetSharedBlackboardVar("wr3", "wr3b", num);
+      return Success();
+   end_execute
+end_advanced_behavior
+
+condition wr3_tests
+   precondition
+      string testName = "wr3";
+      bool retVal = TestInitPrecExecBlocks(this, testName);
+      if (!retVal)
+      {
+         SetSharedBlackboardVar("tests", testName, false);
+         writeln(testString);
+         fail = true;
+         return Failure(testString);
+      }
+      
+      int wr1a = (int)GetSharedBlackboardVar(testName, "wr1a");
+      int wr1b = (int)GetSharedBlackboardVar(testName, "wr1b");
+      int wr2a = (int)GetSharedBlackboardVar(testName, "wr2a");
+      int wr2b = (int)GetSharedBlackboardVar(testName, "wr2b");
+      int wr3a = (int)GetSharedBlackboardVar(testName, "wr3a");
+      int wr3b = (int)GetSharedBlackboardVar(testName, "wr3b");
+   
+      # This tests if all the randoms are the right number.
+      # If the seed changes these values will change
+      if (wr1a != 13 || 
+          wr1b != 19 || 
+          wr2a != 9 || 
+          wr2b != 6 || 
+          wr3a != 6 || 
+          wr3b != 7)
+      {
+         SetSharedBlackboardVar("tests", testName, false);
+         writeln("-FAIL- " + testName + " weighted_random test failed!");
+         fail = true;
+         return Failure("-FAIL- " + testName + " weighted_random test failed!");
+      }
+      
+      SetSharedBlackboardVar("tests", testName, true);
+      writeln(testString);
+      return Success(testString);
+   end_precondition
+end_condition
+
+condition inverter_tests
+   precondition
+      string test = "-PASS- inverter test passed.";
+      SetSharedBlackboardVar("tests", "inverter", true);
+      writeln(test);
+      return Success(test);
+   end_precondition
+end_condition
+
+condition negator_tests
+   precondition
+      string test = "-PASS- negator test passed.";
+      SetSharedBlackboardVar("tests", "negator", true);
+      writeln(test);
+      return Success(test);
+   end_precondition
+end_condition
+
+condition succeeder_tests
+   precondition
+      string test = "-PASS- succeeder test passed.";
+      SetSharedBlackboardVar("tests", "succeeder", true);
+      writeln(test);
+      return Success(test);
+   end_precondition
+end_condition
+
+condition repeater_for_tests
+   precondition
+      string test = "-PASS- repeater_for test passed.";
+      SetSharedBlackboardVar("tests", "repeater_for", true);
+      writeln(test);
+      return Success(test);
+   end_precondition
+end_condition
+
+condition repeater_repeat_tests
+   precondition
+      string test = "-PASS- repeater_repeat test passed.";
+      SetSharedBlackboardVar("tests", "repeater_repeat", true);
+      writeln(test);
+      return Success(test);
+   end_precondition
+end_condition
+
+condition repeater_until_done_tests
+   precondition
+      string test = "-PASS- repeater_until_done test passed.";
+      SetSharedBlackboardVar("tests", "repeater_until_done", true);
+      writeln(test);
+      return Success(test);
+   end_precondition
+end_condition
+
+condition tree_tests
+   precondition
+      # If we don't already have a failure (outputted a fail message),
+      # thencheck to make sure each node has run. Each node test posts
+      # a blackboard variable to let the tree know it made it past its node.
+      # This is a generic catch and won't say exactly what went wrong, but
+      # can pinpoint what node type or configuration is messing up.
+      if (!fail)
+      {
+         Array<string> testNames = Array<string>();
+         testNames.PushBack("seq1");
+         testNames.PushBack("seq1");
+         testNames.PushBack("seq2");
+         testNames.PushBack("seq_with_mem1");
+         testNames.PushBack("seq_with_mem2");
+         testNames.PushBack("sel1");
+         testNames.PushBack("sel2");
+         testNames.PushBack("sel_with_mem1");
+         testNames.PushBack("sel_with_mem2");
+         testNames.PushBack("par1");
+         testNames.PushBack("par2");
+         testNames.PushBack("par3");
+         testNames.PushBack("par4");
+         testNames.PushBack("par5");
+         testNames.PushBack("par6");
+         testNames.PushBack("inverter");
+         testNames.PushBack("negator");
+         testNames.PushBack("succeeder");
+         testNames.PushBack("repeater_for");
+         testNames.PushBack("repeater_repeat");
+         testNames.PushBack("repeater_until_done");
+         testNames.PushBack("wr1");
+         testNames.PushBack("wr2");
+         testNames.PushBack("wr3");
+         testNames.PushBack("psel1");
+         testNames.PushBack("psel2");
+         testNames.PushBack("psel3");
+
+         foreach (string testName in testNames)
+         {
+            if (!SharedBlackboardVarExists("tests", testName))
+            {
+               writeln("-FAIL- " + testName + " test failed!");
+               return Failure();
+            }
+         }
+      }
+      else
+      {
+         return Failure();
+      }
+
+      #If we've made it here, all tests have passed successfully.
+      string successStr = "-PASS- All node tests passed successfully!";
+      writeln(successStr);
+      return Success(successStr);
+   end_precondition
+end_condition
+
+platform plat WSF_PLATFORM
+   add processor proc WSF_SCRIPT_PROCESSOR
+      update_interval 1 sec
+      
+      advanced_behavior_tree
+         name test_tree
+         on_init
+            CreateSharedBlackboard("tests");
+         end_on_init
+
+         decorator repeater until_done
+            selector # If any node fails in the sequence_with_memory it will break out and evaluate the tree_tests
+               sequence_with_memory
+                  # Sequence 1 - Sequence that will run and succeed on the first node, run and disable
+                  # on the second, and then fail on the third, halting the fourth.
+                  selector
+                     sequence
+                        name seq1
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+               
+                        behavior_node run_then_succeed
+                        behavior_node run_then_disable
+                        behavior_node run_then_fail
+                        behavior_node gets_halted
+                     end_sequence
+                     condition seq1_tests
+                  end_selector
+         
+                  # Sequence 2 - Same setup, but using the node as a tree and setting the root node type.
+                  selector
+                     advanced_behavior_tree
+                        root_node_type sequence
+                        name seq2
+                     
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+            
+                        behavior_node run_then_succeed
+                        behavior_node run_then_disable
+                        behavior_node run_then_fail
+                        behavior_node gets_halted
+                     end_advanced_behavior_tree
+                     condition seq2_tests
+                  end_selector
+              
+                  # Sequence with Memory 1 - This sequence should run and succeed on the first node,
+                  # run and disable the second, run and fail on the third,
+                  # and halt the last node.
+                  selector
+                     sequence_with_memory
+                        name seq_with_mem1
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                  
+                        behavior_node run_then_succeed
+                        behavior_node run_then_disable
+                        behavior_node run_then_fail
+                        behavior_node run_then_fail
+                     end_sequence_with_memory
+                     condition seq_with_mem1_tests
+                  end_selector
+               
+                  # Sequence with Memory 2 - Same setup, but using the node as a tree and setting the
+                  # root node type.
+                  selector
+                     advanced_behavior_tree
+                        root_node_type sequence_with_memory
+                        name seq_with_mem2
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                  
+                        behavior_node run_then_succeed
+                        behavior_node run_then_disable
+                        behavior_node run_then_fail
+                        behavior_node run_then_fail
+                     end_advanced_behavior_tree
+                     condition seq_with_mem2_tests
+                  end_selector
+
+                  # Selector 1 - This selector should run and fail on the first node, 
+                  # run and disable the second, run and select the third,
+                  # and halt the last node
+                  sequence
+                     selector
+                        name sel1
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                     
+                        behavior_node run_then_fail
+                        behavior_node run_then_disable
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                     end_selector
+                     condition sel1_tests
+                  end_sequence
+               
+                  # Selector 2 - Same setup, but using the node as a tree and setting the root node type.
+                  sequence
+                     advanced_behavior_tree
+                        root_node_type selector
+                        name sel2
+                     
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                     
+                        behavior_node run_then_fail
+                        behavior_node run_then_disable
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                     end_advanced_behavior_tree
+                     behavior_node sel2_tests
+                  end_sequence
+               
+                  # Selector with Memory 1 - This selector should run and fail on the first node, 
+                  # run and disable the second, run and select the third,
+                  # and halt the last node.
+                  sequence
+                     selector_with_memory
+                        name sel_with_mem1
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                  
+                        behavior_node run_then_fail
+                        behavior_node run_then_disable
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                     end_selector_with_memory
+                     condition sel_with_mem1_tests
+                  end_sequence
+               
+                  # Selector with Memory 2 - Same setup, but using the node as a tree and setting the
+                  # root node type.
+                  sequence
+                     advanced_behavior_tree
+                        root_node_type selector_with_memory
+                        name sel_with_mem2
+                     
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                     
+                        behavior_node run_then_fail
+                        behavior_node run_then_disable
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                     end_advanced_behavior_tree
+                     condition sel_with_mem2_tests
+                  end_sequence
+               
+                  # Parallel 1 - This parallel should run multiple action nodes at the same time, 
+                  # and with a threshold of 2 we should get success if two succeed.
+                  sequence
+                     parallel
+                        success_policy threshold 2
+                        name par1
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                     
+                        behavior_node run_then_disable
+                        behavior_node run_then_fail
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                     end_parallel
+                     condition par1_tests
+                  end_sequence
+               
+                  # Parallel 2 - Similar setup, but using the node as a tree and setting the root node type.
+                  # This one should fail as it doesn't hit the threshold of 3.
+                  selector
+                     advanced_behavior_tree
+                        root_node_type parallel
+                        success_policy threshold 3
+                        name par2
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+            
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+      
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                  
+                        behavior_node run_then_disable
+                        behavior_node run_then_fail
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                     end_advanced_behavior_tree
+                     condition par2_tests
+                  end_selector
+             
+                  # Parallel 3 - This parallel should run multiple action nodes at the same time, 
+                  # using the success policy of succeed_on_one
+                  sequence
+                     parallel
+                        success_policy succeed_on_one
+                        name par3
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                     
+                        behavior_node run_then_disable
+                        behavior_node run_then_fail
+                        behavior_node run_then_fail
+                        behavior_node run_then_succeed
+                     end_parallel
+                     condition par3_tests
+                  end_sequence
+               
+                  # Parallel 4 - Similar setup, but using the node as a tree and setting the root node type.
+                  # This one should fail as no nodes succeed.
+                  selector
+                     advanced_behavior_tree
+                        root_node_type parallel
+                        success_policy succeed_on_one
+                        name par4
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+            
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+      
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                  
+                        behavior_node run_then_fail
+                        behavior_node run_then_fail
+                        behavior_node run_then_fail
+                        behavior_node run_then_fail
+                     end_advanced_behavior_tree
+                     condition par4_tests
+                  end_selector
+               
+                  # Parallel 5 - This parallel should run multiple action nodes at the same time, 
+                  # using the success policy of succeed_on_all
+                  sequence
+                     parallel
+                        success_policy succeed_on_all
+                        name par5
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                     
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                     end_parallel
+                     condition par5_tests
+                  end_sequence
+               
+                  # Parallel 6 - Similar setup, but using the node as a tree and setting the root node type.
+                  # This one should fail as not all nodes succeed.
+                  selector
+                     advanced_behavior_tree
+                        root_node_type parallel
+                        success_policy succeed_on_all
+                        name par6
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+            
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+      
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                  
+                        behavior_node run_then_disable
+                        behavior_node run_then_fail
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed
+                     end_advanced_behavior_tree
+                     condition par6_tests
+                  end_selector
+               
+                  # Decorator 1 - This tests the inverter. Success should be flipped to failure
+                  # and failure to success. The inverter does not handle other return
+                  # statuses.
+                  sequence
+                     parallel
+                        success_policy succeed_on_one
+                        decorator inverter
+                           behavior_node run_then_succeed
+                        end_decorator
+                        decorator inverter
+                           behavior_node run_then_disable
+                        end_decorator
+                        decorator inverter
+                           behavior_node run_then_fail
+                        end_decorator
+                     end_parallel
+                     condition inverter_tests
+                  end_sequence
+               
+                  # Decorator 2 - This tests the negator. Negators will return failure no matter
+                  # what the child returns.
+                  selector
+                     parallel
+                        success_policy succeed_on_one
+                        decorator negator
+                           behavior_node run_then_succeed
+                        end_decorator
+                        decorator negator
+                           behavior_node run_then_disable
+                        end_decorator
+                        decorator negator
+                           behavior_node run_then_fail
+                        end_decorator
+                     end_parallel
+                     condition negator_tests
+                  end_selector
+               
+                  # Decorator 3 - This tests the succeeder. Succeeders will return success no matter
+                  # what the child returns.
+                  sequence
+                     parallel
+                        success_policy succeed_on_all
+                        decorator succeeder
+                           behavior_node run_then_succeed
+                        end_decorator
+                        decorator succeeder
+                           behavior_node run_then_disable
+                        end_decorator
+                        decorator succeeder
+                           behavior_node run_then_fail
+                        end_decorator
+                     end_parallel
+                     condition succeeder_tests
+                  end_sequence
+            
+                  # Decorator 4 - This will test repeater for <time>. This will run the node
+                  # below as long as the time elapsed since running the decorator is
+                  # less than the time given (5s in this case)
+                  sequence
+                     parallel
+                        success_policy succeed_on_one
+                        decorator repeater for 5 s
+                           behavior_node run_then_succeed
+                        end_decorator
+                        decorator repeater for 5 s
+                           behavior_node run_then_disable
+                        end_decorator
+                        decorator repeater for 5 s
+                           behavior_node run_then_fail
+                        end_decorator
+                     end_parallel
+                     condition repeater_for_tests
+                  end_sequence
+
+                  # Decorator 5 - This will test repeater repeat <integer>.  This will tick the child
+                  # node x times before returning success.
+                  sequence
+                     parallel
+                        success_policy succeed_on_one
+                        decorator repeater repeat 6
+                           behavior_node run_then_succeed
+                        end_decorator
+                        decorator repeater repeat 6
+                           behavior_node run_then_disable
+                        end_decorator
+                        decorator repeater repeat 6
+                           behavior_node run_then_fail
+                        end_decorator
+                     end_parallel
+                     condition repeater_repeat_tests
+                  end_sequence
+
+                  # Decorator 6 - This will test repeater until_done.  This runs the child node
+                  # until it returns success or failure.
+                  sequence
+                     parallel
+                        success_policy succeed_on_one
+                        decorator repeater until_done
+                           behavior_node run_then_succeed
+                        end_decorator
+                        decorator repeater until_done
+                           behavior_node run_then_disable
+                        end_decorator
+                        decorator repeater until_done
+                           behavior_node run_then_fail
+                        end_decorator
+                     end_parallel
+                     condition repeater_until_done_tests
+                  end_sequence
+               
+                  # Weighted Random 1 - This weighted random will select a run_then_succeed, that
+                  # sets the other nodes to halted. After the node runs the weighted
+                  # random will succeed.
+                  sequence
+                     decorator repeater repeat 15
+                        weighted_random
+                           name wr1
+                           on_init
+                              ShareBlackboard();
+                              SetBlackboardVar("on_init", true);
+                           end_on_init
+               
+                           precondition
+                              SetBlackboardVar("precondition", true);
+                              return Success();
+                           end_precondition
+         
+                           execute
+                              SetBlackboardVar("execute", true);
+                              return Success();
+                           end_execute
+                           behavior_node wr1_weighted_counter_a
+                           behavior_node wr1_weighted_counter_b
+                           behavior_node wr1_weighted_counter_c
+                        end_weighted_random
+                     end_decorator
+                     condition wr1_tests
+                  end_sequence
+               
+                  # Weighted Random 2 - Same setup, but using the node as a tree and setting the
+                  # root node type. 
+                  sequence
+                     decorator repeater repeat 15
+                        advanced_behavior_tree
+                           root_node_type weighted_random
+                           name wr2
+                           on_init
+                              ShareBlackboard();
+                              SetBlackboardVar("on_init", true);
+                           end_on_init
+               
+                           precondition
+                              SetBlackboardVar("precondition", true);
+                              return Success();
+                           end_precondition
+         
+                           execute
+                              SetBlackboardVar("execute", true);
+                              return Success();
+                           end_execute
+                           behavior_node wr2_weighted_counter_a
+                           behavior_node wr2_weighted_counter_b
+                           behavior_node wr2_weighted_counter_c
+                        end_advanced_behavior_tree
+                     end_decorator
+                     condition wr2_tests
+                  end_sequence
+               
+                  # Weighted Random 3 - Testing multiple children weighted_randoms.  The probability of the
+                  # childed weighted randoms should get lower deeper into the nested randoms
+                  sequence
+                     decorator repeater repeat 60
+                        weighted_random
+                           name wr3
+                           on_init
+                              ShareBlackboard();
+                              SetBlackboardVar("on_init", true);
+                           end_on_init
+               
+                           precondition
+                              SetBlackboardVar("precondition", true);
+                              return Success();
+                           end_precondition
+         
+                           execute
+                              SetBlackboardVar("execute", true);
+                              return Success();
+                           end_execute
+                           weighted_random
+                              behavior_node wr3_wr1_weighted_counter_a
+                              behavior_node wr3_wr1_weighted_counter_b
+                              weighted_random # lower probability
+                                 behavior_node wr3_wr2_weighted_counter_a
+                                 behavior_node wr3_wr2_weighted_counter_b
+                                 weighted_random # even lower probability
+                                    behavior_node wr3_wr3_weighted_counter_a
+                                    behavior_node wr3_wr3_weighted_counter_b
+                                 end_weighted_random
+                              end_weighted_random
+                           end_weighted_random
+                        end_weighted_random
+                     end_decorator
+                     condition wr3_tests
+                  end_sequence
+               
+                  # Priority Selector 1 - This priority selector should select the weighted run_then_succeed,
+                  # setting the others to halted.  After the node runs the priority
+                  # selector will succeed.
+                  sequence
+                     priority_selector
+                        name psel1
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                        behavior_node run_then_fail
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed_weighted
+                        behavior_node run_then_disable
+                     end_priority_selector
+                     condition psel1_tests
+                  end_sequence
+               
+                  # Priority Selector 2 - Same setup, but using the node as a tree and setting the root node type.
+                  sequence
+                     advanced_behavior_tree
+                        root_node_type priority_selector
+                        name psel2
+                        on_init
+                           ShareBlackboard();
+                           SetBlackboardVar("on_init", true);
+                        end_on_init
+               
+                        precondition
+                           SetBlackboardVar("precondition", true);
+                           return Success();
+                        end_precondition
+         
+                        execute
+                           SetBlackboardVar("execute", true);
+                           return Success();
+                        end_execute
+                        behavior_node run_then_fail
+                        behavior_node run_then_succeed
+                        behavior_node run_then_succeed_weighted
+                        behavior_node run_then_disable
+                     end_advanced_behavior_tree
+                     condition psel2_tests
+                  end_sequence
+               
+                  # Priority Selector 3 - This tests that the priority selector evenly distributes among 
+                  # multiple weighted randoms.
+                  sequence
+                     decorator repeater repeat 30
+                        advanced_behavior_tree
+                           root_node_type priority_selector
+                           name psel3
+                           on_init
+                              ShareBlackboard();
+                              SetBlackboardVar("on_init", true);
+                           end_on_init
+               
+                           precondition
+                              SetBlackboardVar("precondition", true);
+                              return Success();
+                           end_precondition
+         
+                           execute
+                              SetBlackboardVar("execute", true);
+                              return Success();
+                           end_execute
+                     
+                           weighted_random
+                              name wr1
+                              behavior_node psel3_wr1_weighted_counter_a
+                              behavior_node psel3_wr1_weighted_counter_b
+                           end_weighted_random
+                           weighted_random
+                              name wr2
+                              behavior_node psel3_wr2_weighted_counter_a
+                              behavior_node psel3_wr2_weighted_counter_b
+                           end_weighted_random
+                           weighted_random
+                              name wr3
+                              behavior_node psel3_wr3_weighted_counter_a
+                              behavior_node psel3_wr3_weighted_counter_b
+                           end_weighted_random
+                        end_advanced_behavior_tree
+                     end_decorator
+                     condition psel3_tests
+                  end_sequence
+                  condition tree_tests # If we made it here all tests should pass
+               end_sequence_with_memory
+               condition tree_tests # If we made it here, something failed
+            end_selector
+         end_decorator
+      end_advanced_behavior_tree
+   end_processor
+end_platform

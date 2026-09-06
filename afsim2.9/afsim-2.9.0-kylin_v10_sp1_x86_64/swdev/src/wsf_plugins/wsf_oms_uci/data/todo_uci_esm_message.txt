@@ -1,0 +1,30 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// test of script message class (requires asb connection)
+platform sense WSF_PLATFORM
+
+   add uci_component computer COMPUTER 
+      debug
+   end_uci_component   
+   
+   execute at_time 1 s absolute   
+      UCI_CapabilityId capId = UCI_CapabilityId.Construct();
+      UCI_ESM_CapabilityCommand capCommand = UCI_ESM_CapabilityCommand.Construct(capId);
+      UCI_ESM_Command command = UCI_ESM_Command.Construct(capCommand);
+      UCI_ESM_CommandMessage cmd = UCI_ESM_CommandMessage.Construct(command);
+      UCI_MessageHeader header = cmd.Header();
+      string id = header.SystemId().UUID();
+      writeln(id);
+   end_execute
+end_platform
+
+uci_interface 
+   service_name sense
+end_uci_interface

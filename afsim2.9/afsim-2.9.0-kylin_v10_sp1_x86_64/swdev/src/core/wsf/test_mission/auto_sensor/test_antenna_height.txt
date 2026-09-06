@@ -1,0 +1,88 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# -------------------------------------------------------------------------------------------------
+# Test antenna height/offset
+#
+# This is a basic test to ensure that when antenna height is used on a sensor, it reports the correct
+# altitude for the track. For instance, if a target is at 10,000 ft and two sensors have different
+# antenna heights they should report the same altitude for the track.
+# -------------------------------------------------------------------------------------------------
+
+include_once ../auto_script/test_functions.txt
+
+end_time 2 min
+
+platform_type SENSOR WSF_PLATFORM
+   side blue
+   mover WSF_AIR_MOVER
+      maximum_linear_acceleration  400 g
+   end_mover
+
+   sensor geosensor WSF_GEOMETRIC_SENSOR
+      on
+      internal_link track_mgr
+      frame_time 4 sec
+      hits_to_establish_track  2 2    # make it easy
+      hits_to_maintain_track   1 2    # make it real easy
+      track_quality            1.0    # 'weapons' grade
+      reports_range
+      reports_bearing
+      reports_elevation
+      reports_velocity
+      ignore_same_side
+   end_sensor
+
+   processor track_mgr WSF_TRACK_PROCESSOR
+   end_processor
+
+   execute at_time 5 sec absolute
+      WsfLocalTrack track = PLATFORM.MasterTrackList().Entry(0);
+      bool pass = AssertDoubleEqualsMessage(10000.0 * Math.M_PER_FT(), track.Altitude(),
+                                            write_str("Incorrect altitude for track ", track.TrackId()));
+      writePass(pass);
+   end_execute
+end_platform_type
+
+platform_type TARGET WSF_PLATFORM
+  side red
+  mover WSF_AIR_MOVER
+     maximum_linear_acceleration  4000 g # This makes sure that the injected speed is reached very quickly
+  end_mover
+  icon F-18
+end_platform_type
+
+##################################################################
+platform antenna_10k_offset SENSOR
+   side blue
+   position 29:36:41.53n 120:46:58.98e altitude 0.00 ft msl
+   heading 130 deg
+   sensor geosensor
+      antenna_height  10000 ft
+   end_sensor
+end_platform
+
+platform antenna_no_offset SENSOR
+   side blue
+   position 29:36:41.53n 120:46:58.98e altitude 0.00 ft msl
+   heading 130 deg
+   sensor geosensor
+      antenna_height  0 ft
+   end_sensor
+end_platform
+
+platform target1 TARGET
+   position 30:36:23.49n 121:56:41.13e altitude 10000.00 ft msl
+   heading 239 deg
+   route
+      position 30:36:23.49n 121:56:41.13e altitude 10000.00 ft
+      speed 200 kts
+      position 29:46:16.75n 120:21:53.15e altitude 10000.00 ft
+  end_route
+end_platform

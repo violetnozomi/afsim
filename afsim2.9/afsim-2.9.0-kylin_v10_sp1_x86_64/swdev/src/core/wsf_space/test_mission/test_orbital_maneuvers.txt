@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform test_platflorm WSF_PLATFORM
+
+   execute at_time 0.0001 s absolute
+      WsfOrbitalManeuver maneuver = WsfTangentManeuver.Construct(WsfOrbitalEventCondition.NONE(), 0.3);
+      assert(maneuver.ManeuverType() == "TANGENT");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.NONE().ConditionType());
+
+      maneuver = WsfCompoundManeuver.Construct();
+      assert(maneuver.ManeuverType() == "COMPOUND");
+
+      maneuver = WsfChangeEccentricity.Construct(WsfOrbitalEventCondition.AT_PERIAPSIS(), 0.1);
+      assert(maneuver.ManeuverType() == "CHANGE_ECCENTRICITY");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_PERIAPSIS().ConditionType());
+      maneuver.SetCondition(WsfOrbitalEventCondition.AT_APOAPSIS());
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_APOAPSIS().ConditionType());
+
+      maneuver = WsfCircularize.Construct(WsfOrbitalEventCondition.AT_ASCENDING_RADIUS(1.0));
+      assert(maneuver.ManeuverType() == "CIRCULARIZE");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_ASCENDING_RADIUS(1.0).ConditionType());
+      maneuver.SetCondition(WsfOrbitalEventCondition.AT_DESCENDING_RADIUS(1.0));
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_DESCENDING_RADIUS(1.0).ConditionType());
+
+      maneuver = WsfChangeInclination.Construct(WsfOrbitalEventCondition.AT_ASCENDING_NODE(), 0.0);
+      assert(maneuver.ManeuverType() == "CHANGE_INCLINATION");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_ASCENDING_NODE().ConditionType());
+      maneuver.SetCondition(WsfOrbitalEventCondition.AT_DESCENDING_NODE());
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_DESCENDING_NODE().ConditionType());
+
+      maneuver = WsfChangeRAAN.Construct(WsfOrbitalEventCondition.AT_NORTHERN_INTERSECTION(), 0.0);
+      assert(maneuver.ManeuverType() == "CHANGE_RAAN");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_NORTHERN_INTERSECTION().ConditionType());
+      maneuver.SetCondition(WsfOrbitalEventCondition.AT_SOUTHERN_INTERSECTION());
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_SOUTHERN_INTERSECTION().ConditionType());
+
+      maneuver = WsfChangeRAAN_Inclination.Construct(WsfOrbitalEventCondition.AT_NORTHERN_INTERSECTION(), 0.0, 0.0);
+      assert(maneuver.ManeuverType() == "CHANGE_RAAN_INCLINATION");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_NORTHERN_INTERSECTION().ConditionType());
+      maneuver.SetCondition(WsfOrbitalEventCondition.AT_SOUTHERN_INTERSECTION());
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_SOUTHERN_INTERSECTION().ConditionType());
+      
+      maneuver = WsfDeltaV_Maneuver.Construct(WsfOrbitalEventCondition.NONE(), Vec3.Construct(0.0, 0.0, 0.0), WsfOrbitalReferenceFrame.INERTIAL());
+      assert(maneuver.ManeuverType() == "DELTA_V");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.NONE().ConditionType());
+
+      maneuver = WsfNormalManeuver.Construct(WsfOrbitalEventCondition.NONE(), 0.3);
+      assert(maneuver.ManeuverType() == "NORMAL");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.NONE().ConditionType());
+
+      maneuver = WsfHohmannTransfer.Construct(WsfOrbitalEventCondition.AT_PERIAPSIS(), 10000.0);
+      assert(maneuver.ManeuverType() == "HOHMANN_TRANSFER");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_PERIAPSIS().ConditionType());
+      maneuver.SetCondition(WsfOrbitalEventCondition.AT_APOAPSIS());
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_APOAPSIS().ConditionType());
+
+      maneuver = WsfChangeSemiMajorAxis.Construct(WsfOrbitalEventCondition.AT_PERIAPSIS(), 20000.0);
+      assert(maneuver.ManeuverType() == "CHANGE_SEMI_MAJOR_AXIS");
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_PERIAPSIS().ConditionType());
+      maneuver.SetCondition(WsfOrbitalEventCondition.AT_APOAPSIS());
+      assert(maneuver.ConditionType() == WsfOrbitalEventCondition.AT_APOAPSIS().ConditionType());
+   end_execute
+ 
+end_platform
+
+#event_pipe
+#   file spacemover.aer
+#end_event_pipe

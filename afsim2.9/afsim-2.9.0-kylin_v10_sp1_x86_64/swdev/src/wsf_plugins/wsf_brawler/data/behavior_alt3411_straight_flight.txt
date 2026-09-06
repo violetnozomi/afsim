@@ -1,0 +1,166 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt34.f
+// Replicates the 1v1 Offensive Maneuver 3,4,1,1 alternative behavior
+// Straight Flight
+//
+// Operates on nearest perceived threat to generate maneuver alternative
+
+behavior alt3411_straight_flight
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+      WsfLocalTrack             targetTrack;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3411Enabled = true;
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 4;
+      int icall  = 1;
+      int lcall  = 1;
+
+      double mLongRange = 5.0 * Math.M_PER_NM();
+
+      Vec3 dir0;
+      double mGMX = 1.0;
+      double mSpd0 = 3.0;
+
+      // ALSO NEED:
+      // randomization to simulate imperfect decision making, valsig, read from MIND file, typically ~0.01
+      // Production rule bias, used in scoring of alternative
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+
+   end_script_variables
+
+   on_init
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt3411_straight_flight, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3411Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         writeln_d("no weapon (target) tasks!");
+         return Failure("no weapon (target) tasks!");
+      }
+      WsfTask targetTask = tasks.Entry(0);
+      targetTrack = PLATFORM.MasterTrackList().Find(targetTask.LocalTrackId());
+      if (!targetTrack.IsValid())
+      {
+         writeln_d("no target track!");
+         return Failure("no target track!");
+      }
+
+      // Get nearest hostile and check that range is less than max
+      // alt34.f line 114
+      WsfTrack nearestHostile = perception.NearestThreat();
+      double rangeToNearest = 999999999; # default large value, in meters
+      if (nearestHostile.IsValid() &&
+          nearestHostile.LocationValid())
+      {
+         rangeToNearest = nearestHostile.SlantRangeTo(PLATFORM);
+      }
+
+      if (!nearestHostile.IsValid())
+      {
+         writeln_d("nearest hostile not valid!");
+         return Failure("no vaild hostiles closer than 5 nautical miles");
+      }
+
+      if (rangeToNearest > mLongRange)
+      {
+         writeln_d("nearest hostile too far away! (", rangeToNearest," m)");
+         return Failure("no vaild hostiles closer than 5 nautical miles");
+      }
+
+      // ALL CONDITIONS PASS
+      ### Generate Maneuver Alternative
+      # alt34.f line 115 - 121
+      # iactn = 4
+      # call vnorm(vp(1,me),dir0) - get a unit vector (dir0) of my current velocity vector
+      # gmx = amin1(3.,gmxsu) - take the smaller of 3.0 and Maximum load possible at maximum thrust
+      # spd0 = 3.
+      # spdmod = thrttl (desspd = 1, thrttl = 2, desacc = 3)
+      int iactn = 4;
+      dir0 = PLATFORM.VelocityNED().Normal();
+      mGMX = Math.Min(3.0, BRAWLER.MaxSustainedGs());
+      mSpd0 = 3.0;
+      int spdmod = 2; // thrttl
+
+      ### Project and Evaluate (Score) Maneuver Alternative
+      // Alternative is only projected tproj sec and then evaluated
+      double alternativeScore = BRAWLER.EvaluateVectorWithThrottle(dir0, mGMX, mSpd0, ilevel, kalt, icall, lcall);
+      writeln_d(PLATFORM.Name(), " behavior_alt3411_straight_flight  score: ", alternativeScore, ", T=", TIME_NOW);
+
+      ### Return Maneuver Alternative Score
+      return alternativeScore;
+
+   end_precondition
+
+
+   execute
+      #writeln_d(PLATFORM.Name(), " executing behavior_alt3411_straight_flight, T=", TIME_NOW);
+      PLATFORM.FlyVectorWithThrottle(dir0, mGMX, mSpd0);
+
+#      if (mDrawSteering == true)
+#      {
+#         mDraw.SetLayer("behavior_pursue_target");
+#         mDraw.SetDuration(BRAWLER.UpdateInterval());
+#         mDraw.SetColor(1.0, 0.5, 0.0);
+#         mDraw.SetLineSize(1);
+#         mDraw.BeginLines();
+#            mDraw.Vertex(PLATFORM.Location());
+#            mDraw.Vertex(mTargetPoint);
+#         mDraw.End();
+#      }
+#
+#      string msg = write_str("pursue-target: ", targetTrack.TargetName(), " at speed ", (string)mTargetSpeed);
+#      writeln_d("    T=", TIME_NOW, " ", PLATFORM.Name(), " ", msg);
+#      FlyTarget( PLATFORM, mTargetPoint, mTargetSpeed);
+   end_execute
+
+end_behavior
+

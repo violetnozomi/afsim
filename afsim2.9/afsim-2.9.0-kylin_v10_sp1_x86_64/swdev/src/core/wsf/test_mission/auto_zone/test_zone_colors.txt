@@ -1,0 +1,377 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+include ../auto_script/test_pass.txt
+end_time 5 s
+
+script_variables
+   PassTestCount = 56;
+end_script_variables
+
+zone global_zone_0
+   circular
+   position 0n 0e
+   maximum_altitude 100 km
+   maximum_radius 100 km
+   stop_angle 360 deg
+end_zone
+
+zone global_zone_1
+   circular
+   position 1n 0e
+   maximum_altitude 100 km
+   maximum_radius 100 km
+   stop_angle 360 deg
+   fill_color red
+   line_color blue
+end_zone
+
+zone global_zone_2
+   circular
+   position 2n 0e
+   maximum_altitude 100 km
+   maximum_radius 100 km
+   stop_angle 360 deg
+   fill_color 0 255 0 63
+   line_color 0 0 255
+end_zone
+
+zone_set global_zone_set_0
+   zone
+      circular
+      position 3n 0e
+      maximum_altitude 100 km
+      maximum_radius 100 km
+      stop_angle 360 deg
+      #These colors do not affect the set color
+      fill_color 0 255 0 63
+      line_color 0 0 255
+   end_zone
+   zone
+      circular
+      position 3n 1e
+      maximum_altitude 100 km
+      maximum_radius 100 km
+      stop_angle 360 deg
+      fill_color 0 255 0 63
+      line_color 0 0 255
+   end_zone
+end_zone_set
+
+zone_set global_zone_set_1
+   fill_color pink
+   line_color green
+   zone
+      circular
+      position 4n 0e
+      maximum_altitude 100 km
+      maximum_radius 100 km
+      stop_angle 360 deg      
+   end_zone
+   zone
+      circular
+      position 4n 1e
+      maximum_altitude 100 km
+      maximum_radius 100 km
+      stop_angle 360 deg
+   end_zone
+end_zone_set
+
+zone_set global_zone_set_2
+   fill_color 128 128 128 63
+   line_color 255 255 255
+   zone
+      circular
+      position 5n 0e
+      maximum_altitude 100 km
+      maximum_radius 100 km
+      stop_angle 360 deg
+   end_zone
+   zone
+      circular
+      position 5n 1e
+      maximum_altitude 100 km
+      maximum_radius 100 km
+      stop_angle 360 deg
+   end_zone
+end_zone_set
+
+platform plat WSF_PLATFORM 
+   position 2s 0e
+   zone plat_zone_0
+      elliptical
+      maximum_altitude 100 km
+      longitudinal_axis 100 km
+      lateral_axis 200 km
+   end_zone
+   
+   zone plat_zone_1
+      line_color yellow
+      fill_color purple
+      elliptical
+      position 3s 0e
+      maximum_altitude 100 km
+      longitudinal_axis 100 km
+      lateral_axis 200 km
+   end_zone
+   
+   zone plat_zone_2
+      line_color 255 0 255
+      fill_color 255 0 0 63
+      elliptical
+      position 4s 0e
+      maximum_altitude 100 km
+      longitudinal_axis 100 km
+      lateral_axis 200 km
+   end_zone
+   
+   zone_set plat_zone_set_0
+      zone
+         circular
+         position 5s 0e
+         maximum_altitude 100 km
+         maximum_radius 100 km
+         stop_angle 360 deg
+      end_zone
+      zone
+         circular
+         position 5s 1w
+         maximum_altitude 100 km
+         maximum_radius 100 km
+         stop_angle 360 deg
+         fill_color 0 255 0 63
+         line_color 0 0 255
+      end_zone
+   end_zone_set
+
+   zone_set plat_zone_set_1
+      fill_color pink
+      line_color green
+      zone
+         circular
+         position 6s 0e
+         maximum_altitude 100 km
+         maximum_radius 100 km
+         stop_angle 360 deg      
+      end_zone
+      zone
+         circular
+         position 6s 1w
+         maximum_altitude 100 km
+         maximum_radius 100 km
+         stop_angle 360 deg
+      end_zone
+   end_zone_set
+
+   zone_set plat_zone_set_2
+      fill_color 128 128 128 63
+      line_color 255 255 255
+      zone
+         circular
+         position 7s 0w
+         maximum_altitude 100 km
+         maximum_radius 100 km
+         stop_angle 360 deg
+      end_zone
+      zone
+         circular
+         position 7s 1w
+         maximum_altitude 100 km
+         maximum_radius 100 km
+         stop_angle 360 deg
+      end_zone
+   end_zone_set
+   
+   execute at_time .1 s absolute
+      #Test platform zone colors
+      WsfZone z0 = PLATFORM.Zone("plat_zone_0");
+      if (AssertFalseMessage(z0.GetFillColor().IsValid(),
+                             "Zone plat_zone_0 has a set fill color.")) {pass();}
+      if (AssertFalseMessage(z0.GetLineColor().IsValid(),
+                             "Zone plat_zone_0 has a set line color.")) {pass();}
+      z0.SetFillColor(Color.Red());
+      z0.SetLineColor(Color.Blue());
+      if (AssertTrueMessage(z0.GetFillColor().IsValid(),
+                            "Zone plat_zone_0's fill color is not set.")) {pass();}
+      if (AssertTrueMessage(z0.GetLineColor().IsValid(),
+                            "Zone plat_zone_0's line color is not set.")) {pass();}
+      if (AssertEqualsMessage(z0.GetFillColor(),
+                              Color.Red(),
+                              "Zone plat_zone_0's fill color is not the expected value.")) {pass();}
+      if (AssertEqualsMessage(z0.GetLineColor(),
+                              Color.Blue(),
+                              "Zone plat_zone_0's line color is not the expected value.")) {pass();}
+      
+      WsfZone z1 = PLATFORM.Zone("plat_zone_1");
+      Color fill = Color.Purple();
+      fill.SetAlpha(63);
+      if (AssertTrueMessage(z1.GetFillColor().IsValid(),
+                            "Zone plat_zone_1's fill color is not set.")) {pass();}
+      if (AssertTrueMessage(z1.GetLineColor().IsValid(),
+                            "Zone plat_zone_1's line color is not set.")) {pass();}
+      if (AssertEqualsMessage(z1.GetFillColor(),
+                              fill,
+                              "Zone plat_zone_1's fill color is not the expected value.")) {pass();}
+      if (AssertEqualsMessage(z1.GetLineColor(),
+                              Color.Yellow(),
+                              "Zone plat_zone_1's line color is not the expected value.")) {pass();}
+      
+      WsfZone z2 = PLATFORM.Zone("plat_zone_2");
+      if (AssertTrueMessage(z2.GetFillColor().IsValid(),
+                            "Zone plat_zone_2's fill color is not set.")) {pass();}
+      if (AssertTrueMessage(z2.GetLineColor().IsValid(),
+                            "Zone plat_zone_2's line color is not set.")) {pass();}
+      if (AssertEqualsMessage(z2.GetFillColor(),
+                              Color.Construct(255, 0, 0, 63),
+                              "Zone plat_zone_2's fill color is not the expected value.")) {pass();}
+      if (AssertEqualsMessage(z2.GetLineColor(),
+                              Color.Construct(255, 0, 255),
+                              "Zone plat_zone_2's line color is not the expected value.")) {pass();}
+      
+      #Test platform zone_set colors
+      WsfZone zs0 = PLATFORM.Zone("plat_zone_set_0");
+      if (AssertFalseMessage(zs0.GetFillColor().IsValid(),
+                             "Zone set plat_zone_set_0 has a set fill color.")) {pass();}
+      if (AssertFalseMessage(zs0.GetLineColor().IsValid(),
+                             "Zone set plat_zone_set_0 has a set line color.")) {pass();}
+      zs0.SetFillColor(Color.Red());
+      zs0.SetLineColor(Color.Blue());
+      if (AssertTrueMessage(zs0.GetFillColor().IsValid(),
+                            "Zone set plat_zone_set_0's fill color is not set.")) {pass();}
+      if (AssertTrueMessage(zs0.GetLineColor().IsValid(),
+                            "Zone set plat_zone_set_0's line color is not set.")) {pass();}
+      if (AssertEqualsMessage(zs0.GetFillColor(),
+                              Color.Red(),
+                              "Zone plat_zone_set_0's fill color is not the expected value.")) {pass();}
+      if (AssertEqualsMessage(zs0.GetLineColor(),
+                              Color.Blue(),
+                              "Zone plat_zone_set_0's line color is not the expected value.")) {pass();}
+      
+      WsfZone zs1 = PLATFORM.Zone("plat_zone_set_1");
+      fill = Color.Pink();
+      fill.SetAlpha(63);
+      if (AssertTrueMessage(zs1.GetFillColor().IsValid(),
+                            "Zone set plat_zone_set_1's fill color is not set.")) {pass();}
+      if (AssertTrueMessage(zs1.GetLineColor().IsValid(),
+                            "Zone set plat_zone_set_1's line color is not set.")) {pass();}
+      if (AssertEqualsMessage(zs1.GetFillColor(),
+                              fill,
+                              "Zone plat_zone_set_0's fill color is not the expected value.")) {pass();}
+      if (AssertEqualsMessage(zs1.GetLineColor(),
+                              Color.Green(),
+                              "Zone plat_zone_set_0's fill color is not the expected value.")) {pass();}
+      
+      WsfZone zs2 = PLATFORM.Zone("plat_zone_set_2");
+      if (AssertTrueMessage(zs2.GetFillColor().IsValid(),
+                            "Zone set plat_zone_set_2's fill color is not set.")) {pass();}
+      if (AssertTrueMessage(zs2.GetLineColor().IsValid(),
+                            "Zone set plat_zone_set_2's line color is not set.")) {pass();}
+      if (AssertEqualsMessage(zs2.GetFillColor(),
+                              Color.Construct(128, 128, 128, 63),
+                              "Zone plat_zone_set_0's fill color is not the expected value.")) {pass();}
+      if (AssertEqualsMessage(zs2.GetLineColor(),
+                              Color.Construct(255, 255, 255),
+                              "Zone plat_zone_set_0's fill color is not the expected value.")) {pass();}
+   end_execute
+   
+end_platform
+
+execute at_time .2 s absolute
+#Test platform zone colors
+   WsfZone z0 = WsfZone.FindZone("global_zone_0");
+   if (AssertFalseMessage(z0.GetFillColor().IsValid(),
+                          "Zone global_zone_0 has a set fill color.")) {pass();}
+   if (AssertFalseMessage(z0.GetLineColor().IsValid(),
+                          "Zone global_zone_0 has a set line color.")) {pass();}
+   z0.SetFillColor(Color.Red());
+   z0.SetLineColor(Color.Blue());
+   if (AssertTrueMessage(z0.GetFillColor().IsValid(),
+                         "Zone global_zone_0's fill color is not set.")) {pass();}
+   if (AssertTrueMessage(z0.GetLineColor().IsValid(),
+                         "Zone global_zone_0's line color is not set.")) {pass();}
+   if (AssertEqualsMessage(z0.GetFillColor(),
+                           Color.Red(),
+                           "Zone global_zone_0's fill color is not the expected value.")) {pass();}
+   if (AssertEqualsMessage(z0.GetLineColor(),
+                           Color.Blue(),
+                           "Zone global_zone_0's fill color is not the expected value.")) {pass();}
+   
+   WsfZone z1 = WsfZone.FindZone("global_zone_1");
+   Color fill = Color.Red();
+   fill.SetAlpha(63);
+   if (AssertTrueMessage(z1.GetFillColor().IsValid(),
+                         "Zone global_zone_1's fill color is not set.")) {pass();}
+   if (AssertTrueMessage(z1.GetLineColor().IsValid(), 
+                         "Zone global_zone_1's line color is not set.")) {pass();}
+   if (AssertEqualsMessage(z1.GetFillColor(),
+                           fill,
+                           "Zone global_zone_1's fill color is not the expected value.")) {pass();}
+   if (AssertEqualsMessage(z1.GetLineColor(),
+                           Color.Blue(),
+                           "Zone global_zone_1's fill color is not the expected value.")) {pass();}
+   
+   WsfZone z2 = WsfZone.FindZone("global_zone_2");
+   if (AssertTrueMessage(z2.GetFillColor().IsValid(),
+                         "Zone global_zone_2's fill color is not set.")) {pass();}
+   if (AssertTrueMessage(z2.GetLineColor().IsValid(),
+                         "Zone global_zone_2's line color is not set.")) {pass();}
+   if (AssertEqualsMessage(z2.GetFillColor(),
+                           Color.Construct(0, 255, 0, 63),
+                           "Zone global_zone_2's fill color is not the expected value.")) {pass();}
+   if (AssertEqualsMessage(z2.GetLineColor(),
+                           Color.Construct(0, 0, 255),
+                           "Zone global_zone_2's fill color is not the expected value.")) {pass();}
+   
+   #Test platform zone_set colors
+   WsfZone zs0 = WsfZone.FindZone("global_zone_set_0");
+   if (AssertFalseMessage(zs0.GetFillColor().IsValid(),
+                          "Zone set global_zone_set_0 has a set fill color.")) {pass();}
+   if (AssertFalseMessage(zs0.GetLineColor().IsValid(),
+                          "Zone set global_zone_set_0 has a set line color.")) {pass();}
+   zs0.SetFillColor(Color.Black());
+   zs0.SetLineColor(Color.White());
+   if (AssertTrueMessage(zs0.GetFillColor().IsValid(),
+                         "Zone set global_zone_set_0's fill color is not set.")) {pass();}
+   if (AssertTrueMessage(zs0.GetLineColor().IsValid(),
+                         "Zone set global_zone_set_0's line color is not set.")) {pass();}
+   if (AssertEqualsMessage(zs0.GetFillColor(),
+                           Color.Black(),
+                           "Zone global_zone_set_0's fill color is not the expected value.")) {pass();}
+   if (AssertEqualsMessage(zs0.GetLineColor(),
+                           Color.White(),
+                           "Zone global_zone_set_0's fill color is not the expected value.")) {pass();}
+   
+   WsfZone zs1 = WsfZone.FindZone("global_zone_set_1");
+   fill = Color.Pink();
+   fill.SetAlpha(63);
+   if (AssertTrueMessage(zs1.GetFillColor().IsValid(),
+                         "Zone set global_zone_set_1's fill color is not set.")) {pass();}
+   if (AssertTrueMessage(zs1.GetLineColor().IsValid(),
+                         "Zone set global_zone_set_1's line color is not set.")) {pass();}
+   if (AssertEqualsMessage(zs1.GetFillColor(),
+                           fill,
+                           "Zone global_zone_set_1's fill color is not the expected value.")) {pass();}
+   if (AssertEqualsMessage(zs1.GetLineColor(),
+                           Color.Green(),
+                           "Zone global_zone_set_1's fill color is not the expected value.")) {pass();}
+   
+   WsfZone zs2 = WsfZone.FindZone("global_zone_set_2");
+   if (AssertTrueMessage(zs2.GetFillColor().IsValid(),
+                         "Zone set global_zone_set_2's fill color is not set.")) {pass();}
+   if (AssertTrueMessage(zs2.GetLineColor().IsValid(),
+                         "Zone set global_zone_set_2's line color is not set.")) {pass();}
+   if (AssertEqualsMessage(zs2.GetFillColor(),
+                           Color.Construct(128, 128, 128, 63),
+                           "Zone global_zone_set_2's fill color is not the expected value.")) {pass();}
+   if (AssertEqualsMessage(zs2.GetLineColor(),
+                           Color.Construct(255, 255, 255),
+                           "Zone global_zone_set_2's fill color is not the expected value.")) {pass();}
+   
+end_execute

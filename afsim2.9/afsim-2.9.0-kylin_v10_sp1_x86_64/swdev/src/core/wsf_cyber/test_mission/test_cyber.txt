@@ -1,0 +1,261 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+random_seed 2
+
+#Provide global references to the target test platforms for use with script calls
+script_variables
+   WsfPlatform target1;
+   WsfPlatform target2;
+   WsfPlatform target3;
+end_script_variables
+
+cyber_effect TEST_EFFECT WSF_CYBER_SCRIPT_EFFECT
+end_cyber_effect
+
+cyber_effect TEST_EFFECT2 WSF_CYBER_SCRIPT_EFFECT
+end_cyber_effect
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+   effect TEST_EFFECT
+   effect TEST_EFFECT2
+   probability_of_scan_detection 0.5
+   probability_of_attack_success 0.5
+   probability_of_status_report 1.0
+   probability_of_attack_detection 0.1
+   probability_of_future_immunity 0.5
+   
+   attack_success_draw_frequency once_per_simulation
+   status_report_draw_frequency once_per_simulation
+   attack_detection_draw_frequency once_per_target
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 0 s
+   delivery_delay_time 0 s
+end_cyber_attack
+
+cyber_attack TEST_ATTACK2 WSF_CYBER_ATTACK
+   effect TEST_EFFECT
+   effect TEST_EFFECT2
+   probability_of_scan_detection 0.5
+   probability_of_attack_success 0.7
+   probability_of_status_report 0.1
+   probability_of_attack_detection 0.5
+   probability_of_future_immunity 0.8
+   
+   attack_success_draw_frequency interval_per_target 5 s
+   status_report_draw_frequency interval_per_target 5 s
+   attack_detection_draw_frequency interval_per_simulation 5 s
+   scan_detection_draw_frequency interval_per_simulation 5 s
+   future_immunity_draw_frequency interval_per_simulation 5 s
+   
+   scan_delay_time 5 s
+   delivery_delay_time 10 s
+   
+end_cyber_attack
+
+cyber_attack TEST_ATTACK3 WSF_CYBER_ATTACK
+   effect TEST_EFFECT
+   
+   probability_of_scan_detection 0.0
+   probability_of_attack_success 0.2
+   probability_of_status_report 0.1
+   probability_of_attack_detection 0.5
+   probability_of_future_immunity 0.0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 0 s
+   delivery_delay_time 0 s 
+
+end_cyber_attack
+
+# All test platforms have this protection as part of the type
+cyber_protect TEST_PROTECT WSF_CYBER_PROTECT
+   attack_response TEST_ATTACK
+      probability_of_scan_detection 0.0
+      probability_of_attack_success 1.0
+      probability_of_status_report 0.0
+      probability_of_attack_detection 0.0
+      probability_of_future_immunity 0.0
+      
+      attack_detection_delay_time 5 s
+      attack_recovery_delay_time 10 s
+      restore
+   end_attack_response
+end_cyber_protect
+
+cyber_protect TEST_PROTECT_AGAINST_ATTACK2 WSF_CYBER_PROTECT
+   attack_response TEST_ATTACK2
+      probability_of_scan_detection 0.8
+      probability_of_attack_success 0.8
+      probability_of_status_report 0.1
+      probability_of_attack_detection 0.1
+      probability_of_future_immunity 0.8
+      
+      attack_detection_delay_time 5 s
+      attack_recovery_delay_time 10 s
+      restore
+   end_attack_response
+end_cyber_protect
+
+cyber_protect TEST_PROTECT_DEFAULT_ADDED TEST_PROTECT
+   attack_response TEST_ATTACK2
+      probability_of_scan_detection 0.1
+      probability_of_attack_success 0.1
+      probability_of_status_report 0.1
+      probability_of_attack_detection 0.1
+      probability_of_future_immunity 0.1
+      
+      attack_detection_delay_time 5 s
+      attack_recovery_delay_time 10 s
+      restore
+   end_attack_response
+end_cyber_protect
+
+cyber_protect TEST_PROTECT_DUMMY_INHERIT TEST_PROTECT
+      attack_response TEST_ATTACK2
+      probability_of_scan_detection 0.1
+      probability_of_attack_success 0.1
+      probability_of_status_report 0.1
+      probability_of_attack_detection 0.1
+      probability_of_future_immunity 0.1
+      
+      attack_detection_delay_time 5 s
+      attack_recovery_delay_time 10 s
+      restore
+   end_attack_response
+end_cyber_protect
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   cyber_protect TEST_PROTECT
+   end_cyber_protect
+end_platform_type
+
+#Scan target1
+platform attack1 TEST_PLATFORM
+   position 39n 90:20w
+   icon EA-6B
+   altitude 10000 m
+   
+   #This scan should use the protection characteristics defined in 
+   #cyber_protect TEST_PROTECT
+   execute at_time 0.5 s absolute
+      bool scanSuccess = PLATFORM.CyberScan(target1, "TEST_ATTACK");
+      
+      #This should fail, as the previous attack is still in progress. It will, however,
+      #still return true to indicate that it was a valid attack call with correct parameters.
+      scanSuccess = PLATFORM.CyberScan(target1, "TEST_ATTACK");
+      assert(scanSuccess);
+   end_execute
+   
+   #This scan should use the protection characteristics defined in 
+   #the cyber_attack TEST_ATTACK2
+   execute at_time 1.0 s absolute
+      bool scanSuccess = PLATFORM.CyberScan(target1, "TEST_ATTACK2");
+   end_execute
+   
+   execute at_time 35.0 s absolute
+      bool scanSuccess = PLATFORM.CyberAttack(target1, "TEST_ATTACK2");
+   end_execute
+   
+end_platform
+
+platform attack2 TEST_PLATFORM
+   position 39n 90:30w
+   icon EA-6B
+   altitude 10000 m
+   
+   #This scan should use the protection characteristics defined in 
+   #the cyber_attack TEST_ATTACK2. Because the scan is defined as an
+   #interval draw for the simulation, it should have the same draw
+   #for this attack as the scan initiated by attack1 (within the 5 s window)
+   execute at_time 2.0 s absolute
+      bool scanSuccess = PLATFORM.CyberScan(target1, "TEST_ATTACK2");
+   end_execute
+    
+end_platform
+
+platform attack3 TEST_PLATFORM
+   position 39n 90:40w
+   icon EA-6B
+   altitude 10000 m
+   execute at_time 12.0 s absolute
+      bool scanSuccess = PLATFORM.CyberScan(target2, "TEST_ATTACK2");
+   end_execute
+   execute at_time 20.0 s absolute
+      bool scanSuccess = PLATFORM.CyberAttack(target2, "TEST_ATTACK2");
+   end_execute
+   execute at_time 30.0 s absolute
+      bool attackSuccess = PLATFORM.CyberAttack(target2, "TEST_ATTACK3");
+   end_execute
+   
+end_platform
+
+platform target1 TEST_PLATFORM
+   position 38:45n 90:20w
+   icon AAA
+   on_initialize
+      target1 = PLATFORM;
+   end_on_initialize
+end_platform
+
+platform target2 WSF_PLATFORM
+   position 38:45n 90:30w
+   icon AAA
+   on_initialize
+      target2 = PLATFORM;
+   end_on_initialize
+   
+   add cyber_protect TEST_PROTECT_AGAINST_ATTACK2
+   end_cyber_protect
+end_platform
+
+platform target3 TEST_PLATFORM
+   position 38:45n 90:40w
+   icon AAA
+   on_initialize
+      target3 = PLATFORM;
+   end_on_initialize
+end_platform
+
+#Test adding cyber_protection directly to a WSF_PLATFORM
+#Test adding inherited cyber_protect to a platform
+platform dummy_target WSF_PLATFORM
+   position 38:30n 90:20w
+   add cyber_protect TEST_PROTECT_DUMMY_INHERIT
+   end_cyber_protect   
+end_platform
+
+end_time 1 min
+
+event_output
+   file STDOUT
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable CYBER_ATTACK_INITIATED
+   enable CYBER_ATTACK_SUCCEEDED
+   enable CYBER_ATTACK_FAILED
+   enable CYBER_ATTACK_DETECTED
+   enable CYBER_ATTACK_RECOVERY
+   enable CYBER_SCAN_INITIATED
+   enable CYBER_SCAN_SUCCEEDED
+   enable CYBER_SCAN_FAILED
+   enable CYBER_SCAN_DETECTED
+end_event_output
+
+
+
+

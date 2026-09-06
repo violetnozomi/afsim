@@ -1,0 +1,79 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+multiresolution_mover MR_MOVER_FOR_TEST2 WSF_MULTIRESOLUTION_MOVER 
+   fidelity 0.5
+   model test2 
+      fidelity_range 0.0 0.9
+      mover WSF_AIR_MOVER
+         update_interval 0.5 sec
+      end_mover
+   end_model
+end_multiresolution_mover
+
+mover BASE_AIR_MOVER WSF_AIR_MOVER
+   update_interval 1 sec
+end_mover
+
+platform_type TEST1 WSF_PLATFORM
+   multiresolution_mover WSF_MULTIRESOLUTION_MOVER
+      fidelity 0.1
+      add model test1 
+         fidelity_range 0.0 0.5
+         mover BASE_AIR_MOVER
+            update_interval 0.1 sec
+         end_mover
+      end_model
+   end_multiresolution_mover
+end_platform_type
+
+platform_type TEST2 WSF_PLATFORM 
+   add multiresolution_mover MR_MOVER_FOR_TEST2 end_multiresolution_mover
+   edit multiresolution_mover # Explicit edit
+      fidelity 0.25
+   end_multiresolution_mover
+end_platform_type
+
+platform_type TEST3 WSF_PLATFORM 
+   multiresolution_mover WSF_MULTIRESOLUTION_MOVER
+      fidelity 0.5
+      model test3 
+         mover WSF_PARABOLIC_MOVER
+         end_mover
+      end_model
+   end_multiresolution_mover
+end_platform_type
+
+platform test_platform TEST1
+   multiresolution_mover
+      edit model test1
+         mover update_interval 1 sec end_mover 
+      end_model
+      common
+         route
+            position 0n 0e altitude 20000 ft heading 0 deg speed 444.36398 kts
+            position 0.1n 0e altitude 20000 ft speed 444.36398 kts
+            position 0.1n 0.1e altitude 25000 ft speed 444.36398 kts
+         end_route 
+      end_common
+   end_multiresolution_mover
+end_platform
+
+platform test_platform_3 TEST3
+   multiresolution_mover
+      model test3 # Implicit edit
+         mover update_interval 1 sec end_mover 
+      end_model
+      common
+         update_interval 3 sec
+      end_common
+   end_multiresolution_mover
+end_platform

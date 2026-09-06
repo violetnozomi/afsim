@@ -1,0 +1,189 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# =============================================================================
+# This test uses the mti_processor.
+# =============================================================================
+
+radar_signature  RADAR_SIG_OMNI
+   constant 100 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   radar_signature  RADAR_SIG_OMNI
+   //mover WSF_GROUND_MOVER
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+antenna_pattern RADAR_ANTENNA
+   cosecant_squared_pattern
+     peak_gain              30 dB
+     minimum_gain           -10.0 db
+     azimuth_beamwidth      5 deg
+     elevation_beamwidth    5 deg
+     minimum_elevation_for_peak_gain 2 deg
+     maximum_elevation_for_csc2      10 deg
+end_antenna_pattern
+
+sensor MTI_RADAR WSF_RADAR_SENSOR
+   antenna_height                 5.0 m
+
+   frame_time                     1 sec
+
+   scan_mode                      azimuth_and_elevation
+   azimuth_scan_limits            -180 deg 180 deg
+   elevation_scan_limits          0.0 deg 50.0 deg
+
+   transmitter
+      antenna_pattern             RADAR_ANTENNA
+      power                       100.0 kw
+      internal_loss               2   db
+      frequency                   100 mhz
+      beam_tilt                   0   deg
+      pulse_repetition_interval   1000 usec
+   end_transmitter
+
+    signal_processor mti_processor
+      maximum_range                    25.0 km
+      number_of_stages                 1
+      interpulse_period_1              1000.0 us
+      interpulse_period_2              1200.0 us
+   end_signal_processor
+
+   receiver
+      antenna_pattern             RADAR_ANTENNA
+      bandwidth                   2.0 mhz
+      noise_power                 -123.929 dBw
+      internal_loss               7 dB
+   end_receiver
+
+   probability_of_false_alarm     1.0e-6
+   required_pd                    0.5
+   swerling_case                  1
+
+   hits_to_establish_track        3 5
+   hits_to_maintain_track         1 3
+
+   track_quality                  0.8      # 'high' quality
+
+   reports_range_rate
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_iff
+end_sensor
+
+platform ownship WSF_PLATFORM
+   position 0n 0e heading 90 deg
+
+   add sensor radar_mti MTI_RADAR
+     on
+   end_sensor
+end_platform
+
+# Radial - Flying at radar
+platform target_radial TARGET_PLATFORM_TYPE
+   side red
+   route
+      position 0.0n 0.05e altitude 500 ft heading 90 deg speed 150 kts
+   end_route
+end_platform
+
+# Tangent - Flying perpendicular to radar
+platform  target_tangent TARGET_PLATFORM_TYPE
+   side red
+   route
+      position 0.0n 0.05e altitude 500 ft heading 0 deg speed 150 kts
+   end_route
+end_platform
+
+platform  target_skew TARGET_PLATFORM_TYPE
+   side red
+   route
+      // It only takes 1 deg, with the 2nd col, to go from undetected to detected
+      position 0.0n 0.05e altitude 500 ft heading 1 deg speed 150 kts
+   end_route
+end_platform
+
+platform  target_radial_out_range  TARGET_PLATFORM_TYPE
+   side red
+   position 0.0n 0.5e altitude 20000 ft heading 90 deg
+   route
+      position 0.0n 0.4e altitude 5000 ft heading 90 deg speed 150 kts
+   end_route
+end_platform
+
+# =============================================================================
+
+script_variables
+   bool gFailAutoSensorTestMtiTable = false;
+   int  gCallAutoSensorTestMtiTable = 0;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform          aSensorHost,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+   bool Succeeded    = aResult.Succeeded();
+   bool Failed       = aResult.Failed();
+
+   // See notes at source code Threshold.  A detection
+   // may occur but be thrown away with the roll of die.
+   double SNDB       = aResult.SignalToNoise();
+   double RSNDB      = aResult.DetectionThreshold();
+
+   bool detected = ((Failed  == 0) && (SNDB >= RSNDB));
+   bool detectedX = aResult.Detected();
+
+   if (aTarget.Name() == "target_tangent" && detected)
+   {
+      writeln("-FAIL- 'target_tangent' should NOT be detected!,");
+      gFailAutoSensorTestMtiTable = true;
+   }
+   else if (aTarget.Name() == "target_radial" && !detected)
+   {
+      writeln("-FAIL- 'target_radial' SHOULD be detected but wasn't!");
+      gFailAutoSensorTestMtiTable = true;
+   }
+   else if (aTarget.Name() == "target_skew" && detected)
+   {
+      writeln("-FAIL- 'target_skew' should NOT be detected but was!");
+      gFailAutoSensorTestMtiTable = true;
+   }
+   else if (aTarget.Name() == "target_radial_out_range" && !detected)
+   {
+      writeln("-FAIL- 'target_radial_out_range' SHOULD be detected, because OUTSIDE MTI!");
+      gFailAutoSensorTestMtiTable = true;
+   }
+end_script
+
+script void SimulationComplete()
+   if (gFailAutoSensorTestMtiTable) writeln("-FAIL- one or more failures");
+   if (!gFailAutoSensorTestMtiTable) writeln("-PASS-");
+end_script
+
+# Uncomment this to see what's happening. This table has no debug flag because of the format.
+/*
+event_output
+   file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+event_pipe
+   file test.aer
+   use_preset full
+end_event_pipe
+*/
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable SIMULATION_COMPLETE      SimulationComplete
+end_observer
+
+end_time 0.5 sec

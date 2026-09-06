@@ -1,0 +1,193 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#
+# Test whether angles-only IOD tracks are successfully formed from 
+# angles only measurements of a target at GEO.  Tests are conducted for both  
+# one and two contributors.  Because the angular errors are small, the resulting
+# track-truth differences (seen in output with the #debug uncommented) should
+# be small for the IOD (~meters), with a spike to ~100m as the OD filter settles,
+# then settling to lower values subsequent OD updates.  The two-source filter
+# and IOD performs better than the single-source.
+#
+# ****************************************************************************
+
+random_seed 123564
+
+end_time 10000 s
+
+sensor GEODSS WSF_GEOMETRIC_SENSOR
+   frame_time 20 minutes
+   reports_bearing
+   reports_elevation
+   ignore_same_side
+   azimuth_error_sigma 1.0e-15 rad
+   elevation_error_sigma 1.0e-15 rad
+end_sensor
+
+platform_type GEODSS WSF_PLATFORM
+   side blue
+   icon C2
+   
+   comm comm1 WSF_COMM_TRANSCEIVER
+   end_comm
+         
+   sensor geodss GEODSS
+      on
+      internal_link report
+   end_sensor
+   
+   processor report WSF_SCRIPT_PROCESSOR 
+   end_processor
+   
+end_platform_type
+
+network commander_net WSF_COMM_NETWORK_MESH   
+end_network
+
+platform geodss1 GEODSS
+   position 1n 2e altitude 5000 ft msl
+   edit comm comm1
+      network_name commander_net
+      link single_source_angles_only_iod comm1
+      link two_source_angles_only_iod comm1
+   end_comm
+   edit processor report
+      on_message default
+         script
+            PLATFORM.Comm("comm1").SendMessage(MESSAGE, 
+               WsfSimulation.FindPlatform("single_source_angles_only_iod").Comm("comm1"));
+            PLATFORM.Comm("comm1").SendMessage(MESSAGE, 
+               WsfSimulation.FindPlatform("two_source_angles_only_iod").Comm("comm1"));
+         end_script
+      end_on_message    
+   end_processor
+end_platform
+
+platform geodss2 GEODSS
+   position 1s 2e altitude 5000 ft msl
+
+   edit comm comm1
+      network_name commander_net
+      link two_source_angles_only_iod comm1
+   end_comm
+   edit processor report
+      on_message default
+         script
+            PLATFORM.Comm("comm1").SendMessage(MESSAGE, 
+               WsfSimulation.FindPlatform("two_source_angles_only_iod").Comm("comm1"));
+         end_script
+      end_on_message    
+   end_processor
+end_platform
+
+platform_type COMMANDER WSF_PLATFORM
+   side blue
+   comm comm1 WSF_COMM_TRANSCEIVER      
+      internal_link tp
+   end_comm   
+   
+   track_manager 
+      fusion_method orbit_determination
+         debug
+         number_of_angle_measurements 3
+         process_noise_sigmas_XYZ 0.1 0.1 0.1
+         angles_only_linear_tolerance 1 m
+      end_fusion_method         
+      retain_track_history
+      uncorrelated_track_drops disable
+   end_track_manager
+
+   processor tp WSF_TRACK_PROCESSOR
+      update_interval 100 sec
+      purge_interval 1 day
+      track_history_retention_interval 1 day
+   end_processor
+   
+end_platform_type
+
+platform geo-sat WSF_PLATFORM
+   side green
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 42164 km   
+   end_mover
+end_platform
+
+platform single_source_angles_only_iod COMMANDER
+   edit comm comm1
+      network_name commander_net
+   end_comm
+end_platform
+
+platform two_source_angles_only_iod COMMANDER
+   edit comm comm1
+      network_name commander_net
+   end_comm
+end_platform
+
+observer
+   enable ORBIT_DETERMINATION_INITIATED
+   enable ORBIT_DETERMINATION_UPDATED
+   enable SIMULATION_COMPLETE 
+end_observer 
+
+script_variables
+   Set<WsfTrackId> gIOD_Tracks = {};
+   Set<WsfTrackId> gOD_Tracks  = {};
+   Map<WsfTrackId, double> gIOD_LoctionDifferences = {};
+end_script_variables
+
+script void OrbitDeterminationInitiated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack)
+   Vec3 truthLoc = aLocalTrack.Target().MakeTrack().CurrentLocation().LocationWCS();
+   Vec3 trackLoc = aLocalTrack.CurrentLocation().LocationWCS();
+   double IOD_LocationDifference = Vec3.Subtract(truthLoc, trackLoc).Magnitude();   
+   gIOD_Tracks.Insert(aLocalTrack.TrackId());
+   gIOD_LoctionDifferences.Set(aLocalTrack.TrackId(), IOD_LocationDifference);   
+end_script
+
+script void OrbitDeterminationUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack)
+   gOD_Tracks.Insert(aLocalTrack.TrackId());
+end_script
+
+script void SimulationComplete()
+   if ((gIOD_Tracks.Size() != 2) || (gOD_Tracks.Size() != 2))
+   { 
+      if (gIOD_Tracks.Size() != 2)
+      {
+         writeln("-FAIL- ( ", gIOD_Tracks.Size(), " IODs, expected 2 )");
+      }
+      if (gOD_Tracks.Size() != 2)
+      {
+         writeln("-FAIL- ( ", gOD_Tracks.Size(), " ODs, expected 2 )");
+      }
+   }
+   else
+   {
+      double maxDifference = 0.0;
+      bool withinTolerance = true;
+      foreach(WsfTrackId id : double locationDifference in gIOD_LoctionDifferences)
+      {
+         if ((locationDifference > 10.0) && (locationDifference > maxDifference))
+         {
+            maxDifference = locationDifference;
+            withinTolerance = false;
+         }
+      }
+      if (withinTolerance)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- ( max track-truth location difference: ", maxDifference, "; expected < 10.0 )"); 
+      }
+   }
+end_script
+
+start_date mar 20 2018
+start_time 12:08:06

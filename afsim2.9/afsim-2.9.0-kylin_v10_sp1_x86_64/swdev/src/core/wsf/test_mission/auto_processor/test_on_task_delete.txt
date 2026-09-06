@@ -1,0 +1,68 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the fact that a reference to a task in on_task_deleted is the same
+# as the one during on_task_assign.
+
+platform t WSF_PLATFORM
+
+   add processor task_proc WSF_TASK_PROCESSOR
+
+      script_variables
+         WsfTask mMyTask;
+      end_script_variables
+
+      script void on_task_assign(WsfTask task, WsfTrack track)
+         mMyTask = task;
+      end_script
+
+      script void on_task_cancel(WsfTask task)
+         # mMyTask is still valid, and should equal to task
+         if (mMyTask != task) writeln("-FAIL- Task reference mismatch");
+      end_script
+
+      script void on_platform_deleted()
+         if (! mMyTask.IsValid()) writeln("-FAIL- Task assignment never made");
+      end_script
+
+      evaluation_interval DETECTED 1 sec
+      state DETECTED
+         next_state ASSIGNED
+            SetTransitionTime(1.0);
+            return AssignTask(TRACK, "ENGAGE");
+         end_next_state
+      end_state
+
+      evaluation_interval ASSIGNED 1 sec
+      state ASSIGNED
+         next_state DONE
+            return CancelTask(TRACK.TrackId(), "ENGAGE");
+         end_next_state
+      end_state
+
+      evaluation_interval DONE 1 sec
+      state DONE
+      end_state
+   end_processor
+
+   track
+      position 0n 0e
+   end_track
+
+end_platform
+
+event_output
+   file STDOUT
+   enable TASK_ASSIGNED
+   enable TASK_COMPLETED
+   enable TASK_CANCELED
+end_event_output
+
+end_time 10 sec
+

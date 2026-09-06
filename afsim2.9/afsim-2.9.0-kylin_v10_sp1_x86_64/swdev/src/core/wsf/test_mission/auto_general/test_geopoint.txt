@@ -1,0 +1,268 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test cases for WsfGeoPoint
+
+include ../auto_script/test_functions.txt
+end_time 1 sec
+
+script void CheckLLA(string aTest, WsfGeoPoint aPoint, double aLat, double aLon, double aAlt)
+   double lat = aPoint.Latitude();
+   double lon = aPoint.Longitude();
+   double alt = aPoint.Altitude();
+   AssertWithinToleranceMessage(aLat, lat, 0.0001, aTest + "-lat");
+   AssertWithinToleranceMessage(aLon, lon, 0.0001, aTest + "-lon");
+   AssertWithinToleranceMessage(aAlt, alt, 0.01,   aTest + "-alt");
+end_script
+
+script void CheckLocationECI(WsfGeoPoint aPoint, Vec3 aLocationECI, double aTol)
+   Vec3 testLocECI = aPoint.LocationECI();
+   for(int i = 0; i < 3; i += 1)
+   {
+      AssertWithinToleranceMessage(aLocationECI.Get(i), testLocECI.Get(i), aTol, " ECI Location");
+   }     
+end_script
+
+on_initialize
+   WsfGeoPoint p1 = WsfGeoPoint();
+
+   // 111120 m ~= 1 deg at the equator...
+
+   // Extrapolation tests.
+
+   p1.Set(0, 0, 0);
+   p1.Extrapolate(   0.0, 111120.0);
+   CheckLLA("extrap-1", p1, 1.0, 0.0, 0.0);
+
+   p1.Set(0, 0, 0);
+   p1.Extrapolate( 360.0, 111120.0);
+   CheckLLA("extrap-2", p1, 1.0, 0.0, 0.0);
+
+   p1.Set(0, 0, 0);
+   p1.Extrapolate(  90.0, 111120.0);
+   CheckLLA("extrap-3", p1, 0.0, 1.0, 0.0);
+
+   p1.Set(0, 0, 0);
+   p1.Extrapolate(-270.0, 111120.0);
+   CheckLLA("extrap-4", p1, 0.0, 1.0, 0.0);
+
+   p1.Set(0, 0, 0);
+   p1.Extrapolate( 180.0, 111120.0);
+   CheckLLA("extrap-5", p1, -1.0, 0.0, 0.0);
+
+   p1.Set(0, 0, 0);
+   p1.Extrapolate(-180.0, 111120.0);
+   CheckLLA("extrap-6", p1, -1.0, 0.0, 0.0);
+
+   p1.Set(0, 0, 0);
+   p1.Extrapolate( 270.0, 111120.0);
+   CheckLLA("extrap-7", p1, 0.0, -1.0, 0.0);
+
+   p1.Set(0, 0, 0);
+   p1.Extrapolate( -90.0, 111120.0);
+   CheckLLA("extrap-8", p1, 0.0, -1.0, 0.0);
+
+
+   // Offset tests
+
+   p1.Set(0, 0, 0);
+   p1.Offset(   0.0, 111120, 0.0, 0.0);
+   CheckLLA("offset-1", p1, 1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   p1.Offset( 360.0, 111120, 0.0, 0.0);
+   CheckLLA("offset-2", p1, 1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   p1.Offset(  90.0, 111120, 0.0, 0.0);
+   CheckLLA("offset-3", p1, 0.0, 0.998107, 967.894);
+
+   p1.Set(0, 0, 0);
+   p1.Offset(-270.0, 111120, 0.0, 0.0);
+   CheckLLA("offset-4", p1, 0.0, 0.998107, 967.894);
+
+   p1.Set(0, 0, 0);
+   p1.Offset( 180.0, 111120, 0.0, 0.0);
+   CheckLLA("offset-5", p1, -1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   p1.Offset(-180.0, 111120, 0.0, 0.0);
+   CheckLLA("offset-6", p1, -1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   p1.Offset( 270.0, 111120, 0.0, 0.0);
+   CheckLLA("offset-7", p1, 0.0, -0.998107, 967.894);
+
+   p1.Set(0, 0, 0);
+   p1.Offset( -90.0, 111120, 0.0, 0.0);
+   CheckLLA("offset-8", p1, 0.0, -0.998107, 967.894);
+
+   // A tricker test... should end up about 1 deg north.
+   p1.Set(0, 0, 0);
+   p1.Offset(  45.0, 111120 / 1.414, -111120 / 1.414, 0.0);
+   CheckLLA("offset-9", p1, 1.00498, 0.0, 974.71);
+
+   // OffsetNED Tests.
+
+   p1.Set(0, 0, 0);
+   p1.OffsetNED(111120.0, 0.0, 0.0);
+   CheckLLA("offset-ned-n", p1, 1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   p1.OffsetNED(-111120.0, 0.0, 0.0);
+   CheckLLA("offset-ned-s", p1, -1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   p1.OffsetNED(0.0, 111120.0, 0.0);
+   CheckLLA("offset-ned-e", p1, 0.0, 0.998107, 967.894);
+
+   p1.Set(0, 0, 0);
+   p1.OffsetNED(0.0, -111120.0, 0.0);
+   CheckLLA("offset-ned-w", p1, 0.0, -0.998107, 967.894);
+
+   // Same as north case, but a slight z offset
+   // (very slight change in resulting lat/lon, but not significant)
+   p1.Set(0, 0, 0);
+   p1.OffsetNED(111120.0, 0.0, -10.0);
+   CheckLLA("offset-ned-na", p1, 1.00483, 0.0, 984.415);
+
+   // Same OffsetNED tests, only now with Vec3 form.
+
+   Vec3 vec3 = Vec3();
+   p1.Set(0, 0, 0);
+   vec3.Set(111120.0, 0.0, 0.0);
+   p1.OffsetNED(vec3);
+   CheckLLA("offset-nedv-n", p1, 1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   vec3.Set(-111120.0, 0.0, 0.0);
+   p1.OffsetNED(vec3);
+   CheckLLA("offset-nedv-s", p1, -1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   vec3.Set(0.0, 111120.0, 0.0);
+   p1.OffsetNED(vec3);
+   CheckLLA("offset-nedv-e", p1, 0.0, 0.998107, 967.894);
+
+   p1.Set(0, 0, 0);
+   vec3.Set(0.0, -111120.0, 0.0);
+   p1.OffsetNED(vec3);
+   CheckLLA("offset-nedv-w", p1, 0.0, -0.998107, 967.894);
+
+   // Same as north case, but a slight z offset
+   // (very slight change in resulting lat/lon, but not significant)
+   p1.Set(0, 0, 0);
+   vec3.Set(111120.0, 0.0, -10.0);
+   p1.OffsetNED(vec3);
+   CheckLLA("offset-nedv-na", p1, 1.00483, 0.0, 984.415);
+
+   // OffsetRBE tests
+   p1.Set(0, 0, 0);
+   p1.OffsetRBE(111120.0, 0.0, 0.0);
+   CheckLLA("offset-rbe-n", p1, 1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   p1.OffsetRBE(111120.0, 180.0, 0.0);
+   CheckLLA("offset-rbe-s", p1, -1.00483, 0.0, 974.415);
+
+   p1.Set(0, 0, 0);
+   p1.OffsetRBE(111120.0, 90.0, 0.0);
+   CheckLLA("offset-rbe-e", p1, 0.0, 0.998107, 967.894);
+
+   p1.Set(0, 0, 0);
+   p1.OffsetRBE(111120.0, 270.0, 0.0);
+   CheckLLA("offset-rbe-w", p1, 0.0, -0.998107, 967.894);
+
+   p1.Set(0, 0, 10000);
+   p1.OffsetRBE(5000.0, 0.0, 90.0);
+   CheckLLA("offset-rbe-u", p1, 0.0, 0.0, 15000.0);
+
+   p1.Set(0, 0, 10000);
+   p1.OffsetRBE(5000.0, 0.0, -90.0);
+   CheckLLA("offset-rbe-d", p1, 0.0, 0.0, 5000.0);
+
+   double el = 5.0;
+   double r = (Math.Sqrt(2) * 111120) / Math.Cos(el);
+   double h = r * Math.Sin(el);
+   p1.Set(0, 0, 0);
+   p1.OffsetRBE(r, 45.0, el);
+   CheckLLA("offset-rbe-d", p1, 1.00250, 0.99596, 15686.587);
+
+   // This is the same point used in the UtECI_Conversion "Epoch" code unit test
+   p1.SetWCS(Vec3.Construct(-1033479.383, 7901295.2754, 6380356.5958));
+   Vec3 locECI_Expected = Vec3.Construct(5102508.958, 6123011.401, 6378136.928);
+   CheckLocationECI(p1, locECI_Expected, 15.0); // More tolerance needed because polar offset angles 
+                                                // cannot be specified (no platform reference).
+   
+   // Test slant range (spherical and ellipsoidal)
+   WsfGeoPoint centerPoint = WsfGeoPoint.Construct(0, 0, 0);
+   
+   Array<WsfGeoPoint> testPoints = Array<WsfGeoPoint>();
+   testPoints.PushBack(WsfGeoPoint.Construct( 10,   0, 1000));
+   testPoints.PushBack(WsfGeoPoint.Construct(  0,  10, 1000));
+   testPoints.PushBack(WsfGeoPoint.Construct(-10,   0, 1000));
+   testPoints.PushBack(WsfGeoPoint.Construct(  0, -10, 1000));
+   
+   // Test: for a spherical system, all slant ranges should be equal
+   foreach (int i in {0, 1, 2, 3})
+   {
+      // modular workaround for 1-based indexing
+      WsfGeoPoint thisPoint = testPoints[i];
+      WsfGeoPoint testPoint = testPoints[MATH.Mod(i+1, 4)];
+      double thisSlantRange = thisPoint.SlantRangeTo(centerPoint, true);
+      double testSlantRange = testPoint.SlantRangeTo(centerPoint, true);
+      
+      AssertWithinToleranceMessage(thisSlantRange, testSlantRange, 5.0e-3, "Spherical slant ranges not within tolerance");
+   }
+   
+   // Test: for an ellipsoidal system, opposite slant ranges should be equal
+   foreach (int i in {0, 1, 2, 3})
+   {
+      WsfGeoPoint thisPoint = testPoints[i];
+      WsfGeoPoint testPoint = testPoints[MATH.Mod(i+2, 4)];
+      double thisSlantRange = thisPoint.SlantRangeTo(centerPoint, false);
+      double testSlantRange = testPoint.SlantRangeTo(centerPoint, false);
+      
+      AssertWithinToleranceMessage(thisSlantRange, testSlantRange, 5.0e-3, "Opposite ellipsoidal slant ranges not within tolerance");
+   }
+   
+   // Test: for an ellipsoidal system, adjacent slant ranges should be unequal
+   foreach (int i in {0, 1, 2, 3})
+   {
+      WsfGeoPoint thisPoint = testPoints[i];
+      WsfGeoPoint testPoint = testPoints[MATH.Mod(i+1, 4)];
+      double thisSlantRange = thisPoint.SlantRangeTo(centerPoint, false);
+      double testSlantRange = testPoint.SlantRangeTo(centerPoint, false);
+      
+      AssertOutsideToleranceMessage(thisSlantRange, testSlantRange, 5.0e-3, "Adjacent ellipsoidal slant ranges not outside tolerance");
+   }
+   
+end_on_initialize
+
+platform test WSF_PLATFORM
+   // This is the same point used in the UtECI_Conversion "Epoch" code unit test
+   geo_point test 38.801004800524n 97.451910795415e 3838437.145226241089 m // equivalent LLA of test point
+   on_initialize
+      WsfGeoPoint p2 = PLATFORM.GeoPoint("test");
+      p2.SetWCS(Vec3.Construct(-1033479.383, 7901295.2754, 6380356.5958));   
+      Vec3 locECI_Expected = Vec3.Construct(5102508.958, 6123011.401, 6378136.928);
+      CheckLocationECI(p2, locECI_Expected, 1.0); // Less tolerance needed because we have a platform reference
+                                                  // from which to retrieve the polar offset angles.
+   end_on_initialize
+end_platform
+
+global_environment
+   polar_offset_angles -0.140682 arcsecond 0.333309 arcsecond   
+end_global_environment
+
+delta_atomic_time 32
+delta_universal_time -0.439961 s
+
+start_date apr 6 2004
+start_time 07:51:28.386009

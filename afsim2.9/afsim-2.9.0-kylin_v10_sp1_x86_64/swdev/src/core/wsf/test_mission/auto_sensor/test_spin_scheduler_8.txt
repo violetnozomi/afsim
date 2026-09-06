@@ -1,0 +1,98 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# EZJA test case 8
+# Using random starting azimuth results in co-located sensors making detections
+# at different times
+
+include_once spin_scheduler_resources.txt
+include_once ../auto_script/test_functions.txt
+
+execute at_time .0001 sec absolute 
+   WsfSimulation.DeletePlatform("sam_1");   
+   WsfSimulation.DeletePlatform("200_ew_radar");
+end_execute
+
+script_struct detection 
+   script_variables 
+      double time = 0;
+      string name = "";
+   end_script_variables
+end_script_struct
+
+script_variables
+   Array<detection> detections1 = {};
+   Array<detection> detections2 = {};
+end_script_variables
+
+observer 
+   enable SENSOR_DETECTION_ATTEMPT 
+   enable SIMULATION_COMPLETE 
+end_observer
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   detection det = detection();
+   det.time = TIME_NOW;
+   det.name = aTarget.Name();
+   if (aPlatform.Name() == "case_8_1_ew_radar")
+   {
+      detections1.PushBack(det);
+   }
+   else if (aPlatform.Name() == "case_8_2_ew_radar")
+   {
+      detections2.PushBack(det);
+   }
+end_script
+
+script void SimulationComplete()
+   foreach (detection det1 in detections1)
+   {
+      foreach (detection det2 in detections2)
+      {
+         if (det1.name == det2.name)
+         {
+            AssertTrueMessage(det1.time != det2.time, "Same target detected at identical times");
+         }
+      }
+   }
+end_script
+
+platform case_8_1_ew_radar EW_RADAR
+   side blue
+   position 30:35n 81:30w
+      altitude 0.00 ft agl
+      heading 90 deg
+	  
+   edit sensor ew_radar
+      transmitter
+         frequency  150.0 mhz
+      end_transmitter
+   end_sensor
+end_platform
+platform case_8_2_ew_radar EW_RADAR
+   side blue
+   position 30:35n 81:30w
+      altitude 0.00 ft agl
+      heading 90 deg
+	  
+   edit sensor ew_radar
+      transmitter
+         frequency  150.0 mhz
+      end_transmitter
+   end_sensor
+end_platform
+
+#0 deg
+platform bomber_case_8_1 BOMBER 
+   position 30:35n 81:25w
+   
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+end_platform

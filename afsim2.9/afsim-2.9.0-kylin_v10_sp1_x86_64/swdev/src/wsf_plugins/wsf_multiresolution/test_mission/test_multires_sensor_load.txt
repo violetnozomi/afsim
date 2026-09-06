@@ -1,0 +1,94 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+sensor LOW_FIDELITY_SENSOR WSF_GEOMETRIC_SENSOR
+   on
+   frame_time    10 sec
+   reports_location
+   #internal_link data_mgr
+end_sensor
+
+sensor HIGH_FIDELITY_SENSOR WSF_GEOMETRIC_SENSOR
+   on
+   frame_time    0.1 sec
+   reports_location
+   #internal_link data_mgr
+end_sensor
+
+platform_type SIMPLE_FIGHTER WSF_PLATFORM
+   icon F-18  
+
+   mover WSF_AIR_MOVER
+      update_interval 30 sec
+   end_mover
+
+   multiresolution_sensor my_sensor WSF_MULTIRESOLUTION_SENSOR
+     model high_fidelity_sensor 
+        fidelity_range 0.5 1.0
+        sensor HIGH_FIDELITY_SENSOR
+        end_sensor
+     end_model
+    
+     add model low_fidelity_sensor
+        fidelity_range 0.0 0.5
+        sensor LOW_FIDELITY_SENSOR
+        end_sensor
+     end_model
+     fidelity 1.0
+   end_multiresolution_sensor
+end_platform_type
+
+platform test SIMPLE_FIGHTER
+  
+  multiresolution_sensor my_sensor
+     common
+        azimuth_field_of_view   -100.0 degrees 42.0 degrees
+        elevation_field_of_view  -80.0 degrees 64.0 degrees
+        maximum_range 100 nm
+     end_common
+  end_multiresolution_sensor
+  
+  on_initialize2
+    // Check that the correct sensor was loaded by checking its type
+    WsfSensor sensor = PLATFORM.Sensor("my_sensor");
+    if(sensor != NULL){
+      // Check type
+      if(!sensor.IsA_TypeOf("HIGH_FIDELITY_SENSOR")){
+        writeln("Wrong sensor. Expected HIGH_FIDELITY_SENSOR, got ", sensor.Type());
+        writeln("-FAIL-");
+      }
+      // Check that FOV was set with common block
+      if(sensor.FOV_MinimumAzimuth() != -100)
+      {
+         writeln("Wrong minimum azimuth FOV. Expected -100, got ", sensor.FOV_MinimumAzimuth());
+         writeln("-FAIL-");
+      }
+      if(sensor.FOV_MaximumAzimuth() != 42)
+      {
+         writeln("Wrong maximum azimuth FOV. Expected 42, got ", sensor.FOV_MaximumAzimuth());
+         writeln("-FAIL-");
+      }
+      if(sensor.FOV_MinimumElevation() != -80)
+      {
+         writeln("Wrong minimum elevation FOV. Expected -80, got ", sensor.FOV_MinimumElevation());
+         writeln("-FAIL-");
+      }
+      if(sensor.FOV_MaximumElevation() != 64)
+      {
+         writeln("Wrong maximum elevation FOV. Expected 64, got ", sensor.FOV_MaximumElevation());
+         writeln("-FAIL-");
+      }
+    } else {
+      writeln("No sensor with name my_sensor");
+      writeln("-FAIL-");
+    }
+  end_on_initialize2
+end_platform

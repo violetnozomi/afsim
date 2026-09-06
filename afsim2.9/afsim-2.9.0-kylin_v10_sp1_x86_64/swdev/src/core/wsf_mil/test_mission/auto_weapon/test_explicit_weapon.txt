@@ -1,0 +1,90 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test explicit weapon
+# Verify hit/miss counts and damage to ensure no ill effects from the AFSIM-206
+# fixes for implicit weapons.  A salvo is fired to test that legitimate misses
+# are still being counted correctly.
+#
+include_once ../auto_script/test_functions.txt
+
+test_feature wsf_mil
+
+end_time 2 min
+
+script_variables
+    int hit_count = 0;
+    int miss_count = 0;
+    int update_count = 0;
+    double target_damage = 0.0;
+end_script_variables
+
+platform_type target WSF_PLATFORM
+   icon Wedge
+end_platform_type
+
+platform tgt-1 target
+   position 1n 0e
+   script void on_damage_received()
+      update_count += 1;
+      target_damage = DamageFactor();
+   end_script
+end_platform
+
+platform_type missile WSF_PLATFORM
+   mover WSF_STRAIGHT_LINE_MOVER
+      average_speed 2500 kts
+   end_mover
+   processor fuse WSF_AIR_TARGET_FUSE
+   end_processor
+end_platform_type
+
+weapon_effects missile-effect WSF_SPHERICAL_LETHALITY
+   maximum_radius 101 m
+   minimum_radius 100 m
+end_weapon_effects
+
+platform launcher WSF_PLATFORM
+   position 0n 0e altitude 30 km
+   add weapon wpn WSF_EXPLICIT_WEAPON
+      launched_platform_type  missile
+      quantity 5
+      weapon_effects missile-effect
+      update_interval 1 sec
+   end_weapon
+   execute at_time 1 s absolute
+      Weapon("wpn").FireSalvo(WsfSimulation.FindPlatform("tgt-1").MakeTrack(),5);
+   end_execute
+end_platform
+
+observer
+    enable WEAPON_HIT
+    enable WEAPON_MISSED
+    enable SIMULATION_COMPLETE
+end_observer
+
+// WEAPON_HIT observer:  Count weapon hits
+script void WeaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+    hit_count += 1;
+end_script
+
+// WEAPON_MISS observer:  Count weapon misses
+script void WeaponMissed(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+    miss_count += 1;
+end_script
+
+// SIMULATION_COMPLETE observer:  Expect 1 hit, 4 misses, 1 update and 1.0 damage
+script void SimulationComplete()
+    bool success_hit = AssertEqualsMessage(1, hit_count, "weapon hit count incorrect");
+    bool success_miss = AssertEqualsMessage(4, miss_count, "weapon miss count incorrect");
+    bool success_update = AssertEqualsMessage(1, update_count, "damage update count incorrect");
+    bool success_damage = AssertDoubleEqualsMessage(1.0, target_damage, "target damage incorrect");
+    writePass(success_hit && success_miss && success_update && success_damage);
+end_script

@@ -1,0 +1,73 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+	int numMsgsRcvd = 0;
+end_script_variables
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+	extern int numMsgsRcvd;
+	numMsgsRcvd = numMsgsRcvd + 1;
+	writeln("Message received.");
+end_script
+
+observer
+	enable MESSAGE_RECEIVED
+end_observer
+
+comm WavelengthA_Radio WSF_RADIO_TRANSCEIVER
+	on
+	transmitter
+		wavelength 10 micron
+	end_transmitter
+end_comm
+
+comm WavelengthB_Radio WSF_RADIO_TRANSCEIVER
+	on
+	transmitter
+		wavelength 20 micron
+	end_transmitter
+end_comm
+
+platform TalkerOnWavelength_A WSF_PLATFORM
+	add comm talker_on_a WavelengthA_Radio
+	end_comm
+
+	execute at_time 10 seconds absolute
+		WsfMessage hello = WsfMessage();
+		PLATFORM.Comm("talker_on_a").SendMessage(hello, "ListenerOnWavelength_A", "listener_on_a");
+		PLATFORM.Comm("talker_on_a").SendMessage(hello, "ListenerOnWavelength_B", "listener_on_b");
+	end_execute
+end_platform
+
+platform ListenerOnWavelength_A WSF_PLATFORM
+	add comm listener_on_a WavelengthA_Radio
+	end_comm
+end_platform
+
+platform ListenerOnWavelength_B WSF_PLATFORM
+	add comm listener_on_b WavelengthB_Radio
+	end_comm
+end_platform
+
+execute at_time 20 seconds absolute
+	extern int numMsgsRcvd;
+
+	if (numMsgsRcvd != 1)
+	{
+		writeln("-FAIL-");
+	}
+	else
+	{
+		writeln("-PASS-");
+	}
+	WsfSimulation.Terminate();
+end_execute
+
+end_time 100 seconds

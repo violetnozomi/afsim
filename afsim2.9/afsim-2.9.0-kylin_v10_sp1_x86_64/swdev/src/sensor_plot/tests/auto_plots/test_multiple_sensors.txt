@@ -1,0 +1,105 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Test of sensor_plot when executing with multiple sensors
+define_path_variable CASE test_multiple_sensors
+
+# A simple radar with a couple of modes
+sensor TEST_RADAR WSF_RADAR_SENSOR
+
+   mode_template
+      frame_time                    10.0 sec
+
+      transmitter
+         power                      100.0 kw
+         frequency                  4000 mhz
+      end_transmitter
+
+      receiver
+         bandwidth                  0.02 mhz
+      end_receiver
+
+      reports_location 
+   end_mode_template
+
+   mode SEARCH end_mode
+   mode ACQUISITION end_mode
+end_sensor
+
+use_default_radar_frequencies true
+
+radar_signature TARGET_RADAR_SIG
+   constant 0 dbsm
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+end_platform_type
+
+# Sensing platform with two installations of the
+# simple radar but starting in different initial modes
+platform sensor WSF_PLATFORM
+   add sensor sensor_search TEST_RADAR
+   end_sensor
+   add sensor sensor_acquisition TEST_RADAR
+      initial_mode ACQUISITION   
+   end_sensor
+   position 00:00:00n  00:00:00w  altitude 0.0 m agl
+   heading 90 deg
+end_platform
+
+# Minimal target area to trigger a few detection attempts
+horizontal_map
+#   mode_name ACQUISITION
+   pd_map_file hm-test_radar_2_sensor_pd.pd
+   variable pd
+
+   target_region
+      down_range_limits  -1 km 1 km
+      down_range_step     2 km
+      cross_range_limits  -1 km 1 km
+      cross_range_step    2 km
+   end_target_region
+
+end_horizontal_map
+
+# Minimal route to trigger a few detection attempts
+platform FPA_TARGET TARGET_PLATFORM_TYPE
+end_platform
+
+flight_path_analysis
+#   mode_name ACQUISITION
+   target_platform_name FPA_TARGET
+   sample_interval 1.0 sec
+   path
+      position 1.0n 0e altitude 30000 ft
+      position 0.8n 0e
+   end_path
+
+   gnuplot_file fpa-path.plt
+   variable slant_range
+   variable pd
+
+end_flight_path_analysis
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, 
+                                   WsfSensor aSensor, 
+                                   WsfPlatform aTarget, 
+                                   WsfSensorInteraction aResult) 
+   # sensor_search should always be using the default SEARCH mode
+   # sensor_acquisition should always be using the initial_mode ACQUISITION                                                                     
+   if (((aSensor.Name() == "sensor_search")     && (aResult.ModeName() != "SEARCH")) || 
+       ((aSensor.Name() == "sensor_acquisition") && (aResult.ModeName() != "ACQUISITION")))    
+   { 
+      writeln("-FAIL-");
+   }                             
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT
+end_observer

@@ -1,0 +1,100 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date apr 15 2020
+start_time 12:00:00.000
+end_time 1 hr
+
+script_variables
+   bool gAnyFailure = false;
+end_script_variables
+
+script void ExpectBool(bool aValue, bool aExpected, string aMessage)
+   if (aValue != aExpected)
+   {
+      writeln("-FAIL- Mismatch in expected boolean value: ", aMessage);
+      gAnyFailure = true;
+   }
+end_script
+
+script void ExpectDouble(double aValue, double aExpected, double aTolerance, string aMessage)
+   if (Math.Fabs(aValue - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Mismatch in double value. Observed ", aValue,
+              ", Expected ", aExpected, ", Tolerance ", aTolerance,
+              ". ", aMessage);
+      gAnyFailure = true;
+   }
+end_script
+
+execute at_time 0.1 s absolute
+   WsfLibrationPoint eml = WsfLibrationPoint.Construct(WsfLibrationPointSystem.EARTH_MOON());
+   ExpectBool(eml.System() == WsfLibrationPointSystem.EARTH_MOON(), true, "System is Earth-Moon");
+   ExpectBool(eml.System() != WsfLibrationPointSystem.SUN_EARTH(), true, "System should not be Sun-Earth");
+   
+   WsfLibrationPoint sel = WsfLibrationPoint.Construct(WsfLibrationPointSystem.SUN_EARTH());
+   ExpectBool(sel.System() == WsfLibrationPointSystem.SUN_EARTH(), true, "System is Sun-Earth");
+   ExpectBool(sel.System() != WsfLibrationPointSystem.EARTH_MOON(), true, "System should not be Earth-Moon");
+   
+   WsfLibrationPoint sjl = WsfLibrationPoint.Construct(WsfLibrationPointSystem.SUN_JUPITER());
+   ExpectBool(sjl.System() == WsfLibrationPointSystem.SUN_JUPITER(), true, "System is Sun-Jupiter");
+   ExpectBool(sjl.System() != WsfLibrationPointSystem.EARTH_MOON(), true, "System should not be Earth-Moon");
+end_execute
+
+execute at_interval_of 5 min
+   WsfLibrationPoint eml = WsfLibrationPoint.Construct(WsfLibrationPointSystem.EARTH_MOON());
+   
+   Calendar now = WsfDateTime.CurrentTime();
+   Vec3 moonNow = Moon.LocationECI(now);
+   Vec3 earthNow = Vec3.Construct(0.0, 0.0, 0.0);
+   Vec3 posDiff = Vec3.Subtract(moonNow, earthNow);
+   
+   Vec3 l1Pos = eml.LocationECI(WsfLibrationPointSelection.L1(), now);
+   ExpectDouble(Vec3.Dot(l1Pos, posDiff) / (posDiff.Magnitude() * l1Pos.Magnitude()),
+                1.0,
+                1.0e-6,
+                "L1 is colinear");
+
+   Vec3 l2Pos = eml.LocationECI(WsfLibrationPointSelection.L2(), now);
+   ExpectDouble(Vec3.Dot(l2Pos, posDiff) / (posDiff.Magnitude() * l2Pos.Magnitude()),
+                1.0,
+                1.0e-6,
+                "L2 is colinear");
+   
+   Vec3 l3Pos = eml.LocationECI(WsfLibrationPointSelection.L3(), now);
+   ExpectDouble(Vec3.Dot(l3Pos, posDiff) / (posDiff.Magnitude() * l3Pos.Magnitude()),
+                -1.0,
+                1.0e-6,
+                "L3 is colinear");
+   
+   Vec3 l4Pos = eml.LocationECI(WsfLibrationPointSelection.L4(), now);
+   ExpectDouble(Vec3.Subtract(l4Pos, moonNow).Magnitude(), posDiff.Magnitude(), 1.0e-6,
+                "L4 equilateral at time " + (string)TIME_NOW);
+   
+   Vec3 l5Pos = eml.LocationECI(WsfLibrationPointSelection.L5(), now);
+   ExpectDouble(Vec3.Subtract(l5Pos, moonNow).Magnitude(), posDiff.Magnitude(), 1.0e-6,
+                "L5 equilateral at time " + (string)TIME_NOW);
+   
+   Vec3 moonPositionRF = Vec3.Construct(posDiff.Magnitude(), 0.0, 0.0);
+   Vec3 moonPositionECI = eml.TransformRF_PositionToECI(now, moonPositionRF);
+   ExpectDouble(moonPositionECI.X(), moonNow.X(), 1.0e-6, "Moon X position matching after transform");
+   ExpectDouble(moonPositionECI.Y(), moonNow.Y(), 1.0e-6, "Moon Y position matching after transform");
+   ExpectDouble(moonPositionECI.Z(), moonNow.Z(), 1.0e-6, "Moon Z position matching after transform");
+end_execute
+
+script void FinalReport()
+   if (!gAnyFailure)
+   {
+      writeln("SUCCESS - All tests passed.");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE FinalReport
+end_observer

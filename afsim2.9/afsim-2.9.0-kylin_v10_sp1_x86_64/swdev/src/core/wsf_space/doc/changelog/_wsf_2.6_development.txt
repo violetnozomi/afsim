@@ -1,0 +1,14 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.6.2)** Corrected an error in the matrix multiplication order in ``UtECI_Conversion`` for the True-of-Date (TOD) to WCS conversion when using polar angle offsets. *(AFSIM-297)*
+* **(2.6.2)** Corrected the issue of handling time-reversed updates in ``ut::OrbitalState``. Prior to this change, the ECI conversion would be updated only if the new time came after the old time, but some script methods update bidirectionally in time. *(AFSIM-298)*
+* Modified ``UtOrbitalPropagator`` to internally utilize the Geocentric Celestial Reference Frame (GCRF, introduced in :doc:`AFSIM 2.5<../changelog/wsf_2.5>`) for propagation. *(Issue #1837)*
+* Refactored space software architecture to utilize orbital states to better encapsulate orbital propagation.  An Orbital state representation can be either an orbital state vector, which contains a position and velocity, or it can be a set of orbital elements (see ``UtOrbitalElements``).  Orbital states are referenced to a particular epoch, or instant in time, as represented by a ``UtCalendar`` object, as well as a particular coordinate system (equatorial or ecliptic), and inertial reference frame. *(Issue #1863)*
+* Provided explicit central body representations so that they can be specified as the gravitating body for orbital propagators, as well as provide the ellipsoidal representation for computing LLA values from ellipsoid-centered locations. *(Issue #1863)*

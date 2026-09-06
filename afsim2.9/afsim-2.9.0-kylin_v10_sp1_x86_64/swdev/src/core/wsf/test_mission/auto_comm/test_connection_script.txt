@@ -1,0 +1,74 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   WsfPlatform a;
+   WsfMessage message = WsfMessage();
+   message.SetSizeInBits(100);
+   int num_messages = 0;
+end_script_variables
+
+end_time 15 s
+
+comm TESTCOMM WSF_COMM_TRANSCEIVER
+   network_name test1
+end_comm
+
+processor MESSAGE_PROC WSF_SCRIPT_PROCESSOR
+   on_message type WSF_MESSAGE
+      script
+         #writeln(PLATFORM.Name() + ", incoming message, from " + MESSAGE.Originator() + ", at time " + (string)TIME_NOW + " seconds");
+         #writeln(MESSAGE.Type());
+         num_messages = num_messages + 1;
+      end_script
+   end_on_message
+end_processor
+
+platform_type TESTPLAT WSF_PLATFORM
+   add processor msg1 MESSAGE_PROC
+   end_processor
+   add comm test_comm TESTCOMM
+      internal_link msg1
+   end_comm
+end_platform_type
+
+platform plat1 TESTPLAT
+end_platform
+
+platform plat2 TESTPLAT
+end_platform
+
+execute at_time 1 s absolute
+   a = WsfSimulation.FindPlatform("plat1");
+   WsfAddress address = WsfSimulation.FindPlatform("plat2").Comm("test_comm").GetAddress();
+   a.Comm("test_comm").SendMessage(message, "plat2", "test_comm");      // Succeeds
+   a.Comm("test_comm").DisableConnection(address);
+end_execute
+
+execute at_time 5 s absolute
+   WsfAddress address = WsfSimulation.FindPlatform("plat2").Comm("test_comm").GetAddress();
+   a.Comm("test_comm").SendMessage(message, "plat2", "test_comm");      // Fails
+   a.Comm("test_comm").EnableConnection(address);
+end_execute
+
+execute at_time 10 s absolute
+   a.Comm("test_comm").SendMessage(message, "plat2", "test_comm");      // Succeeds
+end_execute
+
+execute at_time 12 s absolute
+   if(num_messages == 2)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+

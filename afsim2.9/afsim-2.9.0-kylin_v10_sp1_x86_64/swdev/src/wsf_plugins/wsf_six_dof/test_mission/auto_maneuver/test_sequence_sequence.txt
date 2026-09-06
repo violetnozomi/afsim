@@ -1,0 +1,123 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 300 s
+
+script_variables
+   bool skipOne = true;
+   int visits = 0;
+   bool allPassed = true;
+end_script_variables
+
+script bool TestSatisfy(double aAssignTime, WsfRigidBodySixDOF_Mover aMover)
+   allPassed = ExpectDouble(MATH.NormalizeAngle0_360(aMover.Platform().Heading()), 180.0, 3.0, "Should be headed south") && allPassed;
+   visits += 1;
+   return !skipOne;
+end_script
+
+script double TestNextTime(double aAssignTime, WsfRigidBodySixDOF_Mover aMover)
+   skipOne = false;
+   visits += 1;
+   return TIME_NOW + 10.0;
+end_script
+
+# This returns a 'ZigZag' maneuver
+script WsfSixDOF_Maneuver ZigZag(bool aDebug)
+   WsfSixDOF_RollAngleManeuver zig = WsfSixDOF_RollAngleManeuver.Construct(60.0);
+   zig.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(20.0));
+   zig.SetDebug(aDebug);
+   
+   # Allow a little extra time to roll back to level
+   WsfSixDOF_RollAngleManeuver zag = WsfSixDOF_RollAngleManeuver.Construct(-60.0);
+   zag.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(20.5));
+   zag.SetDebug(aDebug);
+   
+   WsfSixDOF_RollAngleManeuver done = WsfSixDOF_RollAngleManeuver.Construct(0.0);
+   done.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_ROLL_ANGLE(0.0));
+   done.SetDebug(aDebug);
+   
+   WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+   sqn.Append(zig);
+   sqn.Append(zag);
+   sqn.Append(done);
+   
+   return sqn;
+end_script
+
+# This returns a 'Vertical 180' manuever. After executing this maneuver the
+# platform will be flying in roughly the opposite direction at a higher altitude.
+script WsfSixDOF_Maneuver Vertical180(double aDebug)
+   WsfSixDOF_RollDeltaManeuver nospin = WsfSixDOF_RollDeltaManeuver.Construct(0.0);
+   nospin.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.SCRIPT("TestSatisfy", "TestNextTime"));
+   nospin.SetDebug(aDebug);
+   
+   WsfSixDOF_PitchGLoadManeuver mvr = WsfSixDOF_PitchGLoadManeuver.Construct(8.0);
+   mvr.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(3.0));
+   mvr.SetDebug(aDebug);
+   
+   WsfSixDOF_PitchGLoadManeuver release = WsfSixDOF_PitchGLoadManeuver.Construct(0.0);
+   release.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_FLIGHT_PATH_ANGLE(12.0));
+   release.SetDebug(aDebug);
+   
+   WsfSixDOF_RollAngleManeuver up = WsfSixDOF_RollAngleManeuver.Construct(0.0);
+   up.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_ROLL_ANGLE(0.0));
+   up.SetDebug(aDebug);
+   
+   WsfSixDOF_FlightPathAngleManeuver flat = WsfSixDOF_FlightPathAngleManeuver.Construct(0.0);
+   flat.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(20.0));
+   flat.SetDebug(aDebug);
+   
+   WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+   sqn.Append(nospin);
+   sqn.Append(mvr);
+   sqn.Append(release);
+   sqn.Append(up);
+   sqn.Append(flat);
+   
+   return sqn;
+end_script
+
+platform TEST_AIRCRAFT FA-LGT_RB6
+   side blue
+   route
+      position   21.325n   158.000w  altitude   10000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   10000.0 ft   speed  450.0 kts
+   end_route
+   
+   execute at_time 10 sec absolute
+      WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+      sqn.Append(ZigZag(false));
+      sqn.Append(Vertical180(false));
+      sqn.Append(ZigZag(false));
+      
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      mov.ExecuteManeuver(sqn);
+   end_execute
+   
+   execute at_time 150.0 s absolute
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      allPassed = ExpectDouble(PLATFORM.Heading(), 0.0, 8.0, "TEST_AIRCRAFT should be flying basically north") && allPassed;
+      allPassed = ExpectInt(visits, 3, "There should have been three visits to global scripts") && allPassed;
+   end_execute
+   
+   execute at_time 160 s absolute
+      if (allPassed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }   
+   end_execute      
+   
+end_platform

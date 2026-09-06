@@ -1,0 +1,176 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   double GEO_ALTITUDE_IN_METERS = 35786*1000;
+   double GEO_ECI_DISTANCE_IN_METERS = Earth.EQUATORIAL_RADIUS() + GEO_ALTITUDE_IN_METERS;   
+end_script_variables
+
+platform_type SITE_COMMANDER WSF_PLATFORM
+   side blue
+   icon pentagon
+   
+   comm comm WSF_COMM_TRANSCEIVER
+      internal_link track_processor
+   end_comm
+
+   track_manager
+      retain_raw_tracks
+      retain_track_history
+
+      fusion_method orbit_determination
+         process_noise_sigmas_XYZ 1 1 1 
+         //debug # This debug needs to be activated to print track-truth range different values
+      end_fusion_method
+   end_track_manager
+
+   processor track_processor WSF_TRACK_PROCESSOR
+      on  
+      master_track_processor
+   end_processor
+   
+end_platform_type
+
+sensor TELESCOPE WSF_GEOMETRIC_SENSOR
+   on
+   slew_mode both
+
+   azimuth_slew_limits -180 degrees 180 degrees   
+   elevation_slew_limits 15 degrees 90 degrees
+
+   # Set a maximum range to control the length of the sensor cone shown in the Result Viewer
+   maximum_range 40000 km
+
+   # Large field of view to guarantee the satellite is observed without having to fine-tune pointing.
+   field_of_view rectangular
+      azimuth_field_of_view -80 degrees 80 degrees
+      elevation_field_of_view -80 degrees 80 degrees
+   end_field_of_view
+
+   frame_time 16 seconds
+   reports_bearing
+   reports_elevation
+   azimuth_error_sigma   0.0000000001 degrees // near-perfect detections
+   elevation_error_sigma 0.0000000001 degrees
+
+   reports_range
+   range_error_sigma 0.0000001 m
+end_sensor
+
+
+# The telescope platform
+platform_type TELESCOPE_PLATFORM WSF_PLATFORM
+   icon pentagon
+   side blue
+   
+   comm comm WSF_COMM_TRANSCEIVER
+   end_comm
+
+   processor track_reporter WSF_LINKED_PROCESSOR
+      report_to commander via comm
+   end_processor
+
+   sensor telescope_sensor TELESCOPE
+      on
+      processor observation_processor
+   end_sensor
+
+   # Local constants
+   script_variables
+      string TELESCOPE_SENSOR = "telescope_sensor";
+      string TRACK_REPORTER = "track_reporter";
+   end_script_variables
+   
+   # Processor to process an observation of the satellite.
+   processor observation_processor WSF_TRACK_PROCESSOR
+      track_manager   
+      end_track_manager
+      non_master_track_processor
+      
+      on_message
+         type WSF_TRACK_MESSAGE
+         script
+            PROCESSOR.SendMessage(MESSAGE, TRACK_REPORTER);            
+         end_script
+      end_on_message
+   end_processor
+
+   
+   # Telescope's on_initialize2
+   on_initialize2 
+      WsfSensor telescope = Sensor(TELESCOPE_SENSOR);
+      
+      Vec3 straightUp = LocationWCS().Normal();
+      straightUp.Scale(GEO_ECI_DISTANCE_IN_METERS);      
+      telescope.CueToWCS(straightUp);   
+   
+   end_on_initialize2
+
+end_platform_type
+
+##### Intro simulation parameters
+start_epoch 19149.2
+end_time 1 hour
+
+##### Set up the satellite
+optical_signature sig WSF_SPACE_OPTICAL_SIGNATURE
+   state default
+     surface sphere
+       radius 20 m
+     end_surface
+end_optical_signature
+
+platform_type BASIC_SATELLITE WSF_PLATFORM
+   icon satellite
+   side green
+   optical_signature sig
+end_platform_type
+
+platform satellite BASIC_SATELLITE
+   add mover WSF_SPACE_MOVER
+         semi_major_axis 42164 km
+         eccentricity 0
+         inclination 0 deg
+         raan 0 deg
+         argument_of_periapsis 0 deg
+         true_anomaly 200 deg
+   end_mover
+end_platform
+
+##### Set up the site commander
+platform site_commander SITE_COMMANDER
+   position 20.708n   156.257w
+   altitude 3052 m
+end_platform
+
+##### Set up the telescope
+platform search_telescope TELESCOPE_PLATFORM
+   position 20.708n   156.257w
+   altitude 3052 m
+   commander site_commander
+end_platform
+
+observer
+   enable LOCAL_TRACK_UPDATED 
+end_observer
+
+script void LocalTrackUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack)
+   if (aPlatform.Name() == "site_commander")
+   {
+      if (aLocalTrack.LocationValid() && (TIME_NOW > 100))
+      {
+         Vec3 trackLocWCS = aLocalTrack.CurrentLocation().LocationWCS();
+         Vec3 truthLocWCS = WsfSimulation.FindPlatform("satellite").LocationWCS();
+         Vec3 diff = Vec3.Subtract(trackLocWCS, truthLocWCS);
+         double diffMag = diff.Magnitude();
+         static double cTOLERANCE = 5.0; // m
+         if (diffMag > cTOLERANCE) writeln (TIME_NOW, "-FAIL-", diffMag);
+      }
+   }    
+end_script

@@ -1,0 +1,70 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+include types.txt
+
+dis_interface
+   application 2
+
+   # Publish the 'X coordinate' of 'Other Aircraft Control Surfaces'
+   articulated_part 737 radar_sig_scale_part 1248
+      publish x                                  # parameter type 1253 = 1248 + 5
+   end_articulated_part
+
+   entity_position_threshold 0.1 m
+end_dis_interface
+
+event_output
+   file blue.evt
+end_event_output
+
+platform 737-1 737
+   side blue
+   route
+      position 40n 88w altitude 40000 ft speed 450 kts heading 270 deg
+   end_route
+
+   # ==========================================================================
+   # BEGIN - Test interface.
+   #
+   # This code is only for testing. You do not need to include this in your
+   # platform_type definition.
+
+   add visual_part radar_sig_scale_part WSF_VISUAL_PART
+   end_visual_part
+
+   script void ScaleRadarSig(double aScaleFactor)
+      writeln("T=", TIME_NOW, " ", Name(), " ScaleRadarSig ");
+      WsfVisualPart part = VisualPart("radar_sig_scale_part");
+      if (part.IsValid())
+      {
+         part.SetXYZ(aScaleFactor, 0.0, 0.0);
+         writeln("  Radar signature scale factor is now ", part.X());
+      }
+      else
+      {
+         writeln("***** ERROR: could not find radar_sig_scale_part");
+      }
+   end_script
+
+   # END - Test interface.
+   # ==========================================================================
+
+   # NOTE: The order is important. We must force changes that exceed the
+   #       dead reckoning threshold. Our DIS interface won't force an update
+   #       unless the threshold has been exceeded.
+
+   execute at_time  12.5 secs relative  ScaleRadarSig(100.0); end_execute
+   execute at_time  17.5 secs relative  ScaleRadarSig(0.100); end_execute
+   execute at_time  22.5 secs relative  ScaleRadarSig(10.00); end_execute
+   execute at_time  27.5 secs relative  ScaleRadarSig(0.010); end_execute
+   execute at_time  32.5 secs relative  ScaleRadarSig(1.000); end_execute
+
+end_platform

@@ -1,0 +1,47 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+   sensor radar XWSF_SALRAM_SENSOR
+      namelist_file ../../data/radars/salram_sinx_trk.dat
+      reports_range
+   end_sensor
+end_platform_type
+
+# -----------------------------------------------------------------------------
+
+radar_signature TARGET_RADAR_SIG
+   constant -10 dbsm
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+end_platform_type
+
+# -----------------------------------------------------------------------------
+
+radar_lookup_table
+   output_name sinx_trk
+   
+   altitudes from   100 ft to   500 ft by   100 ft
+   altitudes from  1000 ft to  9000 ft by  1000 ft
+   altitudes from 10000 ft to 25000 ft by  5000 ft
+   altitudes from 30000 ft to 60000 ft by 10000 ft
+
+   ranges    from    250 m to  49750 m by  250 m
+   ranges    from  50000 m to 149500 m by  500 m
+   ranges    from 150000 m to 349000 m by 1000 m
+   ranges    from 350000 m to 650000 m by 2000 m
+
+   altitude_units kft
+   range_units    m
+
+end_radar_lookup_table

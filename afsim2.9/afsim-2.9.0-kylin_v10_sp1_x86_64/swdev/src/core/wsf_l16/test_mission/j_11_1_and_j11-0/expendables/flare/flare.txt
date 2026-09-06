@@ -1,0 +1,70 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# *******************************************************************************************
+# File Log
+# 11/11/15 - J.Iffrig - This is a very basic unguided expendable used to simulate a flare.
+# ******************************************************************************************
+
+aero INITIAL_FLARE_AERO WSF_AERO
+   reference_area      0.1 ft^2
+   zero_lift_cd        0.5
+   cl_max             0.25    # unknown
+   aspect_ratio        0.25    # unknown
+end_aero
+
+weapon_effects FLARE_EFFECT WSF_SPHERICAL_LETHALITY
+  allow_incidental_damage
+  minimum_radius   .10 m
+  maximum_radius   .15 m
+  maximum_damage   0.1
+  minimum_damage   0.0
+  remove_weapon_platform true
+end_weapon_effects
+
+platform_type FLARE WSF_PLATFORM
+   icon flare
+   weapon_effects FLARE_EFFECT
+#
+#   script void detonateFlare (WsfWeaponFuse fuse)
+#      PLATFORM.SetIndestructible(true);
+#      fuse.Detonate("far_away_ground_impact"); #DMO standard required 5 be the detonation result. The code should put 5 in for this reason.
+#   end_script
+#   
+   mover WSF_UNGUIDED_MOVER
+      aero INITIAL_FLARE_AERO
+      total_mass 2 lbs
+   end_mover
+   
+   processor weapon_fuse WSF_WEAPON_FUSE
+      maximum_time_of_flight 10 sec
+   end_processor
+   
+   on_initialize
+      PLATFORM.SetAppearance(17, 2, 1);
+   end_on_initialize
+
+#   on_update
+#      ExecuteAtTime(10, "detonateFlare");
+#   end_on_update
+
+
+end_platform_type
+
+weapon FLARE WSF_EXPLICIT_WEAPON
+   launched_platform_type FLARE
+   
+   update_interval 1 sec 
+   
+end_weapon
+
+
+
+
+

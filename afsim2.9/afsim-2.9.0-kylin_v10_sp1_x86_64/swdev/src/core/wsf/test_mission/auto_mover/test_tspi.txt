@@ -1,0 +1,189 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_debug_writes off
+
+console_output 
+   developer on
+end_console_output
+
+include ../auto_script/test_pass.txt
+include ../auto_script/test_functions.txt
+
+script_variables
+   PassTestCount = 120;
+end_script_variables
+
+script void TestTSPI(WsfPlatform aPlatform,
+                     double aLat, double aLon, double aAlt, double aSpeed,
+                     double aHdg, double aPitch, double aRoll)
+   if (AssertDoubleEqualsMessage(aLat, aPlatform.Latitude(), "Latitude"))   pass();
+   if (AssertDoubleEqualsMessage(aLon, aPlatform.Longitude(), "Longitude"))  pass();
+   if (AssertDoubleEqualsMessage(aAlt, aPlatform.Altitude() * MATH.FT_PER_M(), "Altitude")) pass();
+   if (AssertDoubleEqualsMessage(aSpeed, aPlatform.Speed(), "Speed")) pass();
+   if (AssertDoubleEqualsMessage(aHdg, aPlatform.Heading() * MATH.RAD_PER_DEG(), "Heading")) pass();
+   if (AssertDoubleEqualsMessage(aPitch, aPlatform.Pitch() * MATH.RAD_PER_DEG(), "Pitch")) pass();
+   if (AssertDoubleEqualsMessage(aRoll, aPlatform.Roll() * MATH.RAD_PER_DEG(), "Roll")) pass();
+
+   writeln_d("T=", TIME_NOW,                                // time            [seconds]
+         ", ", aPlatform.Name(),
+         ", ", aPlatform.Latitude(),                        // latitude        [degrees]
+         ", ", aPlatform.Longitude(),                       // longitude       [degrees]
+         ", ", aPlatform.Altitude() * MATH.FT_PER_M(),      // altitude        [feet]
+         ", ", aPlatform.Speed(),                           // speed           [meters / sec]
+         ", ", aPlatform.Heading() * MATH.RAD_PER_DEG(),    // heading         [radians]
+         ", ", aPlatform.Pitch() * MATH.RAD_PER_DEG(),      // pitch           [radians]
+         ", ", aPlatform.Roll() * MATH.RAD_PER_DEG()        // roll            [radians]
+      );
+
+end_script
+
+
+platform_type AIRCRAFT WSF_PLATFORM
+   mover WSF_TSPI_MOVER
+      # Configure the TSPI reader to use BLUEMAX conventions
+      altitude in feet
+      roll inverted
+      filename ../auto_mover/tspi_data.tspi
+   end_mover
+
+   execute at_time 10 seconds relative
+      # degrees, degrees, feet, meters/second, radians, radians, radians
+      TestTSPI(PLATFORM, -1.96067, -2.00000, 32625.7, 434.8, -0.00000, 0.01546, -0.00000);
+   end_execute
+
+   execute at_time 3030 seconds relative
+      # degrees, degrees, feet, meters/second, radians, radians, radians
+     TestTSPI(PLATFORM, 0.96207,-0.81895, 13123.3, 318.4, -2.44527, 0.02975, -0.70135);
+   end_execute
+end_platform_type
+
+platform test_remove AIRCRAFT
+   creation_time 0 sec
+   at_end_of_path remove
+end_platform
+
+platform test_stop AIRCRAFT
+   creation_time 100 sec
+   at_end_of_path stop
+end_platform
+
+platform test_extrap AIRCRAFT
+   creation_time 200 sec
+   at_end_of_path extrapolate
+end_platform
+
+platform test_extrap_default AIRCRAFT
+   creation_time 300 sec
+end_platform
+
+platform test_extrap_on AIRCRAFT
+   creation_time 400 sec
+   extrapolation true
+end_platform
+
+platform test_extrap_off AIRCRAFT
+   creation_time 500 sec
+   extrapolation false
+end_platform
+
+platform test_stop-2 AIRCRAFT
+   creation_time 600 sec
+   extrapolation false
+end_platform
+
+platform test_interpolate AIRCRAFT
+   execute at_time 0.9 sec absolute
+      if (AssertWithinToleranceMessage(-1.99637, PLATFORM.Latitude(), 0.0001, "Latitude Check")) pass();
+   end_execute
+end_platform
+
+#  This is to test the translate_and_rotate function in the TSPI_Mover.
+#  There is no fail mode, the result has to be visually confirmed via replay file.
+platform_type RELOC_AND_ROT_AIRCRAFT WSF_PLATFORM
+   mover WSF_TSPI_MOVER
+      # Configure the TSPI reader to use BLUEMAX conventions
+      altitude in feet
+      roll inverted
+      filename ../auto_mover/tspi_data.tspi
+      at_end_of_path stop
+   end_mover
+end_platform_type
+
+platform reloc_and_rot_1 RELOC_AND_ROT_AIRCRAFT
+   edit mover
+      relocate_and_rotate
+         great_circle_heading_at_anchor_point 30 deg
+         #align_to_great_circle_through 37n 109w
+         terminal_endpoint_anchor  37n 109w
+         #initial_endpoint_anchor
+      end_relocate_and_rotate
+   end_mover
+
+   # check initial heading
+   execute at_time 0.001 sec absolute
+      if (AssertWithinToleranceMessage(MATH.NormalizeAngleMinus180_180(317.2969), PLATFORM.Heading(), 0.004, "Heading Check rr1")) pass();
+   end_execute
+
+   # check pitch and roll into the flight
+   execute at_time 3030 sec absolute
+      # Not testing heading here
+      if (AssertWithinToleranceMessage(0.02975, PLATFORM.Pitch() * MATH.RAD_PER_DEG(), 0.004, "Pitch Check rr1")) pass();
+      if (AssertWithinToleranceMessage(-0.70135, PLATFORM.Roll() * MATH.RAD_PER_DEG(), 0.004, "Roll Check rr1")) pass();
+   end_execute
+
+   # check terminal anchor location
+   execute at_time 4800 sec absolute
+      if (AssertWithinToleranceMessage(37, PLATFORM.Latitude(), 0.004, "Latitude Check rr1")) pass();
+      if (AssertWithinToleranceMessage(-109, PLATFORM.Longitude(), 0.004, "Longitude Check rr1")) pass();
+   end_execute
+end_platform
+
+platform reloc_and_rot_2 RELOC_AND_ROT_AIRCRAFT
+   edit mover
+         relocate_and_rotate
+         great_circle_heading_at_anchor_point 90 deg
+         #align_to_great_circle_through 38n 110w
+         terminal_endpoint_anchor  37n 109w
+         #initial_endpoint_anchor
+      end_relocate_and_rotate
+   end_mover
+
+   # check initial heading
+   execute at_time 0.001 sec absolute
+      if (AssertWithinToleranceMessage(16.0515, PLATFORM.Heading(), 0.004, "Heading Check rr2")) pass();
+   end_execute
+
+end_platform
+
+platform reloc_and_rot_3 RELOC_AND_ROT_AIRCRAFT
+   edit mover
+      relocate_and_rotate
+         initial_endpoint_anchor  37n 109w
+         align_to_great_circle_through 38n 109w
+      end_relocate_and_rotate
+   end_mover
+
+   on_initialize2
+      AssertWithinToleranceMessage(37., PLATFORM.Latitude(), 0.004, "Latitude rr3");
+      AssertWithinToleranceMessage(-109., PLATFORM.Longitude(), 0.004, "Longitude rr3");
+      AssertWithinToleranceMessage(32808.4, PLATFORM.Altitude() * MATH.FT_PER_M(), 0.1, "Altitude rr3");
+      AssertEqualsMessage(448.3, PLATFORM.Speed(),"Speed rr3");
+      AssertWithinToleranceMessage(MATH.NormalizeAngleMinus180_180(288.404), PLATFORM.Heading(), 0.004, "Heading rr3");
+      AssertEqualsMessage(0.03210, PLATFORM.Pitch() * MATH.RAD_PER_DEG(), "Pitch rr3");
+      AssertEqualsMessage(-0.00000, PLATFORM.Roll() * MATH.RAD_PER_DEG(), "Roll rr3");
+   end_on_initialize2
+
+   # check initial heading
+   execute at_time 0.001 sec absolute
+      if (AssertWithinToleranceMessage(MATH.NormalizeAngleMinus180_180(288.404), PLATFORM.Heading(), 0.004, "Heading Check rr3")) pass();
+   end_execute
+end_platform
+
+end_time 4800 sec

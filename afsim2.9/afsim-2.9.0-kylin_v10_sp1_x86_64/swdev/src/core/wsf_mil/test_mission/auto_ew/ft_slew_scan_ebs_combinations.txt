@@ -1,0 +1,364 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test False Target location correctness for all combinations of
+#
+# scan_mode                   {none, azimuth, elevation, asimuth_and_elevation}
+# slew_mode                   {none, azimuth, elevation, asimuth_and_elevation}
+# electronic_beam_steeringing {none, azimuth, elevation, asimuth_and_elevation}
+#
+# Note: some combination (eg. no azimuth scan) consilidate false targets about the heading
+#       of the radar, while some (eg. scan azimuth) create false targets about the scan limits
+#
+
+include_once ../auto_script/test_functions.txt
+
+end_time 30 sec
+
+script_variables
+   bool globalPass = true;
+   int  globalReportingTotal = 0;
+   int  globalReportingLeft = 0;
+end_script_variables
+
+weapon generalWeapon WSF_EXPLICIT_WEAPON
+   quantity 64
+   script void on_create(WsfPlatform aPlat, WsfTrack aTrack)
+      extern int globalReportingTotal;
+      extern int globalReportingLeft;
+      extern string sensorInputString;
+      extern string descString;
+      globalReportingTotal = globalReportingTotal + 1;
+      globalReportingLeft = globalReportingLeft + 1;
+      writeln_d(sensorInputString);
+      aPlat.Sensor("ew_radar").ProcessInput(sensorInputString);
+      aPlat.SetAuxData("desc", descString);
+   end_script
+end_weapon
+
+antenna_pattern ANTENNA
+  circular_pattern
+     peak_gain 10 dB
+     beamwidth 10 deg
+  end_circular_pattern
+end_antenna_pattern
+
+weapon FT_JAMMER WSF_RF_JAMMER
+   transmitter
+      power           1   kw
+      frequency       900 mhz
+      bandwidth         1 mhz
+      antenna_pattern     ANTENNA
+      electronic_attack
+          technique false_targets
+             default_on
+             effect ft_effect WSF_FALSE_TARGET_EFFECT
+                jamming_pulse_density 0.01
+             end_effect
+          end_technique
+       end_electronic_attack
+  end_transmitter
+end_weapon
+
+sensor EW_RADAR WSF_RADAR_SENSOR
+   ignore_same_side
+   frame_time                1  sec
+   location                  0.0 0.0 -30 m
+   azimuth_scan_limits       -180 deg 180 deg
+   one_m2_detect_range      225 km
+   transmitter
+      power                        750 kw
+      frequency                    900 mhz
+      bandwidth                    0.1 mhz
+      pulse_width                  50  usec
+      pulse_repetition_interval    300 usec
+      antenna_pattern              ANTENNA
+      antenna_tilt                 10 deg
+   end_transmitter
+
+   false_target_screener SCREENER_1 WSF_FT_SCREENER
+   end_false_target_screener
+
+   receiver
+      antenna_pattern     ANTENNA
+      antenna_tilt     10 deg
+      frequency       900 mhz
+      bandwidth         1 mhz
+   end_receiver
+
+   number_of_pulses_integrated 10
+
+   hits_to_establish_track   1 5   # 1 of last 5 scans to establish track
+   hits_to_maintain_track    1 4   # 1 of last 4 scans to maintain  track
+
+   reports_location
+   reports_range
+   reports_bearing
+   reports_elevation
+end_sensor
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+platform_type JAMMER_PLATFORM WSF_PLATFORM
+   icon EA-6B
+   mover WSF_AIR_MOVER end_mover
+   weapon jammer FT_JAMMER
+      on
+      tilt -10 deg                  // Aim jammer slightly toward the ground
+   end_weapon
+end_platform_type
+
+platform_type EW_RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+   side red
+   position 37:00:00n 116:00:00w
+   altitude 0.0 ft agl
+   heading 180 deg
+
+   # --------------------------------------
+   # Draw track to false targets
+   # --------------------------------------
+   script_variables
+      # Create a WsfDraw object.
+      WsfDraw draw = WsfDraw();
+   end_script_variables
+   script void draw_track(WsfTrack aTrack)
+     # use the track ID as a unique draw ID
+     # a track icon and a line to the track icon
+     # is drawn at each track update
+     string trackId = aTrack.TrackId().ToString();
+     draw.SetId(trackId);
+     draw.SetDuration(1.0); # this is faster than calling erase every time
+
+     # Draw a track icon
+     draw.SetColor(0,1,0);
+     draw.BeginIcons(aTrack.Heading(), "Wedge");
+        draw.Vertex(aTrack.CurrentLocation());
+     draw.End();
+
+     draw.SetLineStyle("solid");
+     //draw.SetLineSize(3);
+
+     # Draw a line to the track
+     draw.BeginLines();
+        draw.Vertex(PLATFORM);
+        draw.Vertex(aTrack.CurrentLocation());
+     draw.End();
+   end_script
+   # ---------------------------------------
+
+   script bool isNearHeading(WsfTrack aTrack)
+      #writeln(PLATFORM.Name(), " ", PLATFORM.AuxDataString("desc"), " ", aTrack.Bearing());
+      return MATH.AngleIsBetween(aTrack.Bearing(),
+                                 (Heading() - 20),
+                                 (Heading() + 20));
+   end_script
+
+   script bool test_fts_all_inside_heading()
+      bool retValue = true;
+      foreach (WsfTrack track in MasterTrackList())
+      {
+         if (track.IsValid() && track.IsFalseTarget())
+         {
+            draw_track(track);
+            # do not check false targets that close in as the bearing varies much more
+            if (track.Range() > 30 * MATH.M_PER_NM())
+            {
+               bool isNear = isNearHeading(track);
+               retValue = retValue && isNear;
+            }
+         }
+      }
+      return retValue;
+   end_script
+
+   script bool test_fts_any_outside_heading()
+      bool retValue = false;
+      foreach (WsfTrack track in MasterTrackList())
+      {
+         if (track.IsValid() && track.IsFalseTarget())
+         {
+            draw_track(track);
+            # do not check false targets that close in as the bearing varies much more
+            if (track.Range() > 30 * MATH.M_PER_NM())
+            {
+               retValue = retValue || !isNearHeading(track);
+            }
+         }
+      }
+      return retValue;
+   end_script
+
+   sensor ew_radar EW_RADAR
+      on
+      processor track_manager
+      ignore_side green
+   end_sensor
+
+   processor track_manager WSF_TRACK_PROCESSOR
+   end_processor
+end_platform_type
+
+platform_type az_scan_radar EW_RADAR_SITE
+   edit sensor ew_radar
+      scan_mode  azimuth
+   end_sensor
+   script_variables
+      bool pass = false;
+   end_script_variables
+   execute at_interval_of 1.0 s
+      pass = test_fts_any_outside_heading() || pass;
+   end_execute
+   script void on_platform_deleted()
+      extern bool pass;
+      extern bool globalPass;
+      extern int  globalReportingLeft;
+      extern bool AssertTrueMessage(bool, string);
+      string nameDesc = PLATFORM.Name() + " " +
+                        PLATFORM.AuxDataString("desc");
+//       writeln(nameDesc);
+      string msg = nameDesc +
+                   " No False Targets outside of radar heading";
+      AssertTrueMessage(pass, msg);
+      globalPass = globalPass && pass;
+      globalReportingLeft = globalReportingLeft - 1;
+   end_script
+end_platform_type
+
+platform_type no_az_scan_radar EW_RADAR_SITE
+   script_variables
+      bool pass = true;
+   end_script_variables
+   execute at_interval_of 1.0 s
+      pass = test_fts_all_inside_heading() && pass;
+   end_execute
+   script void on_platform_deleted()
+      extern bool pass;
+      extern bool globalPass;
+      extern int  globalReportingLeft;
+      extern bool AssertTrueMessage(bool, string);
+      string nameDesc = PLATFORM.Name() + " " +
+                        PLATFORM.AuxDataString("desc");
+//       writeln(nameDesc);
+      string msg = nameDesc + " Not all False Targets near radar heading";
+      AssertTrueMessage(pass, msg);
+      globalPass = globalPass && pass;
+      globalReportingLeft = globalReportingLeft - 1;
+   end_script
+end_platform_type
+
+
+# ****************************************************************************
+#                        Define the jammer platform instances
+# ****************************************************************************
+platform jammer JAMMER_PLATFORM
+   side green
+   route
+      position 37:20:10n 114:30:00w
+      altitude 35000 ft
+      heading 270 deg
+      speed 450 kts
+   end_route
+end_platform
+
+platform radar_creator WSF_PLATFORM
+   icon Ground_Radar
+   side red
+   position 37:00:00n 116:00:00w
+   altitude 0.0 ft agl
+   heading 180 deg
+   add mover WSF_GROUND_MOVER
+      update_interval 1 s
+   end_mover
+   script_variables
+      string sensorInputString;
+      string descString;
+      Array<string> AZ_EL_MODES = {"", "azimuth ", "elevation ", "azimuth_and_elevation "};
+      Array<string> COMMANDS    = {"slew_mode ", "scan_mode ", "electronic_beam_steering "};
+      ArrayIterator cmdIter;
+      WsfWeapon wpn;
+   end_script_variables
+   add weapon wpnNoAzScan generalWeapon
+      launched_platform_type no_az_scan_radar
+   end_weapon
+   add weapon wpnAzScan generalWeapon
+      launched_platform_type az_scan_radar
+   end_weapon
+   script void FireAllCombinations()
+      if (cmdIter.HasNext())
+      {
+         cmdIter.Next();
+         string saveDesc1 = descString;
+         string cmd = (string)(cmdIter.Data());
+         descString = descString + cmd;
+         foreach (string mode in AZ_EL_MODES)
+         {
+            // control which radar to create
+            if (cmd == "scan_mode ")
+            {
+               if (((mode == "azimuth ") || (mode == "azimuth_and_elevation ")))
+               {
+                  wpn = Weapon("wpnAzScan");
+               }
+               else
+               {
+                  wpn = Weapon("wpnNoAzScan");
+               }
+            }
+
+            string saveInput = sensorInputString;
+            string saveDesc2 = descString;
+            descString = descString + mode;
+            if (mode.Length() != 0)
+            {
+               sensorInputString = sensorInputString + cmd + mode;
+            }
+            FireAllCombinations();
+            sensorInputString = saveInput;
+            descString        = saveDesc2;
+         }
+         descString = saveDesc1;
+         if (cmdIter.HasPrev())
+         {
+            cmdIter.Prev();
+         }
+      }
+      else
+      {
+         wpn.Fire();
+      }
+   end_script
+   execute at_time 1 s absolute
+      sensorInputString = "";
+      descString = "";
+      cmdIter = COMMANDS.GetIterator();
+      FireAllCombinations();
+   end_execute
+end_platform
+
+script void plat_del(WsfPlatform aPlat)
+   extern void writePass(bool);
+   extern bool AssertLocation(double, double, WsfPlatform);
+   extern bool AssertEqualsMessage(Object, Object, string);
+   if (WsfSimulation.PlatformCount() == 1)
+   {
+      writeln("Total Combinations tested: ", globalReportingTotal);
+      globalPass = AssertEqualsMessage(0, globalReportingLeft, "Not all radars have reported pass/fail") && globalPass;
+      writePass(globalPass);
+   }
+end_script
+
+observer
+   enable PLATFORM_DELETED plat_del
+end_observer
+
+#event_pipe
+#   file test_ft_slew_scan_ebs_combinations.aer
+#end_event_pipe

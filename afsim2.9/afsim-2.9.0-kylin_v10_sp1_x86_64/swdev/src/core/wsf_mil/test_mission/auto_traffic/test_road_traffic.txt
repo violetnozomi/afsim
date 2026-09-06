@@ -1,0 +1,66 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once nkorea_roadnetwork.txt
+
+include platforms/road_platforms.txt
+include_once ../auto_script/collect_stats.txt
+
+road_traffic
+  network nkorea_roadnetwork
+    vehicle_count              500
+    maximum_speed               80 mi/h
+    minimum_distance_off_road    0.09 nm
+    maximum_distance_off_road    0.11 nm
+    pause_time_off_road          0.5 min
+    mean_travel_time            40.0 min
+    sigma_travel_time            5.0 min
+
+    vehicle CAR
+      fraction      0.80
+      mean_speed   60 mi/h
+      sigma_speed   5 mi/h
+    end_vehicle
+
+    vehicle PICKUP_TRUCK
+      fraction      0.15
+      mean_speed   60 mi/h
+      sigma_speed  10 mi/h
+    end_vehicle
+
+    vehicle SCHOOL_BUS
+      fraction      0.05
+      mean_speed   50 mi/h
+      sigma_speed  10 mi/h
+    end_vehicle
+  end_network
+end_road_traffic
+
+
+observer
+   enable SIMULATION_COMPLETE simComplete
+end_observer
+
+script void simComplete()
+   struct sum = collect_Summarize("");
+   sum->Print();
+#Samples: 4323
+#Alive Time: 9e+006
+#Distance Travelled: 1.70746e+008
+
+   # Traffic is fairly random, expect to be within 50 %
+   if (!sum->ExpectedAliveTime(9.0e6, .5)
+    || !sum->ExpectedDistanceTravelled( 1.70746e8, .5))
+      writeln("-FAIL-");
+   else
+      writeln("-PASS-");
+    
+end_script
+
+end_time 5 hr

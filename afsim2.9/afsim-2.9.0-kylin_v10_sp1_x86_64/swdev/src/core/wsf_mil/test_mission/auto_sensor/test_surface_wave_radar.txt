@@ -1,0 +1,40 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of WSF_SURFACE_WAVE_RADAR_SENSOR inputs.
+#
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+sensor SURFACE_WAVE_RADAR WSF_SURFACE_WAVE_RADAR_SENSOR
+   frame_time 1 sec
+   
+   transmitter
+       power                 100 kw
+       frequency             3 ghz
+       propagation_model groundwave_propagation
+           relative_permittivity           70.0  
+           conductivity                     5.0
+           troposphere_refractivity       315.0
+           troposphere_height_scale        7.35 km
+           minimum_computation_distance    10.0 km 
+           computation_distance_interval   10.0 km
+       end_propagation_model
+   end_transmitter
+   
+   noise_environment quiet_rural
+      
+   receiver
+      frequency              3 ghz
+      bandwidth              1 mhz
+   end_receiver
+   
+   reports_location
+end_sensor
+

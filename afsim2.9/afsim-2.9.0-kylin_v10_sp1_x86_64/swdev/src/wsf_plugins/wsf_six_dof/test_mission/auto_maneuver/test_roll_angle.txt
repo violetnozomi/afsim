@@ -1,0 +1,79 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 50 s
+
+platform TEST_AIRCRAFT FA-LGT_RB6
+   side blue
+   
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   script_variables
+      bool keepChecking = true;
+      WsfSixDOF_Maneuver saved;
+      bool allPassed = true;
+   end_script_variables
+   
+   execute at_time 10 sec absolute
+      WsfSixDOF_RollAngleManeuver mvr = WsfSixDOF_RollAngleManeuver.Construct(30.0);
+      mvr.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(10.0));
+      mvr.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_TIME(40.0));
+      
+      allPassed = ExpectDouble(mvr.GetRollAngle(), 30.0, 0.25, "Angle should be 30") && allPassed;
+     
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      mov.ExecuteManeuver(mvr);
+      saved = mov.GetCurrentManeuver();
+   end_execute
+   
+   execute at_time 12 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Z(), 0.00, 0.25, "Roll Should be Small") && allPassed;
+      allPassed = ExpectBool(saved.IsPending(), true, "Manuever should be pending") && allPassed;
+      allPassed = ExpectBool(saved.IsAssigned(), true, "Manuever should be assigned") && allPassed;
+      
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      WsfSixDOF_ManeuverSequence sqn = mov.GetManeuverSequence();
+      allPassed = ExpectBool(sqn.IsExecuting(), true, "Sequence should be executing") && allPassed;
+   end_execute
+   
+   execute at_time 19.9 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Z(), 0.00, 0.25, "Roll Should be Small") && allPassed;
+   end_execute
+   
+   execute at_time 22 sec absolute
+      if (PLATFORM.OrientationNED().Z() < 1.0)
+      {
+         writeln("-FAIL- Roll should have started.");
+      }
+      allPassed = ExpectBool(saved.IsCompleting(), true, "Manuever should be pending") && allPassed;
+   end_execute
+   
+   execute at_time 44 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Z(), 30.0, 0.5, "Roll Should be 30") && allPassed;
+      allPassed = ExpectBool(saved.IsCompleted(), true, "Manuever should be completed") && allPassed;
+      allPassed = ExpectBool(saved.IsCanceled(), false, "Manuever should not be canceled") && allPassed;
+   end_execute
+
+   execute at_time 45 s absolute
+      if (allPassed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }   
+   end_execute  
+end_platform

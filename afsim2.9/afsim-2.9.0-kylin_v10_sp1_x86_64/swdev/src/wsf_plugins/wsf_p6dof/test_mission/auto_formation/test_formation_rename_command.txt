@@ -1,0 +1,79 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once default_formation.txt
+include_once ../scripts/utils.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 12 min
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+script void CheckExistence(string aName)
+   allPassed = ExpectBool(WsfFormationManager.GetFormation(aName).IsValid(),
+              true,
+              aName + " should exist") && allPassed;
+end_script
+
+script void CheckNonExistence(string aName)
+   allPassed = ExpectBool(WsfFormationManager.GetFormation(aName).IsValid(),
+              false,
+              aName + " should exist") && allPassed;
+end_script
+
+execute at_time 1 min absolute
+   CheckExistence("yankee");
+   CheckExistence("yankee.alpha");
+   CheckNonExistence("yankee.gamma");
+   CheckNonExistence("bravo");
+   CheckNonExistence("bravo.gamma");
+end_execute
+
+execute at_time 2 min absolute
+   WsfFormationRenameCommand commAlpha = WsfFormationRenameCommand.Construct("gamma");
+   commAlpha.SetConstraint(WsfFormationCommandConstraint.AT_TIME(130.0));
+   WsfFormation yankeeAlpha = WsfFormationManager.GetFormation("yankee.alpha");
+   allPassed = ExpectBool(yankeeAlpha.IsValid(), true, "yankee.alpha should exist") && allPassed;
+   yankeeAlpha.ExecuteCommand(commAlpha);
+
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   allPassed = ExpectBool(yankee.IsValid(), true, "yankee should exist") && allPassed;
+   yankee.ExecuteCommand(WsfFormationRenameCommand.Construct("bravo"),
+                         WsfFormationCommandConstraint.AT_TIME(300.0));
+end_execute
+
+execute at_time 3 min absolute
+   CheckExistence("yankee");
+   CheckNonExistence("yankee.alpha");
+   CheckExistence("yankee.gamma");
+   CheckNonExistence("bravo");
+   CheckNonExistence("bravo.gamma");
+end_execute
+
+execute at_time 10 min absolute
+   CheckNonExistence("yankee");
+   CheckNonExistence("yankee.alpha");
+   CheckNonExistence("yankee.gamma");
+   CheckExistence("bravo");
+   CheckExistence("bravo.gamma");
+end_execute
+
+execute at_time 11 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   } 
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

@@ -1,0 +1,45 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform tester WSF_PLATFORM
+   add processor test_proc WSF_SCRIPT_PROCESSOR
+      update_interval 3 sec
+	  script_variables
+		int result_value = 0;
+		int expected_value = 60;
+	  end_script_variables
+      on_update
+		extern int result_value;
+		extern int expected_value;
+		// have check for whether or not it's actually going off every 3 seconds
+         if (TIME_NOW > 105) {
+            for (int i = 0; i < 20; i+=1)
+			{
+				result_value+=1;
+			}
+
+         }
+		 if (TIME_NOW >= 114){
+			if (result_value == 60){
+				writeln("-PASS- update interval is working");
+			}
+			else{
+				writeln("-FAIL- The update interval is not updating correctly");
+			}
+
+			WsfSimulation.Terminate();
+		 }
+		 if (result_value == expected_value){
+			writeln("Test Passed");
+		 }
+      end_on_update
+   end_processor
+end_platform
+
+end_time 200 sec

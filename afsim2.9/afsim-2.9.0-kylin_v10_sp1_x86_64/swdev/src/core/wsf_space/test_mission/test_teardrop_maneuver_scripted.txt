@@ -1,0 +1,258 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test performs teardrop maneuvers with various parameters and tests the
+# resulting performance. In particular, the RIC positions at the point of closest
+# approach (POCA), and the two times when the teardrop relative orbit crosses
+# itself.
+
+start_date jan 20 2021
+start_time 12:00:00.000
+end_time 6 hr
+
+include utils.txt
+
+platform_type TEST_SAT WSF_PLATFORM
+   empty_mass 1 kg
+
+   mover WSF_INTEGRATING_SPACE_MOVER
+      integrator prince_dormand_78
+         error_criterion L_infinity
+         tolerance 1.0e-9
+      end_integrator
+
+      dynamics
+         term earth_monopole
+         end_term
+      end_dynamics
+   end_mover
+end_platform_type
+
+script_variables
+   Map<string, double> gR_POCA = {};
+   Map<string, double> gPeriod = {};
+   Map<string, double> gT_POCA = {};
+end_script_variables
+
+platform chief TEST_SAT
+   edit mover
+      eccentricity 0.0
+      inclination 35 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      revs_per_day 12
+      true_anomaly 0 deg
+   end_mover
+end_platform
+
+platform script_fixed TEST_SAT
+   edit mover
+      eccentricity 0.1
+      inclination 36 deg
+      raan 359 deg
+      argument_of_periapsis 90 deg
+      revolutions_per_day 12
+      true_anomaly 268 deg
+   end_mover
+end_platform
+
+execute at_time 10 min absolute
+   string platName = "script_fixed";
+   double rAtPOCA = 20.0;
+   double period = 35.0 * 60.0;
+   double timeToPOCA = 35.0 * 60.0;
+
+   WsfPlatform plat = WsfSimulation.FindPlatform(platName);
+   plat.TrackManager().AddTrackReport(WsfSimulation.FindPlatform("chief").MakeTrack());
+
+   WsfTargetPoint pt = WsfTargetPoint.ConstructFromTrack(plat.MasterTrackList().Entry(0).TrackId());
+
+   WsfTeardropManeuver mvr = WsfTeardropManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0),
+                                                           pt,
+                                                           20.0 * 60.0,
+                                                           rAtPOCA,
+                                                           period,
+                                                           timeToPOCA);
+
+   WsfSpaceMover mover = (WsfSpaceMover)plat.Mover();
+   mover.ExecuteManeuver(mvr);
+
+   gR_POCA[platName] = rAtPOCA;
+   gPeriod[platName] = period;
+   gT_POCA[platName] = timeToPOCA;
+end_execute
+
+platform script_delta_t TEST_SAT
+   edit mover
+      eccentricity 0.1
+      inclination 36 deg
+      raan 359 deg
+      argument_of_periapsis 90 deg
+      revolutions_per_day 12
+      true_anomaly 268 deg
+   end_mover
+end_platform
+
+execute at_time 12 min absolute
+   string platName = "script_delta_t";
+   double rAtPOCA = 20.0;
+   double period = 40.0 * 60.0;
+   double timeToPOCA = 35.0 * 60.0;
+
+   WsfPlatform plat = WsfSimulation.FindPlatform(platName);
+   plat.TrackManager().AddTrackReport(WsfSimulation.FindPlatform("chief").MakeTrack());
+
+   WsfTargetPoint pt = WsfTargetPoint.ConstructFromTrack(plat.MasterTrackList().Entry(0).TrackId());
+
+   WsfTeardropManeuver mvr = WsfTeardropManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0),
+                                                           pt,
+                                                           WsfTeardropManeuver.EARLIEST_TIME(),
+                                                           2.0 * 3600.0,
+                                                           3000.0,
+                                                           rAtPOCA,
+                                                           period,
+                                                           timeToPOCA);
+
+   WsfSpaceMover mover = (WsfSpaceMover)plat.Mover();
+   mover.ExecuteManeuver(mvr);
+
+   gR_POCA[platName] = rAtPOCA;
+   gPeriod[platName] = period;
+   gT_POCA[platName] = timeToPOCA;
+end_execute
+
+platform script_delta_v TEST_SAT
+   edit mover
+      eccentricity 0.1
+      inclination 36 deg
+      raan 359 deg
+      argument_of_periapsis 90 deg
+      revolutions_per_day 12
+      true_anomaly 268 deg
+   end_mover
+end_platform
+
+execute at_time 8 min absolute
+   string platName = "script_delta_v";
+   double rAtPOCA = -20.0;
+   double period = 20.0 * 60.0;
+   double timeToPOCA = 40.0 * 60.0;
+
+   WsfPlatform plat = WsfSimulation.FindPlatform(platName);
+   plat.TrackManager().AddTrackReport(WsfSimulation.FindPlatform("chief").MakeTrack());
+
+   WsfTargetPoint pt = WsfTargetPoint.ConstructFromTrack(plat.MasterTrackList().Entry(0).TrackId());
+
+   WsfTeardropManeuver mvr = WsfTeardropManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0),
+                                                           pt,
+                                                           WsfTeardropManeuver.LEAST_DELTA_V(),
+                                                           2.0 * 3600.0,
+                                                           3000.0,
+                                                           rAtPOCA,
+                                                           period,
+                                                           timeToPOCA);
+
+   WsfSpaceMover mover = (WsfSpaceMover)plat.Mover();
+   mover.ExecuteManeuver(mvr);
+
+   gR_POCA[platName] = rAtPOCA;
+   gPeriod[platName] = period;
+   gT_POCA[platName] = timeToPOCA;
+end_execute
+
+platform script_cost TEST_SAT
+   edit mover
+      eccentricity 0.1
+      inclination 36 deg
+      raan 359 deg
+      argument_of_periapsis 90 deg
+      revolutions_per_day 12
+      true_anomaly 268 deg
+   end_mover
+end_platform
+
+execute at_time 8 min absolute
+   string platName = "script_cost";
+   double rAtPOCA = -20.0;
+   double period = 20.0 * 60.0;
+   double timeToPOCA = 40.0 * 60.0;
+
+   WsfPlatform plat = WsfSimulation.FindPlatform(platName);
+   plat.TrackManager().AddTrackReport(WsfSimulation.FindPlatform("chief").MakeTrack());
+
+   WsfTargetPoint pt = WsfTargetPoint.ConstructFromTrack(plat.MasterTrackList().Entry(0).TrackId());
+
+   WsfTeardropManeuver mvr = WsfTeardropManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0),
+                                                           pt,
+                                                           WsfOrbitalBlendedCost.Construct(1.0, 1.0, 0.0),
+                                                           2.0 * 3600.0,
+                                                           3000.0,
+                                                           rAtPOCA,
+                                                           period,
+                                                           timeToPOCA);
+
+   WsfSpaceMover mover = (WsfSpaceMover)plat.Mover();
+   mover.ExecuteManeuver(mvr);
+
+   gR_POCA[platName] = rAtPOCA;
+   gPeriod[platName] = period;
+   gT_POCA[platName] = timeToPOCA;
+end_execute
+
+script void TestAtPOCA(string aPlatformName)
+   WsfPlatform plat = WsfSimulation.FindPlatform(aPlatformName);
+   WsfSpaceMover mover = (WsfSpaceMover)plat.Mover();
+
+   WsfPlatform chief = WsfSimulation.FindPlatform("chief");
+   WsfSpaceMover chiefMover = (WsfSpaceMover)chief.Mover();
+   Vec3 ricOffset = chiefMover.RIC(plat);
+
+   ExpectDouble(ricOffset.X(), gR_POCA[aPlatformName], 1.0e-4, "R at POCA matches expectation: " + aPlatformName);
+   ExpectDouble(ricOffset.Y(), 0.0, 1.0e-2, "I at POCA matches expectation: " + aPlatformName);
+   ExpectDouble(ricOffset.Z(), 0.0, 1.0e-2, "C at POCA matches expectation: " + aPlatformName);
+end_script
+
+script void CollectAtFirstCrossing(string aPlatformName)
+   WsfPlatform chief = WsfSimulation.FindPlatform("chief");
+   WsfSpaceMover mover = (WsfSpaceMover)chief.Mover();
+   WsfPlatform plat = WsfSimulation.FindPlatform(aPlatformName);
+   Array<Object> args = {aPlatformName, mover.RIC(plat)};
+
+   WsfSimulation.ExecuteAtTime(TIME_NOW + gPeriod[aPlatformName], "TestAtSecondCrossing", args);
+end_script
+
+script void TestAtSecondCrossing(string aPlatformName, Vec3 aCrossingPosRIC)
+   WsfPlatform chief = WsfSimulation.FindPlatform("chief");
+   WsfSpaceMover mover = (WsfSpaceMover)chief.Mover();
+   WsfPlatform plat = WsfSimulation.FindPlatform(aPlatformName);
+   Vec3 posRIC = mover.RIC(plat);
+
+   ExpectDouble(posRIC.X(), aCrossingPosRIC.X(), 1.0e-4, "Crossing RIC position R for " + aPlatformName);
+   ExpectDouble(posRIC.Y(), aCrossingPosRIC.Y(), 1.0e-3, "Crossing RIC position I for " + aPlatformName);
+   ExpectDouble(posRIC.Z(), aCrossingPosRIC.Z(), 1.0e-2, "Crossing RIC position C for " + aPlatformName);
+end_script
+
+script void BeginTestSequence(WsfPlatform aPlatform, WsfSpaceMover aMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "TEARDROP")
+   {
+      // setup test a POCA
+      Array<Object> testArgs = {aPlatform.Name()};
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gT_POCA[aPlatform.Name()], "TestAtPOCA", testArgs);
+
+      // setup collection before POCA
+      Array<Object> collectArgs = {aPlatform.Name()};
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gT_POCA[aPlatform.Name()] - gPeriod[aPlatform.Name()] / 2.0,
+                                  "CollectAtFirstCrossing",
+                                  collectArgs);
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED BeginTestSequence
+end_observer

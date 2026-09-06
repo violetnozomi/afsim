@@ -1,0 +1,50 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../post_process_test.txt
+
+include_once ../configurations/sphere_target_configuration.txt
+include_once ../configurations/basic_radar_configuration.txt
+
+define_path_variable CASE hm_basicRadar_sphereTarget_pd
+horizontal_map
+   variable pd 
+   script void on_complete()
+      PostProcessAnalysisMap("$(CASE).analysis_map", "$(CASE).expected_analysis_map", 
+            0, 1, 5.0);
+   end_script
+   analysis_map file $(CASE).analysis_map   end_analysis_map
+   include ../configurations/100x100_target_area.txt
+end_horizontal_map
+
+define_path_variable CASE2 hm_basicRadar_sphereTarget_sig
+horizontal_map
+   variable signal_to_noise 
+   script void on_complete()
+      PostProcessAnalysisMap("$(CASE2).analysis_map", "$(CASE2).expected_analysis_map", 
+         0, 15, 5.0);
+   end_script
+   analysis_map file $(CASE2).analysis_map   end_analysis_map
+   include ../configurations/100x100_target_area.txt
+end_horizontal_map
+
+define_path_variable CASE3 vm_basicRadar_sphereTarget_pd
+vertical_map
+   pd_map_file $(CASE3).vertical_map
+   altitude_step .5 km
+   altitude_limits 0 km 20 km
+   ground_range_step 5 km
+   ground_range_limits -70 km 70 km
+   script void on_complete()
+      PostProcessPdMap("$(CASE3).vertical_map", "$(CASE3).expected_vertical_map", 
+         0, 1, 5.0);
+   end_script
+end_vertical_map

@@ -1,0 +1,21 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.3.3) (ELSZ #168)** Changed perfect comm behavior on failure to retrieve a message recipient to notify upper layer of transmission failure from the physical layer.
+* **(2.3.1) (Issue #1210)** Legacy implementations of comms used a random draw for variability in the purge interval time for queued messages. This has been removed, so that the purge interval is exactly as provided by the user.
+* **(Issue #275)** The communications framework has been updated for increased capability in the following release. The current update replicates the functionality of the original comms framework.
+* **(ELSZ #36) (Issue #831)** Static member cCOMPONENT_ROLE has been removed from component classes due to potential undefined behavior at run-time. Component role now represented by struct template WsfComponentRole, which must be specialized by any type defining a component role. For example, T::cCOMPONENT_ROLE becomes cCOMPONENT_ROLE<T>(). Helper macro is provided to register the component role for a type: WSF_DECLARE_COMPONENT_ROLE_TYPE(WsfSensor, cWSF_COMPONENT_SENSOR). It is a compile-time error to use cCOMPONENT_ROLE for a type T that has not been registered. 
+* **(Issue #750)** The enhanced comms framework update has been added, adding new capabilities to include new network objects, protocol types, and routing capabilities.
+* **(Issue #874)** Added ut::make_reverse_iterator intended for use until C++14 support is introduced.
+* **(Issue #770)** Remove unsafe angle normalization functions from UtMath, and renamed the safe normalization functions.
+* **(Issue #852)** Removed deprecated methods in tracking and filtering-related classes.  The removed methods were those that accepted or returned both a WCS location and velocity, as well as the SetSphericalMeasurement error methods in the filter classes.  Instead, newer methods accepting or returning UtMeasurementData objects or covariance matrices (UtCovariance objects) are called.  UtMeasurementData objects provide a much more general interface for providing and retrieving measurement and track data, and they provide validity flags so that the methods do not have to guarantee validity of any particular data.  Using covariance objects is more encapsulated, so that not only sensor errors, but center location and (if possible) a WCS diagonalization matrix is saved during covariance construction or creation.
+* **(Issue #879)** Added a WsfDisObserver class in which subscribers can receive a notification when a small selection of DIS PDUs are received. This allows plugins to process DIS messages. Additionally, renamed some static callbacks located in the DIS PDU source code and moved them to the WsfDisObserver class.  
+* **(Issue #879)** Changed the signature of WsfSimulation::DeletePlatform() to take an optional third argument, which defaults to true, specifying whether the memory for the platform should be cleaned up. This allows a platform to be removed from the simulation without deleting the memory for the platform.
+* **(Issue #901)** Backported fix for Qt bug from 5.9.7 to 5.9.4, where compiling against Qt with VS2017 32-bit would fail to compile due to relaxed constexpr.
+* **(Issue #1009)** Replaced UtSharedPtr in favor of std::shared_ptr. UtSharedPtr is now deprecated.

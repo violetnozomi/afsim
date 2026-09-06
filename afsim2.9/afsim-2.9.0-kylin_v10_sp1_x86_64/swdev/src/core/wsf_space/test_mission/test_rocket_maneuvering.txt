@@ -1,0 +1,123 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+end_time 10 hours
+
+platform test-tangent WSF_PLATFORM
+   icon satellite
+   side blue
+   add mover WSF_SPACE_MOVER
+      position 0n 90w altitude 14000000 meters heading 90 degrees
+
+      // see https://en.wikipedia.org/wiki/Briz_(rocket_stage)
+
+      maneuvering rocket
+         debug
+         stage  // breeze-M
+            specific_impulse 328 seconds
+            thrust 19620 newtons
+            empty_mass 2.5 tons
+            fuel_mass 19.9 tons
+         end_stage
+      end_maneuvering
+
+      mission_sequence
+         //debug
+         maneuver tangent
+            finite
+            delta_v 1000.0 m/s
+            update_interval 1 s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+
+#   execute at_time 13 hours absolute
+#      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+#      WsfOrbitalManeuver maneuver = WsfTangentManeuver.Construct(1000.0);
+#      bool result = mover.ExecuteManeuver(maneuver);
+#      if(result){
+#         writeln("tangent: true");
+#      } else {
+#         writeln("tangent: false");
+#      }
+#   end_execute
+end_platform
+
+script_variables
+   double sSpeed = 0.0;
+   double sFinalDeltaV = 0.0;
+   double sFinalTime = 0.0;
+   int sNumCompleted = 0;
+end_script_variables
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; begin ", aManeuver.ManeuverType());
+   writeln("   DeltaV, ManeuverTime: ", aSM.AvailableDeltaV(), ", ", aSM.ManeuverDuration(1000.0));
+   sFinalDeltaV = aSM.AvailableDeltaV() - 1000.0;
+   sFinalTime = TIME_NOW + aSM.ManeuverDuration(1000.0);
+   writeln("duration: ", aSM.ManeuverDuration(1000.0));
+   sSpeed = aSM.Platform().Speed();
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; end ", aManeuver.ManeuverType());
+   double ddv = Math.Fabs(aSM.AvailableDeltaV() - sFinalDeltaV);
+   if (ddv > 0.1)
+   {
+      writeln("-FAIL- (delta-V) ");
+   }
+   double timeResidual = Math.Fabs(TIME_NOW - sFinalTime);
+   if (timeResidual > 1.0)
+   {
+      writeln("-FAIL- (time) ", TIME_NOW, ", ", sFinalTime);
+   }
+   double dvResidual = Math.Fabs(aSM.AvailableDeltaV() - sFinalDeltaV);
+   if (dvResidual > 0.1)
+   {
+      writeln("-FAIL- (delta-v) ", aSM.AvailableDeltaV(), ", ", sFinalDeltaV);
+   }
+   sNumCompleted += 1;
+end_script
+
+script void SimulationComplete()
+#   if (sNumCompleted != 4)
+#   {
+#      writeln("-FAIL- ", sNumCompleted);
+#   }
+end_script
+
+script void SimulationStarting()
+   WsfSpaceMover sm = (WsfSpaceMover)(WsfSimulation.FindPlatform("test-tangent").Mover());
+   double md = sm.AvailableManeuverDuration();
+
+   // Wikipedia says burn time is ~3000 s
+   if ((int)md != 2959)
+   {
+      writeln("-FAIL-");
+   }
+end_script
+
+#event_output
+#   file test_rocket_maneuvering.evt
+#   enable ORBITAL_MANEUVER_INITIATED
+#   enable ORBITAL_MANEUVER_COMPLETED
+#   enable COMMENT
+#end_event_output
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+   enable SIMULATION_STARTING
+end_observer

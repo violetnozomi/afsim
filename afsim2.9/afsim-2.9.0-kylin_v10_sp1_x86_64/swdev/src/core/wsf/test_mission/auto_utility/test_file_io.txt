@@ -1,0 +1,97 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test FileIO script object
+//
+// utilize methods:
+//    Open
+//    Close
+//    Eof
+//    Mode
+//    Path
+//    Readln
+//    ReadToken
+//    Write
+//    Writeln
+//
+// insure newline is handled appropriately
+//
+
+include_once ../auto_script/test_functions.txt
+
+on_initialize
+   bool pass = true;
+   FileIO file = FileIO();
+
+   //Check mode and path for unopened file.
+   pass = AssertTrueMessage((file.Mode() == "none"), "Unopened file mode") && pass;
+   Path path = file.Path();
+   pass = AssertTrueMessage((path.GetFileName() == ""), "Unopened file path") && pass;
+
+   //Check mode and path for invalid file open.
+   pass = AssertFalseMessage(file.Open("nonExistantFile123.abc", "in"), "Open invalid file") && pass;
+   pass = AssertTrueMessage((file.Mode() == "none"), "Invalid file mode") && pass;
+   path = file.Path();
+   pass = AssertTrueMessage((path.GetFileName() == ""), "Invalid file path") && pass;
+
+   file.Open("FileIO.tmp", "out");
+   double testDouble = 0.54321;
+   string testString = "0.54321";
+
+   pass = AssertTrueMessage((file.Mode() == "out"), "Correct output file mode") && pass;
+
+   path = file.Path();
+   string fileName = path.GetFileName();
+   pass = AssertTrueMessage((fileName == "FileIO.tmp"), "Correct output file path") && pass;
+
+   // Write first line - one word
+   file.Writeln((string)testDouble);
+
+   // Write second line - two words
+   file.Write("Hello ");
+   file.Writeln("World");
+
+   // Write third line - to insure ReadWord stops at end of line
+   file.Write("ThirdLine");
+
+   file.Close();
+
+   file.Open("FileIO.tmp", "in");
+
+   pass = AssertTrueMessage((file.Mode() == "in"), "Correct input file mode") && pass;
+
+   // Read first line - line at a time
+   pass = AssertEqualsMessage(testString, file.Readln(), "First line") && pass;
+   pass = AssertFalseMessage(file.Eof(), "EOF after first line") && pass;
+
+   // Read second line - word at a time
+   pass = AssertEqualsMessage("Hello", file.ReadToken(), "Second line first word") && pass;
+   pass = AssertEqualsMessage("World", file.ReadToken(), "Second line second word") && pass;
+   pass = AssertFalseMessage(file.Eof(), "EOF after second line") && pass;
+
+   // Read third line - word at a time
+   pass = AssertEqualsMessage("ThirdLine", file.ReadToken(), "Third line") && pass;
+   pass = AssertTrueMessage(file.Eof(), "EOF after third line") && pass;
+   Path tmpFileIO = Path.Construct("FileIO.tmp");
+   pass = AssertTrueMessage(file.Open(tmpFileIO), "Could not open Path object") && pass;
+   file.Close();
+   pass = AssertTrueMessage(file.Open(tmpFileIO, "out"), "Could not open Path object with mode") && pass;
+   file.Close();
+
+   file.Open("FileIO.tmp", "append");
+   pass = AssertTrueMessage((file.Mode() == "append"), "Append file mode") && pass;
+   file.Close();
+
+   // Check mode and path for closed file.
+   pass = AssertTrueMessage((file.Mode() == "none"), "Closed file mode") && pass;
+   path = file.Path();
+   pass = AssertTrueMessage((file.Path().GetFileName() == ""), "Closed file path") && pass;
+
+   writePass(pass);
+end_on_initialize

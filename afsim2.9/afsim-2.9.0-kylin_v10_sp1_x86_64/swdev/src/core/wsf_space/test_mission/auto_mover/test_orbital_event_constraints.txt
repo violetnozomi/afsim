@@ -1,0 +1,368 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2018 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#
+# This tests WsfOrbitalEventCondition for the WSF_SPACE_MOVER and the
+# WSF_NORAD_SPACE_MOVER. This covers all conditions except AT_NORTHERN_INTERSECTION
+# and AT_SOUTHERN_INTERSETION. If a mover does not support the given constraint,
+# the case will fail gracefully, and if support is ever added, the test will 
+# begin operating. 
+
+platform_type SAT WSF_PLATFORM
+   icon satellite
+   
+   mover WSF_SPACE_MOVER
+      eccentricity 0.1
+      revs_per_day 10.0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 5 deg
+      argument_of_periapsis 20 deg
+   end_mover
+end_platform_type
+
+platform kepler SAT
+   side blue
+end_platform
+
+platform_type NORADSAT WSF_PLATFORM
+   icon satellite
+   
+   mover WSF_NORAD_SPACE_MOVER
+      eccentricity 0.1
+      revs_per_day 10.0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 5 deg
+      argument_of_periapsis 20 deg
+   end_mover
+end_platform_type
+
+platform norad NORADSAT
+   side red
+end_platform
+
+script void CheckValue(double aExpected, double aMeasured, string aTestCase)
+   if (aExpected != aMeasured)
+   {
+      writeln("-FAIL- Measured value (", aMeasured, ") does not match expected (", 
+              aExpected, ") for test case '", aTestCase, "'");
+   }
+   else
+   {
+      writeln("SUCCESS: comparison is good for test case '", aTestCase, "'");
+   }
+end_script
+
+script void ConfirmTiming(string aPlatformName, string aMessage, double aTime)
+   static double sTOL = 1.0e-10;
+   if ((TIME_NOW >= aTime - sTOL) && (TIME_NOW <= aTime + sTOL))
+   {
+      writeln("SUCCESS: time of '", aMessage, " constraint matches for platform ", aPlatformName);
+      writeln("   TIME_NOW: ", Format.Fixed(TIME_NOW, 16), ", time: ", Format.Fixed(aTime, 16), ", difference: ", TIME_NOW - aTime);
+   }
+   else
+   {
+      writeln("-FAIL- time of '", aMessage, "' for platform '", aPlatformName, "' does not match.");
+      writeln("   TIME_NOW: ", Format.Fixed(TIME_NOW, 16), ", time: ", Format.Fixed(aTime, 16), ", difference: ", TIME_NOW - aTime);
+   }
+end_script
+
+script bool CheckNode(WsfPlatform aPlatform)
+   return (MATH.Fabs(aPlatform.Latitude()) < 0.1);
+end_script
+
+script void AscendingNode(string aPlatformName)
+   WsfPlatform plat = WsfSimulation.FindPlatform(aPlatformName);
+   if (plat.IsValid())
+   {
+      bool atAscNode = CheckNode(plat);
+      if (atAscNode)
+      {
+         atAscNode = plat.VelocityECI().Z() > 0.0;
+      }
+      
+      if (atAscNode)
+      {
+         writeln("SUCCESS: platform '", aPlatformName, "' is at ascending node (lat=", plat.Latitude());
+      }
+      else
+      {
+         writeln("-FAIL- platform '", aPlatformName, "' is not at ascending node (lat=", plat.Latitude());
+      }
+   }
+   else
+   {
+      writeln("-FAIL- No platform with name '", aPlatformName, "' in simulation.");
+   }
+end_script
+
+script void DescendingNode(string aPlatformName)
+   WsfPlatform plat = WsfSimulation.FindPlatform(aPlatformName);
+   if (plat.IsValid())
+   {
+      bool atDescNode = CheckNode(plat);
+      if (atDescNode)
+      {
+         atDescNode = plat.VelocityECI().Z() < 0.0;
+      }
+      
+      if (atDescNode)
+      {
+         writeln("SUCCESS platform '", aPlatformName, "' is at descending node  (lat=", plat.Latitude());
+      }
+      else
+      {
+         writeln("-FAIL- platform '", aPlatformName, "' is not at descending node (lat=", plat.Latitude());
+      }
+   }
+   else
+   {
+      writeln("-FAIL- No platform with name '", aPlatformName, "' in simulation.");
+   }
+end_script
+
+script void CheckRadius(string aName, double aExpectedRadius, string aCaseName)
+   WsfPlatform plat = WsfSimulation.FindPlatform(aName);
+   if (plat.IsValid())
+   {
+      Vec3 locECI = plat.LocationECI();
+      double measuredRadius = locECI.Magnitude();
+      double relError = MATH.Fabs(aExpectedRadius - measuredRadius) / aExpectedRadius;
+      if (relError > 1.0e-3)
+      {
+         writeln("-FAIL- (", aCaseName, ") platform '", aName, "' is not at the expected radius. Measured: ", 
+                 measuredRadius, " Expected: ", aExpectedRadius, " Relative Error: ", relError);
+      }
+      else
+      {
+         writeln("SUCCESS (", aCaseName, "): '", aName, "' is at the expected radius. Relative Error: ", relError);
+      }
+   }
+   else
+   {
+      writeln("-FAIL- No platform with name '", aName, "' in simulation.");
+   }
+end_script
+
+script string EclipseExpectationString(bool aExpectEclipsed)
+   string retval = "";
+   if (aExpectEclipsed)
+   {
+      retval = "eclipsed";
+   }
+   else
+   {
+      retval = "not eclipsed";
+   }
+   return retval;
+end_script
+
+script void CheckEclipsed(string aName, bool aExpectEclipsed)
+   WsfPlatform plat = WsfSimulation.FindPlatform(aName);
+   if (plat.IsValid())
+   {
+      WsfSpaceMover mov = (WsfSpaceMover)plat.Mover();
+      int eclipseState = mov.EclipsedState();
+      if ((aExpectEclipsed && aExpectEclipsed > 0) || (!aExpectEclipsed && aExpectEclipsed == 0))
+      {
+         writeln("SUCCESS platform '", aName, "' matches expectation of '",
+                 EclipseExpectationString(aExpectEclipsed), "'");
+      }
+      else
+      {
+         writeln("-FAIL- platform '", aName, "' fails to match expectation of '",
+                 EclipseExpectationString(aExpectEclipsed), "'");
+      }
+   }
+   else
+   {
+      writeln("-FAIL- No platform with name '", aName, "' in simulation.");
+   }
+end_script
+
+script void ConditionTest(WsfOrbitalEventCondition aCondition, 
+                          WsfSpaceMover aMover, 
+                          string aTestFunctionName, 
+                          Array<Object> aArguments)
+   double deltaT = aMover.GetTimeToConstraint(aCondition);
+   if (deltaT < 0.0)
+   {
+      writeln("NOTE: event condition type '", aCondition.ConditionType(), 
+              "' is not supported by the provided mover. Skipping test.");
+   }
+   else
+   {
+      WsfSimulation.ExecuteAtTime(TIME_NOW + deltaT, aTestFunctionName, aArguments);
+   }
+end_script
+
+script void TestConditions(string aPlatformName, double aPeriapsis, double aApoapsis)
+   WsfPlatform targ = WsfSimulation.FindPlatform(aPlatformName);
+   WsfSpaceMover mov = (WsfSpaceMover)targ.Mover();
+
+   double rLow  = (2.0 * aPeriapsis + aApoapsis) / 3.0;
+   double rHigh = (aPeriapsis + 2.0 * aApoapsis) / 3.0;
+   double tOrbit = 360.0 / mov.MeanMotion();
+
+   ConditionTest(WsfOrbitalEventCondition.NONE(),
+                 mov,
+                 "ConfirmTiming",
+                 {aPlatformName, "NONE", 0.0 + TIME_NOW});
+   double tRel = 100.0;
+   WsfOrbitalEventCondition relativeTime = WsfOrbitalEventCondition.AT_RELATIVE_TIME(tRel);   
+   ConditionTest(relativeTime,
+                 mov,
+                 "ConfirmTiming",
+                 {aPlatformName, "AT_RELATIVE_TIME", tRel + TIME_NOW});
+   relativeTime.SetOrbitNumber(1);
+   ConditionTest(relativeTime,
+                 mov,
+                 "ConfirmTiming",
+                 {aPlatformName, "AT_RELATIVE_TIME plus an orbit", tOrbit + tRel + TIME_NOW});
+
+   WsfOrbitalEventCondition descNode = WsfOrbitalEventCondition.AT_DESCENDING_NODE(); 
+   ConditionTest(descNode, 
+                 mov, 
+                 "DescendingNode", 
+                 {aPlatformName});
+   descNode.SetOrbitNumber(1);
+   ConditionTest(descNode, 
+                 mov, 
+                 "DescendingNode", 
+                 {aPlatformName});
+
+   WsfOrbitalEventCondition ascNode = WsfOrbitalEventCondition.AT_ASCENDING_NODE(); 
+   ConditionTest(ascNode,
+                 mov,
+                 "AscendingNode", 
+                 {aPlatformName});
+   ascNode.SetOrbitNumber(1);
+   ConditionTest(ascNode,
+                 mov,
+                 "AscendingNode", 
+                 {aPlatformName});
+   
+   WsfOrbitalEventCondition peri = WsfOrbitalEventCondition.AT_PERIAPSIS(); 
+   ConditionTest(peri,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, aPeriapsis, "Periapsis"});
+   peri.SetOrbitNumber(1);
+   ConditionTest(peri,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, aPeriapsis, "Periapsis"});
+                 
+   WsfOrbitalEventCondition apo = WsfOrbitalEventCondition.AT_APOAPSIS(); 
+   ConditionTest(apo,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, aApoapsis, "Apoapsis"});
+   apo.SetOrbitNumber(1);
+   ConditionTest(apo,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, aApoapsis, "Apoapsis"});
+
+   WsfOrbitalEventCondition ascLow = WsfOrbitalEventCondition.AT_ASCENDING_RADIUS(rLow);
+   ConditionTest(ascLow,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, rLow, "Ascending Low"});
+   ascLow.SetOrbitNumber(1);
+   ConditionTest(ascLow,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, rLow, "Ascending Low"});
+   
+   WsfOrbitalEventCondition ascHigh = WsfOrbitalEventCondition.AT_ASCENDING_RADIUS(rHigh);
+   ConditionTest(ascHigh,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, rHigh, "Ascending High"});
+   ascHigh.SetOrbitNumber(1);
+   ConditionTest(ascHigh,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, rHigh, "Ascending High"});
+   
+   WsfOrbitalEventCondition descLow = WsfOrbitalEventCondition.AT_DESCENDING_RADIUS(rLow);
+   ConditionTest(descLow,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, rLow, "Descending Low"});
+   descLow.SetOrbitNumber(1);
+   ConditionTest(descLow,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, rLow, "Descending Low"});
+   
+   WsfOrbitalEventCondition descHigh = WsfOrbitalEventCondition.AT_DESCENDING_RADIUS(rHigh); 
+   ConditionTest(descHigh,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, rHigh, "Descending High"});
+   descHigh.SetOrbitNumber(1);
+   ConditionTest(descHigh,
+                 mov,
+                 "CheckRadius",
+                 {aPlatformName, rHigh, "Descending High"});
+   
+   WsfOrbitalEventCondition eclipseEntry = WsfOrbitalEventCondition.AT_ECLIPSE_ENTRY();
+   ConditionTest(eclipseEntry,
+                 mov,
+                 "CheckEclipsed",
+                 {aPlatformName, true});
+   eclipseEntry.SetOrbitNumber(1);
+   ConditionTest(eclipseEntry,
+                 mov,
+                 "CheckEclipsed",
+                 {aPlatformName, true});
+   
+   WsfOrbitalEventCondition eclipseExit = WsfOrbitalEventCondition.AT_ECLIPSE_EXIT();
+   ConditionTest(eclipseExit,
+                 mov,
+                 "CheckEclipsed",
+                 {aPlatformName, false});
+   eclipseExit.SetOrbitNumber(1);
+   ConditionTest(eclipseExit,
+                 mov,
+                 "CheckEclipsed",
+                 {aPlatformName, false});
+end_script
+
+
+// Test eveything for a WSF_SPACE_MOVER
+execute at_time 100 s absolute
+   WsfPlatform plat = WsfSimulation.FindPlatform("kepler");
+   WsfSpaceMover mov = (WsfSpaceMover)plat.Mover();
+   
+   double ecc = mov.Eccentricity();
+   double sma = mov.SemiMajorAxis();
+   double rPeri = sma * (1.0  - ecc);
+   double rApo = sma * (1.0 + ecc);
+   
+   TestConditions("kepler", rPeri, rApo);
+end_execute
+
+// Test everything for a WSF_NORAD_SPACE_MOVER
+execute at_time 15 s absolute
+   double rPeri = 8.18797e6;
+   double rApo = 1.00065e7;
+   TestConditions("norad", rPeri, rApo);
+end_execute
+
+
+start_date mar 20 2018
+start_time 12:00:00.000
+
+end_time 6 hour
+

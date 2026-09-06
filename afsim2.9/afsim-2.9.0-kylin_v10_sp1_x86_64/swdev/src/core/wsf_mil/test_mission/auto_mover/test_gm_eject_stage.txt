@@ -1,0 +1,191 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the 'EjectStage' script methods of WsfGuidanceComputer
+
+include setup_test_gm.txt
+
+###############################################################################
+
+mover SSM_MOVER SSM_MOVER_BASE
+   # Modify the the coast times from their defaults of zero
+   stage 1
+      pre_separation_coast_time 2 sec  # For testing EjectStage.
+   end_stage
+
+   stage 2
+      pre_ignition_coast_time 3 sec    # For testing EjectStage    
+   end_stage
+end_mover
+
+###############################################################################
+
+processor SSM_GUIDANCE SSM_GUIDANCE_BASE
+   # Supply the required ASCENT phase definition
+   phase ASCENT
+      guidance_delay 2000.0 sec
+   end_phase
+end_processor
+
+###############################################################################
+
+platform_type SSM SSM_BASE
+   mover SSM_MOVER
+   end_mover
+  
+   processor guidance SSM_GUIDANCE
+   end_processor
+
+   # The remainder is stuff to prematurely eject the stage and check the results.
+   
+   script_variables
+      int shotNumber;
+      double argPreSeparationCoastTime;
+      double argPreIgnitionCoastTime;
+      double expThrustDuration;
+      double expPreSeparationCoastTime;
+      double expPreIgnitionCoastTime;
+      double burnoutTime;
+      double separationTime;
+   end_script_variables
+
+   # We can't use on_initialize because it is used by SSM_BASE
+   script void InitializeShot()
+      extern int gShotCount;
+      shotNumber = gShotCount;
+      argPreSeparationCoastTime = -1.0;
+      argPreIgnitionCoastTime = -1.0;
+      expThrustDuration = 85.0;
+      if (shotNumber == 1)
+      {
+         # Early staging, change both pre_separation_coast_time and pre_ignition_coast_time
+         argPreSeparationCoastTime = 2.5;
+         argPreIgnitionCoastTime = 3.5;
+      }
+      else if (shotNumber == 2)
+      {
+         # Early staging, change pre_separation_coast_time only
+         argPreSeparationCoastTime = 2.5;
+      }
+      else if (shotNumber == 3)
+      {
+         # Early staging, change pre_ignition_coast_time only
+         argPreIgnitionCoastTime = 3.5;
+      }
+      else if (shotNumber == 4)
+      {
+         # Early staging, no change in coast times
+      }
+      else if (shotNumber == 5)
+      {
+         # No early staging.
+         expThrustDuration = 90.0;
+      }
+      expPreSeparationCoastTime = 2.0; # as defined in the guided mover
+      if (argPreSeparationCoastTime >= 0.0) expPreSeparationCoastTime = argPreSeparationCoastTime;
+      expPreIgnitionCoastTime = 3.0; # as defined in the guided mover
+      if (argPreIgnitionCoastTime >= 0.0) expPreIgnitionCoastTime = argPreIgnitionCoastTime;
+   end_script
+      
+   execute at_time 1 sec relative
+      # Trigger the early stage ejection if required.
+      if (shotNumber < 5) ExecuteAtTime(CreationTime() + expThrustDuration, "DoEjectStage");
+   end_execute
+
+   script void DoEjectStage()
+      writeln("T=", TIME_NOW, " Shot ", shotNumber, " EjectStage(", argPreSeparationCoastTime, ", ", argPreIgnitionCoastTime, ")");
+      WsfGuidanceComputer p = (WsfGuidanceComputer) Processor("guidance");
+      if (argPreSeparationCoastTime >= 0.0 || argPreIgnitionCoastTime >= 0.0)
+      {
+         p.EjectStage(argPreSeparationCoastTime, argPreIgnitionCoastTime);
+      }
+      else
+      {
+         p.EjectStage();
+      }
+   end_script
+   
+   script void on_stage_ignition(int aStage)
+      if (aStage == 1)
+      {
+         InitializeShot();
+      }
+      else if (aStage == 2)
+      {
+         extern int gPassCount;
+         double actualTime = TIME_NOW - separationTime;
+         double expectedTime = expPreIgnitionCoastTime;
+         if (Math.Fabs(actualTime - expectedTime) < 0.1)
+         {
+            gPassCount = gPassCount + 1;
+            writeln("-PASS- T=", TIME_NOW, " Shot ", shotNumber, " pre_ignition_coast_time, expected=", expectedTime, " actual=", actualTime);
+         }
+         else
+         {
+            writeln("-FAIL- T=", TIME_NOW, " Shot ", shotNumber, " pre_ignition_coast_time, expected=", expectedTime, " actual=", actualTime);
+         }
+      }
+   end_script
+   
+   script void on_stage_burnout(int aStage)
+      if (aStage == 1)
+      {
+         extern int gPassCount;
+         burnoutTime = TIME_NOW;
+         double actualTime = TIME_NOW - CreationTime();
+         double expectedTime = expThrustDuration;
+         if (Math.Fabs(actualTime - expectedTime) < 0.1)
+         {
+            gPassCount = gPassCount + 1;
+            writeln("-PASS- T=", TIME_NOW, " Shot ", shotNumber, " burn_time, expected=", expectedTime, " actual=", actualTime);
+         }
+         else
+         {
+            writeln("-FAIL- T=", TIME_NOW, " Shot ", shotNumber, " burn_time, expected=", expectedTime, " actual=", actualTime);
+         }
+      }
+   end_script
+   
+   script void on_stage_separation(int aStage)
+      if (aStage == 1)
+      {
+         extern int gPassCount;
+         separationTime = TIME_NOW;
+         double actualTime = TIME_NOW - burnoutTime;
+         double expectedTime = expPreSeparationCoastTime;
+         if (Math.Fabs(actualTime - expectedTime) < 0.1)
+         {
+            gPassCount = gPassCount + 1;
+            writeln("-PASS- T=", TIME_NOW, " Shot ", shotNumber, " pre_separation_coast_time, expected=", expectedTime, " actual=", actualTime);
+         }
+         else
+         {
+            writeln("-FAIL- T=", TIME_NOW, " Shot ", shotNumber, " pre_separation_coast_time, expected=", expectedTime, " actual=", actualTime);
+         }
+      }
+   end_script
+   
+end_platform_type
+
+###############################################################################
+
+platform launcher SSM_LAUNCHER
+   execute at_time  1 sec relative Launch(); end_execute
+   execute at_time 21 sec relative Launch(); end_execute
+   execute at_time 41 sec relative Launch(); end_execute
+   execute at_time 61 sec relative Launch(); end_execute
+   execute at_time 81 sec relative Launch(); end_execute
+end_platform
+
+on_initialize
+   gExpectedPassCount = 15; # Defined expected pass count in 'setup_test_gm.txt'
+end_on_initialize
+
+# We don't need to let it go to the end of flight... just until the tests complete for each shot.
+end_time 180 sec

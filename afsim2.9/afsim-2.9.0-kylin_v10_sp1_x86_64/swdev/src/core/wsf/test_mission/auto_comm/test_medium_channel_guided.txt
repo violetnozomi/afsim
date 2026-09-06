@@ -1,0 +1,105 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//Tests the channel capability inherent to all mediums.
+//All comms are provided a single shared medium with non-trivial transmission times.
+//Each will attempt transmission in a short interval, until the channels are exceeded.
+//Those comms that exceed channel capacity will reschedule transmission.
+
+script_variables
+   int num_transmitted = 0;
+   int num_received = 0;
+end_script_variables
+
+// All comms are sharing this medium - the same telephone line.
+medium RJ11 WSF_COMM_MEDIUM_GUIDED
+   channels 2                        # unrealistic - just for testing
+   transfer_rate 56000 bytes/s       # non-analogue
+   propagation_speed 186470909 m/s   # around 0.622 velocity factor
+end_medium
+
+comm MODEM WSF_COMM_TRANSCEIVER
+   add medium RJ11 end_medium
+   retransmit_attempts 1
+   retransmit_delay 10 s
+end_comm
+
+platform test1 WSF_PLATFORM
+   add comm modem MODEM end_comm
+end_platform
+
+platform test2 WSF_PLATFORM
+   add comm modem MODEM end_comm
+end_platform
+
+platform test3 WSF_PLATFORM
+   add comm modem MODEM end_comm
+end_platform
+
+execute at_time 1 s absolute
+   # A 500 kb message takes ~9 seconds at 56k
+   WsfMessage message = {};
+   message.SetSizeInBytes(500000);
+   WsfComm modem = WsfSimulation.FindPlatform("test1").Comm("modem");
+   modem.SendMessage(message, "test2", "modem");
+end_execute
+
+execute at_time 2 s absolute
+   WsfMessage message = {};
+   message.SetSizeInBytes(500000);
+   WsfComm modem = WsfSimulation.FindPlatform("test2").Comm("modem");
+   modem.SendMessage(message, "test3", "modem");
+end_execute
+
+execute at_time 3 s absolute
+   // This attempt will fail initially, with a 10 s retransmission delay.
+   WsfMessage message = {};
+   message.SetSizeInBytes(500000);
+   WsfComm modem = WsfSimulation.FindPlatform("test3").Comm("modem");
+   modem.SendMessage(message, "test1", "modem");
+end_execute
+
+execute at_time 4 s absolute
+   if(num_transmitted != 2)
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 14 s absolute
+   if(num_transmitted != 3 || num_received != 2)
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 22 s absolute
+   if(num_transmitted != 3 || num_received != 3)
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+observer
+   enable MESSAGE_RECEIVED MessageReceived
+   enable MESSAGE_TRANSMITTED MessageTransmitted
+end_observer
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   num_received = num_received + 1;
+end_script
+
+script void MessageTransmitted(WsfComm aXmtr, WsfMessage aMsg)
+   num_transmitted = num_transmitted + 1;
+end_script
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output

@@ -1,0 +1,155 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test focus-related group functions:
+# - Retrieving a list of all focused groups
+# - Retrieving a list of all unfocused groups
+# - focusing and unfocusing group
+# - testing that the number of PIs reported is updated correctly when focus changes
+#
+include_once ../auto_script/utility_test_functions.txt
+include_once platforms/tracking_platform.txt
+include_once platforms/target_platform.txt
+
+end_time 1 min
+
+script_variables
+   bool allTestsPassed = true; // any failure turns it false
+end_script_variables
+
+platform red-1 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:10w
+      altitude 45000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:0e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:10e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+# This platform uses defaults for all SA processor update intervals
+platform blue-1 TEST_PLATFORM
+
+   route
+      position 0:0:0n 0:0:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   edit processor sa-proc
+      max_prioritized_threats 8
+      max_prioritized_targets 8
+      include scripts/threat_target_scoring.txt
+      
+   end_processor
+   
+   execute at_time 50 s absolute
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      if (proc.IsValid())
+      {
+         Array<WsfSA_Group> groups = proc.PerceivedGroups();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PerceivedItemCount(), "Incorrect number of PIs.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, groups.Size(), "Groups list is the wrong size.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PerceivedBandits().Size(), "Incorrect number of bandits.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, proc.FocusedGroups().Size(), "Incorrect number of focused groups.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(0, proc.UnfocusedGroups().Size(), "Incorrect number of unfocused groups.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PerceivedThreatItems().Size(), "Incorrect number of perceived threat items.");
+         // THe number of prioritized items shouldn't change, because they are only calculated on the prioritized_item_calculation_update_interval.
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PrioritizedTargetItems().Size(), "Incorrect number of prioritized target items.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PrioritizedTargetEntities().Size(), "Incorrect number of prioritized target entities.");
+         // Explanation for the following test: all groups are focused; only unfocused groups are considered PIs.
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(0, proc.PrioritizedTargetGroups().Size(), "Incorrect number of prioritized target groups.");
+         
+         allTestsPassed = allTestsPassed && AssertTrueMessage(groups[0].GetFocus(), "Group is unfocused.");
+         allTestsPassed = allTestsPassed && AssertFalseMessage(groups[0].GetFocusProtection(), "Group is focus protected when it shouldn't be.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.SetFocus(groups[0], false), "SetFocus failed.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, proc.PerceivedItemCount(), "Incorrect number of PIs.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, proc.PerceivedBandits().Size(), "Incorrect number of bandits in focus.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PrioritizedThreatEntities().Size(), "Incorrect number of prioritized threats in focus.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PrioritizedTargetEntities().Size(), "Incorrect number of prioritized targets in focus.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, proc.FocusedGroups().Size(), "Incorrect number of focused groups.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, proc.UnfocusedGroups().Size(), "Incorrect number of unfocused groups.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, proc.PerceivedThreatItems().Size(), "Incorrect number of perceived threat items.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PrioritizedTargetItems().Size(), "Incorrect number of prioritized target items.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(0, proc.PrioritizedTargetGroups().Size(), "Incorrect number of prioritized target groups.");
+         
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.SetFocus(groups[0], true), "SetFocus failed.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.SetFocus(groups[1], false), "SetFocus failed.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, proc.PerceivedItemCount(), "Incorrect number of PIs.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, proc.PerceivedBandits().Size(), "Incorrect number of bandits in focus.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PrioritizedThreatEntities().Size(), "Incorrect number of prioritized threats in focus.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PrioritizedTargetEntities().Size(), "Incorrect number of prioritized targets in focus.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, proc.FocusedGroups().Size(), "Incorrect number of focused groups.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, proc.UnfocusedGroups().Size(), "Incorrect number of unfocused groups.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, proc.PerceivedThreatItems().Size(), "Incorrect number of perceived threat items.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PrioritizedTargetItems().Size(), "Incorrect number of prioritized target items.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(0, proc.PrioritizedTargetGroups().Size(), "Incorrect number of prioritized target groups.");
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

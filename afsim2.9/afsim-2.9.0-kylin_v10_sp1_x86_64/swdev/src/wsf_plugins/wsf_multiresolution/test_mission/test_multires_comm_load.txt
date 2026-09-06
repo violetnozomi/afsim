@@ -1,0 +1,70 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+comm LOW_FIDELITY_COMM WSF_COMM_TRANSCEIVER
+end_comm
+
+comm HIGH_FIDELITY_COMM WSF_COMM_TRANSCEIVER
+end_comm
+
+platform_type SIMPLE_FIGHTER WSF_PLATFORM
+   icon F-18  
+
+   mover WSF_AIR_MOVER
+      update_interval 30 sec
+   end_mover
+
+   multiresolution_comm my_comm WSF_MULTIRESOLUTION_COMM
+     model high_fidelity_comm
+        fidelity_range 0.5 1.0
+        comm HIGH_FIDELITY_COMM
+        end_comm
+     end_model
+    
+     add model low_fidelity_comm
+        fidelity_range 0.0 0.5
+        comm LOW_FIDELITY_COMM
+        end_comm
+     end_model
+     fidelity 1.0
+   end_multiresolution_comm
+end_platform_type
+
+platform test SIMPLE_FIGHTER
+  
+  multiresolution_comm my_comm
+     common
+        channels 42
+        yaw 10.0 deg
+     end_common
+  end_multiresolution_comm
+  
+  on_initialize2
+    // Check that the correct comm was loaded by checking its type
+    WsfComm comm = PLATFORM.Comm("my_comm");
+    if(comm != NULL){
+      // Check type
+      if(!comm.IsA_TypeOf("HIGH_FIDELITY_COMM")){
+        writeln("Wrong comm. Expected HIGH_FIDELITY_COMM, got ", comm.Type());
+        writeln("-FAIL-");
+      }
+      // Check that FOV was set with common block
+      if(comm.Yaw() != 10.0)
+      {
+         writeln("Wrong yaw. Expected 10, got ", comm.Yaw());
+         writeln("-FAIL-");
+      }
+    } else {
+      writeln("No comm with name my_comm");
+      writeln("-FAIL-");
+    }
+  end_on_initialize2
+end_platform

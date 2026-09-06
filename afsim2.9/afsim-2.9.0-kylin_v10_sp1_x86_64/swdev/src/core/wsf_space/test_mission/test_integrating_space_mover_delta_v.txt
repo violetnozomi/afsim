@@ -1,0 +1,96 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 1 hours
+
+platform test-tangent WSF_PLATFORM
+   empty_mass 100 kg
+
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0.0
+      semi_major_axis 8000 km
+      inclination 1 deg
+      raan 0 deg
+
+      maneuvering simple
+      end_maneuvering
+
+      mission_sequence
+         maneuver delta_v
+            execute_at relative_time 100 s
+            delta_v inertial 30 m/s 40 m/s 0 m/s
+         end_maneuver
+      end_mission_sequence
+
+      integrator prince_dormand_45
+         tolerance 1.0e-11
+      end_integrator
+
+      dynamics
+         term earth_monopole
+            egm96
+         end_term
+      end_dynamics
+   end_mover
+
+   execute at_time 30 min absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      Vec3 deltaV = Vec3.Construct(0.0, 30.0, 40.0);
+      WsfOrbitalManeuver maneuver = WsfDeltaV_Maneuver.Construct(WsfOrbitalEventCondition.NONE(), deltaV, WsfOrbitalReferenceFrame.INERTIAL());
+      bool result = mover.ExecuteManeuver(maneuver);
+      if(result) {
+         writeln("delta_v: true");
+      } else {
+         writeln("delta_v: false");
+      }
+   end_execute
+end_platform
+
+script_variables
+   Vec3 sVelo = Vec3.Construct(0.0, 0.0, 0.0);
+   int sNumCompleted = 0;
+end_script_variables
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; begin ", aManeuver.ManeuverType());
+   sVelo = aPlatform.VelocityECI();
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; end ", aManeuver.ManeuverType());
+   Vec3 newVelo = aPlatform.VelocityECI();
+   double deltaSpeed = Vec3.Subtract(sVelo, newVelo).Magnitude();
+   writeln("delta:", deltaSpeed);
+   if ((deltaSpeed < 49.99) || (deltaSpeed > 50.01))
+   {
+      writeln("-FAIL-");
+   }
+   sNumCompleted += 1;
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 2)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer

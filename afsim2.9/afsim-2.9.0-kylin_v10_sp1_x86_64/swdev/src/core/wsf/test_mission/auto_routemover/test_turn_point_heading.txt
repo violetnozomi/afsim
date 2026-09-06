@@ -1,0 +1,47 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests out switch_on_passing/switch_on_approach flags are correctly handled on
+# the mover and waypoints
+
+platform p WSF_PLATFORM
+   position 0.1n 0.1e
+   icon 737
+   heading -30 deg
+   side blue
+end_platform
+
+platform_type plat_type WSF_PLATFORM
+   side blue
+   icon 737
+   mover WSF_AIR_MOVER
+      maximum_radial_acceleration 1 g
+   end_mover
+   route
+      position 0n 0e speed 400 m/s
+         heading 0 deg
+      position 0.1n 0.2e
+         heading 0 deg mode point_on_heading
+         execute print_heading
+      position 0.3n 0.2e
+      position 0.3n 0.4e
+         heading 180 deg mode point_on_heading
+         execute print_heading
+      position 0.1n 0.4e
+   end_route
+   script void print_heading()
+      writeln(Heading());
+   end_script
+end_platform_type
+
+platform tester plat_type
+end_platform
+
+
+end_time 20 min

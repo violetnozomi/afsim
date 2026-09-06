@@ -1,0 +1,287 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+test_feature non_exportable
+
+attenuation_model RADAR_ATTENUATION_ITU itu
+#   query
+#      frequency    3 ghz
+#      polarization vertical
+#      altitude     9500 m              # In the middle of the layer
+#      range        2 km
+#      elevation    0.0 deg
+#   end_query
+end_attenuation_model
+
+attenuation_model RADAR_ATTENUATION_BLAKE blake
+end_attenuation_model
+
+attenuation_model RADAR_ATTENUATION_EARCE earce
+end_attenuation_model
+
+attenuation_model RADAR_ATTENUATION_SIMPLE simple
+   specific_attenuation 0.0011315 dB/km
+end_attenuation_model
+
+sensor RADAR WSF_RADAR_SENSOR
+   frame_time 10 sec
+   transmitter
+      frequency 3 ghz
+      polarization vertical
+      power 250 kw
+   end_transmitter
+   one_m2_detect_range 200 nm
+   reports_location
+   on
+   ignore_same_side
+end_sensor
+
+# ------------------------------------------------------------------------------
+
+attenuation_model LADAR_ATTENUATION optical
+   # The following table should be automatically selected...
+   #internal_table mono_1064nm_a2_h1
+end_attenuation_model
+
+sensor LADAR WSF_LADAR_SENSOR
+   frame_time 10 sec
+   
+   transmitter
+      # Can't use 'nm' for units because that is nautical miles
+      wavelength                       1064 nanometers
+      power                            2 w
+      pulse_repetition_frequency       100 hz
+      pulse_width                      2.5 ns
+      aperture_diameter                7.5 mm
+      optics_transmission_factor       1.0
+      beam_divergence_angle            0.001 deg
+      attenuation_model                LADAR_ATTENUATION
+   end_transmitter
+   
+   receiver
+      aperture_diameter                20 cm
+      optics_transmission_factor       1.0
+   end_receiver
+
+   detection_threshold                 1.0
+   reports_location
+   on
+   ignore_same_side
+end_sensor
+
+# ------------------------------------------------------------------------------
+
+radar_signature TARGET_RADAR_SIG
+   constant 0 dbsm
+end_radar_signature
+
+optical_signature TARGET_OPTICAL_SIG
+   constant 10 m^2
+end_optical_signature
+
+optical_reflectivity TARGET_OPTICAL_REFLECTIVITY
+   constant 0.3
+end_optical_reflectivity
+
+platform_type TARGET WSF_PLATFORM
+   radar_signature      TARGET_RADAR_SIG
+   optical_signature    TARGET_OPTICAL_SIG
+   optical_reflectivity TARGET_OPTICAL_REFLECTIVITY
+end_platform_type
+
+# ------------------------------------------------------------------------------
+
+platform ATA_ITU WSF_PLATFORM
+   side red
+   position 0n 0w altitude 9500 m heading 90 deg
+
+   add sensor radar RADAR
+      transmitter
+         attenuation_model RADAR_ATTENUATION_ITU
+      end_transmitter
+      ignore_side green
+   end_sensor
+end_platform
+
+platform ATA_SIMPLE WSF_PLATFORM
+   side red
+   position 0n 0w altitude 9500 m heading 90 deg
+
+   add sensor radar RADAR
+      transmitter
+         attenuation_model RADAR_ATTENUATION_SIMPLE
+      end_transmitter
+      ignore_side green
+   end_sensor
+end_platform
+
+platform ATA_LADAR WSF_PLATFORM
+   side red
+   position 0n 0w altitude 9500 m heading 90 deg
+
+   add sensor ladar LADAR
+      ignore_side green
+   end_sensor
+end_platform
+
+platform GTA_BLAKE WSF_PLATFORM
+   side red
+   position 0n 0w heading 90 deg
+
+   add sensor radar RADAR
+      transmitter
+         attenuation_model RADAR_ATTENUATION_BLAKE
+      end_transmitter
+      ignore_side yellow
+   end_sensor
+end_platform
+
+platform GTA_EARCE WSF_PLATFORM
+   side red
+   position 0n 0w heading 90 deg
+
+   add sensor radar RADAR
+      transmitter
+         attenuation_model RADAR_ATTENUATION_EARCE
+      end_transmitter
+      ignore_side yellow
+   end_sensor
+end_platform
+
+platform GTA_ITU WSF_PLATFORM
+   side red
+   position 0n 0w heading 90 deg
+
+   add sensor radar RADAR
+      transmitter
+         attenuation_model RADAR_ATTENUATION_ITU
+      end_transmitter
+      ignore_side yellow
+   end_sensor
+end_platform
+
+platform GTA_SIMPLE WSF_PLATFORM
+   side red
+   position 0n 0w heading 90 deg
+
+   add sensor radar RADAR
+      transmitter
+         attenuation_model RADAR_ATTENUATION_SIMPLE
+      end_transmitter
+      ignore_side yellow
+   end_sensor
+end_platform
+
+platform GTA_LADAR WSF_PLATFORM
+   side red
+   position 0n 0w heading 90 deg
+
+   add sensor ladar LADAR
+      ignore_side yellow
+   end_sensor
+end_platform
+
+# Target will be 5 km at 0 apparent el, so we should get 10 km of attenuation
+platform ATA_TARGET TARGET
+   side yellow
+   position 0n 0.04484895w altitude 9501.47 m heading 270 deg
+end_platform
+
+# Gives 50km range from ground radars
+platform GTA_TARGET TARGET
+   side green
+   position 0n 0.441511w altitude 9000 m heading 270 deg
+end_platform
+
+platform ATA_ZERO TARGET
+   side yellow
+   position 0n 0.0000001w altitude 9500 m heading 270 deg
+end_platform
+
+platform GTA_ZERO TARGET
+   side green
+   position 0n 0.0000001w heading 270 deg
+end_platform
+
+script void TestAttenuation(WsfPlatform          aPlatform,
+                            WsfSensor            aSensor,
+                            WsfPlatform          aTarget,
+                            WsfSensorInteraction aResult,
+                            double               aExpected)
+   double atten = MATH.DB_ToLinear(aResult.AbsorptionFactor());
+   if (MATH.Fabs(atten - aExpected) > 0.001)
+   {
+      writeln("-FAIL- ", aPlatform.Name(), " vs. ", aTarget.Name(),
+              "; expected: ", aExpected, ", received: ", atten);
+   }
+end_script
+
+script void SensorDetectionAttempt(WsfPlatform          aPlatform,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+   writeln("T=", TIME_NOW, " ", aPlatform.Name(), " -> ", aTarget.Name(),
+           "; R=", aResult.XmtrToTargetRange(), " m",
+           ", Atn=", aResult.AbsorptionFactor(), " dB",
+           " (", MATH.DB_ToLinear(aResult.AbsorptionFactor()), ")");
+   if (aTarget.Name() == "ATA_ZERO" || aTarget.Name() == "GTA_ZERO")
+   {
+      TestAttenuation(aPlatform, aSensor, aTarget, aResult, 1.0);
+   }
+   else if (aPlatform.Name() == "ATA_SIMPLE" && aTarget.Name() == "ATA_TARGET")
+   {
+      TestAttenuation(aPlatform, aSensor, aTarget, aResult, 0.997398);
+   }
+   else if (aPlatform.Name() == "ATA_ITU"    && aTarget.Name() == "ATA_TARGET")
+   {
+      TestAttenuation(aPlatform, aSensor, aTarget, aResult, 0.997398);
+   }
+   else if (aPlatform.Name() == "ATA_LADAR"  && aTarget.Name() == "ATA_TARGET")
+   {
+      TestAttenuation(aPlatform, aSensor, aTarget, aResult, 0.987117);
+   }
+   else if (aPlatform.Name() == "GTA_BLAKE"  && aTarget.Name() == "GTA_TARGET")
+   {
+      TestAttenuation(aPlatform, aSensor, aTarget, aResult, 0.932319);
+   }
+   else if (aPlatform.Name() == "GTA_EARCE"  && aTarget.Name() == "GTA_TARGET")
+   {
+      TestAttenuation(aPlatform, aSensor, aTarget, aResult, 0.935702);
+   }
+   else if (aPlatform.Name() == "GTA_ITU"    && aTarget.Name() == "GTA_TARGET")
+   {
+      TestAttenuation(aPlatform, aSensor, aTarget, aResult, 0.920974);
+   }
+   else if (aPlatform.Name() == "GTA_SIMPLE" && aTarget.Name() == "GTA_TARGET")
+   {
+      TestAttenuation(aPlatform, aSensor, aTarget, aResult, 0.974283);
+   }
+   else if (aPlatform.Name() == "GTA_LADAR" && aTarget.Name() == "GTA_TARGET")
+   {
+      TestAttenuation(aPlatform, aSensor, aTarget, aResult, 0.191547);
+   }
+           
+end_script 
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT
+end_observer
+
+end_time 6 sec
+
+/*
+event_output
+   file replay.evt
+   file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+*/

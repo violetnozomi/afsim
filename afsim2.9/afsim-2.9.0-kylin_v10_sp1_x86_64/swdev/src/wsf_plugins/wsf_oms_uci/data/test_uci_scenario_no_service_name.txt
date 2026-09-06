@@ -1,0 +1,21 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// test that failing to provide a service name in a uci_interface block causes initialization failure 
+observer
+   enable SIMULATION_STARTING 
+end_observer
+
+// uci_interface block needed; otherwise assume it is not being used.
+uci_interface
+end_uci_interface
+
+script void SimulationStarting()
+   writeln("-FAIL-");
+end_script

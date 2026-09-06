@@ -1,0 +1,56 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This file tests out GoToAltitude and GoToSpeed.  In particular this ensures that
+# The 'KeepRoute' parameter is used correcty.
+include_once ../auto_script/test_functions.txt
+
+#script_listing on
+
+platform plat_type WSF_PLATFORM
+   icon 737
+   side blue
+   add mover WSF_AIR_MOVER
+      update_interval 1.0 s
+      maximum_flight_path_angle .8 rad
+      maximum_linear_acceleration 2 g
+   end_mover
+   altitude 2000 ft
+   route
+      position 0n 0e speed 100 m/s
+      position 0.1n 0e
+      position 0n 0.1e
+      position 0n 0e
+   end_route
+   execute at_time 20 s absolute
+      GoToAltitude(3000, 0, true);
+      GoToSpeed(150, 0, true);
+   end_execute
+   execute at_time 120 s absolute
+      GoToAltitude(500, 5, true);
+      GoToSpeed(90, 0, true);
+   end_execute
+   execute at_time 210 s absolute
+      # Begin extrapolation
+      GoToAltitude(5000, 25, false);
+   end_execute
+   execute at_time 6.9 min absolute
+      extern bool AssertLocation(double, double, WsfPlatform);
+      AssertLocation(-.0964752, 0.188637, PLATFORM);
+      double speedError = MATH.Fabs(Speed() - 90);
+      if (speedError > .1)
+      {
+         writeln("-FAIL- incorrect speed");
+      }
+   end_execute
+end_platform
+
+end_time 7 min
+
+

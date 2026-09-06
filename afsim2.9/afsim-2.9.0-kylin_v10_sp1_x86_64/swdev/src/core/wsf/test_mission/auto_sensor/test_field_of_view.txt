@@ -1,0 +1,252 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+sensor MM_RADAR WSF_RADAR_SENSOR
+   
+   mode_template 
+      frame_time 10000 s
+      reports_range   
+      transmitter         
+         power 10 watts
+         frequency 10 mhz
+      end_transmitter
+      receiver
+         frequency 12 mhz
+      end_receiver
+   end_mode_template
+   
+   mode circular_5deg // mode 0
+      field_of_view circular 
+         half_angle 5 deg
+      end_field_of_view
+   end_mode      
+   
+   mode rectangular_5deg_10deg // mode 1
+      field_of_view rectangular 
+         azimuth_field_of_view -5 deg 5 deg 
+         elevation_field_of_view -10 deg 10 deg
+      end_field_of_view
+   end_mode      
+
+   mode polygonal // mode 2
+      field_of_view polygonal
+            // Triangular
+         azimuth_elevation -5 deg  5 deg
+         azimuth_elevation  0 deg -5 deg
+         azimuth_elevation  5 deg  5 deg
+      end_field_of_view         
+   end_mode      
+
+   slew_mode both // Needed to prevent warning messages for equatorial FOV.
+
+   mode equatorial_5_deg_10_deg // mode 3
+      field_of_view equatorial
+         equatorial_field_of_view -5 deg 5 deg
+         polar_field_of_view -10 deg 10 deg 
+      end_field_of_view   
+   end_mode
+end_sensor
+ 
+sensor MULTI_RECEIVER WSF_RADAR_SENSOR
+   
+   mode_template 
+      reports_iff
+      frame_time 10000 s
+      reports_range
+   end_mode_template
+
+   on
+   slew_mode both   
+   
+   mode mode1
+      beam 1
+         transmitter         
+            power 10 watts
+            frequency 10 mhz
+         end_transmitter   
+         receiver
+            frequency 12 mhz
+         end_receiver
+      end_beam
+      beam 2
+         receiver
+            field_of_view circular
+               half_angle 5 deg 
+            end_field_of_view 
+         end_receiver
+      end_beam
+      beam 3
+         receiver
+            field_of_view equatorial
+               equatorial_field_of_view -5 deg 5 deg
+               polar_field_of_view -10 deg 10 deg 
+            end_field_of_view 
+         end_receiver
+      end_beam
+      beam 4
+         receiver
+            field_of_view polygonal
+                  // Triangular
+               azimuth_elevation -5 deg  5 deg
+               azimuth_elevation  0 deg -5 deg
+               azimuth_elevation  5 deg  5 deg
+            end_field_of_view         
+         end_receiver
+      end_beam
+   end_mode 
+end_sensor
+
+script_variables
+   bool sFAILED = false;
+end_script_variables
+
+script void Test(string aTestName, bool aPassCondition, string aWhy)
+   if (!aPassCondition)
+   {
+      writeln("-FAIL- (", aTestName, "): ", aWhy); 
+      sFAILED = true;
+   }
+end_script
+
+script void TestValidObject(string aTestName, Object aObject)
+   Test (aTestName, !aObject.IsNull(), " Object is null.");
+end_script
+
+script bool WithinEpsilon(double aValue, double aReferenceValue)
+   static double sEPSILON = 1.0e-12;
+   bool within = (((aValue - sEPSILON) < aReferenceValue) && 
+                  ((aValue + sEPSILON) > aReferenceValue));
+   return within; 
+end_script 
+
+script
+   void TestCircular(string aTestName, WsfFieldOfView aFOV, double aHalfAngle)
+      WsfCircularFieldOfView cfov = (WsfCircularFieldOfView)(aFOV);
+      TestValidObject(aFOV.Type(), cfov);
+      Test(aTestName, WithinEpsilon(cfov.HalfAngle(), aHalfAngle), " unexpected FOV extent");
+end_script
+   
+script
+   void TestRectangular(string aTestName, WsfFieldOfView aFOV, double aMinAz, double aMaxAz, double aMinEl, double aMaxEl)
+      WsfRectangularFieldOfView rfov = (WsfRectangularFieldOfView)(aFOV);
+      TestValidObject(aFOV.Type(), rfov);
+      Array<double> azFOV = rfov.AzimuthFieldOfView();
+      Array<double> elFOV = rfov.ElevationFieldOfView();
+      bool equalFOV = WithinEpsilon(azFOV[0], aMinAz) &&
+                      WithinEpsilon(azFOV[1], aMaxAz) &&
+                      WithinEpsilon(elFOV[0], aMinEl) &&
+                      WithinEpsilon(elFOV[1], aMaxEl);
+      Test(aTestName, equalFOV, " unexpected FOV extent");
+end_script
+   
+script
+   void TestEquatorial(string aTestName, WsfFieldOfView aFOV, double aMinRA, double aMaxRA, double aMinDec, double aMaxDec)
+      WsfEquatorialFieldOfView efov = (WsfEquatorialFieldOfView)(aFOV);
+      TestValidObject(aFOV.Type(), efov);
+      Array<double> raFOV = efov.EquatorialFieldOfView();
+      Array<double> decFOV = efov.PolarFieldOfView();
+      bool equalFOV = WithinEpsilon(raFOV[0], aMinRA) &&
+                      WithinEpsilon(raFOV[1], aMaxRA) &&
+                      WithinEpsilon(decFOV[0], aMinDec) &&
+                      WithinEpsilon(decFOV[1], aMaxDec);
+      Test(aTestName, equalFOV, " unexpected FOV extent");
+end_script
+
+script
+   void TestPolygonal(string aTestName, WsfFieldOfView aFOV)
+      WsfPolygonalFieldOfView pfov = (WsfPolygonalFieldOfView)(aFOV);
+      TestValidObject(aTestName, pfov);
+end_script
+
+platform test_multi_reciever WSF_PLATFORM
+   position 0n 88w
+   altitude 20000 ft
+   
+   add sensor multi_receiver MULTI_RECEIVER
+   end_sensor
+          
+   script void TestMultiReceiverRadarFOV()
+      WsfSensor sensor = PLATFORM.Sensor("multi_receiver");
+      TestRectangular("multi-receiver rectangular FOV", sensor.FOV(0), -180, 180, -90, 90);
+      TestCircular("multi-receiver circular FOV", sensor.FOV(1),  5.0);
+      TestEquatorial("multi-receiver equatorial FOV", sensor.FOV(2), -5, 5, -10, 10);
+      TestPolygonal("multi-receiver polygonal FOV", sensor.FOV(3));
+
+      
+      WsfCircularFieldOfView cfov = WsfCircularFieldOfView.Construct(20.0);
+      sensor.SetFOV(cfov, 1);
+      TestCircular("multi-receiver curcular FOV", sensor.FOV(1), 20.0);   
+      
+      WsfPolygonalFieldOfView pfov = (WsfPolygonalFieldOfView)sensor.FOV(3);
+      sensor.SetFOV(pfov, 0);
+      TestPolygonal("multi-receiver polygonal FOV", sensor.FOV(0));
+
+      WsfRectangularFieldOfView rfov = WsfRectangularFieldOfView.Construct(-7, 7, -14, 14);
+      sensor.SetFOV(rfov, 0);
+      TestRectangular("multi-receiver rectangular FOV", sensor.FOV(0), -7, 7, -14, 14); 
+
+      WsfEquatorialFieldOfView efov = WsfEquatorialFieldOfView.Construct(-7, 7, -14, 14);
+      sensor.SetFOV(efov, 2);
+      TestEquatorial("multi-receiver equatorial FOV", sensor.FOV(2), -7, 7, -14, 14); 
+   end_script
+
+   execute at_time 0.1 s absolute
+      TestMultiReceiverRadarFOV();
+   end_execute
+   
+end_platform
+
+platform test_multi_mode WSF_PLATFORM
+   position 0n 88w
+   altitude 20000 ft
+   
+   add sensor mm_radar MM_RADAR      
+   end_sensor
+   
+   script void TestMM_RadarFOV()
+      WsfSensor sensor = PLATFORM.Sensor("mm_radar");
+      TestCircular("multi-mode curcular FOV", sensor.FOV(0, 0), 5.0);   
+      TestRectangular("multi-mode rectangular FOV", sensor.FOV(1, 0), -5, 5, -10, 10);       
+      TestPolygonal("multi-mode polygonal FOV", sensor.FOV(2, 0));
+      TestEquatorial("multi-mode equatorial FOV", sensor.FOV(3, 0), -5, 5, -10, 10);
+      
+      WsfCircularFieldOfView cfov = WsfCircularFieldOfView.Construct(20.0);
+      sensor.SetFOV(cfov, 1, 0);
+      TestCircular("multi-mode curcular FOV", sensor.FOV(1, 0), 20.0);   
+      
+      WsfPolygonalFieldOfView pfov = (WsfPolygonalFieldOfView)(sensor.FOV(2, 0));
+      sensor.SetFOV(pfov, 3, 0);
+      TestPolygonal("multi-mode polygonal FOV", sensor.FOV(3, 0));
+      
+      WsfEquatorialFieldOfView efov = WsfEquatorialFieldOfView.Construct(-7, 7, -14, 14);
+      sensor.SetFOV(efov, 0, 0);
+      TestEquatorial("multi-mode equatorial FOV", sensor.FOV(0, 0), -7, 7, -14, 14); 
+      
+      WsfRectangularFieldOfView rfov = WsfRectangularFieldOfView.Construct(-7, 7, -14, 14);
+      sensor.SetFOV(rfov, 2, 0);
+      TestRectangular("multi-mode rectangular FOV", sensor.FOV(2, 0), -7, 7, -14, 14); 
+      
+   end_script
+
+   execute at_time 0.1 s absolute
+      TestMM_RadarFOV();
+   end_execute
+   
+end_platform
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+script void SimulationComplete()
+   if (!sFAILED)
+   {
+      writeln("-PASS-");
+   }   
+end_script

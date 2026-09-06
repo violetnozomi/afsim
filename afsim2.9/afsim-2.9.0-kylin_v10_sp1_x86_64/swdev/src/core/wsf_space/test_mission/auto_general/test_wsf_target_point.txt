@@ -1,0 +1,168 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 1 min
+
+platform target WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      revolutions_per_day 10.0
+   end_mover
+end_platform
+
+platform chaser WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      revolutions_per_day 8.0
+   end_mover
+   
+   track
+      platform target
+   end_track
+end_platform
+
+script_variables
+   bool gAnyFailure = false;
+end_script_variables
+
+script void ExpectBool(bool aObserved, bool aExpected, string aMessage)
+   if (aObserved != aExpected)
+   {
+      gAnyFailure = true;
+      writeln("Boolean value mismatch. Expected ", aExpected, " but received ", aObserved, ". ", aMessage);
+   }
+end_script
+
+script void ExpectNear(double aObserved, double aExpected, double aTolerance, string aMessage)
+   if (MATH.Fabs(aObserved - aExpected) > aTolerance)
+   {
+      gAnyFailure = true;
+      writeln("Value is not near enough to expected value. ", aMessage);
+      writeln("   Expected value: ", aExpected);
+      writeln("   Observed value: ", aObserved);
+      writeln("   Tolerance:      ", aTolerance);
+   }
+end_script
+
+execute at_time 1 s absolute
+   WsfTargetPoint target = WsfTargetPoint.ConstructFromLibrationPoint(WsfLibrationPointSystem.EARTH_MOON(),
+                                                                      WsfLibrationPointSelection.L1());
+   ExpectBool(target.HasLibrationPointTarget(), true, "Is a libration point target");
+   ExpectBool(target.HasTrackTarget(), false, "Should not have a track target");
+   ExpectBool(target.HasPositionOffset(), false, "Should have no position offset");
+   ExpectBool(target.HasVelocityOffset(), false, "Should have no velocity offset");
+   ExpectBool(target.HasOffsetTime(), false, "Should have no offset time");
+   ExpectBool(target.HasLagTime(), false, "Should have no lag time");
+   ExpectBool(target.LibrationPointSystem() == WsfLibrationPointSystem.EARTH_MOON(), true, "Reports correct system");
+   ExpectBool(target.LibrationPointSelection() == WsfLibrationPointSelection.L1(), true, "Reports correct point selection");
+   
+   Vec3 offset = Vec3.Construct(1.0, 2.0, 3.0);
+   target.SetPositionOffset(offset, WsfOrbitalReferenceFrame.NTW());
+   
+   ExpectBool(target.HasPositionOffset(), true, "Should have position offset");
+   ExpectBool(target.HasVelocityOffset(), false, "Should have no velocity offset");
+   ExpectBool(target.HasOffsetTime(), false, "Should have no offset time");
+   ExpectBool(target.HasLagTime(), false, "Should have no lag time");
+   ExpectBool(target.PositionOffsetFrame() == WsfOrbitalReferenceFrame.NTW(), true, "Position offset should be NTW frame");
+   ExpectNear(target.PositionOffset().X(), offset.X(), 1.0e-12, "Offset X value");
+   ExpectNear(target.PositionOffset().Y(), offset.Y(), 1.0e-12, "Offset Y value");
+   ExpectNear(target.PositionOffset().Z(), offset.Z(), 1.0e-12, "Offset Z value");
+   
+   target.SetPositionOffset(offset, WsfOrbitalReferenceFrame.RIC());
+   
+   ExpectBool(target.HasPositionOffset(), true, "Should have position offset");
+   ExpectBool(target.HasVelocityOffset(), false, "Should have no velocity offset");
+   ExpectBool(target.HasOffsetTime(), false, "Should have no offset time");
+   ExpectBool(target.HasLagTime(), false, "Should have no lag time");
+   ExpectBool(target.PositionOffsetFrame() == WsfOrbitalReferenceFrame.RIC(), true, "Position offset should be RIC frame");
+   ExpectNear(target.PositionOffset().X(), offset.X(), 1.0e-12, "Offset X value");
+   ExpectNear(target.PositionOffset().Y(), offset.Y(), 1.0e-12, "Offset Y value");
+   ExpectNear(target.PositionOffset().Z(), offset.Z(), 1.0e-12, "Offset Z value");
+   
+   target.ClearPositionOffset();
+   ExpectBool(target.HasPositionOffset(), false, "Should have no position offset");
+   ExpectBool(target.HasVelocityOffset(), false, "Should have no velocity offset");
+   ExpectBool(target.HasOffsetTime(), false, "Should have no offset time");
+   ExpectBool(target.HasLagTime(), false, "Should have no lag time");
+   
+   target.SetVelocityOffset(offset, WsfOrbitalReferenceFrame.NTW());
+   
+   ExpectBool(target.HasPositionOffset(), false, "Should have no position offset");
+   ExpectBool(target.HasVelocityOffset(), true, "Should have velocity offset");
+   ExpectBool(target.HasOffsetTime(), false, "Should have no offset time");
+   ExpectBool(target.HasLagTime(), false, "Should have no lag time");
+   ExpectBool(target.VelocityOffsetFrame() == WsfOrbitalReferenceFrame.NTW(), true, "Velocity offset should be NTW frame");
+   ExpectNear(target.VelocityOffset().X(), offset.X(), 1.0e-12, "Offset X value");
+   ExpectNear(target.VelocityOffset().Y(), offset.Y(), 1.0e-12, "Offset Y value");
+   ExpectNear(target.VelocityOffset().Z(), offset.Z(), 1.0e-12, "Offset Z value");
+   
+   target.SetVelocityOffset(offset, WsfOrbitalReferenceFrame.RIC());
+   
+   ExpectBool(target.HasPositionOffset(), false, "Should have no position offset");
+   ExpectBool(target.HasVelocityOffset(), true, "Should have velocity offset");
+   ExpectBool(target.HasOffsetTime(), false, "Should have no offset time");
+   ExpectBool(target.HasLagTime(), false, "Should have no lag time");
+   ExpectBool(target.VelocityOffsetFrame() == WsfOrbitalReferenceFrame.RIC(), true, "Velocity offset should be RIC frame");
+   ExpectNear(target.VelocityOffset().X(), offset.X(), 1.0e-12, "Offset X value");
+   ExpectNear(target.VelocityOffset().Y(), offset.Y(), 1.0e-12, "Offset Y value");
+   ExpectNear(target.VelocityOffset().Z(), offset.Z(), 1.0e-12, "Offset Z value");
+   
+   target.ClearVelocityOffset();
+   ExpectBool(target.HasPositionOffset(), false, "Should have no position offset");
+   ExpectBool(target.HasVelocityOffset(), false, "Should have no velocity offset");
+   ExpectBool(target.HasOffsetTime(), false, "Should have no offset time");
+   ExpectBool(target.HasLagTime(), false, "Should have no lag time");
+   
+   double timeValue = 60.0;
+   target.SetOffsetTime(timeValue);
+   ExpectBool(target.HasPositionOffset(), false, "Should have no position offset");
+   ExpectBool(target.HasVelocityOffset(), false, "Should have no velocity offset");
+   ExpectBool(target.HasOffsetTime(), true, "Should have offset time");
+   ExpectBool(target.HasLagTime(), false, "Should have no lag time");
+   ExpectNear(target.OffsetTime(), timeValue, 1.0e-12, "Offset time value");
+   
+   timeValue = 120.0;
+   target.ClearOffsetTime();
+   target.SetLagTime(timeValue);
+   ExpectBool(target.HasPositionOffset(), false, "Should have no position offset");
+   ExpectBool(target.HasVelocityOffset(), false, "Should have no velocity offset");
+   ExpectBool(target.HasOffsetTime(), false, "Should have no offset time");
+   ExpectBool(target.HasLagTime(), true, "Should have lag time");
+   ExpectNear(target.LagTime(), timeValue, 1.0e-12, "Lag time value");
+   
+   target.ClearLagTime();
+   ExpectBool(target.HasPositionOffset(), false, "Should have no position offset");
+   ExpectBool(target.HasVelocityOffset(), false, "Should have no velocity offset");
+   ExpectBool(target.HasOffsetTime(), false, "Should have no offset time");
+   ExpectBool(target.HasLagTime(), false, "Should have no lag time");
+end_execute
+
+execute at_time 2 s absolute
+   WsfPlatform chaser = WsfSimulation.FindPlatform("chaser");
+   WsfLocalTrack track = chaser.MasterTrackList().Get(0);
+   
+   WsfTargetPoint target = WsfTargetPoint.ConstructFromTrack(track.TrackId());
+   ExpectBool(target.HasLibrationPointTarget(), false, "Is not a libration point target");
+   ExpectBool(target.HasTrackTarget(), true, "Should be a track target");
+   ExpectBool(target.HasPositionOffset(), false, "Should have no offset");
+   ExpectBool(target.TrackId() == track.TrackId(), true, "Should be the correct track");
+end_execute
+
+script void FinalReport()
+   if (gAnyFailure)
+   {
+      writeln("-FAIL- Not all tests passed");
+   }
+   else
+   {
+      writeln("-PASS- All tests passed");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE FinalReport
+end_observer

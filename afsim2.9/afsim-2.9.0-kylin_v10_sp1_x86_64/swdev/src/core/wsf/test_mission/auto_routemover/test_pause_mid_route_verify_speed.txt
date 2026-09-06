@@ -1,0 +1,94 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test to insure RouteMover correctly pauses to velocity 0 mid route
+//
+// Note: uses script Speed method to verify
+//
+
+end_time 150 s
+
+#event_pipe
+#   file test_pause_mid_route.aer
+#end_event_pipe
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_GROUND_MOVER
+   #update_interval 1 s  // otherwise mover never updates
+      route
+         position 30n 90w speed 20 m/s
+         position 30:00:10n 90w speed 20 m/s
+         position 30:00:20n 90w //speed 20 m/s
+            pause_time 30 s
+            execute paused
+         position 30:00:40n 90w speed 20 m/s
+            execute velocity20WpAfterPause
+         position 30:00:50n 90w speed 20 m/s
+      end_route
+   end_mover
+
+   // debug Speed info
+   on_initialize
+      writeln(TIME_NOW, " ", Speed());
+   end_on_initialize
+   execute at_interval_of 1 s
+      writeln(TIME_NOW, " ", Speed());
+   end_execute
+
+   script_variables
+      bool pass = true;
+      int scriptExecuteCount = 3;
+   end_script_variables
+   script void paused()
+      writeln(TIME_NOW, " Paused");
+      // Give the mover time to execute pause command
+      ExecuteAtTime(TIME_NOW + 0.5, "velocity0");
+      // Insure mover speed is turned instantly back on not gradually
+      ExecuteAtTime(TIME_NOW + 31, "velocity20");
+   end_script
+   script void velocity0()
+      writeln(TIME_NOW, " Checking for 0 Velocity");
+      scriptExecuteCount = scriptExecuteCount - 1;
+      if (Speed() != 0)
+      {
+         writeln("-FAIL- Pause Speed() != 0, actual ", Speed());
+      }
+      pass = pass && (Speed() == 0);
+   end_script
+   script void velocity20()
+      writeln(TIME_NOW, " Checking for 20 Velocity");
+      scriptExecuteCount = scriptExecuteCount - 1;
+      if (Speed() != 20)
+      {
+         writeln("-FAIL- After Pause Speed() != 20, actual ", Speed());
+      }
+      pass = pass && (Speed() == 20);
+   end_script
+   script void velocity20WpAfterPause()
+      writeln(TIME_NOW, " After");
+      scriptExecuteCount = scriptExecuteCount - 1;
+      if (Speed() != 20)
+      {
+         writeln("-FAIL- Wp After Pause Velocity != 20, actual ", Speed());
+      }
+      pass = pass && (Speed() == 20);
+   end_script
+   script void on_platform_deleted()
+      writeln((Latitude() - 30) * 3600);
+      if (scriptExecuteCount != 0)
+      {
+         writeln("-FAIL- ", scriptExecuteCount, " script callbacks failed to execute");
+      }
+      else if (pass)
+      {
+         writeln("-PASS-");
+      }
+   end_script
+end_platform
+

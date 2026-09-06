@@ -1,0 +1,40 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* Added the :command:`classification` command which allows users to specify the classification level, caveats, and trigraphs of a scenario. Methods :method:`WsfSimulation.ClassificationString` and :method:`WsfSimulation.ClassificationColor` provide access via script. *(ELSZ #98)*
+* Implemented precise coordinate system conversions from AFSIM World Coordinate System (:ref:`WCS<WCS>`) to Earth-Centered Inertial (:ref:`ECI<ECI>`). The AFSIM :ref:`ECI<ECI>` coordinate system is now the same as GCRF (Geocentric Celestial Reference Frame; this had been a true equator, true equinox of epoch system). The conversions now take into account precession, nutation, and polar offsets. New inputs for :command:`polar_offset_angles<global_environment.polar_offset_angles>`, offset of Coordinated Universal Time (UTC) from UT1 (:command:`delta_universal_time`), and the offset of UTC with respect to atomic time (:command:`delta_atomic_time`) are now provided to support the coordinate conversions. Another input, :command:`precession_nutation_update_interval<platform.precession_nutation_update_interval>`, can be set to control the accuracy of the conversions over time.  *(Issue #1240)*
+* Added the ability to turn on/off the interpolation of signatures that use :ref:`Azimuth-Elevation_Table_Definition` using the *interpolate_tables <boolean-value>* command in the signatures command block.
+* Added script methods :method:`WsfPlatform.Icon` and :method:`WsfPlatform.SetIcon` for getting and setting a :command:`platform` :command:`platform.icon`.
+* Added the ability to specify the location of a pre-briefed :command:`track` in MGRS coordinates. *(Issue #1403)*
+* Added new script interfaces, :class:`WsfDIS` and :class:`EntityType`, and method :method:`WsfPlatform.EntityType` to support data retrieval for DIS :command:`dis_interface.entity_type` mappings.
+* Added new methods :method:`WsfSensor.Xmtr` and :method:`WsfComm.Xmtr` to provide script access to :command:`sensor` and :command:`comm` transmitter(s), along with other supporting methods.
+* Added the script method :method:`WsfPlatform.ApparentAspectOf` and provided a new version of :method:`WsfPlatform.RadarCrossSection` that accepts the azimuth and elevation aspect angles.
+* Added a new resource message to the :command:`event_pipe` used to communicate DTED resources to Mystic.
+* Added a new script method :method:`HasAuxData()<WsfPlatform.HasAuxData>` on script types that are :command:`_.aux_data`-enabled. *(Issue #1518)*
+* Added the ability to construct :class:`Calendar` objects initialized with ISO 8601 time points, and a new method :method:`Calendar.ToStringIso8601` that returns the date and time in ISO 8601 full format. *(ELSZ #180)*
+* Added :command:`zone.aux_data` input commands to :command:`zones <zone>` and supporting script methods to :ref:`WsfZone<WsfZone.Auxiliary_Data_Methods>`. *(Issue #1490)*
+* Added the script method :method:`WsfComm.CanSendTo` to aid end user updates of network state during runtime, primarily for usage with RF comms to expose EM interaction results. *(Issue #1535)*
+* Added command :command:`osm_traffic` to simulate vehicle behavior on a predefined :command:`route_network`, and :class:`WsfOSM_Traffic` script methods to interact with them. *(Issue #1364)*
+* The communications framework was updated to add better support and fidelity for modeling efforts, particularly in regard to routers and protocols. This update includes the following enhancements: *(Issue #1310)*
+   - The :command:`router` object is now a platform part, and allows formal AFSIM types. A router type, :model:`WSF_COMM_ROUTER`, is now available for use.
+   - Specific protocols for routers, defined via the :command:`router_protocol` command, are now formal AFSIM types and available for use.
+   - Several of the previous :command:`protocol` types that were associated with router capabilities have been redefined as router protocols. See :ref:`Predefined_Protocol_Types` and :ref:`Predefined_Router_Protocol_Types` for more details.
+   - The router has an available script class, :class:`WsfCommRouter`, for scripting language support.
+   - Router script observers typical of a platform part are now available. See :command:`observer` for details.
+   - Router event output is now available. See :command:`event_output` for details.
+   - Router CSV event output is now available. See :command:`csv_event_output` for details.
+   - The :command:`router` object now has a gateway specification, to specify the interface the router uses for default message forwarding.
+* Added the script method :class:`WsfNetwork.GetMembers`. *(Issue #1310)*
+* Added the :ref:`docs/event/message_events:MESSAGE_HOP` event to :command:`event_output`, :command:`csv_event_output` and :command:`observer` for comms messages received by an interface, but not destined for the interface. *(Issue #1508)*
+* Various model additions to the comms framework have been provided to allow dynamic updates and user script-driven control for ad-hoc emulation and modeling. *(Issue #1311)*
+   - Added the new network type :model:`WSF_COMM_NETWORK_AD_HOC`, which allows for dynamic rate-driven network state updates during simulation runtime.
+   - Added the new router protocol type :model:`WSF_COMM_ROUTER_PROTOCOL_AD_HOC`, which allows user-defined router protocol behavior via script methods.
+   - Added a new script class for comm framework message inspection, :class:`WsfCommMessage`.
+   - Added a new script class for random number distribution specification, :class:`WsfRandomVariable`.
+   - Added several script classes for network state graph inspection and modification, :class:`WsfCommGraph`, :class:`WsfCommGraphNode`, and :class:`WsfCommGraphEdge`.

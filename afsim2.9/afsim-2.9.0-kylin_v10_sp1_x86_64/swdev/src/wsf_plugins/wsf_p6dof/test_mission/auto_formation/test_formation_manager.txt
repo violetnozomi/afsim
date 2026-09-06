@@ -1,0 +1,113 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../scripts/utils.txt
+include_once default_formation.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 5 min
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+script void TestCounts(int aNumTopLevel, int aNumTotal)
+   Array<WsfFormation> topLevel = WsfFormationManager.GetTopLevelFormations();
+   allPassed = ExpectInt(topLevel.Size(), aNumTopLevel, "Should have " + (string)aNumTopLevel + " top level formations") && allPassed;
+   
+   Array<WsfFormation> allForms = WsfFormationManager.GetAllFormations();
+   allPassed = ExpectInt(allForms.Size(), aNumTotal, "Should have " + (string)aNumTotal + " total formations") && allPassed;
+end_script
+
+script void TestMembership(string aPlatformName, string aFormationName)
+   WsfFormation form = WsfFormationManager.GetFormationFromMember(aPlatformName);
+   allPassed = ExpectBool(form.IsValid(), true, "There should be a formation having " + aPlatformName + " as a member") && allPassed;
+   allPassed = ExpectString(form.GetQualifiedName(),
+                aFormationName,
+                "The formation having " + aPlatformName + " as a member should be " + aFormationName) && allPassed;
+end_script
+
+execute at_time 1 min absolute
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("yankee"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("yankee.alpha"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("yankee.alpha.one"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("yankee.alpha.two"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("yankee.beta"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("yankee.beta.one"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("yankee.beta.two"), true, "missing expected formation") && allPassed;
+   
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("zulu"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("zulu.alpha"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("zulu.alpha.one"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("zulu.alpha.two"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("zulu.beta"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("zulu.beta.one"), true, "missing expected formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("zulu.beta.two"), true, "missing expected formation") && allPassed;
+   
+   allPassed = ExpectBool(WsfFormationManager.HasFormation("notaformation"), false, "formation should not exist") && allPassed;
+   
+   TestMembership("alpha", "yankee.alpha.one");
+   TestMembership("bravo", "yankee.alpha.two");
+   TestMembership("charlie", "yankee.beta.one");
+   TestMembership("delta", "yankee.beta.two");
+   TestMembership("echo", "zulu.alpha.one");
+   TestMembership("foxtrot", "zulu.alpha.two");
+   TestMembership("golf", "zulu.beta.one");
+   TestMembership("hotel", "zulu.beta.two");
+   
+   WsfFormation form = WsfFormationManager.GetFormation("zulu.alpha.one");
+   allPassed = ExpectBool(form.IsValid(), true, "zulu alpha one invalid") && allPassed;
+end_execute
+
+execute at_time 2 min absolute
+   TestCounts(2, 14);
+end_execute
+
+execute at_time 3 min absolute
+   allPassed = ExpectBool(WsfFormationManager.DisbandFormation("zulu"), true, "failed to remove zulu formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.DisbandFormation("zulu"), false, "somehow was able to remove zulu formation twice") && allPassed;
+   
+   TestCounts(1, 7);
+end_execute
+
+execute at_time 4 min absolute
+   WsfFormation unit = WsfFormationManager.CreateUnit("testunit");
+   allPassed = ExpectBool(unit.IsValid(), true, "testunit was not valid") && allPassed;
+   WsfFormation unitAlt = WsfFormationManager.CreateFormation("unit", "testunitalt");
+   allPassed = ExpectBool(unitAlt.IsValid(), true, "testunitalt was not valid") && allPassed;
+   
+   WsfFormation section = WsfFormationManager.CreateSection("testsection");
+   allPassed = ExpectBool(section.IsValid(), true, "testsection was not valid") && allPassed;
+   WsfFormation sectionAlt = WsfFormationManager.CreateFormation("section", "testsectionalt");
+   allPassed = ExpectBool(sectionAlt.IsValid(), true, "testsectionalt was not valid") && allPassed;
+   
+   WsfFormation form = WsfFormationManager.CreateFormation("testform");
+   allPassed = ExpectBool(form.IsValid(), true, "testform was not valid") && allPassed;
+   WsfFormation formAlt = WsfFormationManager.CreateFormation("formation", "testformalt");
+   allPassed = ExpectBool(formAlt.IsValid(), true, "testformalt was not valid") && allPassed;
+   
+   TestCounts(7, 13);
+   
+   WsfFormation nullform = WsfFormationManager.CreateFormation("nonsense_type", "placeholder");
+   allPassed = ExpectBool(nullform.IsValid(), false, "bad formation created") && allPassed;
+   WsfFormation takenform = WsfFormationManager.CreateFormation("testform");
+   allPassed = ExpectBool(takenform.IsValid(), false, "testform should not be creatable a second time") && allPassed;
+end_execute
+
+execute at_time 5 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   } 
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

@@ -1,0 +1,108 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+ bool aMessageRcvd = false;
+ double aTimeRcvd = 0.0;
+end_script_variables
+
+script void PrintMessage(double aSimTime, string aName, string aSubName, WsfMessage aMessage)
+   write("T=",aSimTime," ",aName,".",aSubName," Rcvd: ", aMessage.Type(),".",aMessage.SubType());
+   if (aMessage.Type() == "WSF_TRACK_MESSAGE")
+   {
+      WsfTrackMessage m = (WsfTrackMessage) aMessage;
+      WsfTrack t = m.Track();
+      writeln(" TID: ", t.TrackId()," SensorName: ", t.SensorName(), " SensorType: ", t.SensorType());
+   }
+   else if (aMessage.Type() == "WSF_STATUS_MESSAGE")
+   {
+      WsfStatusMessage m = (WsfStatusMessage) aMessage;
+      writeln(" Status: ", m.Status(), " System: ", m.SystemName());
+   }
+   else
+   {
+      writeln("Other message type");
+   }
+end_script
+
+comm RADIO WSF_COMM_TRANSCEIVER
+end_comm
+
+sensor 787_RADAR_SENSOR WSF_GEOMETRIC_SENSOR
+   frame_time 10 sec
+   reports_location
+end_sensor
+
+# -------------------------------------------------------------------------------------------------
+
+platform 737 WSF_PLATFORM
+   side green
+   position 40n 90w altitude 30000 ft
+end_platform
+
+# -------------------------------------------------------------------------------------------------
+
+platform 787 WSF_PLATFORM
+   side blue
+   position 39.1n 90w
+
+   add processor msg_proc WSF_MESSAGE_PROCESSOR
+      process
+         select
+            # This could be done with a 'type' command, but we use a script for testing
+            script
+               return (MESSAGE.Type() == "WSF_TRACK_MESSAGE");
+            end_script
+         end_select
+
+         delay_time 2.5 secs
+         internal_link script_proc
+         external_link commander via radio-1
+      end_process
+   end_processor
+
+   add processor script_proc WSF_SCRIPT_PROCESSOR
+      on_message
+         default
+            script
+               extern bool aMessageRcvd;
+               extern void PrintMessage(double, string, string, WsfMessage);
+               PrintMessage(TIME_NOW, PLATFORM.Name(), Name(), MESSAGE);
+               aMessageRcvd = true;
+               aTimeRcvd = TIME_NOW;
+            end_script
+      end_on_message
+   end_processor
+
+   add comm radio-1 RADIO
+      on
+      internal_link msg_proc
+   end_comm
+
+   add sensor airplane_scanner 787_RADAR_SENSOR
+      on
+	  update_interval 1 second
+      internal_link msg_proc
+   end_sensor
+end_platform
+
+execute at_time 5 seconds absolute
+   extern bool aMessageRcvd;
+   extern double aTimeRcvd;
+   if (aMessageRcvd && (aTimeRcvd < 4.0))
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+end_time 60 sec

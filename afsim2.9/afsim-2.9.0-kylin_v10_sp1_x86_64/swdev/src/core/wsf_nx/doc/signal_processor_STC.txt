@@ -1,0 +1,168 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _signal_processor.sensitivity_time_control:
+
+sensitivity_time_control
+************************
+
+.. block:: signal_processor.sensitivity_time_control
+
+.. parsed-literal::
+
+   signal_processor sensitivity_time_control
+     stc_type_ ...
+     stc_min_response_ ...
+     stc_min_range_ ...
+     stc_max_range_ ...
+     stc_order_ ...
+     stc_data_table_ ...
+       [independent_variable units <length-units>]
+       [dependent_variable units <ratio-units>]
+     end_stc_data_table
+   end_signal_processor
+
+Overview
+~~~~~~~~
+
+The STC signal processor block can be defined as part of a :model:`WSF_RADAR_SENSOR`. Note that the radar must have PRF (or PRI) specified; the model uses PRF to calculate maximum unambiguous range, which is used as the max range in the input descriptions below.  The input names and types are set up to mimic the SUPPRESSOR inputs.
+
+.. note::
+   The Sensitivity Time Control (STC) implementation in WSF was largely based on an existing implementation in SUPPRESSOR.
+
+.. warning::
+   The radar must have PRF (or PRI) specified. The input names and types are set up to mimic the SUPPRESSOR inputs.
+
+MIN, MAX, MIN/MAX RANGE STC Response
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This section provides additional detail on how Min, Max, and Min/Max Range STC response is calculated. These are
+considered together as they operate in a very similar manner. The response curve is built in to the code and can be
+modified by changing the STC minimum response, min/max ranges, and STC order.
+
+Calculation of unambiguous ranges::
+
+ U_Range_Max= 0.5 * (speed of light / PRF)
+ U_Range = slant_range  TRUNC(slant_range / U_Range _Max) * U_Range_Max
+ U_Min_Range = STC_Min_Range - floor(STC_Min_Range / U_Range_Max) * U_Range_Max;
+ U_Max_Range = STC_Max_Range - floor(STC_Max_Range / U_Range_Max) * U_Range_Max;
+
+If the STC type is MIN RANGE::
+
+ STC Response = **stc_min_response** * (U_Range / U_Min_Range)^STC_Order
+ if the unambiguous range is greater than U_Min_Range
+ otherwise STC Response = **stc_min_response**
+
+If the STC type is MAX RANGE::
+
+ STC Response = (U_Range / U_Max_Range)^STC_Order
+ if the unambiguous range is less than U_Max_Range
+ otherwise STC Response = 0.0 dB
+
+If the STC type is MIN MAX RANGE::
+
+ if (U_Range < U_Min_Range)
+  STC Response = **stc_min_response**
+ else if (U_Range > U_Max_Range)
+  STC Response = 0.0 dB
+ else
+  STC Response = (U_Range / U_Max_Range)^STC_Order
+
+Finally, the STC response is forced to be between **stc_min_response** and 1.0.
+
+DATA TABLE STC Response
+~~~~~~~~~~~~~~~~~~~~~~~
+
+When the STC sensor signal processor is operating as a DATA TABLE type the STC response is determined by looking up the
+response based on the slant range from the target to the sensor receiver in the :command:`sensor` detection result.  The STC
+response from the table is forced to be between **stc_min_response** and 1.0.
+
+In this mode the min/max range and STC order inputs are ignored.
+
+Applied to a Sensor Interaction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the :command:`sensor` detection result has a transmitter and an STC signal processor the STC response will be computed. the
+STC response then applied to the result's received power, clutter power, and noise jammer power:
+
+* Result received power = Result received power * STC response
+* Result clutter power = Result clutter power * STC response
+* Result noise jammer power = Result noise jammer power * STC response
+
+STC Commands
+~~~~~~~~~~~~
+
+.. command:: stc_type <string-value>
+   
+   Indicate the type of STC signal processing that will be used. Valid values are **min_range, max_range, min_max_range,**
+   or **data_table**.
+    
+   **Default** min_range
+
+.. command:: stc_min_response <db-ratio-value>
+   
+   Specifies the minimum STC response level. Entered as a ratio, valid values are 0 dB or less (0.0  1.0 absolute). This
+   value is required for all STC types. This value is required for all STC types.
+    
+   **Default** 1.0 absolute / 0 dB
+
+.. command:: stc_min_range <length-value>
+   
+   Specifies the minimum slant range at which STC response will begin in **min_range** and **min_max_range** STC types. At
+   ranges less than the minimum range STC response is the **stc_min_response** value.
+    
+   **Default** 0.0
+
+.. command:: stc_max_range <length-value>
+   
+   Specifies the maximum slant range that STC response will be applied in **max_range** and **min_max_range** STC types.
+   At ranges greater than the maximum range an STC response is 0 dB.
+    
+   **Default** 0.0
+
+.. command:: stc_order <real-value>
+   
+   Order of the STC response curve used for **min_range, max_range,** and **min_max_range** STC types. Valid values are
+   real numbers greater than or equal to zero.
+    
+   **Default** 4.0
+
+.. command:: stc_data_table ... end_stc_data_table
+   
+   Defines STC response as a function of the slant range. Required if **stc_type** is **data_table**. Table values are a
+   length value and ratio pair. The independent and dependent variable units commands are optional, but if they are not
+   specified the units are assumed to be meters and dB.
+
+   .. note::
+      The entire contents of the data table can be in an alternate file and can be brought in with the
+      :command:`include` command.
+
+   Example Table::
+
+    stc_data_table
+      independent_variable units nmi
+      dependent_variable units dB
+      0   0
+      1  -2
+      2  -4
+      3  -6
+      4  -8
+      5  -10
+      6  -10
+      7  -8
+      8  -6
+      9   0
+    end_stc_data_table
+
+.. command:: debug
+   
+   Presence of this flag indicates the STC Signal Processor will output additional operational messages to the system
+   console.
+
+.. NonExportable

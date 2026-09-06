@@ -1,0 +1,4057 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# model definition file
+#
+# model definitions:
+# "model name
+#    filename address_of_modelfile
+# end_model"
+#
+# modelfiles may be ive, osgb, flt, obj, or any model natively supported by OSG
+#
+# the model definition may include a pre_xform block which can contain transformations:
+# "scale value"
+# "translate valueX valueY valueZ"
+# "rotate axisChar(x,y,or z) valueAngleDeg"
+#
+# the transformations will be applied in the order they appear
+# it is preferable to transform the models themselves
+# 
+# the model definition may include:
+# "screen_scale value"
+# "wing_tip valueX valueY valueZ" (denotes right_tip after all transformations, left_tip should be reflection over x-z plane)
+# "set immersive" (indicates that this model should be used in immersive views)
+# "default_set" (indicates a model with a defined set should also be used in the default set)
+# "articulation visual_part node" (maps a visual-part from the simulation to a node on the 3d-model for articulation)
+#
+# aliases
+# "alias alias_name model_name"
+#
+# applications may reference the model name or alias directly
+
+model 2s1
+   category Launcher
+   filename simple/2s10001d.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model 2s6
+   category Launcher
+   filename simple/2s60001d.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model a50
+   category Aircraft
+   filename simple/a50.osgb
+   wing_tip -7 22.5 0
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model a-160
+   category Helicopter
+   filename simple/a160.osgb
+   wing_tip 0 4 -2
+end_model
+
+model aa-2_missile
+   category Weapon
+   filename simple/aa2.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model aa-3_missile
+   category Weapon
+   filename simple/aa3.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model aa-5_missile
+   category Weapon
+   filename simple/aa5.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model aa-6_missile
+   category Weapon
+   filename simple/aa6.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model aa-7_missile
+   category Weapon
+   filename simple/aa7.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model aa-8_missile
+   category Weapon
+   filename simple/aa8.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model aaa
+   category Ground
+   filename simple/aaa.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model aaa_sp
+   category Launcher
+   filename simple/aaa_sp.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model aaa_twd
+   category Ground
+   filename simple/aaa_twd.osgb
+   pre_xform
+	  scale .5
+   end_pre_xform
+end_model
+
+model after_burner
+   filename simple/after_burner.osgb
+end_model
+
+model ah64d
+   category Helicopter
+   default_set
+   filename 3d/ah64d_low.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip 0.0 7.31 -1.35
+   engine
+      position -2.67 0.82 -0.45
+      diameter 0.5
+   end_engine
+   engine
+      position -2.67 -0.82 -0.45
+      diameter 0.5
+   end_engine
+end_model
+
+model ah64d
+   category Helicopter
+   set immersive
+   filename 3d/ah64d_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip 0.0 7.31 -1.21
+   engine
+      position -2.67 0.82 -0.33
+      diameter 0.5
+   end_engine
+   engine
+      position -2.67 -0.82 -0.33
+      diameter 0.5
+   end_engine
+end_model
+
+model aim7
+   category Weapon
+   filename simple/aim7.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model av-8
+   category Aircraft
+   filename simple/av8.osgb
+   wing_tip -4.75 8 0.5
+end_model
+
+model b-1
+   category Aircraft
+   filename simple/b1.osgb
+   wing_tip -12 12 2
+   pre_xform
+	  scale .3
+   end_pre_xform
+end_model
+
+model b-747
+   category Aircraft
+   filename simple/b747.osgb
+   wing_tip -9.5 23.5 0
+   pre_xform
+	  scale .5
+   end_pre_xform
+end_model
+
+model bar_lock
+   category Radar
+   filename simple/bar_lock.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model bigbird_radar
+   category Ground
+   default_set
+   filename 3d/bigbird_radar_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model bigbird_radar
+   category Ground
+   set immersive
+   filename 3d/bigbird_radar_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model billboard_radar
+   category Ground
+   default_set
+   filename 3d/billboard_radar_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model billboard_radar
+   category Ground
+   set immersive
+   filename 3d/billboard_radar_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model billboard_radar_stowed
+   category Ground
+   default_set
+   filename 3d/billboard_radar_stowed_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model billboard_radar_stowed
+   category Ground
+   set immersive
+   filename 3d/billboard_radar_stowed_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model bmp-2
+   category Launcher
+   filename simple/bmp2001d.osgb
+   pre_xform
+	  scale .5
+   end_pre_xform
+end_model
+
+model brdm
+   category Launcher
+   filename simple/brdmm0.osgb
+   pre_xform
+	  scale .5
+   end_pre_xform
+end_model
+
+model btr-60
+   category Ground
+   filename simple/btr6001d.osgb
+   pre_xform
+	  scale .33
+   end_pre_xform
+end_model
+
+model btr-70
+   category Ground
+   filename simple/btr7001d.osgb
+   pre_xform
+      rotate x 180
+	  scale .25
+   end_pre_xform
+end_model
+
+model bullseye
+   filename simple/bullseye.osgb
+end_model
+
+model c4i
+   filename simple/c4i.osgb
+end_model
+
+model c-17
+   category Aircraft
+   filename simple/c17.osgb
+   wing_tip -5 23.5 -6
+   pre_xform
+	  scale .5
+   end_pre_xform
+end_model
+
+model car
+   category Ground
+   filename simple/gncar01d.osgb
+   pre_xform
+	  scale .33
+   end_pre_xform
+end_model
+
+model carrier
+   category Ship
+   filename simple/carrier.osgb
+   pre_xform
+	  scale 5
+   end_pre_xform
+end_model
+
+model chair_back
+   category Radar
+   filename simple/chrbk01d.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model chinook
+   category Helicopter
+   filename simple/chinook.osgb
+   wing_tip 5 10 0
+   pre_xform
+	  scale .33
+   end_pre_xform
+end_model
+
+model clamshell_radar_short
+   category Ground
+   default_set
+   filename 3d/clamshell_radar_shortmast_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model clamshell_radar_short
+   category Ground
+   set immersive
+   filename 3d/clamshell_radar_shortmast_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model clamshell_radar_tall
+   category Ground
+   default_set
+   filename 3d/clamshell_radar_tallmast_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model clamshell_radar_tall
+   category Ground
+   set immersive
+   filename 3d/clamshell_radar_tallmast_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model cloud
+   filename simple/cloud.osgb
+end_model
+
+model command_truck
+   category Ground
+   filename simple/command_truck.osgb
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model cruiser
+   category Ship
+   filename simple/cruiser.osgb
+   pre_xform
+      scale 0.7
+   end_pre_xform
+end_model
+
+model crw
+   category Aircraft
+   filename simple/crw.osgb
+   wing_tip 2 12 -2.3
+end_model
+
+model dog_ear
+   category Radar
+   filename simple/dgear01d.osgb
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model ea-6b
+   category Aircraft
+   filename simple/ea6b.osgb
+   wing_tip -2 10 0
+   pre_xform
+	  scale .2
+   end_pre_xform
+end_model
+
+model e2
+   category Aircraft
+   filename simple/e2.osgb
+   wing_tip 0 20 -8
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model e-2c
+   category Aircraft
+   filename simple/e2c.osgb
+   wing_tip 0 10 -4
+   pre_xform
+	  scale .25
+   end_pre_xform
+end_model
+
+model ew_template
+   filename simple/ew_template.osgb
+end_model
+
+model f-4
+   category Aircraft
+   filename simple/f4low21c.osgb
+   wing_tip -3 6.25 1
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model f-8ii
+   category Aircraft
+   filename simple/f-8ii.osgb
+   wing_tip -5.5 6 0
+   pre_xform
+      scale 0.8
+   end_pre_xform
+end_model
+
+model f-117
+   category Aircraft
+   filename simple/f117a01c.osgb
+   wing_tip -7 7 0.8
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model fan_song
+   category Radar
+   filename simple/fan_song.osgb
+   pre_xform
+      scale 0.15
+   end_pre_xform
+end_model
+
+model flaplid_radar_maz
+   category Ground
+   default_set
+   filename 3d/flaplid_radar_maz_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model flaplid_radar_maz
+   category Ground
+   set immersive
+   filename 3d/flaplid_radar_maz_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model flaplid_radar_shortmast
+   category Ground
+   default_set
+   filename 3d/flaplid_radar_shortmast_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model flaplid_radar_shortmast
+   category Ground
+   set immersive
+   filename 3d/flaplid_radar_shortmast_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model flat_face
+   category Radar
+   filename simple/flat_face.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model fuel_truck
+   category Ground
+   filename simple/fuel_truck.osgb
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model giant_tel
+   category Ground
+   default_set
+   filename 3d/giant_tel_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model giant_tel
+   category Ground
+   set immersive
+   filename 3d/giant_tel_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model giant_telar
+   category Ground
+   default_set
+   filename 3d/giant_telar_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model giant_telar
+   category Ground
+   set immersive
+   filename 3d/giant_telar_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model giant_tel_stowed
+   category Ground
+   default_set
+   filename 3d/giant_tel_stowed_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model giant_tel_stowed
+   category Ground
+   set immersive
+   filename 3d/giant_tel_stowed_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model gladiator_tel
+   category Ground
+   default_set
+   filename 3d/gladiator_tel_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model gladiator_tel
+   category Ground
+   set immersive
+   filename 3d/gladiator_tel_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model gladiator_telar
+   category Ground
+   default_set
+   filename 3d/gladiator_telar_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model gladiator_telar
+   category Ground
+   set immersive
+   filename 3d/gladiator_telar_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model gladiator_tel_stowed
+   category Ground
+   default_set
+   filename 3d/gladiator_tel_stowed_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model gladiator_tel_stowed
+   category Ground
+   set immersive
+   filename 3d/gladiator_tel_stowed_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model grillpan_radar
+   category Ground
+   default_set
+   filename 3d/grillpan_radar_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model grillpan_radar
+   category Ground
+   set immersive
+   filename 3d/grillpan_radar_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model ground_radar
+   category Radar
+   filename simple/ground_radar.osgb
+   pre_xform
+      scale 0.1
+   end_pre_xform
+end_model
+
+model hanger
+   default_set
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   filename simple/hanger.ive
+end_model
+
+model harm
+   category Weapon
+   filename simple/harm.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model harpoon
+   category Weapon
+   filename simple/harpoon.osgb
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model height_finder
+   category Radar
+   filename simple/height_finder.osgb
+   pre_xform
+      scale 0.5
+   end_pre_xform
+end_model
+
+model human
+   filename simple/human.osgb
+   pre_xform
+      scale .1
+   end_pre_xform
+end_model
+
+
+model humvee
+   category Ground
+   default_set
+   filename 3d/humvee_low.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model humvee
+   category Ground
+   set immersive
+   filename 3d/humvee_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model humvee_mg
+   category Ground
+   default_set
+   filename 3d/humvee_mg_low.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model humvee_mg
+   category Ground
+   set immersive
+   filename 3d/humvee_mg_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model humvee_mg_tan
+   category Ground
+   default_set
+   filename 3d/humvee_mg_low_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model humvee_mg_tan
+   category Ground
+   set immersive
+   filename 3d/humvee_mg_high_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model humvee_tan
+   category Ground
+   default_set
+   filename 3d/humvee_low_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model humvee_tan
+   category Ground
+   set immersive
+   filename 3d/humvee_high_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model infantry
+   filename simple/infantry.osgb
+end_model
+
+model j20
+   category Aircraft
+   default_set
+   filename 3d/j20_low.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -5.4 6.6 0.0
+   engine
+      position -6.6 0.8 0.2
+      diameter 0.9
+   end_engine
+   engine
+      position -6.6 -0.8 0.2
+      diameter 0.9
+   end_engine
+end_model
+
+model j20
+   category Aircraft
+   set immersive
+   filename 3d/j20_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -5.3 6.6 -0.05
+   engine
+      position -7.7 0.8 0.24
+      diameter 0.8
+   end_engine
+   engine
+      position -7.7 -0.8 0.24
+      diameter 0.8
+   end_engine
+end_model
+
+model jassm
+   category Weapon
+   filename simple/jassm.osgb
+   pre_xform
+      scale 0.5
+   end_pre_xform
+end_model
+
+model jast
+   category Aircraft
+   filename simple/jast.osgb
+   wing_tip -5.5 6.5 -0.5
+   pre_xform
+      scale 0.5
+   end_pre_xform
+end_model
+
+model jdam
+   category Weapon
+   filename simple/jdam.osgb
+   pre_xform
+      scale 0.4
+   end_pre_xform
+end_model
+
+model jiangkai
+   category Ship
+   filename simple/jiangkai.osgb
+   pre_xform
+      scale 4
+   end_pre_xform
+end_model
+
+model jiangwei
+   category Ship
+   filename simple/jiangwei_ii.osgb
+   pre_xform
+      scale 2
+   end_pre_xform
+end_model
+
+model jsow
+   category Weapon
+   filename simple/jsow.osgb
+end_model
+
+model jstars
+   category Aircraft
+   filename simple/jstars.osgb
+   wing_tip -1.5 20 0
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model ka-6
+   category Aircraft
+   filename simple/a600001c.osgb
+   wing_tip -3.5 6.8 -1.4
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model kc-135
+   category Aircraft
+   filename simple/kc135.osgb
+   wing_tip -14 21 -1
+   pre_xform
+      scale 2
+   end_pre_xform
+end_model
+
+model kirov
+   category Ship
+   filename simple/kirov.osgb
+end_model
+
+model lemz_radar_shortmast
+   category Ground
+   default_set
+   filename 3d/lemz_radar_shortmast_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model lemz_radar_shortmast
+   category Ground
+   set immersive
+   filename 3d/lemz_radar_shortmast_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model lemz_radar_tallmast
+   category Ground
+   default_set
+   filename 3d/lemz_radar_tallmast_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model lemz_radar_tallmast
+   category Ground
+   set immersive
+   filename 3d/lemz_radar_tallmast_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model lemz_radar_trailer
+   category Ground
+   default_set
+   filename 3d/lemz_radar_trailer_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model lemz_radar_trailer
+   category Ground
+   set immersive
+   filename 3d/lemz_radar_trailer_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model lha
+   filename simple/lha.osgb
+   pre_xform
+      scale 5
+   end_pre_xform
+end_model
+
+model long_track
+   category Radar
+   filename simple/long_track.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model low_blow
+   category Radar
+   filename simple/low_blow.osgb
+   pre_xform
+      scale 0.15
+   end_pre_xform
+end_model
+
+model luhu
+   category Ship
+   filename simple/luhu.osgb
+   pre_xform
+      scale 3
+   end_pre_xform
+end_model
+
+model luzhou
+   category Ship
+   filename simple/luzhou.osgb
+   pre_xform
+      scale 1.5
+   end_pre_xform
+end_model
+
+model m1
+   category Ground
+   default_set
+   filename 3d/m1_low.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation turret g0:Turret
+end_model
+
+model m1
+   category Ground
+   set immersive
+   filename 3d/m1_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation turret g0:Turret
+end_model
+
+model m1_tan
+   category Ground
+   default_set
+   filename 3d/m1_low_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation turret g0:Turret
+end_model
+
+model m1_tan
+   category Ground
+   set immersive
+   filename 3d/m1_high_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation turret g0:Turret
+end_model
+
+model m2
+   category Ground
+   default_set
+   filename 3d/m2_low.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation turret g0:Turret
+end_model
+
+model m2
+   category Ground
+   set immersive
+   filename 3d/m2_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation turret g0:Turret
+end_model
+
+model m2_tan
+   category Ground
+   default_set
+   filename 3d/m2_low_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation turret g0:Turret
+end_model
+
+model m2_tan
+   category Ground
+   set immersive
+   filename 3d/m2_high_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation turret g0:Turret
+end_model
+
+model mald
+   category Weapon
+   filename simple/mald.osgb
+   wing_tip 0.45 0.45 0.35
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model maverick
+   category Weapon
+   filename simple/agm65.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model maz_79100_tractor
+   category Ground
+   default_set
+   filename 3d/maz_79100_tractor_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model maz_79100_tractor
+   category Ground
+   set immersive
+   filename 3d/maz_79100_tractor_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model mh60
+   category Helicopter
+   default_set
+   filename 3d/mh60_low.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip 0.0 7.53 -2.04
+   engine
+      position -3.57 0.97 -0.82
+      diameter 0.6
+   end_engine
+   engine
+      position -3.57 -0.97 -0.82
+      diameter 0.6
+   end_engine
+end_model
+
+model mh60
+   category Helicopter
+   set immersive
+   filename 3d/mh60_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip 0.0 7.53 -2.04
+   engine
+      position -3.57 0.97 -0.82
+      diameter 0.6
+   end_engine
+   engine
+      position -3.57 -0.97 -0.82
+      diameter 0.6
+   end_engine
+end_model
+
+model mig-21
+   category Aircraft
+   filename simple/mig21.osgb
+   wing_tip -2.5 3.75 -0
+end_model
+
+model mig-25
+   category Aircraft
+   filename simple/mig2501c.osgb
+   wing_tip -5 7 -0.5
+   pre_xform
+      scale 0.3
+   end_pre_xform
+end_model
+
+model mirage
+   category Aircraft
+   filename simple/mirage.osgb
+   wing_tip -7 5 0.8
+   pre_xform
+      scale 0.5
+   end_pre_xform
+end_model
+
+model mistral_missile
+   category Weapon
+   filename simple/mstrl01d.osgb
+   wing_tip 0.55 0.1 0
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model mma
+   category Aircraft
+   filename simple/mma.osgb
+   wing_tip -0.7 17.57 -3
+end_model
+
+model mortar
+   default_set
+   pre_xform
+      rotate y 90
+   end_pre_xform
+   filename simple/mortar.osgb
+end_model
+
+model mortar_launcher
+   default_set
+   pre_xform
+      rotate x 180
+   end_pre_xform
+   filename simple/mortar_launcher.osgb
+end_model
+
+model namp
+   category Aircraft
+   filename simple/namp.osgb
+   wing_tip -7.5 11 0
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model nimitz
+   category Ship
+   filename simple/nimitz.osgb
+   pre_xform
+      scale 4
+   end_pre_xform
+end_model
+
+model p3
+   category Aircraft
+   filename simple/p3.osgb
+   wing_tip 0.5 21 5
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model pentagon
+   filename simple/pentagon.osgb
+end_model
+
+model phased_ew
+   category Radar
+   filename simple/phased_ew.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model pickup_truck
+   category Ground
+   filename simple/pckup01d.osgb
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model roland
+   category Launcher
+   filename simple/roland.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model runway
+   filename simple/rw35001c.osgb
+end_model
+
+model sa-2_launcher
+   category Launcher
+   filename simple/sa2_launcher.osgb
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model sa-2_missile
+   category Weapon
+   filename simple/sa2.osgb
+   pre_xform
+      scale 0.8
+   end_pre_xform
+end_model
+
+model sa-3_launcher
+   category Launcher
+   filename simple/sa3_launcher.osgb
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model sa-3_missile
+   category Weapon
+   filename simple/sa3.osgb
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model sa-n-3_missile
+   category Weapon
+   filename simple/san3.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model sa-4_launcher
+   category Launcher
+   filename simple/sa4_launcher.osgb
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model sa-4_missile
+   category Weapon
+   filename simple/sa4_missile.osgb # also a sa4.osgb in there ?
+   wing_tip -2.5 0.45 0
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model sa-6_launcher
+   category Launcher
+   filename simple/sa6_launcher.osgb
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model sa-6_missile
+   category Weapon
+   filename simple/sa6.osgb
+   wing_tip -1 0.3 0
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model sa-8_launcher
+   category Launcher
+   filename simple/sa8_launcher.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model sa-8_missile
+   category Weapon
+   filename simple/sa8_missile.osgb
+   wing_tip -3.3 0.601 0
+end_model
+
+model sa-10_missile
+   category Weapon
+   filename simple/sa10_missile.osgb
+   wing_tip -1.7 0.4 0
+   pre_xform
+      scale 0.4
+   end_pre_xform
+end_model
+
+model sa-11_launcher
+   category Launcher
+   filename simple/sa11_launcher.osgb
+   pre_xform
+      scale 0.15
+   end_pre_xform
+end_model
+
+model sa-11_missile
+   category Weapon
+   filename simple/sa11.osgb
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model sa-12_missile
+   category Weapon
+   filename simple/sa12.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model sa-13_launcher
+   category Launcher
+   filename simple/sa13_launcher.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model sa-13_missile
+   category Weapon
+   filename simple/sa13.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model sa-15_launcher
+   category Launcher
+   filename simple/sa15_launcher.osgb
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model sa-15_missile
+   category Weapon
+   filename simple/sa15.osgb
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model sa-17_missile
+   category Weapon
+   filename simple/sa17001d.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model sa-17_launcher
+   category Launcher
+   filename simple/sa17l01d.osgb
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model sa-18_missile
+   category Weapon
+   filename simple/sa18001d.osgb
+   wing_tip -2.51 0.23 0
+end_model
+
+model sa-19_launcher
+   category Launcher
+   filename simple/sa19_launcher.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model sa-19_missile
+   category Weapon
+   filename simple/sa19_missile.osgb
+   wing_tip -1.8 0.22 0
+   pre_xform
+      scale 0.5
+   end_pre_xform
+end_model
+
+model sa_template
+   filename simple/sa_template.osgb
+end_model
+
+model sa10_commander
+   category Ground
+   default_set
+   filename 3d/sa10_commander_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model sa10_commander
+   category Ground
+   set immersive
+   filename 3d/sa10_commander_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model sa10_tel
+   category Ground
+   default_set
+   filename 3d/sa10_tel_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model sa10_tel
+   category Ground
+   set immersive
+   filename 3d/sa10_tel_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model sa12_commander
+   category Ground
+   default_set
+   filename 3d/sa12_commander_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model sa12_commander
+   category Ground
+   set immersive
+   filename 3d/sa12_commander_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model school_bus
+   category Ground
+   filename simple/scbus01d.osgb
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model scud_launcher
+   category Launcher
+   filename simple/scud_launcher.osgb
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model scud_missile
+   category Weapon
+   filename simple/scud_missile.osgb
+   wing_tip -4 1.2 3
+   pre_xform
+      scale 0.1
+   end_pre_xform
+end_model
+
+model semi
+   category Ground
+   filename simple/semi.osgb
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model sovremennyy
+   category Ship
+   filename simple/sovremennyy.osgb
+   pre_xform
+      scale 5
+   end_pre_xform
+end_model
+
+model space_shuttle
+   category Space
+   filename simple/shutl01v.osgb
+   wing_tip -13 13 9.4839
+   pre_xform
+      scale 0.33
+   end_pre_xform
+end_model
+
+model straight_flush
+   category Radar
+   filename simple/straight_flush.osgb
+   pre_xform
+      scale 0.15
+   end_pre_xform
+end_model
+
+model su-30
+   category Aircraft
+   filename simple/su-30.osgb
+   wing_tip -5 9.5 0
+   pre_xform
+      scale 0.8
+   end_pre_xform
+end_model
+
+model submarine
+   category Submarine
+   filename simple/submarine.osgb
+   pre_xform
+      scale 2
+   end_pre_xform
+end_model
+
+model tinshield_radar_shortmast
+   category Ground
+   default_set
+   filename 3d/tinshield_radar_shortmast_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model tinshield_radar_shortmast
+   category Ground
+   set immersive
+   filename 3d/tinshield_radar_shortmast_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model tinshield_radar_trailer
+   category Ground
+   default_set
+   filename 3d/tinshield_radar_trailer_icon.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model tinshield_radar_trailer
+   category Ground
+   set immersive
+   filename 3d/tinshield_radar_trailer_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   articulation radar g0:radar
+end_model
+
+model tower
+   filename simple/ttw0001c.osgb
+   pre_xform
+      scale 0.3
+   end_pre_xform
+end_model
+
+model trawler
+   category Ship
+   filename simple/trawler.osgb
+   pre_xform
+      scale 0.5
+   end_pre_xform
+end_model
+
+model truck
+   category Ground
+   default_set
+   filename 3d/truck_low.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model truck
+   category Ground
+   set immersive
+   filename 3d/truck_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model truck_radar
+   category Radar
+   filename simple/truck_rdr.osgb
+   pre_xform
+      scale 0.3
+   end_pre_xform
+end_model
+
+model truck_tan
+   category Ground
+   default_set
+   filename 3d/truck_low_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model truck_tan
+   category Ground
+   set immersive
+   filename 3d/truck_high_tan.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model twin_box
+   category Radar
+   filename simple/twin_box.osgb
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model u-2
+   category Aircraft
+   filename simple/u2.osgb
+   wing_tip 0.5 13.5 0
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model uh60
+   category Helicopter
+   default_set
+   filename 3d/uh60_low.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip 0.0 7.53 -2.04
+   engine
+      position -3.57 0.97 -0.82
+      diameter 0.6
+   end_engine
+   engine
+      position -3.57 -0.97 -0.82
+      diameter 0.6
+   end_engine
+end_model
+
+model uh60
+   category Helicopter
+   set immersive
+   filename 3d/uh60_high.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip 0.0 7.53 -2.04
+   engine
+      position -3.57 0.97 -0.82
+      diameter 0.6
+   end_engine
+   engine
+      position -3.57 -0.97 -0.82
+      diameter 0.6
+   end_engine
+end_model
+
+model uta_jam
+   category Drone
+   filename simple/uta_jam.osgb
+   wing_tip -1.5 5 0
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model uta_strike
+   category Drone
+   filename simple/uta_strike.osgb
+   wing_tip -1 3.5 0
+   pre_xform
+      scale 0.2
+   end_pre_xform
+end_model
+
+model v22
+   category Helicopter
+   filename simple/v22.osgb
+   wing_tip 1 10.5 -11
+   pre_xform
+      scale 0.25
+   end_pre_xform
+end_model
+
+model wedge
+   filename simple/wedge.osgb
+   wing_tip -4 3 0
+end_model
+
+model x-45c
+   category Drone
+   filename simple/x45c.osgb
+   wing_tip -2.75 3 -15
+   pre_xform
+      scale 0.01
+   end_pre_xform
+end_model
+
+model zsu-23-4
+   category Ground
+   filename simple/zsu_23_4.osgb
+   pre_xform
+      scale 0.3
+   end_pre_xform
+end_model
+
+model zu-23
+   category Ground
+   filename simple/zu_23.osgb
+   pre_xform
+      scale 0.5
+   end_pre_xform
+end_model
+
+model space_shuttle_atlantis
+   category Space
+   filename 3d/SpaceShuttleAtlantis.osgb
+   pre_xform
+      rotate x 180
+      rotate z 90
+      scale 0.025
+   end_pre_xform
+end_model
+
+model cubesat
+   category Space
+   filename 3d/cubesat.osgb
+   pre_xform
+      rotate y 180
+   end_pre_xform
+end_model
+
+model cubesat2
+   category Space
+   filename 3d/cubesat2.osgb
+   pre_xform
+      rotate y 180
+   end_pre_xform
+end_model
+
+model rosetta_satellite
+   category Space
+   filename 3d/rosettasat.osgb
+   pre_xform
+      rotate z -90
+   end_pre_xform
+   articulation panels panels
+end_model
+
+model rocket
+   category Space
+   filename 3d/rocket.osgb
+   pre_xform
+      rotate x 180
+      scale 10.0
+   end_pre_xform
+end_model
+
+model stereo_satellite
+   category Space
+   filename 3d/stereosat.osgb
+   pre_xform
+      scale 0.00001
+      rotate z 90
+      rotate x 180
+   end_pre_xform
+end_model
+
+model demo_tank
+   filename simple/tank_visualpart.osg
+   articulation turret turret_xform
+   articulation gun gun_xform
+end_model
+
+model marker
+   filename images/position.png
+   screen_scale 0.3
+   billboard
+end_model
+
+model x_marker
+   filename images/xmarker.png
+   screen_scale 0.3
+   billboard
+end_model
+
+model waypoint
+   filename images/position.png
+   billboard
+end_model
+
+model waypoint_left
+   filename images/left.png
+   billboard
+end_model
+
+model waypoint_right
+   filename images/right.png
+   billboard
+end_model
+
+model waypoint_offset
+   filename images/offset.png
+   billboard
+end_model
+
+model waypoint_turn
+   filename images/turn.png
+   billboard
+end_model
+
+model poi
+   filename images/poi.png
+   billboard
+end_model
+
+model f16
+   category Aircraft
+   default_set
+   filename 3d/f16_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.6 4.9 -0.05
+   engine
+      position -6.6 0.0 0.15
+      diameter 0.8
+   end_engine
+end_model
+
+model f16
+   category Aircraft
+   set immersive
+   filename 3d/f16_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.6 4.9 -0.05
+   engine
+      position -6.6 0.0 0.15
+      diameter 0.8
+   end_engine
+end_model
+
+model f16_aj
+   category Aircraft
+   default_set
+   filename 3d/f16_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.6 4.9 -0.05
+   engine
+      position -6.6 0.0 0.15
+      diameter 0.8
+   end_engine
+end_model
+
+model f16_aj
+   category Aircraft
+   set immersive
+   filename 3d/f16_hi_aj.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.6 4.9 -0.05
+   engine
+      position -6.6 0.0 0.15
+      diameter 0.8
+   end_engine
+end_model
+
+model f16_ww
+   category Aircraft
+   default_set
+   filename 3d/f16_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.6 4.9 -0.05
+   engine
+      position -6.6 0.0 0.15
+      diameter 0.8
+   end_engine
+end_model
+
+model f16_ww
+   category Aircraft
+   set immersive
+   filename 3d/f16_hi_ww.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.6 4.9 -0.05
+   engine
+      position -6.6 0.0 0.15
+      diameter 0.8
+   end_engine
+end_model
+
+model f16_wp
+   category Aircraft
+   default_set
+   filename 3d/f16_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.6 4.9 -0.05
+   engine
+      position -6.6 0.0 0.15
+      diameter 0.8
+   end_engine
+end_model
+
+model f16_wp
+   category Aircraft
+   set immersive
+   filename 3d/f16_hi_wp.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.6 4.9 -0.05
+   engine
+      position -6.6 0.0 0.15
+      diameter 0.8
+   end_engine
+end_model
+
+model f15c
+   category Aircraft
+   default_set
+   filename 3d/f15c_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.2 5.7 0.0
+   engine
+      position -7.6 0.8 0.2
+      diameter 1.0
+   end_engine
+   engine
+      position -7.6 -0.8 0.2
+      diameter 1.0
+   end_engine
+end_model
+
+model f15c
+   category Aircraft
+   set immersive
+   filename 3d/f15c_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.2 5.7 0.0
+   engine
+      position -7.6 0.8 0.2
+      diameter 1.0
+   end_engine
+   engine
+      position -7.6 -0.8 0.2
+      diameter 1.0
+   end_engine
+end_model
+
+model f15e
+   category Aircraft
+   default_set
+   filename 3d/f15e_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.2 5.7 0.0
+   engine
+      position -7.6 0.8 0.2
+      diameter 1.0
+   end_engine
+   engine
+      position -7.6 -0.8 0.2
+      diameter 1.0
+   end_engine
+end_model
+
+model f15e
+   category Aircraft
+   set immersive
+   filename 3d/f15e_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.2 5.7 0.0
+   engine
+      position -7.6 0.8 0.2
+      diameter 1.0
+   end_engine
+   engine
+      position -7.6 -0.8 0.2
+      diameter 1.0
+   end_engine
+end_model
+
+model kc46
+   category Aircraft
+   default_set
+   filename 3d/kc46_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -10.7 23.8 -0.9
+   engine
+      position -0.8 7.8 1.8
+      diameter 1.1
+   end_engine
+   engine
+      position -0.8 -7.8 1.8
+      diameter 1.1
+   end_engine
+end_model
+
+model kc46
+   category Aircraft
+   set immersive
+   filename 3d/kc46_ret.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -10.7 23.8 -0.9
+   engine
+      position -0.8 7.8 1.8
+      diameter 1.1
+   end_engine
+   engine
+      position -0.8 -7.8 1.8
+      diameter 1.1
+   end_engine
+end_model
+
+model kc46_jm
+   category Aircraft
+   default_set
+   filename 3d/kc46_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -10.7 23.8 -0.9
+   engine
+      position -0.8 7.8 1.8
+      diameter 1.1
+   end_engine
+   engine
+      position -0.8 -7.8 1.8
+      diameter 1.1
+   end_engine
+end_model
+
+model kc46_jm
+   category Aircraft
+   set immersive
+   filename 3d/kc46_ret_jm.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -10.7 23.8 -0.9
+   engine
+      position -0.8 7.8 1.8
+      diameter 1.1
+   end_engine
+   engine
+      position -0.8 -7.8 1.8
+      diameter 1.1
+   end_engine
+end_model
+
+model kc46ext
+   category Aircraft
+   default_set
+   filename 3d/kc46_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -10.7 23.8 -0.9
+   engine
+      position -0.8 7.8 1.8
+      diameter 1.1
+   end_engine
+   engine
+      position -0.8 -7.8 1.8
+      diameter 1.1
+   end_engine
+end_model
+
+model kc46ext
+   category Aircraft
+   filename 3d/kc46_ext.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -10.7 23.8 -0.9
+   engine
+      position -0.8 7.8 1.8
+      diameter 1.1
+   end_engine
+   engine
+      position -0.8 -7.8 1.8
+      diameter 1.1
+   end_engine
+end_model
+
+model kc46ext_jm
+   category Aircraft
+   default_set
+   filename 3d/kc46_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -10.7 23.8 -0.9
+   engine
+      position -0.8 7.8 1.8
+      diameter 1.1
+   end_engine
+   engine
+      position -0.8 -7.8 1.8
+      diameter 1.1
+   end_engine
+end_model
+
+model kc46ext_jm
+   category Aircraft
+   filename 3d/kc46_ext_jm.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -10.7 23.8 -0.9
+   engine
+      position -0.8 7.8 1.8
+      diameter 1.1
+   end_engine
+   engine
+      position -0.8 -7.8 1.8
+      diameter 1.1
+   end_engine
+end_model
+
+model b52
+   category Aircraft
+   default_set
+   filename 3d/b52_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -14.0 -28.0 1.0
+   engine
+      position -3.0 18.25 1.28
+      diameter 0.7
+   end_engine
+   engine
+      position 3.2 10.32 1.18
+      diameter 0.7
+   end_engine
+   engine
+      position 3.2 -10.32 1.18
+      diameter 0.7
+   end_engine
+   engine
+      position -3.0 -18.25 1.28
+      diameter 0.7
+   end_engine
+end_model
+
+model b52
+   category Aircraft
+   set immersive
+   filename 3d/b52.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -14.0 -28.0 1.0
+   engine
+      position -3.0 18.25 1.28
+      diameter 0.7
+   end_engine
+   engine
+      position 3.2 10.32 1.18
+      diameter 0.7
+   end_engine
+   engine
+      position 3.2 -10.32 1.18
+      diameter 0.7
+   end_engine
+   engine
+      position -3.0 -18.25 1.28
+      diameter 0.7
+   end_engine
+end_model
+
+model b52k
+   category Aircraft
+   default_set
+   filename 3d/b52_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -14.0 -28.0 1.0
+   engine
+      position -3.0 18.25 1.28
+      diameter 0.7
+   end_engine
+   engine
+      position 3.2 10.32 1.18
+      diameter 0.7
+   end_engine
+   engine
+      position 3.2 -10.32 1.18
+      diameter 0.7
+   end_engine
+   engine
+      position -3.0 -18.25 1.28
+      diameter 0.7
+   end_engine
+end_model
+
+model b52k
+   category Aircraft
+   set immersive
+   filename 3d/b52k.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -14.0 -28.0 1.0
+   engine
+      position -3.0 18.25 1.28
+      diameter 0.7
+   end_engine
+   engine
+      position 3.2 10.32 1.18
+      diameter 0.7
+   end_engine
+   engine
+      position 3.2 -10.32 1.18
+      diameter 0.7
+   end_engine
+   engine
+      position -3.0 -18.25 1.28
+      diameter 0.7
+   end_engine
+end_model
+
+model b2
+   category Aircraft
+   default_set
+   filename 3d/b2_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -8.7 26.2 0.0
+   engine
+      position -9.0 4.1 -0.1
+      diameter 0.4
+   end_engine
+   engine
+      position -9.0 -4.1 -0.1
+      diameter 0.4
+   end_engine
+end_model
+
+model b2
+   category Aircraft
+   set immersive
+   filename 3d/b2.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -8.7 26.2 0.0
+   engine
+      position -9.0 4.1 -0.1
+      diameter 0.4
+   end_engine
+   engine
+      position -9.0 -4.1 -0.1
+      diameter 0.4
+   end_engine
+end_model
+
+model f22
+   category Aircraft
+   default_set
+   filename 3d/f22_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -3.1 6.7 0.0
+   engine
+      position -6.2 0.7 0.0
+      diameter 0.7
+   end_engine
+   engine
+      position -6.2 -0.7 0.0
+      diameter 0.7
+   end_engine
+end_model
+
+model f22
+   category Aircraft
+   set immersive
+   filename 3d/f22.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -3.1 6.7 0.0
+   engine
+      position -6.2 0.7 0.0
+      diameter 0.7
+   end_engine
+   engine
+      position -6.2 -0.7 0.0
+      diameter 0.7
+   end_engine
+end_model
+
+model f22_zh
+   category Aircraft
+   default_set
+   filename 3d/f22_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -3.1 6.7 0.0
+   engine
+      position -6.2 0.7 0.0
+      diameter 0.7
+   end_engine
+   engine
+      position -6.2 -0.7 0.0
+      diameter 0.7
+   end_engine
+end_model
+
+model f22_zh
+   category Aircraft
+   set immersive
+   filename 3d/f22_zh.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -3.1 6.7 0.0
+   engine
+      position -6.2 0.7 0.0
+      diameter 0.7
+   end_engine
+   engine
+      position -6.2 -0.7 0.0
+      diameter 0.7
+   end_engine
+end_model
+
+model agm109
+   category Weapon
+   default_set
+   filename 3d/agm109.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90   end_pre_xform
+   wing_tip -0.25 1.35 0.0
+   engine
+      position -3.11 0.0 0.0
+      diameter 0.23
+   end_engine
+end_model
+
+model mig29_rus
+   category Aircraft
+   default_set
+   filename 3d/mig29_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.9 5.5 0.01
+   engine
+      position -7.6 0.9 0.23
+      diameter 0.7
+   end_engine
+   engine
+      position -7.6 -0.9 0.23
+      diameter 0.7
+   end_engine
+end_model
+
+model mig29_rus
+   category Aircraft
+   set immersive
+   filename 3d/mig29_rus_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.9 5.5 0.01
+   engine
+      position -7.6 0.9 0.23
+      diameter 0.7
+   end_engine
+   engine
+      position -7.6 -0.9 0.23
+      diameter 0.7
+   end_engine
+end_model
+
+model mig29_nk
+   category Aircraft
+   default_set
+   filename 3d/mig29_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.9 5.5 0.01
+   engine
+      position -7.6 0.9 0.23
+      diameter 0.7
+   end_engine
+   engine
+      position -7.6 -0.9 0.23
+      diameter 0.7
+   end_engine
+end_model
+
+model mig29_nk
+   category Aircraft
+   set immersive
+   filename 3d/mig29_nk_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.9 5.5 0.01
+   engine
+      position -7.6 0.9 0.23
+      diameter 0.7
+   end_engine
+   engine
+      position -7.6 -0.9 0.23
+      diameter 0.7
+   end_engine
+end_model
+
+model mig29_iriaf
+   category Aircraft
+   default_set
+   filename 3d/mig29_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.9 5.5 0.01
+   engine
+      position -7.6 0.9 0.23
+      diameter 0.7
+   end_engine
+   engine
+      position -7.6 -0.9 0.23
+      diameter 0.7
+   end_engine
+end_model
+
+model mig29_iriaf
+   category Aircraft
+   set immersive
+   filename 3d/mig29_iriaf_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.9 5.5 0.01
+   engine
+      position -7.6 0.9 0.23
+      diameter 0.7
+   end_engine
+   engine
+      position -7.6 -0.9 0.23
+      diameter 0.7
+   end_engine
+end_model
+
+model mk82
+   category Weapon
+   default_set
+   filename 3d/mk82.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.0 0.14 0.0
+end_model
+
+model mk82_hd
+   category Weapon
+   default_set
+   filename 3d/mk82_hd.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.0 0.14 0.0
+end_model
+
+model mk82_hd_ballute
+   category Weapon
+   default_set
+   filename 3d/mk82_hd_ballute.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.0 0.14 0.0
+end_model
+
+model aim9m
+   category Weapon
+   default_set
+   filename 3d/aim9m.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.6 -0.18 0.0
+   engine
+      position -1.6 0.0 0.0
+      diameter 0.1
+   end_engine
+end_model
+
+model aim9x
+   category Weapon
+   default_set
+   filename 3d/aim9x.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.6 -0.18 0.0
+   engine
+      position -1.7 0.0 0.0
+      diameter 0.1
+   end_engine
+end_model
+
+model aim120b
+   category Weapon
+   default_set
+   filename 3d/aim120b.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.9 -0.2 0.0
+   engine
+      position -1.93 0.0 0.0
+      diameter 0.12
+   end_engine
+end_model
+
+model aim120c
+   category Weapon
+   default_set
+   filename 3d/aim120c.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.9 -0.2 0.0
+   engine
+      position -1.93 0.0 0.0
+      diameter 0.12
+   end_engine
+end_model
+
+model zuni
+   category Weapon
+   default_set
+   filename 3d/zuni.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.0 0.21 0.0   
+   engine
+      position -0.78 0.0 0.0
+      diameter 0.08
+   end_engine
+end_model
+
+model e3_awacs
+   category Aircraft
+   default_set
+   filename 3d/e3_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -13.0 22.0 -1.2
+   engine
+      position -1.7 10.05 1.47
+      diameter 0.7
+   end_engine
+   engine
+      position -6.25 15.95 0.85
+      diameter 0.7
+   end_engine
+   engine
+      position -6.25 -15.95 0.85
+      diameter 0.7
+   end_engine
+   engine
+      position -1.7 -10.05 1.47
+      diameter 0.7
+   end_engine   
+end_model
+
+model e3_awacs
+   category Aircraft
+   set immersive
+   filename 3d/e3_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -13.0 22.0 -1.2
+   engine
+      position -1.7 10.05 1.47
+      diameter 0.7
+   end_engine
+   engine
+      position -6.25 15.95 0.85
+      diameter 0.7
+   end_engine
+   engine
+      position -6.25 -15.95 0.85
+      diameter 0.7
+   end_engine
+   engine
+      position -1.7 -10.05 1.47
+      diameter 0.7
+   end_engine   
+end_model
+
+model c130
+   category Aircraft
+   default_set
+   filename 3d/c130_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.8 19.8 -1.55
+   engine
+      position -0.18 4.88 -0.28
+      diameter 0.3
+   end_engine
+   engine
+      position -0.18 10.20 -0.28
+      diameter 0.3
+   end_engine
+   engine
+      position -0.18 -10.20 -0.28
+      diameter 0.3
+   end_engine
+   engine
+      position -0.18 -4.88 -0.28
+      diameter 0.3
+   end_engine   
+end_model
+
+model c130
+   category Aircraft
+   set immersive
+   filename 3d/c130_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.8 19.8 -1.55
+   engine
+      position -0.18 4.88 -0.28
+      diameter 0.3
+   end_engine
+   engine
+      position -0.18 10.20 -0.28
+      diameter 0.3
+   end_engine
+   engine
+      position -0.18 -10.20 -0.28
+      diameter 0.3
+   end_engine
+   engine
+      position -0.18 -4.88 -0.28
+      diameter 0.3
+   end_engine   
+end_model
+
+model b767
+   category Aircraft
+   default_set
+   filename 3d/b767_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -9.9 23.8 -1.25
+   engine
+      position 0.0 7.76 1.5
+      diameter 1.0
+   end_engine
+   engine
+      position 0.0 -7.76 1.5
+      diameter 1.0
+   end_engine
+end_model
+
+model b767
+   category Aircraft
+   set immersive
+   filename 3d/b767.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -9.9 23.8 -1.25
+   engine
+      position 0.0 7.76 1.5
+      diameter 1.0
+   end_engine
+   engine
+      position 0.0 -7.76 1.5
+      diameter 1.0
+   end_engine
+end_model
+
+model b777
+   category Aircraft
+   default_set
+   filename 3d/b777_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -12.8 29.95 -2.7
+   engine
+      position 1.1 9.5 2.05
+      diameter 1.5
+   end_engine
+   engine
+      position 1.1 -9.5 2.05
+      diameter 1.5
+   end_engine
+end_model
+
+model b777
+   category Aircraft
+   set immersive
+   filename 3d/b777.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -12.8 29.95 -2.7
+   engine
+      position 1.1 9.5 2.05
+      diameter 1.5
+   end_engine
+   engine
+      position 1.1 -9.5 2.05
+      diameter 1.5
+   end_engine
+end_model
+
+model f35
+   category Aircraft
+   default_set
+   filename 3d/f35_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.7 5.5 0.0
+   engine
+      position -4.7 0.0 0.2
+      diameter 0.9
+   end_engine
+end_model
+
+model f35
+   category Aircraft
+   set immersive
+   filename 3d/f35_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.7 5.5 0.0
+   engine
+      position -4.7 0.0 0.2
+      diameter 0.9
+   end_engine
+end_model
+
+model f35_nb
+   category Aircraft
+   default_set
+   filename 3d/f35_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.7 5.5 0.0
+   engine
+      position -4.7 0.0 0.2
+      diameter 0.9
+   end_engine
+end_model
+
+model f35_nb
+   category Aircraft
+   set immersive
+   filename 3d/f35_nb.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.7 5.5 0.0
+   engine
+      position -4.7 0.0 0.2
+      diameter 0.9
+   end_engine
+end_model
+
+model typhoon
+   category Aircraft
+   default_set
+   filename 3d/eurofighter_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.2 5.36 0.14
+   engine
+      position -6.2 0.49 0.01
+      diameter 0.7
+   end_engine
+   engine
+      position -6.2 -0.49 0.01
+      diameter 0.7
+   end_engine
+end_model
+
+model typhoon
+   category Aircraft
+   set immersive
+   filename 3d/eurofighter_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.2 5.36 0.14
+   engine
+      position -6.2 0.49 0.01
+      diameter 0.7
+   end_engine
+   engine
+      position -6.2 -0.49 0.01
+      diameter 0.7
+   end_engine
+end_model
+
+model globalhawk
+   category Drone
+   default_set
+   filename 3d/globalhawk_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.1 19.5 0.3
+   engine
+      position -6.6 0.0 -1.65
+      diameter 0.6
+   end_engine
+end_model
+
+model globalhawk
+   category Drone
+   set immersive
+   filename 3d/globalhawk_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.1 19.5 0.3
+   engine
+      position -6.6 0.0 -1.65
+      diameter 0.6
+   end_engine
+end_model
+
+model lcaat
+   category Drone
+   default_set
+   filename 3d/lcaat_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.4 3.1 0.0
+   engine
+      position -3.9 0.0 -0.05
+      diameter 0.3
+   end_engine
+end_model
+
+model lcaat
+   category Drone
+   set immersive
+   filename 3d/lcaat_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.4 3.1 0.0
+   engine
+      position -3.9 0.0 -0.05
+      diameter 0.3
+   end_engine
+end_model
+
+model ucav
+   category Drone
+   default_set
+   filename 3d/ucav_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.4 8.1 0.0
+   engine
+      position -5.4 0.0 -0.2
+      diameter 0.4
+   end_engine
+end_model
+
+model ucav
+   category Drone
+   set immersive
+   filename 3d/ucav_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.4 8.1 0.0
+   engine
+      position -5.4 0.0 -0.2
+      diameter 0.4
+   end_engine
+end_model
+
+model reaper
+   category Drone
+   default_set
+   filename 3d/reaper_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.0 10.0 0.0
+   engine
+      position -4.4 0.0 -0.85
+      diameter 0.25
+   end_engine
+end_model
+
+model reaper
+   category Drone
+   set immersive
+   filename 3d/reaper_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -1.0 10.0 0.0
+   engine
+      position -4.4 0.0 -0.85
+      diameter 0.25
+   end_engine
+end_model
+
+model j10
+   category Aircraft
+   default_set
+   filename 3d/j10_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -3.3 4.7 0.65
+   engine
+      position -6.5 0.0 0.0
+      diameter 0.6
+   end_engine
+end_model
+
+model j10
+   category Aircraft
+   set immersive
+   filename 3d/j10_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -3.3 4.7 0.65
+   engine
+      position -6.5 0.0 0.0
+      diameter 0.6
+   end_engine
+end_model
+
+model su27
+   category Aircraft
+   default_set
+   filename 3d/su27_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model su27
+   category Aircraft
+   set immersive
+   filename 3d/su27_lt.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model su27_lt
+   category Aircraft
+   default_set
+   filename 3d/su27_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model su27_lt
+   category Aircraft
+   set immersive
+   filename 3d/su27_lt.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model su27_dk
+   category Aircraft
+   default_set
+   filename 3d/su27_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model su27_dk
+   category Aircraft
+   set immersive
+   filename 3d/su27_dk.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model su27_wht
+   category Aircraft
+   default_set
+   filename 3d/su27_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model su27_wht
+   category Aircraft
+   set immersive
+   filename 3d/su27_wht.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model j11
+   category Aircraft
+   default_set
+   filename 3d/su27_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model j11
+   category Aircraft
+   set immersive
+   filename 3d/j11_dk.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model j11_dk
+   category Aircraft
+   default_set
+   filename 3d/su27_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model j11_dk
+   category Aircraft
+   set immersive
+   filename 3d/j11_dk.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model j11_lt
+   category Aircraft
+   default_set
+   filename 3d/su27_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model j11_lt
+   category Aircraft
+   set immersive
+   filename 3d/j11_lt.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -4.7 7.3 0.0
+   engine
+      position -7.95 1.21 0.55
+      diameter 0.8
+   end_engine
+   engine
+      position -7.95 -1.21 0.55
+      diameter 0.8
+   end_engine
+end_model
+
+model tu95
+   category Aircraft
+   default_set
+   filename 3d/tu95_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -13.8 25.0 0.0
+   engine
+      position -8.2 6.1 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -5.8 12.26 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -8.2 -6.1 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -5.8 -12.26 0.6
+      diameter 0.5
+   end_engine
+end_model
+
+model tu95
+   category Aircraft
+   set immersive
+   filename 3d/tu95_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -13.8 25.0 0.0
+   engine
+      position -8.2 6.1 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -5.8 12.26 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -8.2 -6.1 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -5.8 -12.26 0.6
+      diameter 0.5
+   end_engine
+end_model
+
+model tu16
+   category Aircraft
+   default_set
+   filename 3d/tu16_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -18.8 16.4 0.0
+   engine
+      position -4.7 1.9 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -4.7 -1.9 0.6
+      diameter 0.5
+   end_engine
+end_model
+
+model tu16
+   category Aircraft
+   set immersive
+   filename 3d/tu16_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -18.8 16.4 0.0
+   engine
+      position -4.7 1.9 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -4.7 -1.9 0.6
+      diameter 0.5
+   end_engine
+end_model
+
+model h6
+   category Aircraft
+   default_set
+   filename 3d/h6_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -18.8 16.4 0.0
+   engine
+      position -4.7 1.9 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -4.7 -1.9 0.6
+      diameter 0.5
+   end_engine
+end_model
+
+model h6
+   category Aircraft
+   set immersive
+   filename 3d/h6_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -18.8 16.4 0.0
+   engine
+      position -4.7 1.9 0.6
+      diameter 0.5
+   end_engine
+   engine
+      position -4.7 -1.9 0.6
+      diameter 0.5
+   end_engine
+end_model
+
+model luyang
+   category Ship
+   default_set
+   filename 3d/luyang_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+      scale     10
+   end_pre_xform
+end_model
+
+model luyang
+   category Ship
+   set immersive
+   filename 3d/luyang_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+      scale     10
+   end_pre_xform
+end_model
+
+model ea18
+   category Aircraft
+   default_set
+   filename 3d/ea18_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.7 6.3 -0.05
+   engine
+      position -6.6 0.47 0.0
+      diameter 0.5
+   end_engine
+   engine
+      position -6.6 -0.47 0.0
+      diameter 0.5
+   end_engine
+end_model
+
+model ea18
+   category Aircraft
+   set immersive
+   filename 3d/ea18_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.7 6.3 -0.05
+   engine
+      position -6.6 0.47 0.0
+      diameter 0.5
+   end_engine
+   engine
+      position -6.6 -0.47 0.0
+      diameter 0.5
+   end_engine
+end_model
+
+model chaff
+   default_set
+   filename 3d/chaff.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model flare
+   default_set
+   filename 3d/flare_lo.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip 0.0 0.2 0.0
+end_model
+
+model flare
+   set immersive
+   filename 3d/flare_hi.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip 0.0 0.2 0.0
+end_model
+
+model tnk-f16-370g
+   default_set
+   filename 3d/tnk-f16-370g.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model tnk-f15c-600g
+   default_set
+   filename 3d/tnk-f15c-600g.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model tnk-f15e-600g
+   default_set
+   filename 3d/tnk-f15e-600g.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+end_model
+
+model zell-booster
+   default_set
+   filename 3d/zell-booster.osgb
+   pre_xform
+      rotate x 180
+      rotate z -90
+   end_pre_xform
+   wing_tip -2.15 0.35 0.0
+   engine
+      position -2.5 0.0 0.0
+      diameter 0.7
+   end_engine
+end_model
+
+model iridium
+   category Space
+   default_set
+   filename 3d/iridium_lo.osgb
+   pre_xform
+      rotate x -90
+   end_pre_xform
+end_model
+
+model iridium
+   category Space
+   set immersive
+   filename 3d/iridium_hi.osgb
+   pre_xform
+      rotate x -90
+   end_pre_xform
+   articulation panel1 g0:panel1
+   articulation panel2 g0:panel2
+end_model
+
+model gps
+   category Space
+   default_set
+   filename 3d/gps_lo.osgb
+   pre_xform
+      rotate x -90
+   end_pre_xform
+end_model
+
+model gps
+   category Space
+   set immersive
+   filename 3d/gps_hi.osgb
+   pre_xform
+      rotate x -90
+   end_pre_xform
+   articulation panel1 g0:Left_Solar_Panel
+   articulation panel2 g0:Right_Solar_Panel
+end_model
+
+model wgs-sat
+   category Space
+   default_set
+   filename 3d/wgs_sat_lo.osgb
+   pre_xform
+      rotate x -90
+   end_pre_xform
+end_model
+
+model wgs-sat
+   category Space
+   set immersive
+   filename 3d/wgs_sat_hi.osgb
+   pre_xform
+      rotate x -90
+   end_pre_xform
+   articulation panel1 g0:Panel1
+   articulation panel2 g0:Panel2
+end_model
+
+// -------------------------------------------------------
+
+alias aaa_sm_twd             zu-23
+alias bullseye_team          bullseye
+alias ch-47                  chinook
+alias comm_truck_icon        command_truck # comm_truck
+alias command_vehicle_icon   command_truck
+alias df-21_missile          scud_missile
+alias elr_missile_icon       sa-2_missile
+alias elr_sam_acq_radar_icon bigbird_radar
+alias elr_sam_launcher_icon  sa10_tel
+alias elr_sam_ttr_radar_icon tomb_stone_radar
+alias tomb_stone_radar       flaplid_radar_maz
+alias ew_radar_icon          ground_radar
+alias lr_sam_acq_radar_icon  bigbird_radar
+alias lr_sam_launcher_icon   sa10_tel
+alias lr_sam_ttr_radar_icon  tomb_stone_radar
+alias lr_missile_icon        sa-6_missile
+alias mr_sam_launcher_icon   sa-17_launcher
+alias mr_sam_ttr_radar_icon  tomb_stone_radar
+alias mr_missile_icon        sa-2_missile
+alias rafale_icon            typhoon
+alias rafale                 typhoon
+alias sr_missile_icon        sa-11_missile
+alias sr_sam_telar_icon      sa-15_launcher
+alias tbm_launcher_icon      tbm_launcher
+alias tbm_missile_icon       df-21_missile
+alias tbm_launcher           scud_launcher
+alias C-17                   c-17
+alias pac-3_launcher         scud_launcher
+alias pac-3_ecs              command_truck
+alias pac-3_missile          scud_missile
+alias abn_cmdr               e3_awacs
+alias abn_jammer             ea-6b
+alias airbase                runway
+alias bomber-a               ea-6b
+alias bomber-b               f-15e
+alias close-sam              command_truck
+alias close-sam_cdr          command_truck
+alias cmd_post               c4i
+alias cruiser-a              cruiser
+alias drone                  reaper
+alias ew/gci                 ground_radar
+alias fighter                f15c
+alias ftr/bomber             f16
+alias ftr/bmbr               f16
+alias intcp-a                f15c
+alias intcp-b                su27
+alias sam-a                  sa-6_launcher
+alias sam-a_missile          sa-18_missile
+alias sam-b                  sa-6_launcher
+alias sam-b_cdr              command_truck
+alias bomber                 b52
+alias missile                sa-10_missile
+alias sam_btry               sa-6_launcher
+alias sam_rgt                command_truck
+alias target                 c4i
+alias weasel                 ea18
+alias harm                   scud_missile
+alias sam_battalion          command_truck
+alias pickup_truck_hmg       pickup_truck
+
+alias f-16                   f16
+alias f-16c                  f16
+alias viper                  f16
+alias f-15                   f15c
+alias f-15c                  f15c
+alias eagle                  f15c
+alias f-15e                  f15e
+alias strike-eagle           f15e
+alias kc-46                  kc46
+alias tanker                 kc46
+alias kc-46-ext              kc46ext
+alias b-52                   b52
+alias b-52h                  b52
+alias b-2                    b2
+alias f-22                   f22
+alias raptor                 f22
+alias agm-109                agm109
+alias cruise-missile         agm109
+alias cruise_missile         agm109
+alias alcm                   agm109
+alias calcm                  agm109
+alias mig-29                 mig29_rus
+alias mig                    mig29_rus
+alias fulcrum                mig29_rus
+alias mk-82                  mk82
+alias bomb                   mk82
+alias mk82-hd                mk82_hd
+alias mk82-hd-ballute        mk82_hd_ballute
+alias aim9                   aim9m
+alias aim-9                  aim9m
+alias aim-9m                 aim9m
+alias aim-9x                 aim9x
+alias aim-120b               aim120b
+alias aim120                 aim120c
+alias aim-120                aim120c
+alias aim-120c               aim120c
+alias amraam                 aim120c
+alias aam                    aim120c
+alias e3                     e3_awacs
+alias e3c                    e3_awacs
+alias e-3                    e3_awacs
+alias e-3c                   e3_awacs
+alias sentry                 e3_awacs
+alias awacs                  e3_awacs
+alias c-130                  c130
+alias airliner               b767
+alias f-35                   f35
+alias f-35a                  f35
+alias jsf                    f35
+alias eurofighter            typhoon
+alias rq-4                   globalhawk
+alias global_hawk            globalhawk
+alias ucav_navy              ucav
+alias predator               reaper
+alias mq-9                   reaper
+alias mq-1                   reaper
+alias j-10                   j10
+alias f-10                   j10
+alias su-27                  su27
+alias su-35                  su27
+alias flanker                su27
+alias sukhoi                 su27
+alias j-11                   j11
+alias tu-95                  tu95
+alias bear                   tu95
+alias tu-16                  tu16
+alias badger                 tu16
+alias h-6                    h6
+alias ship                   luyang
+alias ddg                    luyang
+alias ea-18                  ea18
+alias ea-18g                 ea18
+alias f-18                   ea18
+alias f-18c                  ea18
+alias f-18e                  ea18
+alias f-18f                  ea18
+alias growler                ea18
+alias fuel-tank-370g         tnk-f16-370g
+alias fuel-tank-600g         tnk-f15c-600g
+alias iridium-next           iridium
+alias leo-sat                iridium
+alias gps-block-iif          gps
+alias satellite              gps
+alias geo-sat                wgs-sat
+
+alias j-20                   j20
+
+alias abrams                 m1
+alias m-1                    m1
+alias m1a1                   m1
+alias tank                   m1
+alias t-72                   m1
+alias t-80                   m1
+alias t-90                   m1
+alias m-1_tan                m1_tan
+
+alias apc                    m2
+alias bradley                m2
+alias ifv                    m2
+alias m-2                    m2
+alias m2a                    m2
+alias m-3                    m2
+alias m3                     m2
+alias m-2_tan                m2_tan
+
+alias hummvee                humvee
+
+alias ah-64                  ah64d
+alias ah-64a                 ah64d
+alias ah-64d                 ah64d
+alias apache                 ah64d
+alias blackhawk              uh60
+alias uh-60                  uh60
+alias mh-60                  mh60
+
+alias bigbird                bigbird_radar
+alias big_bird               bigbird_radar
+alias big_bird_radar         bigbird_radar
+alias billboard              billboard_radar
+alias bill_board             billboard_radar
+alias clamshell              clamshell_radar_short
+alias clamshell_radar        clamshell_radar_short
+alias clam_shell             clamshell_radar_short
+alias flaplid                flaplid_radar_maz
+alias flaplid_radar          flaplid_radar_maz
+alias flap_lid               flaplid_radar_maz
+alias grillpan               grillpan_radar
+alias grill_pan              grillpan_radar
+alias giant_launcher         giant_tel
+alias sa12b_launcher         giant_tel
+alias gladiator_launcher     gladiator_tel
+alias sa12a_launcher         gladiator_tel
+alias lemz                   lemz_radar_trailer
+alias lemz_radar             lemz_radar_trailer
+alias maz_79100              maz_79100_tractor
+alias maz_tractor            maz_79100_tractor
+alias sa-10_commander        sa10_commander
+alias sa20_commander         sa10_commander
+alias sa-20_commander        sa10_commander
+alias sa10_cp                sa10_commander
+alias sa20_cp                sa10_commander
+alias sa-10_cp               sa10_commander
+alias sa-20_cp               sa10_commander
+alias sa-12_commander        sa12_commander
+alias sa12_cp                sa12_commander
+alias sa-12_cp               sa12_commander
+alias sa-10_tel              sa10_tel
+alias sa20_tel               sa10_tel
+alias sa-20_tel              sa10_tel
+alias sa-10_launcher         sa10_tel
+alias tinshield              tinshield_radar_trailer
+alias tinshield_radar        tinshield_radar_trailer
+alias tin_shield             tinshield_radar_trailer

@@ -1,0 +1,253 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test checks user supplied error sigmas for the absolute sensor error model.
+
+sensor TEST_SENSOR WSF_GEOMETRIC_SENSOR
+   on
+   ignore_same_side
+   frame_time 0.1 sec
+   reports_range
+   reports_bearing
+   reports_elevation
+end_sensor
+
+radar_signature const 
+   constant 1 m^2
+end_radar_signature
+
+sensor RADAR WSF_RADAR_SENSOR
+   frame_time 0.1 s
+   on
+   ignore_same_side
+   reports_range
+   reports_bearing
+   reports_elevation
+   transmitter
+      power 1.21 Gw
+      frequency 100 Mhz
+   end_transmitter      
+end_sensor
+
+platform target WSF_PLATFORM
+   radar_signature const
+      
+   side green
+   add sensor transmit RADAR // to enable ESM detections
+   end_sensor
+   position 0.0n 0.1e altitude 1000 m
+end_platform
+
+include ../auto_script/test_functions.txt
+
+script_variables
+   bool gPASS = true;
+end_script_variables
+
+platform_type TRACKER WSF_PLATFORM 
+   side blue
+   radar_signature const
+   position 0.1n 0.0e altitude 1000 m   
+   script_variables
+      int num_outside_one_sigma = 0;
+      double sigma = 100.0;
+      int num_draws = 0;
+      bool executeOnce = false;
+   end_script_variables
+
+   script void SensorTrackUpdated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+      # The reported sigma is the error before a random factor is multiplied
+      # to vary it from detection to detection. This factor is a normal distribution draw with mean of 0
+      # and standard deviation of 1. Standard deviations is a good
+      # metric for error checking here, since the values will fall within
+      # this range 68% of the time. 
+      WsfGeoPoint trackLocation = aTrack.ReportedLocation();
+      WsfGeoPoint truthLocation = aTrack.Target().Location();
+      Vec3 diff = Vec3.Subtract(trackLocation.LocationWCS(), truthLocation.LocationWCS());
+      double trackError = diff.Magnitude();
+      if (trackError > sigma)
+      {
+         num_outside_one_sigma += 1;
+      }
+      if (!PLATFORM.Sensor("sensor").AuxDataBool("is3D"))
+      {
+         double altDiff = Math.Fabs(trackLocation.Altitude() - truthLocation.Altitude());
+         if (altDiff > 1.0e-5)
+         {
+            writeln("-FAIL- ", PLATFORM.Name(), " 2D track/truth altitudes should be identical (", altDiff, ").");
+            gPASS = false;
+         }
+      }
+      if (!executeOnce)
+      {
+         if (aTrack.MeasurementCovariance().IsValid())
+         {
+            Ellipsoid eNED = aTrack.MeasurementCovariance().EllipsoidNED();
+            double f = eNED.SemiAxisForward();
+            if (PLATFORM.Sensor("sensor").AuxDataBool("is3D"))
+            {
+               write(aPlatform.Name(), ": ");
+               gPASS = AssertWithinToleranceMessage(f, sigma, 0.01, "-FAIL- forward sma") && gPASS;
+            }
+            else
+            {
+               write(aPlatform.Name(), ": ");
+               gPASS = AssertWithinToleranceMessage(f, 0.0, 0.01, "-FAIL- forward sma") && gPASS;
+            }
+            double s = eNED.SemiAxisSide();
+            gPASS = AssertWithinToleranceMessage(s, sigma, 0.01, "-FAIL- side sma") && gPASS;
+            double u = eNED.SemiAxisUp();
+            gPASS = AssertWithinToleranceMessage(u, sigma, 0.01, "-FAIL-") && gPASS;
+            writeln(f, " ", s, " ", u);
+            executeOnce = true;
+         }
+      }
+      num_draws += 1;
+   end_script
+
+   script void SimulationComplete()
+
+      writeln();
+      writeln(PLATFORM.Name(), "\n   Num draws: " + (string)num_draws);
+      
+      //Check that the number inside a one sigma sphere is ~68% of the total.
+      double percent = 100.0 - (double)num_outside_one_sigma / (double)num_draws * 100.0;
+      if((percent < 67.0) || (percent > 69.0) || (num_outside_one_sigma == 0))
+      {       
+         writeln("-FAIL- ; ", "   Percent within one sigma: ", percent, " (expected ~68.2%)");
+         gPASS = false;
+      }
+      else 
+      {
+         writeln("   Percent within one sigma: ", percent);
+      }
+   end_script
+   
+end_platform_type
+
+platform tracker_geo_3d TRACKER
+   add sensor sensor TEST_SENSOR
+      error_model absolute_sensor_error   
+         3d_position_error_sigma 100 m
+         debug
+      end_error_model
+      aux_data
+         bool is3D = true
+      end_aux_data      
+   end_sensor
+end_platform
+
+platform tracker_geo_2d TRACKER
+   add sensor sensor TEST_SENSOR
+      error_model absolute_sensor_error
+         2d_position_error_sigma 100 m
+      end_error_model      
+      aux_data
+         bool is3D = false
+      end_aux_data      
+   end_sensor
+end_platform
+
+platform tracker_radar_3d TRACKER
+   add sensor sensor RADAR
+      error_model absolute_sensor_error   
+         3d_position_error_sigma 100 m
+         debug
+      end_error_model   
+      aux_data
+         bool is3D = true
+      end_aux_data      
+   end_sensor
+end_platform
+
+platform tracker_esm TRACKER
+   add sensor sensor WSF_ESM_SENSOR
+      on
+      frequency_band 90 Mhz 110 Mhz
+      frame_time 0.1 s
+      ignore_same_side
+      reports_range
+      reports_bearing
+      reports_elevation       
+      error_model absolute_sensor_error   
+         3d_position_error_sigma 100 m
+         debug
+      end_error_model   
+      aux_data
+         bool is3D = true
+      end_aux_data      
+   end_sensor   
+end_platform 
+
+platform tracker_radar_2d TRACKER
+   add sensor sensor RADAR
+      error_model absolute_sensor_error   
+         2d_position_error_sigma 100 m
+         debug
+      end_error_model   
+   end_sensor
+   aux_data
+      bool is3D = false
+   end_aux_data      
+end_platform
+
+platform perfect WSF_PLATFORM
+   side blue
+   radar_signature const
+   add sensor sensor TEST_SENSOR 
+   end_sensor   
+   position 0.2n 0.1e altitude 1000 m
+   edit sensor sensor
+      error_model absolute_sensor_error   
+         3d_position_error_sigma 0 m
+         debug
+      end_error_model
+   end_sensor
+   script void SensorTrackUpdated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+      static bool executeOnce = true;
+      if (executeOnce)
+      {
+         executeOnce = false;
+         WsfGeoPoint truthLoc = aTrack.Target().Location();
+         double truthAz = aSensor.RelativeAzimuthOf(truthLoc);
+         double truthEl = aSensor.RelativeElevationOf(truthLoc);
+         Vec3 rangeVecWCS = Vec3.Subtract(truthLoc.LocationWCS(), aTrack.OriginatorLocation().LocationWCS());
+         double truthRange = rangeVecWCS.Magnitude();
+         gPASS = AssertWithinToleranceMessage(truthRange, aTrack.Range(), 0.001, "-FAIL- range") && gPASS;
+         gPASS = AssertWithinToleranceMessage(truthAz, aTrack.Bearing(), 0.0001, "-FAIL- az") && gPASS;
+         gPASS = AssertWithinToleranceMessage(truthEl, aTrack.Elevation(), 0.0001, "-FAIL- el") && gPASS; 
+      }
+   end_script   
+end_platform
+
+script void SensorTrackUpdated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+   if (aPlatform.Side() == "blue")
+   {
+      aPlatform->SensorTrackUpdated(aPlatform, aSensor, aTrack);
+   }
+end_script
+
+script void SimulationComplete()
+   WsfSimulation.FindPlatform("tracker_geo_2d")->SimulationComplete();
+   WsfSimulation.FindPlatform("tracker_geo_3d")->SimulationComplete();
+   WsfSimulation.FindPlatform("tracker_radar_2d")->SimulationComplete();
+   WsfSimulation.FindPlatform("tracker_radar_3d")->SimulationComplete();
+   WsfSimulation.FindPlatform("tracker_esm")->SimulationComplete();
+   if (gPASS)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SENSOR_TRACK_UPDATED
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 30 min

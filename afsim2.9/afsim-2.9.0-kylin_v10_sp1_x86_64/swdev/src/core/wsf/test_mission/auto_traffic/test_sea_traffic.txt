@@ -1,0 +1,226 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once platforms/ship_container.txt
+include_once platforms/ship_jetski.txt
+include_once platforms/ship_fishing_trawler.txt
+include_once platforms/ship_small_fishing.txt
+include_once platforms/ship_tanker.txt
+
+include_once ../auto_script/collect_stats.txt
+
+//-------------------------------------------------
+// Define the west coast sea traffic
+//-------------------------------------------------
+sea_traffic
+
+   // Define the ports
+   port port-seattle
+      position 48:15:00n 123:00:00w 1 km
+
+      port_route
+         position 48:30:00n 125:00:00w 10 km
+         position 48:15:00n 124:00:00w  1 km
+      end_port_route
+
+      local_traffic_region 48:15:00n 123:00:00w 10 km 0.25
+      local_traffic_region 48:10:00n 122:50:00w 10 km 0.25
+      local_traffic_region 48:20:00n 122:52:00w 15 km 0.25
+      local_traffic_region 48:25:00n 123:10:00w 15 km 0.25
+
+      departure_interval 500 min
+
+      // If you don't want to specify lanes explicitly, use_all_lanes
+      // will use all lanes that are defined with this port being
+      // one of the endpoints.
+      //use_all_lanes
+
+      // Or you can explicity specify which lanes outgoing traffic will travel on.
+      lane lane-seattle-to-british-columbia 0.70
+      lane lane-seattle-to-baja-mexico      0.30
+   end_port
+
+   port port-british-columbia
+      position 50:45:00n 127:00:00w 1 km
+
+      port_route
+         position 51:00:00n 129:00:00w 10 km
+         position 51:00:00n 127:40:00w  1 km
+      end_port_route
+
+      local_traffic_region 50:45:00n 127:00:00w 30 km 0.5
+      local_traffic_region 50:40:00n 126:45:00w 20 km 0.5
+
+      departure_interval 1000 min
+
+      use_all_lanes
+   end_port
+
+   port port-baja-mexico
+      position 31:40:00n 114:40:00w 1 km
+
+      port_route
+         position 22:00:00n 112:00:00w 100 km
+         position 22:00:00n 108:00:00w  50 km
+         position 28:20:00n 112:20:00w   1 km
+         position 28:45:00n 112:45:00w   1 km
+         position 29:15:00n 112:45:00w   1 km
+      end_port_route
+
+      local_traffic_region 31:40:00n 114:40:00w 30 km 0.4
+      local_traffic_region 31:00:00n 113:20:00w 25 km 0.4
+      local_traffic_region 31:20:00n 114:40:00w 15 km 0.2
+
+      departure_interval 500 min
+
+      use_all_lanes
+   end_port
+
+   port port-seoul
+      position 37:54:00n 125:45:00e 1 km
+
+      port_route
+         position 37:20:00n 125:40:00e 10 km
+      end_port_route
+
+      local_traffic_region 37:54:00n 125:45:00e 60 km 0.4
+      local_traffic_region 37:30:00n 126:00:00e 30 km 0.6
+
+      departure_interval 3000 min
+
+      use_all_lanes
+   end_port
+
+   // Define the shipping lanes
+   lane lane-seattle-to-british-columbia
+      port port-seattle
+      port port-british-columbia
+
+      lane_route
+         position 50:00:00n 129:00:00w 50 km
+      end_lane_route
+   end_lane
+
+   lane lane-seattle-to-baja-mexico
+      port port-seattle
+      port port-baja-mexico
+
+      lane_route
+         position 48:00:00n 125:30:00w 100 km
+         position 36:00:00n 126:00:00w 100 km
+         position 30:00:00n 120:00:00w 100 km
+      end_lane_route
+   end_lane
+
+   lane lane-seoul-to-seattle
+      port port-seoul
+      port port-seattle
+
+      lane_route
+         position 34:00:00n 124:00:00e 100 km
+         position 29:00:00n 130:00:00e  25 km
+         position 30:00:00n 135:00:00e 300 km
+         position 40:00:00n 180:00:00e 300 km
+         position 48:00:00n 145:00:00w 100 km
+      end_lane_route
+   end_lane
+
+   // Define the departure traffic
+   departure_traffic 0.50
+      ship TANKER_SHIP
+         fraction     0.50
+         mean_speed  20.0 knots
+         sigma_speed  5.0 knots
+      end_ship
+
+      ship CONTAINER_SHIP
+         fraction     0.30
+         mean_speed  25.0 knots
+         sigma_speed  5.0 knots
+      end_ship
+
+      ship LARGE_FISHING_TRAWLER_SHIP
+         fraction     0.20
+         mean_speed  30.0 knots
+         sigma_speed 10.0 knots
+      end_ship
+   end_departure_traffic
+
+   // Define the local traffic
+   local_traffic 0.50
+      ship SMALL_FISHING_SHIP
+         fraction           0.75
+         mean_loiter_time  30.0 min
+         sigma_loiter_time 10.0 min
+         mean_speed        40.0 knots
+         sigma_speed       15.0 knots
+      end_ship
+
+      ship JETSKI
+         fraction           0.25
+         mean_loiter_time  30.0 min
+         sigma_loiter_time 10.0 min
+         mean_speed        40.0 knots
+         sigma_speed       15.0 knots
+         loiter_route ship-loiter-route-1
+         loiter_route ship-loiter-route-2
+      end_ship
+   end_local_traffic
+end_sea_traffic
+
+
+// Create a couple routes that the 'local' ship traffic will use.
+route ship-loiter-route-1
+  offset 1 0 meters
+
+  label start
+    offset  2000      0 meters
+    offset  2000  -1000 meters
+    offset -2000  -1000 meters
+    offset -2000      0 meters
+  goto start
+end_route
+
+route ship-loiter-route-2
+   offset 1 0 meters
+
+   label start
+      offset  2000  2000 meters
+      offset  2000 -2000 meters
+      offset     1     0 meters
+      offset -4000  2000 meters
+      offset -4000 -2000 meters
+      offset     1     0 meters
+   goto start
+end_route
+
+observer
+   enable SIMULATION_COMPLETE simComplete
+end_observer
+
+script void simComplete()
+   struct sum = collect_Summarize("");
+   sum->Print();
+
+#   Samples: 17
+#   Alive Time: 273965
+#   Distance Travelled: 2.82513e+006
+
+   # Traffic is fairly random, expect to be within 50 %
+   if (!sum->ExpectedAliveTime(273965.0, .5)
+    || !sum->ExpectedDistanceTravelled(2.82513e+006, .5))
+      writeln("-FAIL-");
+   else
+      writeln("-PASS-");
+
+end_script
+
+end_time 5 hrs
+# Test Monte-Carlo
+final_run_number 3

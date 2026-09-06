@@ -1,0 +1,133 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+// ---------------------------------------------------------------------------
+
+include sa-10c.txt
+
+weapon_effects SA-10C_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 100 m 1.0
+
+   script void on_weapon_target_engagement(WsfPlatform aTarget)
+      writeln("T=", TIME_NOW, " Weapon Engagement");
+      WsfPlatform weapon = WeaponPlatform();
+      # Return immediately if no target or weapon platform
+      if (! (aTarget.IsValid() && weapon.IsValid())) return;
+      writeln("  Weapon: ", weapon.Name(), ", Target:", aTarget.Name());
+      writeln("  Time launched: ", StartTime());
+      writeln("  Miss Distance: ", MissDistance());
+      
+      string msg = "***** " + aTarget.Name() + " hit by weapon " + weapon.Name();
+      aTarget.Comment(msg);
+      msg = "***** " + weapon.Name() + " hit target " + aTarget.Name();
+      weapon.Comment(msg);
+   end_script
+
+end_weapon_effects
+
+platform_type SA-10C SA-10C_BASE
+   weapon_effects_type SA-10C_LETHALITY
+   processor seeker WSF_PERFECT_TRACKER
+#      debug
+      update_interval 1.0 sec
+   end_processor
+#   edit processor fuse
+#      debug
+#   end_processor
+end_platform_type
+
+# Must have a standalone weapon for transfer of control testing...
+# (See shooter-rtx.txt and target-rtx.txt)
+weapon SA-10CX SA-10C
+   launched_platform_type SA-10C
+   quantity 1
+end_weapon
+
+// ----------------------------------------------------------------------------
+
+platform_type SA-10C_LAUNCHER WSF_PLATFORM
+   icon SA-10_LAUNCHER
+   
+   weapon sam SA-10CX
+      quantity 2
+   end_weapon
+   
+   sensor radar WSF_RADAR_SENSOR
+      on
+      frame_time 2 sec
+      transmitter
+         power 100 kw
+         frequency 3 ghz
+      end_transmitter
+      one_m2_detect_range 200 nm
+      reports_location
+      reports_velocity
+      reports_iff
+      processor track-manager
+   end_sensor
+   
+   processor track-manager WSF_TRACK_PROCESSOR
+   end_processor
+   
+   // Decides who to shoot at and when to shoot.
+   processor thinker WSF_TASK_PROCESSOR
+
+      script_variables
+         double launchRange = 20000.0;
+      end_script_variables
+      
+      show_state_transitions
+      evaluation_interval DETECTED 1 sec
+      state DETECTED
+         next_state ENGAGED
+            if (TRACK.IFF_Friend()) return false;
+            return (PLATFORM.SlantRangeTo(TRACK) < launchRange);
+         end_next_state
+      end_state
+      
+      evaluation_interval ENGAGED 1 sec
+      state ENGAGED
+         next_state DETECTED
+            WsfWeapon weapon = PLATFORM.Weapon("sam");
+            if ((weapon.QuantityRemaining() > 0) &&
+                (weapon.TimeSinceLastFired() > 5.0))
+            {
+               weapon.CueToTrack(TRACK);     // Not needed with SIMS/JAAM
+               weapon.Fire(TRACK);
+               weapon.ClearCueing();         // Not needed with SIMS/JAAM
+            }
+            return false;
+         end_next_state
+      end_state
+   end_processor
+end_platform_type
+
+// ----------------------------------------------------------------------------
+
+radar_signature F-18E_RADAR_SIG
+   constant 1 m^2
+end_radar_signature
+
+infrared_signature F-18E_INFRARED_SIG
+   constant 1000 w/sr
+end_infrared_signature
+
+optical_signature F-18E_OPTICAL_SIG
+   constant 10 m^2
+end_optical_signature
+
+platform_type F-18E WSF_PLATFORM
+   icon  F-18E
+   radar_signature    F-18E_RADAR_SIG
+   infrared_signature F-18E_INFRARED_SIG
+   optical_signature  F-18E_OPTICAL_SIG
+   mover WSF_AIR_MOVER end_mover
+end_platform_type
+

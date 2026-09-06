@@ -1,0 +1,46 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# March equinox, 2021
+start_date mar 20 2021
+start_time 9:37:00.000
+
+include ../auto_script/test_functions.txt
+
+platform test WSF_PLATFORM
+   position 0n 0w
+   altitude 1 m
+end_platform
+
+execute at_time 1 s absolute
+   // Get the position of the sun as a geo point and then test that it has a noon apparent time.
+   WsfGeoPoint sunPoint = WsfGeoPoint.ConstructWCS(Sun.LocationWCS(WsfDateTime.CurrentTime()));
+   double sunMeanTime = sunPoint.ApparentTimeNow();
+   AssertWithinToleranceMessage(12.0,
+                                sunMeanTime,
+                                15.0 * 0.5 / 60.0,      // The tolerance here is half a minute, since the scenario has the equinox time to the minute.
+                                "At equinox, the Sun should have a mean solar time of 12");
+
+   // Apparent time of a platform on the Prime Meridian should match the UTC time when computed.
+   double expectedPlatMeanTime = 9.0 + 37.0 / 60.0 + 1.0 / 3600.0;
+   double platMeanTime = WsfSimulation.FindPlatform("test").ApparentTime();
+   AssertWithinToleranceMessage(expectedPlatMeanTime,
+                                platMeanTime,
+                                0.01,
+                                "Local time for platform on prime meridian should match UTC of scenario");
+
+   // Offset times by a fixed delta t, and compute apparent time.
+   double tDelta = 5432.0;
+   WsfGeoPoint platPoint = WsfSimulation.FindPlatform("test").Location();
+   double futureMeanTime = platPoint.ApparentTime(WsfDateTime.SimulationTime(tDelta));
+   AssertWithinToleranceMessage(expectedPlatMeanTime + tDelta / 3600.0,
+                                futureMeanTime,
+                                0.01,
+                                "Local time in the future should match the offset");
+end_execute

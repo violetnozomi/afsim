@@ -1,0 +1,160 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 1 min
+
+##### Common
+comm TEAM_DATALINK WSF_COMM_TRANSCEIVER
+   transfer_rate 100 mbits/sec
+end_comm
+
+comm TEAM_RADIOLINK WSF_RADIO_TRANSCEIVER
+   transfer_rate 100 mbits/sec
+   transmitter
+     frequency 100 mhz
+     power 1.21 gw
+     maximum_range 100 km
+   end_transmitter
+
+   receiver
+     frequency 100 mhz
+   end_receiver
+end_comm
+
+network blue_net WSF_COMM_NETWORK_MESH
+end_network
+
+##### Multiresolution
+platform_type MR_SENDER_BASE WSF_PLATFORM
+   add processor message_sender WSF_SCRIPT_PROCESSOR
+      update_interval 5.0 s
+      on_update
+         WsfMessage message = WsfMessage();
+         message.SetDataTag(42.0);
+         PLATFORM.Comm("mr_cmdr_comm").SendMessage(message, "mr_receiver", "mr_blue_comm");
+      end_on_update
+   end_processor
+end_platform_type
+
+platform_type MR_SENDER MR_SENDER_BASE
+   multiresolution_comm mr_cmdr_comm WSF_MULTIRESOLUTION_COMM
+      model low_fidelity_comm
+         fidelity_range 0.0 0.5
+         comm TEAM_DATALINK
+            network_name blue_net
+         end_comm
+      end_model
+      
+      model high_fidelity_comm 
+         fidelity_range 0.5 1.0
+         comm TEAM_RADIOLINK
+            network_name blue_net
+         end_comm
+      end_model
+   end_multiresolution_comm
+end_platform_type
+
+platform_type MR_RECEIVER WSF_PLATFORM
+   multiresolution_comm mr_blue_comm WSF_MULTIRESOLUTION_COMM
+      model low_fidelity_comm
+         fidelity_range 0.0 0.5
+         comm TEAM_DATALINK
+            network_name blue_net
+         end_comm
+      end_model
+      
+      model high_fidelity_comm
+         fidelity_range 0.5 1.0
+         comm TEAM_RADIOLINK
+            network_name blue_net
+         end_comm
+      end_model
+   end_multiresolution_comm
+end_platform_type
+
+platform mr_sender MR_SENDER
+   multiresolution_comm mr_cmdr_comm
+      fidelity 0
+   end_multiresolution_comm
+end_platform
+
+platform mr_receiver MR_RECEIVER
+   multiresolution_comm mr_blue_comm
+      fidelity 0
+   end_multiresolution_comm
+end_platform
+
+##### Non-multiresolution
+platform_type SENDER_BASE WSF_PLATFORM
+   add processor message_sender WSF_SCRIPT_PROCESSOR
+      update_interval 5.0 s
+      on_update
+         WsfMessage message = WsfMessage();
+         message.SetDataTag(42.0);
+         PLATFORM.Comm("cmdr_comm").SendMessage(message, "receiver", "blue_comm");
+      end_on_update
+   end_processor
+end_platform_type
+
+platform_type SENDER SENDER_BASE
+   comm cmdr_comm TEAM_DATALINK
+      network_name blue_net
+   end_comm
+end_platform_type
+
+platform_type RECEIVER WSF_PLATFORM
+  comm blue_comm TEAM_RADIOLINK
+    network_name blue_net
+  end_comm
+end_platform_type
+
+platform sender SENDER
+end_platform
+
+platform receiver RECEIVER
+end_platform
+
+##### Observer for testing
+script_variables
+   double mrCommMessage = 0.0;
+   bool mrCommHasUpdate = false;
+   double srCommMessage = 0.0;
+   bool srCommHasUpdate = false;
+end_script_variables
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   if(mrCommHasUpdate && aRcvr.Name() == "mr_blue_comm") {
+      writeln("-FAIL- Got two mr_blue_comm messages, expected a blue_comm message");
+   }
+   if(srCommHasUpdate && aRcvr.Name() == "blue_comm") {
+      writeln("-FAIL- Got two blue_comm messages, expected an mr_blue_comm message");
+   }
+   
+   if(!srCommHasUpdate && aRcvr.Name() == "blue_comm") {
+      srCommMessage = aMsg.DataTag();
+      srCommHasUpdate = true;
+   } else if(!mrCommHasUpdate && aRcvr.Name() == "mr_blue_comm") {
+      mrCommMessage = aMsg.DataTag();
+      mrCommHasUpdate = true;
+   }
+   if(mrCommHasUpdate && srCommHasUpdate){
+      if(mrCommMessage != srCommMessage){
+         writeln("Message data tags don't match: MR: ", mrCommMessage, ", SR: ", srCommMessage);
+         writeln("-FAIL-");
+      }
+      mrCommHasUpdate = false;
+      srCommHasUpdate = false;
+   }
+end_script
+
+observer
+   enable MESSAGE_RECEIVED
+end_observer

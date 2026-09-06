@@ -1,0 +1,351 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#
+# This test checks the asset perception values being returned by the
+# SystemReadyAssignment and SystemQuantityRemaining script methods.
+#
+# ****************************************************************************
+
+define_path_variable CASE test_asset_perception
+
+test_feature wsf_mil
+
+include_once ../auto_script/test_functions.txt
+include_once ../auto_script/test_pass.txt
+
+//****************************************************************************
+script_variables
+   PassTestCount = 30;
+
+   // Container of the expected results when calling SystemReadyAssignment
+   Map<string, int> gReadyAssignment = {
+        "sub_sense:s1" : 1
+      , "sub_sense:s2" : 2
+      , "sub_sense:s3" : 2
+      , "sub_fire:w1"  : 1
+      , "sub_fire:w2"  : 2
+      , "sub_fire:w3"  : 2
+      , "sub_fire:w4"  : 0
+      , "sub_jam:j1"   : 0
+      , "sub_jam:j2"   : 2
+      , "sub_jam:j3"   : 6
+      , "sub_jam:j4"   : 5
+      , "sub_jam:j5"   : 4
+   };
+
+   // Container of the expected results when calling SystemQuantityRemaining
+   Map<string, int> gQuantityRemaining = {
+        "sub_sense:s1" : 1
+      , "sub_sense:s2" : 2
+      , "sub_sense:s3" : 2
+      , "sub_fire:w1"  : 5
+      , "sub_fire:w2"  : 4
+      , "sub_fire:w3"  : 3
+      , "sub_fire:w4"  : 0
+      , "sub_jam:j1"   : 0
+      , "sub_jam:j2"   : 2
+      , "sub_jam:j3"   : 6
+      , "sub_jam:j4"   : 5
+      , "sub_jam:j5"   : 4
+   };
+end_script_variables
+
+//****************************************************************************
+// Simple target platform with a radar for jamming
+
+platform tgt1 WSF_PLATFORM
+   side red
+   add sensor radar WSF_RADAR_SENSOR
+      #show_calibration_data
+      on
+      frame_time 2.0 sec
+      reports_location
+      transmitter
+         power     1000 kw
+         frequency  200 mhz
+      end_transmitter
+   end_sensor
+end_platform
+
+//****************************************************************************
+// Base type for all assets under test
+radar_signature TEST_RADAR_SIGNATURE
+   constant 100 m^2
+end_radar_signature
+
+platform_type TEST_PLATFORM_TYPE WSF_PLATFORM
+
+   radar_signature TEST_RADAR_SIGNATURE
+
+   comm radio WSF_COMM_TRANSCEIVER
+      internal_link data_mgr
+      internal_link task_mgr
+      internal_link perception
+   end_comm
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      report_to commander via radio
+   end_processor
+
+   processor perception WSF_PERCEPTION_PROCESSOR
+      asset_perception truth subordinates
+      report_interval 1 s
+      report_to commander via radio
+   end_processor
+
+   processor task_mgr WSF_QUANTUM_TASKER_PROCESSOR
+   end_processor
+
+end_platform_type
+
+//****************************************************************************
+// Platform receiving asset perception messages. Testing is performed here.
+platform cmdr TEST_PLATFORM_TYPE
+   side blue
+   commander SELF
+   track platform tgt1 end_track
+   edit comm radio
+      internal_link test_proc
+      internal_link task_mgr_p
+      internal_link task_mgr_s
+      internal_link task_mgr_r
+   end_comm
+   add processor test_proc WSF_SCRIPT_PROCESSOR
+      on_message
+         type WSF_ASSET_MESSAGE
+         script
+            WsfAssetMessage msg = (WsfAssetMessage)MESSAGE;
+            WsfAssetPerception asset = msg.Asset();
+            WsfPlatform assetPlatform = WsfSimulation.FindPlatform(asset.Index());
+            for (int j = 0; j < asset.SystemCount(); j += 1)
+            {
+               // Create a key for look-up in the map of expected test results
+               string key = assetPlatform.Name() + ":"+ asset.SystemName(j);
+
+               // Test SystemReadyAssignment
+               string errorMsg = "SystemReadyAssignment for " +  key;
+               if (AssertEqualsMessage(gReadyAssignment.Get(key), asset.SystemReadyAssignment(j), errorMsg)) pass();
+
+               // Test SystemQuantityRemaining
+               errorMsg = "SystemQuantityRemaining for " +  key;
+               if (AssertEqualsMessage(gQuantityRemaining.Get(key), asset.SystemQuantityRemaining(j), errorMsg)) pass();
+            }
+         end_script
+      end_on_message
+   end_processor
+
+   // Quantum tasker processors use asset perceptions to generate the array of WsfAssetPerceptions
+   // used in the task generation step. The following processor have custom generators to test
+   // size of the incoming Array<WsfAssetPerception>. The assest_representation command
+   // dictates the size of the array.
+   add processor task_mgr_p WSF_QUANTUM_TASKER_PROCESSOR
+      update_interval 1 s
+      asset_representation platform
+
+      # Custom generator ----------------------------------------------------------------------------
+      script Array<WsfQuantumTask> test_generator (Array<WsfLocalTrack> TRACKS, Array<WsfAssetPerception> ASSETS)
+          // asset_representation platform; expect 3 subordinates
+          if (AssertEqualsMessage(3 , ASSETS.Size(), "platform")) pass();
+          writeln_d("*** Testing asset_representation platform T=", TIME_NOW);
+          for (int i = 0; i < ASSETS.Size(); i = i + 1) writeln_d(ASSETS[i]);
+          return Array<WsfQuantumTask>();
+      end_script
+      generator custom test_generator
+    end_processor
+
+   add processor task_mgr_s WSF_QUANTUM_TASKER_PROCESSOR
+      update_interval 1 s
+      asset_representation systems
+
+      # Custom generator ----------------------------------------------------------------------------
+      script Array<WsfQuantumTask> test_generator (Array<WsfLocalTrack> TRACKS, Array<WsfAssetPerception> ASSETS)
+         // asset_representation systems; expect 3+4+5 = 12 systems + 3 platforms = 15
+         if (AssertEqualsMessage(15 , ASSETS.Size(), "systems")) pass();
+         writeln_d("*** Testing asset_representation systems T=", TIME_NOW);
+         for (int i = 0; i < ASSETS.Size(); i = i + 1) writeln_d(ASSETS[i]);
+         return Array<WsfQuantumTask>();
+      end_script
+      generator custom test_generator
+   end_processor
+
+   add processor task_mgr_r WSF_QUANTUM_TASKER_PROCESSOR
+      update_interval 1 s
+      asset_representation resources
+
+      # Custom generator ----------------------------------------------------------------------------
+      script Array<WsfQuantumTask> test_generator (Array<WsfLocalTrack> TRACKS, Array<WsfAssetPerception> ASSETS)
+         // asset_representation resources
+         if (TIME_NOW == 0)
+         {
+            // Expect 6+10+18 = 34 resources + 3 platforms = 37
+            if (AssertEqualsMessage(37 , ASSETS.Size(), "resources")) pass();
+         }
+         else
+         {
+            // Expect 5+5+17 = 27 resources + 3 platforms = 30
+            if (AssertEqualsMessage(30 , ASSETS.Size(), "resources")) pass();
+         }
+         writeln_d("*** Testing asset_representation resources T=", TIME_NOW);
+         for (int i = 0; i < ASSETS.Size(); i = i + 1) writeln_d(ASSETS[i]);
+
+         return Array<WsfQuantumTask>();
+      end_script
+      generator custom test_generator
+   end_processor
+end_platform
+
+//****************************************************************************
+// Asset with sensor resources only
+sensor GEO_SENSOR WSF_GEOMETRIC_SENSOR
+   on                  // Turned on
+   frame_time 1 s
+   reports_location
+end_sensor
+
+platform sub_sense TEST_PLATFORM_TYPE
+   side blue
+   commander cmdr
+   track platform tgt1 end_track
+   add sensor s1 GEO_SENSOR
+      maximum_request_count 1
+   end_sensor
+   add sensor s2 WSF_GEOMETRIC_SENSOR
+      on
+      mode_template
+         frame_time 1 s
+         reports_location
+         maximum_request_count 1
+      end_mode_template
+      mode ONE end_mode
+      mode TWO end_mode
+   end_sensor
+   add sensor s3 GEO_SENSOR
+      maximum_request_count 3
+   end_sensor
+   execute at_time 0.01 s absolute
+      // Request a sensor to track in order to test the decrementing of the
+      // value being returned by the SystemReadyAssignment script method
+      PLATFORM.Sensor("s3").StartTracking(PLATFORM.MasterTrackList().Entry(0), "");
+   end_execute
+end_platform
+
+//****************************************************************************
+// Asset with explicit weapon resources only
+weapon TEST_WEAPON WSF_EXPLICIT_WEAPON
+   launched_platform_type TEST_PLATFORM_TYPE   // Using the test type for simplicity
+   // Requires a firing delay so the request count stays
+   // decremented for the duration of the test
+   firing_delay 10 s
+   quantity 5
+end_weapon
+
+platform sub_fire TEST_PLATFORM_TYPE
+   side blue
+   commander cmdr
+   track platform tgt1 end_track
+   add weapon w1 TEST_WEAPON
+      maximum_request_count 1
+   end_weapon
+   add weapon w2 TEST_WEAPON
+      maximum_request_count 2
+      quantity 4
+   end_weapon
+   add weapon w3 TEST_WEAPON
+      maximum_request_count 3
+   end_weapon
+   execute at_time 0.01 s absolute
+      // Request a weapon to fire in order to test the decrementing of the
+      // value being returned by the SystemReadyAssignment script method
+      PLATFORM.Weapon("w3").FireSalvo(PLATFORM.MasterTrackList().Entry(0), 2);
+   end_execute
+   add weapon w4 TEST_WEAPON
+      maximum_request_count 4
+      firing_delay 0. s
+      quantity 1
+      inhibit_while_reloading true
+      reload_increment 1
+      reload_inventory 10
+      reload_time 10 s
+   end_weapon
+   execute at_time 0.01 s absolute
+      // Request a weapon to track in order to test the decrementing of the
+      // value being returned by the SystemReadyAssignment script method
+      PLATFORM.Weapon("w4").FireSalvo(PLATFORM.MasterTrackList().Entry(0), 1);
+   end_execute
+end_platform
+
+//****************************************************************************
+// Asset with jammer resources only
+weapon TEST_JAMMER WSF_RF_JAMMER
+   transmitter
+      frequency_band 30 mhz 300 mhz
+      power          100.0 w
+   end_transmitter
+end_weapon
+
+platform sub_jam TEST_PLATFORM_TYPE
+   side blue
+   commander cmdr
+   track platform tgt1 end_track
+   add weapon j1 TEST_JAMMER
+      // Single implicit mode
+      // Active beams = 1; available beams = 0
+      // Number of spots = 1; number of active spots = 1
+      on
+      maximum_request_count 99   // not used by jammer; expect 0 availability
+   end_weapon
+   add weapon j2 TEST_JAMMER
+      // expect 2
+      maximum_number_of_beams 2    // default is 1
+      maximum_spots_per_beam  3    // default is 1
+      // next command overrides previous ones
+      maximum_number_of_spots 2    // depends on the ordering; see jammer documentation
+   end_weapon
+   add weapon j3 TEST_JAMMER
+      // reordering of j2; expect 6
+      maximum_number_of_spots 2    // depends on the ordering; see jammer documentation
+      // next two commands override the maximum_number_of_spots command!
+      maximum_number_of_beams 2
+      maximum_spots_per_beam  3
+   end_weapon
+   add weapon j4 WSF_RF_JAMMER
+      mode_template
+         transmitter
+            frequency_band 30 mhz 300 mhz
+            power          100.0 w
+         end_transmitter
+         maximum_number_of_spots 2
+      end_mode_template
+      mode ONE
+         maximum_number_of_spots 3
+      end_mode
+      mode TWO end_mode
+   end_weapon
+   add weapon j5 WSF_RF_JAMMER
+      mode_template
+         transmitter
+            frequency_band 30 mhz 300 mhz
+            power          100.0 w
+         end_transmitter
+      maximum_number_of_beams 1
+      maximum_spots_per_beam  2
+      end_mode_template
+      mode ONE
+         maximum_number_of_spots 3
+      end_mode
+      mode TWO end_mode
+   end_weapon
+   execute at_time 0.01 s absolute
+      // Request a jammer to jam in order to test the decrementing of the
+      // value being returned by the SystemReadyAssignment script method
+      PLATFORM.Weapon("j5").StartJamming(200000000., 100.,PLATFORM.MasterTrackList().Entry(0));
+   end_execute
+end_platform
+
+end_time 1.5 s

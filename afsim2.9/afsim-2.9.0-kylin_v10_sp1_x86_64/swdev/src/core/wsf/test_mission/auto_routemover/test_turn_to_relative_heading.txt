@@ -1,0 +1,77 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+#script_listing on
+platform p1 WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 0n 0e heading 90 deg speed 200 kts
+   end_route
+   execute at_time 1 s absolute
+      TurnToRelativeHeading(60.0);
+   end_execute
+   execute at_time 10 s absolute
+      extern bool AssertWithinToleranceMessage(double , double , double , string);
+      AssertWithinToleranceMessage(150.0, Heading(), 1, "-FAIL-");
+   end_execute
+
+   execute at_time 11 s absolute
+      #Add the following calls to ensure heading isn't changed when
+      #calling other methods that modify the extrapolated current waypoint
+      GoToSpeed(103);
+      GoToAltitude(1);
+   end_execute
+
+   execute at_time 15 s absolute
+      TurnToRelativeHeading(-30.0);
+   end_execute
+
+   execute at_time 20 s absolute
+      if (AssertWithinToleranceMessage(120.0, Heading(), 1, "-FAIL-"))
+      {
+         writeln("-PASS-");
+      }
+   end_execute
+end_platform
+
+platform p2 WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 1n 1e speed 200 kts
+      position 1n 2e speed 200 kts
+   end_route
+   execute at_time 1 s absolute
+      TurnToRelativeHeading(60.0);
+   end_execute
+   execute at_time 10 s absolute
+      extern bool AssertWithinToleranceMessage(double , double , double , string);
+      AssertWithinToleranceMessage(150.0, Heading(), 1, "-FAIL-");
+   end_execute
+
+   execute at_time 11 s absolute
+      #Add the following calls to ensure heading isn't changed when
+      #calling other methods that modify the extrapolated current waypoint
+      GoToSpeed(103);
+      GoToAltitude(1);
+   end_execute
+
+   execute at_time 15 s absolute
+      TurnToRelativeHeading(-30.0);
+   end_execute
+
+   execute at_time 20 s absolute
+      if (AssertWithinToleranceMessage(120.0, Heading(), 1, "-FAIL-"))
+      {
+         writeln("-PASS-");
+      }
+   end_execute
+end_platform

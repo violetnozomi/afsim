@@ -1,0 +1,35 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. command:: script_variable <variable/script-name>
+   
+   Specify the name of the 'global' script variable to use to derive and manipulate a variable from the sensor detection attempt interaction result.
+
+   .. note::
+      The script must have a 'double' as the return type and have inputs in the format and order of 'WsfPlatform , WsfSensor , WsfPlatform , WsfSensorInteraction'.
+
+   .. note::
+      The script must be defined globally, i.e. outside any platforms or the sensor_plot mapping blocks.
+
+   .. note::
+      If multiple sensors are provided, the result will be the maximum value presented to any sensor.
+   
+   Example script that writes out the Jammer/MDS, need to include script_variable jammer_to_mds also to run the script::
+
+    script double jammer_to_mds(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+       if ((aResult.DetectionThreshold() > -300.0) &&
+           (aResult.RcvrNoise() > -300.0) &&
+           (aResult.NoiseJammerPower() > -300.0) &&
+           (aResult.NoiseJammerPower() != 0.0))
+       {
+          double MDS =  aResult.DetectionThreshold() + aResult.RcvrNoise();
+          return aResult.NoiseJammerPower() - MDS;
+       }
+       return -300.0;  // default value in dB
+    end_script

@@ -1,0 +1,89 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_operator_precedence.txt
+# Testing the precedence of the operators.  Order is defined in comments below...
+
+include test_functions.txt
+
+on_initialize
+   // Order of precedence.
+   // 1 unary -, +
+   // 2 *, /
+   // 3 +, -
+   // 4 <, <=, >, >=
+   // 5 ==, !=
+   // 6 &&
+   // 7 ||
+
+   bool pass = true;
+
+   // Test 1: *,+,/,-,/, ==
+   if (!(2*3 + 10/4.0 - 10/20.0 == 8.0))
+   {
+      writeln("-FAIL- : Test 1: *,+,/,-,/, ==");
+      pass = false;
+   }
+
+   // Test 2: *, +, /, -, /, <
+   if (!(2*3 + 10/4.0 - 10/20.0 < 8.01))
+   {
+      writeln("-FAIL- : Test 2: *, +, /, -, /, <");
+      pass = false;
+   }
+
+   // Test3: *, +, /, -, /, <, ||, *, +, /, -, /, <, &&, <, ||
+   if (!(2*3 + 10/4.0 - 10/20.0 < 8.0 || 2*3 + 10/4.0 - 10/20.0 < 8.1 && 1 < 1 || 1))
+   {
+      writeln("-FAIL- : Test3: *, +, /, -, /, <, ||, *, +, /, -, /, <, &&, <, ||");
+      pass = false;
+   }
+
+   // Test 4: >=, &&, <=
+   if (2 >= 3 && 1 <= 2)
+   {
+      writeln("-FAIL- : Test 4: >=, &&, <=");
+      pass = false;
+   }
+
+   // Test 5: <=, ||, >=
+   if (2 <= 1 || 3 >= 4)
+   {
+      writeln("-FAIL- : Test 5: <=, ||, >=");
+      pass = false;
+   }
+
+   // Test 6: <=, !=, <=
+   if (2 <= 1 != 3 <= 2)
+   {
+      writeln("-FAIL- : Test 6: <=, !=, <=");
+      pass = false;
+   }
+
+   // Test 7: >, &&, <, ||, >, 1
+   if (! (1 > 0 && 2 < 1 || 2 > 1) )
+   {
+      writeln("-FAIL- : Test 7: >, &&, <, ||, >, 1");
+      pass = false;
+   }
+
+   // Test that [+-*/]= operators work
+   int x = 1;
+   x+=2;
+   x-=1;
+   x*=4;
+   x/=2;
+   if (x != 4)
+   {
+      writeln("-FAIL- += -= *= /= ", "x = ", x);
+      pass = false;
+   }
+
+   writePass(pass);
+end_on_initialize

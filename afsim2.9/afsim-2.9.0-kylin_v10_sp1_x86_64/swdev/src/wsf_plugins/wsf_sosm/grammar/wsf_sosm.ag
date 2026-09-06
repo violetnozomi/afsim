@@ -1,0 +1,120 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Grammar for the Spectral Optical Sensor Model (SOSM).
+
+# WSF_SOSM_SENSOR (WsfSOSM_Sensor.cpp)
+
+(struct WSF_SOSM_SENSOR_mode :symbol (type sensorType WSF_SOSM_SENSOR template)
+   :base_type WSF_SENSOR_MODE
+{
+   sosm_sensor_type <string>
+ | ranging_time <Time>
+ | ranging_time_track_quality <real>
+ | target_solar_illumination_angle <Angle> <Angle>
+ | <:Antenna>
+ | <:Receiver>
+ | <receiver-block>
+ | <WSF_SENSOR_MODE>
+})
+
+(struct WSF_SOSM_SENSOR
+   :symbol (type sensorType WSF_SOSM_SENSOR)
+   :base_type Sensor
+   (var WSF_SOSM_SENSOR_mode template)
+   (var ObjectMap/WSF_SOSM_SENSOR_mode mode)
+{
+   <Sensor>
+ | <sensor-tracker-command>
+   # edit mode template, edit mode, add mode, implicit mode
+ | mode_template (load (subtype template)) [push(template)] <TypeCommand>* end_mode_template
+ | mode <string> (load (subtype mode $1)) [apply($$)] <TypeCommand>* end_mode
+ | mode <string> (new (subtype mode $1) (subtype template)) [apply($$)] <TypeCommand>* end_mode
+ | (load (subtype template)) [apply($$)] <TypeCommand>
+})
+
+
+# 'sosm_interface' block (WsfSOSM_Interface.cpp and SOSM_Manager.cpp)
+
+(rule root-command {
+   sosm_interface
+     <sosm-interface-command>*
+   end_sosm_interface
+})
+
+(rule sosm-interface-command
+   (rule query-atmosphere-command {
+      sensor_altitude <Length>
+    | sensor_to_target_range <Length>
+    | sensor_to_target_elevation <Angle>
+   })
+
+   (rule query-target-command {
+      target_altitude <Length>
+    | target_speed <Speed>
+    | target_mach <real>
+    | target_throttle <real>
+    | target_to_sensor_azimuth <Angle>
+    | target_to_sensor_elevation <Angle>
+   })
+
+   (rule query-detect-command {
+      target_position <Latitude> <Longitude>
+    | target_altitude <Length>
+    | target_speed <Speed>
+    | target_mach <real>
+    | target_throttle <real>
+    | target_heading <Angle>
+    | target_yaw <Angle>
+    | target_pitch <Angle>
+    | target_roll <Angle>
+    | sensor_position <Latitude> <Longitude>
+    | sensor_altitude <Length>
+    | sensor_heading <Angle>
+    | sensor_yaw <Angle>
+    | sensor_pitch <Angle>
+    | sensor_roll <Angle>
+    | sensor_to_target_range <Length>
+    | sensor_to_target_azimuth <Angle>
+    | sensor_to_target_elevation <Angle>
+    | target_to_sensor_range <Length>
+    | target_to_sensor_azimuth <Angle>
+    | target_to_sensor_elevation <Angle>
+   })
+{
+   load (file-reference sosm)
+ | map_sensor_type (typeref sensor) <string>
+ | map_target_type (typeref platformType) <string>
+ | load_atmosphere <string> from (file-reference sosm)
+ | load_sensor <string> from (file-reference sosm)
+ | load_target <string> from (file-reference sosm)
+ | cache_directory <quotable-string>
+ | default_atmosphere <string>
+ | ignore_cache_files <Bool>
+ | write_cache_files <Bool>
+ | fast_detection_mode <Bool>
+ | show_status <Bool>
+ | debug_level <integer>
+ | debug
+ | show_iripp_data
+ | spectral_print_format wavenumber
+ | spectral_print_format wavelength
+ | preallocate <string> <string>
+ | preallocate_all
+ | test blackbody_plot
+ | test simple_target_plot
+ | test query_atmosphere
+      <query-atmosphere-command>*
+   end_test
+ | test query_target
+      <query-target-command>*
+   end_test
+ | test query_detect
+      <query-detect-command>*
+   end_test
+})

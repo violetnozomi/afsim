@@ -1,0 +1,78 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+include sam_commander.txt
+include sam_launcher.txt
+include acq_radar_site.txt
+include ttr_radar_site.txt
+include target.txt
+
+platform sam_commander SAM_COMMANDER
+   side red
+   commander SELF
+   position 40n 90w heading 90 deg
+end_platform
+
+platform acq_radar ACQ_RADAR_SITE
+   side red
+   commander sam_commander
+   position 40n 90w heading 90 deg
+end_platform
+
+platform ttr_radar TTR_RADAR_SITE
+   side red
+   commander sam_commander
+   position 40n 90w heading 90 deg
+end_platform
+
+platform sam_launcher SAM_LAUNCHER
+   side red
+   commander sam_commander
+   position 40n 90w heading 90 deg
+end_platform
+
+platform target_1 TARGET
+   side blue
+   route
+     position 40.1n 89.6w altitude 30000 ft heading 270 deg speed 500 kts
+   end_route
+end_platform
+
+event_output
+   flush_output true
+   file replay.evt
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable SENSOR_TURNED_ON
+   enable SENSOR_TURNED_OFF
+   enable SENSOR_MODE_ACTIVATED
+   enable SENSOR_MODE_DEACTIVATED
+   enable SENSOR_REQUEST_INITIATED
+   enable SENSOR_REQUEST_CANCELED
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_DROPPED
+   enable LOCAL_TRACK_INITIATED
+   #enable LOCAL_TRACK_UPDATED
+   enable LOCAL_TRACK_DROPPED
+   enable TASK_ASSIGNED
+   enable TASK_CANCELED
+   enable TASK_COMPLETED
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable WEAPON_TERMINATED
+end_event_output
+
+event_pipe
+   file replay.aer
+end_event_pipe
+
+end_time 60 sec
+

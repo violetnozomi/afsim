@@ -1,0 +1,38 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_while.txt
+# Test the while loop, including breaking from it.
+
+include test_functions.txt
+
+on_initialize
+   bool pass = true;
+   int i   = 0;
+   int sum = 0;
+
+   while (i < 10)
+   {
+      if (i > 3)
+      {
+         break;
+      }
+
+      sum = sum + i;
+      i = i + 1;
+   }
+
+   if ((i != 4) || (sum != 6))
+   {
+      pass = false;
+      writeln("-FAIL- : while block did not loop and break as expected.");
+   }
+
+   writePass(pass);
+end_on_initialize

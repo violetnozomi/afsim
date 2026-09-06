@@ -1,0 +1,112 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2013 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+p6dof_object_types
+
+#  ------------------------------------------------------------------
+
+   # Define a new engine type, J79-GE-7_A, from the J79-GE-7
+   include F104_J79GE7.txt
+
+   # Change some of the thrust data for this variant
+   jet_engine_type   J79-GE-7_A   J79-GE-7
+      rated_thrust_idle          2000.0 lbf
+      rated_thrust_mil           11000.0 lbf
+      rated_thrust_ab            107000.0 lbf
+
+      thrust_table_idle
+              0.0     2000.0
+          60000.0     2000.0
+          65000.0        0.0
+         300000.0        0.0
+      end_thrust_table_idle
+
+      thrust_table_mil
+              0.0     11000.0
+          60000.0     11000.0
+          65000.0         0.0
+         300000.0         0.0
+      end_thrust_table_mil
+
+      # This is rediculously high AB thrust, but is useful for testing
+      thrust_table_ab
+              0.0     107000.0
+          60000.0     107000.0
+          65000.0          0.0
+         300000.0          0.0
+      end_thrust_table_ab
+
+   end_jet_engine_type
+
+#  ------------------------------------------------------------------
+
+   p6dof_object_type  F104_Empty  P6DOF_BASE_TYPE
+
+      object_graphical_type_num    1
+
+#     use_spherical_earth          true
+
+      # Empty Mass Properties
+      empty_mass                   12760.0 lbs
+      empty_moment_of_inertia_ixx  3000.00 slug*ft^2
+      empty_moment_of_inertia_iyy  50000.0 slug*ft^2
+      empty_moment_of_inertia_izz  60000.0 slug*ft^2
+
+      observation_offset_x         0.0 m
+      observation_offset_y         0.0 m
+      observation_offset_z         0.0 m
+      eyept_offset_x               0.0 m
+      eyept_offset_y               0.0 m
+      eyept_offset_z               0.0 m
+
+      # AeroData
+      # --------------------
+      include F104_Aero.txt
+
+      propulsion_data
+
+#        jet_engine         MainEngine   J79-GE-7_A
+         jet_engine         MainEngine   J79-GE-7
+            rel_pos_x              0.0 ft
+            rel_pos_y              0.0 ft
+            rel_pos_z              0.0 ft
+            rel_yaw                0.0 deg
+            rel_pitch              0.0 deg
+            rel_roll               0.0 deg
+            fuel_feed              MainFuelTank
+         end_jet_engine
+
+         # Internal fuel qty is 896 gal -- @ 6.79 lbs/gal, 6083 lbs
+         fuel_tank
+            tank_name              MainFuelTank
+            max_fuel_quantity      6083.0 lbs
+            current_fuel_quantity  6083.0 lbs
+#           max_flow_rate          18.0 lbs/sec
+            max_flow_rate          1800.0 lbs/sec
+            max_fill_rate          18.0 lbs/sec
+            max_xfer_rate          18.0 lbs/sec
+            cg_full_x              0.0 ft
+            cg_full_y              0.0 ft
+            cg_full_z              0.0 ft
+            cg_empty_x             0.0 ft
+            cg_empty_y             0.0 ft
+            cg_empty_z             0.0 ft
+         end_fuel_tank
+
+#        throttle_setting_mil    ThrottleMilitary
+#        throttle_setting_ab     ThrottleAfterburner
+
+      end_propulsion_data
+
+   end_p6dof_object_type
+
+#  ------------------------------------------------------------------
+
+end_p6dof_object_types

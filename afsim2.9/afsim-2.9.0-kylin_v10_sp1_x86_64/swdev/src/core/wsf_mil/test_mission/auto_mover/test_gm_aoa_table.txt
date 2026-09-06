@@ -1,0 +1,94 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test angle_of_attack and bank_to_turn in WSF_GUIDED_MOVER
+
+include setup_test_gm.txt
+
+platform_type AGM AGM_BASE
+   mover AGM_MOVER_BASE
+      stage 1
+         bank_to_turn
+      end_stage
+
+      stage 2
+         bank_to_turn
+         
+         angle_of_attack
+            irregular_table
+               independent_variable altitude    units m    precision float
+               independent_variable speed       units m/s  precision float
+               dependent_variable               units deg  precision float
+               altitude 0.0
+                  speed      0.0    2000.0
+                  values    40.0      40.0
+               altitude 50000.0
+                   speed     0.0    2000.0
+                  values    40.0      40.0 
+            end_irregular_table
+
+         # a simple form that generates a 'constant table'
+         # angle_of_attack 8 deg
+      end_stage
+   end_mover
+   
+   processor guidance AGM_GUIDANCE_BASE
+   end_processor
+end_platform_type
+
+###############################################################################
+
+platform target AGM_TARGET
+   position 38:44:50n 90:21:41w altitude 184.4 m msl heading 310 deg   # Lambert STL (Wiki)
+end_platform
+
+# Target is straight ahead
+platform bomber1 AGM_LAUNCHER
+   track
+      platform target
+   end_track
+   route
+      position 38:44:50n 89:51:41w altitude 40000 ft heading 270 deg speed 500 kts # East of target
+   end_route
+   execute at_time 1.0 sec absolute Launch(); end_execute
+end_platform
+
+# Target is to the left - hard turn required
+platform bomber2 AGM_LAUNCHER
+   track
+      platform target
+   end_track
+   route
+      position 38:59:50n 90:21:41w altitude 40000 ft heading 270 deg speed 500 kts # North of target
+   end_route
+   execute at_time 1.0 sec absolute Launch(); end_execute
+end_platform
+
+# Target is to the right - hard turn required
+platform bomber3 AGM_LAUNCHER
+   track
+      platform target
+   end_track
+   route
+      position 38:29:50n 90:21:41w altitude 40000 ft heading 270 deg speed 500 kts # South of target
+   end_route
+   execute at_time 1.0 sec absolute Launch(); end_execute
+end_platform
+
+platform_availability
+   name bomber1 availability 0
+   name bomber3 availability 0
+end_platform_availability
+
+#event_pipe
+#   file replay.aer
+#end_event_pipe
+
+end_time 1000 sec
+

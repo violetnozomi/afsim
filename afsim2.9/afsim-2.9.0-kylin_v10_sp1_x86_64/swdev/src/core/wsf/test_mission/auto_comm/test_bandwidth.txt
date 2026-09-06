@@ -1,0 +1,86 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+	int numMsgsRcvd = 0;
+end_script_variables
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+	extern int numMsgsRcvd;
+	numMsgsRcvd = numMsgsRcvd + 1;
+	writeln("Message received.");
+end_script
+
+observer
+	enable MESSAGE_RECEIVED
+end_observer
+
+comm BandwidthA_Radio WSF_RADIO_TRANSCEIVER
+	on
+	transmitter
+		frequency 10 hz
+	end_transmitter
+
+	receiver
+		frequency 10 hz
+		bandwidth 5 hz
+	end_receiver
+end_comm
+
+comm BandwidthB_Radio WSF_RADIO_TRANSCEIVER
+	on
+	receiver
+		frequency 20 hz
+	end_receiver
+end_comm
+
+platform TalkerOnBandwidth_A WSF_PLATFORM
+	add comm talker_on_a BandwidthA_Radio
+	end_comm
+
+	execute at_time 10 seconds absolute
+		WsfMessage hello = WsfMessage();
+		PLATFORM.Comm("talker_on_a").SendMessage(hello, "ListenerOnBandwidth_A", "listener_on_a");
+		PLATFORM.Comm("talker_on_a").SendMessage(hello, "ListenerOnBandwidth_B", "listener_on_b");
+	end_execute
+end_platform
+
+platform ListenerOnBandwidth_A WSF_PLATFORM
+	add comm listener_on_a BandwidthA_Radio
+		transmitter
+			frequency 12 hz
+		end_transmitter
+	end_comm
+end_platform
+
+platform ListenerOnBandwidth_B WSF_PLATFORM
+	add comm listener_on_b BandwidthB_Radio
+	end_comm
+end_platform
+
+execute at_time 20 seconds absolute
+	extern int numMsgsRcvd;
+
+	if (numMsgsRcvd != 1)
+	{
+		writeln("-FAIL-");
+	}
+	else
+	{
+		writeln("-PASS-");
+	}
+	WsfSimulation.Terminate();
+end_execute
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output
+
+end_time 100 seconds

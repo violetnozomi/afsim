@@ -1,0 +1,170 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// ------------------------------------------------------------------------------------
+// This tests the effects of subobject propulsion on the parent vehicle. The vehicle
+// used in this test was modified from the zell demo (zero_length_launch)
+// 
+// The P6DOF vehicle has 6 rockets on it. Six platforms are instantiated, and each
+// one ignites a different rocket. The yaw/pitch/roll rates are then checked against
+// the expected sign. All we care about for this test is the sign of the angular rates.
+// If the angular rate should be negative, and it is less than -10 deg/s, we call that
+// a success. Similarly, if the angular rate should be positive, and it is more than 
+// 10 deg/s, we call that a success. 
+// ------------------------------------------------------------------------------------
+
+include_once ../platforms/fa-lgt_rocket.txt
+
+end_time 1 s
+
+script_variables
+   bool passed = true;
+   double targetRate_dps = 10;
+   int totalTests = 6;
+   int numPassed = 0;
+end_script_variables
+
+
+platform fa-lgt-rocket1 FA-LGT-Rocket
+   six_dof_alt 100 km
+   
+   execute at_time 0.01 s absolute
+       ((WsfSixDOF_Mover)Mover()).ActivateSequencer("IgniteRocket1");
+   end_execute
+   
+   execute at_time 0.5 s absolute
+      if (((WsfSixDOF_Mover)Mover()).GetPitchRate()*MATH.DEG_PER_RAD() < -targetRate_dps)
+      {
+         numPassed += 1;
+      }
+      else
+      {
+         writeln("-FAIL- Igniting Rocket1 should result in a negative pitch rate");
+      }
+         
+   end_execute
+   
+end_platform
+
+platform fa-lgt-rocket2 FA-LGT-Rocket
+   six_dof_alt 100 km
+   
+   execute at_time 0.01 s absolute
+       ((WsfSixDOF_Mover)Mover()).ActivateSequencer("IgniteRocket2");
+   end_execute
+   
+   execute at_time 0.5 s absolute
+      if (((WsfSixDOF_Mover)Mover()).GetYawRate()*MATH.DEG_PER_RAD() > targetRate_dps)
+      {
+         numPassed += 1;
+      }
+      else
+      {
+         writeln("-FAIL- Igniting Rocket2 should result in a positve yaw rate");
+      }
+      
+   end_execute
+   
+end_platform
+
+platform fa-lgt-rocket3 FA-LGT-Rocket
+   six_dof_alt 100 km
+   
+   execute at_time 0.01 s absolute
+       ((WsfSixDOF_Mover)Mover()).ActivateSequencer("IgniteRocket3");
+   end_execute
+   
+   execute at_time 0.5 s absolute
+      if (((WsfSixDOF_Mover)Mover()).GetRollRate()*MATH.DEG_PER_RAD() > targetRate_dps)
+      {
+         numPassed += 1;
+      }
+      else
+      {
+         writeln("-FAIL- Igniting Rocket3 should result in a positve roll rate");
+      }
+      
+   end_execute
+   
+end_platform
+
+platform fa-lgt-rocket4 FA-LGT-Rocket
+   six_dof_alt 100 km
+   
+   execute at_time 0.01 s absolute
+       ((WsfSixDOF_Mover)Mover()).ActivateSequencer("IgniteRocket4");
+   end_execute
+   
+   execute at_time 0.5 s absolute   
+      if (((WsfSixDOF_Mover)Mover()).GetYawRate()*MATH.DEG_PER_RAD() < -targetRate_dps)
+      {
+         numPassed += 1;
+      }  
+      else
+      {
+         writeln("-FAIL- Igniting Rocket4 should result in a negative yaw rate");
+      }
+   end_execute
+   
+end_platform
+
+platform fa-lgt-rocket5 FA-LGT-Rocket
+   six_dof_alt 100 km
+   
+   execute at_time 0.01 s absolute
+       ((WsfSixDOF_Mover)Mover()).ActivateSequencer("IgniteRocket5");
+   end_execute
+   
+   execute at_time 0.5 s absolute     
+      if (((WsfSixDOF_Mover)Mover()).GetPitchRate()*MATH.DEG_PER_RAD() > targetRate_dps)
+      {
+         numPassed += 1;
+      } 
+      else
+      {
+         writeln("-FAIL- Igniting Rocket5 should result in a positive pitch rate");
+      }  
+   end_execute
+   
+end_platform
+
+platform fa-lgt-rocket6 FA-LGT-Rocket
+   six_dof_alt 100 km
+   
+   execute at_time 0.01 s absolute
+       ((WsfSixDOF_Mover)Mover()).ActivateSequencer("IgniteRocket6");
+   end_execute
+   
+   execute at_time 0.5 s absolute                
+      if (((WsfSixDOF_Mover)Mover()).GetRollRate()*MATH.DEG_PER_RAD() < -targetRate_dps)
+      {
+         numPassed += 1;
+      } 
+      else
+      {
+         writeln("-FAIL- Igniting Rocket5 should result in a negative roll rate");
+      }
+   end_execute
+   
+end_platform
+
+script void SimulationComplete()
+   if (totalTests == numPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- ", totalTests - numPassed, " tests failed");
+   }
+end_script
+
+observer 
+   enable SIMULATION_COMPLETE
+end_observer

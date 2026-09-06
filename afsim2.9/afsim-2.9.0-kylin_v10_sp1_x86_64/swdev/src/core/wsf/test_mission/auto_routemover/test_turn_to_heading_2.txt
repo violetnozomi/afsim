@@ -1,0 +1,66 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This file tests turn_right and turn_left given distance and time termination criteria
+include ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 5;
+end_script_variables
+
+platform p WSF_PLATFORM
+   icon 737
+   add mover WSF_AIR_MOVER
+      maximum_radial_acceleration 3.0 m/s2
+   end_mover
+   script void verify_heading(double hd)
+      extern void pass();
+      if (Heading() - hd < 0.5 && hd - Heading() < 0.5)
+      {
+         pass();
+      }
+      else
+      {
+         writeln("Expected heading of ", hd, " but got ", Heading());
+      }
+   end_script
+   script void check_45()
+      verify_heading(45);
+   end_script
+   script void check_time()
+      verify_heading(70.846);
+   end_script
+   script void check_distance()
+      verify_heading(-144.12);
+   end_script
+   script void check_distance_2()
+      verify_heading(-114.12);
+   end_script
+   route
+      position 38n 115e
+         heading 0 deg speed 200.0 m/s
+      turn_right 45 deg
+         execute check_45
+         # ensure we can terminate early given a time
+      turn_right 10000 deg time 30 s
+         execute check_time
+         # ensure we can terminate early given a distance
+      turn_left 10000 deg distance 50 km
+         execute check_distance
+         # this should stop at 30 deg change first, and extrapolate the rest
+      turn_right 30 deg distance 25 km
+         execute check_distance_2
+   end_route
+   execute at_time 9.9 min absolute
+      # the mover should extrapolate from last heading
+      verify_heading(-114.12);
+   end_execute
+end_platform
+
+end_time 10 min

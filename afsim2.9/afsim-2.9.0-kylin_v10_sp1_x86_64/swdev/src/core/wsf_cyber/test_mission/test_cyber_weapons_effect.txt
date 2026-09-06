@@ -1,0 +1,253 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#Note - this is intended to work directly on an explicit weapon, but it will work on any platform
+
+#Targets 1 and 2 in this test have a current target set, which is the "dummyTrack" platform
+#Targets 3 and 4 have no current target
+#The attacking platform will attack target1 with a retarget, using target2 as the new track
+#The attacking platform will attack target2 with an untargeted effect, clearing it's current target
+#The attacking platform will attack target3 with a retarget, using target2 as the new track
+#The attacking platform will attack target4 with a untargeted effect, which should do nothing
+random_seed 2
+
+#Provide global references to the target test platforms for use with script calls
+script_variables
+   WsfPlatform target1;
+   WsfPlatform target2;
+   WsfPlatform target3;
+   WsfPlatform target4;
+   WsfTrack target2Track;
+   WsfTrack dummyTrack;
+end_script_variables
+
+
+cyber_effect RETARGET WSF_CYBER_WEAPONS_RETARGET_EFFECT
+end_cyber_effect
+
+cyber_effect UNTARGET WSF_CYBER_WEAPONS_UNTARGETED_EFFECT
+end_cyber_effect
+
+
+cyber_attack RETARGET_ATTACK WSF_CYBER_ATTACK
+
+   effect RETARGET
+   
+   probability_of_scan_detection 0.0
+   probability_of_attack_success 1.0
+   probability_of_status_report 1.0
+   probability_of_attack_detection 1.0
+   probability_of_future_immunity 0.0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 0 s
+   delivery_delay_time 0 s
+end_cyber_attack
+
+cyber_attack UNTARGET_ATTACK WSF_CYBER_ATTACK
+
+   effect UNTARGET
+   
+   probability_of_scan_detection 0.0
+   probability_of_attack_success 1.0
+   probability_of_status_report 1.0
+   probability_of_attack_detection 1.0
+   probability_of_future_immunity 0.0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 0 s
+   delivery_delay_time 0 s
+end_cyber_attack
+
+# All test platforms have this protection as part of the type
+cyber_protect TEST_PROTECT WSF_CYBER_PROTECT
+   attack_response RETARGET_ATTACK
+      probability_of_scan_detection 0.0
+      probability_of_attack_success 1.0
+      probability_of_status_report 1.0
+      probability_of_attack_detection 1.0
+      probability_of_future_immunity 0.0
+      
+      attack_detection_delay_time 0 s
+      attack_recovery_delay_time 5 s
+      restore      
+   end_attack_response     
+   attack_response UNTARGET_ATTACK
+      probability_of_scan_detection 0.0
+      probability_of_attack_success 1.0
+      probability_of_status_report 1.0
+      probability_of_attack_detection 1.0
+      probability_of_future_immunity 0.0
+      
+      attack_detection_delay_time 0 s
+      attack_recovery_delay_time 5 s
+      restore      
+   end_attack_response     
+end_cyber_protect
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   cyber_protect TEST_PROTECT
+   end_cyber_protect  
+   
+   processor TRACKLIST WSF_TRACK_PROCESSOR
+   end_processor
+   
+end_platform_type
+
+#Checks the platform's current target against a track to determine if both
+#refer to the same platform
+script bool CheckCurrentTarget (WsfPlatform aTarget, WsfTrack aCompareTrack)
+   WsfTrackId curTargetTrackId = aTarget.CurrentTarget();
+   WsfTrack curTargetTrack = aTarget.MasterTrackList().FindTrack(aTarget.CurrentTarget());
+   if(curTargetTrack.Target() == aCompareTrack.Target())
+   {
+      return true;
+   }
+   return false;
+end_script
+
+
+platform attack1 WSF_PLATFORM
+   position 39n 90:20w
+   icon EA-6B
+   altitude 10000 m  
+   execute at_time 1.0 s absolute
+      //Create AttackParameters for the track objects to pass this data.
+      WsfCyberAttackParameterObject parameterObject = {};
+      parameterObject.SetAuxData("RETARGET", target2Track);
+      WsfCyberAttackParameters parameters = {};
+      parameters.AddParameter(parameterObject);
+
+      PLATFORM.CyberAttack(target1, "RETARGET_ATTACK", parameters);
+      assert(CheckCurrentTarget(target1, target2Track));
+      PLATFORM.CyberAttack(target2, "UNTARGET_ATTACK");
+      assert(target2.CurrentTarget().IsNull());
+      PLATFORM.CyberAttack(target3, "RETARGET_ATTACK", parameters);
+      assert(CheckCurrentTarget(target3, target2Track));
+      PLATFORM.CyberAttack(target4, "UNTARGET_ATTACK");
+      assert(target4.CurrentTarget().IsNull());
+   end_execute         
+   
+   #After recovery, check that the original targets have been restored
+   execute at_time 7.0 s absolute
+      assert(CheckCurrentTarget(target1, dummyTrack));
+      assert(CheckCurrentTarget(target2, dummyTrack));
+      assert(target3.CurrentTarget().IsNull());
+      assert(target4.CurrentTarget().IsNull());
+   end_execute
+   
+   #These calls are made improperly (incorrect number of variables) and should return false
+   #and generate warning messages
+   execute at_time 8.0 s absolute
+      //Create AttackParameters for the track objects to pass this data.
+      WsfCyberAttackParameterObject parameterObject = {};
+      parameterObject.SetAuxData("RETARGET", target2Track);
+      WsfCyberAttackParameters parameters = {};
+      parameters.AddParameter(parameterObject);
+
+      bool callStatus = PLATFORM.CyberAttack(target1, "RETARGET_ATTACK");
+      assert(!callStatus);
+      callStatus = PLATFORM.CyberAttack(target2, "UNTARGET_ATTACK", parameters);
+      assert(!callStatus);
+   end_execute
+   
+end_platform
+
+platform target1 TEST_PLATFORM
+   position 38:45n 90:20w
+   icon AAA
+   heading 0 deg
+   on_initialize
+      target1 = PLATFORM;
+   end_on_initialize
+   
+   execute at_time 0.1 s absolute
+      PLATFORM.SetCurrentTarget(dummyTrack);
+      assert(!PLATFORM.CurrentTarget().IsNull());
+      
+      #No other tracks. Safe to assume only entry is the one we inserted
+      assert(dummyTrack.Target() == PLATFORM.MasterTrackList().Entry(0).Target());
+   end_execute
+   
+end_platform
+
+platform target2 TEST_PLATFORM
+   position 38:45n 90:10w
+   icon AAA
+   heading 0 deg
+   on_initialize
+      target2 = PLATFORM;
+      target2Track = PLATFORM.MakeTrack();
+   end_on_initialize
+   
+   execute at_time 0.1 s absolute
+      PLATFORM.SetCurrentTarget(dummyTrack);
+      assert(!PLATFORM.CurrentTarget().IsNull());
+      
+      #No other tracks. Safe to assume only entry is the one we inserted
+      assert(dummyTrack.Target() == PLATFORM.MasterTrackList().Entry(0).Target());
+   end_execute
+end_platform
+
+platform target3 TEST_PLATFORM
+   position 38:45n 90:00w
+   icon AAA
+   heading 0 deg
+   on_initialize
+      target3 = PLATFORM;
+   end_on_initialize
+end_platform
+
+platform target4 TEST_PLATFORM
+   position 38:45n 89:50w
+   icon AAA
+   heading 0 deg
+   on_initialize
+      target4 = PLATFORM;
+   end_on_initialize
+end_platform
+
+platform dummyTrack WSF_PLATFORM
+   position 38:50n 90:15w
+   icon bullseye
+   on_initialize
+      dummyTrack = PLATFORM.MakeTrack();
+   end_on_initialize
+end_platform
+
+end_time 1 min
+
+event_output
+   file STDOUT
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable CYBER_ATTACK_INITIATED
+   enable CYBER_ATTACK_SUCCEEDED
+   enable CYBER_ATTACK_FAILED
+   enable CYBER_ATTACK_DETECTED
+   enable CYBER_ATTACK_RECOVERY
+   enable CYBER_SCAN_INITIATED
+   enable CYBER_SCAN_SUCCEEDED
+   enable CYBER_SCAN_DETECTED
+   enable CYBER_SCAN_FAILED
+end_event_output
+
+
+
+

@@ -1,0 +1,190 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once default_formation.txt
+include_once ../scripts/utils.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 8 min
+
+platform india SIMPLE
+   route
+      position 00:00:00.000n 70:00:00.000w
+      altitude 7000 meters
+      heading 1 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 min absolute
+   // Create the replacement unit formation.
+   WsfFormation newUnit = WsfFormationManager.CreateFormation("unit", "replacement");
+   newUnit.SetMember("india");
+
+   // check the initial state
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   allPassed = ExpectBool(yankeeBeta.IsValid(), true, "yankee.beta should exist") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.IsAttached(), true, "yankee.beta should be attached") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.GetSubFormation("two").IsValid(),
+              true,
+              "yankee.beta should have two as a subformation") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.GetSubFormation("replacement").IsValid(),
+              false,
+              "yankee.beta should not have replacement as a subformation") && allPassed;
+   
+   WsfFormation yankeeAlternate = WsfFormationManager.GetFormation("yankee.alternate");
+   allPassed = ExpectBool(yankeeAlternate.IsValid(), false, "yankee.alternate should not exist") && allPassed;
+   
+   WsfFormation yankeeBetaTwo = WsfFormationManager.GetFormation("yankee.beta.two");
+   allPassed = ExpectBool(yankeeBetaTwo.IsValid(), true, "yankee.beta.two should exist") && allPassed;
+   
+   WsfFormation replacement = WsfFormationManager.GetFormation("replacement");
+   allPassed = ExpectBool(replacement.IsValid(), true, "replacement should exist") && allPassed;
+   
+   WsfFormation unitTwo = WsfFormationManager.GetFormation("two");
+   allPassed = ExpectBool(unitTwo.IsValid(), false, "two should not exist at top level") && allPassed;
+end_execute
+
+execute at_time 2 min absolute
+   WsfFormationCommandSequence sqn = WsfFormationCommandSequence.Construct();
+   
+   WsfFormationDetachCommand detach = WsfFormationDetachCommand.Construct();
+   sqn.AppendCommand(detach);
+   
+   WsfFormationRenameCommand rename = WsfFormationRenameCommand.Construct("alternate");
+   rename.SetConstraint(WsfFormationCommandConstraint.AT_RELATIVE_TIME(60.0));
+   sqn.AppendCommand(rename);
+   
+   WsfFormationRemoveSubCommand remove = WsfFormationRemoveSubCommand.Construct("two");
+   remove.SetConstraint(WsfFormationCommandConstraint.AT_RELATIVE_TIME(60.0));
+   sqn.AppendCommand(remove);
+   
+   WsfFormationAddSubCommand add 
+      = WsfFormationAddSubCommand.Construct("replacement",
+                                            WsfFormationManager.GetFormation("yankee.beta.two").GetOffset());
+   add.SetConstraint(WsfFormationCommandConstraint.AT_RELATIVE_TIME(60.0));
+   sqn.AppendCommand(add);
+   
+   sqn.AppendCommand(WsfFormationAttachCommand.Construct());
+   
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   yankeeBeta.ExecuteCommand(sqn, WsfFormationCommandConstraint.AT_RELATIVE_TIME(60.0)); 
+end_execute
+
+execute at_time 3.1 min absolute
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   allPassed = ExpectBool(yankeeBeta.IsValid(), true, "yankee.beta should exist") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.IsAttached(), false, "yankee.beta should not be attached") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.GetSubFormation("two").IsValid(),
+              true,
+              "yankee.beta should have two as a subformation") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.GetSubFormation("replacement").IsValid(),
+              false,
+              "yankee.beta should not have replacement as a subformation") && allPassed;
+   
+   WsfFormation yankeeAlternate = WsfFormationManager.GetFormation("yankee.alternate");
+   allPassed = ExpectBool(yankeeAlternate.IsValid(), false, "yankee.alternate should not exist") && allPassed;
+   
+   WsfFormation yankeeBetaTwo = WsfFormationManager.GetFormation("yankee.beta.two");
+   allPassed = ExpectBool(yankeeBetaTwo.IsValid(), true, "yankee.beta.two should exist") && allPassed;
+   
+   WsfFormation replacement = WsfFormationManager.GetFormation("replacement");
+   allPassed = ExpectBool(replacement.IsValid(), true, "replacement should exist") && allPassed;
+   
+   WsfFormation unitTwo = WsfFormationManager.GetFormation("two");
+   allPassed = ExpectBool(unitTwo.IsValid(), false, "two should not exist at top level") && allPassed;
+end_execute
+
+execute at_time 4.1 min absolute
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   allPassed = ExpectBool(yankeeBeta.IsValid(), false, "yankee.beta should not exist") && allPassed;
+   
+   WsfFormation yankeeAlternate = WsfFormationManager.GetFormation("yankee.alternate");
+   allPassed = ExpectBool(yankeeAlternate.IsValid(), true, "yankee.alternate should exist") && allPassed;
+   allPassed = ExpectBool(yankeeAlternate.IsAttached(), false, "yankee.alternate should not be attached") && allPassed;
+   allPassed = ExpectBool(yankeeAlternate.GetSubFormation("two").IsValid(),
+              true,
+              "yankee.alternate should have two as a subformation") && allPassed;
+   allPassed = ExpectBool(yankeeAlternate.GetSubFormation("replacement").IsValid(),
+              false,
+              "yankee.alternate should not have replacement as a subformation") && allPassed;
+   
+   WsfFormation yankeeBetaTwo = WsfFormationManager.GetFormation("yankee.beta.two");
+   allPassed = ExpectBool(yankeeBetaTwo.IsValid(), false, "yankee.beta.two should not exist") && allPassed;
+   
+   WsfFormation replacement = WsfFormationManager.GetFormation("replacement");
+   allPassed = ExpectBool(replacement.IsValid(), true, "replacement should exist") && allPassed;
+   
+   WsfFormation unitTwo = WsfFormationManager.GetFormation("two");
+   allPassed = ExpectBool(unitTwo.IsValid(), false, "two should not exist at top level") && allPassed;
+end_execute
+
+execute at_time 5.1 min absolute
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   allPassed = ExpectBool(yankeeBeta.IsValid(), false, "yankee.beta should not exist") && allPassed;
+   
+   WsfFormation yankeeAlternate = WsfFormationManager.GetFormation("yankee.alternate");
+   allPassed = ExpectBool(yankeeAlternate.IsValid(), true, "yankee.alternate should exist") && allPassed;
+   allPassed = ExpectBool(yankeeAlternate.IsAttached(), false, "yankee.alternate should not be attached") && allPassed;
+   allPassed = ExpectBool(yankeeAlternate.GetSubFormation("two").IsValid(),
+              false,
+              "yankee.alternate should not have two as a subformation") && allPassed;
+   allPassed = ExpectBool(yankeeAlternate.GetSubFormation("replacement").IsValid(),
+              false,
+              "yankee.alternate should not have replacement as a subformation") && allPassed;
+   
+   WsfFormation yankeeBetaTwo = WsfFormationManager.GetFormation("yankee.beta.two");
+   allPassed = ExpectBool(yankeeBetaTwo.IsValid(), false, "yankee.beta.two should not exist") && allPassed;
+   
+   WsfFormation replacement = WsfFormationManager.GetFormation("replacement");
+   allPassed = ExpectBool(replacement.IsValid(), true, "replacement should exist") && allPassed;
+   
+   WsfFormation unitTwo = WsfFormationManager.GetFormation("two");
+   allPassed = ExpectBool(unitTwo.IsValid(), true, "two should exist at top level") && allPassed;
+end_execute
+
+execute at_time 6.1 min absolute
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   allPassed = ExpectBool(yankeeBeta.IsValid(), false, "yankee.beta should not exist") && allPassed;
+   
+   WsfFormation yankeeAlternate = WsfFormationManager.GetFormation("yankee.alternate");
+   allPassed = ExpectBool(yankeeAlternate.IsValid(), true, "yankee.alternate should exist") && allPassed;
+   allPassed = ExpectBool(yankeeAlternate.IsAttached(), true, "yankee.alternate should be attached") && allPassed;
+   allPassed = ExpectBool(yankeeAlternate.GetSubFormation("two").IsValid(),
+              false,
+              "yankee.alternate should not have two as a subformation") && allPassed;
+   allPassed = ExpectBool(yankeeAlternate.GetSubFormation("replacement").IsValid(),
+              true,
+              "yankee.alternate should have replacement as a subformation") && allPassed;
+   
+   WsfFormation yankeeBetaTwo = WsfFormationManager.GetFormation("yankee.beta.two");
+   allPassed = ExpectBool(yankeeBetaTwo.IsValid(), false, "yankee.beta.two should not exist") && allPassed;
+   
+   WsfFormation replacement = WsfFormationManager.GetFormation("replacement");
+   allPassed = ExpectBool(replacement.IsValid(), false, "replacement should exist") && allPassed;
+   
+   WsfFormation unitTwo = WsfFormationManager.GetFormation("two");
+   allPassed = ExpectBool(unitTwo.IsValid(), true, "two should exist at top level") && allPassed;
+end_execute
+
+execute at_time 7.1 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   } 
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

@@ -1,0 +1,95 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 36 hours
+
+script_variables
+   double sSMA = 0.0;
+   double sSMA1 = 35800000;
+   double sSMA2 = 30000000;
+   int sNumCompleted = 0;
+end_script_variables
+
+platform test-change-sma WSF_PLATFORM
+   icon satellite
+   side blue
+
+   add mover WSF_NORAD_SPACE_MOVER
+      eccentricity 0.1
+      semi_major_axis 20000 km
+      raan 0 deg
+      inclination 45 deg
+      true_anomaly 0 deg
+      argument_of_periapsis 0 deg
+      
+      maneuvering simple
+      end_maneuvering
+      
+      mission_sequence
+         maneuver change_semi_major_axis
+            semi_major_axis 35800000 m
+            execute_at periapsis
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   
+   execute at_time 14 hours absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      WsfOrbitalManeuver maneuver = WsfChangeSemiMajorAxis.Construct(WsfOrbitalEventCondition.AT_PERIAPSIS(), sSMA2);
+      bool result = mover.ExecuteManeuver(maneuver);
+      if (result) {
+         writeln("Change SMA: true");
+      } else {
+         writeln("Change SMA: false");
+      }
+   end_execute
+end_platform
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; begin ", aManeuver.ManeuverType());
+   sSMA = aSM.SemiMajorAxis();
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; end ", aManeuver.ManeuverType());
+   double newSMA = aSM.SemiMajorAxis();
+   writeln (sNumCompleted);
+   if (sNumCompleted == 0)
+   {
+      if ((newSMA < (sSMA1 - 100.0)) || (newSMA > (sSMA1 + 100.0)))
+      {
+         writeln("-FAIL-");
+      }
+   }
+   else if (sNumCompleted == 1)
+   {
+      if ((newSMA < (sSMA2 - 100.0)) || (newSMA > (sSMA2 + 100.0)))
+      {
+         writeln("-FAIL-");
+      }
+   }
+   sNumCompleted += 1;
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 2)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+end_script
+
+observer   
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated 
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted 
+   enable SIMULATION_COMPLETE
+end_observer 

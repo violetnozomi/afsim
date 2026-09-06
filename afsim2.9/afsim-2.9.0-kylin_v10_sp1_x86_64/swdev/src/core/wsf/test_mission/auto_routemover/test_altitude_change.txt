@@ -1,0 +1,40 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../auto_script/test_functions.txt
+platform plat WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      maximum_climb_rate 1.5 m/s
+   end_mover
+   route
+      position 0n 0e altitude 0 m speed 100 m/s
+         execute check
+      position 0.5n 0e speed 100 m/s
+      #offset   1000 0 m
+         altitude 1000 m
+         execute CheckBelow
+      position 1.0n 0e speed 100 m/s
+         execute CheckAltitude
+   end_route
+   script void CheckBelow()
+      if (Altitude() >= 900.0)
+      {
+         writeln("-FAIL- Altitude reached too soon");
+      }
+   end_script
+   script void CheckAltitude()
+      extern bool AssertWithinToleranceMessage(double, double, double,string);
+      if (AssertWithinToleranceMessage(Altitude(), 1000.0, 0.01, "Altitude not reached"))
+      {
+         writeln("-PASS-");
+      }
+   end_script
+
+end_platform
+end_time 2000 s

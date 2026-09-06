@@ -1,0 +1,290 @@
+// This file was generated  on 12/5/2018 at 1:1:48 PM by the Boeing OMS CAL generation tools
+// @warning  This file was automatically generated, edit at your own risk
+
+/**
+* Unclassified               U N C L A S S I F I E D               Unclassified
+*
+* DEVELOPMENT:
+*    This document wholly developed with USG funds.
+*    For additional information, contact the AFRCO.
+*
+* ‒  DISTRIBUTION STATEMENT D.  Distribution authorized to the Department
+*    of Defense and U.S. DoD contractors only; Critical Technology; 17 Sep 2015.
+*    Other requests shall be referred to Air Force Rapid Capabilities Office,
+*    Bolling AFB, Washington DC 20032-6400. 
+*
+* EXPORT CONTROL:
+*    WARNING - ITAR CONTROLLED - US ONLY
+*    This distribution contains technical data whose export is restricted by
+*    the Arms Export Control Act (Title 22, U.S.C., Sec. 2751 et seq. or the
+*    Export Administration Act of 1979 as amended Title 50, U.S.C., App.
+*    2401-2420 et seq.), as amended. Violation of these export laws are subject
+*    to severe criminal penalties.  Disseminate in accordance with provisions of DoD
+*    Directive 5230.25.
+*/
+#ifndef Uci__Type__StrikeWeaponCommandType_h
+#define Uci__Type__StrikeWeaponCommandType_h 1
+
+#if !defined(Uci__Base__Accessor_h)
+# include "uci/base/Accessor.h"
+#endif
+
+#if !defined(Uci__Base__BooleanAccessor_h)
+# include "uci/base/BooleanAccessor.h"
+#endif
+
+#if !defined(Uci__Type__DMPI_ID_Type_h)
+# include "uci/type/DMPI_ID_Type.h"
+#endif
+
+#if !defined(Uci__Type__AO_CodeType_h)
+# include "uci/type/AO_CodeType.h"
+#endif
+
+//  The namespace in which all UAS C2 Initiative data types are declared
+namespace uci {
+
+   //  The namespace in which all generated data types are declared
+   namespace type {
+
+      /** This is the StrikeWeaponCommandType choice accessor class */
+      class StrikeWeaponCommandType : public virtual uci::base::Accessor {
+      public:
+
+         /** The destructor */
+         virtual ~StrikeWeaponCommandType()
+         { }
+
+         /** Returns this accessor's type constant, i.e. StrikeWeaponCommandType
+           *
+           * @return This accessor's type constant, i.e. StrikeWeaponCommandType
+           */
+         virtual uci::base::accessorType::AccessorType getAccessorType() const
+            throw()
+         {
+            return uci::type::accessorType::strikeWeaponCommandType;
+         }
+
+
+         /** Initializes the contents of this accessor by copying the contents of the specified accessor
+           *
+           * @param accessor The accessor whose contents are to be used to initialize the contents of this accessor
+           */
+         virtual void copy(const StrikeWeaponCommandType& accessor)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** The following enumeration is used to identify which element of this Choice has been chosen. */
+         enum StrikeWeaponCommandTypeChoice {
+            STRIKEWEAPONCOMMANDTYPE_CHOICE_NONE,
+            STRIKEWEAPONCOMMANDTYPE_CHOICE_SELECTFORKEYLOAD,
+            STRIKEWEAPONCOMMANDTYPE_CHOICE_ASSIGNDMPI_ID,
+            STRIKEWEAPONCOMMANDTYPE_CHOICE_WEAPONARM,
+            STRIKEWEAPONCOMMANDTYPE_CHOICE_SELECTFORJETTISON,
+            STRIKEWEAPONCOMMANDTYPE_CHOICE_GENERATEDYNAMICLAR,
+            STRIKEWEAPONCOMMANDTYPE_CHOICE_SELECTFORRELEASE,
+            STRIKEWEAPONCOMMANDTYPE_CHOICE_SELECTAO_CODE
+         };
+
+
+         /** This method returns this choice's "selection ordinal." A choice's "selection ordinal" is used to specify which
+           * element in the choice is chosen to be active.
+           *
+           * @return The selected item's enumerated value
+           */
+         virtual StrikeWeaponCommandTypeChoice getStrikeWeaponCommandTypeChoiceOrdinal() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** This method is used to set this choice's "selection ordinal." A choice's "selection ordinal" is used to specify which
+           * element in the choice is chosen to be active. There are two mechanisms that can be used to set a choice's "selection
+           * ordinal." The first mechanism is by invoking this method. The second mechanism is by invoking one of the set methods
+           * associated with one of the elements contained in this choice. Once this method is invoked, the value returned by
+           * getStrikeWeaponCommandTypeChoiceOrdinal() will be the ordinal specified when this method was invoked. In addition,
+           * the access methods associated with the chosen element will be enabled and will provide access to the chosen element.
+           *
+           * @param chosenElementOrdinal The ordinal to set this choice's selected ordinal to.
+           * @param type = uci::base::accessorType::null The type of data that is to be made available when the ordinal is set.
+           *      The use of this parameter provides support for inheritable types. This parameter defaults to
+           *      uci::base::accessorType::null that is used to indicate that the access methods associated with the chosen
+           *      element shall provide access to data of the type that was specified for that element in the choice in the OMS
+           *      schema, i.e. the chosen element's base type. If specified, this field must either be a type ID associated with
+           *      the chosen element's base type or a type ID associated with a type that is derived from the chosen element's
+           *      base type.
+           */
+         virtual void setStrikeWeaponCommandTypeChoiceOrdinal(StrikeWeaponCommandTypeChoice chosenElementOrdinal, uci::base::accessorType::AccessorType type = uci::base::accessorType::null)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the value of the SimplePrimitive data type that is identified by the SelectForKeyLoad.
+           *
+           * @return The value of the simple primitive data type identified by SelectForKeyLoad.
+           */
+         virtual xs::Boolean getSelectForKeyLoad() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Sets the value of the SimplePrimitive data type that is identified by the SelectForKeyLoad.
+           *
+           * @param value The value to set the SimplePrimitve data type to
+           */
+         virtual void setSelectForKeyLoad(xs::Boolean value)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the accessor that provides access to the complex content that is identified by the AssignDMPI_ID.
+           *
+           * @return The acecssor that provides access to the complex content that is identified by AssignDMPI_ID.
+           */
+         virtual const uci::type::DMPI_ID_Type& getAssignDMPI_ID() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the accessor that provides access to the complex content that is identified by the AssignDMPI_ID.
+           *
+           * @return The acecssor that provides access to the complex content that is identified by AssignDMPI_ID.
+           */
+         virtual uci::type::DMPI_ID_Type& getAssignDMPI_ID()
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Sets the complex content that is identified by the AssignDMPI_ID to the contents of the complex content that is
+           * accessed by the specified accessor.
+           *
+           * @param value The accessor that provides access to the sequence whose contents are to be used to set the contents of
+           *      the sequence identified by AssignDMPI_ID
+           */
+         virtual void setAssignDMPI_ID(const uci::type::DMPI_ID_Type& value)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the value of the SimplePrimitive data type that is identified by the WeaponArm.
+           *
+           * @return The value of the simple primitive data type identified by WeaponArm.
+           */
+         virtual xs::Boolean getWeaponArm() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Sets the value of the SimplePrimitive data type that is identified by the WeaponArm.
+           *
+           * @param value The value to set the SimplePrimitve data type to
+           */
+         virtual void setWeaponArm(xs::Boolean value)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the value of the SimplePrimitive data type that is identified by the SelectForJettison.
+           *
+           * @return The value of the simple primitive data type identified by SelectForJettison.
+           */
+         virtual xs::Boolean getSelectForJettison() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Sets the value of the SimplePrimitive data type that is identified by the SelectForJettison.
+           *
+           * @param value The value to set the SimplePrimitve data type to
+           */
+         virtual void setSelectForJettison(xs::Boolean value)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the value of the SimplePrimitive data type that is identified by the GenerateDynamicLAR.
+           *
+           * @return The value of the simple primitive data type identified by GenerateDynamicLAR.
+           */
+         virtual xs::Boolean getGenerateDynamicLAR() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Sets the value of the SimplePrimitive data type that is identified by the GenerateDynamicLAR.
+           *
+           * @param value The value to set the SimplePrimitve data type to
+           */
+         virtual void setGenerateDynamicLAR(xs::Boolean value)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the value of the SimplePrimitive data type that is identified by the SelectForRelease.
+           *
+           * @return The value of the simple primitive data type identified by SelectForRelease.
+           */
+         virtual xs::Boolean getSelectForRelease() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Sets the value of the SimplePrimitive data type that is identified by the SelectForRelease.
+           *
+           * @param value The value to set the SimplePrimitve data type to
+           */
+         virtual void setSelectForRelease(xs::Boolean value)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the accessor that provides access to the complex content that is identified by the SelectAO_Code.
+           *
+           * @return The acecssor that provides access to the complex content that is identified by SelectAO_Code.
+           */
+         virtual const uci::type::AO_CodeType& getSelectAO_Code() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the accessor that provides access to the complex content that is identified by the SelectAO_Code.
+           *
+           * @return The acecssor that provides access to the complex content that is identified by SelectAO_Code.
+           */
+         virtual uci::type::AO_CodeType& getSelectAO_Code()
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Sets the complex content that is identified by the SelectAO_Code to the contents of the complex content that is
+           * accessed by the specified accessor.
+           *
+           * @param value The accessor that provides access to the sequence whose contents are to be used to set the contents of
+           *      the sequence identified by SelectAO_Code
+           */
+         virtual void setSelectAO_Code(const uci::type::AO_CodeType& value)
+            throw(uci::base::UCIException) = 0;
+
+
+
+      protected:
+
+         /** The constructor [only available to derived classes]. */
+         StrikeWeaponCommandType()
+         { }
+
+         /** The copy constructor [only available to derived classes]
+           *
+           * @param rhs The StrikeWeaponCommandType to copy from
+           */
+         StrikeWeaponCommandType(const StrikeWeaponCommandType& rhs)
+         {
+            (void)rhs;
+         }
+
+         /** The assignment operator. Sets the contents of this StrikeWeaponCommandType to the contents of the
+           * StrikeWeaponCommandType on the right hand side (rhs) of the assignment operator.StrikeWeaponCommandType [only
+           * available to derived classes]
+           *
+           * @param rhs The StrikeWeaponCommandType on the right hand side (rhs) of the assignment operator whose contents are
+           *      used to set the contents of this uci::type::StrikeWeaponCommandType
+           * @return A constant reference to this StrikeWeaponCommandType.
+           */
+         const StrikeWeaponCommandType& operator=(const StrikeWeaponCommandType& rhs)
+         {
+            (void)rhs;
+
+            return *this;
+         }
+
+
+      }; // StrikeWeaponCommandType
+
+
+   } // Namespace: type
+} // Namespace: uci
+
+#endif // Uci__Type__StrikeWeaponCommandType_h
+

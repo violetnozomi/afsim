@@ -1,0 +1,73 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+	int numMsgsRcvd = 0;
+end_script_variables
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+	extern int numMsgsRcvd;
+	numMsgsRcvd = numMsgsRcvd + 1;
+	writeln("Message received.");
+end_script
+
+observer
+	enable MESSAGE_RECEIVED
+end_observer
+
+comm FrequencyA_Radio WSF_RADIO_TRANSCEIVER
+	on
+	transmitter
+		frequency 10 hz
+	end_transmitter
+end_comm
+
+comm FrequencyB_Radio WSF_RADIO_TRANSCEIVER
+	on
+	transmitter
+		frequency 20 hz
+	end_transmitter
+end_comm
+
+platform TalkerOnFrequency_A WSF_PLATFORM
+	add comm talker_on_a FrequencyA_Radio
+	end_comm
+
+	execute at_time 10 seconds absolute
+		WsfMessage hello = WsfMessage();
+		PLATFORM.Comm("talker_on_a").SendMessage(hello, "ListenerOnFrequency_A", "listener_on_a");
+		PLATFORM.Comm("talker_on_a").SendMessage(hello, "ListenerOnFrequency_B", "listener_on_b");
+	end_execute
+end_platform
+
+platform ListenerOnFrequency_A WSF_PLATFORM
+	add comm listener_on_a FrequencyA_Radio
+	end_comm
+end_platform
+
+platform ListenerOnFrequency_B WSF_PLATFORM
+	add comm listener_on_b FrequencyB_Radio
+	end_comm
+end_platform
+
+execute at_time 20 seconds absolute
+	extern int numMsgsRcvd;
+
+	if (numMsgsRcvd != 1)
+	{
+		writeln("-FAIL-");
+	}
+	else
+	{
+		writeln("-PASS-");
+	}
+	WsfSimulation.Terminate();
+end_execute
+
+end_time 100 seconds

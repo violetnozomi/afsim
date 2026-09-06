@@ -1,0 +1,128 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test to ensure that the EOIR scheduler is performing properly.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+sensor IR_MW_SENSOR WSF_EOIR_SENSOR
+   ignore_same_side 
+   on
+   frame_time                          10.0 sec     # sample rate         
+   field_of_view circular
+      half_angle 10 deg
+   end_field_of_view
+
+   maximum_range                       850 km  
+   pixel_count  40000 40000
+   band medium
+
+      #atmospheric_attenuation     6.7e-5 per m
+      background_radiance         1.5e-2 w/cm^2/sr
+      noise_equivalent_irradiance 1.0e-15 w/cm2
+      detection_threshold         1.0
+   reports_location
+   reports_velocity   
+ end_sensor 
+
+platform_type SENSOR_PLATFORM  WSF_PLATFORM
+  sensor ir_sensor IR_MW_SENSOR
+    pitch -90 deg
+    on 
+    internal_link imageproc   
+  end_sensor
+  processor imageproc WSF_IMAGE_PROCESSOR
+  
+  end_processor
+end_platform_type
+
+infrared_signature TARGET_INFRARED_SIG
+   constant 1000 watts/steradian
+end_infrared_signature
+
+platform_type TARGET  WSF_PLATFORM
+  infrared_signature TARGET_INFRARED_SIG
+end_platform_type
+
+#################################################
+platform sensor_platform SENSOR_PLATFORM 
+   side blue
+   position 0n 0e altitude 800 km
+end_platform
+
+platform target1 TARGET
+   side red
+   position 0n 0e altitude 1 km
+   execute at_time 121 sec absolute # should give 13 attempts
+      PLATFORM.DeletePlatform();
+   end_execute   
+end_platform   
+platform target2 TARGET
+   side red
+   position 0.1n 0.1e altitude 1 km
+   execute at_time 121 sec absolute # should give 13 attempts
+      PLATFORM.DeletePlatform();
+   end_execute   
+end_platform 
+platform target3 TARGET
+   side red
+   position 0.2n 0.2e altitude 1 km
+   creation_time 100 sec
+      execute at_time 401 sec absolute # should give 31 attempts
+      PLATFORM.DeletePlatform();
+   end_execute   
+end_platform
+platform target4 TARGET
+   side red
+   position 0.3n 0.3e altitude 1 km
+   creation_time 450 sec
+   execute at_time 601 sec absolute # should give 16 attempts
+      PLATFORM.DeletePlatform();
+   end_execute   
+end_platform   
+platform target5 TARGET
+   side red
+   position 0.3n 0.3e altitude 1 km
+   creation_time 450 sec
+   execute at_time 601 sec absolute # should give 16 attempts
+      PLATFORM.DeletePlatform();
+   end_execute   
+end_platform   
+script_variables
+   double SENSOR_ATTEMPTS_TOTAL = 0;
+   double TRACK_INITIATED_TOTAL = 0;
+end_script_variables
+script void SensorTrackInitiated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack) 
+  TRACK_INITIATED_TOTAL = TRACK_INITIATED_TOTAL +1;
+end_script
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult) 
+  SENSOR_ATTEMPTS_TOTAL = SENSOR_ATTEMPTS_TOTAL + 1;
+end_script
+
+script void SimulationComplete() 
+   if (SENSOR_ATTEMPTS_TOTAL != 89)
+   {
+      writeln("Total Sensor Detection Attempts equals ", SENSOR_ATTEMPTS_TOTAL, " Should be 89");
+      writeln("-FAIL-");
+   }
+   if (TRACK_INITIATED_TOTAL!= 5)
+   {
+      writeln("Total Sensor Track Initiated equals    ", TRACK_INITIATED_TOTAL, " Should be 5");
+      writeln("-FAIL-");
+   }
+end_script
+
+observer
+  enable SENSOR_TRACK_INITIATED 
+  enable SENSOR_DETECTION_ATTEMPT
+  enable SIMULATION_COMPLETE 
+end_observer
+
+end_time 601 sec

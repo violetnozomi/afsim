@@ -1,0 +1,49 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_script_funct.txt
+# Test the calling of a script function.  This capability is used several times in the suite of test files.
+
+include test_functions.txt
+
+script_variables
+   global bool called = false;
+end_script_variables
+
+script void AddToMap(Map<string, bool> aMap)
+   aMap["testing"] = true;
+end_script
+
+script void callMe(int aIVal, double aDVal, string aSVal, bool aBVal)
+   called = true;
+end_script
+
+on_initialize
+   bool pass = true;
+   Map<string, bool> myMap = Map<string, bool>();
+
+   AddToMap(myMap);
+
+   if (! (myMap["testing"]) )
+   {
+      pass = false;
+      writeln("-FAIL- : Map should have value of true, but does not.");
+   }
+
+   callMe(1, 2.2, "hello world", true);
+
+   if (!called)
+   {
+      pass = false;
+      writeln("-FAIL- : Variable called should have a value of true.");
+   }
+
+   writePass(pass);
+
+end_on_initialize

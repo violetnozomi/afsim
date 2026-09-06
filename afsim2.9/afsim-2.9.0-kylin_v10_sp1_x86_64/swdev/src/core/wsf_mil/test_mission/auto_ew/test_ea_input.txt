@@ -1,0 +1,59 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+electronic_warfare_effect 3DB_SIGNAL_EFFECT WSF_POWER_EFFECT
+   jamming_power_gain 3 db
+end_electronic_warfare_effect
+
+electronic_warfare_technique SIGNAL_GAIN WSF_EA_TECHNIQUE
+   default_on
+   mitigation_class NOISE_JAMMING
+   effect signal_gain_effect 3DB_SIGNAL_EFFECT
+      jamming_power_gain 1 db
+   end_effect
+end_electronic_warfare_technique
+
+weapon JAMMER WSF_RF_JAMMER
+   transmitter
+      electronic_attack
+         // Test modifying a technique type
+         technique power_gain SIGNAL_GAIN
+            mitigation_class PULSE_JAMMING
+            // Test modifying an effect
+            effect signal_gain_effect
+               jamming_power_gain 5 db
+            end_effect
+
+            // Test adding in a new effect
+            effect random_pulse_jamming WSF_RPJ_EFFECT
+               jamming_power_gain 2.0 db
+            end_effect
+         end_technique
+
+         // Test adding a new technique
+         technique power_loss WSF_EA_TECHNIQUE
+            mitigation_class NOISE_JAMMING
+            effect sidelobe_cancellation_effect WSF_POWER_EFFECT
+               jamming_power_gain -3.0 dB
+            end_effect
+         end_technique
+
+         // Test adding a legacy technique
+         technique slc_degrade_effect WSF_EA_TECHNIQUE
+            mitigation_class NOISE_JAMMING
+            effect sidelobe_degrade_effect WSF_SLC_DEGRADE_EFFECT
+               jamming_power_gain 2.0 dB
+            end_effect
+         end_technique
+      end_electronic_attack
+   end_transmitter
+end_weapon

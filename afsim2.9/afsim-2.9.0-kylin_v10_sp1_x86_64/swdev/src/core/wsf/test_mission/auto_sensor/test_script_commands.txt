@@ -1,0 +1,223 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# ==================================================================================================
+# Test sensor script commands.
+#
+# Note that some of these are actually articulated part script commands, but they are generally
+# used within the context of a sensor. So they will be tested here...
+# ==================================================================================================
+
+# NOTE
+#
+# These numbers are TOTALLY bogus
+
+sensor TEST_SENSOR WSF_GEOMETRIC_SENSOR
+   slew_mode                 azimuth_and_elevation
+   azimuth_slew_limits       -60 deg 60 deg
+   elevation_slew_limits     -80 deg 80 deg
+
+   mode_template
+      frame_time             1 sec
+      reports_location
+   end_mode_template
+
+   mode AZ_EL
+      scan_mode              azimuth_and_elevation
+      azimuth_scan_limits    -10 deg 10 deg
+      elevation_scan_limits  -20 deg 20 deg
+
+      # No FOV limits
+   end_mode
+
+   mode AZ_ONLY
+      cue_mode               azimuth
+      azimuth_cue_limits     -55 deg 55 deg
+
+      scan_mode              azimuth
+      azimuth_scan_limits    -30 deg 30 deg
+
+      azimuth_field_of_view  -20 deg 20 deg
+      elevation_field_of_view -10 deg 10 deg
+
+      minimum_range          20 m
+      maximum_range          200000 m
+   end_mode
+
+   mode EL_ONLY
+      cue_mode               elevation
+      elevation_cue_limits   -75 deg 75 deg
+
+      scan_mode              elevation
+      elevation_scan_limits  -40 deg 40 deg
+
+      azimuth_field_of_view  -10 deg 10 deg
+      elevation_field_of_view -20 deg 20 deg
+
+      minimum_range          30 m
+      maximum_range          300000 m
+   end_mode
+
+   mode FOV_TEST
+      azimuth_field_of_view  -10 deg 10 deg
+      elevation_field_of_view -10 deg 10 deg
+      maximum_range           150000 m
+   end_mode
+
+end_sensor
+
+platform test WSF_PLATFORM
+
+   position 0n 0w altitude 40000 ft heading 0 deg
+
+   add sensor sensor TEST_SENSOR
+   end_sensor
+
+   script void ExpectBool(bool   aExpected,
+                          bool   aReceived,
+                          string aMessage)
+      if (aReceived != aExpected)
+      {
+         writeln("-FAIL- ", aMessage, "; expected: ", aExpected, ", received: ", aReceived);
+      }
+   end_script
+
+   script void ExpectDouble(double aExpected,
+                            double aReceived,
+                            double aTolerance,
+                            string aMessage)
+      if ((aReceived < (aExpected - aTolerance)) ||
+          (aReceived > (aExpected + aTolerance)))
+      {
+         writeln("-FAIL- ", aMessage, "; expected: ", aExpected, ", received: ", aReceived);
+      }
+   end_script
+
+   execute at_time 1 sec absolute
+
+      WsfSensor s = Sensor("sensor");
+
+      # Test slew mode and limit query commands.
+
+      ExpectBool(true, s.CanSlewInAzimuth(), "CanSlewInAzimuth");
+      ExpectBool(true, s.CanSlewInElevation(), "CanSlewInElevation");
+      ExpectDouble(-60.0, s.SlewMinimumAzimuth(), 0.01, "SlewMinimumAzimuth");
+      ExpectDouble( 60.0, s.SlewMaximumAzimuth(), 0.01, "SlewMaximumAzimuth");
+      ExpectDouble(-80.0, s.SlewMinimumElevation(), 0.01, "SlewMinimumElevation");
+      ExpectDouble( 80.0, s.SlewMaximumElevation(), 0.01, "SlewMaximumElevation");
+
+      # Test mode-specific cue mode and limit query commands.
+      # Test mode-specific scan mode and limit query commands.
+      # Test mode-specific FOV limit commands.
+
+      s.SelectMode("AZ_EL");
+      ExpectBool(true, s.CanCueInAzimuth(), s.CurrentMode() + " CanCueInAzimuth");
+      ExpectBool(true, s.CanCueInElevation(), s.CurrentMode() + " CanCueInElevation");
+      ExpectDouble(-60.0, s.CueMinimumAzimuth(), 0.01, s.CurrentMode() + " CueMinimumAzimuth");
+      ExpectDouble( 60.0, s.CueMaximumAzimuth(), 0.01, s.CurrentMode() + " CueMaximumAzimuth");
+      ExpectDouble(-80.0, s.CueMinimumElevation(), 0.01, s.CurrentMode() + " CueMinimumElevation");
+      ExpectDouble( 80.0, s.CueMaximumElevation(), 0.01, s.CurrentMode() + " CueMaximumElevation");
+
+      ExpectBool(true, s.CanScanInAzimuth(), s.CurrentMode() + " CanScanInAzimuth");
+      ExpectBool(true, s.CanScanInElevation(), s.CurrentMode() + " CanScanInElevation");
+      ExpectDouble(-10.0, s.ScanMinimumAzimuth(), 0.01, s.CurrentMode() + " ScanMinimumAzimuth");
+      ExpectDouble( 10.0, s.ScanMaximumAzimuth(), 0.01, s.CurrentMode() + " ScanMaximumAzimuth");
+      ExpectDouble(-20.0, s.ScanMinimumElevation(), 0.01, s.CurrentMode() + " ScanMinimumElevation");
+      ExpectDouble( 20.0, s.ScanMaximumElevation(), 0.01, s.CurrentMode() + " ScanMaximumElevation");
+
+      ExpectDouble(-180.0, s.FOV_MinimumAzimuth(), 0.01, s.CurrentMode() + " FOV_MinimumAzimuth");
+      ExpectDouble( 180.0, s.FOV_MaximumAzimuth(), 0.01, s.CurrentMode() + " FOV_MaximumAzimuth");
+      ExpectDouble(-90.0, s.FOV_MinimumElevation(), 0.01, s.CurrentMode() + " FOV_MinimumElevation");
+      ExpectDouble( 90.0, s.FOV_MaximumElevation(), 0.01, s.CurrentMode() + " FOV_MaximumElevation");
+
+      s.SelectMode("AZ_ONLY");
+      ExpectBool(true, s.CanCueInAzimuth(), s.CurrentMode() + " CanCueInAzimuth");
+      ExpectBool(false, s.CanCueInElevation(), s.CurrentMode() + " CanCueInElevation");
+      ExpectDouble(-55.0, s.CueMinimumAzimuth(), 0.01, s.CurrentMode() + " CueMinimumAzimuth");
+      ExpectDouble( 55.0, s.CueMaximumAzimuth(), 0.01, s.CurrentMode() + " CueMaximumAzimuth");
+      ExpectDouble(  0.0, s.CueMinimumElevation(), 0.01, s.CurrentMode() + " CueMinimumElevation");
+      ExpectDouble(  0.0, s.CueMaximumElevation(), 0.01, s.CurrentMode() + " CueMaximumElevation");
+
+      ExpectBool(true, s.CanScanInAzimuth(), s.CurrentMode() + " CanScanInAzimuth");
+      ExpectBool(false, s.CanScanInElevation(), s.CurrentMode() + " CanScanInElevation");
+      ExpectDouble(-30.0, s.ScanMinimumAzimuth(), 0.01, s.CurrentMode() + " ScanMinimumAzimuth");
+      ExpectDouble( 30.0, s.ScanMaximumAzimuth(), 0.01, s.CurrentMode() + " ScanMaximumAzimuth");
+      ExpectDouble(  0.0, s.ScanMinimumElevation(), 0.01, s.CurrentMode() + " ScanMinimumElevation");
+      ExpectDouble(  0.0, s.ScanMaximumElevation(), 0.01, s.CurrentMode() + " ScanMaximumElevation");
+
+      ExpectDouble(-20.0, s.FOV_MinimumAzimuth(), 0.01, s.CurrentMode() + " FOV_MinimumAzimuth");
+      ExpectDouble( 20.0, s.FOV_MaximumAzimuth(), 0.01, s.CurrentMode() + " FOV_MaximumAzimuth");
+      ExpectDouble(-10.0, s.FOV_MinimumElevation(), 0.01, s.CurrentMode() + " FOV_MinimumElevation");
+      ExpectDouble( 10.0, s.FOV_MaximumElevation(), 0.01, s.CurrentMode() + " FOV_MaximumElevation");
+      ExpectDouble(20.0, s.FOV_MinimumRange(), 0.01, s.CurrentMode() + " FOV_MinimumRange");
+      ExpectDouble(200000.0, s.FOV_MaximumRange(), 0.01, s.CurrentMode() + " FOV_MaximumRange");
+
+      s.SelectMode("EL_ONLY");
+      ExpectBool(false, s.CanCueInAzimuth(), s.CurrentMode() + " CanCueInAzimuth");
+      ExpectBool(true, s.CanCueInElevation(), s.CurrentMode() + " CanCueInElevation");
+      ExpectDouble(  0.0, s.CueMinimumAzimuth(), 0.01, s.CurrentMode() + " CueMinimumAzimuth");
+      ExpectDouble(  0.0, s.CueMaximumAzimuth(), 0.01, s.CurrentMode() + " CueMaximumAzimuth");
+      ExpectDouble(-75.0, s.CueMinimumElevation(), 0.01, s.CurrentMode() + " CueMinimumElevation");
+      ExpectDouble( 75.0, s.CueMaximumElevation(), 0.01, s.CurrentMode() + " CueMaximumElevation");
+
+      ExpectBool(false, s.CanScanInAzimuth(), s.CurrentMode() + " CanScanInAzimuth");
+      ExpectBool(true, s.CanScanInElevation(), s.CurrentMode() + " CanScanInElevation");
+      ExpectDouble(  0.0, s.ScanMinimumAzimuth(), 0.01, s.CurrentMode() + " ScanMinimumAzimuth");
+      ExpectDouble(  0.0, s.ScanMaximumAzimuth(), 0.01, s.CurrentMode() + " ScanMaximumAzimuth");
+      ExpectDouble(-40.0, s.ScanMinimumElevation(), 0.01, s.CurrentMode() + " ScanMinimumElevation");
+      ExpectDouble( 40.0, s.ScanMaximumElevation(), 0.01, s.CurrentMode() + " ScanMaximumElevation");
+
+      ExpectDouble(-10.0, s.FOV_MinimumAzimuth(), 0.01, s.CurrentMode() + " FOV_MinimumAzimuth");
+      ExpectDouble( 10.0, s.FOV_MaximumAzimuth(), 0.01, s.CurrentMode() + " FOV_MaximumAzimuth");
+      ExpectDouble(-20.0, s.FOV_MinimumElevation(), 0.01, s.CurrentMode() + " FOV_MinimumElevation");
+      ExpectDouble( 20.0, s.FOV_MaximumElevation(), 0.01, s.CurrentMode() + " FOV_MaximumElevation");
+      ExpectDouble(30.0, s.FOV_MinimumRange(), 0.01, s.CurrentMode() + " FOV_MinimumRange");
+      ExpectDouble(300000.0, s.FOV_MaximumRange(), 0.01, s.CurrentMode() + " FOV_MaximumRange");
+
+      # Test cue query commands.
+
+      s.SelectMode("AZ_EL");
+      WsfGeoPoint p = WsfGeoPoint.Construct(1.0, 1.0, 0.0);
+
+      ExpectBool(false, s.IsCued(), "IsCued-1");
+      s.CueToPoint(p);
+      ExpectBool(true, s.IsCued(), "IsCued-2");
+      ExpectDouble(45.1881, s.CurrentCuedAzimuth(), 0.01, "CurrentCuedAzimuth");
+      ExpectDouble(-5.1459, s.CurrentCuedElevation(), 0.1, "CurrentCuedElevation");
+
+      s.ClearCueing();
+      ExpectBool(false, s.IsCued(), "IsCued-3");
+
+      # Test WithinFieldOfView();
+
+      s.SelectMode("FOV_TEST");
+      p = WsfGeoPoint.Construct(1.0,  0.0, 0.0);       # straight ahead
+      ExpectBool(true, s.WithinFieldOfView(p), "WithinFieldOfView - In FOV");
+
+      p = WsfGeoPoint.Construct(1.0,  0.18, 0.0);       # outside right
+      ExpectBool(false, s.WithinFieldOfView(p), "WithinFieldOfView - Outside right");
+
+      p = WsfGeoPoint.Construct(1.0,  0.17, 0.0);       # inside right
+      ExpectBool(true, s.WithinFieldOfView(p), "WithinFieldOfView - Inside right");
+
+      p = WsfGeoPoint.Construct(1.0,  -0.18, 0.0);       # outside right
+      ExpectBool(false, s.WithinFieldOfView(p), "WithinFieldOfView - Outside left");
+
+      p = WsfGeoPoint.Construct(1.0,  -0.17, 0.0);       # inside right
+      ExpectBool(true, s.WithinFieldOfView(p), "WithinFieldOfView - Inside left");
+
+      p = WsfGeoPoint.Construct(2.0, 0.0, 0.0);        # out of max range
+      ExpectBool(false, s.WithinFieldOfView(p), "WithinFieldOfView - Past max range");
+
+   end_execute
+
+end_platform
+
+end_time 2 sec
+

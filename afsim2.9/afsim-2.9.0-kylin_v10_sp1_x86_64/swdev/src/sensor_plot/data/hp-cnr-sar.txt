@@ -1,0 +1,93 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#        1         2         3         4         5         6         7         8
+#2345678901234567890123456789012345678901234567890123456789012345678901234567890
+################################################################################
+
+##############################################################################
+#                       Define the target characteristics
+##############################################################################
+
+
+# SAR test #1
+
+# ****************************************************************************
+# Define the system types (movers, sensors, weapons, etc.)
+# ****************************************************************************
+
+include demo_sar.txt
+#include generic_sar.txt
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+
+optical_signature TARGET1_OPTICAL_SIGNATURE
+  constant 5 m^2
+end_optical_signature
+
+radar_signature TARGET1_RADAR_SIGNATURE
+  constant 10 m^2
+end_radar_signature
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+  icon Global_Hawk
+  side blue
+
+  mover WSF_AIR_MOVER end_mover
+
+  processor image-proc-1 WSF_IMAGE_PROCESSOR
+    debug
+  end_processor
+
+  sensor sar DEMO_SAR_SENSOR
+    processor image-proc-1
+    message_length 60000 bytes
+  end_sensor
+end_platform_type
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   icon truck
+   side red
+   optical_signature  TARGET1_OPTICAL_SIGNATURE
+   radar_signature    TARGET1_RADAR_SIGNATURE
+end_platform_type
+
+platform sensor<1> SENSOR_PLATFORM_TYPE
+  side blue
+     position 20n 20w altitude 35000 ft agl
+     heading 0 deg
+end_platform
+
+horizontal_map
+  target_region
+    down_range_limits  -100 nm 100 nm
+    down_range_step     2 nm
+
+    cross_range_limits -100 nm 100 nm
+    cross_range_step    2 nm
+  end_target_region
+
+  variable clutter_to_noise
+  
+  target_speed      2 kts
+  target_altitude 0 ft agl
+
+  # If you don't specify a target heading then the target will always be
+  # forced to point at the sensor.
+
+  target_heading      0 deg
+
+  pd_map_file sar_cnr.map
+  sedit_file sar_cnr.sed
+
+end_horizontal_map

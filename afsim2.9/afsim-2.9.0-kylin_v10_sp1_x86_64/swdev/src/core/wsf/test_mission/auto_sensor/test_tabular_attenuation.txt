@@ -1,0 +1,105 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+
+# These values are absolute NOT dB
+attenuation_model TEST_TABULAR WSF_TABULAR_ATTENUATION
+   two_way_attenuation true
+   attenuation irregular_table 
+      independent_variable altitude_1 units feet 
+      independent_variable altitude_2 units feet
+      independent_variable ground_range units nmi 
+      dependent_variable
+      altitude_1 0
+         altitude_2 0
+            ground_range 0 5 10 15
+            values 100 200 300 400
+         altitude_2 12500
+            ground_range 0 5 10 15
+            values 500 600 700 800
+         altitude_2 35000
+            ground_range 0 5 10 15
+            values 900 1000 1100 1200
+      altitude_1 12500
+         altitude_2 0
+            ground_range 0 5 10 15
+            values 1300 1400 1500 1600
+         altitude_2 12500
+            ground_range 0 5 10 15
+            values 1700 1800 1900 2000
+         altitude_2 35000
+            ground_range 0 5 10 15
+            values 2100 2200 2300 2400
+      altitude_1 35000
+         altitude_2 0
+            ground_range 0 5 10 15
+            values 2500 2600 2700 2800
+         altitude_2 12500
+            ground_range 0 5 10 15
+            values 2900 3000 3100 3200 
+         altitude_2 35000
+            ground_range 0 5 10 15
+            values 3300 3400 3500 3600
+   end_irregular_table   
+   query altitude_1 0 ft   altitude_2 35 kft ground_range 10 nmi expected_value 33.16624 end_query  // one way value
+   query altitude_1 35 kft altitude_2 0 ft   ground_range 15 nmi expected_value 52.91503 end_query
+   query altitude_1 0 kft  altitude_2 35 kft ground_range 6 nmi  expected_value 31.9374 end_query   
+end_attenuation_model
+
+sensor EX_RADAR WSF_RADAR_SENSOR
+#   show_calibration_data
+
+   frame_time 10 sec
+
+   transmitter
+      frequency 3 ghz
+      power 250 kw
+      attenuation_model TEST_TABULAR
+   end_transmitter
+   one_m2_detect_range 200 nm
+   reports_location
+   on
+end_sensor
+
+platform radar_site WSF_PLATFORM
+   side red
+   position 40.9n 90w altitude 0 m heading 0 deg
+   add sensor radar EX_RADAR on end_sensor
+end_platform
+
+radar_signature TARGET_RADAR_SIG
+   constant 0 dbsm
+end_radar_signature
+
+platform target WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+   side blue
+   position 41n 90w altitude 35000 ft heading 180 deg
+end_platform
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, 
+                                   WsfPlatform aTarget, WsfSensorInteraction aResult)                               
+   double range = aPlatform.GroundRangeTo(aTarget) * Math.NM_PER_M();
+   double value = Math.Lerp(range, 5., 10., 1000., 1100.);  
+   double expResult = Math.SafeLinearToDB(value);
+   writeln_d("Ground range: ", range, " (nmi), Value: ", value, " (abs), Expected: ", expResult, " (dB)");                                  
+   AssertWithinToleranceMessage(expResult, aResult.AbsorptionFactor(), 0.01, "Attenuation factor");
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT      
+end_observer
+
+#event_output
+#   file STDOUT
+#   enable SENSOR_DETECTION_ATTEMPT
+#end_event_output
+
+end_time 10 sec

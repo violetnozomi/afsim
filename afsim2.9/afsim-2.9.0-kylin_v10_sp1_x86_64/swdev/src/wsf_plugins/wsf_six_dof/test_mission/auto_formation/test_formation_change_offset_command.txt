@@ -1,0 +1,96 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../scripts/utils.txt
+
+include_once ../platforms/fa-lgt.txt
+
+platform_type SIMPLE FA-LGT_RB6
+   side blue
+   icon f-18
+   update_interval 0.01 sec
+   
+   follow_vertical_track
+end_platform_type
+
+platform alpha SIMPLE
+   route
+      position 40:00:00.000n 90:00:00.000w
+      altitude 6000 meters
+      heading 90 deg
+      speed 500 kts
+   end_route
+end_platform
+
+platform bravo SIMPLE
+   route
+      position 00:00:00.000n 10:00:00.000w
+      altitude 5000 meters
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+six_dof_formation yankee
+   lead six_dof_unit one
+      member_platform alpha
+   end_six_dof_unit
+   
+   six_dof_unit two
+      offset 30 m -100 deg 5 m fixed_altitude
+      member_platform bravo
+   end_six_dof_unit
+end_six_dof_formation
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 min absolute
+   WsfSixDOF_FormationOffset off = WsfSixDOF_FormationManager.GetFormation("yankee.two").GetOffset();
+   
+   allPassed = ExpectDouble(off.GetRange(), 30.0, 1.0e-2, "Should be 30 m away") && allPassed;
+   allPassed = ExpectDouble(off.GetRelativeBearing(), -100.0, 1.0e-2, "Should be at -100 degrees") && allPassed;
+   allPassed = ExpectDouble(off.GetStack(), 5.0, 1.0e-2, "Should be 5 m stacked") && allPassed;
+   allPassed = ExpectBool(off.IsWelded(), false, "Should be fixed-altitude") && allPassed;
+end_execute
+
+execute at_time 3 min absolute
+   WsfSixDOF_FormationChangeOffsetCommand cmd = WsfSixDOF_FormationChangeOffsetCommand.Construct();
+
+   cmd.AddOffset(WsfSixDOF_FormationOffset.Construct(50.0, 100.0, -5.0, true));
+   cmd.SetTransitionTime(30.0);
+
+   WsfSixDOF_Formation alphaTwo = WsfSixDOF_FormationManager.GetFormation("yankee.two");
+   alphaTwo.ExecuteCommand(cmd);
+end_execute
+
+execute at_time 5 min absolute
+   WsfSixDOF_FormationOffset off = WsfSixDOF_FormationManager.GetFormation("yankee.two").GetOffset();
+   
+   allPassed = ExpectDouble(off.GetRange(), 50.0, 1.0e-2, "Should be 50 m away") && allPassed;
+   allPassed = ExpectDouble(off.GetRelativeBearing(), 100.0, 1.0e-2, "Should be at 100 degrees") && allPassed;
+   allPassed = ExpectDouble(off.GetStack(), -5.0, 1.0e-2, "Should be -5 m stacked") && allPassed;
+   allPassed = ExpectBool(off.IsWelded(), true, "Should be welded-wing") && allPassed;
+end_execute
+
+execute at_time 6 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 10 min

@@ -1,0 +1,115 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+antenna_pattern EXAMPLE_MULTI_BEAM_ANTENNA
+  circular_pattern
+    beamwidth      3.0 deg
+    peak_gain       35 dB
+    minimum_gain   -13 dB
+  end_circular_pattern
+end_antenna_pattern
+
+sensor EXAMPLE_MULTI_BEAM_RADAR WSF_RADAR_SENSOR
+  show_calibration_data
+
+  frame_time 10 sec
+  location 0 0 -30 m
+
+  beam 1
+    scan_mode azimuth
+    maximum_range 2000 km
+    transmitter
+      antenna_pattern EXAMPLE_MULTI_BEAM_ANTENNA
+      antenna_tilt    2 deg
+      power           10 kw
+      frequency       1.01 ghz
+      pulse_repetition_frequency 250 hz
+      pulse_width     1 us
+    end_transmitter
+    receiver
+    end_receiver
+  end_beam
+
+  beam 2
+    transmitter
+      antenna_pattern EXAMPLE_MULTI_BEAM_ANTENNA
+      antenna_tilt    5 deg
+      power           10 kw
+      frequency       1.02 ghz
+      pulse_repetition_frequency 250 hz
+      pulse_width     1 us
+    end_transmitter
+    receiver
+    end_receiver
+  end_beam
+
+  beam 3
+    transmitter
+      antenna_pattern EXAMPLE_MULTI_BEAM_ANTENNA
+      antenna_tilt    10 deg
+      power           10 kw
+      frequency       1.03 ghz
+      pulse_repetition_frequency 250 hz
+      pulse_width     1 us
+    end_transmitter
+    receiver
+    end_receiver
+  end_beam
+
+  reports_bearing
+  reports_range
+
+end_sensor
+
+radar_signature TARGET_RADAR_SIGNATURE
+  constant 1 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+  radar_signature TARGET_RADAR_SIGNATURE
+end_platform_type
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+  sensor TEST_SENSOR EXAMPLE_MULTI_BEAM_RADAR end_sensor
+end_platform_type
+
+###############################################################################
+#                      Define the parameters for the plot
+#
+# You can use the default for almost everything.
+
+vertical_coverage
+  # output_base defines the base part of the output files.
+  output_base    multi-beam
+
+  # elevation_range defines the range of elevations that will be processed.
+  # The default is -5 deg to 89.9 deg
+  elevation_range -2 deg 89.9 deg
+
+  # elevation_step defines the increment between elevations.
+  # The default is 0.1 deg
+  elevation_step 0.05 deg
+
+  # maximum_range defines the maximum range that will be checked.
+  # The default is to use the value from the sensors 'maximum_range' value.
+  # If this value is not supplied and if the sensor does not have a value
+  # for 'maximum_range' then 2000 km will be used.
+  maximum_range 450 km
+
+  # altitude_units defines the altitude units to be used the resulting plot.
+  # The default is 'm'
+  altitude_units ft
+
+  # range_units defines the range units to be used in the resulting plot.
+  # The default is 'm'
+  range_units    nm
+end_vertical_coverage
+

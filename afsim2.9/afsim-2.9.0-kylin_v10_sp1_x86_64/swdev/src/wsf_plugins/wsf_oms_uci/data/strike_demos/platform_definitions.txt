@@ -1,0 +1,35 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+################################################################################
+# Define the platform type for notional EW radar site.
+platform_type EW_RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+end_platform_type
+
+
+################################################################################
+# Define the platform type for the notional fighter/bomber.
+platform_type FIGHTER_BOMBER WSF_PLATFORM
+   // This is used to prevent the AWACS ESM from attempting to detect me.
+   // (We aren't interested in these detections and they just confuse the output).
+   category no_awacs_esm
+   icon F-4
+   mover WSF_AIR_MOVER
+   end_mover
+
+   weapon bomb_1000_lb BOMB_1000_LB
+      quantity 2
+   end_weapon
+
+   processor bomb_1000_lb-launch-computer BOMB_1000_LB_LAUNCH_COMPUTER
+     on
+     update_interval 2 sec
+   end_processor
+end_platform_type

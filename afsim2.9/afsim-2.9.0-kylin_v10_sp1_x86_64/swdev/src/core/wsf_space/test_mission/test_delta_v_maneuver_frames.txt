@@ -1,0 +1,185 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 4 hr
+
+include_once utils.txt
+
+platform_type DV_PLAT WSF_PLATFORM
+   script_variables
+      Vec3 vInit = Vec3();
+      Vec3 dvExpected = Vec3();
+      WsfOrbitalReferenceFrame dvFrame;
+      double tolerance = 1.0e-6;
+   end_script_variables
+  
+   script void CollectInitialVelocity(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover)
+      vInit = aPlatform.VelocityECI();
+   end_script
+  
+   script void CollectFinalVelocity(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover)
+      Vec3 vFini = aPlatform.VelocityECI();
+      if (dvFrame == WsfOrbitalReferenceFrame.INERTIAL())
+      {   
+         Vec3 dvObserved = Vec3.Subtract(vFini, vInit);
+         ExpectDouble(dvObserved.X(), dvExpected.X(), tolerance, "ECI dv_x");
+         ExpectDouble(dvObserved.Y(), dvExpected.Y(), tolerance, "ECI dv_y");
+         ExpectDouble(dvObserved.Z(), dvExpected.Z(), tolerance, "ECI dv_z");
+      }
+      else if (dvFrame == WsfOrbitalReferenceFrame.RIC())
+      {
+         // Setup RIC frame
+         Vec3 rVec = aPlatform.LocationECI().Normal();
+         Vec3 cVec = Vec3.Cross(rVec, vInit).Normal();
+         Vec3 iVec = Vec3.Cross(cVec, rVec).Normal();
+         
+         // Rotate observed delta V into Inertial frame
+         Vec3 dvObserved = Vec3.Subtract(vFini, vInit);
+         Vec3 odv = Vec3.Construct(Vec3.Dot(rVec, dvObserved),
+                                   Vec3.Dot(iVec, dvObserved),
+                                   Vec3.Dot(cVec, dvObserved));
+         ExpectDouble(odv.X(), dvExpected.X(), tolerance, "RIC dv_x");
+         ExpectDouble(odv.Y(), dvExpected.Y(), tolerance, "RIC dv_y");
+         ExpectDouble(odv.Z(), dvExpected.Z(), tolerance, "RIC dv_z");
+      }
+      else
+      {
+         SetFailureFlag();
+         writeln("-FAIL- Unknown orbital reference frame");
+      }
+   end_script
+   
+   execute at_time 100 min relative
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      if (mover.IsValid())
+      {
+         WsfDeltaV_Maneuver mvr = WsfDeltaV_Maneuver.Construct(WsfOrbitalEventCondition.NONE(), dvExpected, dvFrame);
+         ExpectBool(mvr.Frame() == dvFrame, true, "Frame mismatch in scripted maneuver");
+         ExpectDouble(mvr.DeltaV().X(), dvExpected.X(), 1.0e-12, "Configured delta v mismatch, X");
+         ExpectDouble(mvr.DeltaV().Y(), dvExpected.Y(), 1.0e-12, "Configured delta v mismatch, Y");
+         ExpectDouble(mvr.DeltaV().Z(), dvExpected.Z(), 1.0e-12, "Configured delta v mismatch, Z");
+         mover.ExecuteManeuver(mvr);
+      }
+      else
+      {
+         SetFailureFlag();
+         writeln("-FAIL- Platform did not have a space mover");
+      }
+   end_execute
+end_platform_type
+
+platform eciplat DV_PLAT
+   add mover WSF_SPACE_MOVER
+      eccentricity 0
+      revolutions_per_day 12
+      inclination 20 deg
+      argument_of_periapsis 0 deg
+      raan 0 deg
+      true_anomaly 0 deg
+      
+      mission_sequence
+         maneuver delta_v
+            execute_at relative_time 20 minutes
+            delta_v inertial 10 m/s 20 m/s 30 m/s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   
+   script_variables
+      dvExpected = Vec3.Construct(10.0, 20.0, 30.0);
+      dvFrame = WsfOrbitalReferenceFrame.INERTIAL();
+   end_script_variables
+end_platform
+
+platform ricplat DV_PLAT
+   add mover WSF_SPACE_MOVER
+      eccentricity 0
+      revolutions_per_day 12
+      inclination 20 deg
+      argument_of_periapsis 0 deg
+      raan 20 deg
+      true_anomaly 0 deg
+      
+      mission_sequence
+         maneuver delta_v
+            execute_at relative_time 30 minutes
+            delta_v ric 10 m/s 20 m/s 30 m/s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   
+   script_variables
+      dvExpected = Vec3.Construct(10.0, 20.0, 30.0);
+      dvFrame = WsfOrbitalReferenceFrame.RIC();
+   end_script_variables
+end_platform
+
+platform wismplat DV_PLAT
+   empty_mass 1.0 kg
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0
+      revolutions_per_day 12
+      inclination 20 deg
+      argument_of_periapsis 0 deg
+      raan 40 deg
+      true_anomaly 0 deg
+      
+      integrator prince_dormand_45
+      end_integrator
+      
+      dynamics
+         term earth_monopole
+         end_term
+      end_dynamics
+      
+      mission_sequence
+         maneuver delta_v
+            execute_at relative_time 40 minutes
+            delta_v ric 0 km/s 20 km/s 0 km/s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   
+   script_variables
+      dvExpected = Vec3.Construct(0.0, 20000.0, 0.0);
+      dvFrame = WsfOrbitalReferenceFrame.RIC();
+   end_script_variables
+end_platform
+
+script void CollectInitialVelocity(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() != "DELTA_V")
+   {
+      return;
+   }
+
+   string who = aPlatform.Name();
+   if (who == "eciplat" || who == "ricplat" || who == "wismplat")
+   {
+      aPlatform->CollectInitialVelocity(aPlatform, aSpaceMover);
+   }
+end_script
+
+script void CollectFinalVelocity(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() != "DELTA_V")
+   {
+      return;
+   }
+   
+   string who = aPlatform.Name();
+   if (who == "eciplat" || who == "ricplat" || who == "wismplat")
+   {
+      aPlatform->CollectFinalVelocity(aPlatform, aSpaceMover);
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED CollectInitialVelocity
+   enable ORBITAL_MANEUVER_COMPLETED CollectFinalVelocity
+end_observer

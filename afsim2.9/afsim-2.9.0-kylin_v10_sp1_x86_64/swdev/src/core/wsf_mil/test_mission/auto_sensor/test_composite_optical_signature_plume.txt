@@ -1,0 +1,317 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the plume model of WSF_COMPOSITE_OPTICAL_SIGNATURE
+#
+# This is a separate test because it is a little more involved...
+
+# Run 900 seconds if you want the full missile trajectory.
+# You only need to run about 145 seconds for auto test
+end_time 900 sec  # Full flight
+end_time 145 sec  # For auto_test
+
+script_variables
+   int gTEST_COUNT = 0;
+   int gFAIL_COUNT = 0;
+end_script_variables
+
+script void SimulationComplete()
+   if (gTEST_COUNT != 12) writeln("-FAIL- Not all tests run, actual=", gTEST_COUNT);
+   if (gFAIL_COUNT != 0) writeln("-FAIL- ", gTEST_COUNT, " tests failed");
+   if ((gTEST_COUNT == 12) && (gFAIL_COUNT == 0)) writeln("-PASS-");
+end_script
+
+observer
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+script void SamplePoint(WsfPlatform aPlatform,
+                        double aViewAz,
+                        double aViewEl)
+   double r =  10000.0;
+   double z  = - Math.Sin(aViewEl) * r;
+   double xy = Math.Cos(aViewEl) * r;
+   double x =  Math.Cos(aViewAz) * xy;
+   double y =  Math.Sin(aViewAz) * xy;
+
+   Vec3 obsLocECS = Vec3.Construct(x, y, z);
+   Vec3 obsLocWCS = aPlatform.ConvertECSToWCS(obsLocECS);
+   WsfGeoPoint obsLoc = WsfGeoPoint.ConstructWCS(obsLocWCS);
+   double az = aPlatform.RelativeAzimuthOf(obsLoc);
+   double el = aPlatform.RelativeElevationOf(obsLoc);
+   if (Math.Fabs(az) < 1.0E-4) az = 0.0;
+   if (Math.Fabs(el) < 1.0E-4) el = 0.0;
+   string strAzEl = Format.Fixed(az, 1) + "/" + Format.Fixed(el, 1);
+   write(" Az/El: ", strAzEl.Pad(10));
+   write(" Area: ", Format.Fixed(aPlatform.ProjectedArea(obsLoc, 1.0), 2).Pad(7), " m2");
+   write(", Vis: ", Format.Scientific(aPlatform.RadiantIntensity(obsLoc, 1.0, "visual"), 4), " W/sr");
+   write(", SW: ", Format.Scientific(aPlatform.RadiantIntensity(obsLoc, 1.0, "short"), 4), " W/sr");
+   write(", MW: ", Format.Scientific(aPlatform.RadiantIntensity(obsLoc, 1.0, "medium"), 4), " W/sr");
+   write(", LW: ", Format.Scientific(aPlatform.RadiantIntensity(obsLoc, 1.0, "long"), 4), " W/sr");
+   writeln();
+end_script
+
+#===============================================================================
+
+# Include the cut-down version of a DF-21B to get the mover and guidance definitions
+include ../auto_mover/ssm_base.txt
+
+optical_signature ROCKET_OPTICAL_SIG WSF_COMPOSITE_OPTICAL_SIGNATURE
+
+   # We are figuring the base structure at about 11 m long (1 m cone, 10 m body)
+
+   #debug
+
+   # Stage 1, 2 and RV
+   state default
+      surface cone
+         length 1 m
+         radius 0.7 m
+         temperature adiabatic_wall
+      end_surface
+
+      # Length includes stages 1 and 2.
+      surface cylinder
+         length 10.0 m        # Just a guess
+         radius 0.7 m
+         temperature adiabatic_wall
+      end_surface
+
+      # This will eventually automatically attaches to the previous object...
+      surface plume
+         temperature 2000 K
+         length 50 m          # About 5x total
+         radius 1 m
+      end_surface
+
+   # Stage 2 and RV
+   state STAGE_2_RV
+       surface cone
+         length 1 m
+         radius 0.7 m
+         temperature adiabatic_wall
+      end_surface
+
+      # Shorten the body to reflect only the upper stage
+      surface cylinder
+         length 4.0 m        # Just a guess
+         radius 0.7 m
+         temperature adiabatic_wall
+      end_surface
+
+      # This will eventually automatically attaches to the previous object...
+      surface plume
+         temperature 2000 K
+         length 50 m         # About 5x total
+         radius 1 m
+      end_surface
+
+   # RV only
+   state RV_ONLY
+      surface cone
+         length 1 m
+         radius 0.7 m
+         temperature adiabatic_wall
+      end_surface
+
+end_optical_signature
+
+platform_type ROCKET WSF_PLATFORM
+   icon Missile
+   optical_signature ROCKET_OPTICAL_SIG
+
+   # Switch the signature stage based on what stage separated
+   script void on_stage_separation(int aStage)
+      if (aStage == 1) SetOpticalSigState("STAGE_2_RV");
+      if (aStage == 2) SetOpticalSigState("RV_ONLY");
+   end_script
+
+   mover SSM_MOVER_BASE
+      # Treat this as a simple launch vehicle and not a weapon (no 'weapon_effects' or fuse)
+      check_for_ground_impact
+
+      stage 1
+         # Add some coast between stages so we can see the plume change
+         pre_separation_coast_time 4.0 sec
+      end_stage
+   end_mover
+
+   processor guidance SSM_GUIDANCE_BASE
+      phase ASCENT
+         guidance_delay 5000.0 sec
+      end_phase
+   end_processor
+   script void DoSample()
+      writeln("T=", TIME_NOW, " (", TIME_NOW - CreationTime(), ") ", Name(),
+              ", Altitude=", Format.Fixed(Altitude(), 1), " m", ", Mach=", Format.Fixed(MachNumber(), 2),
+              ", FPA=", Format.Fixed(Pitch(), 2), " deg");
+      SamplePoint(PLATFORM, 0.0, 0.0);
+      SamplePoint(PLATFORM, 90.0, 0.0);
+      SamplePoint(PLATFORM, 180.0, 0.0);
+   end_script
+
+   script void TestArea(double aViewAngle,
+                        double aExpectedArea)
+      gTEST_COUNT = gTEST_COUNT + 1;
+      double r = 10000.0;
+      Vec3 obsLocECS = Vec3.Construct(r * Math.Cos(aViewAngle), r * Math.Sin(aViewAngle), 0.0);
+      Vec3 obsLocWCS = ConvertECSToWCS(obsLocECS);
+      WsfGeoPoint obsLoc = WsfGeoPoint.ConstructWCS(obsLocWCS);
+      double area = ProjectedArea(obsLoc, 1.0);
+      if (Math.Fabs(area - aExpectedArea) > 0.01)
+      {
+         gFAIL_COUNT = gFAIL_COUNT + 1;
+         writeln("-FAIL- T=", TIME_NOW, " (", TIME_NOW - CreationTime(), ")",
+                 ", angle=", aViewAngle, " area=", area, ", expected=", aExpectedArea);
+      }
+   end_script
+
+   script void TestAreas(double aExpected_0,
+                         double aExpected_90,
+                         double aExpected_180)
+      TestArea(0.0, aExpected_0);
+      TestArea(90.0, aExpected_90);
+      TestArea(180.0, aExpected_180);
+   end_script
+
+   script_variables
+      double cRV_0 = Math.PI() * 0.7 * 0.7;
+      double cRV_90 = 1.0 * 0.7;
+      double cSTAGE_12_90 = (2.0 * 0.7) * 10.0;
+      double cSTAGE_2_90  = (2.0 * 0.7) * 4.0;
+      double cSTAGE_1_PLUME_0 = Math.PI() * 1.0 * 1.0;
+      double cSTAGE_1_PLUME_90 = 2.0 * 50.0;
+      double cSTAGE_2_PLUME_0  = cSTAGE_1_PLUME_0;
+      double cSTAGE_2_PLUME_90 = cSTAGE_1_PLUME_90;
+   end_script_variables
+
+   # Midway through 1st stage (0-90)
+   execute at_time  45 sec relative DoSample(); end_execute
+   execute at_time  45 sec relative
+     TestAreas(cSTAGE_1_PLUME_0,
+               cRV_90 + cSTAGE_12_90 + cSTAGE_1_PLUME_90,
+               cSTAGE_1_PLUME_0);
+   end_execute
+
+   # Midway through pre-separation coast (90-94)
+   execute at_time  92 sec relative DoSample(); end_execute
+   execute at_time  92 sec relative
+     TestAreas(cRV_0,
+               cRV_90 + cSTAGE_12_90,
+               cRV_0);
+   end_execute
+
+   # Midway through 2nd stage (94-130)
+   execute at_time 117 sec relative DoSample(); end_execute
+   execute at_time 117 sec relative
+     TestAreas(cSTAGE_2_PLUME_0,
+               cRV_90 + cSTAGE_2_90 + cSTAGE_2_PLUME_90,
+               cSTAGE_2_PLUME_0);
+   end_execute
+
+   # After burnout (130)
+   execute at_time 140 sec relative DoSample(); end_execute
+   execute at_time 140 sec relative
+     TestAreas(cRV_0,
+               cRV_90,
+               cRV_0);
+   end_execute
+
+   # Near apogee (FPA ~ 0)
+   execute at_time 480 sec relative DoSample(); end_execute
+
+   # Coming back in to the atmosphere (Altitude ~83 KM)
+   execute at_time 830 sec relative DoSample(); end_execute
+
+   # Near impact
+   execute at_time 880 sec relative DoSample(); end_execute
+
+end_platform_type
+
+# ==============================================================================
+
+# Don't really need this, but this is near the impact point
+platform target WSF_PLATFORM
+   position 25:24:55.24n 0w altitude 0 m msl
+end_platform
+
+platform launcher WSF_PLATFORM
+   position 0n 0w altitude 0 m msl heading 0 deg
+
+   add weapon launcher WSF_EXPLICIT_WEAPON
+      launched_platform_type ROCKET
+      location 0.0 0.0 -5.15 m
+      tilt 89.9 degrees
+      quantity 1
+
+      launch_computer WSF_LAUNCH_COMPUTER
+         commanded_loft_angle 83.3555 deg    # This just about hits 'target'
+      end_launch_computer
+   end_weapon
+
+   execute at_time 1 sec relative
+      WeaponEntry(0).Fire();
+   end_execute
+end_platform
+
+# ==============================================================================
+# A simple example of a fighter
+
+optical_signature FIGHTER_OPTICAL_SIG WSF_COMPOSITE_OPTICAL_SIGNATURE
+
+   # wing
+   surface box
+      size 3 m 10 m 0.2 m    # chord, span, thickness
+      temperature adiabatic_wall
+   end_surface
+
+   # Nose
+   surface cone
+      length 1 m
+      radius 0.7 m
+      temperature adiabatic_wall
+   end_surface
+
+   # Body
+   surface cylinder
+      length 10.0 m
+      radius 0.7 m
+      temperature adiabatic_wall
+   end_surface
+
+   # Jet plume
+   surface plume
+      temperature 700 K
+      length 5 m
+      radius 0.5 m
+   end_surface
+end_optical_signature
+
+platform fighter WSF_PLATFORM
+   optical_signature FIGHTER_OPTICAL_SIG
+
+   add mover WSF_AIR_MOVER
+   end_mover
+
+   route
+      position 0n 0e altitude 30000 ft msl heading 0 deg speed 500 kts
+   end_route
+
+   execute at_time 1 sec relative
+      writeln("Fighter signature");
+      SamplePoint(PLATFORM, 0.0, 0.0);
+      SamplePoint(PLATFORM, 90.0, 0.0);
+      SamplePoint(PLATFORM, 180.0, 0.0);
+      SamplePoint(PLATFORM, 90.0, 89.999);
+   end_execute
+
+end_platform
+
+
+

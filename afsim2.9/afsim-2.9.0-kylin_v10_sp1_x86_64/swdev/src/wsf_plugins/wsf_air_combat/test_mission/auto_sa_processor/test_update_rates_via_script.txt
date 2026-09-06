@@ -1,0 +1,708 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test script access to the various update rates of the SA Processor:
+#  - Verify that all update rates default to zero and that update_event_base_interval defaults to 1.0
+#  - Verify that update rates are rounded to the nearest base interval multiple in commands and methods
+#  - Verify all SA Process update interval commands, including the new base interval and group commands
+#  - Verify that each update rate can be retrieved and modified individually and by group
+#  - Verify that each update rate can be reset to its startup value individually and by group
+#  - Verify asset_purge_lifetime default values
+#  - Verify asset_purge_lifetime get/set/reset methods
+#
+include_once ../auto_script/utility_test_functions.txt
+
+end_time 30 sec
+
+script_variables
+   bool allTestsPassed            = true;     // any failure turns it false
+   int numUpdateTypes             = 11;       // size of arrays below
+   int numCalculationTypes        = 2;        // size of the arrays for calculation updates
+   double assetPurgeDefault_1     = 5;        // when asset_update_interval is unspecified
+   double assetPurgeDefault_2     = 2.5 * 19; // for asset_update_interval = 19
+   double assetPurgeStartup       = 30;
+   double assetPurgeModified      = 3.0;
+   double updateEventBaseInterval = 22;
+
+   # The updateTypes strings are used in error messages as well as the tests
+   Array<string> updateTypeStrings =
+   {
+      "report_interval",
+      "engagement_data_update_interval",
+      "flight_data_update_interval",
+      "fuel_data_update_interval",
+      "nav_data_update_interval",
+      "flight_controls_data_update_interval",
+      "weapons_data_update_interval",
+      "track_data_update_interval",
+      "asset_data_update_interval",
+      "perceived_item_data_update_interval",
+      "prioritized_item_data_update_interval"
+   };
+
+   # The calculationUpdateTypes strings are used in error messages as well as the tests
+   # Note that these aren't governed by universal_update_interval.
+   Array<string> calculationUpdateTypeStrings =
+   {
+      "perceived_item_calculation_update_interval",
+      "prioritized_item_calculation_update_interval",
+      "behavior_calculation_update_interval"
+   };
+
+   # The startupRates must match the values specified in platform-2, below
+   Array<double> startupRates = 
+   {
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21
+   };
+
+   # The startupRates must match the values specified in platform-2, below
+   Array<double> calculationStartupRates = 
+   {
+      11,
+      12,
+      13
+   };
+
+   # These values are arbitrary, used as settings and read-back confirmation
+   Array<double> modifiedRates = 
+   {
+      1,
+      1.4,
+      1.6,
+      1.5,
+      2.01,
+      3.0,
+      3.1,
+      4.5,
+      .1,
+      .01,
+      6.0
+   };
+
+   # These values are arbitrary, used as settings and read-back confirmation
+   Array<double> calculationModifiedRates = 
+   {
+      1.4,
+      1.6,
+      1.5
+   };
+
+   Array<double> expectedRoundedRatesWDefault = 
+   {
+      1,
+      1,
+      2,
+      2,
+      2,
+      3,
+      3,
+      5,
+      1,
+      1,
+      6
+   };
+
+   Array<double> calculationExpectedRoundedRatesWDefault = 
+   {
+      1,
+      2,
+      2
+   };
+   
+   Array<string> cognitiveTypeStrings =
+   {
+      "asset_data_update_interval",
+      "perceived_item_data_update_interval",
+      "engagement_data_update_interval",
+      "prioritized_item_data_update_interval"
+   };
+   
+   Array<string> platformTypeStrings =
+   {
+      "flight_controls_data_update_interval",
+      "flight_data_update_interval",
+      "fuel_data_update_interval",
+      "nav_data_update_interval",
+      "report_interval",
+      "track_data_update_interval",
+      "weapons_data_update_interval"
+   };
+end_script_variables
+
+#event_output
+#   file STDOUT
+#   file test_update_rates_via_script.evt
+#   flush_output true
+#   enable EVENT_OF_INTEREST
+#   enable SIMULATION_STARTING
+#end_event_output
+
+# ****************************************************************************
+# Define the SA Processor used for testing
+# ****************************************************************************
+
+processor SA_PROCESSOR_TEST WSF_SA_PROCESSOR 
+   on
+   update_interval 1.0 sec
+   
+#   script_variables
+      # TBD
+#   end_script_variables
+
+#   on_initialize 
+      # TBD
+#   end_on_initialize
+         
+#   on_update 
+      # TBD
+#   end_on_update
+
+end_processor
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   icon F-18E
+   side blue
+   
+   mover WSF_AIR_MOVER
+   end_mover
+
+   processor sa-proc SA_PROCESSOR_TEST
+      on
+   end_processor
+
+end_platform_type
+
+# ****************************************************************************
+# Define the platform instances
+# ****************************************************************************
+
+# This platform uses defaults for all SA processor update intervals
+platform platform-1 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+   # Verify startup defaults for all update types, asset_purge_lifetime and update_event_base_interval
+   execute at_time 1 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      for (int i=0 ; i<numUpdateTypes ; i = i + 1)
+      {
+         string errStr = Name() + ": Unexpected default update rate for " + updateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(0, saProc.GetUpdateInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      
+      for (int i=0 ; i<numCalculationTypes ; i = i + 1)
+      {
+         string errStr = Name() + ": Unexpected default update rate for " + calculationUpdateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(0, saProc.GetUpdateInterval(calculationUpdateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      
+      string errStr = Name() + ": Unexpected default value for asset_purge_lifetime with asset_update_interval defaulted to zero";
+      allTestsPassed = AssertDoubleEqualsMessage(assetPurgeDefault_1, saProc.GetAssetDataPurgeLifetime(), errStr) && allTestsPassed;
+      errStr = Name() + ": Unexpected default value for update_event_base_interval";
+      allTestsPassed = AssertDoubleEqualsMessage(1.0, saProc.UpdateInterval(), errStr) && allTestsPassed;
+   end_execute
+
+   # Verify ability to override update rate defaults at runtime
+   execute at_time 2 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      for (int i=0 ; i<numUpdateTypes ; i = i + 1)
+      {
+         string errStr = Name() + ": SetUpdateInterval failed for " + updateTypeStrings[i];
+         allTestsPassed = AssertTrueMessage(saProc.SetUpdateInterval(updateTypeStrings[i], modifiedRates[i]), errStr) && allTestsPassed;
+         errStr = Name() + ": Unexpected read-back of modified rate for " + updateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(expectedRoundedRatesWDefault[i], saProc.GetUpdateInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      
+      for (int i=0 ; i<numCalculationTypes ; i = i + 1)
+      {
+         string errStr = Name() + ": SetUpdateInterval failed for " + calculationUpdateTypeStrings[i];
+         allTestsPassed = AssertTrueMessage(saProc.SetUpdateInterval(calculationUpdateTypeStrings[i], calculationModifiedRates[i]), errStr) && allTestsPassed;
+         errStr = Name() + ": Unexpected read-back of modified rate for " + calculationUpdateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(calculationExpectedRoundedRatesWDefault[i], saProc.GetUpdateInterval(calculationUpdateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to reset update rates to default value
+   execute at_time 3 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      for (int i=0 ; i<numUpdateTypes ; i = i + 1)
+      {
+         saProc.ResetUpdateInterval(updateTypeStrings[i]);
+         string errStr = Name() + ": ResetUpdateInterval failed read-back for " + updateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(0, saProc.GetUpdateInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      
+      for (int i=0 ; i<numCalculationTypes ; i = i + 1)
+      {
+         saProc.ResetUpdateInterval(calculationUpdateTypeStrings[i]);
+         string errStr = Name() + ": ResetUpdateInterval failed read-back for " + calculationUpdateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(0, saProc.GetUpdateInterval(calculationUpdateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+end_platform
+
+# This platform supplies startup values for all SA processor update intervals, but not for asset_purge_lifetime
+platform platform-2 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:30n 115:04:18w
+      altitude 35000 ft
+      speed      450 kts
+      heading      0 deg
+   end_route
+   
+   edit processor sa-proc
+
+      # Data collection rates
+      report_interval                              11.00 sec
+      engagement_data_update_interval              12.00 sec
+      flight_data_update_interval                  13.00 sec
+      fuel_data_update_interval                    14.00 sec
+      nav_data_update_interval                     15.00 sec
+      flight_controls_data_update_interval         16.00 sec
+      weapons_data_update_interval                 17.00 sec
+      track_data_update_interval                   18.00 sec
+      asset_data_update_interval                   19.00 sec
+      perceived_item_data_update_interval          20.00 sec
+      prioritized_item_data_update_interval        21.00 sec      
+      perceived_item_calculation_update_interval   11.00 sec
+      prioritized_item_calculation_update_interval 12.00 sec
+      behavior_calculation_update_interval         13.00 sec
+
+   end_processor
+
+   # Verify startup values from scenario for all update types and asset_purge_lifetime
+   execute at_time 5 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      for (int i=0 ; i<numUpdateTypes ; i = i + 1)
+      {
+      	string errStr = Name() + ": Unexpected startup update rate for " + updateTypeStrings[i];
+      	allTestsPassed = AssertDoubleEqualsMessage(startupRates[i], saProc.GetStartupInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      string errStr = Name() + ": Unexpected default value for asset_purge_lifetime with asset_update_interval specified";
+      allTestsPassed = AssertDoubleEqualsMessage(assetPurgeDefault_2, saProc.GetAssetDataPurgeLifetime(), errStr) && allTestsPassed;
+      
+      for (int i=0 ; i<numCalculationTypes ; i = i + 1)
+      {
+      	string errStr = Name() + ": Unexpected startup update rate for " + calculationUpdateTypeStrings[i];
+      	allTestsPassed = AssertDoubleEqualsMessage(calculationStartupRates[i], saProc.GetStartupInterval(calculationUpdateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to override startup values at runtime
+   execute at_time 6 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      for (int i=0 ; i<numUpdateTypes ; i = i + 1)
+      {
+         string errStr = Name() + ": SetUpdateInterval failed for " + updateTypeStrings[i];
+         allTestsPassed = AssertTrueMessage(saProc.SetUpdateInterval(updateTypeStrings[i], modifiedRates[i]), errStr) && allTestsPassed;
+         errStr = Name() + ": Unexpected read-back of modified rate for " + updateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(expectedRoundedRatesWDefault[i], saProc.GetUpdateInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      
+      for (int i=0 ; i<numCalculationTypes ; i = i + 1)
+      {
+         string errStr = Name() + ": SetUpdateInterval failed for " + calculationUpdateTypeStrings[i];
+         allTestsPassed = AssertTrueMessage(saProc.SetUpdateInterval(calculationUpdateTypeStrings[i], calculationModifiedRates[i]), errStr) && allTestsPassed;
+         errStr = Name() + ": Unexpected read-back of modified rate for " + calculationUpdateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(calculationExpectedRoundedRatesWDefault[i], saProc.GetUpdateInterval(calculationUpdateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to reset update rates to startup values
+   execute at_time 7 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      for (int i=0 ; i<numUpdateTypes ; i = i + 1)
+      {
+         saProc.ResetUpdateInterval(updateTypeStrings[i]);
+         string errStr = Name() + ": ResetUpdateInterval failed read-back for " + updateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(startupRates[i], saProc.GetUpdateInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      
+      for (int i=0 ; i<numCalculationTypes ; i = i + 1)
+      {
+         saProc.ResetUpdateInterval(calculationUpdateTypeStrings[i]);
+         string errStr = Name() + ": ResetUpdateInterval failed read-back for " + calculationUpdateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(calculationStartupRates[i], saProc.GetUpdateInterval(calculationUpdateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+end_platform
+
+# This platform supplies a startup value for the SA processor asset_purge_lifetime and update_event_base_interval
+platform platform-3 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:26n 115:04:18w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   edit processor sa-proc
+
+      # asset_purge_lifetime startup value provided
+      asset_purge_lifetime  30.00 sec
+      update_interval       22.00 sec
+   end_processor
+
+   # Verify startup value from scenario and set/reset methods for asset_purge_lifetime
+   # Verify startup value from scenario for update_event_base_interval
+   execute at_time 9 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      string errStr = Name() + ": Unexpected startup value for asset_purge_lifetime";
+      allTestsPassed = AssertDoubleEqualsMessage(assetPurgeStartup, saProc.GetAssetDataPurgeLifetime(), errStr) && allTestsPassed;
+      errStr = Name() + ": Unexpected startup value for update_event_base_interval";
+      allTestsPassed = AssertDoubleEqualsMessage(updateEventBaseInterval, saProc.UpdateInterval(), errStr) && allTestsPassed;
+   end_execute
+
+   # Verify ability to override startup value for asset_purge_lifetime
+   execute at_time 10 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      string errStr = Name() + ": SetAssetDataPurgeLifetime failed";
+      allTestsPassed = AssertTrueMessage(saProc.SetAssetDataPurgeLifetime(assetPurgeModified), errStr) && allTestsPassed;
+      errStr = Name() + ": Unexpected read-back of modified rate for asset_purge_lifetime";
+      allTestsPassed = AssertDoubleEqualsMessage(assetPurgeModified, saProc.GetAssetDataPurgeLifetime(), errStr) && allTestsPassed;
+   end_execute
+
+   # Verify ability to reset asset_purge_lifetime to startup values
+   execute at_time 11 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      saProc.ResetAssetDataPurgeLifetime();
+      string errStr = Name() + ": ResetAssetDataPurgeLifetime failed read-back";
+      allTestsPassed = AssertDoubleEqualsMessage(assetPurgeStartup, saProc.GetAssetDataPurgeLifetime(), errStr) && allTestsPassed;
+   end_execute
+
+end_platform
+
+# This platform uses the universal_update_interval command to establish a common startup value
+# and tests the cognitive_update_interval group methods
+platform platform-4 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed      450 kts
+      heading      0 deg
+   end_route
+   
+   edit processor sa-proc
+
+      # Data collection rates
+      universal_update_interval  34.00 sec
+
+   end_processor
+
+   # Verify startup value for all update types
+   execute at_time 13 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      for (int i=0 ; i<numUpdateTypes ; i = i + 1)
+      {
+         string errStr = Name() + ": Unexpected startup update rate for " + updateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(34.00, saProc.GetUpdateInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to override update rate values at runtime for the cognitive group
+   execute at_time 14 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      
+      string updateName = "cognitive_update_interval";
+      double newRate = 1.1;
+      double roundedRate = 1;
+      string errStr = Name() + ": SetUpdateInterval failed for " + updateName;
+      allTestsPassed = AssertTrueMessage(saProc.SetUpdateInterval(updateName, newRate), errStr) && allTestsPassed; 
+      
+      // Verify new values for the cognitive rates
+      for (int i=0 ; i<cognitiveTypeStrings.Size() ; i = i + 1)
+      {
+         errStr = Name() + ": Unexpected read-back of cognitive group modified rate for " + cognitiveTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(roundedRate, saProc.GetUpdateInterval(cognitiveTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      
+      // Verify the old values are still in the platform group
+      for (int i=0 ; i<platformTypeStrings.Size() ; i = i + 1)
+      {
+         errStr = Name() + ": Unexpected modification by cognitive group for " + platformTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(34.00, saProc.GetUpdateInterval(platformTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to reset cognitive group update rates to startup value
+   execute at_time 15 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      saProc.ResetUpdateInterval("cognitive_update_interval");
+      for (int i=0 ; i<numUpdateTypes ; i = i + 1)
+      {
+         string errStr = Name() + ": ResetUpdateInterval failed read-back for " + updateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(34.00, saProc.GetUpdateInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+end_platform
+
+# This platform uses the cognitive_update_interval and platform_update_interval commands to establish
+# startup values for all SA processor update intervals and tests the platform update interval group methods
+# Rounding of update intervals to nearest base interval multiple is tested in commands and methods.
+platform platform-5 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed      450 kts
+      heading      0 deg
+   end_route
+   
+   edit processor sa-proc
+
+      # Data collection rates (expect rounding to 34 and 35, respectively)
+      cognitive_update_interval 33.51 sec
+      platform_update_interval  35.49 sec
+      update_interval           1.00 sec
+
+   end_processor
+
+   # Verify startup value for cognitive and platform groups
+   execute at_time 17 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      for (int i=0 ; i<cognitiveTypeStrings.Size() ; i = i + 1)
+      {
+         string errStr = Name() + ": Unexpected startup update rate for " + cognitiveTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(34.00, saProc.GetUpdateInterval(cognitiveTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      for (int i=0 ; i<platformTypeStrings.Size() ; i = i + 1)
+      {
+         string errStr = Name() + ": Unexpected startup update rate for " + platformTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(35.00, saProc.GetUpdateInterval(platformTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to override update rate values at runtime for the platform group
+   execute at_time 18 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      
+      string updateName = "platform_update_interval";
+      double newRate = 1.2;   // expect rounding to 1.0
+      string errStr = Name() + ": SetUpdateInterval failed for " + updateName;
+      allTestsPassed = AssertTrueMessage(saProc.SetUpdateInterval(updateName, newRate), errStr) && allTestsPassed; 
+      
+      // Verify new values for the platform rates
+      for (int i=0 ; i<platformTypeStrings.Size() ; i = i + 1)
+      {
+         errStr = Name() + ": Unexpected read-back of platform group modified rate for " + platformTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(1.0, saProc.GetUpdateInterval(platformTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      
+      // Verify the old values are still in the cognitive group
+      for (int i=0 ; i<cognitiveTypeStrings.Size() ; i = i + 1)
+      {
+         errStr = Name() + ": Unexpected modification by platform group for " + cognitiveTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(34.00, saProc.GetUpdateInterval(cognitiveTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to reset platform group update rates to startup value
+   execute at_time 19 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      saProc.ResetUpdateInterval("platform_update_interval");
+      for (int i=0 ; i<cognitiveTypeStrings.Size() ; i = i + 1)
+      {
+         string errStr = Name() + ": Unexpected update rate after platform group reset for " + cognitiveTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(34.00, saProc.GetUpdateInterval(cognitiveTypeStrings[i]), errStr) && allTestsPassed;
+      }
+      for (int i=0 ; i<platformTypeStrings.Size() ; i = i + 1)
+      {
+         string errStr = Name() + ": ResetUpdateInterval failed read-back for " + platformTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(35.00, saProc.GetUpdateInterval(platformTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+end_platform
+
+# This platform uses the universal_update_interval to establish a common startup value for
+# all SA processor update intervals and tests the universal update interval methods.
+# Rounding of update intervals to nearest base interval multiple is tested in methods.
+platform platform-6 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed      450 kts
+      heading      0 deg
+   end_route
+   
+   edit processor sa-proc
+
+      # Data collection rates
+      update_interval           1.00 sec
+      universal_update_interval 34.00 sec
+
+   end_processor
+
+   # Verify ability to override update rate values at runtime for the universal group
+   execute at_time 21 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      
+      string updateName = "universal_update_interval";
+      double newRate = 1.7;   // expect rounding to 2.0
+      string errStr = Name() + ": SetUpdateInterval failed for " + updateName;
+      allTestsPassed = AssertTrueMessage(saProc.SetUpdateInterval(updateName, newRate), errStr) && allTestsPassed; 
+      
+      // Verify new values for the universal rates
+      for (int i=0 ; i<updateTypeStrings.Size() ; i = i + 1)
+      {
+         errStr = Name() + ": Unexpected read-back of universal group modified rate for " + updateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(2.0, saProc.GetUpdateInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to reset universal group update rates to startup value
+   execute at_time 22 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      saProc.ResetUpdateInterval("universal_update_interval");
+      for (int i=0 ; i<numUpdateTypes ; i = i + 1)
+      {
+         string errStr = Name() + ": ResetUpdateInterval failed read-back for " + updateTypeStrings[i];
+         allTestsPassed = AssertDoubleEqualsMessage(34.00, saProc.GetUpdateInterval(updateTypeStrings[i]), errStr) && allTestsPassed;
+      }
+   end_execute
+
+end_platform
+
+# This platform uses the cognitive_update_interval and platform_update_interval commands to establish
+# startup values for all SA processor update intervals and tests the get method for the cognitivie and
+# platform groups.  It also verifies that the get method for the universal group fails when values are different.
+platform platform-7 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed      450 kts
+      heading      0 deg
+   end_route
+   
+   edit processor sa-proc
+      # The cognition group needs to have a different value than the platform group for this test.
+      cognitive_update_interval 34.00 sec
+      platform_update_interval  35.00 sec
+   end_processor
+
+   # verify that we can get the value for the entire cognitive_update_interval group
+   execute at_time 24 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      
+      string errStr = Name() + ": Unexpected update rate for 'cognitive_update_interval'";
+      allTestsPassed = AssertDoubleEqualsMessage(34.00, saProc.GetUpdateInterval("cognitive_update_interval"), errStr) && allTestsPassed;
+   end_execute
+   
+   # verify that we can get the value for the entire platform_update_interval group
+   execute at_time 25 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      
+      string errStr = Name() + ": Unexpected update rate for 'platform_update_interval'";
+      allTestsPassed = AssertDoubleEqualsMessage(35.00, saProc.GetUpdateInterval("platform_update_interval"), errStr) && allTestsPassed;
+   end_execute
+   
+   # verify that we can get the value of -1.0 for the universal_update_interval group when all of the values aren't the same
+   execute at_time 26 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      
+      string errStr = Name() + ": Unexpected success from GetUpdateInterval('universal_update_interval')";
+      allTestsPassed = AssertDoubleEqualsMessage(-1.0, saProc.GetUpdateInterval("universal_update_interval"), errStr) && allTestsPassed;
+   end_execute     
+
+end_platform
+
+# This platform uses startup values for SA processor update intervals that result in mismatches
+# within the cognitive and platform groups to verify failure of the get method.
+platform platform-8 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed      450 kts
+      heading      0 deg
+   end_route
+   
+   edit processor sa-proc
+      # At least one value needs to be different in the cognition group and the platform group.
+
+      # cognition group
+      cognitive_update_interval         34.00 sec
+      prioritized_item_data_update_interval  35.00 sec 
+      
+      # platform group
+      platform_update_interval          35.00 sec
+      report_interval                   36.00 sec
+   end_processor
+   
+   # verify that we can get the value of -1.0 for the cognitive_update_interval group when all of the values aren't the same
+   execute at_time 28 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+
+      string errStr = Name() + ": Unexpected success from GetUpdateInterval('cognitive_update_interval')";
+      allTestsPassed = AssertDoubleEqualsMessage(-1.0, saProc.GetUpdateInterval("cognitive_update_interval"), errStr) && allTestsPassed;
+   end_execute
+
+   # verify that we can get the value of -1.0 for the platform_update_interval group when all of the values aren't the same
+   execute at_time 29 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+
+      string errStr = Name() + ": Unexpected success from GetUpdateInterval('platform_update_interval')";
+      allTestsPassed = AssertDoubleEqualsMessage(-1.0, saProc.GetUpdateInterval("platform_update_interval"), errStr) && allTestsPassed;
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

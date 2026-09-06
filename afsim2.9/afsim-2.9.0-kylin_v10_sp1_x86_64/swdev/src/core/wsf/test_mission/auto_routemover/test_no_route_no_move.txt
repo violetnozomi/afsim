@@ -1,0 +1,65 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Ensure that the route mover works with no route. (It should stay where it was put).
+#
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   mover WSF_GROUND_MOVER
+      update_interval 1.0 sec
+   end_mover
+end_platform_type
+
+platform test-1 TEST_PLATFORM
+   position 39.5n 90w altitude 0 m agl heading 270 deg
+
+   script void on_platform_deleted()
+      bool pass = true;
+      writeln("Latitude=", Latitude(), " Longitude=", Longitude(),
+              " Altitude=", Altitude(), " Heading=", Heading(),
+              " Speed=", Speed());
+      if (MATH.Fabs(Latitude() - 39.5) > 0.000001)
+      {
+         writeln("-FAIL- Latitude = ", Latitude(), ", expected 39.5");
+         pass = false;
+      }
+      if (MATH.Fabs(Longitude() - (- 90.0)) > 0.000001)
+      {
+         writeln("-FAIL- Longitude = ", Longitude(), ", expected -90.0");
+         pass = false;
+      }
+      if (MATH.Fabs(Altitude() - 0.0) > 0.000001)
+      {
+         writeln("-FAIL- Altitude = ", Altitude(), ", expected 0.0");
+         pass = false;
+      }
+      double heading = MATH.NormalizeAngle0_360(Heading());
+      if (MATH.Fabs(heading - 270.0) > 0.000001)
+      {
+         writeln("-FAIL- Heading = ", heading, ", expected 270.0");
+         pass = false;
+      }
+      if (Speed() != 0.0)
+      {
+         writeln("-FAIL- Speed = ", Speed(), ", expected 0.0");
+         pass = false;
+      }
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+    end_script
+end_platform
+
+end_time 10 min
+/*
+event_pipe
+   file replay.aer
+end_event_pipe
+*/

@@ -1,0 +1,112 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Test case that will trigger a UtMatrix: Singular matrix error
+
+define_path_variable CASE test_trimsim
+
+# ****************************************************************************
+platform_type PASSIVE_SNSR_PLATFORM WSF_PLATFORM
+   icon f-35
+
+   mover WSF_AIR_MOVER
+   end_mover
+
+   sensor passive WSF_ESM_SENSOR
+      on
+      frame_time                   1.0 sec
+      reports_location
+
+      receiver
+         frequency_band            2.01 ghz 34 ghz
+         bandwidth                 2.0 mhz
+      end_receiver
+
+      error_model trimsim_error
+         north_position_error_sigma      0.1 ft
+         east_position_error_sigma       0.1 ft
+         down_position_error_sigma       0.1 ft
+         reference_time_error            5.0 ns
+         inter_system_time_delay         5.0 ns
+#         ground_target_altitude_error    0.1 ft
+      end_error_model
+
+   end_sensor
+
+end_platform_type
+
+# ****************************************************************************
+platform p1 PASSIVE_SNSR_PLATFORM
+   route
+      label start
+         position 36:04:55n 115:08:38w altitude 30000 ft msl speed 400 kts
+         position 38:04:55n 115:08:38w altitude 30000 ft msl speed 400 kts
+      goto start
+   end_route
+   add processor tdoa WSF_TRIMSIM_PROCESSOR
+      minimum_detections 2
+      sensors
+         sensor passive
+         platform_sensor p2 passive
+         platform_sensor p3 passive
+      end_sensors
+   end_processor
+end_platform
+
+platform p2 PASSIVE_SNSR_PLATFORM
+    route
+      label start
+         position 36:04:55n 114:36:38w altitude 30000 ft msl speed 400 kts
+         position 38:04:55n 114:36:38w altitude 30000 ft msl speed 400 kts
+      goto start
+   end_route
+end_platform
+
+platform p3 PASSIVE_SNSR_PLATFORM
+   route
+      label start
+         position 36:04:55n 115:34:38w altitude 30000 ft msl speed 400 kts
+         position 38:04:55n 115:34:38w altitude 30000 ft msl speed 400 kts
+      goto start
+   end_route
+end_platform
+
+# ****************************************************************************
+platform target WSF_PLATFORM
+   icon Fuel_Truck
+   side blue
+   add mover WSF_GROUND_MOVER
+      route
+         position 37:22:24.13n 115:31:19.32w altitude 0.00 ft agl speed 50 mph
+         position 36:31:09.52n 115:31:19.31w altitude 0.00 ft agl speed 50 mph
+         position 36:31:08.76n 115:41:45.16w altitude 0.00 ft agl speed 50 mph
+         position 35:39:45.24n 115:41:47.53w altitude 0.00 ft agl speed 50 mph
+      end_route
+   end_mover
+   add sensor GROUND_RADAR WSF_RADAR_SENSOR
+      on
+      frame_time              0.5 sec
+      transmitter
+         frequency            9.6 ghz
+         power                2.3 MW
+      end_transmitter
+      reports_location
+   end_sensor
+end_platform
+
+# ****************************************************************************
+end_time 3 hr
+
+script void SimulationComplete()
+   // If test does not crash then it passes!
+   writeln("-PASS-");
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer

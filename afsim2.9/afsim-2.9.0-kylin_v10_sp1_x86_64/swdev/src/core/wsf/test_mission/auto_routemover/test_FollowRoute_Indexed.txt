@@ -1,0 +1,109 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test movers FollowRoute(WsfRoute, int) method
+//    insure platform procedes to correct waypoint.
+//
+
+// end prior to platform reaching index 2 after redirect
+end_time 5 min
+/*
+event_pipe
+   file testFollowRoute_Indexed.aer
+end_event_pipe
+*/
+route route1
+   label start
+   position 0n 0e speed 1000 m/s altitude 10 m
+      execute test0
+   position 0n 1e altitude 20 m
+      execute test1
+   position 1n 1e altitude 30 m
+      execute test2
+      label   point_4
+   position 1n 0e altitude 40 m
+      execute test3
+   goto start
+end_route
+
+platform_type test_type WSF_PLATFORM
+   script_variables
+      int lastWpReached = -1;
+      bool pass = false;
+      Object gotoPoint;
+   end_script_variables
+   add mover WSF_AIR_MOVER
+      use_route route1
+      maximum_climb_rate 500 m/s
+      maximum_radial_acceleration 1000 g
+   end_mover
+   script void test0()
+      // Should get here second
+      pass = (lastWpReached == 3);
+      lastWpReached = 0;
+   end_script
+   script void test1()
+      // Should never get here
+      pass = false;
+      lastWpReached = 1;
+   end_script
+   script void test2()
+      // Should never get here
+      pass = false;
+      lastWpReached = 2;
+   end_script
+   script void test3()
+      // Should get here first
+      pass = false;
+      if (Altitude() > 39.0 && Altitude() < 41.0)
+      {
+         lastWpReached = 3;
+      }
+      else
+      {
+         writeln("-FAIL- Bad altitude: ", Altitude());
+      }
+   end_script
+   script void on_platform_deleted()
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+end_platform_type
+
+platform test1 test_type
+   // Redirect platform to index 3 prior to reaching 1
+   execute at_time 60 s absolute
+      WsfRoute route = PLATFORM.CreateRoute("route1");
+      #PLATFORM.FollowRoute(route, 3);
+      PLATFORM.FollowRoute(route, "point_4");
+   end_execute
+end_platform
+
+platform test2 test_type
+   script_variables
+      gotoPoint = 3;
+   end_script_variables
+   // Redirect platform to index 3 prior to reaching 1
+   execute at_time 60 s absolute
+      WsfRoute route = PLATFORM.CreateRoute("route1");
+      PLATFORM.FollowRoute(route, 3);
+   end_execute
+end_platform
+
+non-realtime
+
+#event_pipe
+#   file replay.aer
+#end_event_pipe

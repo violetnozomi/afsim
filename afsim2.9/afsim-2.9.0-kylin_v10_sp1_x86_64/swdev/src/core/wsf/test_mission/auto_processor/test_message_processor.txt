@@ -1,0 +1,194 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# -------------------------------------------------------------------------------------------------
+#
+# This tests the basic functionallity of WSF_MESSAGE_PROCESSOR.
+#
+# -------------------------------------------------------------------------------------------------
+
+script void PrintMessage(double aSimTime, string aName, string aSubName, WsfMessage aMessage)
+   write("T=",aSimTime," ",aName,".",aSubName," Rcvd: ", aMessage.Type(),".",aMessage.SubType());
+   if (aMessage.Type() == "WSF_TRACK_MESSAGE")
+   {
+      WsfTrackMessage m = (WsfTrackMessage) aMessage;
+      WsfTrack t = m.Track();
+      writeln(" TID: ", t.TrackId()," SensorName: ", t.SensorName(), " SensorType: ", t.SensorType());
+   }
+   else if (aMessage.Type() == "WSF_DROP_TRACK_MESSAGE")
+   {
+      WsfTrackDropMessage m = (WsfTrackDropMessage) aMessage;
+      writeln(" TID: ", m.TrackId());
+   }
+   else if (aMessage.Type() == "WSF_STATUS_MESSAGE")
+   {
+      WsfStatusMessage m = (WsfStatusMessage) aMessage;
+      writeln(" Status: ", m.Status(), " System: ", m.SystemName());
+   }
+   else
+   {
+      writeln(" ");
+   }
+end_script
+
+comm RADIO WSF_COMM_TRANSCEIVER
+end_comm
+
+sensor RADAR WSF_GEOMETRIC_SENSOR
+   ignore_same_side
+   frame_time 10 sec
+   reports_location
+end_sensor
+
+sensor OPTICAL WSF_GEOMETRIC_SENSOR
+   ignore_same_side
+   frame_time 10 sec
+   reports_location
+end_sensor
+
+# -------------------------------------------------------------------------------------------------
+
+platform target WSF_PLATFORM
+   side red
+   position 40n 90w altitude 30000 ft
+
+   execute at_time 35 secs absolute
+      DeletePlatform();
+   end_execute
+end_platform
+
+# -------------------------------------------------------------------------------------------------
+
+platform commander-1 WSF_PLATFORM
+   side blue
+   position 39n 90w
+
+   add comm radio-1 RADIO
+      internal_link msg_proc
+   end_comm
+
+   add processor msg_proc WSF_SCRIPT_PROCESSOR
+      on_message
+         default
+            script
+               extern void PrintMessage(double, string, string, WsfMessage);
+               PrintMessage(TIME_NOW, PLATFORM.Name(), Name(), MESSAGE);
+            end_script
+      end_on_message
+   end_processor
+
+end_platform
+
+# -------------------------------------------------------------------------------------------------
+
+platform source-1 WSF_PLATFORM
+   side blue
+   commander commander-1
+
+   position 39.1n 90w
+
+   add processor msg_proc WSF_MESSAGE_PROCESSOR
+      script_variables
+         bool onMessagePassed = false;
+      end_script_variables
+
+      process
+         select
+            # This could be done with a 'type' command, but we use a script for testing
+            script
+               return (MESSAGE.Type() == "WSF_TRACK_MESSAGE");
+            end_script
+         end_select
+
+         select
+            # As of 1.7.2, the official message type for WsfTrackDropMessage was WSF_DROP_TRACK_MESSAGE.
+            # Test the compatibility code that allows either.
+            # type WSF_DROP_TRACK_MESSAGE
+            type WSF_TRACK_DROP_MESSAGE
+         end_select
+
+         delay_time 2.5 secs
+         internal_link track_proc
+         external_link commander via radio-1
+      end_process
+
+      default_process
+         internal_link default_proc
+         delay_time 1.0 secs
+         script
+            writeln("T=",TIME_NOW, " default_process:script called with ", MESSAGE.Type());
+         end_script
+      end_default_process
+
+      default_routing
+      end_default_routing
+
+      on_message
+         default
+            script
+               onMessagePassed = true;
+            end_script
+      end_on_message
+
+      script void on_platform_deleted()
+         if (onMessagePassed)
+         {
+            writeln("-PASS-");
+         }
+         else
+         {
+            writeln("-FAIL-");
+         }
+      end_script
+   end_processor
+
+   script void on_platform_deleted()
+      PLATFORM.Processor("msg_proc").ExecuteScript("on_platform_deleted");
+   end_script
+
+   add processor track_proc WSF_SCRIPT_PROCESSOR
+      on_message
+         default
+            script
+               extern void PrintMessage(double, string, string, WsfMessage);
+               PrintMessage(TIME_NOW, PLATFORM.Name(), Name(), MESSAGE);
+            end_script
+      end_on_message
+   end_processor
+
+   add processor default_proc WSF_SCRIPT_PROCESSOR
+      on_message
+         default
+            script
+               extern void PrintMessage(double, string, string, WsfMessage);
+               PrintMessage(TIME_NOW, PLATFORM.Name(), Name(), MESSAGE);
+            end_script
+      end_on_message
+   end_processor
+
+   add comm radio-1 RADIO
+      off
+      internal_link msg_proc
+   end_comm
+
+   add sensor radar RADAR
+      internal_link msg_proc
+   end_sensor
+
+   add sensor optical OPTICAL
+      internal_link msg_proc
+   end_sensor
+
+   execute at_time 0.5 sec relative Comm("radio-1").TurnOn(); end_execute
+   execute at_time 1 sec relative Sensor("radar").TurnOn(); end_execute
+   #execute at_time 1 sec relative Sensor("optical").TurnOn(); end_execute
+
+end_platform
+
+end_time 60 sec

@@ -1,0 +1,140 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests script usage of WsfWeaponFuse
+
+include ../auto_script/test_pass.txt
+include ../auto_script/test_functions.txt
+
+script_variables
+   PassTestCount = 77;
+end_script_variables
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   script_variables
+      double maxTof = 300.0;
+      double machDecreasingTo = 0.0;
+      double belowMach = 0.0;
+      double belowSpeed = 0.0;
+      double belowAgl = 0.0;
+      double aboveAgl = 0.0;
+      double belowMsl = 0.0;
+      double aboveMsl = 0.0;
+      double tofToArm = 60.0;
+   end_script_variables
+   
+   processor fuse WSF_WEAPON_FUSE
+      maximum_time_of_flight 5 min
+      time_of_flight_to_arm  1 min
+   end_processor
+   
+   execute at_time 1 sec absolute
+      WsfProcessor proc = PLATFORM.Processor("fuse");
+      WsfWeaponFuse fuse = (WsfWeaponFuse)proc;
+      if (AssertTrueMessage(fuse.IsValid(), "Could not cast processor to WsfWeaponFuse"))
+      { 
+         pass();
+         if (AssertEqualsMessage(maxTof, fuse.MaximumTimeOfFlight(), "Unexpected max time of flight")) { pass(); }
+         if (AssertEqualsMessage(machDecreasingTo, fuse.GetDetonateOnMachDecreasingTo(), "Unexpected detonate on mach decreasing to")) { pass(); }
+         if (AssertEqualsMessage(belowMach, fuse.GetDetonateBelowMach(), "Unexpected detonate below mach")) { pass(); }
+         if (AssertEqualsMessage(belowSpeed, fuse.GetDetonateBelowSpeed(), "Unexpected detonate below speed")) { pass(); }
+         if (AssertEqualsMessage(belowAgl, fuse.GetDetonateBelowHeightAGL(), "Unexpected detonate below height agl")) { pass(); }
+         if (AssertEqualsMessage(aboveAgl, fuse.GetDetonateAboveHeightAGL(), "Unexpected detonate above height agl")) { pass(); }
+         if (AssertEqualsMessage(belowMsl, fuse.GetDetonateBelowHeightMSL(), "Unexpected detonate below height msl")) { pass(); }
+         if (AssertEqualsMessage(aboveMsl, fuse.GetDetonateAboveHeightMSL(), "Unexpected detonate above height msl")) { pass(); }
+         if (AssertEqualsMessage(tofToArm, fuse.TimeOfFlightToArm(), "Unexpected time of flight to arm")) { pass(); }
+         fuse.Detonate();
+      }
+   end_execute
+end_platform_type
+
+platform test-1 TEST_PLATFORM
+   script_variables
+      machDecreasingTo = 0.7;
+   end_script_variables
+   
+   edit processor fuse
+      detonate_on_mach_decreasing_to 0.7
+   end_processor
+end_platform
+
+platform test-2 TEST_PLATFORM
+   script_variables
+      belowMach = 0.5;
+   end_script_variables
+
+   edit processor fuse
+      detonate_below_mach 0.5
+   end_processor   
+end_platform
+
+platform test-3 TEST_PLATFORM
+   script_variables
+      belowSpeed = 500.0;
+   end_script_variables
+
+   edit processor fuse
+      detonate_below_speed 500 m/s
+   end_processor
+end_platform
+
+platform test-4 TEST_PLATFORM
+   script_variables 
+      belowAgl = 100.0;
+   end_script_variables
+    
+   edit processor fuse
+      detonate_below_height_agl 100 m
+   end_processor
+end_platform
+
+platform test-5 TEST_PLATFORM
+   script_variables 
+      aboveAgl = 100.0;
+   end_script_variables
+    
+   edit processor fuse
+      detonate_above_height_agl 100 m
+   end_processor
+end_platform
+
+platform test-6 TEST_PLATFORM
+   script_variables 
+      belowMsl = 100.0;
+   end_script_variables
+    
+   edit processor fuse
+      detonate_below_height_msl 100 m
+   end_processor
+end_platform
+
+platform test-7 TEST_PLATFORM
+   script_variables
+      aboveMsl = 100.0;
+   end_script_variables
+   
+   edit processor fuse
+      detonate_above_height_msl 100 m
+   end_processor
+end_platform
+
+script void CheckPlatformDetonated(string aName)
+   WsfPlatform p = WsfSimulation.FindPlatform(aName);
+   if (AssertTrueMessage(!p.IsValid(), "Weapon fuse did not detonate " + aName + " platform")) { pass(); }
+end_script
+
+execute at_time 2 sec absolute
+   CheckPlatformDetonated("test-1");
+   CheckPlatformDetonated("test-2");
+   CheckPlatformDetonated("test-3");
+   CheckPlatformDetonated("test-4");
+   CheckPlatformDetonated("test-5");
+   CheckPlatformDetonated("test-6");
+   CheckPlatformDetonated("test-7");
+end_execute

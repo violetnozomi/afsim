@@ -1,0 +1,15 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+WsfNetworkRing
+--------------
+
+.. class:: WsfNetworkRing inherits WsfNetwork
+
+Currently, there is no additional script functionality for WsfNetworkRing beyond its inherited script methods in :class:`WsfNetwork`.

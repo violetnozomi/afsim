@@ -1,0 +1,32 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# UNCLASSIFIED
+
+platform test_01 WSF_PLATFORM
+
+   script void XioSubTest(WsfXIO_PublishKey aKey, bool aValue)
+      writeln("Received key with value: ", aValue);
+   end_script
+
+   # Ensures that WsfXIO can Subscribe to script methods without crashing.
+   execute at_time 1 s relative 
+      WsfXIO_PublishKey key = WsfXIO_PublishKey.Construct("TEST");
+      WsfXIO.Subscribe(key, PLATFORM, "XioSubTest");
+      
+      writeln("-PASSED-");
+   end_execute
+
+end_platform
+
+xio_interface
+   connect_to_simulations
+   unicast 127.0.0.1
+   port 4000 
+end_xio_interface

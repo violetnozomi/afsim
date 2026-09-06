@@ -1,0 +1,1046 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+(struct root
+   (var ObjectMap/AtmosphereModel atmosphereModelType)
+   (var ObjectMap/AtmosphereModel atmosphereModel)
+
+   (rule atmosphere-model {
+      atmosphere_model <string> <string> (new (type atmosphereModel $1) (type atmosphereModelType $2)) [apply($$)] <TypeCommand>* end_atmosphere_model
+    | (error { atmosphere_model <ignore>* end_atmosphere_model})
+   })
+
+   {
+      <atmosphere-model>
+   }
+)
+
+(struct AtmosphereModel
+   {
+      <central-body-type>
+   }
+)
+
+(struct WSF_PIECEWISE_EXPONENTIAL_ATMOSPHERE :symbol (type atmosphereModelType WSF_PIECEWISE_EXPONENTIAL_ATMOSPHERE)
+                                             :base_type AtmosphereModel
+   {
+      <AtmosphereModel>
+   }
+)
+
+(struct WSF_JACCHIA_ROBERTS_ATMOSPHERE :symbol (type atmosphereModelType WSF_JACCHIA_ROBERTS_ATMOSPHERE)
+                                       :base_type AtmosphereModel
+   {
+      <AtmosphereModel>
+    | solar_flux <real>
+    | average_solar_flux <real>
+    | geomagnetic_index <real>
+   }
+)
+
+(struct WSF_TRACK_MANAGER
+   (rule orbit-determination-fusion-method-command {
+      number_of_angle_measurements   <integer>
+    | angles_only_linear_tolerance   <Length>
+    | angles_only_maximum_iterations <integer>
+    | lambert_convergence_tolerance  <real>
+    | process_noise_sigmas_XYZ       <real> <real> <real>
+    | range_error_factor             <real>
+    | debug
+    | debug_draw
+    | <any-propagator>
+   })
+{
+   fusion_method orbit_determination <orbit-determination-fusion-method-command>* end_fusion_method
+})
+
+(rule entity-space-orientation-option {
+   entity_with_solar_constraint       (typeref platform)
+ | entity_with_nadir_constraint       (typeref platform)
+ | entity_with_orbit_plane_constraint (typeref platform)
+})
+
+(rule geo-point-space-orientation-option {
+   point_with_orbit_plane_constraint <string>
+})
+
+(rule space-orientation-option {
+   nadir_with_eci_velocity_constraint
+ | nadir_with_wcs_velocity_constraint
+ | nadir_with_ecef_velocity_constraint
+ | solar_with_nadir_constraint
+ | nadir_with_solar_constraint
+ | eci_velocity_with_nadir_constraint
+ | eci_velocity_with_solar_constraint
+ | <entity-space-orientation-option>
+ | <geo-point-space-orientation-option>
+ | none
+})
+
+(rule execute-at-option {
+   periapsis
+ | apoapsis
+ | ascending_node
+ | descending_node
+ | eclipse_entry
+ | eclipse_exit
+ | relative_time <Time>
+ | ascending_radius <Length>
+ | descending_radius <Length>
+ | northern_intersection
+ | southern_intersection
+ | solar_with_nadir_constraint
+ | nadir_with_solar_constraint
+ | none
+})
+
+(rule orbit-option {
+   orbit <Int>
+})
+
+(rule OrbitalEvent
+{
+   execute_at <orbit-option>? <execute-at-option>
+ | finite
+ | duration <Time>
+ | update_interval <Time>
+ | debug
+})
+
+(rule TangentManeuver
+{
+   delta_v <Speed>
+ | delta_v_fraction <Real>
+ | <OrbitalEvent>
+})
+
+(rule NormalManeuver
+{
+   delta_v <Speed>
+ | delta_v_fraction <Real>
+ | <OrbitalEvent>
+})
+
+(rule ChangeSemiMajorAxis
+{
+   semi_major_axis    <Length>
+ | apoapsis_altitude  <Length>
+ | periapsis_altitude <Length>
+ | <OrbitalEvent>
+})
+
+(rule HohmannTransfer
+{
+   final_semi_major_axis <Length>
+ | final_radius <Length>
+ | <OrbitalEvent>
+})
+
+(rule ChangeInclination
+{
+   inclination <Angle>
+ | <OrbitalEvent>
+})
+
+(rule ChangeRAAN
+{
+   raan <Angle>
+ | <OrbitalEvent>
+})
+
+(rule ChangeRAAN_Inclination
+{
+   raan <Angle>
+ | inclination <Angle>
+ | <OrbitalEvent>
+})
+
+(rule Circularize
+{
+   <OrbitalEvent>
+})
+
+(rule ChangeEccentricity
+{
+   eccentricity <Real>
+ | <OrbitalEvent>
+})
+
+(rule MatchVelocity
+{
+   platform (typeref platform)
+ | <OrbitalEvent>
+})
+
+(rule targeting_platform_specification
+{
+   platform (typeref platform)
+})
+
+(rule libration_point_system
+{
+   earth_moon
+ | sun_earth
+ | sun_jupiter
+})
+
+(rule libration_point_point
+{
+   l1
+ | l2
+ | l3
+ | l4
+ | l5
+})
+
+(rule targeting_libration_point_specification
+{
+   libration_point <libration_point_system> <libration_point_point>
+})
+
+(rule targeting_kinematic_state_specification
+{
+   eci_position <Length3>
+ | eci_state <Length3> <Speed3>
+})
+
+(rule targeting_offset_frame
+{
+   ric
+ | ntw
+})
+
+(rule targeting_offset_specification
+{
+   offset <targeting_offset_frame> <Length3>
+ | position_offset <targeting_offset_frame> <Length3>
+ | velocity_offset <targeting_offset_frame> <Speed3>
+ | offset_time <Time>
+ | lag_time <Time>
+})
+
+(rule target_point_command
+{
+   <targeting_platform_specification>
+ | <targeting_libration_point_specification>
+ | <targeting_kinematic_state_specification>
+ | <targeting_offset_specification>
+})
+
+(rule target_point_specification
+{
+   target <target_point_command>* end_target
+})
+
+(rule CostOptimization
+{
+   blended <Real> <Real> <Real>
+})
+
+(rule common_targeting_class_command
+{
+   delta_time <Time>
+ | maximum_time <Time>  # deprecated
+ | maximum_delta_time <Time>
+ | maximum_delta_v <Speed>
+ | optimize_time
+ | optimize_delta_v
+ | optimize_cost <CostOptimization>
+ | tolerance <Real>
+ | <OrbitalEvent>
+})
+
+(rule InterceptRendezvousTarget
+{
+   <target_point_specification>
+ | <common_targeting_class_command>
+})
+
+(rule DeltaV_Frame
+{
+   inertial
+ | ric
+})
+
+(rule DeltaV_Maneuver
+{
+   dv_x <Speed>
+ | dv_y <Speed>
+ | dv_z <Speed>
+ | delta_v <DeltaV_Frame> <Speed> <Speed> <Speed>
+ | <OrbitalEvent>
+})
+
+(rule NaturalMotionCircumnavigation
+{
+   <common_targeting_class_command>
+ | target_platform (typeref platform)
+ | orbit_size <Length>
+ | orbit_phase <Angle>
+ | out_of_plane_amplitude <Length>
+ | out_of_plane_phase <Angle>
+})
+
+(rule Teardrop
+{
+   <common_targeting_class_command>
+ | target_platform (typeref platform)
+ | radial_offset_at_poca <Length>
+ | period <Time>
+ | time_to_poca <Time>
+ | repetitions <Int>
+})
+
+(rule DriftManeuver
+{
+   <common_targeting_class_command>
+ | drift_rate <AngleRate>
+})
+
+(rule StagingEvent
+{
+   <OrbitalEvent>
+})
+
+(rule ScriptedEvent
+{
+   on_initialize <ScriptBlock>* end_on_initialize
+ | on_update     <ScriptBlock>* end_on_update
+ | on_complete   <ScriptBlock>* end_on_complete
+ | is_complete   <ScriptBlock>* end_is_complete
+ | <OrbitalEvent>
+})
+
+(rule ChangeAttitudeEvent
+{
+   <space-orientation-rule>
+ | <OrbitalEvent>
+})
+
+(rule AnyNoradSimpleEvent
+{
+   maneuver change_inclination              <ChangeInclination>*             end_maneuver
+ | maneuver tangent                         <TangentManeuver>*               end_maneuver
+ | maneuver normal                          <NormalManeuver>*                end_maneuver
+ | maneuver change_semi_major_axis          <ChangeSemiMajorAxis>*           end_maneuver
+ | maneuver circularize                     <Circularize>*                   end_maneuver
+ | maneuver change_eccentricity             <ChangeEccentricity>*            end_maneuver
+ | maneuver hohmann_transfer                <HohmannTransfer>*               end_maneuver
+ | maneuver intercept                       <InterceptRendezvousTarget>*     end_maneuver
+ | maneuver rendezvous                      <InterceptRendezvousTarget>*     end_maneuver
+ | maneuver target                          <InterceptRendezvousTarget>*     end_maneuver
+ | maneuver match_velocity                  <MatchVelocity>*                 end_maneuver
+ | maneuver delta_v                         <DeltaV_Maneuver>*               end_maneuver
+ | maneuver natural_motion_circumnavigation <NaturalMotionCircumnavigation>* end_maneuver
+ | maneuver teardrop                        <Teardrop>*                      end_maneuver
+ | maneuver drift                           <DriftManeuver>*                 end_maneuver
+ | event    perform_staging                 <StagingEvent>*                  end_event
+ | event    scripted                        <ScriptedEvent>*                 end_event
+ | event    change_attitude                 <ChangeAttitudeEvent>*           end_event
+})
+
+(rule AnySimpleEvent
+{
+   <AnyNoradSimpleEvent>
+ | maneuver change_raan             <ChangeRAAN>*                 end_maneuver
+ | maneuver change_raan_inclination <ChangeRAAN_Inclination>*     end_maneuver
+})
+
+(rule CompoundManeuverRule
+{
+   <AnySimpleEvent>*
+ | <OrbitalEvent>
+})
+
+(rule NoradCompoundManeuverRule
+{
+   <AnyNoradSimpleEvent>*
+ | <OrbitalEvent>
+})
+
+(rule CompoundManeuver
+{
+   maneuver compound <CompoundManeuverRule> end_maneuver
+})
+
+(rule NoradCompoundManeuver
+{
+   maneuver compound <NoradCompoundManeuverRule> end_maneuver
+})
+
+(rule AnyEvent
+{
+   <AnySimpleEvent>
+ | <CompoundManeuver>
+ | <StagingEvent>
+ | <ScriptedEvent>
+})
+
+(rule AnyNoradEvent
+{
+   <AnyNoradSimpleEvent>
+ | <NoradCompoundManeuver>
+ | <StagingEvent>
+ | <ScriptedEvent>
+})
+
+(rule EventsBlock
+{
+   <AnyEvent>
+ | execute_at <orbit-option>? <execute-at-option>
+ | debug
+})
+
+(rule NoradEventsBlock
+{
+   <AnyNoradEvent>
+ | execute_at <orbit-option>? <execute-at-option>
+ | debug
+})
+
+# WsfOrbitalManeuvering.cpp
+(rule rocket-stage-command
+{
+    total_mass       <Mass>
+  | empty_mass       <Mass>
+  | fuel_mass        <Mass>
+  | burn_rate        <MassTransfer>
+  | specific_impulse <Time>
+  | thrust           <Force>
+  | exhaust_velocity <Speed>
+})
+
+(rule any-orbital-maneuvering-type
+{
+   maneuvering <string> (new (subtype maneuvering $1) (type maneuvering $1))
+      <TypeCommand>*
+   end_maneuvering
+ | maneuvering <string> (load (subtype maneuvering $1))
+      <TypeCommand>*
+   end_maneuvering
+})
+
+(rule any-attitude-controller-type
+{
+   attitude_controller <string> (new (subtype attitude_controller $1) (type attitude_controller $1))
+      <TypeCommand>*
+   end_attitude_controller
+ | attitude_controller <string> (load (subtype attitude_controller $1))
+      <TypeCommand>*
+   end_attitude_controller
+})
+
+(rule mission-sequence
+{
+   mission_sequence
+      <EventsBlock>*
+   end_mission_sequence
+})
+
+(rule norad-mission-sequence
+{
+   mission_sequence
+      <NoradEventsBlock>*
+   end_mission_sequence
+})
+
+(rule maneuvers # Deprecated
+{
+   maneuvers
+      <EventsBlock>*
+   end_maneuvers
+})
+
+(struct simple-maneuvering :symbol (type maneuvering simple)
+{
+    delta_v <Speed>
+ |  maximum_acceleration <Acceleration>
+})
+
+(struct rocket-maneuvering :symbol (type maneuvering rocket)
+{
+    debug
+  | stage <rocket-stage-command>* end_stage
+})
+
+(rule epoch-command
+{
+   epoch <real>
+ | epoch platform_creation_epoch
+})
+
+(rule epoch-date-time-command
+{
+   epoch_date_time <month-value> <integer> <integer> <string>
+})
+
+(rule reference-frame-type-command
+{
+   eci
+ | j2000
+ | mean_of_date
+ | true_of_date
+})
+
+(rule reference-frame-command
+{
+   reference_frame <reference-frame-type-command>
+})
+
+(rule orbital-state-tle
+{
+   orbit
+      <line-string> <line-string> <line-string>*
+   end_orbit
+})
+
+(rule orbital-state-orbital-elements
+{
+   eccentricity <real>
+ | periapsis_radius <Length>
+ | periapsis_altitude <Length>
+ | apoapsis_radius <Length>
+ | apoapsis_altitude <Length>
+ | semi_major_axis <Length>
+ | revolutions_per_day <real>
+ | mean_motion <AngleRate>
+ | raan <Angle>
+ | right_ascension_of_ascending_node <Angle>
+ | inclination <Angle>
+ | mean_anomaly <Angle>
+ | true_anomaly <Angle>
+ | argument_of_periapsis <Angle>
+})
+
+(rule orbital-state-pos-vel
+{
+   position <Length3>
+   velocity <Speed3>
+})
+
+(rule orbital-state-command-no-tle
+{
+   <epoch-command>
+ | <epoch-date-time-command>
+ | <orbital-state-pos-vel>
+ | <orbital-state-orbital-elements>
+})
+
+(rule orbital-state-tle-type
+{
+   orbital_state
+     <orbital-state-tle>
+   end_orbital_state
+})
+
+(rule orbital-state-no-tle-type
+{
+   orbital_state
+     <orbital-state-command-no-tle>*
+   end_orbital_state
+})
+
+(struct WSF_SPACE_MOVER_BASE
+   :base_type Mover
+   (script-var WsfSpaceMoverBase SPACE_MOVER :this 1)
+   (var Real eccentricity)
+   (var Length semi_major_axis)
+   (var Length periapsis_radius)
+   (var Length periapsis_altitude)
+   (var Length apoapsis_radius)
+   (var Length apoapsis_altitude)
+   (var Real revolutions_per_day)
+   (var AngleRate mean_motion)
+   (var Angle raan :default "0 deg")
+   (var Angle inclination :default "0 deg")
+   (var Angle anomaly :default "0 deg")
+   (var Angle argument_of_periapsis :default "0 deg")
+   (var String designator :default "00001A")
+   (var Bool has_tle :default false)
+   (var Color orbit_color)
+{
+   orbit <line-string> <line-string> <line-string>* end_orbit [has_tle=true]
+ | <epoch-date-time-command>
+ | <epoch-command>
+ | eccentricity <$eccentricity>
+ | periapsis_radius <$periapsis_radius>
+ | apoapsis_radius <$apoapsis_radius>
+ | periapsis_altitude <$periapsis_altitude>
+ | apoapsis_altitude <$apoapsis_altitude>
+ | semi_major_axis <Length>     [semi_major_axis=$$;mean_motion="";revolutions_per_day=""]
+ | revs_per_day <Real>          [semi_major_axis="";mean_motion="";revolutions_per_day=$$] # deprecated
+ | revolutions_per_day <Real>   [semi_major_axis="";mean_motion="";revolutions_per_day=$$]
+ | mean_motion <AngleRate>      [semi_major_axis="";mean_motion=$$;revolutions_per_day=""]
+ | raan <$raan>
+ | right_ascension_of_ascending_node <$raan>
+ | inclination <$inclination>
+ | mean_anomaly <Angle>
+ | anomaly <$anomaly> # deprecated
+ | true_anomaly <$anomaly>
+ | <orbital-state-no-tle-type>
+ | descriptor  <string>
+ | designator <$designator>
+ | argument_of_periapsis <$argument_of_periapsis>
+ | <reference-frame-command>
+ | suppress_warnings <Bool>
+ | show_status
+ | wgs_84   # deprecated
+ | egm_96   # deprecated
+ | lunar    # deprecated
+ | heliocentric # deprecated
+ | orbit_color <$orbit_color>
+ | <any-orbital-maneuvering-type>
+ | <object-script-context-command>
+ | <any-attitude-controller-type>
+ | <central-body-type>
+ | <conjunction-setup>
+ | <Mover>
+})
+
+(struct WSF_SPACE_MOVER
+   :symbol (type moverType WSF_SPACE_MOVER)
+   :base_type WSF_SPACE_MOVER_BASE
+   (script-var WsfSpaceMover SPACE_MOVER :this 1)
+{
+   position <Latitude> <Longitude>                 [skip()]
+      <Waypoint>*
+ | initial_state_eci <Length> <Length> <Length> <Speed> <Speed> <Speed>
+ | initial_state_lla <Latitude> <Longitude> <Length> <Speed> <Speed> <Speed>
+ | <maneuvers> # deprecated
+ | <mission-sequence>
+ | oblate_earth <Bool>
+ | <WSF_SPACE_MOVER_BASE>
+})
+
+(struct WSF_NORAD_SPACE_MOVER :symbol (type moverType WSF_NORAD_SPACE_MOVER)
+                              :base_type WSF_SPACE_MOVER_BASE
+                              (script-var WsfSpaceMover SPACE_MOVER :this 1)
+{
+   <norad-mission-sequence>
+ | <orbital-state-tle-type>
+ | <WSF_SPACE_MOVER_BASE>
+})
+
+(rule orbital-dynamics
+{
+  dynamics
+    <orbital-dynamics-term>*
+  end_dynamics
+})
+
+(rule earth-monopole-term-command
+{
+   wgs84
+ | egm96
+ | gravitational_parameter <Real>
+})
+
+(rule earth-j2-term-command
+{
+   wgs84
+ | egm96
+ | gravitational_parameter <Real>
+ | j2 <Real>
+ | mean_radius <Length>
+})
+
+(rule moon-monopole-source-command
+{
+   source default
+ | source de_file (file-reference de-file)
+})
+
+(rule moon-monopole-term-command
+{
+   gravitational_parameter <Real>
+ | interpolation_interval <Time>
+ | <moon-monopole-source-command>
+})
+
+(rule sun-monopole-source-command
+{
+   source default
+ | source de_file (file-reference de-file)
+})
+
+(rule sun-monopole-term-command
+{
+   gravitational_parameter <Real>
+ | <sun-monopole-source-command>
+})
+
+(rule scripted-term-command
+{
+   script <string>
+})
+
+(rule jupiter-monopole-source-command
+{
+   source default
+ | source de_file (file-reference de-file)
+})
+
+(rule jupiter-monopole-term-command
+{
+   gravitational_parameter <Real>
+ | <jupiter-monopole-source-command>
+})
+
+(rule atmospheric-drag-command
+{
+   drag_coefficient <Real>
+ | cross_sectional_area <Area>
+ | atmosphere_model (typeref atmosphereModel)
+})
+
+(rule orbital-dynamics-term
+{
+   term earth_monopole <earth-monopole-term-command>* end_term
+ | term earth_j2 <earth-j2-term-command>* end_term
+ | term moon_monopole <moon-monopole-term-command>* end_term
+ | term sun_monopole <sun-monopole-term-command>* end_term
+ | term scripted <scripted-term-command>* end_term
+ | term jupiter_monopole <jupiter-monopole-term-command>* end_term
+ | term atmospheric_drag <atmospheric-drag-command>* end_term
+})
+
+(rule initial-state-component
+{
+   position <Length> <Length> <Length>
+ | velocity <Speed> <Speed> <Speed>
+ | <epoch-command>
+ | <epoch-date-time-command>
+ | j2000
+})
+
+(rule initial-state-command
+{
+   initial_state
+      <initial-state-component>*
+   end_initial_state
+})
+
+(rule erk-error-criterion-type
+{
+   L_infinity
+ | L_2
+})
+
+(rule erk-error-criterion-command
+{
+   error_criterion <erk-error-criterion-type>
+})
+
+(rule embedded-rk-command
+{
+   tolerance <Real>
+ | max_adjustment_attempts <integer>
+ | max_step_size <Real>
+ | min_step_size <Real>
+ | initial_step_size <Real>
+ | <erk-error-criterion-command>
+})
+
+(rule prince_dormand_45-command
+{
+   <embedded-rk-command>
+})
+
+(rule prince_dormand_78-command
+{
+   <embedded-rk-command>
+})
+
+(rule orbital-integrator
+{
+   integrator prince_dormand_45 <prince_dormand_45-command>* end_integrator
+ | integrator prince_dormand_78 <prince_dormand_78-command>* end_integrator
+})
+
+(struct WSF_INTEGRATING_SPACE_MOVER :symbol (type moverType WSF_INTEGRATING_SPACE_MOVER)
+                                    :base_type WSF_SPACE_MOVER_BASE
+                                    (script-var WsfSpaceMover SPACE_MOVER :this 1)
+{
+   <orbital-integrator>
+ | <orbital-dynamics>
+ | <initial-state-command>
+ | <norad-mission-sequence>
+ | <WSF_SPACE_MOVER_BASE>
+})
+
+(rule root {
+   access_report
+     <access-report-command>*
+   end_access_report
+})
+
+(rule access-report-command {
+   file_format {csv | tsv}
+ | file_prefix <quotable-string>
+ | default_sensor <string>
+ | report <string> to <string> using <string>
+ | report <string> to <string>
+})
+
+(rule space-orientation-rule {
+   orientation <space-orientation-option>
+ | swap_axes
+})
+
+(rule rate-limited-controller-rule {
+     maximum_yaw_rate <AngleRate>
+   | maximum_pitch_rate <AngleRate>
+   | maximum_roll_rate <AngleRate>
+})
+
+(struct instant-attitude-controller :symbol (type attitude_controller instant)
+{
+   <space-orientation-rule>
+})
+
+(struct rate-limited-attitude-controller :symbol (type attitude_controller rate_limited)
+{
+     <space-orientation-rule>
+   | <rate-limited-controller-rule>
+})
+
+(rule root {
+   eclipse_report
+     <eclipse-report-command>*
+   end_eclipse_report
+})
+
+(rule eclipse-report-command {
+   file_format {csv | tsv}
+ | file_prefix <quotable-string>
+ | report <string>
+})
+
+(struct WSF_ORBITAL_CONJUNCTION_PROCESSOR :symbol (type processorType WSF_ORBITAL_CONJUNCTION_PROCESSOR)
+                                          :base_type WSF_SCRIPT_PROCESSOR
+   (rule primary-declaration {
+      primary <string>+ end_primary
+   })
+   (rule orbital-prediction-type {
+      norad | default
+   })
+   (rule orbital-prediction-model {
+      prediction_model <orbital-prediction-type>
+   })
+{
+   search_interval <Time>
+ | filter_cut_distance <Length>
+ | search_step_size <Angle>
+ | exclusion_factor <real>
+ | default_variance <Length>
+ | default_object_size <Length>
+ | <orbital-prediction-model>
+ | <primary-declaration>
+ | debug
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+(rule conjunction-setup-command
+{
+   from_eci <Length> <Length> <Length>
+ | from_lla <Latitude> <Longitude> <Length>
+ | from_initial
+ | with_target <string>
+ | at_time <Time>
+ | tolerance <Real>
+})
+
+(rule conjunction-setup {
+  conjunction_setup
+    <conjunction-setup-command>*
+  end_conjunction_setup
+})
+
+# file WsfSpaceOpticalSignature.cpp
+
+(struct WSF_SPACE_OPTICAL_SIGNATURE :symbol (type opticalSignature WSF_SPACE_OPTICAL_SIGNATURE)
+                                     :base_type OpticalSignature
+
+   (rule temperature-change-unit {
+      (delimited <temperature-unit> / <time-unit>)
+   })
+
+   (rule surface-base-commands {
+      reflectance <real>
+    | temperature_change_rate <real> <temperature-change-unit>
+    | minimum_temperature <Temperature>
+    | maximum_temperature <Temperature>
+   })
+
+   (rule orientation-commands {
+      yaw <Angle>
+    | pitch <Angle>
+    | roll <Angle>
+    | azimuth_cue_limits <Angle> <Angle>
+    | elevation_cue_limits <Angle> <Angle>
+    | cue_to sun
+    | cue_to nothing
+   })
+
+   (rule box-surface-commands {
+      size <Length> <Length> <Length>
+    | <orientation-commands>
+    | <surface-base-commands>
+   })
+
+   (rule box-surface {
+      surface box <box-surface-commands>* end_surface
+   })
+
+   (rule plane-surface-commands {
+      area <Area>
+    | <orientation-commands>
+    | <surface-base-commands>
+   })
+
+   (rule plane-surface {
+      surface plane <plane-surface-commands>* end_surface
+   })
+
+   (rule sphere-surface-commands {
+      radius <Length>
+    | <surface-base-commands>
+   })
+
+   (rule sphere-surface {
+      surface sphere <sphere-surface-commands>* end_surface
+   })
+{
+   <surface-base-commands>
+ | state <string>
+ | <box-surface>
+ | <plane-surface>
+ | <sphere-surface>
+ | plot_file <quotable-string>
+ | high_resolution_eclipse <Bool>
+ | debug
+ | debug_level <integer>
+ | print_computed_data
+})
+
+# This is the rule for space-related event_output event types.
+(rule event_output-event-type
+   (rule event_output-space-event-type {
+      ECLIPSE_ENTRY
+    | ECLIPSE_EXIT
+    | ORBIT_DETERMINATION_INITIATED
+    | ORBIT_DETERMINATION_UPDATED
+    | ORBITAL_MANEUVER_INITIATED
+    | ORBITAL_MANEUVER_UPDATED
+    | ORBITAL_MANEUVER_CANCELED
+    | ORBITAL_MANEUVER_COMPLETED
+   })
+{
+   <event_output-space-event-type>
+})
+
+# WsfSpaceScriptObserver.cpp
+(rule observer-event-type {
+   ECLIPSE_ENTRY
+ | ECLIPSE_EXIT
+ | ORBIT_DETERMINATION_INITIATED
+ | ORBIT_DETERMINATION_UPDATED
+ | ORBITAL_MANEUVER_INITIATED
+ | ORBITAL_MANEUVER_UPDATED
+ | ORBITAL_MANEUVER_CANCELED
+ | ORBITAL_MANEUVER_COMPLETED
+})
+
+(struct ORBITAL_PROPAGATOR_BASE
+   (var Real eccentricity)
+   (var Length semi_major_axis)
+   (var Length periapsis_radius)
+   (var Length periapsis_altitude)
+   (var Length apoapsis_radius)
+   (var Length apoapsis_altitude)
+   (var Real revolutions_per_day)
+   (var AngleRate mean_motion)
+   (var Angle raan :default "0 deg")
+   (var Angle inclination :default "0 deg")
+   (var Angle anomaly :default "0 deg")
+   (var Angle argument_of_periapsis :default "0 deg")
+   (var String designator :default "00001A")
+   (var Bool has_tle :default false)
+{
+   orbit <line-string> <line-string> <line-string>* end_orbit [has_tle=true]
+ | <epoch-date-time-command>
+ | <epoch-command>
+ | eccentricity <$eccentricity>
+ | periapsis_radius <$periapsis_radius>
+ | apoapsis_radius <$apoapsis_radius>
+ | periapsis_altitude <$periapsis_altitude>
+ | apoapsis_altitude <$apoapsis_altitude>
+ | semi_major_axis <Length>     [semi_major_axis=$$;mean_motion="";revolutions_per_day=""]
+ | revolutions_per_day <Real>   [semi_major_axis="";mean_motion="";revolutions_per_day=$$]
+ | mean_motion <AngleRate>      [semi_major_axis="";mean_motion=$$;revolutions_per_day=""]
+ | raan <$raan>
+ | right_ascension_of_ascending_node <$raan>
+ | inclination <$inclination>
+ | mean_anomaly <Angle>
+ | anomaly <$anomaly> # deprecated
+ | true_anomaly <$anomaly>
+ | argument_of_periapsis <$argument_of_periapsis>
+ | <reference-frame-command>
+ | suppress_warnings <Bool>
+ | <central-body-type>
+})
+
+(struct root
+   (var ObjectMap/ORBITAL_PROPAGATOR_BASE orbital_propagator)
+)
+
+(rule any-propagator
+{
+   propagator <string> (load (type orbital_propagator $1)) <TypeCommand>* end_propagator
+})
+
+(struct keplerian_orbital_propagator :symbol (type orbital_propagator WSF_KEPLERIAN_PROPAGATOR)
+  :base_type ORBITAL_PROPAGATOR_BASE
+{
+  <ORBITAL_PROPAGATOR_BASE>
+})
+
+(struct j2_perturbation_orbital_propagator :symbol (type orbital_propagator WSF_J2_PERTURBATION_PROPAGATOR)
+  :base_type ORBITAL_PROPAGATOR_BASE
+{
+  <ORBITAL_PROPAGATOR_BASE>
+})
+
+(struct norad_orbital_propagator :symbol (type orbital_propagator WSF_NORAD_PROPAGATOR)
+  :base_type ORBITAL_PROPAGATOR_BASE
+{
+   <ORBITAL_PROPAGATOR_BASE>
+})
+
+(struct integrating_orbital_propagator :symbol (type orbital_propagator WSF_INTEGRATING_PROPAGATOR)
+  :base_type ORBITAL_PROPAGATOR_BASE
+{
+   <orbital-integrator>
+ | <orbital-dynamics>
+ | <initial-state-command>
+ | <ORBITAL_PROPAGATOR_BASE>
+})
+
+(struct WSF_ORBIT_DETERMINATION_FILTER :symbol (type filter WSF_ORBIT_DETERMINATION_FILTER)
+                                       :base_type Filter
+{
+   range_measurement_sigma <Length>
+ | elevation_measurement_sigma <Angle>
+ | bearing_measurement_sigma <Angle>
+ | process_noise_sigmas_XYZ <real> <real> <real>
+ | process_noise_sigmas <Acceleration> <Acceleration> <Acceleration>
+ | <any-propagator>
+ | debug
+})
+

@@ -1,0 +1,264 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# test_color.txt
+script_variables 
+   bool pass = true;
+end_script_variables
+
+script bool TestColor(Color  aColor,
+                      double aRed,
+                      double aGreen,
+                      double aBlue,
+                      double aAlpha)
+
+return (aColor.GetRed()   == aRed   &&
+        aColor.GetGreen() == aGreen &&
+        aColor.GetBlue()  == aBlue  &&
+        aColor.GetAlpha() == aAlpha);
+end_script
+
+execute at_time .1 sec absolute
+
+   if (!(TestColor(Color.Black(), 0, 0, 0, 255)))
+   {
+      writeln("-FAIL- Black ", Color.Black().GetRGBA_String());
+      pass = false;
+   }
+
+   if (!(TestColor(Color.Blue(), 0, 168, 220, 255)))
+   {
+      writeln("-FAIL- Blue ", Color.Blue().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Brown(), 61, 33, 0, 255)))
+   {
+      writeln("-FAIL- Brown ", Color.Brown().GetRGBA_String());
+      pass = false;
+   }
+
+   if (!(TestColor(Color.DarkBlue(), 0, 107, 140, 255)))
+   {
+      writeln("-FAIL- DarkBlue ", Color.DarkBlue().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.DarkGreen(), 0, 160, 0, 255)))
+   {
+      writeln("-FAIL- DarkGreen ", Color.DarkGreen().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.DarkPurple(), 80, 0, 80, 255)))
+   {
+      writeln("-FAIL- DarkPurple ", Color.DarkPurple().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.DarkRed(), 200, 0, 0, 255)))
+   {
+      writeln("-FAIL- DarkRed ", Color.DarkRed().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.DarkYellow(), 225, 220, 0, 255)))
+   {
+      writeln("-FAIL- DarkYellow ", Color.DarkYellow().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Green(), 0, 226, 0, 255)))
+   {
+      writeln("-FAIL- Green ", Color.Green().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Indigo(), 74, 0, 159, 255)))
+   {
+      writeln("-FAIL- Indigo ", Color.Indigo().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.LightBlue(), 128, 224, 255, 255)))
+   {
+      writeln("-FAIL- LightBlue ", Color.LightBlue().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.LightGreen(), 170, 255, 170, 255)))
+   {
+      writeln("-FAIL- LightGreen ", Color.LightGreen().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.LightPurple(), 255, 161, 255, 255)))
+   {
+      writeln("-FAIL- LightPurple ", Color.LightPurple().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.LightRed(), 255, 128, 128, 255)))
+   {
+      writeln("-FAIL- LightRed ", Color.LightRed().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.LightYellow(), 255, 255, 128, 255)))
+   {
+      writeln("-FAIL- LightYellow ", Color.LightYellow().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Magenta(), 255, 0, 255, 255)))
+   {
+      writeln("-FAIL- Magenta ", Color.Magenta().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Orange(), 255, 170, 0, 255)))
+   {
+      writeln("-FAIL- Orange ", Color.Orange().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Pink(), 255, 0, 192, 255)))
+   {
+      writeln("-FAIL- Pink ", Color.Pink().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Purple(), 128, 0, 128, 255)))
+   {
+      writeln("-FAIL- Purple ", Color.Purple().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Red(), 255, 48, 49, 255)))
+   {
+      writeln("-FAIL- Red ", Color.Red().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Tan(), 182, 133, 56, 255)))
+   {
+      writeln("-FAIL- Tan ", Color.Tan().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Violet(), 192, 128, 255, 255)))
+   {
+      writeln("-FAIL- Violet ", Color.Violet().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.White(), 255, 255, 255, 255)))
+   {
+      writeln("-FAIL- White ", Color.White().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Yellow(), 255, 255, 0, 255)))
+   {
+      writeln("-FAIL- Yellow ", Color.Yellow().GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Construct(0, 0, 0), 0, 0, 0, 255)))
+   {
+      writeln("-FAIL- Construct_1 ", Color.Construct(0, 0, 0).GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Construct(0, 0, 0, 0), 0, 0, 0, 0)))
+   {
+      writeln("-FAIL- Construct_2 ", Color.Construct(0, 0, 0, 0).GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Construct("000000"), 0, 0, 0, 255)))
+   {
+      writeln("-FAIL- Construct_3 ", Color.Construct("000000").GetRGBA_String());
+      pass = false;
+   }
+   
+   if (!(TestColor(Color.Construct("00000000"), 0, 0, 0, 0)))
+   {
+      writeln("-FAIL- Construct_4 ", Color.Construct("00000000").GetRGBA_String());
+      pass = false;
+   }
+   
+   Color red = Color();
+
+   if (!(TestColor(red, 0, 0, 0, 255)))
+   {
+      writeln("-FAIL- Default constructor ", red.GetRGBA_String());
+      pass = false;
+   }
+
+   red.Set(26, 26, 50);
+   if (!(TestColor(red, 26, 26, 50, 255)))
+   {
+      writeln("-FAIL- Set 1 ", red.GetRGBA_String());
+      pass = false;
+   }
+
+   red.Set(Color.Red());
+   if (!(TestColor(red, 255, 48, 49, 255)))
+   {
+      writeln("-FAIL- Set 2 ", red.GetRGBA_String());
+      pass = false;
+   }
+
+   red.SetAlpha(68);
+   if (!(TestColor(red, 255, 48, 49, 68)))
+   {
+      writeln("-FAIL- SetAlpha ", red.GetRGBA_String());
+      pass = false;
+   }
+   
+   Color clone = Color(red);
+   if (clone != red)
+   {
+      writeln("-FAIL- Clone ", clone.GetRGBA_String());
+      pass = false;
+   }
+
+   assert(Color.White().GetHexString() == "FFFFFFFF", "-FAIL-");
+   assert(Color.White().GetRGBA_String() == "255 255 255 255", "-FAIL-");
+   assert(Color.White() == Color.Construct(255, 255, 255, 255), "-FAIL-");
+   assert(Color.White() != Color.Black(), "-FAIL-");
+   
+   if(pass)
+   {
+      writeln("-PASS-");
+   }
+   
+end_execute
+
+platform test WSF_PLATFORM 
+   on_initialize 
+      Color colorData = Color.Construct(128, 128, 128, 255);
+      PLATFORM.SetAuxData("color", colorData);
+      if (!PLATFORM.HasAuxData())
+      {
+         writeln("-FAIL- SetAuxData ", colorData.GetRGBA_String());
+         pass = false;
+      }
+      else
+      {
+         Color retrievedColor = (Color)PLATFORM.AuxDataObject("color");
+         if (retrievedColor != colorData)
+         {
+            writeln("-FAIL- GetAuxData ", retrievedColor.GetRGBA_String());
+            pass = false;
+         }
+      }  
+   end_on_initialize
+end_platform

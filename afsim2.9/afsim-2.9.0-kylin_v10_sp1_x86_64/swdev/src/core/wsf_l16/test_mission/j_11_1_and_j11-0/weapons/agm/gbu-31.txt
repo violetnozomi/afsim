@@ -1,0 +1,122 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+#               *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *
+#               All information below is representative only,
+#               and is estimated or obtained from open sources.
+#               It is not yet substantiated or corroborated by
+#               definitive data.
+#               *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *
+###############################################################################
+
+# ******************************************************************************************
+# File Log
+# 11/11/15 - J.Iffrig - Initial add to project. Copied from WSF training materials.
+# ******************************************************************************************
+
+#############################################################################
+#                    Define the aerodynamic characteristics
+#############################################################################
+
+radar_signature GBU-31_RADAR_SIGNATURE
+   constant 1 m^2
+end_radar_signature
+
+aero GBU-31_AERO WSF_AERO
+  reference_area      0.108 m2 # 370mm body dia
+  cd_zero_subsonic    0.100
+  cd_zero_supersonic  0.40
+  mach_begin_cd_rise  0.800
+  mach_end_cd_rise    1.200
+  mach_max_supersonic 2.000
+  cl_max             10.400    # unknown
+  aspect_ratio        4.000    # unknown
+end_aero
+
+platform_type GBU-31 WSF_PLATFORM
+   icon gbu-15
+   radar_signature GBU-31_RADAR_SIGNATURE
+
+   mover WSF_GUIDED_MOVER
+      aero GBU-31_AERO
+      mass 2015.0 lbm
+      update_interval 0.5 s
+   end_mover
+
+   processor guidance_computer WSF_GUIDANCE_COMPUTER
+      proportional_navigation_gain  10.0
+      velocity_pursuit_gain         10.0
+      g_bias                         1.0
+      max_commanded_g              25.0 g
+      guidance_delay                0.0 sec
+      time_between_GPS_fixes      600.0 sec
+      IMU_drift_rate                0.0 m/s
+      update_interval               0.5 s
+   end_processor
+
+   processor fuse WSF_GROUND_TARGET_FUSE
+      proximity_cancel_on_loss_of_target
+   end_processor
+end_platform_type
+
+###############################################################################
+#                          Define the weapon lethality
+###############################################################################
+
+weapon_effects GBU-31_EFFECT WSF_SPHERICAL_LETHALITY
+  allow_incidental_damage
+  minimum_radius   35.0 m   # largest blast radius at which damage inflicted is maximum.
+  maximum_radius   40.0 m   # blast radius beyond which the damage inflicted is Zero.
+  maximum_damage   1.0      # maximum damage level achievable upon the target.
+  minimum_damage   0.1      # damage level acheived at the maximum radius.
+  threshold_damage 0.2      # initial damage level which must be acheived
+                            # before effects begin to accumulate upon the target 
+  exponent         1.0      # exponent of proportionality of damage with radius.
+                            # ( e = 1.0 ==> linear damage within blast region,
+                            #   e > 1.0 ==> more damaging within the blast region,
+                            #   0.0 < e < 1.0 ==> less damaging within blast region. )
+end_weapon_effects
+
+###############################################################################
+#                           Define the weapon types
+###############################################################################
+
+# *** NOTE:  If the ejector rack imparts initial velocity to the bomb, it should
+#            be specified in the weapons below as keyword "launch_delta_v"
+
+weapon GBU-31C WSF_EXPLICIT_WEAPON
+   launched_platform_type GBU-31
+   aux_data
+      double lar_meters = 18520 # meters = 10 nm
+   end_aux_data
+
+   weapon_effects         GBU-31_EFFECT
+   location 0.0 0.0 1.0 meters
+end_weapon
+
+weapon GBU-31L WSF_EXPLICIT_WEAPON
+   launched_platform_type GBU-31
+   aux_data
+      double lar_meters = 18520 # meters = 10 nm
+   end_aux_data
+
+   weapon_effects         GBU-31_EFFECT
+   location 0.0 -10.0 1.0 meters
+end_weapon
+
+weapon GBU-31R WSF_EXPLICIT_WEAPON
+   launched_platform_type GBU-31
+   aux_data
+      double lar_meters = 18520 # meters = 10 nm
+   end_aux_data
+
+   weapon_effects         GBU-31_EFFECT
+   location 0.0 10.0 1.0 meters
+end_weapon

@@ -1,0 +1,45 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// test of script message class (requires asb connection)
+platform_type SENSE WSF_PLATFORM
+
+   uci_component computer COMPUTER 
+      debug
+   end_uci_component   
+   
+end_platform_type
+
+platform sense SENSE
+   execute at_time 1 s absolute   
+      UCI_Pointing p = {};
+      
+      //p.SetFixedPointing(UCI_FixedPointing.FORWARD());
+      UCI_POST_Command c = {};
+      UCI_POST_CommandMessage cmd = UCI_POST_CommandMessage.Construct(c);
+      UCI_MessageHeader header = cmd.Header();
+      //writeln(header.SystemId().UUID());
+      p.SetFixedPointing(UCI_FixedPointing.FORWARD());
+      
+      UCI_CapabilityId capId = UCI_CapabilityId.Construct();
+      #capId.SetUUID(UCI_UUID.GenerateRandomUUID());
+      UCI_POST_CapabilityCommand capCommand = UCI_POST_CapabilityCommand.Construct(capId);
+      capCommand.SetPointing(p);
+      UCI_POST_Command command = UCI_POST_Command.Construct(capCommand);
+      UCI_POST_CommandMessage cmd = UCI_POST_CommandMessage.Construct(command);
+      UCI_MessageHeader header = cmd.Header();
+      string id = header.SystemId().UUID();
+      writeln(id);
+   end_execute
+end_platform
+
+uci_interface
+   service_name sense
+end_uci_interface
+

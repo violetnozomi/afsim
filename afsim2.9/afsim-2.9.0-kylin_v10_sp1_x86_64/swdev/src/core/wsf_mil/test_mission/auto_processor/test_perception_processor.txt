@@ -1,0 +1,125 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+#event_output 
+#   file events.evt
+#   enable MESSAGE_RECEIVED
+#end_event_output
+
+platform_type LOWEST_SUBORDINATE WSF_PLATFORM
+   comm comm_1 WSF_COMM_TRANSCEIVER 
+   end_comm
+   processor brain WSF_PERCEPTION_PROCESSOR 
+      report_to commander via comm_1
+      reporting_self true
+      report_interval 1 sec
+      asset_perception status_messages 
+   end_processor
+end_platform_type
+
+platform_type MIDDLE_COMMANDER WSF_PLATFORM 
+   comm comm_1 WSF_COMM_TRANSCEIVER 
+      internal_link brain
+   end_comm
+   processor brain WSF_PERCEPTION_PROCESSOR 
+      report_to commander via comm_1
+      reporting_self   true
+      reporting_others true
+      report_interval 1 sec
+      asset_perception status_messages 
+      script_variables 
+         int count = 0;
+      end_script_variables
+      on_message 
+         type WSF_ASSET_MESSAGE
+            script
+               //WsfAssetMessage msg = (WsfAssetMessage)MESSAGE;
+               count += 1;
+            end_script
+      end_on_message
+   end_processor
+end_platform_type
+
+platform TOP_CMDR WSF_PLATFORM
+   position 0:0:0.0n 0:0:0.0w altitude 1000.00 m agl
+   add comm comm_1 WSF_COMM_TRANSCEIVER 
+      internal_link brain
+   end_comm
+   add processor brain WSF_PERCEPTION_PROCESSOR 
+      asset_perception status_messages 
+      max_asset_load 100
+      asset_update_interval 1 s
+      max_threat_load 100
+      threat_update_interval 50 s
+      script_variables 
+         int count = 0;
+      end_script_variables
+      on_message 
+         type WSF_ASSET_MESSAGE
+         script 
+            //WsfAssetMessage msg = (WsfAssetMessage)MESSAGE;
+            count += 1;
+         end_script
+      end_on_message
+   end_processor
+   execute at_time 25 sec absolute 
+      int numMessagesReceived = Processor("brain")->count;
+      if (numMessagesReceived < 110)
+      {
+         writeln("-FAIL- top commander did not receive enough asset perception messages, received: ", numMessagesReceived);
+      }
+      int numPerceived = ((WsfPerceptionProcessor)Processor("brain")).PerceivedAssets().Size();
+      if (numPerceived != 5)
+      {
+         writeln("-FAIL- top commander did not received asset perception for 5 subordinates, received: ", numPerceived);
+      }
+   end_execute
+end_platform
+
+#this commander reports perception (messages received)
+platform MID_CMDR_1 MIDDLE_COMMANDER 
+   commander TOP_CMDR
+   position 0:0:0.0n 1:0:0.0w altitude 1000.00 m agl
+end_platform
+
+#this commander reports truth data about subordinates
+platform MID_CMDR_2 MIDDLE_COMMANDER 
+   commander TOP_CMDR
+   position 0:0:0.0n 1:0:0.0e altitude 1000.00 m agl
+   edit processor brain
+      reporting_self false
+      asset_perception truth subordinates
+   end_processor
+end_platform
+
+platform SUB_1 LOWEST_SUBORDINATE 
+   commander MID_CMDR_1
+   position 1:0:0.0n 1:0:0.0w altitude 1000.00 m agl
+end_platform
+
+platform SUB_2 LOWEST_SUBORDINATE 
+   commander MID_CMDR_1
+   position 2:0:0.0n 1:0:0.0w altitude 1000.00 m agl
+end_platform
+
+platform SUB_3 LOWEST_SUBORDINATE 
+   commander MID_CMDR_2
+   position 1:0:0.0n 1:0:0.0e altitude 1000.00 m agl
+end_platform
+
+platform SUB_4 LOWEST_SUBORDINATE 
+   commander MID_CMDR_2
+   position 2:0:0.0n 1:0:0.0e altitude 1000.00 m agl
+end_platform
+
+
+end_time 30 sec

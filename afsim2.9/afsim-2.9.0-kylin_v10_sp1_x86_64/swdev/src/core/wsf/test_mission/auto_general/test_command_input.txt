@@ -1,0 +1,153 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test just to run commands and subcommands for validity of commands.
+# It does NOTHING else.
+
+# Platform static sub commands
+radar_signature TEST_RADAR_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+route TEST_ROUTE
+  position 22.5N 22.5E altitude 2000 ft speed 300 kts
+  position 23.5N 24.5E altitude 2000 ft speed 300 kts
+end_route
+
+aero TEST_AERO WSF_AERO
+   reference_area 6 in^2
+   aspect_ratio 3
+   oswalds_factor 0.95
+   cl_max 1.4
+   zero_lift_cd .7
+end_aero
+
+aero TEST2_AERO WSF_AERO
+   reference_area      90 ft2
+   mach_and_cd         .3   0.011819
+   mach_and_cd         .5   0.011198
+   mach_and_cd         .7   0.011650
+   mach_and_cd         .8   0.010652
+   mach_and_cd        1.05  0.027874
+   mach_and_cd        1.10  0.028118
+   mach_and_cd        1.20  0.028484
+   mach_and_cd        1.30  0.026991
+   mach_and_cd        1.50  0.025317
+   mach_and_cd        2.00  0.019258
+   mach_and_cd        2.50  0.016250
+   mach_and_cd        3.00  0.007340
+   mach_and_cd        3.50  0.006500
+   mach_and_cd        4.00  0.005990
+   mach_and_cd        4.60  0.005200
+   mach_and_cd        5.00  0.004900
+   mach_and_cd        6.00  0.004140
+   mach_and_cd        7.00  0.003710
+   mach_and_cd        8.00  0.003330
+   aspect_ratio       4.1
+   cl_max             0.08
+end_aero
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   side red
+   icon 737
+   marking none
+   indestructible
+#  spatial_domain air
+   radar_signature    TEST_RADAR_SIGNATURE
+   position 38.2n   15.5e
+   altitude 3 m
+   creation_time .5 sec
+   empty_mass 3 kg
+   fuel_mass 1 kg
+   payload_mass 2 kg
+   concealment_factor .4
+   height 10 inch
+   length 5 ft
+   width 1 meter
+   category test_platform
+   zone test1
+      circular
+      minimum_radius 2 mile
+      maximum_radius 40 km
+   end_zone
+end_platform_type
+
+platform_type BASIC_AIR_MOVER TEST_PLATFORM
+   mover WSF_AIR_MOVER
+      update_interval 10 sec
+      update_time_tolerance 1 sec
+      at_end_of_path stop
+      start_at HOME
+      start_time 2 sec
+      switch_on_approach
+      switch_on_passing
+      use_route TEST_ROUTE
+      angle_of_attack_table
+         altitude 5000 ft
+           speed 20 kts angle 1 deg
+           speed 40 kts angle 2 deg
+         altitude 10000 ft angle 3 deg
+      end_angle_of_attack_table
+      bank_angle_limit 5 deg
+      body_g_limit 10 g
+      heading_pursuit_gain 4
+      maximum_climb_rate 100 kts
+      maximum_flight_path_angle 16 deg
+      maximum_linear_acceleration 3 g
+      maximum_radial_acceleration 4 g
+      maximum_altitude 50000 ft
+      minimum_altitude 1 ft
+      maximum_speed 2000 fps
+      minimum_speed 200 mph
+      roll_rate_limit 5 deg/s
+      turn_rate_limit 6 deg/s
+      maximum_impact_speed 25 mph
+   end_mover
+end_platform_type
+
+platform_type BASIC_GROUND_MOVER TEST_PLATFORM
+   mover WSF_GROUND_MOVER
+      update_interval 20 sec
+      update_time_tolerance 5 sec
+      at_end_of_path remove
+      pitch_disable
+      pitch_enable
+      start_at HOME
+      start_time 4 sec
+      switch_on_approach
+      switch_on_passing
+      use_route TEST_ROUTE
+      bank_angle_limit 5 deg
+      body_g_limit 20 g
+      heading_pursuit_gain 6
+      maximum_climb_rate 400 mph
+      maximum_flight_path_angle 45 deg
+      maximum_linear_acceleration 7 g
+      maximum_radial_acceleration 5 g
+      maximum_altitude 50000 ft
+      maximum_speed 2000 mph
+      minimum_speed 30 mph
+      roll_rate_limit 15 deg/s
+      turn_rate_limit 10 deg/s
+   end_mover
+end_platform_type
+
+platform test_platform TEST_PLATFORM
+end_platform
+
+platform_type OFFSET_MOVER TEST_PLATFORM
+   mover WSF_OFFSET_MOVER
+      update_interval 1.5 sec
+      update_time_tolerance .25 sec
+      attachment_type rigid
+      reference_platform test_platform
+      offset_from_reference 1 m 10 m 100 m
+      orphan_action extrapolate
+   end_mover
+end_platform_type

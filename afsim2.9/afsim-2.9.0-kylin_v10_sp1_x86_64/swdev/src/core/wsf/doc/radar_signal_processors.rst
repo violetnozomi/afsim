@@ -1,0 +1,32 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _Radar_Signal_Processors:
+
+Radar Signal Processors
+-----------------------
+
+.. parsed-literal::
+
+   signal_processor <type-name>
+      ...commands ...
+  end_signal_processor
+
+Types
+=====
+
+.. contents::
+   :local:
+   :depth: 1
+
+.. include:: signal_processor_mti_adjustment.txt
+
+.. include:: signal_processor_mti_processor.txt
+
+.. include:: signal_processor_simple_doppler.txt

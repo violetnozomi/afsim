@@ -1,0 +1,627 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This tests the use of WSF_P6DOF_EXPLICIT_WEAPON
+# --------------------------------------------------------------------------------------------------
+
+define_path_variable CASE p6dof_exp_weapon_test
+
+# Setup include paths
+file_path .
+
+# Set the random number seed
+random_seed 142535
+
+# Start date (Northern Hemisphere Summer Solstice 2020)
+start_date jun 20 2020
+
+# Minimum mover time step
+minimum_mover_timestep 1 ms
+
+# Set start time, GMT (The start date was set in std_setup.txt above)
+start_time 23:00:00.000
+
+end_time 48 sec
+
+# Define WSF platform types that use P6DOF movers
+include_once ../platforms/aam-mr.txt
+include_once ../platforms/aam-sr.txt
+include_once ../platforms/aam-sr-tvc.txt
+include_once ../platforms/fa-lgt_red.txt
+include_once ../scripts/WeaponScripts.txt
+include_once ../p6dof_types/scripts/support_scripts.txt
+include_once ../p6dof_types/environment/p6dof_environment.txt
+include_once ../p6dof_types/aircraft/fa-lgt/fa-lgt-missiles.txt
+
+# Define some P6DOF Explicit Weapons
+
+weapon AAM-MR_WEAPON_EXP WSF_P6DOF_EXPLICIT_WEAPON
+   add_subobject MRM-1
+   add_subobject MRM-2
+end_weapon
+
+weapon AAM-SR_WEAPON_EXP WSF_P6DOF_EXPLICIT_WEAPON
+   add_subobject SRM-1
+   add_subobject SRM-2
+   salvo_interval 4.0 sec 
+end_weapon
+
+weapon AAM-SRV_WEAPON_EXP WSF_P6DOF_EXPLICIT_WEAPON
+   add_subobject SRMV-1
+   add_subobject SRMV-2
+end_weapon
+
+# Define the P6DOF object-to-platform definitions for weapons
+p6dof_object_types
+   map_p6dof_object_to_platform AAM-MR AAM-MR
+   map_p6dof_object_to_platform AAM-SR AAM-SR
+   map_p6dof_object_to_platform AAM-SR-TVC AAM-SR-TVC
+end_p6dof_object_types
+
+# Define the "primary object", a blue fighter equipped
+# with P6DOF explicit weapons
+platform_type NEW_BLUE_FIGHTER_WITH_MISSILES WSF_PLATFORM
+
+   spatial_domain  air
+   side            blue
+   icon            f16
+
+   # Setup the P6DOF mover
+   mover WSF_P6DOF_MOVER
+      p6dof_object_type FA-LGT-MISSILES
+      update_interval   0.01 sec
+   end_mover
+
+   sensor radar WSF_GEOMETRIC_SENSOR
+      on
+      azimuth_field_of_view   -110.0 degrees  110.0 degrees
+      elevation_field_of_view  -90.0 degrees   90.0 degrees
+      maximum_range 100 nm
+      frame_time    0.1 sec
+      reports_location
+      reports_velocity
+      reports_range
+      reports_iff
+      reports_type
+      track_quality 1.0
+      internal_link data_mgr
+      ignore_same_side
+   end_sensor
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval  60 sec
+   end_processor
+
+   weapon mr-aam AAM-MR_WEAPON_EXP
+      script void on_create(WsfPlatform aWeapon, WsfTrack aTrack)
+         missile_on_create(aWeapon, aTrack);
+      end_script
+   end_weapon
+
+   weapon sr-aam AAM-SR_WEAPON_EXP
+      script void on_create(WsfPlatform aWeapon, WsfTrack aTrack)
+         missile_on_create(aWeapon, aTrack);
+      end_script
+   end_weapon
+
+   weapon sr-aam-tvc AAM-SRV_WEAPON_EXP
+      script void on_create(WsfPlatform aWeapon, WsfTrack aTrack)
+         missile_on_create(aWeapon, aTrack);
+      end_script
+   end_weapon
+
+   processor pilot-thinker WSF_SCRIPT_PROCESSOR
+     update_interval 1.5 sec
+     on
+
+     on_initialize
+       WsfSensor seeker = PLATFORM.SensorEntry(0); // Get the first sensor
+       seeker.TurnOn();
+     end_on_initialize
+
+     script void LockDesiredTarget(string desiredTargetName)
+         WsfLocalTrackList trackList = PLATFORM.MasterTrackList();
+         foreach (WsfLocalTrack trk in trackList)
+         {
+            WsfPlatform target = trk.Target();
+            if (target.IsValid())
+            {
+               if(target.Name()==desiredTargetName)
+               {
+                  PLATFORM.SetCurrentTarget(trk);
+               }
+            }
+         }     
+     end_script  
+	 
+     execute at_time 3.0 sec absolute     
+         string targetName = "mig_target1";
+         LockDesiredTarget(targetName);        
+         WsfTrack trk = PLATFORM.CurrentTargetTrack();
+         if(trk.IsValid())
+         {        
+            WsfPlatform target = trk.Target();
+            if (target.IsValid())
+            {
+               WsfTrack trk = PLATFORM.CurrentTargetTrack();
+               if(trk.IsValid())
+               {
+                  WsfWeapon weapon_srtvc = PLATFORM.Weapon("sr-aam-tvc");
+                  if (weapon_srtvc.IsValid() && weapon_srtvc.QuantityRemaining() > 0)
+                  {
+                     weapon_srtvc.Fire(trk);
+                  }
+               }
+            }
+        }	 
+     end_execute
+	 
+     execute at_time 5.0 sec absolute     
+         string targetName = "mig_target2";
+         LockDesiredTarget(targetName);        
+         WsfTrack trk = PLATFORM.CurrentTargetTrack();
+         if(trk.IsValid())
+         {        
+            WsfPlatform target = trk.Target();
+            if (target.IsValid())
+            {        
+               WsfWeapon weapon_sr    = PLATFORM.Weapon("sr-aam");
+               if (weapon_sr.IsValid() && weapon_sr.QuantityRemaining() > 0)
+               {
+                  weapon_sr.FireSalvo(trk,2);
+               }
+            }
+         }	 
+     end_execute
+	 
+     execute at_time 7.0 sec absolute     
+         string targetName = "mig_target3";
+         LockDesiredTarget(targetName);        
+         WsfTrack trk = PLATFORM.CurrentTargetTrack();
+         if(trk.IsValid())
+         {        
+            WsfPlatform target = trk.Target();
+            if (target.IsValid())
+            {        
+               WsfWeapon weapon_mr    = PLATFORM.Weapon("mr-aam");
+               if (weapon_mr.IsValid() && weapon_mr.QuantityRemaining() > 0)
+               {
+                  weapon_mr.Fire(trk);
+               }
+            }
+         }	 
+     end_execute
+
+     execute at_time 12.0 sec absolute     
+         string targetName = "mig_target4";
+         LockDesiredTarget(targetName);        
+         WsfTrack trk = PLATFORM.CurrentTargetTrack();
+         if(trk.IsValid())
+         {        
+            WsfPlatform target = trk.Target();
+            if (target.IsValid())
+            {        
+               WsfWeapon weapon_mr    = PLATFORM.Weapon("mr-aam");
+               if (weapon_mr.IsValid() && weapon_mr.QuantityRemaining() > 0)
+               {
+                  weapon_mr.Fire(trk);
+               }
+            }
+         }	 
+     end_execute
+
+   end_processor
+
+end_platform_type
+
+# --------------------------------------------------------------------------------------------------
+
+platform new_blue_fighter NEW_BLUE_FIGHTER_WITH_MISSILES
+
+   update_interval 0.01 sec   
+   icon  f16
+   side  blue
+
+   route
+     position 21.225n 157.94w  altitude 15000.0 ft  speed 600.0 kts
+     position 21.225n 157.25w  altitude 15000.0 ft  speed 600.0 kts
+   end_route
+   
+   execute at_time 9.0 sec absolute
+      # Crank right
+      PLATFORM.TurnToHeading(140.0);
+   end_execute
+
+   execute at_time 22.0 sec absolute
+      # Turn left to head NE
+      PLATFORM.TurnToHeading(40.0);
+   end_execute
+
+end_platform
+
+# --------------------------------------------------------------------------------------------------
+
+platform mig_target1 FA-LGT_RED
+   update_interval 0.01 sec
+   icon  mig29_rus
+   side  red
+   route
+     position 21.26n 157.94w  altitude 15000.0 ft  speed 500.0 kts
+     position 21.26n 157.25w  altitude 15000.0 ft  speed 500.0 kts
+   end_route
+end_platform
+
+platform mig_target2 FA-LGT_RED
+   update_interval 0.01 sec
+   icon  mig29_rus
+   side  red
+   route
+     position 21.20n 157.90w  altitude 15000.0 ft  speed 500.0 kts
+     position 21.20n 157.25w  altitude 15000.0 ft  speed 500.0 kts
+   end_route
+end_platform
+
+platform mig_target3 FA-LGT_RED
+   update_interval 0.01 sec
+   icon  mig29_nk
+   side  red
+   route
+     position 21.20n 157.6w  altitude 27000.0 ft  speed 500.0 kts
+     position 21.25n 157.9w  altitude 27000.0 ft  speed 500.0 kts
+   end_route
+end_platform
+
+platform mig_target4 FA-LGT_RED
+   update_interval 0.01 sec
+   icon  mig29_nk
+   side  red
+   route
+     position 21.20n 157.65w  altitude 7000.0 ft  speed 480.0 kts
+     position 21.25n 157.9w  altitude 7000.0 ft  speed 480.0 kts
+   end_route
+end_platform
+
+# --------------------------------------------------------------------------------------------------
+
+script_variables
+   bool testsPassed = true;
+end_script_variables
+
+script bool PlatformExists(string desiredPlatformName)
+   WsfPlatform plat = WsfSimulation.FindPlatform(desiredPlatformName);
+   if( plat.IsValid() )
+   {
+      if(plat.IsNull()) return false;
+   }
+   else
+   {
+      return false;
+   }
+   return true;
+end_script  
+
+script void FailIfPlatformExists(string desiredPlatformName)
+   if(PlatformExists(desiredPlatformName))
+   {
+      writeln("Platform (", desiredPlatformName, ") should not exist at T=", TIME_NOW);
+      writeln("-FAIL-");
+      testsPassed = false;
+   }
+end_script  
+
+script void FailIfPlatformDoesNotExist(string desiredPlatformName)
+   if(!PlatformExists(desiredPlatformName))
+   {
+      writeln("Platform (", desiredPlatformName, ") does not exist at T=", TIME_NOW);
+      writeln("-FAIL-");
+      testsPassed = false;
+   }
+end_script  
+
+execute at_time 1.0 sec absolute
+
+   # At this point, verify that no weapons are in flight
+   # and all aircraft exist
+
+   writeln(" ");
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target1");
+   FailIfPlatformDoesNotExist("mig_target2");
+   FailIfPlatformDoesNotExist("mig_target3");
+   FailIfPlatformDoesNotExist("mig_target4");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_2");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_1");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_2");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 3.5 sec absolute
+
+   # At this point, verify that SRM-TVC1 exists
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target1");
+   FailIfPlatformDoesNotExist("mig_target2");
+   FailIfPlatformDoesNotExist("mig_target3");
+   FailIfPlatformDoesNotExist("mig_target4");
+
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam-tvc_1");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_2");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_1");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_2");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 5.5 sec absolute
+
+   # At this point, verify that SRM-TVC1 and SRM1 exist
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target1");
+   FailIfPlatformDoesNotExist("mig_target2");
+   FailIfPlatformDoesNotExist("mig_target3");
+   FailIfPlatformDoesNotExist("mig_target4");
+
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam-tvc_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam_1");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_2");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_1");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_2");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 7.5 sec absolute
+
+   # At this point, verify that SRM-TVC1, SRM1, and MRM1 exist
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target1");
+   FailIfPlatformDoesNotExist("mig_target2");
+   FailIfPlatformDoesNotExist("mig_target3");
+   FailIfPlatformDoesNotExist("mig_target4");
+
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam-tvc_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_1");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_2");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_2");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 9.5 sec absolute
+
+   # At this point, verify that SRM-TVC1, SRM1, MRM1, and SRM2 exist
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target1");
+   FailIfPlatformDoesNotExist("mig_target2");
+   FailIfPlatformDoesNotExist("mig_target3");
+   FailIfPlatformDoesNotExist("mig_target4");
+
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam-tvc_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam_2");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_2");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 12.5 sec absolute
+
+   # At this point, verify that SRM-TVC1, SRM1, MRM1, SRM2, and MRM2 exist
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target1");
+   FailIfPlatformDoesNotExist("mig_target2");
+   FailIfPlatformDoesNotExist("mig_target3");
+   FailIfPlatformDoesNotExist("mig_target4");
+
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam-tvc_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam_2");
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_2");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 14.5 sec absolute
+
+   # At this point, verify that SRM-TVC1, SRM1, MRM1, SRM2, and MRM2 exist
+   # Also verify that SRM-TVC1 and MIG1 do not exist
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target2");
+   FailIfPlatformDoesNotExist("mig_target3");
+   FailIfPlatformDoesNotExist("mig_target4");
+
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam_2");
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_2");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+
+   FailIfPlatformExists("mig_target1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_1");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 18.0 sec absolute
+
+   # At this point, verify that MRM1, SRM2, and MRM2 exist
+   # Also verify that SRM-TVC1, SRM1, MIG1, and MIG2 do not exist
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target3");
+   FailIfPlatformDoesNotExist("mig_target4");
+
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_sr-aam_2");
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_2");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+
+   FailIfPlatformExists("mig_target1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_1");
+   FailIfPlatformExists("mig_target2");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_1");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 20.0 sec absolute
+
+   # At this point, verify that MRM1 and MRM2 exist
+   # Also verify that SRM-TVC1, SRM1, SRM2, MIG1, and
+   # MIG2 do not exist
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target3");
+   FailIfPlatformDoesNotExist("mig_target4");
+
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_1");
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_2");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+
+   FailIfPlatformExists("mig_target1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_1");
+   FailIfPlatformExists("mig_target2");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_2");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 38.5 sec absolute
+
+   # At this point, verify that MRM1 exists
+   # Also verify that SRM-TVC1, SRM1, SRM2, MRM2, MIG1,
+   # MIG2, and MIG4 do not exist
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformDoesNotExist("mig_target3");
+
+   FailIfPlatformDoesNotExist("new_blue_fighter_mr-aam_1");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+   
+   FailIfPlatformExists("mig_target1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_1");
+   FailIfPlatformExists("mig_target2");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_2");
+   FailIfPlatformExists("mig_target4");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_2");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 42.5 sec absolute
+
+   # At this point, verify that SRM-TVC1, SRM1, SRM2, MRM1,
+   # MRM2, MIG1, MIG2, MIG3, and MIG4 do not exist
+
+   writeln("Test at T=",TIME_NOW);
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+
+   FailIfPlatformExists("mig_target1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_1");
+   FailIfPlatformExists("mig_target2");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_1");
+   FailIfPlatformExists("new_blue_fighter_sr-aam_2");
+   FailIfPlatformExists("mig_target4");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_2");
+   FailIfPlatformExists("mig_target3");
+   FailIfPlatformExists("new_blue_fighter_mr-aam_1");
+
+   if(testsPassed) writeln("-PASS-");
+
+end_execute
+
+execute at_time 47.9 sec absolute
+
+   writeln("Test at T=",TIME_NOW);
+
+   # At this point, verify that new_blue_fighter still exists
+   # and that new_blue_fighter_sr-aam-tvc_2 does not exist
+
+   FailIfPlatformDoesNotExist("new_blue_fighter");
+   FailIfPlatformExists("new_blue_fighter_sr-aam-tvc_2");
+   
+   if(testsPassed)
+   {
+      writeln("-PASS-");
+      writeln(" ");
+      writeln("ALL TESTS PASSED.");
+      writeln(" ");
+   }
+   else
+   {
+      writeln("-FAIL- ALL TESTS DID NOT PASS -FAILURE-");
+      writeln(" ");
+   }
+   
+end_execute

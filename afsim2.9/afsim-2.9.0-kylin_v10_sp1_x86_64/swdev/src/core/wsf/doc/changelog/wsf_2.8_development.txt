@@ -1,0 +1,39 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.8.3)** Added a ``WsfObserver::MoverChanged`` callback to the base ``WsfEventPipeInterface`` callbacks. Associated with this are small refactors of the code associated with updating a platform's mover's ``WsfMover.mUpdateInterval`` based on the maximum mover update interval associated with the event pipe. (:issue:`AFSIM-2027`)
+* **(2.8.3)** Fixed issue caused by ``WsfApplication`` managing the global ``UtDictionary``. Also added unit tests for ``WsfApplication`` and ``UtDictionary``. (:issue:`AFSIM-1410`)
+* **(2.8.1)** Updated CMake configuration to support building AFSIM as a sub-project for another top-level project. (:issue:`AFSIM-411`)
+* **(2.8.1)** ``WsfXIO_ScriptListPkt`` now correctly reports a platform index of 0 for global scripts. (:issue:`AFSIM-1053`)
+* **(2.8.1)** Improved the API of ``ut::CloneablePtr`` to include move semantics and be more consistent with the API of managed pointers in the C++ standard library. (:issue:`AFSIM-917`)
+* **(2.8.1)** Fixed several potential issues caused by the misuse of the ``typeid`` operator; added ``ut::TypeNameOf`` as a cross-platform method of accessing type names. (:issue:`AFSIM-1070`)
+* **(2.8.1)** Added export macros to several classes maintaining type lists, including ``WsfTrackReportingStrategyTypes`` and ``WsfVisualPartTypes``, to allow plugin developers to extend them with custom object types. (:issue:`AFSIM-1260`)
+* **(2.8.1)** Added a new flag to ``UtProcess`` that allows executing the process in a new console window on Windows systems. (:issue:`AFSIM-1199`)
+* **(2.8.1)** Removed the redefinition of ``isfinite`` on Windows systems in ``DisValidationUtils.hpp``, allowing developers to use ``std::isfinite`` in translation units that include it. (:issue:`AFSIM-978`)
+* Updated the ``wsf::event::Result`` constructor to allow the use of a default ``Settings`` object and take an optional name argument to support runtime type recognition. (:issue:`AFSIM-893`)
+* Added a new flag to ``UtProcess`` that allows the console window to be hidden when executing the process on Windows systems. (:issue:`AFSIM-591`)
+* ``WsfSensor`` constructor now takes its ``WsfScenario`` argument by reference to ``const``. (:issue:`AFSIM-590`)
+* Removed ``GenI::WaitForever`` enumeration, as it was not supported. (:issue:`AFSIM-125`)
+* Added overloads of ``GetLocation``, ``GetVelocity``, and ``GetAcceleration`` in all available :ref:`Coordinate_Systems`, returning ``UtVec3d``, to ``UtEntity`` and ``UtEntityPart``. ``GetAcceleration`` methods in ``UtEntity`` returning the magnitude of the acceleration vector as a ``double`` have been renamed to avoid naming conflicts. (:issue:`AFSIM-243`)
+* Added a custom Sphinx role ``:issue:`` to documentation to link changelog issue references directly to their DI2E issue pages. (:issue:`AFSIM-442`)
+* Removed deprecated overload of method ``UtInput::PushInput`` which was deprecated in 2.6.
+* Added advanced CMake flag :doc:`PROMOTE_HARDWARE_EXCEPTIONS<../developer/build_instructions>`.
+* Added the method ``ConvertVelocityWCSToECI`` to the ``UtEntity`` class. (:issue:`AFSIM-551`)
+* Fixed an issue with ``WsfDateTime::GetCurrentTime`` returning inaccurate results in some circumstances. (:issue:`AFSIM-610`)
+* Corrected an issue where subscribers of ``WsfObserver::RouteChanged`` would not be notified by :method:`WsfPlatform.SetRoute` for certain movers. (:issue:`AFSIM-634`)
+* Added ``WsfSimulation::GetNextEventTime`` method to retrieve the simulation time of the next event.
+* Corrected issues with querying unit validity and unit enumerations for compound and multi-dimensional units in ``UtUnitTypes``.  Also, added some convenience overloads of utility functions, including ``IsUnitValid`` for ``std::string``.
+* Changed the access specifier of ``WsfFrameStepSimulation::GetFrameTime`` to ``public``.
+* Created Sphinx extension afsim-autosectionlabel to allow developers to reference documentation sections without needing to manually create section labels. (:issue:`AFSIM-779`)
+* Added baseline support for automatic generation of PDF based AFSIM Documentation. 
+* Added support for automatic generation of the AFSIM User Manual as a PDF through the DOCUMENTATION_USER_MANUAL CMake target. (:issue:`AFSIM-888`)
+* Modified the initialization routine for ``WsfSimulation`` in regards to initialization of ``WsfPlatform``. Previously, platforms would initialize fully on a platform-by-platform basis, such that one platform may be fully instantiated and initialized in the simulation before another platform. This is no longer the case, as all platforms now progress through initialization such that no platform starts a new initialization phase until all platforms have completed the previous phase. (:issue:`AFSIM-543`)
+* Modified ``WsfEvent`` to provide a priority value, and a boolean indicating event cancellation. The corresponding simulation and event manager usage of ``WsfEvent`` now allows ordering of events that occur at the same discrete time by priority, and the cancellation of events directly from the ``WsfEvent`` object's interface. (:issue:`AFSIM-441`)
+* Moved doxygen and documentation targets from CMakeTargets to DocumentationTargets for better organization in IDEs. (:issue:`AFSIM-1001`)
+* Updated :doc:`../developer/documentation_guide` and created :doc:`../developer/afsim_documentation_standard`. (:issue:`AFSIM-706`)

@@ -1,0 +1,184 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Bathymetry terrain tests  
+define_path_variable CASE test_bathymetry
+
+include_once ../auto_script/test_functions.txt
+include_once ../auto_script/test_pass.txt
+
+script_debug_writes off
+
+ script_variables
+   PassTestCount = 15;
+   double gTestLat = 37.0020833333;         // Matches a line of latitude in the data file; for ease in setting up test cases
+   bool gEnableQueries = false;             // Queries used to set up test points
+   WsfTerrain gTestTerrain = WsfTerrain();
+ end_script_variables
+
+terrain
+   // Ref: https://topex.ucsd.edu/cgi-bin/get_srtm15.cgi
+   // Descending latitudes
+   // Extents: 36.8 -75.6 37.2 -74.3
+   bathymetry bathymetry/bathymetry_xyz_tab.dat
+end_terrain
+
+//*****************************************************************************
+// Script method for extracting a line of latitude from the data set.
+// @param aLat Desired latitude (degrees)
+// @param aStartLon Starting longitude (degrees)
+// @param aEndLon Ending longitude (degrees)
+script void QueryTerrainLongitude(double aLat, double aStartLon, double aEndLon)
+   WsfTerrain t = WsfTerrain();
+   double f = 0;
+   while (f <= 1)
+   {
+      double lat = f * aLat + (1. - f) * aLat;
+      double lon = f * aStartLon + (1. - f) * aEndLon;
+      double elevApprox = t.BathymetryElevApprox(lat, lon);
+      f = f + 0.01;
+      writeln(Format.Fixed(lat, 5).Pad(15), "   ",
+              Format.Fixed(lon, 5).Pad(15), "   ",
+              Format.Fixed(elevApprox, 5).Pad(15));
+   }
+end_script
+
+//*****************************************************************************
+// Script method for querying terrain at given latitude and longitude.
+// @param aLat Desired latitude (degrees)
+// @param aLon Desired longitude (degrees)
+script void QueryTerrain(double aLat, double aLon)
+   WsfTerrain t = WsfTerrain();
+   writeln("\nQuery Elevation Approx (m): ", aLat, " ", aLon, " ", t.BathymetryElevApprox(aLat, aLon));
+   writeln(  "                Interp (m): ", aLat, " ", aLon, " ", t.BathymetryElevInterp(aLat, aLon));
+end_script
+
+//*****************************************************************************
+// Script method for masked by terrain checks between two locations. Approximate
+// terrain height is used for elevation at each point.
+// @param aLat1 Latitude of first location (degrees)
+// @param aLon1 Longitude of first location (degrees)
+// @param aLat2 Latitude of second location (degrees)
+// @param aLon2 Longitude of second location (degrees)
+script bool MaskedByTerrain(double aLat1, double aLon1,
+                            double aLat2, double aLon2)
+   WsfTerrain t = WsfTerrain();
+
+   double elevApprox1 = t.BathymetryElevApprox(aLat1, aLon1);
+   writeln_d("\nElevation Approx 1 (m): ", elevApprox1);
+   WsfGeoPoint gp1 = WsfGeoPoint.Construct(aLat1, aLon1, elevApprox1);
+
+   double elevApprox2 = t.BathymetryElevApprox(aLat2, aLon2);
+   writeln_d("Elevation Approx 2 (m): ", elevApprox2);
+   WsfGeoPoint gp2 = WsfGeoPoint.Construct(aLat2, aLon2, elevApprox2);
+
+   bool maskedByTerrain = t.MaskedByTerrain(gp1, gp2, 1.);
+   writeln_d("Masked by terrain  : ", maskedByTerrain);
+
+   return maskedByTerrain;
+end_script
+
+//*****************************************************************************
+// Script method for masked by terrain checks between two locations.
+// @param aLat1 Latitude of first location (degrees)
+// @param aLon1 Longitude of first location (degrees)
+// @param aAlt1 Altitude of first location (meters)
+// @param aLat2 Latitude of second location (degrees)
+// @param aLon2 Longitude of second location (degrees)
+// @param aAlt2 Altitude of second location (meters)
+script bool MaskedByTerrain2(double aLat1, double aLon1, double aAlt1,
+                             double aLat2, double aLon2, double aAlt2)
+
+   WsfGeoPoint gp1 = WsfGeoPoint.Construct(aLat1, aLon1, aAlt1);
+   WsfGeoPoint gp2 = WsfGeoPoint.Construct(aLat2, aLon2, aAlt2);
+
+   WsfTerrain t = WsfTerrain();
+   bool maskedByTerrain = t.MaskedByTerrain(gp1, gp2, 1.);
+   writeln_d("Masked by terrain 2: ", maskedByTerrain);
+
+   return maskedByTerrain;
+end_script
+
+//*****************************************************************************
+// Script method for masked by terrain checks between a platform and a location.
+// @param aPlatformName The name of the platform
+// @param aLat2 Latitude of second location (degrees)
+// @param aLon2 Longitude of second location (degrees)
+// @param aAlt2 Altitude of second location (meters)
+script bool MaskedByTerrain3(string aPlatformName,
+                             double aLat2, double aLon2, double aAlt2)
+
+   WsfPlatform platform = WsfSimulation.FindPlatform(aPlatformName);
+   if (!platform.IsValid()) return false;
+
+   WsfGeoPoint gp = WsfGeoPoint.Construct(aLat2, aLon2, aAlt2);
+
+   bool maskedByTerrain = platform.MaskedByTerrain(gp, 0., 1.);
+   writeln_d("Masked by terrain 3: ", maskedByTerrain);
+
+   return maskedByTerrain;
+end_script
+
+script bool QueryTerrainApprox(double aLat, double aLon, double aExpectedAltitude)
+   // Using the script variable on purpose   
+   double elevApprox = gTestTerrain.BathymetryElevApprox(aLat, aLon);
+   writeln_d("Query Elevation Approx (m): ", elevApprox);
+   return AssertWithinToleranceMessage(aExpectedAltitude, elevApprox, .001, "");
+end_script
+
+//*****************************************************************************
+script_variables
+
+   // This test needs to be first before any other queries
+   // It is testing initial queries outside of terrain tile extents and 
+   // then quering inside file extents
+   if (QueryTerrainApprox(30., -70., 0.)) pass();
+   if (QueryTerrainApprox(gTestLat, -74.40625, -1542.)) pass();   
+   if (QueryTerrainApprox(40., -80., 0.)) pass();   
+
+   // Testing for several conditions
+   if (MaskedByTerrain(   gTestLat, -74.4,         gTestLat, -74.53))         pass();   // 1 masked
+   if (MaskedByTerrain2(  gTestLat, -74.4, -1800., gTestLat, -74.6, -600.))   pass();   // 1 masked - below the terrain
+   if (MaskedByTerrain2(  gTestLat, -74.4, -1672., gTestLat, -74.6, -503.))   pass();   // 1 masked - on the terrain - interpolated
+   if (!MaskedByTerrain2( gTestLat, -74.4,    -1., gTestLat, -74.6, -1.))     pass();   // 0 NOT masked - just below the surface
+
+   writeln_d();
+   if (MaskedByTerrain2(  gTestLat, -74.5,    -1., gTestLat, -75.5, -1.))     pass();   // 1 masked by horizon - just below the surface but beyond the horizon
+   if (!MaskedByTerrain2( gTestLat, -75.433, -20., gTestLat, -75.5, -20.))    pass();   // 0 NOT masked - below surface not beyond horzon
+   if (MaskedByTerrain2(  gTestLat, -75.433, -23., gTestLat, -75.5, -25.))    pass();   // 1 masked by underwater terrain
+
+   writeln_d();
+   if (!MaskedByTerrain2( gTestLat, -75.433, 100., gTestLat, -75.5, 100.))   pass();   // 0 NOT masked; both above MSL
+   if (!MaskedByTerrain2( gTestLat, -75.433, -20., gTestLat, -75.5, 0.))     pass();   // 0 NOT masked; one on surface, one below
+   if (MaskedByTerrain2(  gTestLat, -74.6,  -500., gTestLat, -74.6667, 100.)) pass();  // 1 masked by underwater terrain; one above surface, one below
+
+   // These were used to capture test points
+   if (gEnableQueries)
+   {
+      QueryTerrainLongitude(gTestLat, -74.0, -76.0);
+      QueryTerrainLongitude(gTestLat, -74.4, -74.8);
+      QueryTerrain(gTestLat, -74.4);
+      QueryTerrain(gTestLat, -74.5);
+      QueryTerrain(gTestLat, -74.53);
+      QueryTerrain(gTestLat, -74.6);
+      QueryTerrain(gTestLat, -74.6667);
+      QueryTerrain(gTestLat, -75.433);
+      QueryTerrain(gTestLat, -75.5);
+   }
+
+end_script_variables
+
+platform p1 WSF_PLATFORM
+   position 37n 74.4w altitude -1672. m
+end_platform
+
+execute at_time 0.001 s absolute
+   if (MaskedByTerrain3( "p1", gTestLat, -74.53, -1245.)) pass();                    // 1 masked
+   if (!MaskedByTerrain3("p1", gTestLat, -74.53, -1000.)) pass();                    // 0 NOT masked
+end_execute

@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//THIS TEST IS DEPRECATED
+//WSF_COMM_ROUTER is no longer available in AFSIM
+#script_variables
+#	bool requiredMsgRcvd = false;
+#	bool debug = false;
+#end_script_variables
+#
+#script void MessageReceived(WsfPlatform aPlatformXmtr, WsfComm aXmtr, WsfPlatform aPlatformRcvr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+#	extern bool requiredMsgRcvd;
+#	if (debug)
+#	{
+#		writeln("Message received.");
+#		writeln("Sender: ", aPlatformXmtr.Name());
+#		writeln("Receiver: ", aPlatformRcvr.Name());
+#		writeln("");
+#	}
+#	if ((aPlatformXmtr.Name() == "host-2") && (aPlatformRcvr.Name() == "host-3"))
+#	{
+#		requiredMsgRcvd = true;
+#	}
+#end_script
+#
+#observer
+#	enable MESSAGE_RECEIVED
+#end_observer
+#
+#platform host-1 WSF_PLATFORM
+#   add comm comm-A WSF_COMM_TRANSCEIVER
+#      default_gateway
+#      network_name     A
+#      network_link     B
+#   end_comm
+#   add processor router-A WSF_COMM_ROUTER
+#      interface comm-A
+#   end_processor
+#  execute at_time 1 sec absolute
+#     PLATFORM.Comm("comm-A").SendMessage(WsfMessage(), "host-3");
+#  end_execute
+#end_platform
+#
+#platform host-2 WSF_PLATFORM
+#   add comm comm-B WSF_COMM_TRANSCEIVER
+#      default_gateway
+#      network_name     B
+#      network_link     C
+#   end_comm
+#   add processor router-B WSF_COMM_ROUTER
+#      interface comm-B
+#   end_processor
+#end_platform
+#
+#platform host-3 WSF_PLATFORM
+#   add comm comm-C WSF_COMM_TRANSCEIVER
+#      default_gateway
+#      network_name     C
+#   end_comm
+#   add processor router-C WSF_COMM_ROUTER
+#      interface comm-C
+#   end_processor
+#end_platform
+#
+#execute at_time 3 seconds absolute
+#	extern bool requiredMsgRcvd;
+#
+#	if (!requiredMsgRcvd)
+#	{
+#		writeln("-FAIL-");
+#	}
+#	else
+#	{
+#		writeln("-PASS-");
+#	}
+#	WsfSimulation.Terminate();
+#end_execute
+#
+#end_time 10 seconds

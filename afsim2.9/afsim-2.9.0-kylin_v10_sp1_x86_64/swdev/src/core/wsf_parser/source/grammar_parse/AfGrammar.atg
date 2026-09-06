@@ -1,0 +1,194 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// Copyright 2003-2013 The Boeing Company. All rights reserved.
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+// This file contains the definition of the WSF grammar format.
+// Coco/R processes this input file to generate the parser code in
+// Parser.cpp / Scanner.cpp   etc...
+//
+// Find information about Coco/R at http://ssw.jku.at/Coco/
+
+//
+// Note: this is a very loose definition of the WSF grammar format.
+// It is further processed in WsfParseDefinitions to build the WSF
+// parser objects.
+//
+#include <string>
+#include "WsfParseGrammar.hpp"
+
+COMPILER WsfGrammar
+
+static const int cLARGE_NUMBER = 0x7fffffff;
+// For resolving LL1 ambiguities
+bool HasVarAssign() {
+   Token* tt = scanner->Peek();
+   return tt->kind == _assign;
+}
+
+std::string Str(Token* t)
+{
+   // max size of a wide char per element, plus null terminator
+   auto len = wcslen(t->val) * MB_CUR_MAX + 1;
+   std::vector<char> str(len);
+   std::wcstombs(str.data(), t->val, len);
+   return std::string(str.data());
+}
+void Unescape(std::string& s)
+{
+   for (size_t i = 0; i+1 < s.size(); ++i)
+   {
+      if (s[i] == '\\')
+      {
+         s.erase(s.begin() + i);
+      }
+   }
+}
+std::string Strlit(Token* t)
+{
+   std::string s = Str(t);
+   Unescape(s);
+   return s;
+}
+
+public:
+
+
+M::Expr     mRootRule;
+float       mPriority;
+
+void Clear()
+{
+   mPriority = 0.0f;
+   mRootRule.Clear();
+   mRootRule.mRuleType = M::cRT_ROOT;
+}
+
+typedef std::vector<std::string> StringVector;
+CHARACTERS
+
+  alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_".
+  digit = "0123456789".
+  special_characters = "<>\n\t\r *?:=\"'[];(){},".
+  regular_character = ANY - special_characters - '\\'.
+  lf  = '\n'.
+  tab = '\t'.
+  quote = '"'.
+  non_whitespace = ANY - ' ' - '\t' - '\n'.
+  single_quote = "'".
+  strchar = ANY - '"' - '\\'.
+  strchar2 = ANY - '\\'.
+  quotechar1 = ANY - '('.
+  quotechar2 = ANY - '\\'.
+TOKENS
+  string_literal = '"' { strchar | "\\\"" } '"'.
+  label = ':' { regular_character } .
+  word = (regular_character | ('\\' non_whitespace)) {(regular_character | ('\\' non_whitespace))}.
+  gt = '>'.
+  lt = '<'.
+  star = '*'.
+  question = '?'.
+  plus = '+'.
+  alternate = '|'.
+  colon = ':'.
+  comma = ','.
+  assign = '='.
+  dot = '.'.
+  
+COMMENTS FROM "#" TO lf
+
+IGNORE '\r' + '\n' + tab
+
+PRODUCTIONS
+
+StringLiteral<std::string& s> = string_literal (. s = Strlit(t); s = s.substr(1, s.size() - 2);.)
+ .
+PlainWord<std::string& s> = 
+   word (. s = Strlit(t);.)
+ | StringLiteral<s>
+ .
+Parameter<M::Expr& p> (. std::string lbl;.) =
+  [ label (. lbl = Str(t);.) ] 
+  Rule<p> (. if (!lbl.empty()) p.mLabel = lbl.substr(1);.)
+ .
+// while in a sequence, assume words are literal strings
+SequencePart<M::Expr& s> =
+   Rule<s> 
+ .
+Sequence<M::Expr& s> (. s.Clear(); s.mRuleType = M::cRT_SEQUENCE; M::Expr tr;.) =
+ [ Action<tr> (. s.PushMove(tr);.) ] 
+ SequencePart<tr> (. s.PushMove(tr);.) 
+ [ Action<tr> (. s.PushMove(tr);.) ] 
+   { 
+      SequencePart<tr> (. s.PushMove(tr);.) 
+      [ Action<tr> (. s.PushMove(tr);.) ]  
+   }
+ .
+Alternates<M::Expr& a> (. a.Clear(); M::Expr s; a.mRuleType = M::cRT_ALTERNATE;.) =
+   Sequence<s> (. a.PushMove(s);.)
+   { '|' Sequence<s> (. a.PushMove(s);.)  
+   }
+ .
+Recurrence<M::Expr& lhs> =
+   ('*' | '+' | '?')
+         (. M::Expr te; te.mRuleType = M::cRT_EXPRESSION; te.mType = "recurrence";
+            te += M::Expr::Literal(Strlit(t));
+            te += lhs;
+            lhs = te;.)
+ . 
+RuleExpr<M::Expr& r> (. using namespace M; Expr te; te.mRuleType = M::cRT_EXPRESSION; M::Expr tp;.) = 
+   '('  word (. te.mType = Strlit(t);.)
+      { Parameter<tp> (. te.PushMove(tp);.) 
+      } 
+   ')'  (. r = te;.)
+ .
+Rule<M::Expr& r> (. using namespace M; Expr te; M::Expr tp; std::string text;.) = 
+   PlainWord<text> (. r.SetLiteral(text);.)
+ | ('<' (word | label) (. te.mRuleType = M::cRT_EXPRESSION; te.mType = "rule_ref"; tp.SetLiteral(Strlit(t)); te.PushMove(tp);.)
+       { Parameter<tp> (. te.PushMove(tp);.) } 
+    '>'
+    (. r.Swap(te);.)
+    [ Recurrence<r> ]
+   )
+ | RuleExpr<r>
+ | '{' Alternates<r> '}'  [ Recurrence<r> ]
+// | Action<r>
+ .
+ActionRHS<M::Expr& rhsRule>  = (. using namespace M; std::string text; M::Expr arg; bool isCall=false;.)
+   ( PlainWord<text> 
+      [ '(' (. rhsRule.mRuleType = cRT_ACTION_CALL; rhsRule.mText = text; isCall=true;.)
+         [ ActionRHS<arg>            (. rhsRule.PushMove(arg); arg.Clear();.)
+            { ',' ActionRHS<arg>     (. rhsRule.PushMove(arg); arg.Clear();.)
+            } ]
+        ')'
+      ] 
+   ) 
+   (. if (! isCall) { rhsRule.SetLiteral(text); }.)
+ .
+ActionExpr<M::Expr& r> = (. std::string text; M::Expr rhs;.)
+   // Here we are resolving a LL(1) ambiguity by looking ahead for the '=' token
+   (IF(HasVarAssign())
+    (  PlainWord<text> (. r.mText = "="; r.mRuleType = M::cRT_ACTION_CALL; rhs.SetLiteral(text); r.PushMove(rhs);.) 
+         '=' ActionRHS<rhs> (. r.PushMove(rhs);.) ) 
+   | ActionRHS<r>)
+ .
+Action<M::Expr& r> = (. M::Expr subaction;.)
+   '[' (. r.mRuleType = M::cRT_ACTION;.) 
+      ActionExpr<subaction> (. r.PushMove(subaction); subaction.Clear();.) 
+         { ';' ActionExpr<subaction> (. r.PushMove(subaction); subaction.Clear();.) } 
+   ']'
+ .
+WsfGrammar = (. M::Expr r; mRootRule.mRuleType = M::cRT_ROOT;.)
+   { 
+      RuleExpr<r> (. mRootRule.PushMove(r);.)
+   }
+ .
+
+END WsfGrammar.
+

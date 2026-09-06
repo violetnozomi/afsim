@@ -1,0 +1,125 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 1 hr
+
+platform_type WISM WSF_PLATFORM
+   empty_mass 1 kg
+   mover WSF_INTEGRATING_SPACE_MOVER
+      integrator prince_dormand_78
+         error_criterion L_infinity
+      end_integrator
+      
+      dynamics
+         term earth_monopole 
+         end_term
+      end_dynamics
+   end_mover
+end_platform_type
+
+platform target WISM
+   edit mover
+      revolutions_per_day 10.0
+   end_mover
+end_platform
+
+platform chaser WISM
+   empty_mass 1 kg
+   edit mover
+      revolutions_per_day 8.0
+   end_mover
+end_platform
+
+script_variables
+   bool gAnyFailure = false;
+   double gLagTime = 600.0;   // 10 min of lag
+   double gInterceptTime = 600.0; // 10 min to intercept
+end_script_variables
+
+script void ExpectBool(bool aObserved, bool aExpected, string aMessage)
+   if (aObserved != aExpected)
+   {
+      gAnyFailure = true;
+      writeln("Boolean value mismatch. Expected ", aExpected, " but received ", aObserved, ". ", aMessage);
+   }
+end_script
+
+script void ExpectNear(double aObserved, double aExpected, double aTolerance, string aMessage)
+   if (MATH.Fabs(aObserved - aExpected) > aTolerance)
+   {
+      gAnyFailure = true;
+      writeln("Value is not near enough to expected value. ", aMessage);
+      writeln("   Expected value: ", aExpected);
+      writeln("   Observed value: ", aObserved);
+      writeln("   Diff:           ", Math.Fabs(aExpected - aObserved));
+      writeln("   Tolerance:      ", aTolerance);
+   }
+end_script
+
+execute at_time 2 s absolute
+   WsfPlatform chaser = WsfSimulation.FindPlatform("chaser");
+   WsfPlatform tgtPlat = WsfSimulation.FindPlatform("target");
+   chaser.TrackManager().AddTrackReport(tgtPlat.MakeTrack());
+   WsfLocalTrack track = chaser.MasterTrackList().Get(0);
+
+   WsfTargetPoint target = WsfTargetPoint.ConstructFromTrack(track.TrackId());
+   ExpectBool(target.HasLibrationPointTarget(), false, "Is not a libration point target");
+   ExpectBool(target.HasTrackTarget(), true, "Should be a track target");
+   ExpectBool(target.HasPositionOffset(), false, "Should have no offset");
+   ExpectBool(target.TrackId() == track.TrackId(), true, "Should be the correct track");
+   target.SetLagTime(gLagTime);
+
+   WsfRendezvousManeuver mvr = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(58.0), target, gInterceptTime);
+   WsfSpaceMover mover = (WsfSpaceMover)chaser.Mover();
+   mover.ExecuteManeuver(mvr);
+end_execute
+
+script void FinalReport()
+   if (gAnyFailure)
+   {
+      writeln("-FAIL- Not all tests passed");
+   }
+   else
+   {
+      writeln("-PASS- All tests passed");
+   }
+end_script
+
+script void CompareKinematics(Vec3 aPosECI, Vec3 aVelECI)
+   WsfPlatform chaser = WsfSimulation.FindPlatform("chaser");
+   Vec3 pos = chaser.LocationECI();
+   Vec3 vel = chaser.VelocityECI();
+
+   ExpectNear(pos.X(), aPosECI.X(), 1.0e-6, "ECI pos X");
+   ExpectNear(pos.Y(), aPosECI.Y(), 1.0e-6, "ECI pos Y");
+   ExpectNear(pos.Z(), aPosECI.Z(), 1.0e-6, "ECI pos Z");
+
+   ExpectNear(vel.X(), aVelECI.X(), 1.0e-6, "ECI vel X");
+   ExpectNear(vel.Y(), aVelECI.Y(), 1.0e-6, "ECI vel Y");
+   ExpectNear(vel.Z(), aVelECI.Z(), 1.0e-6, "ECI vel Z");
+end_script
+
+script void ScheduleTest(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "RENDEZVOUS")
+   {
+      // Collect ECI kinematics of target
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      Vec3 posECI = target.LocationECI();
+      Vec3 velECI = target.VelocityECI();
+
+      // Schedule comparison in the future
+      Array<Object> args = {posECI, velECI};
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gLagTime, "CompareKinematics", args);
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED ScheduleTest
+   enable SIMULATION_COMPLETE FinalReport
+end_observer

@@ -1,0 +1,84 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test Extrapolate end of route followed by a FollowRoute(same, CLOSEST_POINT)
+//
+// Start on route1 extrapolate last heading
+//
+// Therefore the second waypoint of route1 should be achieved twice
+//
+// Depends on the following tests passing:
+//    test_callback_initial_waypoint
+//
+//////////////////////////////////////////
+
+end_time 20 m
+
+route route1
+   position 30n 90w speed 50 mph
+      execute start_route1
+   position 30n 90:00:10w speed 50 mph
+      execute end_route1
+end_route
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_GROUND_MOVER
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+   use_route route1
+   script_variables
+      double endRouteCount = 0;
+      double startRouteCount = 0;
+      bool pass = false;
+   end_script_variables
+   script void start_route1()
+      // Don't count initial execution at time 0
+      if (TIME_NOW != 0)
+      {
+         startRouteCount = startRouteCount + 1;
+      }
+      writeln(TIME_NOW, " start route1");
+   end_script
+   script void end_route1()
+      writeln(TIME_NOW, " end route1");
+      pass = false;
+      if (endRouteCount == 0)
+      {
+         PLATFORM.ExecuteAtTime(TIME_NOW * 2, "follow_route1");
+      }
+      else if (endRouteCount == 1 && startRouteCount == 0)
+      {
+         pass = true;
+      }
+      // TODO: Would be nice to adjust end_time to finish as soon as possible
+//       else
+//       {
+//          PLATFORM.EndTime(TIME_NOW);
+//       }
+      endRouteCount = endRouteCount + 1;
+   end_script
+   script void follow_route1()
+      PLATFORM.FollowRoute("route1", "CLOSEST_POINT");
+   end_script
+   script void on_platform_deleted()
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+         writeln(" Verify the following test(s) pass prior to investigating");
+         writeln("    test_callback_initial_waypoint");
+         writeln(" Expected endRoute1Count = 1 actual was ", endRouteCount);
+         writeln(" Expected startRoute1Count = 0 actual was ", startRouteCount);
+      }
+   end_script
+end_platform
+

@@ -1,0 +1,44 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# =============================================================================
+#                             A generic EOIR sensor
+#
+# The user of this definition is responsible for setting the installation
+# location and orientation using the 'location', 'yaw' and 'pitch' commands
+# in the instantiation of the sensor on the platform(_type).
+#
+#     sensor eoir GENERIC_EOIR
+#        location ...
+#        pitch    ...
+#        yaw      ...
+#     end_sensor
+# =============================================================================
+
+sensor GENERIC_EOIR WSF_EOIR_SENSOR
+
+   frame_time                          1 sec     # sample rate
+   
+   slew_mode                           azimuth_and_elevation
+   azimuth_slew_limits                 -1.5 deg 1.5 deg
+   elevation_slew_limits               -1.5 deg 1.5 deg
+   
+   azimuth_field_of_view               -45 deg 45 deg
+   elevation_field_of_view             -45 deg 45 deg
+   maximum_range                       200 km
+
+   angular_resolution                  0.001 deg
+
+   reports_location
+   reports_velocity
+
+   #internal_link image_proc
+
+end_sensor
+

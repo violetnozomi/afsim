@@ -1,0 +1,640 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test the SENSOR_FREQUENCY_CHANGED event using a WSF_RADAR_SENSOR configured to support
+# multiple active modes with multiple beams per mode:
+#  - Two radar sensors each having three modes, each mode having three fixed-frequency beams
+#  - randomize_radar_frequencies feature enabled to trigger SENSOR_FREQUENCY_CHANGED event
+#  - Platform-level scripting that exercises each radar sensor in turn
+#  - Event output that captures SENSOR_FREQUENCY_CHANGED and SIMULATION_STARTING events in a file
+#  - See parse_event_file and parse_csv_file scripts below for test case details
+#
+include_once ../auto_script/test_functions.txt
+
+end_time 100 sec
+
+script_variables
+   bool allTestsPassed = true;   // any failure turns it false
+   int sensorEventCount = 0;     // count of SENSOR_FREQUENCY_CHANGED events
+   Array<string> modeOneFreqStr =
+   {
+      "Beam: 1 Frequency Id: 0 Frequency: 200 MHz",
+      "Beam: 2 Frequency Id: 0 Frequency: 210 MHz",
+      "Beam: 3 Frequency Id: 0 Frequency: 220 MHz"
+   };
+   Array<string> modeTwoFreqStr =
+   {
+      "Beam: 1 Frequency Id: 0 Frequency: 300 MHz",
+      "Beam: 2 Frequency Id: 0 Frequency: 310 MHz",
+      "Beam: 3 Frequency Id: 0 Frequency: 320 MHz"
+   };
+   Array<string> modeThreeFreqStr =
+   {
+      "Beam: 1 Frequency Id: 0 Frequency: 400 MHz",
+      "Beam: 2 Frequency Id: 0 Frequency: 410 MHz",
+      "Beam: 3 Frequency Id: 0 Frequency: 420 MHz"
+   };
+   Array<double> modeOneFreqDbl = {2.000000e+08, 2.100000e+08, 2.200000e+08};
+   Array<double> modeTwoFreqDbl = {3.000000e+08, 3.100000e+08, 3.200000e+08};
+   Array<double> modeThreeFreqDbl = {4.000000e+08, 4.100000e+08, 4.200000e+08};
+   string evtFile = "test_sensor_freq_changed_event_mm_evt.testout";
+   string csvFile = "test_sensor_freq_changed_event_mm_csv.testout";
+end_script_variables
+
+event_output
+#   file STDOUT
+   file test_sensor_freq_changed_event_mm_evt.testout
+   flush_output true
+   enable SENSOR_FREQUENCY_CHANGED
+#   enable SENSOR_MODE_ACTIVATED
+#   enable SENSOR_MODE_DEACTIVATED
+   enable SIMULATION_STARTING
+end_event_output
+
+csv_event_output
+   file test_sensor_freq_changed_event_mm_csv.testout
+   flush_output true
+#   insert_data_tags <boolean>
+   enable SENSOR_FREQUENCY_CHANGED
+   enable SIMULATION_STARTING
+#   enable SENSOR_MODE_ACTIVATED
+#   enable SENSOR_MODE_DEACTIVATED
+end_csv_event_output
+
+randomize_radar_frequencies enable
+
+# ****************************************************************************
+# Define the system types (movers, sensors, weapons, etc.)
+# ****************************************************************************
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+# ****************************************************************************
+#                     Early Warning Radar
+# ****************************************************************************
+
+antenna_pattern EW_RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain           35 dB
+     minimum_gain       -20 dB
+     azimuth_beamwidth   5 deg
+     elevation_beamwidth 45 deg
+end_antenna_pattern
+
+sensor EW_RADAR WSF_RADAR_SENSOR
+   #show_calibration_data
+   update_interval                    1.0 sec
+
+   selection_mode multiple
+   # initial_mode setting added at platform level for ew_radar_1
+
+   mode_template
+      frame_time                      10.0 sec
+
+      beam 1
+         one_m2_detect_range          100.0 nm
+         maximum_range                120 nm
+
+         antenna_height               6.0 m
+
+         scan_mode                    azimuth
+         azimuth_scan_limits         -180 deg 180 deg
+
+
+         transmitter
+            antenna_pattern            EW_RADAR_ANTENNA
+            beam_tilt                  10.0 deg
+            power                      1000.0 kw
+            frequency                  200 mhz
+            pulse_width                25 usec
+            pulse_repetition_interval  1250 usec
+            internal_loss              2 db
+         end_transmitter
+
+         receiver
+            beam_tilt                  10.0 deg
+            bandwidth                  2.0 mhz
+            noise_power                -160 dBw  # will be calibrated for 1 m^2
+            internal_loss              7 dB
+         end_receiver
+
+         # Swerling detector
+         swerling_case                 1
+         probability_of_false_alarm    1.0e-6
+         number_of_pulses_integrated   32
+      end_beam
+
+      beam 2
+         one_m2_detect_range          100.0 nm
+         maximum_range                120 nm
+
+         antenna_height               6.0 m
+
+         scan_mode                    azimuth
+         azimuth_scan_limits         -180 deg 180 deg
+
+
+         transmitter
+            antenna_pattern            EW_RADAR_ANTENNA
+            beam_tilt                  10.0 deg
+            power                      1000.0 kw
+            frequency                  210 mhz
+            pulse_width                25 usec
+            pulse_repetition_interval  1250 usec
+            internal_loss              2 db
+         end_transmitter
+
+         receiver
+            beam_tilt                  10.0 deg
+            bandwidth                  2.0 mhz
+            noise_power                -160 dBw  # will be calibrated for 1 m^2
+            internal_loss              7 dB
+         end_receiver
+
+         # Swerling detector
+         swerling_case                 1
+         probability_of_false_alarm    1.0e-6
+         number_of_pulses_integrated   32
+      end_beam
+
+      beam 3
+         one_m2_detect_range          100.0 nm
+         maximum_range                120 nm
+
+         antenna_height               6.0 m
+
+         scan_mode                    azimuth
+         azimuth_scan_limits         -180 deg 180 deg
+
+
+         transmitter
+            antenna_pattern            EW_RADAR_ANTENNA
+            beam_tilt                  10.0 deg
+            power                      1000.0 kw
+            frequency                  220 mhz
+            pulse_width                25 usec
+            pulse_repetition_interval  1250 usec
+            internal_loss              2 db
+         end_transmitter
+
+         receiver
+            beam_tilt                  10.0 deg
+            bandwidth                  2.0 mhz
+            noise_power                -160 dBw  # will be calibrated for 1 m^2
+            internal_loss              7 dB
+         end_receiver
+
+         # Swerling detector
+         swerling_case                 1
+         probability_of_false_alarm    1.0e-6
+         number_of_pulses_integrated   32
+      end_beam
+
+      required_pd                   0.5
+
+      hits_to_establish_track       3 5   # 3 of last 5 scans to establish track
+      hits_to_maintain_track        1 3   # 1 of last 3 scans to maintain  track
+
+      reports_range
+      reports_bearing
+   end_mode_template
+
+   mode one
+   end_mode
+
+   mode two
+      beam 1
+         transmitter
+            frequency                  300 mhz
+         end_transmitter
+      end_beam
+      beam 2
+         transmitter
+            frequency                  310 mhz
+         end_transmitter
+      end_beam
+      beam 3
+         transmitter
+            frequency                  320 mhz
+         end_transmitter
+      end_beam
+   end_mode
+
+   mode three
+      beam 1
+         transmitter
+            frequency                  400 mhz
+         end_transmitter
+      end_beam
+      beam 2
+         transmitter
+            frequency                  410 mhz
+         end_transmitter
+      end_beam
+      beam 3
+         transmitter
+            frequency                  420 mhz
+         end_transmitter
+      end_beam
+   end_mode
+
+end_sensor
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+
+platform_type EW_RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+
+   mover WSF_GROUND_MOVER end_mover
+
+   sensor ew_radar_1 EW_RADAR
+      on
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   sensor ew_radar_2 EW_RADAR
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   processor track_manager WSF_TRACK_PROCESSOR
+   end_processor
+end_platform_type
+
+platform_type STRIKER_PLATFORM WSF_PLATFORM
+   icon F-18E
+   side blue
+   mover WSF_AIR_MOVER end_mover
+   radar_signature FIGHTER_RADAR_SIGNATURE
+end_platform_type
+
+# ****************************************************************************
+#                        Define the platform instances
+# ****************************************************************************
+
+platform ew-radar-site EW_RADAR_SITE
+   side red
+
+   route
+      position 37:00:00n 116:00:00w
+      altitude 0.0 ft agl
+      heading   90 deg
+    end_route
+
+   edit sensor ew_radar_1
+      initial_mode one
+   end_sensor
+
+   # ew_radar_1: 'on' at startup with initial_mode = 'one'.
+   #             Select mode 'two' as well.
+   execute at_time 5 sec absolute
+      Sensor("ew_radar_1").SelectMode("two");
+   end_execute
+
+   # ew_radar_1: Select mode 'three' as well.
+   execute at_time 10 sec absolute
+      Sensor("ew_radar_1").SelectMode("three");
+   end_execute
+
+   # ew_radar_1: Deselect mode 'two'.
+   execute at_time 15 sec absolute
+      Sensor("ew_radar_1").DeselectMode("two");
+   end_execute
+
+   # ew_radar_1: Turn sensor off.
+   execute at_time 20 sec absolute
+      Sensor("ew_radar_1").TurnOff();
+   end_execute
+
+   # ew_radar_1: Select mode 'two' while off.
+   execute at_time 25 sec absolute
+      Sensor("ew_radar_1").SelectMode("two");
+   end_execute
+
+   # ew_radar_1: Turn sensor on.
+   execute at_time 30 sec absolute
+      Sensor("ew_radar_1").TurnOn();
+   end_execute
+
+   # ew_radar_1: Turn sensor off.
+   execute at_time 35 sec absolute
+      Sensor("ew_radar_1").TurnOff();
+   end_execute
+
+   # ew_radar_1: Turn sensor on.
+   execute at_time 40 sec absolute
+      Sensor("ew_radar_1").TurnOn();
+   end_execute
+
+   # ew_radar_1: Deselect mode 'one' while on.
+   execute at_time 45 sec absolute
+      Sensor("ew_radar_1").DeselectMode("one");
+   end_execute
+
+   # ew_radar_1: Turn sensor off.
+   execute at_time 50 sec absolute
+      Sensor("ew_radar_1").TurnOff();
+   end_execute
+
+
+   # ew_radar_2: 'off' at startup with no initial_mode
+   #             Select mode 'three' before turning on.
+   execute at_time 60 sec absolute
+      Sensor("ew_radar_2").SelectMode("three");
+   end_execute
+
+   # ew_radar_2: Turn sensor on.
+   execute at_time 65 sec absolute
+      Sensor("ew_radar_2").TurnOn();
+   end_execute
+
+   # ew_radar_2: Turn sensor off.
+   execute at_time 70 sec absolute
+      Sensor("ew_radar_2").TurnOff();
+   end_execute
+
+   # ew_radar_2: Turn sensor on.
+   execute at_time 75 sec absolute
+      Sensor("ew_radar_2").TurnOn();
+   end_execute
+
+   # ew_radar_2: Turn sensor off.
+   execute at_time 80 sec absolute
+      Sensor("ew_radar_2").TurnOff();
+   end_execute
+
+   # ew_radar_2: Select all three modes while off.
+   execute at_time 85 sec absolute
+      Sensor("ew_radar_2").SelectMode("two");
+      Sensor("ew_radar_2").SelectMode("three");
+      Sensor("ew_radar_2").SelectMode("one");
+   end_execute
+
+   # ew_radar_2: Turn sensor on.
+   execute at_time 90 sec absolute
+      Sensor("ew_radar_2").TurnOn();
+   end_execute
+
+   # ew_radar_2: Turn sensor off.
+   execute at_time 95 sec absolute
+      Sensor("ew_radar_2").TurnOff();
+   end_execute
+
+end_platform
+
+platform striker-1 STRIKER_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+end_platform
+
+platform striker-2 STRIKER_PLATFORM
+   side blue
+
+   route
+      position 36:27:30n 115:04:18w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+end_platform
+
+# Event file entries may consist of multiple lines, indicated by a trailing
+# backslash to show continuation.  This script reads a complete event entry
+# from the specified file and returns the entry as a string.
+script string read_event_entry(FileIO evFile)
+   string eventEntry = "";
+   while (!evFile.Eof())
+   {
+       eventEntry += evFile.Readln();
+       if (eventEntry.EndsWith("\\"))
+       {
+          eventEntry = eventEntry.Substring(0,-1);
+          continue; 
+       }
+       break; // no continuation, event entry is complete
+   }
+   return eventEntry;
+end_script
+
+# Parse the event and csv files to verify expected contents:
+# - SENSOR_FREQUENCY_CHANGED events for each mode showing initial 'randomize_radar_frequencies' assignments (T=0)
+# - SIMULATION_STARTING event (T=0)
+# - No additional SENSOR_FREQUENCY_CHANGED events because electronic warfare is not configured
+#
+# Sim runtime activity:
+# --> Test cases for ew_radar_1:
+# --> T=0, select mode one xmtr frequencies due to initial_mode setting
+# --> T=5, select mode two xmtr frequencies
+# --> T=10, select mode three xmtr frequencies
+# --> T=15, deselect mode two xmtr frequencies
+# --> T=20, sensor off, deselecting mode one & three xmtr frequencies
+# --> T=25, select mode two while sensor is off
+# --> T=30, sensor on, activating mode two xmtr frequencies
+#           and selecting mode one xmtr frequencies due to initial_mode setting
+# --> T=35, sensor off, deselecting mode one & two xmtr frequencies
+# --> T=40, sensor on, selecting mode one xmtr frequencies due to initial_mode setting
+# --> T=45, deselect mode one xmtr frequencies
+# --> T=50, sensor off
+#
+# ==> Test cases for ew_radar_2:
+# ==> T=60, select mode three xmtr frequencies while sensor is off
+# ==> T=65, sensor on, activating mode three xmtr frequencies
+# --> T=70, sensor off, deselecting mode three xmtr frequencies
+# ==> T=75, sensor on, no mode should become active
+# ==> T=80, sensor off, no mode should be deselected
+# --> T=85, select all three modes while sensor is off
+# ==> T=90, sensor on, activating xmtr frequencies for all three modes
+# ==> T=95, sensor off, deselecting xmtr frequencies for all three modes
+#
+script bool parse_event_file(string fileName)
+   FileIO evFile = FileIO();
+   bool ok = evFile.Open(fileName, "in");
+   AssertTrueMessage(ok, "failed to open event file");
+   if (ok)
+   {
+      bool simStart = false;
+      while (!evFile.Eof())
+      {
+         string eventEntry = read_event_entry(evFile);
+#         writeln("Event text: '", eventEntry, "'");  // uncomment for debugging
+
+         if (eventEntry.Contains("SIMULATION_STARTING"))
+         {
+            simStart = true;
+         }
+         else if (eventEntry.Contains("SENSOR_FREQUENCY_CHANGED"))
+         {
+            sensorEventCount += 1;
+
+            // Each event entry starts with a timestamp that is used to match up expected event contents
+            if (eventEntry.StartsWith("0.000"))
+            {
+               if (eventEntry.Contains("ew-radar-site Sensor: ew_radar_1 Mode: one") ||
+                   eventEntry.Contains("ew-radar-site Sensor: ew_radar_2 Mode: one"))
+               {
+                  for (int i = 0; i < 3; i = i + 1)
+                  {
+                     string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + modeOneFreqStr[i] + "'";
+                     ok = AssertTrueMessage(eventEntry.Contains(modeOneFreqStr[i]), errStr) && ok;
+                  }
+               }
+               else if (eventEntry.Contains("ew-radar-site Sensor: ew_radar_1 Mode: two") ||
+                        eventEntry.Contains("ew-radar-site Sensor: ew_radar_2 Mode: two"))
+               {
+                  for (int i = 0; i < 3; i = i + 1)
+                  {
+                     string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + modeTwoFreqStr[i] + "'";
+                     ok = AssertTrueMessage(eventEntry.Contains(modeTwoFreqStr[i]), errStr) && ok;
+                  }
+               }
+               else if (eventEntry.Contains("ew-radar-site Sensor: ew_radar_1 Mode: three") ||
+                        eventEntry.Contains("ew-radar-site Sensor: ew_radar_2 Mode: three"))
+               {
+                  for (int i = 0; i < 3; i = i + 1)
+                  {
+                     string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + modeThreeFreqStr[i] + "'";
+                     ok = AssertTrueMessage(eventEntry.Contains(modeThreeFreqStr[i]), errStr) && ok;
+                  }
+               }
+               else
+               {
+                  writeln(TEST_FAIL_STATEMENT, " ", "Unexpected platform, sensor or mode in SENSOR_FREQUENCY_CHANGED event at T=", eventEntry.Substring(0,6));
+                  ok = false;
+               }
+               // Verify that all T=0 events come before the simulation starts
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to occur before SIMULATION_STARTING event";
+               ok = AssertFalseMessage(simStart, errStr) && ok;
+            }
+            else
+            {
+               writeln(TEST_FAIL_STATEMENT, " ", "Unexpected SENSOR_FREQUENCY_CHANGED event at T=", eventEntry.Substring(0,6));
+               ok = false;
+            }
+         }
+      }
+      evFile.Close();
+   }
+   return ok;
+end_script
+
+#
+script bool parse_csv_file(string fileName)
+   FileIO evFile = FileIO();
+   bool ok = evFile.Open(fileName, "in");
+   AssertTrueMessage(ok, "failed to open csv file");
+   if (ok)
+   {
+      bool simStart = false;
+      while (!evFile.Eof())
+      {
+         string eventEntry = read_event_entry(evFile);
+#         writeln("CSV text: '", eventEntry, "'");  // uncomment for debugging
+
+         if (eventEntry.StartsWith("!"))
+         {
+            continue;   // skip 'insert_data_tags' lines
+         }
+         else if (eventEntry.Contains("SIMULATION_STARTING"))
+         {
+            simStart = true;
+         }
+         else if (eventEntry.Contains("SENSOR_FREQUENCY_CHANGED"))
+         {
+            sensorEventCount += 1;
+
+            // Convert timestamp string that starts each CSV line to an integer holding milliseconds
+            Array<string> csvFields = eventEntry.Split(",");
+            int tStampMsec = (int) (((double) csvFields[0]) * 1000);
+            // The three beam frequences are located at the end of the csvFields array and every 3 fields earlier
+            Array<double> freqActual = Array<double>();
+            freqActual.PushBack( (double)csvFields[csvFields.Size()-1-6] );
+            freqActual.PushBack( (double)csvFields[csvFields.Size()-1-3] );
+            freqActual.PushBack( (double)csvFields[csvFields.Size()-1] );
+            string errStr = "Incorrect frequency change reported at T=" + csvFields[0];
+
+            if (tStampMsec == 0)
+            {
+               if (eventEntry.Contains("ew-radar-site") && eventEntry.Contains("one") && 
+                   (eventEntry.Contains("ew_radar_1") || eventEntry.Contains("ew_radar_2")))
+               {
+                  for (int i = 0; i < 3; i = i + 1)
+                  {
+                     ok = AssertDoubleEqualsMessage(modeOneFreqDbl[i], freqActual[i], errStr) && ok;
+                  }
+               }
+               else if (eventEntry.Contains("ew-radar-site") && eventEntry.Contains("two") && 
+                   (eventEntry.Contains("ew_radar_1") || eventEntry.Contains("ew_radar_2")))
+               {
+                  for (int i = 0; i < 3; i = i + 1)
+                  {
+                     ok = AssertDoubleEqualsMessage(modeTwoFreqDbl[i], freqActual[i], errStr) && ok;
+                  }
+               }
+               else if (eventEntry.Contains("ew-radar-site") && eventEntry.Contains("three") && 
+                   (eventEntry.Contains("ew_radar_1") || eventEntry.Contains("ew_radar_2")))
+               {
+                  for (int i = 0; i < 3; i = i + 1)
+                  {
+                     ok = AssertDoubleEqualsMessage(modeThreeFreqDbl[i], freqActual[i], errStr) && ok;
+                  }
+               }
+               else
+               {
+                  writeln(TEST_FAIL_STATEMENT, " ", "Unexpected platform, sensor or mode in SENSOR_FREQUENCY_CHANGED event at T=", csvFields[0]);
+                  ok = false;
+               }
+               // Verify that all T=0 events come before the simulation starts
+               string errStr = "Expected T=" + csvFields[0] + " event to occur before SIMULATION_STARTING event";
+               ok = AssertFalseMessage(simStart, errStr) && ok;
+            }
+            else
+            {
+               writeln(TEST_FAIL_STATEMENT, " ", "Unexpected SENSOR_FREQUENCY_CHANGED event at T=", csvFields[0]);
+               ok = false;
+            }
+         }
+      }
+      evFile.Close();
+   }
+   return ok;
+end_script
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Parse event files to check for expected content
+script void SimulationComplete()
+
+   writeln("+++ Validate event output +++");
+   allTestsPassed = parse_event_file(evtFile) && allTestsPassed;
+   allTestsPassed = AssertEqualsMessage(6, sensorEventCount, "Wrong number of SENSOR_FREQUENCY_CHANGED events in evt file") && allTestsPassed;
+
+   writeln("+++ Validate CSV output +++");
+   sensorEventCount = 0;   // reset count for CSV parsing
+   allTestsPassed = parse_csv_file(csvFile) && allTestsPassed;
+   allTestsPassed = AssertEqualsMessage(6, sensorEventCount, "Wrong number of SENSOR_FREQUENCY_CHANGED events in csv file") && allTestsPassed;
+
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

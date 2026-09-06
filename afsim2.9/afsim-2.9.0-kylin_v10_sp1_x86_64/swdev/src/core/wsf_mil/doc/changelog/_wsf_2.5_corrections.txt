@@ -1,0 +1,23 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.5.3)** Corrected an issue with :class:`WsfTaskManager` weapon task methods :method:`TimeSinceWeaponLastFiredFor<WsfTaskManager.TimeSinceWeaponLastFiredFor>`, :method:`TimeSinceWeaponLastTerminatedFor<WsfTaskManager.TimeSinceWeaponLastTerminatedFor>`, :method:`WeaponsActiveFor<WsfTaskManager.WeaponsActiveFor>`, :method:`SalvosFiredAt<WsfTaskManager.SalvosFiredAt>`, :method:`RoundsFiredAt<WsfTaskManager.RoundsFiredAt>`, and :method:`AbortFiringAt<WsfTaskManager.AbortFiringAt>` producing erroneous results. *(Issue #2287)*
+* **(2.5.3)** Corrected an issue with :model:`WSF_WEAPON_FUSE` in which proximity checks for detonation would not occur against the first platform defined in the scenario when :command:`WSF_WEAPON_FUSE.do_not_use_current_target` was enabled. *(Issue #2251)*
+* **(2.5.3)** Corrected an issue in which a :ref:`WEAPON_MISSED` event (see :command:`observer`, :command:`event_output`, :command:`csv_event_output`) was not generated when the intended target was invulnerable to the :command:`weapon_effects`, for example, when outside the maximum lethal radius. *(Issue #1453)*
+* **(2.5.3)** Fixed a crash that sometimes occurred when a multi-beam :model:`WSF_ESM_SENSOR` linked to a :model:`WSF_RF_JAMMER` with a :command:`WSF_RF_JAMMER.mode.repeater`. *(AFSIM-154)*
+* **(2.5.2)** Corrected an issue in which a :command:`processor` of type :model:`WSF_WEAPON_FUSE` could not be cast to a :class:`WsfWeaponFuse` in script.
+* **(2.5.2)** Corrected an issue with the :model:`WSF_JTIDS_TERMINAL` in which a failed message delivery attempt for any member in a JTIDS slot group resulted in a delivery failure for any subsequent member in the slot group. *(Issue #2012)*
+* **(2.5.2)** Corrected an issue with the script methods :method:`WsfTaskManager.WeaponsFiredAt` and :method:`WsfTaskManager.WeaponsActiveFor` not returning correct values after firing a :model:`WSF_IMPLICIT_WEAPON`. *(ELSZ #246)*
+* **(2.5.2)** Corrected a crash when constructing a :class:`WsfQuantumTask` in a custom allocator in a :model:`WSF_QUANTUM_TASKER_PROCESSOR`. *(ELSZ #247)*
+* **(2.5.2)** Corrected a crash while updating :command:`false_target` blip positions when using :model:`WSF_FALSE_TARGET_EFFECT`. 
+* Corrected an issue with the :model:`WSF_RF_JAMMER` not associating a :command:`WSF_TRACK_PROCESSOR.non_master_track_processor` track when the :command:`WSF_TRACK_PROCESSOR.master_track_processor` is not linked, not defined or does not contain a track with the associated track Id. *(Issue #1396)*
+* Corrected an issue with the :model:`WSF_IMAGE_PROCESSOR` where a :command:`WSF_IMAGE_PROCESSOR.filter` input would cause a crash in the simulation when a video image was being processed.
+* Corrected an issue with the :model:`WSF_FALSE_TARGET_EFFECT` not properly excluding false target blips when a :model:`WSF_SLB_EFFECT` or other power modifying effect was configured on an impending :model:`WSF_RADAR_SENSOR` model.
+* Corrected a crash that occurred when a platform, towing an asset with a :model:`WSF_TOWED_MOVER`, is removed from the simulation. *(ELSZ #221)*
+* Corrected an issue with the WEAPON_FIRED script :command:`observer` where :model:`implicit weapons<WSF_IMPLICIT_WEAPON>` would provide a :method:`null<Object.IsNull>` reference to the target track. *(ELSZ #222)*

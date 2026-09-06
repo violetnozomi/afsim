@@ -1,0 +1,135 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the 'detect_negative_contrast' command of WSF_IRST_SENSOR
+#
+# The target will have lower radiant intensity than the background. Only an IRST
+# that allows negative contrast detection should detect it...
+
+# Indicate that the sensors 'required_pd' (default of 0.5) is to be criteria for detection
+# instead of the random Pd drawn by the simulation. We aren't testing randomness here...
+
+use_constant_required_pd true
+
+optical_signature FIGHTER_OPTICAL_SIGNATURE
+   constant 20 m^2
+end_optical_signature
+
+infrared_signature FIGHTER_INFRARED_SIGNATURE
+   constant 70 w/sr
+end_infrared_signature
+
+platform_type FIGHTER WSF_PLATFORM
+   infrared_signature FIGHTER_INFRARED_SIGNATURE
+   optical_signature  FIGHTER_OPTICAL_SIGNATURE
+
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform target FIGHTER
+   side red
+   route
+      position 39n 89.7w altitude 40000 ft heading 270 deg speed 500 kts
+   end_route
+end_platform
+
+sensor IRST WSF_IRST_SENSOR
+   frame_time                  10 sec
+   
+   band                        medium                   # 3-5um
+   background_radiance         500 microwatts/cm^2/sr
+   noise_equivalent_irradiance 9.0e-13 w/cm2
+   detection_threshold         3.0
+   
+   reports_location
+   ignore_same_side
+   on
+end_sensor
+
+platform detect_neg FIGHTER
+   side blue
+   route
+      position 38.95n 90w altitude 40000 ft heading 90 deg speed 500 kts
+   end_route
+   add sensor irst IRST
+   end_sensor
+end_platform
+
+platform detect_pos FIGHTER
+   side blue
+   route
+      position 39.05n 90w altitude 40000 ft heading 90 deg speed 500 kts
+   end_route
+   add sensor irst IRST
+      detect_negative_contrast false
+   end_sensor
+end_platform
+
+###############################################################################
+
+script_variables
+   bool gPassed = true;
+   int  gReceivedAttempts = 0;
+   int gEXPECTED_ATTEMPTS = 4;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform          aPlatform,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+
+   gReceivedAttempts = gReceivedAttempts + 1;
+   if (aPlatform.Name() == "detect_pos")
+   {
+      gReceivedAttempts = gReceivedAttempts + 1;
+      if (aResult.Detected())
+      {
+         writeln("-FAIL- detect_pos should not have detected the target.");
+         gPassed = false;
+      }
+   }
+   else if (aPlatform.Name() == "detect_neg")
+   {
+      gReceivedAttempts = gReceivedAttempts + 1;
+      if (! aResult.Detected())
+      {
+         writeln("-FAIL- detect_neg should have detected the target.");
+         gPassed = false;
+      }
+   }
+end_script
+
+script void SimulationComplete()
+
+   if (gReceivedAttempts != gEXPECTED_ATTEMPTS)
+   {
+      writeln("-FAIL- Incorrect number of detection attempts processed, expected: ", gEXPECTED_ATTEMPTS,
+              " received: ", gReceivedAttempts);
+      gPassed = false;
+   }
+   string passFail = "-PASS-";
+   if (! gPassed) passFail = "-FAIL-";
+   writeln(passFail);
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SIMULATION_COMPLETE
+end_observer
+
+event_output
+   #file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+end_time 9 sec
+
+
+

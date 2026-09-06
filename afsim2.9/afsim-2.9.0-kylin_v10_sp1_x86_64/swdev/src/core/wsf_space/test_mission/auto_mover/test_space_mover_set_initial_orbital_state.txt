@@ -1,0 +1,220 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+end_time 4 hrs
+
+# Assign orbital elements to space platform using existing
+# methods, used below to compare to new SetInitialOrbitalState() function
+platform space_platform_1 WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      epoch 2021245.18563
+      semi_major_axis 10000 km
+      eccentricity 0.2
+      mean_anomaly 255 deg
+      inclination 30 deg
+      raan 120 deg
+      argument_of_periapsis 80 deg
+      # reference_frame eci
+   end_mover
+end_platform
+
+# Assign orbital elements to space platform using new objects
+# To be compared to space platform above for accuracy testing
+platform space_platform_2 WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+   end_mover
+   
+   on_initialize
+      Calendar calendar = Calendar();
+      calendar.SetEpoch(2021245.18563);
+      WsfSpaceMover mover = (WsfSpaceMover)Mover();
+     
+      # CentralBody, ReferenceFrame, CoordinateSystem initialization
+      # methods and EqualTo() function test
+      CentralBody centralBody = CentralBody.EarthWGS84();
+      ReferenceFrame refFrame = ReferenceFrame.TRUE_OF_DATE();
+      CoordinateSystem coordSystem = CoordinateSystem.Equatorial();
+      if(coordSystem != CoordinateSystem.Equatorial())
+      {
+         writeln("-FAIL- CoordinateSystem.EqualTo()");
+      }
+      if(centralBody != CentralBody.EarthWGS84())
+      {
+         writeln("-FAIL- CentralBody.EqualTo()");
+      }
+      if(refFrame != ReferenceFrame.TRUE_OF_DATE())
+      {
+         writeln("-FAIL- ReferenceFrame.EqualTo()");
+      }
+      
+      # OrbitalElements and OrbitalState construct method test                                                 
+      OrbitalElements orbEl = OrbitalElements.Construct(calendar, centralBody, 10000000.0,
+         0.2, 255.0, 30.0, 120.0, 80.0);   
+      
+      # OrbitalElements.FastForward(double) test
+      double predictedMA = orbEl.GetMeanAnomaly() + (30*60) * orbEl.GetMeanMotion();   
+      OrbitalElements orbElFF = orbEl.FastForward(30*60);
+      if(Math.Fabs(orbElFF.GetMeanAnomaly() - predictedMA) > 0.0001)
+      {
+         writeln("-FAIL- OrbitalElements.FastForward()");
+      }
+              
+      OrbitalState orbit = OrbitalState.Construct(orbEl);
+      
+      # OrbitalElements and OrbitalState Clone function test
+      OrbitalElements orbElCopy = OrbitalElements(orbEl);
+      OrbitalState orbitCopy = OrbitalState(orbit);
+      
+      if(orbElCopy.GetSemiMajorAxis() != orbEl.GetSemiMajorAxis())
+      {
+         writeln("-FAIL- OrbitalElements Clone");
+      }
+      if(orbElCopy.GetEccentricity() != orbEl.GetEccentricity())
+      {
+         writeln("-FAIL- OrbitalElements Clone");
+      }
+      if(orbElCopy.GetRAAN() != orbEl.GetRAAN())
+      {
+         writeln("-FAIL- OrbitalElements Clone");
+      }
+      if(orbit.OrbitIsCircular() != orbitCopy.OrbitIsCircular())
+      {
+         writeln("-FAIL- OrbitalState Clone");
+      }
+      if(orbit.OrbitIsPrograde() != orbitCopy.OrbitIsPrograde())
+      {
+         writeln("-FAIL- OrbitalState Clone");
+      }
+      if(orbit.OrbitIsEquatorial() != orbitCopy.OrbitIsEquatorial())
+      {
+         writeln("-FAIL- OrbitalState Clone");
+      }
+      if(orbit.OrbitIsHyperbolic() != orbitCopy.OrbitIsHyperbolic())
+      {
+         writeln("-FAIL- OrbitalState Clone");
+      }
+      
+      # OrbitalElements.Get/Set() function test, fail if incorrect
+      # Uses values computed beforehand for test purposes
+      orbEl.SetSemiMajorAxis(10000001.0);
+      if(Math.Fabs(orbEl.GetSemiMajorAxis() - 10000001.0) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetSemiMajorAxis()");
+      }
+      orbEl.SetMeanMotion(0.1);
+      if(Math.Fabs(orbEl.GetMeanMotion() - 0.1) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetMeanMotion()");
+      }
+      orbEl.SetEccentricity(0.25);
+      if(Math.Fabs(orbEl.GetEccentricity() - 0.25) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetEccentricity()");
+      }
+      orbEl.SetRAAN(120.0);
+      if(Math.Fabs(orbEl.GetRAAN() - 120) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetRAAN()");
+      }
+      orbEl.SetArgumentOfPeriapsis(80);
+      if(Math.Fabs(orbEl.GetArgumentOfPeriapsis() - 80) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetArgumentOfPeriapsis()");
+      }
+      orbEl.SetTrueAnomaly(234.643);
+      if(Math.Fabs(orbEl.GetTrueAnomaly() - 234.643) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetTrueAnomaly()");
+      }
+      orbEl.SetMeanAnomaly(255);
+      if(Math.Fabs(orbEl.GetMeanAnomaly() - 255) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetMeanAnomaly()");
+      }
+      orbEl.SetPeriapsisRadius(8000000);
+      if(Math.Fabs(orbEl.GetPeriapsisRadius() - 8000000) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetPeriapsisRadius()");
+      }
+      orbEl.SetApoapsisRadius(12000000);
+      if(Math.Fabs(orbEl.GetApoapsisRadius() - 12000000) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetApoapsisRadius()");
+      }
+      orbEl.SetPeriapsisAltitude(1629000);
+      if(Math.Fabs(orbEl.GetPeriapsisAltitude() - 1629000) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetPeriapsisAltitude()");
+      }
+      orbEl.SetApoapsisAltitude(5629000);
+      if(Math.Fabs(orbEl.GetApoapsisAltitude() - 5629000) > 0.00001)
+      {
+         writeln("-FAIL- OrbitalElements.GetApoapsisAltitude()");
+      }
+                    
+                                                        
+     mover.SetInitialOrbitalState(orbit);
+   end_on_initialize   
+end_platform
+
+# Space platform for OrbitalElements.FastForward() test
+platform space_platform_ff WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      epoch 2021245.18563
+      revs_per_day 1
+      eccentricity 0
+      mean_anomaly 255 deg
+      inclination 30 deg
+      raan 120 deg
+      argument_of_periapsis 80 deg
+   end_mover
+   
+   aux_data
+      double predictedAnomaly = 89.0119
+   end_aux_data
+end_platform
+
+execute at_interval_of 60 minutes
+   WsfPlatform p = WsfSimulation.FindPlatform("space_platform_ff");
+   WsfSpaceMover m = (WsfSpaceMover)p.Mover();
+   CentralBody centralBody = CentralBody.EarthWGS84(); 
+   OrbitalElements orbEl = OrbitalElements.Construct(m.InitialEpoch(), centralBody, 42241000.0,
+      0, m.MeanAnomaly(), 30, 120, 80);
+   
+   # OrbitalElements.FastForward() test, check if predicted and current mean anomaly
+   # match, if not fail. Then, predict what the next mean anomaly will be in one hour,
+   # assigning data in space_platform_ff for future inspection.
+   if((p.AuxDataDouble("predictedAnomaly") - m.MeanAnomaly()) > 0.0001)
+   {
+      writeln("-FAIL- OrbitalElements.FastForward()");
+      writeln("Predicted Anomaly: ", p.AuxDataDouble("predictedAnomaly"));
+      writeln("Actual Anomaly: ", m.MeanAnomaly());
+   }
+   
+   p.SetAuxData("predictedAnomaly", orbEl.FastForward(60*60).GetMeanAnomaly());
+end_execute
+
+execute at_interval_of 30 minutes
+   WsfPlatform p1 = WsfSimulation.FindPlatform("space_platform_1");
+   WsfPlatform p2 = WsfSimulation.FindPlatform("space_platform_2");
+
+   double locX_diff = MATH.Fabs(p1.LocationECI().X() - p2.LocationECI().X());
+   double locY_diff = MATH.Fabs(p1.LocationECI().Y() - p2.LocationECI().Y());
+   double locZ_diff = MATH.Fabs(p1.LocationECI().Z() - p2.LocationECI().Z());
+   
+   # OrbitalState.SetInitialOrbitalState(), compare difference between
+   # orbital state declared with previous methods compared to method,
+   # significant difference in position is considered a failure.
+   if(locX_diff > 0.00001 || locY_diff > 0.00001 || locZ_diff > 0.00001)
+   {
+      writeln("-FAIL- OrbitalState.SetInitialOrbitalState()");
+      writeln("dX = ", locX_diff);
+      writeln("dY = ", locY_diff);
+      writeln("dZ = ", locZ_diff);
+   }   
+end_execute

@@ -1,0 +1,31 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.4.3)** Relaxed the compiler version check for compatible plugins on Windows (MSVC). Only the first two digits, indicating C++ toolset major number and binary compatibility, are compared to those of the host application. *(ELSZ #133)*
+* **(2.4.2)** Refactored the comm initialization process for ease of maintenance and better performance. *(Issue #1389)*
+* **(2.4.2)** Corrected the implementation of ``UtEntity::IncrementLocationWCS`` to compute the current :ref:`WCS<WCS>` location if it was invalid. *(ELSZ #214)*
+* **(2.4.1)** Corrected an issue with source installation where the ``ConfigureUnitTests`` module was not installing the necessary CMake modules to configure GTest. *(ELSZ #163)*
+* Legacy implementations of comms used a random draw for variability in the purge interval time for queued messages. This has been removed, so that the purge interval is exactly as provided by the user. *(Issue #1210)*
+* Updated the ``UtRandom`` class to use the random number generation facilities provided by the C++11 Standard Template Library (STL), with Mersenne Twister 19937 as the underlying algorithm. The class was also renamed to ``Random`` and moved into the ``ut`` namespace. *(ELSZ #18)*
+* Static methods in ``UtInput`` to define search paths for 'include' files and path variable substitutions (used by commands :command:`file_path`, :command:`reset_file_path`, :command:`define_path_variable`, and :command:`undefine_path_variable`) have been made non-static and now require a ``UtInput`` instance. *(Issue #672)*
+* Refactored terrain classes to merge ``WsfTerrainInput`` and ``WsfTerrainInterface``. Also moved terrain classes into the ``wsf`` namespace. *(Issue #1017)*
+* Changed ``WsfStandardApplication::CreateSimulation`` to return a ``std::unique_ptr``, to convey that ownership of the simulation object is passed to the caller. *(Issue #1178)*
+* Changed implementation of :method:`assert() <__BUILTIN__.assert>` to throw an exception instead of calling ``exit(1)``.  This allows the application to decide whether it is appropriate to exit or not. *(Issue #1178)*
+* Corrected an issue with configuring CMake variables specifying paths to demos and scenarios for installation. *(Issue #1013)*
+* Upgraded precision of floating point members of ``WsfWaypoint`` class from ``float`` to ``double`` to allow for more precise calculations in the framework. All member variables have been moved from ``public`` to ``private``, and ``public`` accessors and mutators are provided. *(Issue #1173)*
+* ``WsfSimulation::Complete`` is now called when the simulation event loop terminates due to a requested reset. *(Issue #1193)*
+* Created classes ``WsfOneShotEvent`` and ``WsfRecurringEvent`` that adapt the interface of ``WsfEvent`` to take a ``std::function`` which executes upon dispatch of the event. *(Issue #1192)*
+* Updated ``UtCalendar`` to support parsing of ISO 8601 formatted date and time values. *(ELSZ #120)*
+* Remove deprecated usages of ``std::tr1`` namespace. *(ELSZ #127)*
+* CMake configuration has been updated to use the default behavior for setting the ``CPACK_GENERATOR`` value, allowing changes to be retained. *(ELSZ #129)*
+* Deprecated usage of ``UtScriptTypes::Register`` and ``UtScriptTypes::RegisterExtension`` with use of raw pointers. These methods now take ``std::unique_ptr`` to convey that ownership of the pointer is passed to the ``UtScriptTypes`` object. *(Issue #1273)*
+* CPack configuration has been updated to allow a variant of the build name to be set at configuration time via the ``AFSIM_CUSTOM_BUILD_VARIANT`` variable. *(ELSZ #126)*
+* Updated to Doxygen version 1.8.5 configuration and minimum version.
+* Additional formats (.tar and .zip) are now supported for 3rd party packages. *(ELSZ #123)*
+* Changed perfect comm behavior on failure to retrieve a message recipient to notify upper layer of transmission failure from the physical layer. *(ELSZ #168)*

@@ -1,0 +1,169 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once sdb.txt
+
+script_variables
+   bool ON_WEAPON_DETONATION_CALLED = false;
+end_script_variables
+   
+platform_type SDB-MOD SDB
+   delete processor fuse
+
+   processor fuse WSF_GROUND_TARGET_FUSE
+      script void on_weapon_detonation()
+         extern bool ON_WEAPON_DETONATION_CALLED;
+         ON_WEAPON_DETONATION_CALLED = true;
+         writeln("T=", TIME_NOW, " ", PLATFORM.Name(), " fuse detonated");
+      end_script
+   end_processor
+end_platform_type
+
+weapon_effects SDB_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 100.0 m 1.0
+   radius_and_pk 200.0 m 0.0
+   
+   # Allowing of incidental damage is set to false in the input but is set
+   # set dynamically in weapon termination to test the scripting interface.
+   
+   # Test to make sure old forms of input parse
+   allow_incidental_damage
+   do_not_allow_incidental_damage
+   
+   # Test to make sure new forms of input parse
+   incidental_damage_allowed true
+   incidental_damage_allowed false
+   
+   script void on_weapon_detonation()
+      if (IncidentalDamageAllowed())
+      {
+         writeln("-FAIL- incidental_damage_allowed should have initially been false");
+      }
+      SetIncidentalDamageAllowed(true);
+      if (! IncidentalDamageAllowed())
+      {
+         writeln("-FAIL- incidental_damage_allowed was not successfully enabled");
+      }
+   end_script
+end_weapon_effects
+
+platform_type TARGET WSF_PLATFORM
+   side red
+end_platform_type
+
+platform target-1 TARGET
+   position 40.0000n 90.0w
+end_platform
+
+platform target-2 TARGET             # about 55 m
+   position 40.0005n 90.0w
+end_platform
+
+platform target-3 TARGET
+   position 40.0010n 90.0w           # about 110 m (in max radius, but in 0 pk region)
+end_platform
+
+platform target-4 TARGET             # a long ways away
+   position 41.0010n 90.0w
+end_platform
+
+platform target-5 TARGET             # same location as target-4, outside max radius
+   position 41.0010n 90.0w
+end_platform
+
+platform bomber WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+   end_mover
+   
+   add weapon sdb SDB
+      launched_platform_type SDB-MOD
+      quantity 2
+   end_weapon
+   
+   route
+      position 39.5n 90w altitude 30000 ft heading 0 deg speed 450 kts
+   end_route
+   
+   track
+      position 40.0000n 90.0w
+   end_track
+   
+   # A predefined track targeting a specific platform. This will test whether
+   # a WEAPON_MISSED event is generated when the intended target is outside 
+   # the maximum effective radius of the weapon effect.
+   track
+      platform target-5
+   end_track
+   
+   execute at_time 1 sec absolute
+      Weapon("sdb").Fire(MasterTrackList().Entry(0));
+      Weapon("sdb").Fire(MasterTrackList().Entry(1));
+   end_execute
+end_platform
+/*
+event_output
+   file replay.evt
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable WEAPON_TERMINATED
+end_event_output
+*/
+script_variables
+   int stat1 = 0;
+   int stat2 = 0;
+   int stat3 = 0;
+   int stat4 = 0;
+   int stat5 = 0;
+end_script_variables
+
+script void WeaponHit(WsfWeaponEngagement aEngagement,
+                      WsfPlatform         aTarget)
+   if (aTarget.Name() == "target-1") stat1 = 1;
+   if (aTarget.Name() == "target-2") stat2 = 1;
+   if (aTarget.Name() == "target-3") stat3 = 1;
+   if (aTarget.Name() == "target-4") stat4 = 1;
+   if (aTarget.Name() == "target-5") stat5 = 1;
+end_script
+
+script void WeaponMissed(WsfWeaponEngagement aEngagement,
+                         WsfPlatform         aTarget)
+   if (aTarget.Name() == "target-1") stat1 = -1;
+   if (aTarget.Name() == "target-2") stat2 = -1;
+   if (aTarget.Name() == "target-3") stat3 = -1;
+   if (aTarget.Name() == "target-4") stat4 = -1;
+   if (aTarget.Name() == "target-5") stat5 = -1;                   
+end_script
+
+script void SimulationComplete()
+   if (stat1 !=  1) writeln("-FAIL- expected hit     on target-1: ", stat1);
+   if (stat2 !=  1) writeln("-FAIL- expected hit     on target-2: ", stat2);
+   if (stat3 != -1) writeln("-FAIL- expected miss    on target-3: ", stat3);
+   if (stat4 !=  0) writeln("-FAIL- expected nothing on target-4: ", stat4);
+   if (stat5 != -1) writeln("-FAIL- expected miss    on target-5: ", stat5);
+   if (! ON_WEAPON_DETONATION_CALLED)
+   {
+      writeln("-FAIL- fuse script on_weapon_detonation was not called");
+   }
+end_script
+
+observer
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 10 min
+
+
+

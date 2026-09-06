@@ -1,0 +1,149 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This file is included in multiple tests.
+# It is suggested that this file not be modified without thinking
+# through all that might have to be updated as a result.
+
+include_once ../platforms/fa-lgt.txt
+
+platform_type SIMPLE FA-LGT_RB6
+   side blue
+   icon f-18
+   update_interval 0.01 sec
+   
+   follow_vertical_track
+end_platform_type
+
+platform alpha SIMPLE
+   route
+      position 40:00:00.000n 90:00:00.000w altitude 6000 meters speed 500 kts
+      position 40:00:00.000n 90:00:10.000w altitude 6000 meters speed 500 kts
+   end_route
+end_platform
+
+platform bravo SIMPLE
+   route
+      position 00:00:00.000n 10:00:00.000w
+      altitude 5000 meters
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform charlie SIMPLE
+   route
+      position 00:00:00.000n 20:00:00.000w
+      altitude 3000 m
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform delta SIMPLE
+   route
+      position 00:00:00.000n 30:00:00.000w
+      altitude 7000 meters
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform echo SIMPLE
+   route
+      position 00:00:00.000n 40:00:00.000w
+      altitude 7000 meters
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform foxtrot SIMPLE
+   route
+      position 00:00:00.000n 50:00:00.000w
+      altitude 7000 meters
+      heading 1 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform golf SIMPLE
+   route
+      position 00:00:00.000n 60:00:00.000w
+      altitude 7000 meters
+      heading 1 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform hotel SIMPLE
+   route
+      position 00:00:00.000n 70:00:00.000w
+      altitude 7000 meters
+      heading 1 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+six_dof_formation yankee
+   lead six_dof_section alpha
+      lead six_dof_unit one
+         member_platform alpha
+      end_six_dof_unit
+      
+      six_dof_unit two
+         offset 30 m -100 deg 5 m fixed_altitude
+         member_platform bravo
+      end_six_dof_unit
+   end_six_dof_section
+   
+   six_dof_section beta
+      offset 300 m 90 deg 15 m fixed_altitude
+      
+      lead six_dof_unit one
+         member_platform charlie
+      end_six_dof_unit
+      
+      six_dof_unit two
+         offset 30 m 100 deg 5 m fixed_altitude
+         member_platform delta
+      end_six_dof_unit
+   end_six_dof_section
+end_six_dof_formation
+
+six_dof_formation zulu
+   detached
+   
+   lead six_dof_section alpha
+      detached
+      
+      lead six_dof_unit one
+         member_platform echo
+      end_six_dof_unit
+      
+      six_dof_unit two
+         offset 30 m -100 deg 5 m fixed_altitude
+         member_platform foxtrot
+      end_six_dof_unit
+   end_six_dof_section
+   
+   six_dof_section beta
+      detached
+      offset 300 m 90 deg 15 m fixed_altitude
+      
+      lead six_dof_unit one
+         member_platform golf
+      end_six_dof_unit
+      
+      six_dof_unit two
+         offset 30 m 100 deg 5 m fixed_altitude
+         member_platform hotel
+      end_six_dof_unit
+   end_six_dof_section
+end_six_dof_formation

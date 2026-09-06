@@ -1,0 +1,35 @@
+sensor IRST WSF_IRST_SENSOR
+   slew_mode azimuth_and_elevation
+   on
+   
+   mode_template
+      track_quality 1.0
+      reports_elevation 
+      reports_bearing
+      frame_time 1 s
+      maximum_range 100 km
+      band long
+      noise_equivalent_irradiance 1.0e-12 w/cm^2
+      detection_threshold 1.0
+      azimuth_error_sigma 0.1 deg
+      elevation_error_sigma 0.1 deg
+      cue_mode azimuth_and_elevation
+      azimuth_cue_rate 10 deg/s
+      elevation_cue_rate 10 deg/s
+   
+      field_of_view rectangular
+         azimuth_field_of_view -2 deg 2 deg
+         elevation_field_of_view -2 deg 2 deg
+      end_field_of_view
+      
+   end_mode_template
+   
+   mode first_mode
+      reports_iff
+   end_mode
+   
+   mode second_mode
+      reports_bearing
+   end_mode
+   
+end_sensor

@@ -1,0 +1,79 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test FollowRoute followed by a GoToClosestPoint
+//
+// Start on route
+// ReturnToRoute - Sets heading towards the third waypoint of route
+//
+// Therefore the first waypoint of route2 should not be achieved
+//
+//////////////////////////////////////////
+
+end_time 90 s
+
+route route
+   position 29:59:50n 90w speed 50 mph
+   position 30n 90w speed 50 mph
+      execute DivergeFromRoute
+   position 30n 90:00:05w speed 50 mph
+      execute pass_script
+   position 30n 90:00:07w speed 50 mph
+   position 30n 90:00:10w speed 50 mph
+end_route
+
+#script_listing on
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_GROUND_MOVER
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+   use_route route
+   script_variables
+      bool pass = false;
+      double divergeTime = 0.0;
+      double resumeTime;
+   end_script_variables
+   script void DivergeFromRoute()
+      writeln_d("Diverging from route");
+      PLATFORM.GoToLocation(30.0, 90.005);
+      divergeTime = TIME_NOW;
+      resumeTime = TIME_NOW + 10.0;
+   end_script
+   execute at_interval_of 5.0 s
+      writeln_d(TIME_NOW, " Evaulating...");
+      if (divergeTime > 0.0)
+      {
+         if (TIME_NOW > resumeTime)
+         {
+            writeln_d("Returning to route...");
+            PLATFORM.ReturnToRoute();
+            divergeTime = 0.0;
+         }
+      }
+   end_execute
+   script void pass_script()
+      // Should be called only once
+      static bool hasBeenCalled = false;
+      writeln_d(TIME_NOW, " pass_script");
+      pass = !hasBeenCalled;
+      hasBeenCalled = true;
+   end_script
+   script void on_platform_deleted()
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+end_platform
+

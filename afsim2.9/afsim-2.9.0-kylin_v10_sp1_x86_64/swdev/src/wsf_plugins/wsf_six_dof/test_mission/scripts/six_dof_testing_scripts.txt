@@ -1,0 +1,222 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+//******************************************************************
+// This file wraps functions in the WsfScriptP6DOF_MoverTestObject
+// so that the user does not need to type the same block of code
+// to get the mover from the platform.
+//******************************************************************
+
+// This uses maximum throttle (value=2.0, afterburner). If the vehicle
+// does not have an afterburner, it will use full throttle
+// (value=1.0, military power) instead.
+script void FlyStraightLevelFullThrottle(WsfPlatform aPlatform)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().FlyStraightLevelFullThrottle();
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().FlyStraightLevelFullThrottle();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script double GetRangeSinceStart_km(WsfPlatform aPlatform)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      return rigidBodyMover.GetTestSupportObject().GetRangeSinceStart_km();
+   }
+   else if(pointMassMover.IsValid())
+   {
+      return pointMassMover.GetTestSupportObject().GetRangeSinceStart_km();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return false;
+   }
+end_script
+
+script void SetMasterNoLagTesting(WsfPlatform aPlatform, bool aEnable)   
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().SetMasterNoLagTesting(aEnable);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().SetMasterNoLagTesting(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeAltitude(WsfPlatform aPlatform, bool aEnable)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().SetMasterFreezeAltitude(aEnable);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().SetMasterFreezeAltitude(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezePitch(WsfPlatform aPlatform, bool aEnable)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().SetMasterFreezePitch(aEnable);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().SetMasterFreezePitch(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeRoll(WsfPlatform aPlatform, bool aEnable)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().SetMasterFreezeRoll(aEnable);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().SetMasterFreezeRoll(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeVerticalSpeed(WsfPlatform aPlatform, bool aEnable)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().SetMasterFreezeVerticalSpeed(aEnable);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().SetMasterFreezeVerticalSpeed(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeYaw(WsfPlatform aPlatform, bool aEnable)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().SetMasterFreezeYaw(aEnable);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().SetMasterFreezeYaw(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeFuelBurn(WsfPlatform aPlatform, bool aEnable)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().SetMasterFreezeFuelBurn(aEnable);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().SetMasterFreezeFuelBurn(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterNoAlphaTesting(WsfPlatform aPlatform, bool aEnable)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().SetMasterNoAlphaTesting(aEnable);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().SetMasterNoAlphaTesting(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script int CanFlyAt(WsfPlatform aPlatform, double aAltitude_ft, double aVelocity_mps, double aThrottle, double aFlaps)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      return rigidBodyMover.GetTestSupportObject().CanFlyAt(aAltitude_ft, aVelocity_mps, aThrottle, aFlaps);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      return pointMassMover.GetTestSupportObject().CanFlyAt(aAltitude_ft, aVelocity_mps, aThrottle, aFlaps);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return -1;
+   }
+end_script
+
+script void CreateAutopilotSupportFile(WsfPlatform aPlatform, string aFilename)
+   WsfRigidBodySixDOF_Mover rigidBodyMover = (WsfRigidBodySixDOF_Mover)aPlatform.Mover();
+   WsfPointMassSixDOF_Mover pointMassMover = (WsfPointMassSixDOF_Mover)aPlatform.Mover();
+   if(rigidBodyMover.IsValid())
+   {
+      rigidBodyMover.GetTestSupportObject().CreateAutopilotSupportFile(aFilename);
+   }
+   else if(pointMassMover.IsValid())
+   {
+      pointMassMover.GetTestSupportObject().CreateAutopilotSupportFile(aFilename);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script

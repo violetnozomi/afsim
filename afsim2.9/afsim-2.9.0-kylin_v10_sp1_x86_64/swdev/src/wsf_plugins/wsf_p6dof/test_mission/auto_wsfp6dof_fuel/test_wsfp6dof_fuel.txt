@@ -1,0 +1,422 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This is a test to confirm the P6DOF mover fuel consumption
+# --------------------------------------------------------------------------------------------------
+
+# test_feature wsf_p6dof
+end_time 30 min
+
+# --------------------------------------------------------------------------------------------------
+
+include_once ../platforms/fa-lgt_external-tanks.txt
+
+script_variables
+   bool passed = true;
+   bool debugFlag = false;
+end_script_variables
+
+script double GetTotalFuelRemaining_lbs(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      return p6dofMover.GetTotalFuelRemaining() * Math.LB_PER_KG();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return 0.0;
+   }
+end_script
+
+script bool CheckStateData(WsfPlatform aPlatform,
+                           double      targetFuelQty_lbs)
+                           
+   double timeToEmpty_sec  = 0.0;
+   double fuelFuelFlow_pph = 0.0;
+   WsfFuel fuel = aPlatform.Fuel();
+   if(fuel.IsValid())
+   {
+      timeToEmpty_sec  = fuel.TimeToEmpty();
+      fuelFuelFlow_pph = fuel.ConsumptionRate() * Math.LB_PER_KG() * 3600.0;
+   }
+
+   double p6dofFuelFlow_pph = 0.0;
+   double fuelRemaining_lbs = 0.0;
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      
+      p6dofFuelFlow_pph = p6dofMover.GetTotalFuelFlowRate() * Math.LB_PER_KG() * 3600.0;
+      fuelRemaining_lbs = p6dofMover.GetTotalFuelRemaining() * Math.LB_PER_KG();
+   }
+   double deltaFuelRemaining_lbs = MATH.Fabs(fuelRemaining_lbs-targetFuelQty_lbs);
+   
+   double debugMultiplier = 1.0; // Set to -1 for testing
+   
+   // Fuel quantity should be within 1% or 10 gallons (about 60 lbs),
+   // whichever is higher.
+   double toleranceFuelRemaining_lbs = targetFuelQty_lbs*0.01;
+   if(toleranceFuelRemaining_lbs < 60.0)
+   {
+      toleranceFuelRemaining_lbs = 60.0;
+   }
+   toleranceFuelRemaining_lbs *= debugMultiplier;
+
+   bool passed = true;
+   
+   if( deltaFuelRemaining_lbs > toleranceFuelRemaining_lbs )
+   {
+      passed  = false;
+      writeln("-FAIL- Fuel Qty = ", fuelRemaining_lbs, " lbs is not within tolerance of (", toleranceFuelRemaining_lbs, ") from the target of ", targetFuelQty_lbs, " lbs at time = ", TIME_NOW, " sec");
+   }
+   
+   if( debugMultiplier < 0.0 )
+   {
+      writeln(" ");
+   }
+   
+   return passed;
+
+end_script
+
+
+# --------------------------------------------------------------------------------------------------
+
+platform TEST_AIRCRAFT FA-LGT-ExternalTanks
+   side  blue
+  
+   route 
+      position 21:17:45n 158:10:00w  altitude 12000.0 ft  speed 500.0 kts
+      position 21:17:45n 157:10:00w  altitude 12000.0 ft  speed 500.0 kts
+      position 21:17:45n 156:10:00w  altitude 12000.0 ft  speed 500.0 kts
+   end_route
+   
+   script void FuelStatusPrintout(WsfPlatform aPlatform)
+      if(debugFlag)
+      {
+         WsfMover mover = aPlatform.Mover();
+         if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+         {
+            WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      
+            double tankRgt_lbs = p6dofMover.GetFuelInTank("TankRgt.MainFuelTank") * Math.LB_PER_KG();
+            double tankLft_lbs = p6dofMover.GetFuelInTank("TankLft.MainFuelTank") * Math.LB_PER_KG();
+            double tankMain_lbs = p6dofMover.GetFuelInTank("MainFuelTank") * Math.LB_PER_KG();
+            double fuelRemaining_lbs = GetTotalFuelRemaining_lbs(aPlatform);
+            double fuelCap_lbs = p6dofMover.GetTotalFuelCapacity() * Math.LB_PER_KG();
+            double emptyWgt_lbs = p6dofMover.GetEmptyWeight() * Math.LB_PER_KG();
+            double totalWgt_lbs = p6dofMover.GetTotalWeight() * Math.LB_PER_KG();
+
+            if(debugFlag)
+            {
+               writeln("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+               writeln("Fuel Status");
+               writeln("  Fuel Capacity (lbs): ", fuelCap_lbs);
+               writeln("  Fuel Remains (lbs):  ", fuelRemaining_lbs);
+               writeln("  Main Tank (lbs):     ", tankMain_lbs);
+               writeln("  Lft Tank (lbs):      ", tankLft_lbs);
+               writeln("  Rgt Tank (lbs):      ", tankRgt_lbs);   
+               writeln("  Empty Wgt (lbs):     ", emptyWgt_lbs);
+               writeln("  Total Wgt (lbs):     ", totalWgt_lbs);
+            }
+         }
+      }   
+   end_script
+
+   script void PrintFuelFlowCComparison(WsfPlatform aPlatform)  
+      if(debugFlag)
+      {
+         WsfFuel fuel = aPlatform.Fuel();
+         if(!fuel.IsValid())
+         {
+            writeln("*** ERROR - Fuel is invalid ***");
+            return;
+         }
+      
+         WsfMover mover = aPlatform.Mover();
+         if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+         {
+            WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+
+            double rate1_pph = fuel.ConsumptionRate() * Math.LB_PER_KG() * 3600.0;
+            double rate2_pph = p6dofMover.GetTotalFuelFlowRate() * Math.LB_PER_KG() * 3600.0;
+            double thrust_lbs = p6dofMover.GetTotalThrust() * Math.LB_PER_NT();
+            double speed_ktas = aPlatform.Speed() * Math.NMPH_PER_MPS();
+            double distance_nm = fuel.DistanceToEmpty() * Math.NM_PER_M();
+         
+            writeln("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            writeln("Fuel Flow Comparison");
+            writeln("  Fuel Flow (PPH) FuelObj: ", rate1_pph);
+            writeln("  Fuel Flow (PPH) P6DOF:   ", rate2_pph);
+            writeln("  Thrust (lbs):            ", thrust_lbs);
+            writeln("  Speed (KTAS):            ", speed_ktas);
+            writeln("  Range (nm):              ", distance_nm);   
+         }
+      }
+   end_script
+
+   script double DistanceAtCurrentConditions_nm(WsfPlatform aPlatform)
+      WsfFuel fuel = aPlatform.Fuel();
+      if(fuel.IsValid())
+      {
+         double distance_m = fuel.DistanceToEmpty();
+         double distance_nm = distance_m * MATH.NM_PER_M();
+         return distance_nm;
+      }
+      return 0.0;
+   end_script
+
+   script double DistanceToBingo_nm(WsfPlatform aPlatform)
+      WsfFuel fuel = aPlatform.Fuel();
+      if(fuel.IsValid())
+      {
+         double distance_m = fuel.DistanceToBingo();
+         double distance_nm = distance_m * MATH.NM_PER_M();
+         return distance_nm;
+      }
+      return 0.0;
+   end_script
+   
+   script void PrintBingoAndRange(WsfPlatform aPlatform)
+      if(debugFlag)
+      {
+         writeln("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+         writeln("Bingo/Empty Stats");
+         WsfFuel fuel = aPlatform.Fuel();
+         if(fuel.IsValid())
+         {
+            writeln("  Time to Bingo:  ", fuel.TimeToBingo(), " sec:");
+            writeln("  Time to Empty:  ", fuel.TimeToEmpty(), " sec:");
+            writeln("  Range to Bingo: ", DistanceToBingo_nm(aPlatform), " nm");   
+            writeln("  Range to Empty: ", DistanceAtCurrentConditions_nm(aPlatform), " nm");   
+            writeln("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+         }
+      }
+   end_script
+   
+   script void PrintTestDataOutput(WsfPlatform aPlatform)
+      if(debugFlag)
+      {
+         writeln(" ");
+         writeln("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");      
+         writeln("Fuel Summary at time = ", TIME_NOW, " sec");
+         FuelStatusPrintout(aPlatform);
+         PrintFuelFlowCComparison(aPlatform);
+         PrintBingoAndRange(aPlatform);
+      }
+   end_script
+   
+   script void SetFuelInTank_lbs(WsfPlatform aPlatform, string aTankName, double aFuel_lbs)
+      WsfMover mover = aPlatform.Mover();
+      if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+      {
+         WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+         p6dofMover.SetFuelInTank(aTankName, aFuel_lbs * Math.KG_PER_LB());
+      }
+      else
+      {
+         writeln("--ERROR-- Not a P6DOF Mover.");
+      }
+   end_script
+   
+   script void ActivateSequencer(WsfPlatform aPlatform, string aSequencerName)
+      WsfMover mover = aPlatform.Mover();
+      if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+      {
+         WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+         p6dofMover.ActivateSequencer(aSequencerName);
+      }
+      else
+      {
+         writeln("--ERROR-- Not a P6DOF Mover.");
+      }
+   end_script  
+      
+   # Internal fuel: 7,000 lbs  External fuel:  2,400 lbs x 2 = 4,800 lbs
+   # Total max: 11,800 lbs
+   add fuel WSF_P6DOF_FUEL
+      initial_quantity  15000 lbs  # This is more than max, but will just ignore extra fuel
+      bingo_quantity     4800 lbs
+      on_bingo
+         if(debugFlag)
+         {
+            writeln(" ");
+            writeln("*** BINGO ***");   
+            writeln("*** BINGO ***");   
+            writeln("*** BINGO ***");   
+            writeln("");   
+            writeln("Reached Bingo fuel state of ", BingoQuantity() * Math.LB_PER_KG(), " lbs at time = ", TIME_NOW, " sec");
+            PrintTestDataOutput(PLATFORM);   
+            WsfFuel fuel = PLATFORM.Fuel();
+            if(fuel.IsValid())
+            {
+               writeln("  Time to Empty =", fuel.TimeToEmpty(), " sec (", fuel.TimeToEmpty()/60.0, " min)");
+            }
+            PrintFuelFlowCComparison(PLATFORM);
+         }
+      end_on_bingo
+   end_fuel
+     
+   # 7,000 lbs internally, plus 2,400 lbs in each tank for total of 11,800 lbs
+   # 18900 lbs empty plus 250 lbs x 2 tanks = 19,400 lbs, MaxGross=31,200 lbs
+   execute at_time 31.0 sec absolute
+      PrintTestDataOutput(PLATFORM);
+   end_execute   
+
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   execute at_time 35 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        11738.3);  // targetFuelQty_lbs
+      if(!checkPassed) { passed = false; }
+   end_execute
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   
+   # ...........................................................................   
+   # Instantly drop the external tank fuel level to 500 lbs in each tank
+   # Pre-Action:   Cap=11,800  Remain=11,800  Wgt=31,200
+   # Post-Action:  Cap=11,800  Remain=8,000  Wgt=27,400
+   execute at_time 40.0 sec absolute
+      if(debugFlag)
+      {
+         writeln("Set external tank fuel to 500 lbs each at time=", TIME_NOW, " sec");
+      }
+      PrintTestDataOutput(PLATFORM);
+      SetFuelInTank_lbs(PLATFORM,"TankRgt.MainFuelTank", 500.0);
+      SetFuelInTank_lbs(PLATFORM,"TankLft.MainFuelTank", 500.0);
+   end_execute
+
+   execute at_time 40.1 sec absolute
+      if(debugFlag)
+      {
+         writeln("External tank fuel now at 500 lbs each...");
+      }
+      PrintTestDataOutput(PLATFORM);
+   end_execute
+
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   execute at_time 45 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        7991.39);  // targetFuelQty_lbs
+      if(!checkPassed) { passed = false; }
+   end_execute
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+   # ...........................................................................   
+   # Instantly top off the external tanks by overfilling them to 10,000 lbs
+   # in each tank (they cannot be over-filled, excess fuel is ignored)
+   # Pre-Action:   Cap=11,800  Remain=8,000  Wgt=27,400
+   # Post-Action:  Cap=11,800  Remain=11,800  Wgt=31,200
+   execute at_time 50.0 sec absolute
+      if(debugFlag)
+      {
+         writeln("Top-off external tanks at time=", TIME_NOW, " sec");
+      }
+      PrintTestDataOutput(PLATFORM);
+      SetFuelInTank_lbs(PLATFORM,"TankRgt.MainFuelTank", 10000.0);
+      SetFuelInTank_lbs(PLATFORM,"TankLft.MainFuelTank", 10000.0);
+   end_execute
+
+   execute at_time 50.1 sec absolute
+      if(debugFlag)
+      {
+         writeln("External tanks now topped off...");
+      }
+      PrintTestDataOutput(PLATFORM);
+   end_execute
+
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   execute at_time 55 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        11704.0);  // targetFuelQty_lbs
+      if(!checkPassed) { passed = false; }
+   end_execute
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+   # ...........................................................................   
+   # Drop the external tanks -- our new max fuel is only 7,000 lbs
+   # Pre-Action:   Cap=11,800  Remain=11,800  Wgt=31,200
+   # Post-Action:  Cap=7,000  Remain=7,000  Wgt=25,900
+   execute at_time 60.0 sec absolute
+      if(debugFlag)
+      {
+         writeln("Drop external tanks at time=", TIME_NOW, " sec");
+      }
+      PrintTestDataOutput(PLATFORM);
+      ActivateSequencer(PLATFORM, "DropExternalTanks");
+   end_execute
+
+   execute at_time 60.1 sec absolute
+      if(debugFlag)
+      {
+         writeln("External tanks now dropped....");
+      }
+      PrintTestDataOutput(PLATFORM);
+   end_execute
+
+   execute at_time 65.0 sec absolute
+      PrintTestDataOutput(PLATFORM);
+   end_execute
+
+   execute at_time 90.0 sec absolute
+      PrintTestDataOutput(PLATFORM);
+   end_execute
+
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   execute at_time 100 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        6939.32);  // targetFuelQty_lbs
+      if(!checkPassed) { passed = false; }
+   end_execute
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+   execute at_time 120.0 sec absolute
+      PrintTestDataOutput(PLATFORM);
+   end_execute
+
+   execute at_time 140.0 sec absolute
+      PrintTestDataOutput(PLATFORM);
+   end_execute
+
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   execute at_time 20 min absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        5278.71);  // targetFuelQty_lbs
+      if(!checkPassed) { passed = false; }
+   end_execute
+   # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+   execute at_time 25 min absolute
+      PrintTestDataOutput(PLATFORM);
+   end_execute
+   
+        
+   script void on_platform_deleted()
+      
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        4379.31);  // targetFuelQty_lbs
+      if(!checkPassed) { passed = false; }
+
+      if(passed)
+      {
+         writeln("-PASS-");
+      }     
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+
+   end_script   
+   
+end_platform
+
+# --------------------------------------------------------------------------------------------------

@@ -1,0 +1,297 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+#NOTE - if uncommenting the dis interface to record a replay file, you might try
+#       uncommenting all of the manager.Draw() script calls below as well.
+#
+
+#event_pipe
+#   file test_clustering.aer
+#end_event_pipe
+
+end_time 1 minute
+
+include test_functions.txt
+include test_pass.txt
+
+script_variables
+   PassTestCount = 9;
+end_script_variables
+
+platform_type  TEST_PLATFORM  WSF_PLATFORM
+   comm cmdr_net WSF_COMM_TRANSCEIVER
+      internal_link data_mgr
+      internal_link perception
+   end_comm
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval             60 sec
+   end_processor
+   processor perception WSF_PERCEPTION_PROCESSOR
+      on
+      script_debug_writes  off
+      asset_perception     status_messages
+   end_processor
+   sensor geo_sensor WSF_GEOMETRIC_SENSOR
+      on
+      azimuth_field_of_view   -180.0 degrees  180.0 degrees
+      elevation_field_of_view  -90.0 degrees   90.0 degrees
+      minimum_range 0 m
+      maximum_range 277800 m     //about 150 nm
+      frame_time    1 sec
+      reports_location
+      reports_velocity
+      track_quality 1.0
+      internal_link data_mgr
+   end_sensor
+
+   #custom script distance function for WsfClusterManager - used later
+   script double AssetInverseDistance(WsfAssetPerception a,
+                                      WsfAssetPerception b)
+      double range = a.Location().GroundRangeTo(b.Location());
+      double max = 25.0 * MATH.M_PER_NM();
+      return (max - range);
+   end_script
+
+   script Array<WsfGeoPoint> GetGeoPointHull()
+      WsfClusterManager mgr = WsfClusterManager.Create();
+      return mgr.ConvexHull({PLATFORM.Location()});
+   end_script
+
+   #test clustering
+   execute at_time 30 sec absolute
+      WsfClusterManager manager = WsfClusterManager.Create();
+      #test platform clustering
+      manager.SetClusterMethod("H_TREE_MAX");
+      manager.SetDistanceFunction("POSITION_ONLY");
+      manager.SetDistanceLimit(10*1852);
+      WsfPlatformList subs = PLATFORM.Subordinates();
+      Array<Array<WsfPlatform> > platformClusters = manager.GetClusters(subs);
+      foreach(Array<WsfPlatform> cluster in platformClusters)
+      {
+         int id                  = manager.UniqueId(cluster);
+         Array<WsfPlatform> hull = manager.ConvexHull(cluster);
+         WsfGeoPoint mean        = manager.MeanLocation(cluster);
+         WsfPlatform member      = manager.NearestMember(cluster, PLATFORM.Location());
+         Array<Object> vals      = manager.NearestEdgePoint(cluster, PLATFORM.Location());
+         vals                    = manager.CrossLength(cluster, PLATFORM.Location());
+         #manager.Draw(cluster, 60, Vec3.Construct(1,1,0), "hull");
+      }
+
+      #test geopoint clustering
+      manager.SetClusterMethod("H_TREE_MIN");
+      manager.SetDistanceFunction("POSITION_ONLY");
+      manager.SetDistanceLimit(12*1852);
+      Array<WsfGeoPoint> points = Array<WsfGeoPoint>();
+      foreach(WsfPlatform p in subs)
+      {
+         points.PushBack(p.Location());
+      }
+      Array<Array<WsfGeoPoint> > geoClusters = manager.GetClusters(points);
+      foreach(Array<WsfGeoPoint> cluster in geoClusters)
+      {
+         int id = manager.UniqueId(cluster);
+         Array<WsfGeoPoint> hull = manager.ConvexHull(cluster);
+         WsfGeoPoint mean        = manager.MeanLocation(cluster);
+         WsfGeoPoint member      = manager.NearestMember(cluster, PLATFORM.Location());
+         Array<Object> vals      = manager.NearestEdgePoint(cluster, PLATFORM.Location());
+         vals                    = manager.CrossLength(cluster, PLATFORM.Location());
+         #manager.Draw(cluster, 60, Vec3.Construct(1,0,0), "hull");
+      }
+
+      // Test that array returned by ConvexHull is valid outside of immediate calling script context
+      Array<WsfGeoPoint> inScriptHull = GetGeoPointHull();
+      Array<WsfGeoPoint> outsideScriptHull = manager.ConvexHull({PLATFORM.Location()});
+
+      #test track clustering
+      manager.SetClusterMethod("K_MEANS");
+      manager.SetDistanceFunction("POSITION_ONLY");
+      manager.SetNumClustersToCreate(3);
+      WsfLocalTrackList tracks = PLATFORM.MasterTrackList();
+      Array<Array<WsfLocalTrack> > trackClusters = manager.GetClusters(tracks);
+      foreach(Array<WsfLocalTrack> cluster in trackClusters)
+      {
+         int id = manager.UniqueId(cluster);
+         Array<WsfLocalTrack> hull = manager.ConvexHull(cluster);
+         WsfGeoPoint mean          = manager.MeanLocation(cluster);
+         WsfTrack member           = manager.NearestMember(cluster, PLATFORM.Location());
+         Array<Object> vals        = manager.NearestEdgePoint(cluster, PLATFORM.Location());
+         vals                      = manager.CrossLength(cluster, PLATFORM.Location());
+         #manager.Draw(cluster, 60, Vec3.Construct(0,1,0), "star");
+      }
+
+      #test asset clustering
+      Array<WsfAssetPerception> assets = PLATFORM.PerceivedAssets();
+      manager.SetClusterMethod("H_TREE_MAX");
+      manager.SetDistanceFunction("POSITION_ONLY");
+      manager.SetDistanceLimit(12.0*1852);
+      manager.SetScriptDistanceFunction("AssetInverseDistance");
+      Array<Array<WsfAssetPerception> > assetClusters = manager.GetClusters(assets);
+      foreach(Array<WsfAssetPerception> cluster in assetClusters)
+      {
+         int id                         = manager.UniqueId(cluster);
+         Array<WsfAssetPerception> hull = manager.ConvexHull(cluster);
+         WsfGeoPoint mean               = manager.MeanLocation(cluster);
+         WsfAssetPerception member      = manager.NearestMember(cluster, PLATFORM.Location());
+         Array<Object> vals             = manager.NearestEdgePoint(cluster, PLATFORM.Location());
+         vals                           = manager.CrossLength(cluster, PLATFORM.Location());
+         #manager.Draw(cluster, 60, Vec3.Construct(0,0,1), "star");
+      }
+
+      #test H_TREE_AVG track clustering
+      manager.SetClusterMethod("H_TREE_AVG");
+      manager.SetDistanceFunction("POSITION_ONLY");
+      manager.SetDistanceLimit(12.0*1852);
+      Array<Array<WsfLocalTrack> > trackClusters2 = manager.GetClusters(tracks);
+      foreach(Array<WsfLocalTrack> cluster in trackClusters2)
+      {
+         int id = manager.UniqueId(cluster);
+         Array<WsfLocalTrack> hull = manager.ConvexHull(cluster);
+         WsfGeoPoint mean          = manager.MeanLocation(cluster);
+         WsfTrack member           = manager.NearestMember(cluster, PLATFORM.Location());
+         Array<Object> vals        = manager.NearestEdgePoint(cluster, PLATFORM.Location());
+         vals                      = manager.CrossLength(cluster, PLATFORM.Location());
+         #manager.Draw(cluster, 60, Vec3.Construct(0,1,0), "star");
+      }
+
+      if (AssertEqualsMessage(platformClusters.Size(), 4, "not 4 platform clusters from htree-max"))     { pass(); }
+      if (AssertEqualsMessage(geoClusters.Size(),      2, "not 2 geopoint clusters from htree-min"))     { pass(); }
+      if (AssertEqualsMessage(trackClusters.Size(),    3, "not 3 track clusters from k-means"))          { pass(); }
+      if (AssertEqualsMessage(assetClusters.Size(),    4, "not 4 track clusters from custom htree-max")) { pass(); }
+      if (AssertEqualsMessage(trackClusters2.Size(),   4, "not 4 track clusters from htree-avg"))        { pass(); }
+      if (AssertEqualsMessage(inScriptHull.Size(), outsideScriptHull.Size(), "Unequal hull sizes"))      { pass(); }
+      for (int i = 0; i < inScriptHull.Size(); i += 1)
+      {
+         if (AssertEqualsMessage(inScriptHull[i].Latitude(),  outsideScriptHull[i].Latitude(),  "GeoPoint lats not equal")) { pass(); }
+         if (AssertEqualsMessage(inScriptHull[i].Longitude(), outsideScriptHull[i].Longitude(), "GeoPoint lons not equal")) { pass(); }
+         if (AssertEqualsMessage(inScriptHull[i].Altitude(),  outsideScriptHull[i].Altitude(),  "GeoPoint alts not equal")) { pass(); }
+      }
+
+   end_execute
+end_platform_type
+
+
+
+platform_type  SUB_PLATFORM  WSF_PLATFORM
+   comm cmdr_net WSF_COMM_TRANSCEIVER
+      internal_link perception
+   end_comm
+   processor perception WSF_PERCEPTION_PROCESSOR
+      on
+      script_debug_writes  off
+      report_interval      1 sec
+      reporting_self       true
+      reporting_others     false
+      report_to            commander via cmdr_net
+   end_processor
+end_platform_type
+
+
+platform commander TEST_PLATFORM
+   side blue
+  commander SELF
+   position 38:45:43.110n 90:33:44.759w
+ altitude 10000 ft
+end_platform
+
+platform left-2 SUB_PLATFORM
+  commander commander
+   position 38:52:16.596n 90:50:01.842w
+ altitude 10000 ft
+end_platform
+
+platform left-3 SUB_PLATFORM
+  commander commander
+   position 38:49:12.776n 90:48:46.201w
+ altitude 10000 ft
+end_platform
+
+platform left-4 SUB_PLATFORM
+  commander commander
+   position 38:46:22.066n 90:50:19.966w
+ altitude 10000 ft
+end_platform
+
+platform left-5 SUB_PLATFORM
+  commander commander
+   position 38:43:30.620n 90:48:20.474w
+ altitude 10000 ft
+end_platform
+
+platform bottom-6 SUB_PLATFORM
+  commander commander
+   position 38:35:36.589n 90:38:30.511w
+ altitude 10000 ft
+end_platform
+
+platform bottom-7 SUB_PLATFORM
+  commander commander
+   position 38:34:00.305n 90:34:18.005w
+ altitude 10000 ft
+end_platform
+
+platform bottom-8 SUB_PLATFORM
+  commander commander
+   position 38:35:30.538n 90:30:33.297w
+ altitude 10000 ft
+end_platform
+
+platform bottom-9 SUB_PLATFORM
+  commander commander
+   position 38:33:51.070n 90:27:18.690w
+ altitude 10000 ft
+end_platform
+
+platform right-10 SUB_PLATFORM
+  commander commander
+   position 38:40:41.329n 90:10:06.371w
+ altitude 10000 ft
+end_platform
+
+platform right-11 SUB_PLATFORM
+  commander commander
+   position 38:43:45.556n 90:11:52.502w
+ altitude 10000 ft
+end_platform
+
+platform right-12 SUB_PLATFORM
+  commander commander
+   position 38:46:34.724n 90:10:00.825w
+ altitude 10000 ft
+end_platform
+
+platform right-13 SUB_PLATFORM
+  commander commander
+   position 38:49:20.736n 90:11:38.061w
+ altitude 10000 ft
+end_platform
+
+platform top-14 SUB_PLATFORM
+  commander commander
+   position 38:56:38.390n 90:22:15.339w
+ altitude 10000 ft
+end_platform
+
+platform top-15 SUB_PLATFORM
+  commander commander
+   position 38:58:42.710n 90:25:20.706w
+ altitude 10000 ft
+end_platform
+
+platform top-16 SUB_PLATFORM
+  commander commander
+   position 38:57:06.968n 90:29:11.335w
+ altitude 10000 ft
+end_platform
+
+platform top-17 SUB_PLATFORM
+  commander commander
+   position 38:58:56.015n 90:33:26.113w
+ altitude 10000 ft
+end_platform

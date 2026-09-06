@@ -1,0 +1,231 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2021 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This test compares the results of computing a rendezvous using the form
+# of WsfSpaceMover.ComputeRendezvous that takes a WsfTargetPoint as the
+# first argument. Three platform each execute a rendezvous maneuver with
+# the platform 'target'. Along the way, they compare the actual achieved
+# rendezvous delta-t and delta-v with the computed.
+# ****************************************************************************
+
+include_once ../utils.txt
+
+# The target platform
+platform target WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.0
+      inclination 10.0 deg
+      revs_per_day 10.0
+   end_mover
+end_platform
+
+# Common functionality of the maneuvering platforms.
+platform_type CHASER WSF_PLATFORM
+   mover WSF_SPACE_MOVER
+      eccentricity 0.0
+      inclination 5.0 deg
+      revs_per_day 8.0
+   end_mover
+   
+   # Variables to store intermediate values during maneuver.
+   script_variables
+      double pStartTime;
+      double pEndTime;
+      Vec3   pTargetV0;
+      Vec3   pMatchVelocityV0;
+      double pTargetDeltaV;
+      double pMatchVelocityDeltaV;
+      
+      double pManeuverDeltaT;
+      double pManeuverDeltaV;
+      
+      bool   pValuesAvailable = false;
+      double pComputedDeltaT;
+      double pComputedDeltaV;
+      
+      double pDeltaT_Tolerance = 1.0e-4;
+      double pDeltaV_Tolerance = 1.0e-3;
+   end_script_variables
+   
+   # Store the delta-t and delta-v values provided by the computation.
+   script void SetComputedValues(Array<double> aValues)
+      ExpectInt(aValues.Size(), 2, "Results should contain two values " + PLATFORM.Name());
+      if (aValues.Size() == 2)
+      {
+         pValuesAvailable = true;
+         pComputedDeltaT = aValues.Get(0);
+         pComputedDeltaV = aValues.Get(1);
+      }
+   end_script
+   
+   # Collect information at the start of the target maneuver.
+   script void MarkTargetBegin()
+      pStartTime = TIME_NOW;
+      pTargetV0 = PLATFORM.VelocityECI();
+   end_script
+   
+   # Collect information at the end of the target maneuver.
+   script void MarkTargetEnd()
+      pTargetDeltaV = Vec3.Subtract(PLATFORM.VelocityECI(), pTargetV0).Magnitude();
+   end_script
+   
+   # Collect information at the start of the match velocity maneuver.
+   script void MarkMatchVelocityBegin()
+      pMatchVelocityV0 = PLATFORM.VelocityECI();
+   end_script
+   
+   # Collect information at the end of the match velocity maneuver, and perform the test.
+   script void MarkMatchVelocityEnd()
+      pEndTime = TIME_NOW;
+      pMatchVelocityDeltaV = Vec3.Subtract(PLATFORM.VelocityECI(), pMatchVelocityV0).Magnitude();
+      pManeuverDeltaT = TIME_NOW - pStartTime;
+      pManeuverDeltaV = pTargetDeltaV + pMatchVelocityDeltaV;
+      
+      if (pValuesAvailable)
+      {
+         // microsecond accuracy expected in delta-t
+         ExpectDouble(pComputedDeltaT, pManeuverDeltaT, pDeltaT_Tolerance, "Maneuver delta-t should match computation: " + PLATFORM.Name());
+         // cm/s accuracy expected in delta-v
+         ExpectDouble(pComputedDeltaV, pManeuverDeltaV, pDeltaV_Tolerance, "Maneuver delta-v should match computation: " + PLATFORM.Name());
+      }
+   end_script
+end_platform_type
+
+# This platform will rendezvous with target using a delta-v optimization
+platform chaser-init CHASER
+   edit mover
+      mission_sequence
+         maneuver rendezvous
+            execute_at relative_time 10 seconds
+            maximum_delta_time 1 hours
+            maximum_delta_v 10 kilometers/seconds
+            optimize_delta_v
+            tolerance 1e-09
+            target
+               platform target
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   
+   execute at_time 10 s absolute
+      WsfTrack track = WsfSimulation.FindPlatform("target").MakeTrack();
+      PLATFORM.TrackManager().AddTrackReport(track);
+      
+      WsfTargetPoint point = WsfTargetPoint.ConstructFromTrack(PLATFORM.MasterTrackList().Entry(0).TrackId());
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      Array<double> results = mover.ComputeRendezvous(point, 3600.0, 1000000.0, true);
+      PLATFORM->SetComputedValues(results);
+   end_execute
+end_platform
+
+# This platform will rendezvous with target using a blended cost optimization
+platform chaser-cost CHASER
+   edit mover
+      mission_sequence
+         maneuver rendezvous
+            execute_at relative_time 10 s
+            maximum_delta_time 1 hr
+            maximum_delta_v 10 km/s
+            optimize_cost blended 2.0 1.0 0.0
+            target
+               platform target
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   
+   execute at_time 10 s absolute
+      WsfTrack track = WsfSimulation.FindPlatform("target").MakeTrack();
+      PLATFORM.TrackManager().AddTrackReport(track);
+      
+      WsfTargetPoint point = WsfTargetPoint.ConstructFromTrack(PLATFORM.MasterTrackList().Entry(0).TrackId());
+      WsfOrbitalBlendedCost cost = WsfOrbitalBlendedCost.Construct(2.0, 1.0, 0.0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      Array<double> results = mover.ComputeRendezvous(point, 3600.0, 1000000.0, cost);
+      PLATFORM->SetComputedValues(results);
+   end_execute
+end_platform
+
+# This platform will rendezvous with the target using a fixed transfer time
+platform chaser-scripted CHASER
+   execute at_time 10 s absolute
+      double transferTime = 600.0;
+      
+      WsfTrack track = WsfSimulation.FindPlatform("target").MakeTrack();
+      PLATFORM.TrackManager().AddTrackReport(track);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      Array<double> results = mover.ComputeRendezvous(WsfTargetPoint.ConstructFromTrack(PLATFORM.MasterTrackList().Entry(0).TrackId()),
+                                                      transferTime);
+      PLATFORM->SetComputedValues(results);
+   
+      WsfRendezvousManeuver mvr = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0),
+                                                                  WsfTargetPoint.ConstructFromTrack(PLATFORM.MasterTrackList().Entry(0).TrackId()),
+                                                                  transferTime);
+      ExpectBool(mover.ExecuteManeuver(mvr), true, "Maneuver should be successfully executed");
+   end_execute
+end_platform
+
+# This platform will rendezvous with the Earth-Moon L4 point using the minimum transfer time
+platform chaser-l4 CHASER
+   edit mover
+      mission_sequence
+         maneuver rendezvous
+            execute_at relative_time 10 seconds
+            maximum_delta_time 3 day
+            maximum_delta_v 1000 km/s
+            optimize_time
+            target
+               libration_point earth_moon l4
+            end_target
+         end_maneuver         
+      end_mission_sequence
+   end_mover
+   
+   script_variables
+      pDeltaV_Tolerance = 2.0e-2;
+   end_script_variables
+   
+   execute at_time 10 s absolute
+      WsfTargetPoint point = WsfTargetPoint.ConstructFromLibrationPoint(WsfLibrationPointSystem.EARTH_MOON(), WsfLibrationPointSelection.L4());
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      Array<double> results = mover.ComputeRendezvous(point, 3.0 * 24 * 3600.0, 1000000.0, false);
+      PLATFORM->SetComputedValues(results);
+   end_execute
+end_platform
+
+script void CollectInitialData(WsfPlatform aPlatform, WsfSpaceMover aMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "TARGET")
+   {
+      aPlatform->MarkTargetBegin();
+   }
+   else if (aManeuver.ManeuverType() == "MATCH_VELOCITY")
+   {
+      aPlatform->MarkMatchVelocityBegin();
+   }
+end_script
+
+script void CollectFinalData(WsfPlatform aPlatform, WsfSpaceMover aMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "TARGET")
+   {
+      aPlatform->MarkTargetEnd();
+   }
+   else if (aManeuver.ManeuverType() == "MATCH_VELOCITY")
+   {
+      aPlatform->MarkMatchVelocityEnd();
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED CollectInitialData
+   enable ORBITAL_MANEUVER_COMPLETED CollectFinalData
+end_observer
+
+end_time 3 day

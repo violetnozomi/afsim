@@ -1,0 +1,616 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test will check that nodes with failing preconditions will not
+# skip to their execute block when the parenting composite node is
+# selected by a priority_selector node
+
+end_time 30 sec
+random_seed 1928372 # for weighted random
+
+script_variables
+   bool fail = false;
+   
+   # If any of these get set to true something executed that shouldn't have
+   bool selectorNode1Executed = false;
+   
+   bool selectorWithMemoryNode1Executed = false;
+   
+   bool sequenceNode2Executed = false;
+   
+   bool sequenceWithMemoryNode2Executed = false;
+   
+   bool parallelNode1Executed = false;
+   bool parallelNode3Executed = false;
+   
+   bool prioritySelectorNode2Executed = false;
+   bool prioritySelectorNode3Executed = false;
+   
+   bool weightedRandomNode1Executed = false;
+   bool weightedRandomNode2Executed = false;
+end_script_variables
+
+advanced_behavior selector_node_1
+   precondition
+      return Failure();
+   end_precondition
+
+   execute
+      selectorNode1Executed = true;
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior selector_node_2
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior selector_node_3
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior selector_with_memory_node_1
+   precondition
+      return Failure();
+   end_precondition
+
+   execute
+      selectorWithMemoryNode1Executed = true;
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior selector_with_memory_node_2
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior selector_with_memory_node_3
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior sequence_node_1
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior sequence_node_2
+   precondition
+      return Failure();
+   end_precondition
+
+   execute
+      sequenceNode2Executed = true;
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior sequence_node_3
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior sequence_with_memory_node_1
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior sequence_with_memory_node_2
+   precondition
+      return Failure();
+   end_precondition
+
+   execute
+      sequenceWithMemoryNode2Executed = true;
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior sequence_with_memory_node_3
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior parallel_node_1
+   precondition
+      return Failure();
+   end_precondition
+
+   execute
+      parallelNode1Executed = true;
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior parallel_node_2
+   precondition
+      return Success();
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior parallel_node_3
+   precondition
+      return Failure();
+   end_precondition
+
+   execute
+      parallelNode3Executed = true;
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior priority_selector_node_1
+   precondition
+      return 1.5;
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior priority_selector_node_2
+   precondition
+      return 1.5;
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior priority_selector_node_3
+   precondition
+      return 1.5;
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior weighted_random_node_1
+   precondition
+      return 1.5;
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior weighted_random_node_2
+   precondition
+      return 1.5;
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior weighted_random_node_3
+   precondition
+      return 1.5;
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+advanced_behavior 0.9_weight
+   precondition
+      return 0.9;
+   end_precondition
+
+   execute
+      return Success();
+   end_execute
+end_advanced_behavior
+
+condition selector_test
+   precondition
+      string testName = "selector";
+      # If this node executes we've failed the test
+      if (selectorNode1Executed)
+      {
+         return Failure();
+      }
+      else
+      {
+         SetSharedBlackboardVar("tests", testName, true);
+         return Success();
+      }
+   end_precondition
+end_condition
+
+condition selector_with_memory_test
+   precondition
+      string testName = "selector_with_memory";
+      # If this node executes we've failed the test
+      if (selectorWithMemoryNode1Executed)
+      {
+         return Failure();
+      }
+      else
+      {
+         SetSharedBlackboardVar("tests", testName, true);
+         return Success();
+      }
+   end_precondition
+end_condition
+
+condition sequence_test
+   precondition
+      string testName = "sequence";
+      # If this node executes we've failed the test
+      if (sequenceNode2Executed)
+      {
+         return Failure();
+      }
+      else
+      {
+         SetSharedBlackboardVar("tests", testName, true);
+         return Success();
+      }
+   end_precondition
+end_condition
+
+condition sequence_with_memory_test
+   precondition
+      string testName = "sequence_with_memory";
+      # If this node executes we've failed the test
+      if (sequenceWithMemoryNode2Executed)
+      {
+         return Failure();
+      }
+      else
+      {
+         SetSharedBlackboardVar("tests", testName, true);
+         return Success();
+      }
+   end_precondition
+end_condition
+
+condition parallel_test
+   precondition
+      string testName = "parallel";
+      # If either node executes we've failed the test
+      if (parallelNode1Executed || parallelNode3Executed)
+      {
+         return Failure();
+      }
+      else
+      {
+         SetSharedBlackboardVar("tests", testName, true);
+         return Success();
+      }
+   end_precondition
+end_condition
+
+condition priority_selector_test
+   precondition
+      string testName = "priority_selector";
+      # If either node executes we've failed the test
+      if (prioritySelectorNode2Executed || prioritySelectorNode3Executed)
+      {
+         return Failure();
+      }
+      else
+      {
+         SetSharedBlackboardVar("tests", testName, true);
+         return Success();
+      }
+   end_precondition
+end_condition
+
+condition weighted_random_test
+   precondition
+      string testName = "weighted_random";
+      # If either node executes we've failed the test
+      if (weightedRandomNode1Executed || weightedRandomNode2Executed)
+      {
+         return Failure();
+      }
+      else
+      {
+         SetSharedBlackboardVar("tests", testName, true);
+         return Success();
+      }
+   end_precondition
+end_condition
+
+condition tree_tests
+   precondition
+      # If we don't already have a failure (outputted a fail message),
+      # then check to make sure each test has run. Each node test posts
+      # a blackboard variable to let the tree know it made it past its test.
+      # This is a generic catch and won't say exactly what went wrong, but
+      # can pinpoint which node type or configuration is messing up.
+      if (!fail)
+      {
+         Array<string> testNames = Array<string>();
+         testNames.PushBack("selector");
+         testNames.PushBack("selector_with_memory");
+         testNames.PushBack("sequence");
+         testNames.PushBack("sequence_with_memory");
+         testNames.PushBack("parallel");
+         testNames.PushBack("priority_selector");
+         testNames.PushBack("weighted_random");
+
+         foreach (string testName in testNames)
+         {
+            if (!SharedBlackboardVarExists("tests", testName))
+            {
+               writeln("-FAIL- " + testName + " precondition skip test failed!");
+               return Failure();
+            }
+         }
+      }
+      else
+      {
+         return Failure();
+      }
+
+      #If we've made it here, all tests have passed successfully.
+      string successStr = "-PASS- All precondition skip tests passed successfully!";
+      writeln(successStr);
+      return Success(successStr);
+   end_precondition
+end_condition
+
+platform precondition_skip_test WSF_PLATFORM
+   add processor proc WSF_SCRIPT_PROCESSOR
+      update_interval 1 sec
+      advanced_behavior_tree
+         name test_tree
+         on_init
+            CreateSharedBlackboard("tests");
+         end_on_init
+
+         decorator repeater until_done
+            selector # If any node fails in the sequence_with_memory it will break out and evaluate the tree_tests
+               sequence_with_memory
+
+                  # Test if selector_node_1 executes
+                  # even if its precondition failed after
+                  # its parent node is selected
+                  sequence
+                     advanced_behavior_tree
+                        name "Selector test"
+                        root_node_type priority_selector
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type selector
+                           behavior_node selector_node_1
+                           behavior_node selector_node_2
+                           behavior_node selector_node_3
+                        end_advanced_behavior_tree
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type priority_selector
+                           behavior_node 0.9_weight
+                           behavior_node 0.9_weight
+                        end_advanced_behavior_tree
+                     end_advanced_behavior_tree
+                     condition selector_test
+                  end_sequence
+                  
+                  # Test if selector_with_memory_node_1 executes
+                  # even if its precondition failed after
+                  # its parent node is selected
+                  sequence
+                     advanced_behavior_tree
+                        name "Selector with memory test"
+                        root_node_type priority_selector
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type selector_with_memory
+                           behavior_node selector_with_memory_node_1
+                           behavior_node selector_with_memory_node_2
+                           behavior_node selector_with_memory_node_3
+                        end_advanced_behavior_tree
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type priority_selector
+                           behavior_node 0.9_weight
+                           behavior_node 0.9_weight
+                        end_advanced_behavior_tree
+                     end_advanced_behavior_tree
+                     condition selector_with_memory_test
+                  end_sequence
+                  
+                  # Test if sequence_node_2 executes
+                  # even if its precondition failed after
+                  # its parent node is selected
+                  selector
+                     advanced_behavior_tree
+                        name "Sequence test"
+                        root_node_type priority_selector
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type sequence
+                           behavior_node sequence_node_1
+                           behavior_node sequence_node_2
+                           behavior_node sequence_node_3
+                        end_advanced_behavior_tree
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type priority_selector
+                           behavior_node 0.9_weight
+                           behavior_node 0.9_weight
+                        end_advanced_behavior_tree
+                     end_advanced_behavior_tree
+                     condition sequence_test
+                  end_selector
+                  
+                  # Test if sequence_with_memory_node_2 executes
+                  # even if its precondition failed after
+                  # its parent node is selected
+                  selector
+                     advanced_behavior_tree
+                        name "Sequence with memory test"
+                        root_node_type priority_selector
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type sequence_with_memory
+                           behavior_node sequence_with_memory_node_1
+                           behavior_node sequence_with_memory_node_2
+                           behavior_node sequence_with_memory_node_3
+                        end_advanced_behavior_tree
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type priority_selector
+                           behavior_node 0.9_weight
+                           behavior_node 0.9_weight
+                        end_advanced_behavior_tree
+                     end_advanced_behavior_tree
+                     condition sequence_with_memory_test
+                  end_selector
+                  
+                  # Test if parallel_node_1 and 3 get executed
+                  # even if their preconditions failed after
+                  # their parent node is selected
+                  sequence
+                     advanced_behavior_tree
+                        name "Parallel test"
+                        root_node_type priority_selector
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type parallel
+                           behavior_node parallel_node_1
+                           behavior_node parallel_node_2
+                           behavior_node parallel_node_3
+                        end_advanced_behavior_tree
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type priority_selector
+                           behavior_node 0.9_weight
+                           behavior_node 0.9_weight
+                        end_advanced_behavior_tree
+                     end_advanced_behavior_tree
+                     condition parallel_test
+                  end_sequence
+                  
+                  # Priority selector shouldn't have been affected
+                  # by the problem but test it anyways
+                  sequence
+                     advanced_behavior_tree
+                        name "Priority Selector test"
+                        root_node_type priority_selector
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type priority_selector
+                           behavior_node priority_selector_node_1
+                           behavior_node priority_selector_node_2
+                           behavior_node priority_selector_node_3
+                        end_advanced_behavior_tree
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type priority_selector
+                           behavior_node 0.9_weight
+                           behavior_node 0.9_weight
+                        end_advanced_behavior_tree
+                     end_advanced_behavior_tree
+                     condition priority_selector_test
+                  end_sequence
+                  
+                  # Weighted random shouldn't have been affected
+                  # by the problem but test it anyways
+                  sequence
+                     advanced_behavior_tree
+                        name "Weighted Random test"
+                        root_node_type priority_selector
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type weighted_random
+                           behavior_node weighted_random_node_1
+                           behavior_node weighted_random_node_2
+                           behavior_node weighted_random_node_3
+                        end_advanced_behavior_tree
+                        
+                        advanced_behavior_tree
+                           btt on
+                           root_node_type priority_selector
+                           behavior_node 0.9_weight
+                           behavior_node 0.9_weight
+                        end_advanced_behavior_tree
+                     end_advanced_behavior_tree
+                     condition weighted_random_test
+                  end_sequence
+                  
+                  condition tree_tests # If we made it here all tests should pass
+               end_sequence_with_memory
+               condition tree_tests # If we made it here, something failed
+            end_selector
+         end_decorator
+      end_advanced_behavior_tree
+   end_processor
+end_platform

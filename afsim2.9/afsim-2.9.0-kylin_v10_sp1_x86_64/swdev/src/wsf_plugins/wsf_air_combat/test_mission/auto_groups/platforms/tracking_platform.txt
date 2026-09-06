@@ -1,0 +1,81 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once sensors/aesa.txt
+
+processor SA_PROCESSOR_TEST WSF_SA_PROCESSOR 
+   on
+   report_interval                              1.00 sec
+   update_interval 1.0 sec
+   engagement_data_update_interval              1.00 sec
+   flight_data_update_interval                  1.00 sec
+   fuel_data_update_interval                    1.00 sec
+   nav_data_update_interval                     1.00 sec
+   flight_controls_data_update_interval         1.00 sec
+   weapons_data_update_interval                 1.00 sec
+   track_data_update_interval                   1.00 sec
+   asset_data_update_interval                   1.00 sec
+   perceived_item_data_update_interval          1.00 sec
+   prioritized_item_data_update_interval        1.00 sec 
+   perceived_item_calculation_update_interval   1.00 sec
+   prioritized_item_calculation_update_interval 1.00 sec 
+   max_threat_load 8
+   
+   # Assets/friends settings
+   asset_perception           truth commander:peers:all_subordinates
+   perceive_self              false
+   reporting_self             true
+   reporting_others           true
+
+end_processor
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   icon F-18E
+   side blue
+   
+   comm datalink WSF_COMM_TRANSCEIVER
+      propagation_speed 0 m/s   # Instantaneous propogation (faster than speed of light)
+      network_name  common_net
+      internal_link data_mgr
+      internal_link sa-proc
+   end_comm
+   
+   sensor rdr1 aesa  
+      on
+      internal_link data_mgr
+   end_sensor
+   
+   processor data_mgr WSF_TRACK_PROCESSOR 
+      master_track_processor 
+      purge_interval  60 sec
+      report_interval 10.0 sec 
+      unchanged_track_reporting false   #TEST
+      circular_report_rejection enable
+      report_fused_tracks 
+   end_processor
+
+   track_manager 
+      fusion_method weighted_average
+      end_fusion_method
+   end_track_manager
+   
+   mover WSF_AIR_MOVER
+   end_mover
+
+   processor sa-proc SA_PROCESSOR_TEST
+      enemy_side red
+      friendly_side blue
+      on
+      
+      report_to commander    via datalink
+      report_to peers        via datalink
+      report_to subordinates via datalink
+   end_processor
+
+end_platform_type

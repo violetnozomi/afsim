@@ -1,0 +1,193 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#NOTE
+#Some maneuvers behave differently here than they typically do
+#in ESAMS. Essentially, time is a user driven variable in ESAMS, where the end-state
+#orientation of the platform is the user driven variable in AFSIM.
+#They physical model definitions that are provided per maneuver in ESAMS
+#is centralized with the mover in AFSIM, so they will not be utilized
+#here when defining maneuvers. The result is
+#some slightly different behavior of some of the basic reactive maneuvers.
+#
+#TYPEMAN 1 - Turn away from missile
+#This is a sustained turn in ESAMS. Here, we turn 180 degrees from the relative angle
+#to the missile
+#TYPEMAN 4 - Turn left
+#In ESAMS, this is a continous turn. Here, we turn -90 degrees
+#TYPEMAN 5 - Turn right
+#In ESAMS, this is a continous turn. Here, we turn 90 degrees
+#
+#Note that additional maneuvers can be added/edited easily to expand/alter currently provided
+#functionality using the templates provided in utility_scripts.txt and
+#reactive_maneuvers_processor_basic.txt.
+
+
+script_variables
+   #The angles used for target aspect angles (ASPVAL)
+   #Note that number of angles (ASPNUM) does NOT need to be defined,
+   #as we can just check the array size.
+   aspectAngles = {45.0, 135.0, -45.0, -135.0};
+
+   #Define each maneuver criteria here, based on the values contained
+   #in each Maneuver struct, providing ESAMS-like variable entry
+   #In ESAMS, typical limitations were ten maneuvers, but there is
+   #no hard limit in AFSIM
+   struct maneuver0 = struct.New("Maneuver");
+   struct maneuver1 = struct.New("Maneuver");
+   struct maneuver2 = struct.New("Maneuver");
+   struct maneuver3 = struct.New("Maneuver");
+   struct maneuver4 = struct.New("Maneuver");
+   struct maneuver5 = struct.New("Maneuver");
+   struct maneuver6 = struct.New("Maneuver");
+   struct maneuver7 = struct.New("Maneuver");
+   struct maneuver8 = struct.New("Maneuver");
+   struct maneuver9 = struct.New("Maneuver");
+   #Add more if needed
+
+   #Fill each struct with the values found in a typical ESAMS input file
+   #A summary of the input values are as follows:
+   #
+   #VARIABLE_NAME         VALUE   DESCRIPTION
+   #
+   #maneuver_type         1       Turn away from weapon
+   #                      2       Put weapon on beam
+   #                      3       Turn to cross missile velocity
+   #                      4       Turn left
+   #                      5       Turn right
+   #                      6       Aspect control
+   #                      7       Turn to put site on beam
+   #                      8       Extend (fly staight and level)
+   #                      9       Turn to put site on beam, imperfect site knowledge
+   #                      10      Slice
+   #
+   #trigger               0       Simulation time
+   #                      1       Time since acquisition of target
+   #                      2       NOT DEFINED
+   #                      3       Time since track of target
+   #                      4       Time since weapon launch (closest weapon)
+   #                      5       Time until impact (earliest impact)
+   #                      6       Time since MAR detection
+   #                      7       Range to weapon(closest weapon), MAR dependent
+   #                      8       Range to weapon(closest weapon), MAR independent
+   #                      9       Time since illumination
+   #
+   #timeToStart           double  Time to start manuever
+   #
+   #timeToStop            double  Time to stop maneuver
+   #
+   #timeTerminalStart     double  Time before impact to start terminal maneuver
+   #
+   #angleAzMin            double  Minimum and max azimuth ranges, relative to target ECS, in
+   #angleAzMax            double  which the site must be to trigger maneuver. Here, it is
+   #                              assumed the tracker and launcher (the site) are at the same
+   #                              physical location. Setting both to 0 disregards this check
+   #
+   #rangeMin              double  Minimum and max range from the target to the site that
+   #rangeMax              double  triggers maneuver use. It is assumed the tracker and lancher
+   #                              (the site) are at the same physical location. Used for range to
+   #                              to weapon instead for triggers 7 and 8. Setting both to 0 disregards
+   #                              the check
+   #
+   #terminalManeuver      0       Vertical pull
+   #                      1       Other maneuvers not currently implemented - require greater
+   #                      X       fidelity than the current mover
+
+   #Like ESAMS, each maneuver has independent variables. It is possible to overlap
+   #these so that simulation conditions (such as setting two maneuvers for the same
+   #values for simulation time triggers) preclude one or more maneuvers from being used
+   #Again, like ESAMS, the first maneuver encountered that satisfies trigger conditions
+   #will be used, so that the ordering of these maneuvers can change the target
+   #reactive maneuver behavior.
+   #
+   #It is also not necessary to fill any values that are not being used, as all values
+   #are initialized to default to values that are ignored. The additional values being defined
+   #here, despite being inconsequential, are done for completeness of the example
+   #
+   #Finally, note that maneuvers are currently checked at an interval of .1 s, matching the
+   #original ESAMS maneuver delta time with the update time of the basic_maneuver_processor.
+   #Note that any time intervals set on these maneuvers with a start time/end time differing
+   #by less than the .1 second evaluation interval may never be triggered by missing the
+   #start time trigger.
+   maneuver0->maneuver_type     = 4;      #(TYPMAN)
+   maneuver0->trigger           = 0;      #(EVENTM)
+   maneuver0->timeToStart       = 5.00;   #(XMB)
+   maneuver0->timeToStop        = 15.0;   #(XMF)
+   maneuver0->timeTerminalStart = 0.0;    #(XMT)
+   maneuver0->angleAzMin        = -90.0;  #(AMB)
+   maneuver0->angleAzMax        = 90.0;   #(AMF)
+   maneuver0->rangeMin          = 0.0;    #(RMB)
+   maneuver0->rangeMax          = 0.0;    #(RMF)
+   maneuver0->terminalManeuver  = -1;     #(PULTYP)
+
+   maneuver1->maneuver_type     = 5;      #(TYPMAN)
+   maneuver1->trigger           = 0;      #(EVENTM)
+   maneuver1->timeToStart       = 15.0;   #(XMB)
+   maneuver1->timeToStop        = 25.0;   #(XMF)
+   maneuver1->timeTerminalStart = 0.0;    #(XMT)
+   maneuver1->angleAzMin        = 0.0;    #(AMB)
+   maneuver1->angleAzMax        = 0.0;    #(AMF)
+   maneuver1->rangeMin          = 0.0;    #(RMB)
+   maneuver1->rangeMax          = 0.0;    #(RMF)
+   maneuver1->terminalManeuver  = -1;     #(PULTYP)
+
+   #If defining a terminal maneuver, it is not necessary
+   #to define most of these values
+   #maneuver2->maneuver_type     = -1;     #(TYPMAN)
+   #maneuver2->trigger           = -1;     #(EVENTM)
+   #maneuver2->timeToStart       = 0.0;    #(XMB)
+   #maneuver2->timeToStop        = 0.0;    #(XMF)
+   maneuver2->timeTerminalStart = 30.0;    #(XMT)
+   #maneuver2->angleAzMin        = 0.0;    #(AMB)
+   #maneuver2->angleAzMax        = 0.0;    #(AMF)
+   #maneuver2->rangeMin          = 0.0;    #(RMB)
+   #maneuver2->rangeMax          = 0.0;    #(RMF)
+   maneuver2->terminalManeuver  = 0;       #(PULTYP)
+
+   #Fill the maneuver list with the above defined maneuvers.
+   #If not using reactive maneuvers, don't fill the list
+   maneuverList[0] = maneuver0;
+   maneuverList[1] = maneuver1;
+   maneuverList[2] = maneuver2;
+#   maneuverList[3] = maneuver3;
+#   maneuverList[4] = maneuver4;
+#   maneuverList[5] = maneuver5;
+#   maneuverList[6] = maneuver6;
+#   maneuverList[7] = maneuver7;
+#   maneuverList[8] = maneuver8;
+#   maneuverList[9] = maneuver9;
+
+
+   #Provide the maximum angle value that imperfect knowledge of site locations
+   #will be off by. This is used, in combination with a random number draw, to
+   #define the error in measuring site location for maneuvers. This value was
+   #typically defined in ESAMS with the RWR azimuth error values
+   #Note that this value is tied to the simulation seed, so that the error value
+   #generated for one run will be the same for all runs.
+   siteAzError = 5.0;
+
+end_script_variables
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

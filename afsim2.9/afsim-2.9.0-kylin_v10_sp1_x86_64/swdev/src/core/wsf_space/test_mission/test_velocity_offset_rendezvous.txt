@@ -1,0 +1,138 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test computes two rendezvous operations with a target such that they have
+# a particular offset in velocity at the moment of rendezvous.
+
+include_once utils.txt
+
+end_time 1 hr
+
+# A chief
+platform target WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.01
+      inclination 15 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      revs_per_day 12
+      true_anomaly 0 deg
+   end_mover
+end_platform
+
+# An input velocity offset rendezvous
+platform input_chaser WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.01
+      inclination 20 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      revs_per_day 12
+      true_anomaly 10 deg
+      
+      mission_sequence
+         maneuver rendezvous
+            execute_at relative_time 0 seconds
+            delta_time 1000 seconds
+            tolerance 1e-09
+            target
+               platform target
+               velocity_offset ric 1 2 3 m/s
+            end_target
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# A scripted velocity offset rendezvous
+platform script_chaser WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.01
+      inclination 10 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      revs_per_day 12
+      true_anomaly 350 deg
+   end_mover
+   
+   execute at_time 1 min absolute
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      PLATFORM.TrackManager().AddTrackReport(target.MakeTrack());
+      
+      WsfTargetPoint tgt = WsfTargetPoint.ConstructFromTrack(PLATFORM.MasterTrackList().Entry(0).TrackId());
+      tgt.SetVelocityOffset(Vec3.Construct(1.0, 2.0, 3.0), WsfOrbitalReferenceFrame.NTW());
+      
+      WsfRendezvousManeuver mvr = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0), tgt, 1000.0); 
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      mover.ExecuteManeuver(mvr);
+   end_execute
+end_platform
+
+script Vec3 RIC_RelativeVelocity(WsfPlatform aTargetPlatform, Vec3 aChaserVelocity)
+   Vec3 rVec = aTargetPlatform.LocationECI().Normal();
+   Vec3 cVec = Vec3.Cross(aTargetPlatform.LocationECI(), aTargetPlatform.VelocityECI()).Normal();
+   Vec3 iVec = Vec3.Cross(cVec, rVec).Normal();
+   
+   Vec3 delta = Vec3.Subtract(aChaserVelocity, aTargetPlatform.VelocityECI());
+   return Vec3.Construct(Vec3.Dot(delta, rVec),
+                         Vec3.Dot(delta, iVec),
+                         Vec3.Dot(delta, cVec));
+end_script
+
+script Vec3 NTW_RelativeVelocity(WsfPlatform aTargetPlatform, Vec3 aChaserVelocity)
+   Vec3 xVec = aTargetPlatform.VelocityECI().Normal();
+   Vec3 cVec = Vec3.Cross(aTargetPlatform.LocationECI(), aTargetPlatform.VelocityECI()).Normal();
+   Vec3 zVec = Vec3.Cross(cVec, xVec).Normal();
+   Vec3 yVec = Vec3.Cross(zVec, xVec).Normal();
+   
+   Vec3 delta = Vec3.Subtract(aChaserVelocity, aTargetPlatform.VelocityECI());
+   return Vec3.Construct(Vec3.Dot(delta, xVec),
+                         Vec3.Dot(delta, yVec),
+                         Vec3.Dot(delta, zVec));
+end_script
+
+script void CheckRelativeVelocity(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() != "RENDEZVOUS")
+   {
+      return;
+   }
+   
+   Vec3 expectedRicVel = Vec3.Construct(1.0, 2.0, 3.0);
+   
+   if (aPlatform.Name() == "input_chaser")
+   {
+      ExpectDouble(TIME_NOW, 1000.0, 1.0e-12, "input rendezvous completion time");
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      Vec3 ricVel = RIC_RelativeVelocity(target, aPlatform.VelocityECI());
+      ExpectDouble(ricVel.X(), expectedRicVel.X(), 1.0e-5, "input rendezvous V_R");
+      ExpectDouble(ricVel.Y(), expectedRicVel.Y(), 1.0e-9, "input rendezvous V_I");
+      ExpectDouble(ricVel.Z(), expectedRicVel.Z(), 1.0e-9, "input rendezvous V_C");
+      
+      ExpectDouble(aPlatform.LocationECI().X(), target.LocationECI().X(), 1.0e-3, "input rendezvous X");
+      ExpectDouble(aPlatform.LocationECI().Y(), target.LocationECI().Y(), 1.0e-3, "input rendezvous Y");
+      ExpectDouble(aPlatform.LocationECI().Z(), target.LocationECI().Z(), 1.0e-3, "input rendezvous Z");
+   }
+   else if (aPlatform.Name() == "script_chaser")
+   {
+      ExpectDouble(TIME_NOW, 1060.0, 1.0e-12, "script rendezvous completion time");
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      Vec3 ricVel = NTW_RelativeVelocity(target, aPlatform.VelocityECI());
+      ExpectDouble(ricVel.X(), expectedRicVel.X(), 1.0e-4, "script rendezvous V_X");
+      ExpectDouble(ricVel.Y(), expectedRicVel.Y(), 1.0e-5, "script rendezvous V_Y");
+      ExpectDouble(ricVel.Z(), expectedRicVel.Z(), 1.0e-4, "script rendezvous V_Z");
+      
+      ExpectDouble(aPlatform.LocationECI().X(), target.LocationECI().X(), 1.0e-1, "script rendezvous X");
+      ExpectDouble(aPlatform.LocationECI().Y(), target.LocationECI().Y(), 1.0e-1, "script rendezvous Y");
+      ExpectDouble(aPlatform.LocationECI().Z(), target.LocationECI().Z(), 1.0e-1, "script rendezvous Z");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED CheckRelativeVelocity
+end_observer

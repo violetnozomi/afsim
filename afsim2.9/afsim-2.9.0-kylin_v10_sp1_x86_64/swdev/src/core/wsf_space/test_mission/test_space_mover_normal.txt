@@ -1,0 +1,87 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 144 hours
+
+platform test-normal WSF_PLATFORM
+   icon satellite
+   side blue
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 8000 km
+      inclination 10 deg
+      eccentricity 0.1
+   end_mover
+
+   maneuvering simple
+   end_maneuvering
+
+      mission_sequence
+         maneuver normal
+            delta_v 1000.0 m/s
+            execute_at ascending_node
+         end_maneuver
+      end_mission_sequence
+
+   execute at_time 13 hours absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      WsfOrbitalManeuver maneuver = WsfNormalManeuver.Construct(WsfOrbitalEventCondition.NONE(), 1000.0);
+      bool result = mover.ExecuteManeuver(maneuver);
+      if(result){
+         writeln("Normal: true");
+      } else {
+         writeln("Normal: false");
+      }
+   end_execute
+end_platform
+
+script_variables
+   double sSMA = 0.0;
+   double sInclination = 0.0;
+   int sNumCompleted = 0;
+end_script_variables
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; begin ", aManeuver.ManeuverType());
+   sInclination = aSM.Inclination();
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; end ", aManeuver.ManeuverType());
+   double Inclination = aSM.Inclination();
+   double deltaInclination = Inclination - sInclination;
+   // There *should* be a significant Inclination change.
+   if (Math.Fabs(deltaInclination) < 0.1)
+   {
+      writeln("-FAIL-");
+   }
+   sNumCompleted += 1;
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 2)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+end_script
+
+#event_output
+#   file test_space_mover_tangent.evt
+#   enable ORBITAL_MANEUVER_INITIATED
+#   enable ORBITAL_MANEUVER_COMPLETED
+#end_event_output
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer

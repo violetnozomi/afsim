@@ -1,0 +1,207 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests the OSPF removal of members from areas,
+//! and ensuring correct function of protocol.
+//! NOTE!!!!!!!
+//! In some cases, the removal of members may result
+//! in an invalid configuration in OSPF, causing a loss
+//! of communication. This is expected, and is typical
+//! of OSPF functionality.
+script_variables
+   int num_message = 0;
+end_script_variables
+
+processor print WSF_SCRIPT_PROCESSOR
+   on_message type TEST_MESSAGE
+      script
+         writeln("Received Message...");
+      end_script
+   end_on_message
+end_processor
+
+protocol IGMP WSF_COMM_PROTOCOL_IGMP
+end_protocol
+
+comm test_comm WSF_COMM_TRANSCEIVER
+   add protocol multicast IGMP
+   end_protocol
+end_comm
+
+router_protocol test_ospf WSF_COMM_ROUTER_PROTOCOL_OSPF
+end_router_protocol
+
+router DEFAULT WSF_COMM_ROUTER
+   use_default_protocol false
+   add router_protocol ospf test_ospf end_router_protocol
+end_router
+
+platform_type test_platform WSF_PLATFORM
+   add processor printComm print
+   end_processor
+   add comm test test_comm
+         internal_link printComm
+   end_comm
+   add router default DEFAULT end_router
+end_platform_type
+
+platform test1 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+         backbone 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test2 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test3 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test4 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test5 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+         ospf_area 1.1.1.2/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test6 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.2/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test7 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.5/32
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test8 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.5/32
+      end_router_protocol
+   end_router
+end_platform
+
+execute at_time 1 s absolute
+#   writeln(WsfSimulation.FindPlatform("test1").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test2").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test3").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test4").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test5").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test6").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test7").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test8").Comm("test").GetAddress().GetAddress());
+end_execute
+
+execute at_time 20 s absolute
+   //! Nuke a platform.
+   //! Then send messages to the rest after waiting for an update cycle (> 40 s)
+   WsfSimulation.DeletePlatform("test3");
+end_execute
+
+execute at_time 70 s absolute
+   WsfMessage msg = {};
+   msg.SetType("TEST_MESSAGE");
+   WsfSimulation.FindPlatform("test1").Comm("test").SendMessage(msg, "test8", "test");
+   WsfSimulation.FindPlatform("test2").Comm("test").SendMessage(msg, "test7", "test");
+   WsfSimulation.FindPlatform("test4").Comm("test").SendMessage(msg, "test6", "test");
+   WsfSimulation.FindPlatform("test5").Comm("test").SendMessage(msg, "test1", "test");
+   WsfSimulation.FindPlatform("test6").Comm("test").SendMessage(msg, "test4", "test");
+   WsfSimulation.FindPlatform("test7").Comm("test").SendMessage(msg, "test2", "test");
+   WsfSimulation.FindPlatform("test8").Comm("test").SendMessage(msg, "test5", "test");
+end_execute
+
+execute at_time 80 s absolute
+   WsfSimulation.DeletePlatform("test4");
+end_execute
+
+execute at_time 130 s absolute
+   WsfMessage msg = {};
+   msg.SetType("TEST_MESSAGE");
+   WsfSimulation.FindPlatform("test1").Comm("test").SendMessage(msg, "test8", "test");
+   WsfSimulation.FindPlatform("test2").Comm("test").SendMessage(msg, "test7", "test");
+   WsfSimulation.FindPlatform("test5").Comm("test").SendMessage(msg, "test6", "test");
+   WsfSimulation.FindPlatform("test6").Comm("test").SendMessage(msg, "test5", "test");
+   WsfSimulation.FindPlatform("test7").Comm("test").SendMessage(msg, "test2", "test");
+   WsfSimulation.FindPlatform("test8").Comm("test").SendMessage(msg, "test1", "test");
+end_execute
+
+execute at_time 140 s absolute
+   //! Now do something naughty. Delete the ABR for area 1.1.1.5 (test7). Any members left in this
+   //! area (test5) will no longer be able to communicate DESPITE actually being linked. This is
+   //! intended behavior.
+   WsfSimulation.DeletePlatform("test7");
+end_execute
+
+execute at_time 190 s absolute
+   WsfMessage msg = {};
+   msg.SetType("TEST_MESSAGE");
+   WsfSimulation.FindPlatform("test1").Comm("test").SendMessage(msg, "test8", "test");   //FAILS
+   WsfSimulation.FindPlatform("test2").Comm("test").SendMessage(msg, "test5", "test");
+   WsfSimulation.FindPlatform("test5").Comm("test").SendMessage(msg, "test6", "test");
+   WsfSimulation.FindPlatform("test6").Comm("test").SendMessage(msg, "test2", "test");
+   WsfSimulation.FindPlatform("test8").Comm("test").SendMessage(msg, "test1", "test");   //FAILS
+end_execute
+
+#event_output
+#   enable all
+#   file output.evt
+#end_event_output
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   if(aMsg.Type() == "TEST_MESSAGE")
+   {
+      num_message = (num_message + 1);
+   }
+end_script
+
+script void SimulationComplete()
+   if (num_message != 16)
+   {
+      writeln("-FAIL-");
+      writeln("Messages received was: " + (string)num_message);
+   }
+end_script
+
+observer
+   enable MESSAGE_RECEIVED MessageReceived
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+end_time 200 s

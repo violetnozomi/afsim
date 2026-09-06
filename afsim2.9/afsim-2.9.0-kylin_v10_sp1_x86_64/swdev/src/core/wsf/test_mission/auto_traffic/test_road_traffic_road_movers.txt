@@ -1,0 +1,93 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once saint_louis_roads.txt
+
+include_once ../auto_script/collect_stats.txt
+
+platform_type CAR WSF_PLATFORM
+   icon Car
+   mover WSF_ROAD_MOVER
+      speed 60 mph
+      off_road_speed 10 mph
+      on_road
+      default_linear_acceleration 1.0 g
+   end_mover
+end_platform_type
+
+platform_type PICKUP_TRUCK WSF_PLATFORM
+   icon Pickup_Truck
+   mover WSF_ROAD_MOVER
+      speed 60 mph
+      off_road_speed 10 mph
+      on_road
+      default_linear_acceleration 1.0 g
+   end_mover
+end_platform_type
+
+platform_type SCHOOL_BUS WSF_PLATFORM
+   icon School_Bus
+   mover WSF_ROAD_MOVER
+      speed 50 mph
+      off_road_speed 10 mph
+      on_road
+      default_linear_acceleration 1.0 g
+   end_mover
+end_platform_type
+
+road_traffic
+  network road_network
+    vehicle_count              500
+    maximum_speed               80 mi/h
+    minimum_distance_off_road    0.09 nm
+    maximum_distance_off_road    0.11 nm
+    pause_time_off_road          0.5 min
+    mean_travel_time            40.0 min
+    sigma_travel_time            5.0 min
+
+    vehicle CAR
+      fraction      0.80
+      mean_speed   60 mi/h
+      sigma_speed   5 mi/h
+    end_vehicle
+
+    vehicle PICKUP_TRUCK
+      fraction      0.15
+      mean_speed   60 mi/h
+      sigma_speed  10 mi/h
+    end_vehicle
+
+    vehicle SCHOOL_BUS
+      fraction      0.05
+      mean_speed   50 mi/h
+      sigma_speed  10 mi/h
+    end_vehicle
+  end_network
+end_road_traffic
+
+
+observer
+   enable SIMULATION_COMPLETE simComplete
+end_observer
+
+script void simComplete()
+   struct sum = collect_Summarize("");
+   sum->Print();
+#Samples: 6728
+#Alive Time: 5400000.28
+#Distance Travelled: 94981184.60
+
+   if (!sum->ExpectedAliveTime(5.4e6, .01)
+    || !sum->ExpectedDistanceTravelled( 9.5e7, .01))
+      writeln("-FAIL-");
+   else
+      writeln("-PASS-");
+end_script
+
+end_time 3 hr

@@ -1,0 +1,132 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+// Extension configuration file.
+//
+// This file provides a mechanism to register the standard extensions and any optional extensions that
+// are included in the build package. It is typically included by the main file of an application.
+//
+// This file contains two main methods:
+//
+// -) RegisterBuiltinExtensions. This will register the standard extensions that are included with WSF:
+//       air_traffic
+//       console_output
+//       csv_event_output
+//       dis_interface
+//       event_output
+//       event_pipe
+//       ext_interface
+//       grammar_interface
+//       osm_traffic
+//       profiling
+//       road_traffic
+//       sea_traffic
+//       wsf_draw
+//
+// -) RegisterOptionalExtensions. This will register any and all optional extensions that are included
+//    in the build package.
+//
+// To use this file, the main application does something like:
+//
+//    #include "wsf_extensions.hpp"
+//      ...
+//    int main(int argc, char* argv[])
+//    {
+//       WsfApplication app;
+//       RegisterBuiltinExtensions(app);
+//       RegisterOptionalExtensions(app);
+//       ...
+//    }
+//
+// An application can request that specific extensions be excluded because they are needed by the
+// application. In this case preprocessor directives may be defined BEFORE including this file which
+// will indicate that specific extensions should be excluded.
+//
+//    #define WSF_EXCLUDE_EXTENSION_<name>
+//    ... repeat as necessary ...
+//    #include "wsf_extensions.hpp"
+//
+// For example, to exclude all of the 'traffic' extensions:
+//
+//    #define WSF_EXCLUDE_EXTENSION_air_traffic
+//    #define WSF_EXCLUDE_EXTENSION_road_traffic
+//    #define WSF_EXCLUDE_EXTENSION_sea_traffic
+//    #include "wsf_extensions.hpp"
+//
+// There is no harm in excluding an extension that in not included in the build package.
+
+#include "UtLog.hpp"
+
+#include "WsfApplication.hpp"
+
+static void PrintOptionalExtensionIncluded(const std::string& aName, ut::log::MessageStream& aStream)
+{
+   static bool firstEntry = true;
+   if (!firstEntry)
+   {
+      aStream << ", ";
+   }
+   firstEntry = false;
+   aStream << aName;
+}
+
+//! Register optional extensions
+//! @param aApplication The application object.
+inline void RegisterOptionalExtensions(WsfApplication& aApplication)
+{
+   auto out = ut::log::info() << "Extensions Included: ";
+   auto listNote = out.AddNote();
+   
+   ${__WSF_EXTENSION_REGISTRATION__}
+}
+
+//! Register extensions that are built-in to WSF.
+//! An application which wishes to use all available extensions can call this method.
+//! @param aApplication The application object.
+inline void RegisterBuiltinExtensions(WsfApplication& aApplication)
+{
+#if !defined(WSF_EXCLUDE_EXTENSION_air_traffic)
+   WSF_REGISTER_EXTENSION(aApplication, air_traffic);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_console_output)
+   WSF_REGISTER_EXTENSION(aApplication, console_output);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_csv_event_output)
+   WSF_REGISTER_EXTENSION(aApplication, csv_event_output);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_dis_interfacee)
+   WSF_REGISTER_EXTENSION(aApplication, dis_interface);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_event_output)
+   WSF_REGISTER_EXTENSION(aApplication, event_output);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_event_pipe)
+   WSF_REGISTER_EXTENSION(aApplication, event_pipe);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_ext_interface)
+   WSF_REGISTER_EXTENSION(aApplication, ext_interface);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_grammar_interface)
+   WSF_REGISTER_EXTENSION(aApplication, grammar_interface);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_osm_traffic)
+   WSF_REGISTER_EXTENSION(aApplication, osm_traffic);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_profiling)
+   WSF_REGISTER_EXTENSION(aApplication, profiling);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_road_traffic)
+   WSF_REGISTER_EXTENSION(aApplication, road_traffic);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_sea_traffic)
+   WSF_REGISTER_EXTENSION(aApplication, sea_traffic);
+#endif
+#if !defined(WSF_EXCLUDE_EXTENSION_wsf_draw)
+   WSF_REGISTER_EXTENSION(aApplication, wsf_draw);
+#endif
+}

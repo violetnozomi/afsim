@@ -1,0 +1,202 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// SAMPLE_PK_TABLE
+// A PK TABLE for use with the threat inference engine.  Derived from
+// a standard example, and the "target" types were changed to ownship
+// types, since "threat" is in the persceptive of the owner
+// 
+// ... existing notes ...
+// - The "target DEFAULT" should be required, with the option of using 
+//   "inline_table" or "constant" as table parameters.
+//
+// - DEFAULT targets should not require weapon_speed or target_speed 
+//
+// - The 3 options available should be:
+//     1. inline_table (az,el table inline)
+//     2. constant (constant value)
+//     3. input_pk_table (external table inserted with this keyword)
+//
+
+//pk_table   SAMPLE_PK_TABLE ///TIM_PK_TABLE_W2
+pk_table   TIM_PK_TABLE_W2
+
+    target_type DEFAULT
+       inline_table 2 5  // default can be inline_table or constant value
+                  -90   -45   0    45   90
+            0     0.81 0.81 0.81 0.85 0.81
+          180     0.81 0.81 0.81 0.84 0.81
+    end_target_type
+
+    // See ownship type in scene collocated scene file
+    target_type OWNSHIP_PLAT_W_TIE  
+       constant 0.7
+    end_target_type
+
+
+    target_type OWNSHIP_TYPE_0
+
+      weapon_speed 21 m/s   # upper_bound
+
+         target_speed 22 m/s
+            inline_table 2 5
+                     -90   -45   0    45   90
+               0     0.81 0.81 0.81 0.85 0.81
+             180     0.81 0.81 0.81 0.84 0.81
+         end_target_speed
+
+         target_speed 33 m/s 
+            inline_table 3 3
+                      -90   0    90
+                0     0.81 0.81 0.81
+               90     0.81 0.81 0.81
+              180     0.81 0.81 0.81
+         end_target_speed
+
+      end_weapon_speed
+
+      weapon_speed 34 m/s   # upper_bound
+
+         target_speed 25 m/s 
+             inline_table 2 5
+                        -90   -45   0    45   90
+                  0     0.81 0.81 0.81 0.85 0.81
+                180     0.81 0.81 0.81 0.84 0.81
+         end_target_speed
+
+         target_speed 36 m/s 
+                  inline_table 2 5
+                    -90   -45   0    45   90
+              0     0.81 0.81 0.81 0.85 0.81
+            180     0.81 0.81 0.81 0.84 0.81
+         end_target_speed
+
+      end_weapon_speed
+
+   end_target_type
+
+   target_type OWNSHIP_TYPE_1
+
+      weapon_speed 21 m/s   # upper_bound
+
+         target_speed 22 m/s
+            inline_table 2 5
+                     -90   -45   0    45   90
+               0     0.91 0.91 0.91 0.98 0.91
+             180     0.91 0.91 0.91 0.87 0.91
+         end_target_speed
+
+         target_speed 33 m/s 
+            inline_table 3 3
+                      -90   0    90
+                0     0.91 0.91 0.91
+               90     0.91 0.91 0.91
+              180     0.91 0.91 0.91
+         end_target_speed
+
+      end_weapon_speed
+
+      weapon_speed 34 m/s   # upper_bound
+
+         target_speed 25 m/s 
+             inline_table 2 5
+                        -90   -45   0    45   90
+                  0     0.91 0.91 0.91 0.95 0.91
+                180     0.91 0.91 0.91 0.94 0.91
+         end_target_speed
+
+         target_speed 36 m/s 
+                  inline_table 2 5
+                    -90   -45   0    45   90
+              0     0.91 0.91 0.91 0.95 0.91
+            180     0.91 0.91 0.91 0.94 0.91
+         end_target_speed
+
+      end_weapon_speed
+
+   end_target_type
+
+   target_type OWNSHIP_TYPE_3
+
+      weapon_speed 27 m/s
+
+         target_speed 28 m/s 
+                inline_table 3 5
+                      -90   -45   0    45   90
+                0     0.81 0.81 0.81 0.85 0.81
+               90     0.81 0.81 0.81 0.84 0.81
+              180     0.81 0.81 0.81 0.84 0.81
+         end_target_speed
+
+         target_speed 39 m/s 
+           inline_table 6 5
+                     -90   -45   0    45   90
+               0     0.81 0.81 0.81 0.85 0.81
+              30     0.81 0.82 0.81 0.81 0.81
+              60     0.81 0.81 0.83 0.81 0.81 
+              90     0.81 0.81 0.81 0.84 0.81
+             120     0.81 0.81 0.81 0.84 0.81
+             150     0.81 0.81 0.81 0.84 0.81
+         end_target_speed
+
+      end_weapon_speed
+
+   end_target_type
+
+   target_type OWNSHIP_TYPE_4
+     constant .5  // valid for all weapon/target speeds, az/el
+   end_target_type
+
+   target_type OWNSHIP_TYPE_5
+      constant 0.7
+   end_target_type
+
+   target_type OWNSHIP_TYPE_6
+
+      weapon_speed 29.1 m/s
+
+         target_speed 29.2 m/s 
+                inline_table 3 5
+                     -90   -45   0    45   90
+               0     0.81 0.81 0.81 0.85 0.81
+              90     0.81 0.81 0.81 0.84 0.81
+             180     0.81 0.81 0.81 0.84 0.81
+         end_target_speed
+
+         target_speed 39.3 m/s 
+                inline_table 7 5
+                         -90   -45   0    45   90
+                   0     0.81 0.81 0.81 0.85 0.81
+                  30     0.81 0.82 0.81 0.81 0.81
+                  60     0.81 0.81 0.83 0.81 0.81 
+                  90     0.81 0.81 0.81 0.84 0.81
+                 120     0.81 0.81 0.81 0.84 0.81
+                 150     0.81 0.81 0.81 0.84 0.81
+                 180     0.81 0.81 0.81 0.84 0.81
+         end_target_speed
+
+      end_weapon_speed
+
+      weapon_speed 39.4 m/s
+
+         target_speed 29.5 m/s 
+            constant 0.8
+         end_target_speed
+
+         target_speed 39.6 m/s 
+            constant 0.3
+         end_target_speed
+
+      end_weapon_speed
+
+   end_target_type
+
+end_pk_table
+
+

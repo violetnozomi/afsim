@@ -1,0 +1,133 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+define_path_variable CASE test_JTIDS_terminal_set_range
+
+script_variables
+   int numMsgsRcvd = 0;
+   int expectedRcvd = 2;
+   int numMsgsFailed = 0;
+   int expectedFailed = 2;
+end_script_variables
+
+
+script void MessageDeliveryAttempt(WsfComm aXmtr, 
+                                   WsfComm aRcvr, 
+                                   WsfMessage aMsg, 
+                                   WsfCommInteraction aResult)
+   if (aRcvr.Platform().Name().StartsWith("Listener") && aResult.Failed())
+   {
+      if (aResult.FailedStatus() == "Rcvr_Range_Limits_Exceeded")
+      {
+         numMsgsFailed = numMsgsFailed + 1;
+      }
+   }
+   writeln("Message delivery attempt.");                                                                      
+end_script
+
+script void MessageReceived(WsfComm aXmtr, 
+                            WsfComm aRcvr, 
+                            WsfMessage aMsg, 
+                            WsfCommInteraction aResult)
+   if (aRcvr.Platform().Name().StartsWith("Listener"))
+   {
+      numMsgsRcvd = numMsgsRcvd + 1;
+   }
+   writeln("Message received.");
+end_script
+
+observer
+   enable MESSAGE_DELIVERY_ATTEMPT
+#   enable MESSAGE_DISCARDED
+#   enable MESSAGE_QUEUED
+   enable MESSAGE_RECEIVED 
+#   enable MESSAGE_TRANSMITTED
+#   enable MESSAGE_UPDATED
+end_observer
+
+comm Radio_A WSF_JTIDS_TERMINAL
+   command_chain TEST TEST
+   slot_group TEST end_slot_group
+end_comm
+
+platform Talker WSF_PLATFORM
+   command_chain TEST SELF
+   position 38n 114w altitude 30 kft 
+   add comm talker Radio_A end_comm
+   
+   execute at_time 10 seconds absolute
+      WsfMessage hello = WsfMessage();
+      PLATFORM.Comm("talker").SendMessageToSubordinates("TEST", hello);      // Passes
+   end_execute
+end_platform
+
+platform Listener_near WSF_PLATFORM
+   command_chain TEST Talker
+   position 38n 114:10w altitude 30 kft
+   add comm listener_on_a Radio_A  end_comm
+end_platform
+
+platform Listener_med_1 WSF_PLATFORM
+   command_chain TEST Talker
+   position 38n 120w altitude 30 kft
+   add comm listener_on_a Radio_A  
+   end_comm
+end_platform
+
+platform Listener_med_2 WSF_PLATFORM
+   command_chain TEST Talker
+   position 38n 120w altitude 30 kft
+   add comm listener_on_a Radio_A  
+      maximum_range 200 nm
+   end_comm
+end_platform
+
+platform Listener_far WSF_PLATFORM
+   command_chain TEST Talker
+   position 38n 125w altitude 30 kft
+   add comm listener_on_a Radio_A 
+      maximum_range 200 nm
+   end_comm
+end_platform
+
+execute at_time 20 seconds absolute
+   if (numMsgsRcvd != expectedRcvd)
+   {
+      writeln("-FAIL- Received");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+   
+   if (numMsgsFailed != expectedFailed)
+   {
+      writeln("-FAIL- Failed");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }  
+    
+   WsfSimulation.Terminate();
+end_execute
+
+end_time 100 seconds
+
+#event_pipe file $(CASE).aer end_event_pipe
+
+#event_output  
+#   file   $(CASE).evt
+#   enable MESSAGE_DELIVERY_ATTEMPT
+#   enable MESSAGE_DISCARDED
+#   enable MESSAGE_QUEUED
+#   enable MESSAGE_RECEIVED 
+#   enable MESSAGE_TRANSMITTED
+#   enable MESSAGE_UPDATED
+#end_event_output

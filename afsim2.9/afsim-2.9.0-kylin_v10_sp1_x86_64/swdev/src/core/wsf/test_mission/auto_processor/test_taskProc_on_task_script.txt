@@ -1,0 +1,102 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests the "on_task" user-supplied script methods
+
+script_variables
+   bool on_task_assign = false;
+   bool on_task_assign_sent = false;
+   bool on_task_cancel = false;
+   bool on_task_cancel_sent = false;
+   bool on_task_complete = false;
+   bool on_task_complete_sent = false;
+end_script_variables
+
+platform_type MY_PLATFORM_TYPE WSF_PLATFORM
+   comm datalink WSF_COMM_TRANSCEIVER
+      internal_link dataMgr
+      internal_link taskMgr
+   end_comm
+   processor dataMgr WSF_TRACK_PROCESSOR end_processor
+   processor taskMgr WSF_TASK_PROCESSOR
+    script void on_task_assign(WsfTask aTask, WsfTrack aTrack)
+       writeln("T=", TIME_NOW, " on_task_assign ", PLATFORM.Name());
+       on_task_assign = true;
+    end_script
+    script void on_task_assign_sent(WsfTask aTask, WsfTrack aTrack)
+       writeln("T=", TIME_NOW, " on_task_assign_sent ", PLATFORM.Name());
+       on_task_assign_sent = true;
+    end_script
+    script void on_task_cancel(WsfTask aTask)
+       writeln("T=", TIME_NOW, " on_task_cancel ", PLATFORM.Name());
+       on_task_cancel = true;
+    end_script
+    script void on_task_cancel_sent(WsfTask aTask)
+       writeln("T=", TIME_NOW, " on_task_cancel_sent ", PLATFORM.Name());
+       on_task_cancel_sent = true;
+    end_script
+    script void on_task_complete(WsfTask aTask)
+       writeln("T=", TIME_NOW, " on_task_complete ", PLATFORM.Name());
+       on_task_complete = true;
+    end_script
+    script void on_task_complete_sent(WsfTask aTask)
+       writeln("T=", TIME_NOW, " on_task_complete_sent ", PLATFORM.Name());
+       on_task_complete_sent = true;
+    end_script
+   end_processor
+
+end_platform_type
+
+platform tgt_1 WSF_PLATFORM end_platform
+platform tgt_2 WSF_PLATFORM end_platform
+
+platform assigner MY_PLATFORM_TYPE
+   track platform tgt_1 end_track
+   track platform tgt_2 end_track
+   edit processor taskMgr
+      execute at_time 1 s absolute
+         AssignTask(PLATFORM.MasterTrackList().Entry(0), "TEST_CANCEL", WsfSimulation.FindPlatform("assignee"));
+      end_execute
+      execute at_time 2 s absolute
+         CancelTask(PLATFORM.MasterTrackList().Entry(0).TrackId(), "TEST_CANCEL");
+      end_execute
+      execute at_time 3 s absolute
+         AssignTask(PLATFORM.MasterTrackList().Entry(1), "TEST_COMPLETE", WsfSimulation.FindPlatform("assignee"));
+      end_execute
+   end_processor
+end_platform
+
+platform assignee MY_PLATFORM_TYPE
+   edit processor taskMgr
+      evaluation_interval FIRST 1 s
+      state FIRST
+         on_entry
+            if (TasksReceivedFor(TRACK.TrackId(), "TEST_COMPLETE"))
+            {
+               TaskComplete(TRACK.TrackId(), "TEST_COMPLETE");
+            }
+         end_on_entry
+      end_state
+   end_processor
+end_platform
+
+execute at_time 4 s absolute
+   if (on_task_assign && on_task_assign_sent &&
+       on_task_cancel && on_task_cancel_sent &&
+       on_task_complete && on_task_complete_sent)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+end_time 5 s

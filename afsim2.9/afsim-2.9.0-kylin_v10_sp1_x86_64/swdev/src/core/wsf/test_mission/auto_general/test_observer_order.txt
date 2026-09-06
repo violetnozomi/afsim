@@ -1,0 +1,50 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../auto_script/test_functions.txt
+
+end_time 5 s
+
+script_variables
+   bool pass = true;
+   int OrderCount = 0;
+end_script_variables
+
+platform plat_1 WSF_PLATFORM
+   add mover WSF_GROUND_MOVER
+      update_interval 1 s
+   end_mover
+end_platform
+
+script bool testOrder(int aOrderIndex, string aEvent)
+   extern bool AssertEqualsMessage(Object, Object, string);
+   OrderCount = OrderCount + 1;
+   return AssertEqualsMessage(aOrderIndex, OrderCount, aEvent + " called out of order");
+end_script
+
+script void sim_end()
+   string str = "SIMULATION_COMPLETE";
+   writeln(str);
+   pass = testOrder(1, str) && pass;
+end_script
+
+script void plat_del(WsfPlatform aPlat)
+   extern void writePass(bool);
+   string str = "PLATFORM_DELETED";
+   writeln(str);
+   pass = testOrder(2, str) && pass;
+
+   // This is the last event in the chain
+   writePass(pass);
+end_script
+
+observer
+   enable SIMULATION_COMPLETE sim_end
+   enable PLATFORM_DELETED    plat_del
+end_observer

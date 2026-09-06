@@ -1,0 +1,39 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.3.3) (Issue #1482)** Added missing scripting language documentation for the various :ref:`Predefined_Network_Types`.
+* **(2.3.3) (ELSZ #156)** Corrected an issue where the :ref:`docs/event/platform_events:PLATFORM_ADDED` event for :command:`event_output` and :command:`csv_event_output` was invoked upon platform initialization rather than when a platform was added to the simulation.
+* **(2.3.3) (ELSZ #148)** Corrected an issue in which :model:`WSF_GEOMETRIC_SENSOR` was not notifying all observers of a sensor detection attempt.
+* **(2.3.3) (ELSZ #166)** Corrected comm related script :command:`observers<observer>` to match documented signatures.
+* **(2.3.2) (ELSZ #165)** Corrected an issue in which the default installation path for the Windows MSI installer would overwrite an existing installation, which could result in loss of user data. 
+* **(2.3.1) (ELSZ #108)** Corrected an issue with multiple, simultaneous transmissions from comms due to improper scheduling of the datalink layer.
+* **(2.3.1) (ELSZ #119)** Script method :method:`Calendar.SetTime` will now ignore invalid inputs.
+* **(2.3.1) (Issue #1179)** Fixed a crash caused when a track manager purges inactive raw tracks from both the raw track list and the filtered raw track list.
+* **(2.3.1) (Issue #1244)** Fixed an issue in :method:`WsfComm.SendMessage` where sending a message to an invalid or deleted platform caused a crash.
+* **(2.3.1) (ELSZ #111) (Issue #1166)** Corrected an issue with m^2 input units being converted to dbsm in some cases, e.g. in :command:`radar_signature` inputs.
+* **(2.3.1) (ELSZ #84)** A script compiler error message is now generated when a script declared with a non-void return type has an empty return statement.
+* **(2.3.1) (ELSZ #106)** AFSIM will properly parse preprocessor variables on the last line of a file.
+* **(Issue #216)** Corrected issues encountered when using the :command:`sector scan<scheduler_type.sector_scan>` sensor scheduler with non-imaging sensors such as radars, where tracks were being initialized and dropped at a much greater rate compared to the default scheduler.
+* **(Issue #766)** Fixed the WsfTerrain surface normal calculation.
+* **(Issue #767)** Fixed an issue that would in certain circumstances flip (nearly negate the pitch of) a platform.
+* **(Issue #791)** Fixed an incorrect conversion of compound units created by multiplying two simple units. Compound units affected include torque (N*m), angular inertia (kg*m^2), and impulse (N*s).
+* **(Issue #973)** Fixed an initialization error in the :model:`WSF_RADAR_SENSOR` that prevented the :command:`WSF_RADAR_SENSOR.signal_processor` from being used with :command:`WSF_RADAR_SENSOR.one_m2_detect_range`, :command:`WSF_RADAR_SENSOR.loop_gain` or :command:`WSF_RADAR_SENSOR.range_product`.
+* **(Issue #986)** Fixed an issue with DIS platform position being incorrectly updated when the platform was mapped using :command:`dis_interface.map_external_entity` or :command:`dis_interface.map_external_type`.
+* **(Issue #1025)** Fixed some improper calculations of intercept locations in script methods :method:`WsfPlatform.InterceptLocation3D` and :method:`WsfPlatform.InterceptLocation2D`.
+* **(ELSZ #23)** Fixed an issue that allowed a :class:`WsfCommandChain` script object to be stored as a :class:`WsfObject`, resulting in a segmentation fault when invoking :class:`WsfObject` script methods.
+* **(ELSZ #21) (Issue #813)** Fixed an issue with multiple substitution tags, e.g. %d, %D and %T not being replaced in output file naming and paths in :command:`event_output`, :command:`event_pipe` and :command:`csv_event_output`.
+* **(ELSZ #22)** Fixed an issue that prevented access to the name of a :class:`WsfCommandChain` script object. A new script method :method:`WsfCommandChain.Name` is provided.
+* **(ELSZ #48)** Fixed an issue where all :command:`group` objects were deleted upon simulation initialization.
+* **(ELSZ #39)** Fixed an issue where :command:`message_table` allowed invalid values for message sizes.
+* **(ELSZ #40)** :method:`Map.Erase<Map\<T1,T2\>.Erase>` returns true if the key was removed from the map.
+* **(ELSZ #47)** Removed duplicate "External Link Commands" documentation page.
+* **(ELSZ #27)** Fixed issues with units when using :model:`WSF_BRAWLER_FUEL` and script class :class:`WsfBrawlerProcessor`, and with the update interval for :model:`WSF_BRAWLER_MOVER`.
+* **(ELSZ #66)** Options slant_45 and slant_135 are now recognized as valid grammar for commands specifying a polarization (e.g. in :command:`radar_signature<radar_signature.polarization>`), and will no longer be underlined in red by Wizard.
+* **(ELSZ #60)** Fixed a crash that would occur when using :model:`WSF_SURFACE_WAVE_RADAR_SENSOR`.
+* **(Issue #1048)** Fixed a memory leak in the script interface for :method:`WsfPlatform.Zones`

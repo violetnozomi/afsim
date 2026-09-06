@@ -1,0 +1,153 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# ================================================================================
+# This file contains a number of scripts that will create a named maneuver out
+# of a sequence of elemental maneuvers. The sequences that are returns can then
+# be executed by any P6DOF platform. The examples chosen are not because of their
+# wide applicability, but rather to demonstrate the range of maneuvers that can
+# be implemented.
+# ================================================================================
+
+# The Immelmann maneuver.
+script WsfSixDOF_Maneuver Immelmann()
+   WsfSixDOF_RollDeltaManeuver nospin = WsfSixDOF_RollDeltaManeuver.Construct(0.0);
+
+   WsfSixDOF_PitchGLoadManeuver mvr = WsfSixDOF_PitchGLoadManeuver.Construct(8.0);
+   mvr.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(3.0));
+   mvr.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(3.0));
+
+   WsfSixDOF_PitchGLoadManeuver release = WsfSixDOF_PitchGLoadManeuver.Construct(0.0);
+   release.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_FLIGHT_PATH_ANGLE(12.0));
+
+   WsfSixDOF_RollAngleManeuver up = WsfSixDOF_RollAngleManeuver.Construct(0.0);
+   up.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_ROLL_ANGLE(0.0));
+
+   WsfSixDOF_FlightPathAngleManeuver flat = WsfSixDOF_FlightPathAngleManeuver.Construct(0.0);
+
+   WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+   sqn.Append(nospin);
+   sqn.Append(mvr);
+   sqn.Append(release);
+   sqn.Append(up);
+   sqn.Append(flat);
+
+   return sqn;
+end_script
+
+# The sliceback.
+script WsfSixDOF_Maneuver SliceBack()
+   WsfSixDOF_PitchGLoadManeuver unload = WsfSixDOF_PitchGLoadManeuver.Construct(0.0);
+
+   WsfSixDOF_RollAngleManeuver rollIn = WsfSixDOF_RollAngleManeuver.Construct(135.0);
+   rollIn.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_ROLL_ANGLE(135.0));
+
+   WsfSixDOF_RollDeltaManeuver noRoll = WsfSixDOF_RollDeltaManeuver.Construct(0.0);
+
+   WsfSixDOF_PitchGLoadManeuver pull = WsfSixDOF_PitchGLoadManeuver.Construct(6.0);
+   pull.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_FLIGHT_PATH_ANGLE(-2.0));
+
+   WsfSixDOF_RollAngleManeuver rollOut = WsfSixDOF_RollAngleManeuver.Construct(0.0);
+
+   WsfSixDOF_FlightPathAngleManeuver flat = WsfSixDOF_FlightPathAngleManeuver.Construct(0.0);
+
+   WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+   sqn.Append(unload);
+   sqn.Append(rollIn);
+   sqn.Append(noRoll);
+   sqn.Append(pull);
+   sqn.Append(rollOut);
+   sqn.Append(flat);
+
+   return sqn;
+end_script
+
+# This maneuver demonstrates the way that hierarchical maneuvers can be parameterized
+# to produce instead of a single behavior, a class of behaviors. In this case, the
+# number of turns, the bank angle of those turns, and the duration of those turns.
+script WsfSixDOF_Maneuver FlatScissors(int aRepeat, double aBankAngle, double aHalfTime)
+   WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+
+   WsfSixDOF_RollAngleManeuver enter = WsfSixDOF_RollAngleManeuver.Construct(aBankAngle);
+   enter.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(aHalfTime));
+   sqn.Append(enter);
+
+   for (int i = 0; i < aRepeat; i = i + 1)
+   {
+      WsfSixDOF_RollAngleManeuver zig = WsfSixDOF_RollAngleManeuver.Construct(-aBankAngle);
+      zig.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(2.0 * aHalfTime));
+      sqn.Append(zig);
+
+      WsfSixDOF_RollAngleManeuver zag = WsfSixDOF_RollAngleManeuver.Construct(aBankAngle);
+      zag.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(2.0 * aHalfTime));
+      sqn.Append(zag);
+   }
+
+   WsfSixDOF_RollAngleManeuver exit = WsfSixDOF_RollAngleManeuver.Construct(-aBankAngle);
+   exit.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(aHalfTime));
+   sqn.Append(exit);
+
+   WsfSixDOF_RollAngleManeuver final = WsfSixDOF_RollAngleManeuver.Construct(0.0);
+   sqn.Append(final);
+
+   return sqn;
+end_script
+
+# This maneuver phases the platform to which it is assigned.
+script WsfSixDOF_Maneuver Phasing()
+   WsfSixDOF_RollAngleManeuver phase = WsfSixDOF_RollAngleManeuver.Construct(-45.0);
+   phase.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_HEADING(170.0));
+   phase.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(20.0));
+
+   WsfSixDOF_RollAngleManeuver nominal = WsfSixDOF_RollAngleManeuver.Construct(-60.0);
+   nominal.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_HEADING(170.0));
+
+   WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+   sqn.Append(phase);
+   sqn.Append(nominal);
+
+   return sqn;
+end_script
+
+script WsfSixDOF_Maneuver LowYoYo(WsfSixDOF_Mover aMover)
+   // read out some current state
+   double gLoad     = aMover.GetGLoad();
+   double rollAngle = aMover.Platform().OrientationNED().Z();
+   double altitude  = aMover.Platform().Altitude();
+
+   double rollDelta = 10.0;
+   if (rollAngle < 0.0)
+   {
+      rollDelta = -rollDelta;
+   }
+
+   WsfSixDOF_RollAngleManeuver roll = WsfSixDOF_RollAngleManeuver.Construct(rollAngle + rollDelta);
+   WsfSixDOF_PitchGLoadManeuver pull = WsfSixDOF_PitchGLoadManeuver.Construct(gLoad);
+
+   WsfSixDOF_RollAngleManeuver unroll = WsfSixDOF_RollAngleManeuver.Construct(rollAngle);
+   unroll.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(20.0));
+   WsfSixDOF_PitchGLoadManeuver morePull = WsfSixDOF_PitchGLoadManeuver.Construct(gLoad * 1.3);
+
+   WsfSixDOF_PitchGLoadManeuver lessPull = WsfSixDOF_PitchGLoadManeuver.Construct(gLoad * 0.95);
+   lessPull.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(44.0));
+
+   WsfSixDOF_FlightPathAngleManeuver level = WsfSixDOF_FlightPathAngleManeuver.Construct(0.0);
+   level.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_ALTITUDE(altitude - 100.0));
+   WsfSixDOF_RollAngleManeuver finalRoll = WsfSixDOF_RollAngleManeuver.Construct(0.0);
+
+   WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+   sqn.Append(roll);
+   sqn.Append(pull);
+   sqn.Append(unroll);
+   sqn.Append(morePull);
+   sqn.Append(lessPull);
+   sqn.Append(level);
+   sqn.Append(finalRoll);
+
+   return sqn;
+end_script

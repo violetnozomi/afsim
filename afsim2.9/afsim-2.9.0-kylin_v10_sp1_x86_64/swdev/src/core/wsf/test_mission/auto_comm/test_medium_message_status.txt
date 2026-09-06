@@ -1,0 +1,359 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This test checks the correct provision and usage of script objects
+// relating to message status when a medium is utilized. Several
+// messages are sent at the same time in order to provide various
+// states for inspection. This also tests the correct functionality
+// of the channel specifications. If the hardware based comm specification
+// is not set and used properly, multiplexing will fail.
+
+script_variables
+   int num_received = 0;
+end_script_variables
+
+medium TEST_MEDIUM_GUIDED WSF_COMM_MEDIUM_GUIDED
+   channels 3   // channels allowed by the medium
+   transfer_rate 25 bits/s
+   propagation_speed 0.25 km/s
+end_medium
+
+comm WIRED_COMM WSF_COMM_TRANSCEIVER
+   channels 3   // channels allowed by the hardware/comm
+   add medium TEST_MEDIUM_GUIDED end_medium
+end_comm
+
+comm DUMMY WSF_COMM_TRANSCEIVER
+end_comm
+
+platform sender WSF_PLATFORM
+   add comm comm WIRED_COMM end_comm
+end_platform
+
+platform receiver1 WSF_PLATFORM
+   add comm comm DUMMY end_comm
+   position 0n 0.009e // ~ 1 km from sender
+end_platform
+
+platform receiver2 WSF_PLATFORM
+   add comm comm DUMMY end_comm
+   position 0n 0.018e // ~ 2 km from sender
+end_platform
+
+platform receiver3 WSF_PLATFORM
+   add comm comm DUMMY end_comm
+   position 0n 0.027e // ~ 3 km from sender
+end_platform
+
+execute at_time 1 s absolute
+   WsfMessage message = {};
+   message.SetSizeInBits(100);
+   WsfComm sender = WsfSimulation.FindPlatform("sender").Comm("comm");
+   
+   // 4 s transmission, ~ 12 s propagation
+   sender.SendMessage(message, "receiver3", "comm");
+   
+   WsfMessage message1 = {};
+   message1.SetSizeInBits(100);      
+   
+   // 4 s transmission, ~ 8 s propagation
+   sender.SendMessage(message1, "receiver2", "comm");
+   
+   WsfMessage message2 = {};
+   message2.SetSizeInBits(100);   
+   
+   // 4 s transmission, ~ 4 s propagation
+   sender.SendMessage(message2, "receiver1", "comm");
+end_execute
+
+execute at_time 4 s absolute
+   // At this time, all messages are still transmitting.
+   WsfComm xmtr = WsfSimulation.FindPlatform("sender").Comm("comm");
+   WsfCommMedium medium = xmtr.GetMedium();
+   int correctDeliveryCount = 0;
+   
+   int statusCount = medium.MessageStatusCount();
+   if(statusCount != 3)
+   {
+      writeln("-FAIL-");
+   }
+   
+   for(int i = 0; i < statusCount; i = i + 1)
+   {
+      WsfCommMediumMessageStatus status = medium.GetMessageStatusByIndex(i);
+      bool deliveryFailure = status.GetDeliveryFailure();
+      WsfCommMessage message = status.GetMessage();
+      double timeDelivery = status.GetTimeDelivery();
+      double timeStart = status.GetTimeStart();
+      double timeTransEnd = status.GetTimeTransmissionEnd();
+      bool transmitting = status.IsTransmitting();
+      
+      if(deliveryFailure)
+      {
+         writeln("-FAIL-");
+         writeln("Delivery Failure time 4 index: " + (string)i);
+      }
+      if(!transmitting)
+      {
+         writeln("-FAIL-");
+         writeln("Transmitting Failure time 4 index: " + (string)i);
+      }
+      if(timeStart != 1.0)
+      {
+         writeln("-FAIL-");
+         writeln("Time Start Failure time 4 index: " + (string)i);
+      }
+      if(timeTransEnd != 5.0)
+      {
+         writeln("-FAIL-");
+         writeln("Time Trans End Failure time 4 index: " + (string)i);
+      }
+      if((timeDelivery > 9.0) && (timeDelivery < 9.1))
+      {
+         correctDeliveryCount = correctDeliveryCount + 1;
+      }
+      if((timeDelivery > 13.0) && (timeDelivery < 13.1))
+      {
+         correctDeliveryCount = correctDeliveryCount + 1;
+      }
+      if((timeDelivery > 17.0) && (timeDelivery < 17.1))
+      {
+         correctDeliveryCount = correctDeliveryCount + 1;
+      }
+      
+      WsfCommMediumMessageStatus anotherStatus = medium.GetMessageStatus(message.GetSourceMessage().SerialNumber(),
+                                                                         message.GetTraceRoute().Back(),
+                                                                         message.GetSourceMessage().Destination());
+      
+      if(status != anotherStatus)
+      {
+         writeln("-FAIL-");
+         writeln("Message Status compare failure time 4 index: " + (string)i);
+      }
+   }
+   
+   if(correctDeliveryCount != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Correct Delivery Time Count Failure");
+   }
+   
+   if(num_received != 0)
+   {
+      writeln("-FAIL-");
+      writeln("Num Messages received failure.");
+   }
+end_execute
+
+execute at_time 10 s absolute
+   // At this time, all messages have transmitted. 
+   // The messages to reciver2 and receiver3 are propagating.
+   // The message to receiver1 has been received.
+   WsfComm xmtr = WsfSimulation.FindPlatform("sender").Comm("comm");
+   WsfCommMedium medium = xmtr.GetMedium();
+   int correctDeliveryCount = 0;
+   
+   int statusCount = medium.MessageStatusCount();
+   if(statusCount != 2)
+   {
+      writeln("-FAIL-");
+   }
+   
+   for(int i = 0; i < statusCount; i = i + 1)
+   {
+      WsfCommMediumMessageStatus status = medium.GetMessageStatusByIndex(i);
+      bool deliveryFailure = status.GetDeliveryFailure();
+      WsfCommMessage message = status.GetMessage();
+      double timeDelivery = status.GetTimeDelivery();
+      double timeStart = status.GetTimeStart();
+      double timeTransEnd = status.GetTimeTransmissionEnd();
+      bool transmitting = status.IsTransmitting();
+      
+      if(deliveryFailure)
+      {
+         writeln("-FAIL-");
+         writeln("Delivery Failure time 10 index: " + (string)i);
+      }
+      if(transmitting)
+      {
+         writeln("-FAIL-");
+         writeln("Transmitting Failure time 10 index: " + (string)i);
+      }
+      if(timeStart != 1.0)
+      {
+         writeln("-FAIL-");
+         writeln("Time Start Failure time 10 index: " + (string)i);
+      }
+      if(timeTransEnd != 5.0)
+      {
+         writeln("-FAIL-");
+         writeln("Time Trans End Failure time 10 index: " + (string)i);
+      }
+      if((timeDelivery > 9.0) && (timeDelivery < 9.1))
+      {
+         correctDeliveryCount = correctDeliveryCount + 1;
+      }
+      if((timeDelivery > 13.0) && (timeDelivery < 13.1))
+      {
+         correctDeliveryCount = correctDeliveryCount + 1;
+      }
+      if((timeDelivery > 17.0) && (timeDelivery < 17.1))
+      {
+         correctDeliveryCount = correctDeliveryCount + 1;
+      }
+      
+      WsfCommMediumMessageStatus anotherStatus = medium.GetMessageStatus(message.GetSourceMessage().SerialNumber(),
+                                                                         message.GetTraceRoute().Back(),
+                                                                         message.GetSourceMessage().Destination());
+      
+      if(status != anotherStatus)
+      {
+         writeln("-FAIL-");
+         writeln("Message Status compare failure time 10 index: " + (string)i);
+      }
+   }
+   
+   if(correctDeliveryCount != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Correct Delivery Time Count Failure");
+   }
+   
+   if(num_received != 1)
+   {
+      writeln("-FAIL-");
+      writeln("Num Messages received failure.");
+   }
+end_execute
+
+execute at_time 15 s absolute
+   // At this time, all messages have transmitted. 
+   // The message to receiver3 is propagating.
+   // The messages to receiver1 and receiver2 have been received.
+   WsfComm xmtr = WsfSimulation.FindPlatform("sender").Comm("comm");
+   WsfCommMedium medium = xmtr.GetMedium();
+   int correctDeliveryCount = 0;
+   
+   int statusCount = medium.MessageStatusCount();
+   if(statusCount != 1)
+   {
+      writeln("-FAIL-");
+   }
+   
+   for(int i = 0; i < statusCount; i = i + 1)
+   {
+      WsfCommMediumMessageStatus status = medium.GetMessageStatusByIndex(i);
+      bool deliveryFailure = status.GetDeliveryFailure();
+      WsfCommMessage message = status.GetMessage();
+      double timeDelivery = status.GetTimeDelivery();
+      double timeStart = status.GetTimeStart();
+      double timeTransEnd = status.GetTimeTransmissionEnd();
+      bool transmitting = status.IsTransmitting();
+      
+      if(deliveryFailure)
+      {
+         writeln("-FAIL-");
+         writeln("Delivery Failure time 15 index: " + (string)i);
+      }
+      if(transmitting)
+      {
+         writeln("-FAIL-");
+         writeln("Transmitting Failure time 15 index: " + (string)i);
+      }
+      if(timeStart != 1.0)
+      {
+         writeln("-FAIL-");
+         writeln("Time Start Failure time 15 index: " + (string)i);
+      }
+      if(timeTransEnd != 5.0)
+      {
+         writeln("-FAIL-");
+         writeln("Time Trans End Failure time 15 index: " + (string)i);
+      }
+      if((timeDelivery > 9.0) && (timeDelivery < 9.1))
+      {
+         correctDeliveryCount = correctDeliveryCount + 1;
+      }
+      if((timeDelivery > 13.0) && (timeDelivery < 13.1))
+      {
+         correctDeliveryCount = correctDeliveryCount + 1;
+      }
+      if((timeDelivery > 17.0) && (timeDelivery < 17.1))
+      {
+         correctDeliveryCount = correctDeliveryCount + 1;
+      }
+      
+      WsfCommMediumMessageStatus anotherStatus = medium.GetMessageStatus(message.GetSourceMessage().SerialNumber(),
+                                                                         message.GetTraceRoute().Back(),
+                                                                         message.GetSourceMessage().Destination());
+      
+      if(status != anotherStatus)
+      {
+         writeln("-FAIL-");
+         writeln("Message Status compare failure time 15 index: " + (string)i);
+      }
+   }
+   
+   if(correctDeliveryCount != 1)
+   {
+      writeln("-FAIL-");
+      writeln("Correct Delivery Time Count Failure");
+   }
+   
+   if(num_received != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Num Messages received failure.");
+   }
+end_execute
+
+execute at_time 18 s absolute
+   // At this time, all messages should be transmitted and received.
+   WsfComm xmtr = WsfSimulation.FindPlatform("sender").Comm("comm");
+   WsfCommMedium medium = xmtr.GetMedium();
+   int correctDeliveryCount = 0;
+   
+   int statusCount = medium.MessageStatusCount();
+   if(statusCount != 0)
+   {
+      writeln("-FAIL-");
+   }
+   
+   if(num_received != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Num Messages received failure.");
+   }
+end_execute
+
+end_time 20 s
+
+observer
+   enable MESSAGE_RECEIVED MessageReceived
+end_observer
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   if((TIME_NOW > 9.0) && (TIME_NOW < 9.1) && (aRcvr.Platform().Name() == "receiver1"))
+   {
+      num_received = num_received + 1;
+   }
+   if((TIME_NOW > 13.0) && (TIME_NOW < 13.1) && (aRcvr.Platform().Name() == "receiver2"))
+   {
+      num_received = num_received + 1;
+   }
+   if((TIME_NOW > 17.0) && (TIME_NOW < 17.1) && (aRcvr.Platform().Name() == "receiver3"))
+   {
+      num_received = num_received + 1;
+   }      
+end_script
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output

@@ -1,0 +1,126 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Testing of saved asset perception data.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+script void SimulationComplete()   
+   // Check platform a's asset array. It should only have entries for itself.
+   WsfPlatform a = WsfSimulation.FindPlatform("a");
+   a.Processor("perception")->Test(a.Name());
+   a.Processor("task")->Test(a.Name());   
+
+   // Check platform a's asset array. It should only have entries for itself.   
+   WsfPlatform b = WsfSimulation.FindPlatform("b");
+   b.Processor("perception")->Test(b.Name()); 
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+processor PERCEPTION WSF_PERCEPTION_PROCESSOR
+   update_interval 1 s
+   perceive_self on
+   asset_update_interval 1 s
+   asset_perception status_messages
+   
+   script_variables
+      // Locally saved asset perceptions
+      Array<WsfAssetPerception> pTest = Array<WsfAssetPerception>();
+   end_script_variables
+   
+   script void Test(string aPlatformName)
+      foreach(WsfAssetPerception asset in pTest)
+      {
+         if (asset.IsNull() || !asset.IsValid()) 
+         { 
+            writeln("-FAIL- Perception"); 
+            break;
+         }
+         else
+         {
+            if (asset.Name() != aPlatformName)
+            { 
+               writeln("-FAIL- Perception Expected: ", aPlatformName, " Rec'd: ", asset.Name());
+               break;
+            }
+         }
+      }   
+   end_script
+   
+   on_update
+      WsfPerceptionProcessor proc =  (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      Array<WsfAssetPerception> assets = proc.PerceivedAssets();
+      if (!assets.Empty())
+      {
+         pTest.PushBack(assets[0]);
+      }
+   end_on_update   
+end_processor
+
+platform a WSF_PLATFORM
+   position 0n 0e
+   altitude 10000 m
+   
+   add processor perception PERCEPTION       
+   end_processor
+   
+   add processor task WSF_QUANTUM_TASKER_PROCESSOR
+      update_interval 1 s
+         
+      script_variables
+         // Locally saved asset perceptions
+         Array<WsfAssetPerception> qtTest = Array<WsfAssetPerception>();
+      end_script_variables
+      
+      script void Test(string aPlatformName)
+         foreach(WsfAssetPerception asset in qtTest)
+         {
+            if (asset.IsNull() || !asset.IsValid()) 
+            { 
+               writeln("-FAIL- QT"); 
+               break;
+            }
+            else
+            {
+               if (asset.Name() != aPlatformName)
+               { 
+                  writeln("-FAIL- QT Expected: ", aPlatformName, " Rec'd: ", asset.Name());
+                  break;
+               }
+            }
+         }   
+      end_script      
+   
+      script Array<WsfQuantumTask> TestGenerator(Array<WsfLocalTrack> aTracks, Array<WsfAssetPerception> aAssets)
+         if (!aAssets.Empty())
+         {
+            WsfAssetPerception assetCopy = WsfAssetPerception(aAssets[0]);
+            qtTest.PushBack(assetCopy);
+         }
+         Array<WsfQuantumTask> mTasks = Array<WsfQuantumTask>();
+         return mTasks;
+      end_script
+      
+      generator custom TestGenerator
+      evaluator simple
+      allocator simple   
+   end_processor   
+end_platform
+
+platform b WSF_PLATFORM
+   position 1n 0e
+   altitude 10000 m
+   add processor perception PERCEPTION end_processor
+end_platform
+
+end_time 20 s

@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 600 s
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+platform TEST_AIRCRAFT FA-LGT
+   side blue
+   icon f-16
+   route
+      position   21.325n   158.000w  altitude   10000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   10000.0 ft   speed  450.0 kts
+   end_route
+   
+   execute at_time 10 sec absolute
+      WsfPitchDeltaManeuver mvr = WsfPitchDeltaManeuver.Construct(8.0);
+      mvr.SetEntryConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(10.0));
+      mvr.SetExitConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(20.0));
+      
+      allPassed = ExpectDouble(mvr.GetPitchDelta(), 8, 0.1, "Delta should be 8") && allPassed;
+      
+      WsfP6DOF_Mover mov = (WsfP6DOF_Mover)PLATFORM.Mover();
+      mov.ExecuteManeuver(mvr);
+   end_execute
+   
+   execute at_time 12 sec absolute
+      WsfP6DOF_Mover mover = (WsfP6DOF_Mover)PLATFORM.Mover();
+      WsfManeuver mvr = mover.GetCurrentManeuver();
+      allPassed = ExpectBool(mvr.IsCompleting(), false, "Maneuver should not be completing") && allPassed; 
+   end_execute
+   
+   execute at_time 20.1 sec absolute
+      WsfP6DOF_Mover mover = (WsfP6DOF_Mover)PLATFORM.Mover();
+      WsfManeuver mvr = mover.GetCurrentManeuver();
+      allPassed = ExpectBool(mvr.IsCompleting(), true, "Maneuver should be completing") && allPassed; 
+   end_execute
+   
+   execute at_time 60 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Y(), 8.0, 1.0, "Pitch Should be 8") && allPassed;
+   end_execute
+end_platform
+
+execute at_time 70 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }   
+end_execute  

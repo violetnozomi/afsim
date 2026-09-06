@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 1 2020
+start_time 12:00:00.000
+end_time 1 day
+
+platform test WSF_PLATFORM
+   icon cubesat
+   side blue
+
+   empty_mass 1 kg
+
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0.3
+      inclination 15.0 deg
+      raan 0.0 deg
+      semi_major_axis 10000 km
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+
+      integrator prince_dormand_78
+         tolerance 1.0e-11
+         error_criterion L_infinity
+      end_integrator
+
+      dynamics
+         term earth_monopole
+            wgs84
+         end_term
+      end_dynamics
+   end_mover
+end_platform
+
+script_variables
+   double gOrbitRadius;
+   Vec3   gOrbitNormal;
+   double gOrbitSpeed;
+   double gOrbitEnergy;
+
+   double gReportInterval = 60.0;
+
+   bool   gAnyFailure = false;
+end_script_variables
+
+script void WriteDataLine()
+   WsfPlatform test = WsfSimulation.FindPlatform("test");
+   Vec3 pos = test.LocationECI();
+   Vec3 vel = test.VelocityECI();
+
+   double radius = pos.Magnitude();
+   double speed = vel.Magnitude();
+   Vec3 normal = Vec3.Cross(pos, vel).Normal();
+   double energy = speed * speed / 2.0 - Earth.GRAVITATIONAL_PARAMETER() / radius;
+
+#   writeln("At time ", TIME_NOW, ":");
+#   writeln("   radius: ", radius, " ", gOrbitRadius, " ", (radius - gOrbitRadius) / gOrbitRadius);
+#   writeln("   speed:  ", speed, " ", gOrbitSpeed, " ", (speed - gOrbitSpeed) / gOrbitSpeed);
+#   writeln("   energy: ", energy, " ", gOrbitEnergy, " ", (energy - gOrbitEnergy) / gOrbitEnergy);
+#   writeln("   normal: ", normal.ToString(), " ", gOrbitNormal.ToString(), " ", Vec3.Subtract(normal, gOrbitNormal).ToString());
+
+   double energyError = (energy - gOrbitEnergy) / gOrbitEnergy;
+   Vec3 normalError = Vec3.Subtract(normal, gOrbitNormal);
+   double normalMagError = normalError.Magnitude();
+
+   // NOTE: This is a measurement of global error, so this tolerance is higher than that
+   // specified in the integrator.
+   if (Math.Fabs(energyError) > 1.0e-10)
+   {
+      writeln("-FAIL- energy error too great at time ", TIME_NOW, " energyError = ", energyError);
+      gAnyFailure = true;
+   }
+   if (Math.Fabs(normalMagError) > 2.0e-9)
+   {
+      writeln("-FAIL- normal error too great at time ", TIME_NOW, " normalError = ", normalError.ToString());
+      gAnyFailure = true;
+   }
+
+   WsfSimulation.ExecuteAtTime(TIME_NOW + gReportInterval, "WriteDataLine");
+end_script
+
+script void CollectInitialOrbitData()
+   WsfPlatform test = WsfSimulation.FindPlatform("test");
+   Vec3 pos = test.LocationECI();
+   Vec3 vel = test.VelocityECI();
+
+   gOrbitRadius = pos.Magnitude();
+   gOrbitSpeed = vel.Magnitude();
+   gOrbitNormal = Vec3.Cross(pos, vel).Normal();
+
+   // Note GRAVITATIONAL_PARAMETER is WGS84
+   gOrbitEnergy = vel.MagnitudeSquared() / 2.0 - Earth.GRAVITATIONAL_PARAMETER() / gOrbitRadius;
+
+   WriteDataLine();
+end_script
+
+script void PassNoPassReport()
+   if (gAnyFailure)
+   {
+      writeln("-FAIL- Failure during propagation. Error too great.");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SIMULATION_STARTING CollectInitialOrbitData
+   enable SIMULATION_COMPLETE PassNoPassReport
+end_observer

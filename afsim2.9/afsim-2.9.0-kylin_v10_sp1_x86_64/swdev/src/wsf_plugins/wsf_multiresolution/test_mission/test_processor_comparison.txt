@@ -1,0 +1,150 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 10 minutes
+
+processor LOW_FIDELITY_TASK_PROCESSOR WSF_TASK_PROCESSOR
+   evaluation_interval MOVING 10.0 sec
+   state MOVING
+      on_entry
+         PLATFORM.GoToSpeed(250.0);
+         PLATFORM.GoToLocation(0.3, 0.0, 6096.0);
+      end_on_entry
+   end_state
+end_processor
+
+processor HIGH_FIDELITY_TASK_PROCESSOR WSF_TASK_PROCESSOR
+   evaluation_interval SEARCHING 1.0 sec
+   evaluation_interval MOVING 0.5 sec
+   
+   script_variables
+      WsfGeoPoint targetPoint = WsfGeoPoint();
+   end_script_variables
+   
+   state SEARCHING
+      next_state MOVING
+         if (TRACK) {
+            targetPoint = TRACK.CurrentLocation();
+            return true;
+         } else {
+            return false;
+         }
+      end_next_state
+   end_state
+   
+   state MOVING
+      on_entry
+         PLATFORM.GoToSpeed(250.0, 1.0, true);
+         PLATFORM.GoToLocation(targetPoint);
+      end_on_entry
+      next_state SEARCHING
+         if (PLATFORM.Location().SlantRangeTo(targetPoint) < 200.0){
+            PLATFORM.SetVelocityNED(0,0,0);
+            return true;
+         } else {
+            return false;
+         }
+      end_next_state
+   end_state
+end_processor
+
+multiresolution_processor MR_TASK_PROCESSOR WSF_MULTIRESOLUTION_PROCESSOR
+   model low_fidelity_model
+      fidelity_range 0.0 0.5
+      processor LOW_FIDELITY_TASK_PROCESSOR
+      end_processor
+   end_model
+   model hight_fidelity_model
+      fidelity_range 0.5 1.0
+      processor HIGH_FIDELITY_TASK_PROCESSOR
+      end_processor
+   end_model
+end_multiresolution_processor
+
+platform tortoise WSF_PLATFORM
+   side blue
+   add mover WSF_AIR_MOVER end_mover
+   route
+      position 0.5n 0e altitude 20000 ft heading 0 deg speed 100 kts
+      position 10.0n 0e altitude 20000 ft 
+   end_route
+end_platform
+
+platform_type ACHILLES WSF_PLATFORM
+   side red
+   processor track_mgr WSF_TRACK_PROCESSOR end_processor
+   sensor GEOM_SENSOR WSF_GEOMETRIC_SENSOR
+      internal_link track_mgr
+      on
+      reports_location
+      maximum_range 50 nm
+      frame_time 1 sec
+      ignore_same_side
+   end_sensor
+
+   position 0n 0e altitude 20000 ft 
+   heading 0 deg
+   add mover WSF_AIR_MOVER end_mover
+end_platform_type
+
+platform mr_achilles ACHILLES
+   add multiresolution_processor task_processor MR_TASK_PROCESSOR 
+      fidelity 1.0
+   end_multiresolution_processor
+end_platform
+
+platform achilles ACHILLES
+   add processor task_processor HIGH_FIDELITY_TASK_PROCESSOR
+   end_processor
+end_platform
+
+##### Observer for testing
+script_variables
+   WsfGeoPoint mrAchillesLocation = WsfGeoPoint();
+   bool mrMoverHasUpdate = false;
+   WsfGeoPoint achillesLocation = WsfGeoPoint();
+   bool srMoverHasUpdate = false;
+end_script_variables
+
+script void MoverUpdated(WsfPlatform aPlatform, WsfMover aMover)
+   if(aPlatform.Name() != "tortoise")
+   {
+      if(mrMoverHasUpdate && aPlatform.Name() == "mr_achilles") {
+         writeln("-FAIL- Got two mr_achilles updates, expected an achilles update");
+      }
+      if(srMoverHasUpdate && aPlatform.Name() == "achilles") {
+         writeln("-FAIL- Got two achilles updates, expected an mr_achilles update");
+      }
+      
+      if(!srMoverHasUpdate && aPlatform.Name() == "achilles") {
+         achillesLocation = aPlatform.Location();
+         srMoverHasUpdate = true;
+      } else if(!mrMoverHasUpdate && aPlatform.Name() == "mr_achilles") {
+         mrAchillesLocation = aPlatform.Location();
+         mrMoverHasUpdate = true;
+      }
+      
+      if(mrMoverHasUpdate && srMoverHasUpdate){
+         if(mrAchillesLocation.SlantRangeTo(achillesLocation) > 1.0e-15){
+            writeln("Locations don't match: MR: ", mrAchillesLocation, ", air: ", achillesLocation);
+            writeln("-FAIL-");
+         } else {
+            writeln("-PASS- Locations match");
+         }
+         mrMoverHasUpdate = false;
+         srMoverHasUpdate = false;
+      }
+   }
+end_script
+
+observer
+   enable MOVER_UPDATED
+end_observer

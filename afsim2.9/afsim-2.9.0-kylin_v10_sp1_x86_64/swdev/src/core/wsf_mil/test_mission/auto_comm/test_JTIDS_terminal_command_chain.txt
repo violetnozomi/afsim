@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+define_path_variable CASE test_JTIDS_terminal_command_chain
+
+script_variables
+   int numMsgsRcvd = 0;
+   int expectedRcvd = 2;
+   int numMsgsDiscarded = 0;
+   int expectedDiscarded = 7;
+end_script_variables
+
+script void MessageDiscarded(WsfComm aComm, WsfMessage aMsg, string aReason)
+   numMsgsDiscarded = numMsgsDiscarded + 1;
+   writeln("Message discarded. ", aReason);
+end_script
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   if (aRcvr.Platform().Name() == "Listener")
+   {
+      numMsgsRcvd = numMsgsRcvd + 1;
+   }
+   writeln("Message received.");
+end_script
+
+observer
+#   enable MESSAGE_DELIVERY_ATTEMPT
+   enable MESSAGE_DISCARDED
+#   enable MESSAGE_QUEUED
+   enable MESSAGE_RECEIVED 
+#   enable MESSAGE_TRANSMITTED
+#   enable MESSAGE_UPDATED
+end_observer
+
+comm Radio_A WSF_JTIDS_TERMINAL
+#   debug
+   slot_group TEST_GRP_A end_slot_group
+end_comm
+
+comm Radio_B WSF_JTIDS_TERMINAL
+#   debug
+   command_chain TEST TEST_GRP_B
+   slot_group TEST_GRP_B end_slot_group
+end_comm
+
+comm Radio_C WSF_JTIDS_TERMINAL
+#   debug
+   command_chain TEST TEST
+   slot_group TEST end_slot_group
+end_comm
+
+platform Talker WSF_PLATFORM
+   command_chain TEST SELF
+   position 38n 114w altitude 30 kft 
+   add comm talker_A Radio_A end_comm
+   add comm talker_B Radio_B end_comm
+   add comm talker_C Radio_C end_comm
+   
+   execute at_time 10 seconds absolute
+      WsfMessage hello = WsfMessage();
+      PLATFORM.Comm("talker_A").SendMessage(hello, "Listener", "listener_on_a");         // Fail; needs explicit command chain
+      PLATFORM.Comm("talker_A").SendMessageToSubordinates("TEST", hello);      // Fail; no slot group named "TEST"
+      PLATFORM.Comm("talker_A").SendMessageToSubordinates("TEST", hello);      // Fail; no slot group named "TEST"
+      PLATFORM.Comm("talker_B").SendMessageToSubordinates("TEST", hello);      // Passes
+      PLATFORM.Comm("talker_C").SendMessageToSubordinates("TEST", hello);      // Passes
+   end_execute
+end_platform
+
+platform Listener WSF_PLATFORM
+   command_chain TEST Talker
+   position 38n 114:10w altitude 30 kft 
+   add comm listener_on_a Radio_A  end_comm
+   add comm listener_on_b Radio_B  end_comm
+   add comm listener_on_c Radio_C  end_comm
+end_platform
+
+execute at_time 20 seconds absolute
+   if (numMsgsRcvd != expectedRcvd)
+   {
+      writeln("-FAIL- Received");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+   
+   if (numMsgsDiscarded != expectedDiscarded)
+   {
+      writeln("-FAIL- Discarded");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }  
+    
+   WsfSimulation.Terminate();
+end_execute
+
+end_time 100 seconds
+
+#event_pipe file $(CASE).aer end_event_pipe
+#
+#event_output  
+#   file   $(CASE).evt
+#   enable MESSAGE_DELIVERY_ATTEMPT
+#   enable MESSAGE_DISCARDED
+#   enable MESSAGE_QUEUED
+#   enable MESSAGE_RECEIVED 
+#   enable MESSAGE_TRANSMITTED
+#   enable MESSAGE_UPDATED
+#end_event_output

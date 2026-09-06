@@ -1,0 +1,44 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Test that the three-argument constructor for the WsfInterceptManeuver can
+# work outside the platform's script context.
+# ****************************************************************************
+
+end_time 102 sec
+
+include_once utils.txt
+
+script void perform_intercept(WsfPlatform aInterceptSat)
+   WsfTrackId trackId = aInterceptSat.MasterTrackList().Entry(0).TrackId();
+   WsfTargetPoint point = WsfTargetPoint.ConstructFromTrack(trackId);
+   WsfInterceptManeuver intercept = WsfInterceptManeuver.Construct(WsfOrbitalEventCondition.NONE(),
+                                                                   point,
+                                                                   8 * 24 * 3600);                                                      
+   ExpectBool(intercept.IsValid(), true, "Valid object returned from constructor");
+end_script
+
+platform intercept_sat WSF_PLATFORM
+   execute at_time 100 s absolute
+      WsfTrackManager mgr = PLATFORM.TrackManager();
+      mgr.AddTrackReport(WsfSimulation.FindPlatform("target_sat").MakeTrack());
+      perform_intercept(PLATFORM);
+   end_execute
+   
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 126492 km
+      true_anomaly 15 deg 
+   end_mover
+end_platform
+
+platform target_sat WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 250000 km
+      true_anomaly 235 deg 
+   end_mover
+end_platform

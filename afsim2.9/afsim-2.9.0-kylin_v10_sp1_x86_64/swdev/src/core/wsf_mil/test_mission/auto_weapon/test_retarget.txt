@@ -1,0 +1,73 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# this test verifies that a weapon can be retargetted and that the 
+# weapon effect correctly affects the target.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include ../auto_script/test_pass.txt
+script_variables
+  PassTestCount = 1;
+end_script_variables
+
+platform_type target WSF_PLATFORM
+   icon Wedge
+end_platform_type
+
+# we change target from tgt-1 to tgt-2 in flight
+# tgt-2 should die around 90 s
+
+platform tgt-1 target
+   position 1n 0e
+   script void on_platform_deleted()
+      writeln("tgt-1 dies at T=", TIME_NOW);
+   end_script
+end_platform
+
+platform tgt-2 target
+   position 1n 0.1e
+   script void on_platform_deleted()
+      extern void pass();
+      if ((TIME_NOW > 80) && (TIME_NOW < 100))
+      {
+         writeln("tgt-2 dies at T=", TIME_NOW);
+         pass();
+      }
+   end_script
+end_platform
+
+platform_type missile WSF_PLATFORM
+   mover WSF_STRAIGHT_LINE_MOVER
+      average_speed 2500 kts
+   end_mover
+   processor fuse WSF_AIR_TARGET_FUSE
+   end_processor
+   execute at_time 50 s relative
+      SetCurrentTarget(WsfSimulation.FindPlatform("tgt-2").MakeTrack());
+   end_execute
+end_platform_type
+weapon_effects missile-effect WSF_SPHERICAL_LETHALITY
+   maximum_radius 101 m
+   minimum_radius 100 m
+end_weapon_effects
+platform launcher WSF_PLATFORM
+   position 0n 0e altitude 30 km
+   add weapon wpn WSF_EXPLICIT_WEAPON
+      launched_platform_type  missile
+      quantity 1
+      weapon_effects missile-effect
+   end_weapon
+   execute at_time 1 s absolute
+      Weapon("wpn").Fire(WsfSimulation.FindPlatform("tgt-1").MakeTrack());
+   end_execute
+end_platform
+
+end_time 2 min

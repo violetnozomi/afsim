@@ -1,0 +1,120 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Basic test of the WSF_SPACE_OPTICAL_SIGNATURE.
+# Makes sure input, instatiation and deletion are correct and that a few expected values are correct.
+
+optical_signature SATELLITE_OPTICAL_SIG_1 WSF_SPACE_OPTICAL_SIGNATURE
+   #debug
+   surface sphere
+      radius 1.784124 m       # Cross-sectional area = 10 m^2
+   end_surface
+end_optical_signature
+
+optical_signature SATELLITE_OPTICAL_SIG_2 WSF_SPACE_OPTICAL_SIGNATURE
+   #debug
+   surface sphere
+      radius 1.261566 m       # Cross-sectional area = 5 m^2
+   end_surface
+end_optical_signature
+
+platform_type SATELLITE WSF_PLATFORM
+   mover WSF_SPACE_MOVER
+      update_interval 1 sec
+   end_mover
+   
+   script void TestSignature(double aViewerLonOffset,   # +/- 20 limit for near horizon
+                             double aExpectedRI,
+                             double aExpectedPA)
+      double viewerLat = Latitude();
+      double viewerLon = Math.NormalizeAngleMinus180_180(Longitude() + aViewerLonOffset);
+      WsfGeoPoint viewer = WsfGeoPoint.Construct(viewerLat, viewerLon, 0.0);
+      double actualRI = RadiantIntensity(viewer, 1.0, "medium");
+      double actualRI_2 = InfraredRadiantIntensity(viewer, 1.0, "medium");
+      double actualPA = ProjectedArea(viewer, 1.0);
+      double actualPA_2 = OpticalCrossSection(viewer, 1.0);
+      writeln("T=", TIME_NOW, " ", Name(), " I=", actualRI, " W/sr", " A=", actualPA, " m^2");
+      if (Math.Fabs(actualRI - aExpectedRI) > 0.01)
+      {
+         writeln("-FAIL- ", Name(), " optical_signature, radiant intensity expected=", aExpectedRI, " W/sr, actual=", actualRI, " W/sr");
+      }
+      if (Math.Fabs(actualPA - aExpectedPA) > 0.01)
+      {
+         writeln("-FAIL- ", Name(), " optical_signature, projected area expected=", aExpectedPA, " w/m^2, actual=", actualPA, " m^2");
+      }
+      # Make sure the old script methods return the same thing as the new script methods.
+      # Note that Fabs comparison must be used because under the hood one returns a double and the other returns a float.
+      double relErrorPA = Math.Fabs(actualPA - actualPA_2) / actualPA;
+      if (relErrorPA > 0.0001)
+      {
+         writeln("-FAIL- ", Name(), " optical_signature, projected area mismatch, new: ", actualPA, " w/m^2, old=", actualPA_2, " m^2",
+                 " relative error=", relErrorPA);
+      }
+      double relErrorRI = Math.Fabs(actualRI - actualRI_2) / actualRI;
+      if (relErrorRI > 0.0001)
+      {
+         writeln("-FAIL- ", Name(), " optical_signature, radiant intensity mismatch, new: ", actualRI, " w/m^2, old=", actualRI_2, " m^2",
+                 " relative error=", relErrorRI);
+      }
+   end_script
+end_platform_type
+
+####################################################################################################
+
+start_time 12:00:00          # The Sun will be about at zenith at 0n/0e
+
+# This satellite is positioned just before entry into eclipse. The viewer is positioned west of the
+# satellite track so the satellite appears just above its horizon. This causes several things:
+#
+# *) The maximum solar reflection will be seen.
+# *) The thermal component will be at a maximum.
+
+platform sat-1a SATELLITE
+   optical_signature SATELLITE_OPTICAL_SIG_1
+   mover position 0n 112e altitude 450 km heading 90 deg end_mover
+   execute at_time 1 sec absolute TestSignature(-20.0, 300.359, 10.0); end_execute
+end_platform
+
+# The satellite is positioned just after exit from eclipse. The viewer is positioned east of the
+# satellite track such that the satellite appears just above its horizon. This causes several things:
+#
+# *) THe maximum solar reflection will be seen
+# *) The thermal component will be at a near minimum (just starting to heat).
+
+platform sat-1b SATELLITE
+   optical_signature SATELLITE_OPTICAL_SIG_1
+   mover position 0n 112w altitude 450 km heading 90 deg end_mover
+   execute at_time 2 sec absolute TestSignature(20.0, 42.9199, 10.0); end_execute
+end_platform
+
+# This satellite is position in the middle of eclipse and the viewer is directly underneath its track.
+# There will be no solar component and only and just the natural Earth emission.
+
+platform sat-2a SATELLITE
+   optical_signature SATELLITE_OPTICAL_SIG_2
+   mover position 0n 180e altitude 450 km heading 90 deg end_mover
+   execute at_time 3 sec absolute TestSignature(0.0, 6.55833, 5.0); end_execute
+end_platform
+
+# This satellite is positioned so the Sun and satellite at almost directly overhead of the observer.
+#
+# *) The solar reflection should be near zero because the solar reflection off the satellite is
+#    away from the observer. (There is actually a very small component because the Sun is actually
+#    about 22/23 degrees north).
+# *) The Earth reflection and emission will be at a maximum.
+# *) The thermal component will be near maximum.
+
+platform sat-2b SATELLITE
+   optical_signature SATELLITE_OPTICAL_SIG_2  
+   mover position 0n 0e altitude 450 km heading 90 deg end_mover
+   execute at_time 4 sec absolute TestSignature(0.0, 51.7637, 5.0); end_execute
+end_platform
+
+end_time 30 sec
+   

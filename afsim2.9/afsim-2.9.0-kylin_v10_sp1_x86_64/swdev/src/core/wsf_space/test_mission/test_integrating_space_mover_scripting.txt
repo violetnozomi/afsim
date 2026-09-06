@@ -1,0 +1,323 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once utils.txt
+
+start_date feb 12 2020
+start_time 12:00:00.000
+end_time 1 min
+
+platform_type TEST_TYPE WSF_PLATFORM
+   icon cubesat
+   side blue
+   empty_mass 1 kg
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0.01
+      revolutions_per_day 2
+      inclination 25 deg
+      raan 1 deg
+      argument_of_periapsis 35 deg
+      true_anomaly 45 deg
+   end_mover
+end_platform_type
+
+atmosphere_model basic WSF_PIECEWISE_EXPONENTIAL_ATMOSPHERE
+end_atmosphere_model
+
+# This platform is initialized from the input file,
+# and is tested at runtime.
+platform queries TEST_TYPE
+   edit mover
+      integrator prince_dormand_78
+         error_criterion L_infinity
+         initial_step_size 120.0
+         max_adjustment_attempts 12
+         max_step_size 3600.0
+         min_step_size 0.001
+         tolerance 1.0e-12
+      end_integrator
+      
+      dynamics
+         term earth_monopole
+            gravitational_parameter 10.0
+         end_term
+         
+         term moon_monopole
+            gravitational_parameter 1.0
+            interpolation_interval 100.0 s
+         end_term
+         
+         term sun_monopole
+            gravitational_parameter 1.0
+         end_term
+         
+         term earth_j2
+            gravitational_parameter 10.0
+            j2 0.1
+            mean_radius 1.0 m
+         end_term
+         
+         term scripted
+            script TestScript
+         end_term
+         
+         term jupiter_monopole
+            gravitational_parameter 1.0
+         end_term 
+         
+         term atmospheric_drag
+            cross_sectional_area 1.2 m^2
+            drag_coefficient 2.2
+            atmosphere_model basic 
+         end_term
+      end_dynamics
+   end_mover
+end_platform
+
+script Vec3 TestScript(WsfIntegratingSpaceMover aMover, double aMass, Calendar aTime, Vec3 aPosition, Vec3 aVelocity)
+   return Vec3.Construct(1.0, 2.0, 3.0);
+end_script
+
+# This platform is set up at runtime with script, and tested at runtime
+script_variables
+   string gScriptePlatName   = "scripted";
+   
+   double gScriptedTolerance = 1.0e-10;
+   int    gMaxAdjAttempts    = 42;
+   double gMaxStepSize       = 7200.0;
+   double gMinStepSize       = 1.0e-11;
+   double gInitStepSize      = 123.0;
+   string gErrorCriterion    = WsfPrinceDormand45Integrator.L_TWO();
+   
+   double gEarthMu           = 10.0;
+   double gMoonMu            = 5.0;
+   double gMoonInterp        = 200.0;
+   double gEarthRad          = 100.0;
+   double gJ2                = 0.0001;
+   double gSunMu             = 15.0;
+   double gJupiterMu         = 25.0;
+   
+   double gCrossSectionalArea = 1.2;
+   double gDragCoefficient    = 2.2;
+   string gAtmosphereModel    = "basic";
+   
+   bool   gTriedToModify     = false;
+end_script_variables
+
+execute at_time 10 s absolute
+   WsfPlatform template = WsfSimulation.CreatePlatform("TEST_TYPE");
+   WsfIntegratingSpaceMover mover = (WsfIntegratingSpaceMover)template.Mover();
+   
+   WsfPrinceDormand45Integrator pd45 = WsfPrinceDormand45Integrator();
+   pd45.SetErrorCriterion(gErrorCriterion);
+   pd45.SetTolerance(gScriptedTolerance);
+   pd45.SetMaxAdjustmentAttempts(gMaxAdjAttempts);
+   pd45.SetMaxStepSize(gMaxStepSize);
+   pd45.SetMinStepSize(gMinStepSize);
+   pd45.SetInitialStepSize(gInitStepSize);
+   
+   mover.SetOrbitalIntegrator(pd45);
+   
+   WsfOrbitalDynamics dyn = WsfOrbitalDynamics();
+   
+   WsfEarthMonopoleTerm earth = WsfEarthMonopoleTerm.Construct(gEarthMu);
+   dyn.AddTerm(earth);
+   
+   WsfMoonMonopoleTerm moon = WsfMoonMonopoleTerm.Construct(gMoonMu, gMoonInterp);
+   dyn.AddTerm(moon);
+   
+   WsfEarthJ2Term j2 = WsfEarthJ2Term.Construct(gEarthMu, gEarthRad, gJ2);
+   dyn.AddTerm(j2);
+   
+   WsfSunMonopoleTerm sun = WsfSunMonopoleTerm.Construct(gSunMu);
+   dyn.AddTerm(sun);
+   
+   WsfScriptedDynamicsTerm scr = WsfScriptedDynamicsTerm.Construct("SecondTestScriptTerm");
+   dyn.AddTerm(scr);
+   
+   WsfJupiterMonopoleTerm jupiter = WsfJupiterMonopoleTerm.Construct(gJupiterMu);
+   dyn.AddTerm(jupiter);
+   
+   WsfAtmosphericDragTerm drag = WsfAtmosphericDragTerm.Construct(gDragCoefficient, gCrossSectionalArea, gAtmosphereModel);
+   dyn.AddTerm(drag);
+   
+   mover.SetOrbitalDynamics(dyn);
+   
+   WsfSimulation.AddPlatform(template, gScriptePlatName);
+end_execute
+
+script Vec3 SecondTestScriptTerm(WsfIntegratingSpaceMover aMover, double aMass, Calendar aTime, Vec3 aPosition, Vec3 aVelocity)
+   if (!gTriedToModify)
+   {
+      // Try to modify the dynamics in flight - this will fail
+      WsfOrbitalDynamics dyn = aMover.OrbitalDynamics();
+      dyn.RemoveTerm(0);
+      aMover.SetOrbitalDynamics(dyn);
+      
+      // Try to modify the integrator in flight - this will fail
+      aMover.SetOrbitalIntegrator(WsfPrinceDormand78Integrator());
+      
+      gTriedToModify = true;
+   }
+   return Vec3.Construct(0.0, 0.0, 0.0);
+end_script
+
+# Scripts to perform the tests
+script_variables
+   double gDblTolerance = 1.0e-12;
+end_script_variables
+
+execute at_time 1 s absolute
+   // Tests for the input platform.
+
+   WsfPlatform queries = WsfSimulation.FindPlatform("queries");
+   WsfIntegratingSpaceMover mover = (WsfIntegratingSpaceMover)queries.Mover();
+   
+   // Orbital Dynamics queries
+   WsfOrbitalDynamics dyn = mover.OrbitalDynamics();
+   ExpectInt(dyn.NumTerms(), 7, "Number of terms");
+   
+   // Term 0
+   WsfOrbitalDynamicsTerm term = dyn.Term(0);
+   ExpectString(term.TermType(), "earth_monopole", "Zeroth term type");
+   
+   WsfEarthMonopoleTerm earth = (WsfEarthMonopoleTerm)term;
+   ExpectDouble(earth.GravitationalParameter(), 10.0, gDblTolerance, "Earth monopole mu");
+   Vec3 earthTestLoc = Vec3.Construct(1.0, 0.0, 0.0);
+   Vec3 zero = Vec3.Construct(0.0, 0.0, 0.0);
+   Vec3 earthTestAcc = earth.ComputeAcceleration(1.0, WsfDateTime.CurrentTime(), earthTestLoc, zero);
+   ExpectVec(earthTestAcc, Vec3.Construct(-10.0, 0.0, 0.0), gDblTolerance, "Earth monopole acceleration test");
+   
+   // Term 1
+   term = dyn.Term(1);
+   ExpectString(term.TermType(), "moon_monopole", "First term type");
+   
+   WsfMoonMonopoleTerm moon = (WsfMoonMonopoleTerm)term;
+   ExpectDouble(moon.GravitationalParameter(), 1.0, gDblTolerance, "Moon monopole mu");
+   ExpectDouble(moon.InterpolationInterval(), 100.0, gDblTolerance, "Moon interpolation interval");
+   Calendar testTime = WsfDateTime.SimulationTime(100000.0);
+   Vec3 moonTestLoc = Vec3.Add(moon.MoonPositionECI(testTime), Vec3.Construct(1.0, 0.0, 0.0));
+   Vec3 moonTestAcc = moon.ComputeAcceleration(1.0, testTime, moonTestLoc, zero);
+   ExpectVec(moonTestAcc, Vec3.Construct(-1.0, 0.0, 0.0), gDblTolerance, "Moon monopole acceleration test");
+   
+   // Term 2
+   term = dyn.Term(2);
+   ExpectString(term.TermType(), "sun_monopole", "Second term type");
+   
+   WsfSunMonopoleTerm sun = (WsfSunMonopoleTerm)term;
+   ExpectDouble(sun.GravitationalParameter(), 1.0, gDblTolerance, "Sun monopole mu");
+   Vec3 sunTestLoc = Vec3.Add(sun.SunPositionECI(testTime), Vec3.Construct(0.0, 1.0, 0.0));
+   Vec3 sunTestAcc = sun.ComputeAcceleration(1.0, testTime, sunTestLoc, zero);
+   ExpectVec(sunTestAcc, Vec3.Construct(0.0, -1.0, 0.0), gDblTolerance, "Sun monopole acceleration test");
+
+   // Term 3
+   term = dyn.Term(3);
+   ExpectString(term.TermType(), "earth_j2", "Third term type");
+   
+   WsfEarthJ2Term j2 = (WsfEarthJ2Term)term;
+   ExpectDouble(j2.GravitationalParameter(), 10.0, gDblTolerance, "J2 earth mu");
+   ExpectDouble(j2.MeanRadius(), 1.0, gDblTolerance, "J2 earth mean radius");
+   ExpectDouble(j2.J2(), 0.1, gDblTolerance, "J2 j2 value");
+   Vec3 locWCS = Vec3.Construct(1.0, 0.0, 0.0);
+   Vec3 locECI = queries.ConvertWCSToECI(locWCS);
+   Vec3 j2TestAcc = j2.ComputeAcceleration(1.0, WsfDateTime.CurrentTime(), locECI, zero);
+   Vec3 j2ExpectedAccWCS = Vec3.Construct(0.0, 0.0, 0.0);  // See p. 594 Vallado (4th Ed)
+   Vec3 j2ExpectedAccECI = queries.ConvertWCSToECI(j2ExpectedAccWCS); 
+   ExpectVec(j2TestAcc, j2ExpectedAccECI, gDblTolerance, "J2 acceleration");
+   
+   // Term 4
+   term = dyn.Term(4);
+   ExpectString(term.TermType(), "scripted", "Fourth term type");
+   
+   WsfScriptedDynamicsTerm scr = (WsfScriptedDynamicsTerm)term;
+   ExpectString(scr.ScriptName(), "TestScript", "Scripted term script name");
+   Vec3 scriptedAcc = scr.ComputeAcceleration(1.0, testTime, zero, zero);
+   ExpectVec(scriptedAcc, Vec3.Construct(0.0, 0.0, 0.0), gDblTolerance, "Scripted acceleration");
+   
+   // Term 5
+   term = dyn.Term(5);
+   ExpectString(term.TermType(), "jupiter_monopole", "Fifth term type");
+   
+   WsfJupiterMonopoleTerm jupiter = (WsfJupiterMonopoleTerm)term;
+   ExpectDouble(jupiter.GravitationalParameter(), 1.0, gDblTolerance, "Jupiter monopole mu");
+   Vec3 jupiterTestLoc = Vec3.Add(jupiter.JupiterPositionECI(testTime), Vec3.Construct(0.0, 0.0, 1.0));
+   Vec3 jupiterTestAcc = jupiter.ComputeAcceleration(1.0, testTime, jupiterTestLoc, zero);
+   ExpectVec(jupiterTestAcc, Vec3.Construct(0.0, 0.0, -1.0), gDblTolerance, "Jupiter monopole acceleration test");
+   
+   // Term 6
+   term = dyn.Term(6);
+   ExpectString(term.TermType(), "atmospheric_drag", "Sixth term type");
+   
+   WsfAtmosphericDragTerm drag = (WsfAtmosphericDragTerm)term;
+   ExpectDouble(drag.DragCoefficient(), gDragCoefficient, gDblTolerance, "Drag coefficient");
+   ExpectDouble(drag.CrossSectionalArea(), gCrossSectionalArea, gDblTolerance, "Cross sectional area");
+   ExpectString(drag.AtmosphereModelName(), gAtmosphereModel, "Atmosphere model");
+   
+   // Queries for the orbital integrator
+   WsfOrbitalIntegrator oint = mover.OrbitalIntegrator();
+   ExpectString(oint.IntegratorType(), "prince_dormand_78", "Integrator type");
+   
+   WsfPrinceDormand78Integrator pd78 = (WsfPrinceDormand78Integrator)oint;
+   ExpectBool(pd78.IsValid(), true, "Cast to WsfPrinceDormand78Integrator");
+   ExpectDouble(pd78.Tolerance(), 1.0e-12, 1.0e-16, "Integrator tolerance");
+   ExpectDouble(pd78.InitialStepSize(), 120.0, gDblTolerance, "Initial Step Size");
+   ExpectInt(pd78.MaxAdjustmentAttempts(), 12, "Max. Adjustment attempts");
+   ExpectDouble(pd78.MaxStepSize(), 3600.0, gDblTolerance, "Max. Step Size");
+   ExpectDouble(pd78.MinStepSize(), 0.001, gDblTolerance, "Min. Step Size");
+   ExpectString(pd78.ErrorCriterion(), pd78.L_INFINITY(), "Error criterion");
+end_execute
+
+execute at_time 2 s absolute
+   WsfOrbitalDynamics dyn = WsfOrbitalDynamics();
+   dyn.AddTerm(WsfEarthMonopoleTerm.Construct(1.0));
+   dyn.AddTerm(WsfEarthMonopoleTerm.Construct(10.0));
+   Vec3 location = Vec3.Construct(1.0, 0.0, 0.0);
+   Vec3 acc = dyn.ComputeAcceleration(1.0, WsfDateTime.CurrentTime(), location, Vec3.Construct(0.0, 0.0, 0.0));
+   ExpectVec(acc, Vec3.Construct(-11.0, 0.0, 0.0), gDblTolerance, "WsfOrbitalDynamics.ComputeAcceleration");
+end_execute
+
+execute at_time 3 s absolute
+   WsfPrinceDormand78Integrator pd = WsfPrinceDormand78Integrator();
+   pd.SetErrorCriterion(gErrorCriterion);
+   pd.SetTolerance(gScriptedTolerance);
+   pd.SetMaxAdjustmentAttempts(gMaxAdjAttempts);
+   pd.SetMaxStepSize(gMaxStepSize);
+   pd.SetMinStepSize(gMinStepSize);
+   pd.SetInitialStepSize(gInitStepSize);
+   
+   ExpectDouble(pd.Tolerance(), gScriptedTolerance, 1.0e-16, "78 Integrator tolerance");
+   ExpectDouble(pd.InitialStepSize(), gInitStepSize, gDblTolerance, "78 Initial Step Size");
+   ExpectInt(pd.MaxAdjustmentAttempts(), gMaxAdjAttempts, "78 Max. Adjustment attempts");
+   ExpectDouble(pd.MaxStepSize(), gMaxStepSize, gDblTolerance, "78 Max. Step Size");
+   ExpectDouble(pd.MinStepSize(), gMinStepSize, gDblTolerance, "78 Min. Step Size");
+   ExpectString(pd.ErrorCriterion(), gErrorCriterion, "78 Error criterion");
+end_execute
+
+execute at_time 11 s absolute
+   // Tests on the script created platform.
+   
+   WsfPlatform plat = WsfSimulation.FindPlatform(gScriptePlatName);
+   WsfIntegratingSpaceMover mover = (WsfIntegratingSpaceMover)plat.Mover();
+   
+   WsfOrbitalIntegrator oint = mover.OrbitalIntegrator();
+   ExpectString(oint.IntegratorType(), "prince_dormand_45", "Scripted platform integrator type");
+   
+   WsfPrinceDormand45Integrator pd45 = (WsfPrinceDormand45Integrator)oint;
+   ExpectBool(pd45.IsValid(), true, "Valid integrator cast");
+   ExpectDouble(pd45.Tolerance(), gScriptedTolerance, 1.0e-16, "Integrator tolerance");
+   ExpectDouble(pd45.InitialStepSize(), gInitStepSize, gDblTolerance, "Initial Step Size");
+   ExpectInt(pd45.MaxAdjustmentAttempts(), gMaxAdjAttempts, "Max. Adjustment attempts");
+   ExpectDouble(pd45.MaxStepSize(), gMaxStepSize, gDblTolerance, "Max. Step Size");
+   ExpectDouble(pd45.MinStepSize(), gMinStepSize, gDblTolerance, "Min. Step Size");
+   ExpectString(pd45.ErrorCriterion(), gErrorCriterion, "Error criterion");
+
+   WsfOrbitalDynamics dyn = mover.OrbitalDynamics();
+   ExpectInt(dyn.NumTerms(), 7, "Number of terms after modification attempt");
+end_execute

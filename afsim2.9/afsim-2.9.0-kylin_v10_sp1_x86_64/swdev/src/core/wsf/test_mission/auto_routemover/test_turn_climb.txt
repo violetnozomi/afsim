@@ -1,0 +1,60 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that the mover will climb while turning
+include_once ../auto_script/test_pass.txt
+script_variables
+   PassTestCount = 2;
+end_script_variables
+
+platform_type aircraft WSF_PLATFORM
+   icon 737
+   mover WSF_AIR_MOVER
+      default_radial_acceleration 4 g
+      maximum_climb_rate 100 m/s
+      maximum_flight_path_angle 45 deg
+      at_end_of_path remove
+   end_mover
+   script void on_platform_deleted()
+      extern void pass();
+      writeln("Altitude error: ", Altitude() - 5545);
+      if (MATH.Fabs(Altitude() - 5545) > 5.0)
+      {
+         writeln("Error too large.");
+      }
+      else
+      {
+         pass();
+      }
+   end_script
+end_platform_type
+
+platform p-climber aircraft
+   route
+      position 0n 0e altitude 0 m
+         speed 1000 kts
+         heading -90 deg
+      turn_right 90 deg
+         time 55.45 s
+         altitude 5545 m
+   end_route
+end_platform
+
+platform p-diver aircraft
+   route
+      position 0n 0e altitude 11090 m
+         speed 1000 kts
+         heading 90 deg
+      turn_left 90 deg
+         time 55.45 s
+         altitude 5545 m
+   end_route
+end_platform
+
+end_time 55.45 s

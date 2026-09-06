@@ -1,0 +1,200 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# test of space optical signature, with and without space movers.
+
+script_variables
+   bool sECLIPSE_EXIT_UPDATED = false;
+   bool sECLIPSE_ENTRY_UPDATED = true;
+end_script_variables
+
+script void OrbitDeterminationInitiated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack)
+   if (aPlatform.IsValid() && aLocalTrack.IsValid())
+   {
+      sECLIPSE_EXIT_UPDATED = true;
+   }
+end_script
+
+script double RI_AtNadir(WsfPlatform aPlatform, string aBand)
+   Vec3 platformLocWCS = aPlatform.LocationWCS();
+   Vec3 observerLoc = platformLocWCS;
+   observerLoc.Normalize();
+   observerLoc.Scale(6378000.0); // on surface, platform at zenith 
+   WsfGeoPoint gp = WsfGeoPoint.ConstructWCS(observerLoc);
+   double ri = aPlatform.RadiantIntensity(gp, 1.0, aBand);
+   if (aBand == "long")
+   {
+   }
+   return ri;   
+end_script
+
+script void EclipseEntry(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover)
+   if (aPlatform.IsValid() && aSpaceMover.IsValid())
+   {
+      sECLIPSE_ENTRY_UPDATED = true;
+   }
+end_script
+
+script void EclipseExit(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover)
+   if (aPlatform.IsValid() && aSpaceMover.IsValid())
+   {
+      sECLIPSE_EXIT_UPDATED = true;
+   }
+end_script
+
+script void SimulationComplete()
+   if (sECLIPSE_EXIT_UPDATED && sECLIPSE_ENTRY_UPDATED)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_script
+
+optical_signature SMALL_OPTICAL_RSO WSF_SPACE_OPTICAL_SIGNATURE 
+   surface sphere
+      radius 5.5 m                           # default = 1 meter      
+      
+      # common surface commands
+      reflectance 0.2                        # default = 1.0
+      minimum_temperature 173.15 kelvin      # default = 173.15 k
+      maximum_temperature 373.15 kelvin      # default = 373.15 k
+      temperature_change_rate 0.1 kelvin/sec # default = 0.1 k/sec
+   end_surface
+end_optical_signature
+
+platform leo-1 SAT
+   add mover WSF_SPACE_MOVER 
+    semi_major_axis  7000 km
+    eccentricity  2.1963196539371894e-07
+    
+    mean_anomaly  0.00000000000000000 rad
+    inclination 0.52359871234162936 rad
+    raan 3.3100512743732264 rad
+end_mover
+end_platform
+
+platform meo-1 SAT //WSF_PLATFORM
+   add mover WSF_SPACE_MOVER 
+      position 0n 120w altitude 20000 km heading 0 deg
+   end_mover
+end_platform
+
+platform_type SAT WSF_PLATFORM
+   script_variables 
+      int mEclipsedState = 0;
+      WsfPlatform mOrbitingPlatform;
+      double mRI = 0.0;
+      double mRII = 0.0;
+      double mRII_Last = 0.0;
+      bool once = true;
+   end_script_variables
+   
+   optical_signature SMALL_OPTICAL_RSO
+   
+   script void Initialize(string aRefPlatformName)
+      if (aRefPlatformName != "")
+      {
+         mOrbitingPlatform = WsfSimulation.FindPlatform(aRefPlatformName);
+      }
+      else
+      {
+         mOrbitingPlatform = PLATFORM;
+         PLATFORM.SetLocationECI(mOrbitingPlatform.LocationECI());
+         Vec3 oriECI = mOrbitingPlatform.OrientationECI();
+         PLATFORM.SetOrientationECI(oriECI[0], oriECI[1], oriECI[2]);
+      }
+      WsfSpaceMover sm = (WsfSpaceMover)mOrbitingPlatform.Mover();
+      mEclipsedState = sm.EclipsedState();
+      mRI = RI_AtNadir(mOrbitingPlatform, "long");
+   end_script
+   
+   execute at_interval_of 10 s
+      mRII = RI_AtNadir(PLATFORM, "long");
+      if (once)
+      {
+         once = false;
+         mRI = RI_AtNadir(PLATFORM, "visual");
+      }
+      WsfSpaceMover sm = (WsfSpaceMover)mOrbitingPlatform.Mover();
+      int eclipsedState = sm.EclipsedState();
+      double ri = RI_AtNadir(PLATFORM, "visual");
+      static double cSMALL = 1.0;
+      static double cLARGE = 200.0;
+      bool transitionToShadow = ((ri < cSMALL) && (mRI > cLARGE));
+      bool transitionToIlluminated = ((mRI < cSMALL) && (ri > cLARGE));
+      if (transitionToShadow || transitionToIlluminated)
+      {
+         static double cRII_Minimum_Difference = 1000.0;
+         if (transitionToShadow)
+         {
+            writeln(TIME_NOW, ": ", PLATFORM.Name(), " Transition to shadow");
+            if ((mEclipsedState != 0) || (eclipsedState == 0))
+            {
+               writeln("-FAIL- (platform illuminated but small visual radiant intensity (in shadow))");
+            }
+            if ((mRII - mRII_Last) < cRII_Minimum_Difference)
+            {
+               writeln("-FAIL- (infrared radiant intensity not substantially larger after illumination period)");
+               writeln(mRII, " ", mRII_Last);
+            }
+         }         
+         if (transitionToIlluminated)
+         {
+            writeln(TIME_NOW, ": ", PLATFORM.Name(), " Transition to illuminated");
+            if ((mEclipsedState == 0) || (eclipsedState == 2))
+            {
+               writeln("-FAIL- (platform in shadow but large radiant intensity (illuminated))");
+            } 
+            if ((mRII_Last - mRII) < cRII_Minimum_Difference)
+            {
+               writeln("-FAIL- (infrared radiant intensity not substantially smaller after eclipse period)");
+            }
+         }
+         mRII_Last = mRII;
+         mEclipsedState = eclipsedState; 
+      }
+      mRI = ri;
+   end_execute
+end_platform_type
+
+platform_type SAT_NO_MOVER SAT
+   execute at_interval_of 1 s
+      PLATFORM.SetLocationECI(mOrbitingPlatform.LocationECI());
+      Vec3 velECI = mOrbitingPlatform.VelocityECI();
+      Vec3 oriECI = mOrbitingPlatform.OrientationECI();
+      PLATFORM.SetOrientationECI(oriECI[0], oriECI[1], oriECI[2]);
+   end_execute
+end_platform_type
+
+script void Create(string aName, string aRefPlatformName)
+      WsfPlatform p = WsfSimulation.CreatePlatform("SAT_NO_MOVER");      
+      WsfPlatform addedPlatform = WsfSimulation.AddPlatform(p, aName);
+      addedPlatform->Initialize(aRefPlatformName);
+end_script
+
+execute at_time 1 s absolute
+    Create("meo", "meo-1");
+    Create("leo", "leo-1");
+    WsfSimulation.FindPlatform("leo-1")->Initialize("");
+    WsfSimulation.FindPlatform("meo-1")->Initialize("");
+end_execute
+
+observer
+   enable ECLIPSE_ENTRY EclipseEntry
+   enable ECLIPSE_EXIT EclipseExit
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+
+start_date nov 30 2020
+start_time 08:00:00
+end_time 5000 s 

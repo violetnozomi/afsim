@@ -1,0 +1,254 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test script access to the max prioritized targets of the SA Processor:
+#  - Verify that max_prioritized_targets defaults to zero
+#  - Verify that max_prioritized_targets can be retrieved and modified
+#  - Verify that the limit is being properly applied
+#
+include_once ../auto_script/utility_test_functions.txt
+
+end_time 30 sec
+
+script_variables
+   bool allTestsPassed = true;         // any failure turns it false
+   bool maxTargetsReached = false;
+end_script_variables
+
+# ****************************************************************************
+# Define the SA Processor used for testing
+# ****************************************************************************
+
+processor SA_PROCESSOR_TEST WSF_SA_PROCESSOR
+   on
+   update_interval                             	1.0 sec
+   perceived_item_calculation_update_interval  	1.00 sec
+   prioritized_item_calculation_update_interval	1.00 sec
+
+end_processor
+
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   icon F-18E
+   indestructible
+   commander SELF
+   command_chain IFLITE  SELF
+   command_chain ELEMENT SELF
+
+   mover WSF_AIR_MOVER
+   end_mover
+
+   processor sa-proc SA_PROCESSOR_TEST
+      on
+      mission_task  SWEEP
+   end_processor
+
+end_platform_type
+# ****************************************************************************
+# Define the platform instances
+# ****************************************************************************
+
+platform platform-1 TEST_PLATFORM
+   side red
+
+   route
+      position 36:27:36.87n 115:15:54.71w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform platform-1_2 TEST_PLATFORM
+   side red
+
+   route
+      position 36:27:36.87n 115:15:53.72w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform platform-1_3 TEST_PLATFORM
+   side red
+
+   route
+      position 36:27:36.87n 115:15:56.73w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform platform-1_4 TEST_PLATFORM
+   side red
+
+   route
+      position 36:27:36.87n 115:15:55.79w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+# ****************************************************************************
+# Begin platforms doing the detection
+# ****************************************************************************
+
+
+# This platform uses default max prioritized targets at startup and verifies target list size is unlimited (reaches 4)
+platform platform-2_1 TEST_PLATFORM
+   side blue
+
+   track platform platform-1 end_track
+   track platform platform-1_2 end_track
+   track platform platform-1_3 end_track
+   track platform platform-1_4 end_track
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+   edit processor sa-proc
+      enemy_side red
+   end_processor
+
+   # Verify ability to use max prioritized targets default at runtime
+   execute at_time 5 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      Array<WsfSA_EntityPerception> targetEntityList = saProc.PrioritizedTargetEntities();
+      string errStr = Name() + ": Count of "+ (string)targetEntityList.Size()+" Exceeded max target possible count of 4!";
+      allTestsPassed = AssertLessThanOrEqualsMessage(targetEntityList.Size(), 4, errStr) && allTestsPassed;
+      int temp = targetEntityList.Size();
+       if(assertEquals(targetEntityList.Size(), 4))
+       {
+           maxTargetsReached = true;
+       }
+   end_execute
+
+end_platform
+
+platform platform-2_2 TEST_PLATFORM
+    side blue
+
+    track platform platform-1 end_track
+    track platform platform-1_2 end_track
+    track platform platform-1_3 end_track
+    track platform platform-1_4 end_track
+
+    route
+      position 36:27:31n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+    end_route
+
+    edit processor sa-proc
+        max_prioritized_targets 2
+        enemy_side red
+    end_processor
+
+    # Verify ability to override max prioritized targets defaults at runtime and limit to X
+    execute at_time 10 sec absolute
+        WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+        Array<WsfSA_EntityPerception> targetEntityList = saProc.PrioritizedTargetEntities();
+        string errStr = Name() + ": Count of "+ (string)targetEntityList.Size()+" Exceeded max size 2!";
+        allTestsPassed = AssertTrueMessage(assertLessThanOrEquals(targetEntityList.Size(), 2), errStr) && allTestsPassed;
+    end_execute
+
+end_platform
+
+
+platform platform-2_3 TEST_PLATFORM
+    side blue
+    track platform platform-1 end_track
+    track platform platform-1_2 end_track
+    track platform platform-1_3 end_track
+    track platform platform-1_4 end_track
+
+    route
+      position 36:27:32n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+    end_route
+
+    edit processor sa-proc
+      max_prioritized_targets 3
+      enemy_side red
+    end_processor
+
+    # Verify ability to override max prioritized targets defaults at runtime and limit to X
+    execute at_time 15 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      Array<WsfSA_EntityPerception> targetEntityList = saProc.PrioritizedTargetEntities();
+      string errStr = Name() + ": Count of "+ (string)targetEntityList.Size()+" Exceeded max size 3!";
+      allTestsPassed = AssertTrueMessage(assertLessThanOrEquals(targetEntityList.Size(), 3), errStr) && allTestsPassed;
+    end_execute
+
+end_platform
+
+platform platform-2_4 TEST_PLATFORM
+    side blue
+    track platform platform-1 end_track
+    track platform platform-1_2 end_track
+    track platform platform-1_3 end_track
+    track platform platform-1_4 end_track
+
+    route
+      position 36:27:33n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+    end_route
+
+    edit processor sa-proc
+      max_prioritized_targets 4
+      enemy_side red
+    end_processor
+
+    # Verify ability to override max prioritized targets defaults at runtime and limit to X
+    execute at_time 20 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      Array<WsfSA_EntityPerception> targetEntityList = saProc.PrioritizedTargetEntities();
+      string errStr = Name() + ": Count of "+ (string)targetEntityList.Size()+" Exceeded max size 4!";
+      allTestsPassed = AssertTrueMessage(assertLessThanOrEquals(targetEntityList.Size(), 4), errStr) && allTestsPassed;
+    end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed && maxTargetsReached)
+   {
+      writePass(true);
+   }
+end_script

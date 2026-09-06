@@ -1,0 +1,91 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+	double expectedValue = 200;
+	double actualValue = 0;
+	bool debug = true;
+	double threshold = 10.0;
+end_script_variables
+
+platform helicopter WSF_PLATFORM
+	add mover WSF_ROTORCRAFT_MOVER
+		mode ground_speed_limit
+			maximum_ground_speed 200 m/s
+		end_mode
+
+		start_mode ground_speed_limit
+		desired_heading 90 deg
+
+		route
+			position 34:10:18.42n 103:57:32.41w altitude 10000.00 ft heading 90 deg speed 150 m/s
+			position 34:10:18.42n 100:57:32.41w altitude 10000.00 ft heading 90 deg speed 150 m/s
+		end_route
+	end_mover
+
+	script_variables
+		bool speedIncreaseCommanded = false;
+	end_script_variables
+
+	add processor thinker WSF_SCRIPT_PROCESSOR
+		update_interval 1.0 seconds
+		execute at_time 1.0 seconds absolute
+			PLATFORM.Mover().SetMode("ground_speed_limit");
+		end_execute
+		on_update
+			extern bool speedIncreaseCommanded;
+			extern double actualValue;
+			extern double expectedValue;
+			extern double threshold;
+			extern bool debug;
+
+			if (debug)
+			{
+				writeln("");
+				writeln("TIME: ", TIME_NOW);
+				writeln("Current speed: ", PLATFORM.Speed());
+				writeln("Current ground speed: ", PLATFORM.GroundSpeed());
+				writeln("");
+			}
+
+			if ((!speedIncreaseCommanded) && (TIME_NOW > 10.0))
+			{
+				PLATFORM.GoToSpeed(350, 50);
+				speedIncreaseCommanded = true;
+				if (debug)
+				{
+					writeln("");
+					writeln("-------------------");
+					writeln("Commanded Speed increase.");
+					writeln("");
+					writeln("");
+				}
+			}
+
+			if (TIME_NOW > 30.0)
+			{
+				actualValue = PLATFORM.GroundSpeed();
+				if (Math.Fabs(actualValue - expectedValue) > threshold)
+				{
+					writeln("-FAIL- actual ground speed exceeded limit.");
+					if (debug)
+					{
+						writeln("TIME_NOW: ", TIME_NOW);
+						writeln("Ground speed: ", actualValue);
+						writeln("Expected ground speed: ", expectedValue);
+						writeln("Ground speed limit: 200");
+					}
+				}
+				WsfSimulation.Terminate();
+			}
+		end_on_update
+	end_processor
+end_platform
+
+end_time 40 sec

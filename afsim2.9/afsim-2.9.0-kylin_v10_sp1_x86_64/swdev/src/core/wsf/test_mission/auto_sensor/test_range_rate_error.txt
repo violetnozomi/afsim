@@ -1,0 +1,103 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# ==================================================================================================
+# Test sensor script "Range Rate Error Sigma"
+# ==================================================================================================
+
+
+radar_signature AIRCRAFT_RADAR_SIG
+   constant 1 m^2
+end_radar_signature
+
+platform aircraft WSF_PLATFORM
+   side blue
+   icon Wedge
+   radar_signature AIRCRAFT_RADAR_SIG
+
+   add mover WSF_AIR_MOVER
+   end_mover
+
+   route
+     position 00:40n 0e altitude 30000 ft heading 180 deg speed 10 m/s
+   end_route
+end_platform
+
+platform radar WSF_PLATFORM
+   side red
+   position 0n 0e altitude 1 m agl
+   icon Ground_Radar
+   add sensor radar WSF_RADAR_SENSOR
+      on
+      ignore_same_side
+      frame_time 0.1 sec
+      antenna_height 10 m
+      scan_mode azimuth_and_elevation
+
+      doppler_resolution 5 m/s
+      transmitter
+         # No antenna pattern - assume unitary gain.
+         power             90 dbw
+         frequency         300 mhz                  # wavelength = 1m
+      end_transmitter
+      receiver
+         bandwidth         100 khz
+         noise_power       -150 dbw
+      end_receiver
+      
+      compute_measurement_errors true
+      detection_threshold  10 db
+      reports_range
+      reports_range_rate
+      reports_signal_to_noise
+      processor track_mgr
+   end_sensor
+
+   add processor track_mgr WSF_TRACK_PROCESSOR
+   end_processor
+end_platform
+   
+script_variables
+   int range_rate_error_failures = 0;
+   bool pass = true;
+end_script_variables
+   
+script void SensorTrackUpdated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+   double dopplerResolution = 5.0;
+   double n = 1.0;
+   double signalToNoise = aTrack.SignalToNoise();
+   double temp = Math.Sqrt(2.0 * n * signalToNoise);
+   
+   double calculatedRangeRateError = dopplerResolution / temp;
+   double rangeRateError = aTrack.RangeRateErrorSigma();
+   
+   if(calculatedRangeRateError != rangeRateError)
+   {
+      range_rate_error_failures = range_rate_error_failures + 1;
+   }
+end_script 
+
+script void SimulationComplete()
+   if(range_rate_error_failures > 0)
+   {
+      writeln("-FAIL-");
+      pass = false;
+   }
+   if(pass)
+   {
+      writeln("-PASS-");
+   }  
+end_script
+
+observer
+   enable SENSOR_TRACK_UPDATED
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 30 min

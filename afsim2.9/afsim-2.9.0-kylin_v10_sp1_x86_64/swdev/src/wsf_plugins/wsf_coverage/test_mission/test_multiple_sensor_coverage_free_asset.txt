@@ -1,0 +1,95 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once utils.txt
+
+end_time 5 min
+
+# platform for free asset
+platform test_asset WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      revolutions_per_day 16
+      inclination 50 deg
+      eccentricity 0
+      raan 70 deg
+      true_anomaly 350 deg
+   end_mover 
+   
+   add sensor first WSF_GEOMETRIC_SENSOR
+      on
+      reports_location
+      azimuth_field_of_view 0 deg 180 deg
+      elevation_field_of_view -90 deg -60 deg 
+      frame_time 1 s
+      maximum_range 500 km
+   end_sensor
+   
+   add sensor second WSF_GEOMETRIC_SENSOR
+      on
+      reports_location
+      azimuth_field_of_view -180 deg 0 deg
+      elevation_field_of_view -90 deg -60 deg
+      frame_time 1 s
+      maximum_range 500 km
+   end_sensor
+end_platform
+
+# grid with a single point at 0n 0w
+grid test_grid WSF_LAT_LON_GRID
+   latitude_span 1s 1n
+   latitude_spacing 5 deg
+   longitude_span 1w 1e
+   longitude_spacing 5 deg
+   origin 0n 0w
+   asset WSF_PLATFORM none
+end_grid
+
+# coverage
+coverage test_coverage WSF_SENSOR_COVERAGE
+   grid test_grid
+   output_dir ./multisensorfreeasset
+   
+   assets 
+      platform test_asset first
+      platform test_asset second
+   end_assets
+   
+   moe simple WSF_SIMPLE_COVERAGE_MOE
+      output data end_output
+   end_moe
+end_coverage
+
+script_variables
+   int gExpectedGridPointCount = 1;
+end_script_variables
+
+script void MOE_DataTestAction(string aLatitude,
+                               string aLongitude,
+                               string aAltitude,
+                               string aID,
+                               string aValue)
+   ExpectDouble((double)aValue, 1.0, 1.0e-6, "Simple coverage multi-sensor free asset");
+end_script
+
+script void RunTests()
+   Path path = Path.GetWorkingDirectory();
+   path.Join("multisensorfreeasset");
+   
+   path.Join("test_coverage_simple_data.csv");
+   CheckDataFile(path, "MOE data", "MOE_DataTestAction", gExpectedGridPointCount);
+   path.Up();
+   
+   FinalAssessment();
+   
+   RemoveCoverageOutputDir(path);
+end_script
+
+observer
+   enable SIMULATION_COMPLETE RunTests
+end_observer

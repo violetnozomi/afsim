@@ -1,0 +1,40 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test for start_date and start_time commands, and script methods in WsfDateTime
+
+start_date aug 14 2019
+start_time 09:23:42
+
+script_variables
+   Calendar gStart;
+end_script_variables
+
+on_initialize
+   gStart = WsfDateTime.StartTime();
+   bool ok = (gStart.Month() == 8);
+   ok = ok && (gStart.Day() == 14);
+   ok = ok && (gStart.Year() == 2019);
+   ok = ok && (gStart.Hour() == 9);
+   ok = ok && (gStart.Minute() == 23);
+   ok = ok && (gStart.Second() == 42);
+   if (!ok) { writeln("-FAIL- Unexpected start time"); }
+end_on_initialize
+
+execute at_time 2 days absolute
+   Calendar current = WsfDateTime.CurrentTime();
+   Calendar advance = gStart;
+   advance.AdvanceTime(TIME_NOW);
+   if (current.TimeSince(advance) != 0) { writeln("-FAIL- Unexpected current time"); }
+
+   Calendar current2 = WsfDateTime.SimulationTime(TIME_NOW);
+   if (current2.TimeSince(advance) != 0) { writeln("-FAIL- Unexpected simulation time"); }
+end_execute
+
+end_time 2 days

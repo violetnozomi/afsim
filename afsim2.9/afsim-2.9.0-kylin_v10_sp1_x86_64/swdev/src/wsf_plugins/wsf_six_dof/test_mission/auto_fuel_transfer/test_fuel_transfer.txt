@@ -1,0 +1,573 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This is a test to confirm the P6DOF fuel transfer and tank selection script functions
+# --------------------------------------------------------------------------------------------------
+
+# test_feature wsf_p6dof
+end_time 1300 sec
+
+# --------------------------------------------------------------------------------------------------
+
+include_once ../platforms/fa-lgt_external-tanks.txt
+
+script_variables
+   bool passed = true;
+   bool debug = false;
+end_script_variables
+
+script bool AddFuelTransfer(WsfPlatform aPlatform, string aTransferName, string aSourceTankName, string aTargetTankName)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      return p6dofMover.AddFuelTransfer(aTransferName, aSourceTankName, aTargetTankName);
+   }
+   return false;
+end_script
+
+script bool RemoveFuelTransfer(WsfPlatform aPlatform, string aTransferName)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      return p6dofMover.RemoveFuelTransfer(aTransferName);
+   }
+   return false;
+end_script
+
+script bool SetFuelFeed(WsfPlatform aPlatform, string aEngineName, string aTankName)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      return p6dofMover.SetFuelFeed(aEngineName, aTankName);
+   }
+   return false;
+end_script
+
+script bool SetFuelFeedAllEngines(WsfPlatform aPlatform, string aTankName)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      return p6dofMover.SetFuelFeedAllEngines(aTankName);
+   }
+   return false;
+end_script
+
+script void DropExternalTanks(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      p6dofMover.ActivateSequencer("DropExternalTanks");
+   }
+end_script
+
+script bool CheckFuelData(WsfPlatform aPlatform,
+                          double      aTargetMainTank_lbs,
+                          double      aTargetLftTank_lbs,
+                          double      aTargetRgtTank_lbs)
+
+   double mainTank_lbs  = 0.0;
+   double leftTank_lbs  = 0.0;
+   double rightTank_lbs = 0.0;
+
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+
+      mainTank_lbs  = p6dofMover.GetFuelInTank("MainFuelTank") * Math.LB_PER_KG();
+      leftTank_lbs  = p6dofMover.GetFuelInTank("TankLft.MainFuelTank") * Math.LB_PER_KG();
+      rightTank_lbs = p6dofMover.GetFuelInTank("TankRgt.MainFuelTank") * Math.LB_PER_KG();
+   }
+   else
+   {
+      return false;
+   }                          
+      
+   double deltaMainTank_lbs = MATH.Fabs(aTargetMainTank_lbs-mainTank_lbs);
+   double deltaLftTank_lbs  = MATH.Fabs(aTargetLftTank_lbs-leftTank_lbs);
+   double deltaRgtTank_lbs  = MATH.Fabs(aTargetRgtTank_lbs-rightTank_lbs);
+   
+   // Fuel quantity should be within 10 gallons (about 60 lbs)
+   double toleranceFuelRemaining_lbs = 60.0;
+
+   bool checkPassed = true;
+
+   if (debug)
+   {
+      writeln("-FAIL- --------------------------------------------------------------------");
+      toleranceFuelRemaining_lbs *= -1.0;
+   }
+   
+   if (deltaMainTank_lbs > toleranceFuelRemaining_lbs)
+   {
+      checkPassed  = false;
+      writeln("-FAIL- Main Fuel Qty = ", mainTank_lbs, " lbs is not within tolerance of (", toleranceFuelRemaining_lbs, ") from the target of ", aTargetMainTank_lbs, " lbs at time = ", TIME_NOW, " sec");
+   }
+
+   if (deltaLftTank_lbs > toleranceFuelRemaining_lbs)
+   {
+      checkPassed  = false;
+      writeln("-FAIL- Lft Fuel Qty  = ", leftTank_lbs, " lbs is not within tolerance of (", toleranceFuelRemaining_lbs, ") from the target of ", aTargetLftTank_lbs, " lbs at time = ", TIME_NOW, " sec");
+   }
+
+   if (deltaRgtTank_lbs > toleranceFuelRemaining_lbs)
+   {
+      checkPassed  = false;
+      writeln("-FAIL- Rgt Fuel Qty  = ", rightTank_lbs, " lbs is not within tolerance of (", toleranceFuelRemaining_lbs, ") from the target of ", aTargetRgtTank_lbs, " lbs at time = ", TIME_NOW, " sec");
+   }
+   
+   return checkPassed;
+
+end_script
+
+# --------------------------------------------------------------------------------------------------
+
+platform RB_AIRCRAFT FA-LGT-EXTERNAL-TANKS_RB6
+   side  blue
+
+   route
+      position   21.000n   158.000w  altitude 2000.0 ft  speed 450.0 kts
+      position   21.000n   157.000w  altitude 2000.0 ft  speed 450.0 kts
+      position   21.000n   156.000w  altitude 2000.0 ft  speed 450.0 kts
+   end_route
+
+   // The initial condition is both external tanks are transfering fuel to
+   // the main tank and the engine is drawing fuel from the main tank
+
+   // Take some initial data after level flight. The main tank will be kept
+   // full while both external tanks will stay at the same level.      
+   execute at_time 100.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 2267.59, 2267.59);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // Stop the transfer of fuel from the left tank to the main tank
+   execute at_time 101.0 sec absolute
+      bool result = RemoveFuelTransfer(PLATFORM, "LeftTankToMainXfer");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Stop transfer of fuel from left to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+
+   // We should see more fuel in the left tank than the right tank
+   execute at_time 200.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 2306.1, 2121.6);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Setup a new transfer from the left tank to the main tank
+   execute at_time 201.0 sec absolute
+      bool result = AddFuelTransfer(PLATFORM, "NewLftToMainXfer", "TankLft.MainFuelTank", "MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Restore transfer of fuel from left to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+   
+   // We should see the left tank and right tank being reduced at the
+   // same rate, while the main tank is kept topped-off
+   execute at_time 300.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 2209.7, 2031.1);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Setup an additional transfer from the left tank to the right tank.
+   // This will quickly "top-off" the right tank and then continue to feed
+   // the main tank, keeping it topped-off as well. The right tank will
+   // also feed the main tank.
+   execute at_time 301.0 sec absolute
+      bool result = AddFuelTransfer(PLATFORM, "LftToRgtXfer", "TankLft.MainFuelTank", "TankRgt.MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Transfer fuel from left to right at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+   
+   // We should see the right tank and main tank kept full, while left
+   // tank is reduced
+   execute at_time 400.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1651.5, 2400.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Stop the transfer of fuel from the right tank to the main tank
+   execute at_time 401.0 sec absolute
+      bool result = RemoveFuelTransfer(PLATFORM, "RightTankToMainXfer");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Stop transfer of fuel from right to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+
+   // We should see the right tank and main tank kept full, while left
+   // tank is reduced
+   execute at_time 500.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1457.6, 2400.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // Stop the transfer of fuel from the left tank to the main tank. This
+   // results in no fuel being transfered to the main tank while the left
+   // tank continues to keep the right tank filled, but the right tank is
+   // being constant. 
+   execute at_time 501.0 sec absolute
+      bool result = RemoveFuelTransfer(PLATFORM, "NewLftToMainXfer");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Stop transfer of fuel from left to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+
+   // We should see the left and right tanks remain constant while the
+   // main tank is reduced
+   execute at_time 600.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 6810.8, 1455.7, 2400.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Set up transfer between the right tank and the main tank. The main
+   // tank should be quickly topped-off.   
+   execute at_time 601.0 sec absolute
+      bool result = AddFuelTransfer(PLATFORM, "NewRgtToMainXfer", "TankRgt.MainFuelTank", "MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Restore transfer of fuel from right to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+   
+   // We should see the main tank fully filled by the right tank, while
+   // the left tank keeps the right tank filled. The overall result is
+   // that the left tank is reduced.
+   execute at_time 700.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1073.5, 2399.9);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // Stop the transfer from the left tank to the right tank
+   execute at_time 701.0 sec absolute
+      bool result = RemoveFuelTransfer(PLATFORM, "LftToRgtXfer");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Stop transfer of fuel from left to right at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute
+   
+   // We should see the main tank kept fully filled by the right tank,
+   // while left tank stays constant. The overall result is that
+   // the right tank is reduced.
+   execute at_time 800.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1071.6, 2208.8);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // Set the engine to draw fuel directly from the left tank
+   execute at_time 801.0 sec absolute
+      bool result = SetFuelFeed(PLATFORM, "Engine_1", "TankLft.MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Engine now drawing fuel directly from left tank at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+   
+   // We should see the main tank and right tank remain constant,
+   // while the engine draws fuel from the left tank, which is reduced.
+   execute at_time 900.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1071.6, 2017.2);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // We drop the external tanks. This will cut the supply of fuel to
+   // the engine, making the engine flame-out, causing the aircraft
+   // to slow down.
+   execute at_time 901.0 sec absolute
+      DropExternalTanks(PLATFORM);
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" DropExternalTanks at time = ", TIME_NOW);
+      }
+   end_execute   
+
+   // We should see the fuel levels for the two external tanks be zero.
+   // This is the value as perceived from the platform. The actual fuel
+   // levels in the dropped tanks will remain non-zero. The engine
+   // is starved for fuel, trying to draw from the dropped tank. It flames
+   // out and the aircrcraft's speed slows -- it is no longer able to
+   // hold its speed of 450 knots.
+   execute at_time 950.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 6919.5, 0.0, 0.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Switch to the main tank. The engine will begin producing thrust again.
+   execute at_time 951.0 sec absolute
+      bool result = SetFuelFeed(PLATFORM, "Engine_1", "MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Switch to main tank at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+
+   // We should see the fuel levels for the two external tanks 
+   // continue to be zero. The main tank will reduce and the aircraft
+   // will have regained its speed back to 450 knots.   
+   execute at_time 1200.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 6509.3, 0.0, 0.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+       
+   script void on_platform_deleted()
+      if(passed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+   end_script   
+   
+end_platform
+
+# --------------------------------------------------------------------------------------------------
+
+platform PM_AIRCRAFT FA-LGT-EXTERNAL-TANKS_PM6
+   side  blue
+
+   route
+      position   21.000n   158.000w  altitude 2000.0 ft  speed 450.0 kts
+      position   21.000n   157.000w  altitude 2000.0 ft  speed 450.0 kts
+      position   21.000n   156.000w  altitude 2000.0 ft  speed 450.0 kts
+   end_route
+
+   // The initial condition is both external tanks are transfering fuel to
+   // the main tank and the engine is drawing fuel from the main tank
+
+   // Take some initial data after level flight. The main tank will be kept
+   // full while both external tanks will stay at the same level.      
+   execute at_time 100.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 2267.59, 2267.59);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // Stop the transfer of fuel from the left tank to the main tank
+   execute at_time 101.0 sec absolute
+      bool result = RemoveFuelTransfer(PLATFORM, "LeftTankToMainXfer");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Stop transfer of fuel from left to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+
+   // We should see more fuel in the left tank than the right tank
+   execute at_time 200.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 2306.1, 2121.6);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Setup a new transfer from the left tank to the main tank
+   execute at_time 201.0 sec absolute
+      bool result = AddFuelTransfer(PLATFORM, "NewLftToMainXfer", "TankLft.MainFuelTank", "MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Restore transfer of fuel from left to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+   
+   // We should see the left tank and right tank being reduced at the
+   // same rate, while the main tank is kept topped-off
+   execute at_time 300.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 2209.7, 2031.1);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Setup an additional transfer from the left tank to the right tank.
+   // This will quickly "top-off" the right tank and then continue to feed
+   // the main tank, keeping it topped-off as well. The right tank will
+   // also feed the main tank.
+   execute at_time 301.0 sec absolute
+      bool result = AddFuelTransfer(PLATFORM, "LftToRgtXfer", "TankLft.MainFuelTank", "TankRgt.MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Transfer fuel from left to right at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+   
+   // We should see the right tank and main tank kept full, while left
+   // tank is reduced
+   execute at_time 400.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1744.5, 2400.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Stop the transfer of fuel from the right tank to the main tank
+   execute at_time 401.0 sec absolute
+      bool result = RemoveFuelTransfer(PLATFORM, "RightTankToMainXfer");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Stop transfer of fuel from right to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+
+   // We should see the right tank and main tank kept full, while left
+   // tank is reduced
+   execute at_time 500.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1582.72, 2400.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // Stop the transfer of fuel from the left tank to the main tank. This
+   // results in no fuel being transfered to the main tank while the left
+   // tank continues to keep the right tank filled, but the right tank is
+   // being constant. 
+   execute at_time 501.0 sec absolute
+      bool result = RemoveFuelTransfer(PLATFORM, "NewLftToMainXfer");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Stop transfer of fuel from left to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+
+   // We should see the left and right tanks remain constant while the
+   // main tank is reduced
+   execute at_time 600.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 6810.8, 1581.1, 2400.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Set up transfer between the right tank and the main tank. The main
+   // tank should be quickly topped-off.   
+   execute at_time 601.0 sec absolute
+      bool result = AddFuelTransfer(PLATFORM, "NewRgtToMainXfer", "TankRgt.MainFuelTank", "MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Restore transfer of fuel from right to main at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+   
+   // We should see the main tank fully filled by the right tank, while
+   // the left tank keeps the right tank filled. The overall result is
+   // that the left tank is reduced.
+   execute at_time 700.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1259.51, 2399.9);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // Stop the transfer from the left tank to the right tank
+   execute at_time 701.0 sec absolute
+      bool result = RemoveFuelTransfer(PLATFORM, "LftToRgtXfer");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Stop transfer of fuel from left to right at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute
+   
+   // We should see the main tank kept fully filled by the right tank,
+   // while left tank stays constant. The overall result is that
+   // the right tank is reduced.
+   execute at_time 800.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1257.89, 2208.8);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // Set the engine to draw fuel directly from the left tank
+   execute at_time 801.0 sec absolute
+      bool result = SetFuelFeed(PLATFORM, "Engine_1", "TankLft.MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Engine now drawing fuel directly from left tank at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+   
+   // We should see the main tank and right tank remain constant,
+   // while the engine draws fuel from the left tank, which is reduced.
+   execute at_time 900.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 7000.0, 1257.89, 2078.6);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+   
+   // We drop the external tanks. This will cut the supply of fuel to
+   // the engine, making the engine flame-out, causing the aircraft
+   // to slow down.
+   execute at_time 901.0 sec absolute
+      DropExternalTanks(PLATFORM);
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" DropExternalTanks at time = ", TIME_NOW);
+      }
+   end_execute   
+
+   // We should see the fuel levels for the two external tanks be zero.
+   // This is the value as perceived from the platform. The actual fuel
+   // levels in the dropped tanks will remain non-zero. The engine
+   // is starved for fuel, trying to draw from the dropped tank. It flames
+   // out and the aircrcraft's speed slows -- it is no longer able to
+   // hold its speed of 450 knots.
+   execute at_time 950.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 6919.5, 0.0, 0.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+   // Switch to the main tank. The engine will begin producing thrust again.
+   execute at_time 951.0 sec absolute
+      bool result = SetFuelFeed(PLATFORM, "Engine_1", "MainFuelTank");
+      if (debug)
+      {
+         writeln("-FAIL- --------------------------------------------------------------------");
+         writeln(" Switch to main tank at time = ", TIME_NOW, " with result = ", result);
+      }
+   end_execute   
+
+   // We should see the fuel levels for the two external tanks 
+   // continue to be zero. The main tank will reduce and the aircraft
+   // will have regained its speed back to 450 knots.   
+   execute at_time 1200.0 sec absolute   
+      bool checkPassed = CheckFuelData(PLATFORM, 6509.3, 0.0, 0.0);
+      if(!checkPassed) { passed = false; }       
+   end_execute
+
+       
+   script void on_platform_deleted()
+      if(passed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+   end_script   
+   
+end_platform

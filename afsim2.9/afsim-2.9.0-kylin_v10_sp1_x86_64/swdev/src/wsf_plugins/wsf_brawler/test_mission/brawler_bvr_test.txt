@@ -1,0 +1,380 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+file_path .
+file_path ../data
+
+end_time 10 minute
+
+#random_seed 527501
+
+/*
+event_output
+   file   test_brawler_bvr.evt
+   enable BTREE_NODE_CHILDREN
+   enable BTREE_NODE_EXEC
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+end_event_output
+
+dis_interface
+   record                      test_brawler_bvr.rep
+   mover_update_timer          1.0 sec
+   entity_position_threshold   0.03 m
+end_dis_interface
+*/
+
+#platform_availability 
+#   name blue_1      availability 1
+#   name blue_cmdr   availability 0
+#   name red_1       availability 0
+#end_platform_availability
+
+
+include_once aim-9x.txt   #TODO - give it limited IR seekers, not perfect trackers
+include_once gun.txt
+
+
+# BRAWLER Behaviors
+# "CONTEXT-FREE" Maneuvers
+include_once behavior_alt3111_straight_level_max_speed.txt
+include_once behavior_alt3121_straight_level.txt
+
+include_once behavior_alt3211_route_maneuver.txt
+
+# Offensive 1v1 Maneuvers
+include_once behavior_alt3411_straight_flight.txt
+include_once behavior_alt3421_roll_+15_pull.txt
+include_once behavior_alt3431_roll-15_pull.txt
+include_once behavior_alt3441_tail_attack.txt
+include_once behavior_alt3451_pull_gmax_sust.txt
+include_once behavior_alt3471_slow_current_dir.txt
+include_once behavior_alt3472_slow_pull_right.txt
+include_once behavior_alt3473_slow_pull_left.txt
+include_once behavior_alt3474_slow_pull_current_plane.txt
+
+# Defensive 1v1 Maneuvers
+include_once behavior_alt3511_break_right.txt
+include_once behavior_alt3531_break_left.txt
+include_once behavior_alt3551_run_away.txt
+include_once behavior_alt3561_force_overshoot.txt
+include_once behavior_alt3581_negative_velocity.txt
+
+#direct maneuver
+include_once behavior_alt3611_fly_vector.txt
+
+#missile aiming maneuever
+include_once behavior_alt3841_aim_missile_typ4.txt
+
+include_once behavior_alt3911_evade_missile.txt 
+include_once behavior_alt3A11_low_speed_recover.txt 
+include_once behavior_alt3A21_low_speed_recover_right45.txt 
+include_once behavior_alt3A31_low_speed_recover_left45.txt
+include_once behavior_alt3B11_illuminate.txt
+include_once behavior_alt3G11_barrel_roll.txt
+
+# Weapon employment decision alternatives
+include_once behavior_weapon_decision_gun.txt
+include_once behavior_weapon_decision_missile.txt
+
+include_once behavior_alt1514_point.txt
+include_once behavior_alt1516_bvr_end_run_left.txt
+include_once behavior_alt1517_bvr_end_run_right.txt
+include_once behavior_pilot_posture.txt
+
+
+#include_once behavior_debug_data.txt
+
+# A brawler agent must have the following defined:
+# 1. A mover
+# 2. A WSF_BRAWLER_PROCESSOR
+# 3. A WSF_PERCEPTION_PROCESSOR
+# 4. A WSF_THREAT_PROCESSOR
+platform_type  BRAWLER_FIGHTER  WSF_PLATFORM
+
+   indestructible
+
+   mover WSF_BRAWLER_MOVER
+      aero_file ../data/ACFT_BD.FXW
+     #draw_projection
+   end_mover
+
+   weapon srm AIM-9X
+      quantity 2
+   end_weapon
+   
+   weapon gun BULLET
+      quantity 12   #each "bullet" represents a 1-sec burst of gunfire
+   end_weapon
+
+   comm datalink WSF_COMM_TRANSCEIVER
+      network_name blue_net
+      internal_link data_mgr
+      internal_link task_mgr
+      internal_link perception
+   end_comm
+
+   sensor simple_sensor WSF_GEOMETRIC_SENSOR
+      on
+      #azimuth_field_of_view   -45.0 degrees  45.0 degrees
+      #elevation_field_of_view  -20.0 degrees   20.0 degrees
+      azimuth_field_of_view   -180.0 degrees  180.0 degrees
+      elevation_field_of_view  -90.0 degrees   90.0 degrees
+      maximum_range 150 km
+      frame_time    0.5 sec
+      reports_location
+      reports_velocity
+      reports_range
+      reports_iff
+      track_quality 1.0
+      internal_link data_mgr
+      ignore_same_side
+   end_sensor
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval  60 sec
+      report_interval 1.0 sec
+      report_to commander via datalink
+      fused_track_reporting on
+      raw_track_reporting off
+   end_processor
+   
+   processor perception WSF_PERCEPTION_PROCESSOR
+      threat_update_interval 2 sec
+      max_threat_load 5
+      reports_self on
+      report_interval 1.0 sec
+      report_to commander via datalink
+   end_processor
+
+   processor incoming_threats WSF_THREAT_PROCESSOR
+      threat_time_to_intercept 120 sec   #default: 60 sec
+   end_processor
+
+   processor task_mgr WSF_BRAWLER_PROCESSOR
+      mind_file ../data/MIND.txt
+      # BRAWLER configuration values that control how often
+      # consciousness events occur
+      time_allowed_per_sector_search 10.0 sec
+      #draw_alternatives
+      #draw_nominal_states
+      #debug
+      #show_task_messages
+      #update_interval 1 sec
+      
+      script_variables
+         int kturn = 0;            //turn type for BVR flight tactics
+         Vec3   vecfpp = Vec3();   //vectored flight, direction
+         double valfpp = 0.0;      //vectored flight, value
+         double sflypp = 0.0;      //vectored flight, speed
+      end_script_variables
+      
+      behavior_tree
+        #behavior_node debug_data
+
+         #FLIGHT TACTIC DECISION
+         priority_selector
+            behavior_node  alt1516_bvr_end_run_left
+            #behavior_node  alt1517_bvr_end_run_right
+            #behavior_node  alt1514_point
+         end_priority_selector
+
+#         #FLIGHT POSTURE DECISION
+#         selector
+#            #behavior_node  altWXYZ_blah_blah
+#         end_selector
+
+         #PILOT POSTURE DECISION
+         selector
+            behavior_node  pilot_posture
+         end_selector
+
+         #PILOT MANEUVERING DECISION
+         priority_selector
+            #when debug: prints precondition score of each selector child behavior
+            #debug
+            behavior_node  alt3111_straight_level_max_speed
+            behavior_node  alt3121_straight_level
+            behavior_node  alt3411_straight_flight
+            behavior_node  alt3421_roll_15_pull
+            behavior_node  alt3431_roll-15_pull
+            behavior_node  alt3441_tail_attack
+            behavior_node  alt3451_pull_gmax_sust
+            behavior_node  alt3471_slow_current_dir
+            behavior_node  alt3472_slow_pull_right
+            behavior_node  alt3473_slow_pull_left
+            behavior_node  alt3474_slow_pull_current_plane
+            behavior_node  alt3511_break_right
+            behavior_node  alt3531_break_left
+            behavior_node  alt3551_run_away
+            behavior_node  alt3561_force_overshoot
+            behavior_node  alt3581_negative_velocity
+            behavior_node  alt3611_fly_vector
+           #behavior_node  alt3841_aim_missile_typ4
+            behavior_node  alt3911_evade_missile
+            behavior_node  alt3G11_barrel_roll
+            
+           #behavior_node  alt3211_route_maneuver
+           #behavior_node  alt3A11_low_speed_recover
+           #behavior_node  alt3A21_low_speed_recover_right45
+           #behavior_node  alt3A31_low_speed_recover_left45
+           #behavior_node  alt3B11_illuminate
+         end_priority_selector
+         
+         #WEAPON EMPLOYMENT DECISION
+         selector
+           behavior_node weapon_decision_gun
+           behavior_node weapon_decision_missile
+         end_selector
+         
+      end_behavior_tree
+   end_processor
+end_platform_type
+
+include_once behavior_debug_quantum_tasker.txt
+platform_type   BLUE_COMMANDER    WSF_PLATFORM
+   side blue
+   comm datalink WSF_COMM_TRANSCEIVER
+      network_name blue_net
+      internal_link data_mgr
+      internal_link task_mgr
+      internal_link perception
+   end_comm
+   processor data_mgr WSF_TRACK_PROCESSOR 
+      master_track_processor
+   end_processor
+   track_manager
+      retain_raw_tracks
+      retain_track_history
+      uncorrelated_track_drops disable
+   end_track_manager
+   processor perception WSF_PERCEPTION_PROCESSOR 
+      #asset_perception truth subordinates
+      asset_perception status_messages 
+   end_processor
+
+   processor task_mgr WSF_QUANTUM_TASKER_PROCESSOR 
+      #debug
+      #show_task_messages
+      
+      script_variables
+         bool mSelfCreateTasks = true;   //if false, simply interpret received tasks
+         #########################################################################
+         ## for evaluating weapon tasks
+         Map<string,int> mKnownTargetTypes = Map<string,int>();
+         mKnownTargetTypes["BRAWLER_FIGHTER"] = 1;
+         mKnownTargetTypes["RED_BRAWLER_FIGHTER"] = 1;
+         #########################################################################
+      end_script_variables
+
+      script Array<WsfTask> FlightLeadTaskGeneration (Array<WsfLocalTrack> TRACKS, Array<WsfAssetPerception> ASSETS )
+         Array<WsfTask> tasks = Array<WsfTask>();
+         //check if we are creating tasks or if we have a commander for that         
+         if (mSelfCreateTasks == true)
+         {
+            //if its us, then create weapon tasks for enemy tracks
+            for (int i=0; i<TRACKS.Size(); i=i+1)
+            {
+               WsfLocalTrack lt = TRACKS.Get(i);
+               if (lt.IsValid() && (!lt.SideValid() || lt.Side() != PLATFORM.Side()))
+               {
+                  if (mKnownTargetTypes.Size() <= 0 || mKnownTargetTypes.Exists(lt.TargetType()))
+                  {
+                     WsfTask task = WsfTask.Construct(1.0, "WEAPON", lt);
+                     task.SetTaskType("WEAPON");
+                     tasks.PushBack(task);
+                     writeln_d("weapon task generated for: ", lt.TargetName(), ", updated time: ", lt.UpdateTime());
+                  }
+               }
+            }
+         }
+         return tasks;
+      end_script
+      
+      on_initialize
+      end_on_initialize
+      
+      generator custom FlightLeadTaskGeneration 
+      evaluator distance 
+      allocator optimal_profit 
+      update_interval 0.3 sec
+   #   behavior_tree
+   #      behavior_node debug_quantum_tasker
+   #   end_behavior_tree
+   end_processor
+
+end_platform_type
+
+platform blue_cmdr BLUE_COMMANDER
+   position 1.0s 1.0e
+end_platform
+
+platform blue_1 BRAWLER_FIGHTER
+   side blue
+   icon F-15
+  #indestructible
+   commander blue_cmdr
+
+   heading 360 deg
+   position 00:00:00.00s 00:00:00.00w  altitude 10000.00 ft
+#   route
+#      position 00:00:20.00s 00:00:25.00w  altitude 10000.00 ft  speed 500.0 kts
+#      position 00:01:00.00n 00:00:25.00w  altitude 10000.00 ft  speed 500.0 kts
+#   end_route
+
+end_platform
+
+
+#platform_type SIMPLE_FIGHTER WSF_PLATFORM
+#   mover WSF_AIR_MOVER
+#   end_mover
+#end_platform_type
+
+platform red_cmdr BLUE_COMMANDER
+   side red
+   edit comm datalink 
+      network_name red_net
+   end_comm
+   position 1.0s 1.0e
+end_platform
+
+
+platform_type  RED_BRAWLER_FIGHTER BRAWLER_FIGHTER
+   edit mover
+     #aero_file ..\data\ACFT_BAC1.FXW   #better aero
+      aero_file ../data/ACFT_RAC1.FXW
+   end_mover
+end_platform_type
+
+
+platform red_1 RED_BRAWLER_FIGHTER
+#platform red_1 BRAWLER_FIGHTER
+#platform red_1 SIMPLE_FIGHTER
+   side red
+   icon SU-27
+   #indestructible
+   edit comm datalink 
+      network_name red_net
+   end_comm
+   
+   commander red_cmdr
+   
+   heading 180 deg
+#  position 00:01:50.00n 00:00:25.00e altitude 10000.00 ft
+#   route
+      position 01:00:00.00n 00:00:30.00e altitude 10000.00 ft #speed 250.0 kts
+#      position 00:01:00.00s 00:00:25.00e altitude 10000.00 ft speed 250.0 kts
+#   end_route
+
+   # BRAWLER configuration values that control how often
+   # consciousness events occur
+   #time_allowed_per_sector_search 10.0 sec
+end_platform
+
+

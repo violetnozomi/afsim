@@ -1,0 +1,163 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This test constructs sun-synchronous orbits using the WsfOrbitDesigner, 
+//    varying the local time of descending node and altitude.
+// When each satellite reaches its descending node (crosses the equator),
+//    the local solar time and altitude is queried 
+//    and compared against the local time and altitude specified in the WsfOrbitDesigner 
+// Note: There are potential issues with the GetTimeToConstraint method used in this test,
+//    so the satellites do not quite acheive a zero latitude when the apparent time and altitude are checked.
+//    Because of this, tolerances are set higher than they would be normally.
+
+start_date nov 8 2020
+start_time 15:30:00.0
+end_time 1 hour
+
+include ../utils.txt
+
+platform_type SPACE_PLATFORM WSF_PLATFORM 
+   icon cubesat
+   
+   script_variables 
+      double mLTDN = 0.0;
+      double mCircularAltitude = 0.0;
+      
+      double ltdnTolerance = 0.0;
+      double altitudeTolerance = 0.0;
+   end_script_variables
+end_platform_type
+
+
+platform_type BASE_SPACE_PLATFORM SPACE_PLATFORM
+   icon cubesat
+
+   script_variables 
+      ltdnTolerance = 15.0 / 3600.0; // 15 seconds
+      altitudeTolerance = MATH.Pow(10, -3); // 1 meter
+   end_script_variables
+   
+   mover WSF_SPACE_MOVER
+      oblate_earth enable
+   end_mover
+   
+end_platform_type
+
+platform_type INTEGRATING_SPACE_PLATFORM SPACE_PLATFORM
+   icon satellite
+   
+   script_variables 
+      ltdnTolerance = 10.0 / 3600.0; // 10 seconds
+      altitudeTolerance = 20 * MATH.Pow(10, -3); // 20 meters
+   end_script_variables
+   
+   empty_mass 1.0 kg
+   
+   mover WSF_INTEGRATING_SPACE_MOVER
+      
+      central_body earth_egm96
+      end_central_body
+      
+      integrator prince_dormand_45 
+      end_integrator
+      
+      dynamics
+         term earth_monopole
+         end_term
+         term earth_j2
+         end_term
+      end_dynamics
+      
+   end_mover
+   
+end_platform_type
+
+script_variables 
+
+   bool gDebug = false;   
+
+   Array<double> gLTDNs = {9.0, 10.5, 12.0, 13.5, 15.0}; // solar hour
+   Array<double> gAltitudes = {400.0, 800.0, 1200.0, 1600.0}; // km
+   
+   int totalTests = 2 * gLTDNs.Size() * gAltitudes.Size();
+   int platformCount = 0;
+   
+   Array<Color> gOrbitColors = {Color.DarkRed(), Color.Red(), Color.LightRed(), Color.White(),
+                                Color.DarkBlue(), Color.Blue(), Color.LightBlue(), Color.White(),
+                                Color.DarkGreen(), Color.Green(), Color.LightGreen(), Color.White(),
+                                Color.DarkPurple(), Color.Purple(), Color.LightPurple(), Color.White(),
+                                Color.DarkYellow(), Color.Yellow(), Color.LightYellow(), Color.White()};
+   
+end_script_variables
+
+script void SimulationInitializing()
+   Calendar cal = WsfDateTime.StartTime();
+
+   foreach(double LTDN in gLTDNs)
+   {
+      foreach(double circularAltitude in gAltitudes)
+      {
+         WsfPlatform smp = WsfOrbitDesigner.SunSynchronous("BASE_SPACE_PLATFORM", cal, LTDN, 1000 * circularAltitude);
+         if (smp.IsValid())
+         {
+            WsfPlatform p = WsfSimulation.AddPlatform(smp, write_str("base-ltdn-", LTDN, "-alt-", circularAltitude));
+
+            p->mLTDN = LTDN;
+            p->mCircularAltitude = circularAltitude;
+         
+            ((WsfSpaceMover)(p.Mover())).SetOrbitColor(gOrbitColors.Get(platformCount/2));
+            platformCount += 1;
+         }
+         WsfPlatform ismp = WsfOrbitDesigner.SunSynchronous("INTEGRATING_SPACE_PLATFORM", cal, LTDN, 1000 * circularAltitude);
+         if (ismp.IsValid())
+         {
+            WsfPlatform p = WsfSimulation.AddPlatform(ismp, write_str("integrating-ltdn-", LTDN, "-alt-", circularAltitude));
+
+            p->mLTDN = LTDN;
+            p->mCircularAltitude = circularAltitude;
+         
+            ((WsfSpaceMover)(p.Mover())).SetOrbitColor(gOrbitColors.Get(platformCount/2));
+            platformCount += 1;
+         }
+      }
+   }
+end_script
+
+script void PlatformInitialized(WsfPlatform aPlatform)
+   double timeToDN = ((WsfSpaceMover)aPlatform.Mover()).GetTimeToConstraint(WsfOrbitalEventCondition.AT_DESCENDING_NODE());
+   WsfSimulation.ExecuteAtTime(timeToDN, "EvaluateApparentTime", {aPlatform});
+end_script
+
+script void EvaluateApparentTime(WsfPlatform aPlatform)
+   double ltdn = aPlatform.ApparentTime();
+   double altitude = 0.001 * 0.5 * (((WsfSpaceMover)aPlatform.Mover()).PeriapsisAltitude() + ((WsfSpaceMover)aPlatform.Mover()).ApoapsisAltitude());
+   ExpectDouble(ltdn, aPlatform->mLTDN, aPlatform->ltdnTolerance, ". LTDN does not match");
+   ExpectDouble(altitude, aPlatform->mCircularAltitude, aPlatform->altitudeTolerance, ". Altitude does not match");
+   
+   if (gDebug)
+   {
+      writeln(aPlatform.Name());
+      writeln("   LTDN = ", ltdn, "; Altitude = ", altitude, "; Latitude = ", aPlatform.Latitude());
+      aPlatform.Comment(write_str("Apparent Time = ", ltdn));
+   }
+end_script
+
+script void SimulationComplete()
+   if (platformCount != totalTests)
+   {
+      writeln("-FAIL- Not all platforms were added to the simulation");
+      gAnyFailure = true;
+   }
+end_script
+
+observer 
+   enable SIMULATION_INITIALIZING
+   enable SIMULATION_COMPLETE
+   enable PLATFORM_INITIALIZED 
+end_observer

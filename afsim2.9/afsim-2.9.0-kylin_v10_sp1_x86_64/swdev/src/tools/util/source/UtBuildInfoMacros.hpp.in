@@ -1,0 +1,49 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+#ifndef UT_BUILDINFOMACROS_HPP
+#define UT_BUILDINFOMACROS_HPP
+
+/// @brief File contains compiler, build, and architecture information to
+///    build file paths of shared libraries consistent with the convention
+///    used in cmake/Modules/swdev_project.cmake. The purpose of these
+///    macros is to avoid the hardcoding of file paths in code which may lead
+///    to inconsistent naming conventions when switching build architectures.
+
+namespace ut {
+namespace BuildInfo {
+/// Constants configured using CMAKE
+
+#ifndef _WIN32
+//! gcc major version
+constexpr const char cGCC_MAJOR[] = "@GCC_MAJOR@";
+//! gcc minor version
+constexpr const char cGCC_MINOR[] = "@GCC_MINOR@";
+//! gcc micro version
+constexpr const char cGCC_PATCH[] = "@GCC_PATCH@";
+//! architecture suffix
+constexpr const char cpARCH_SUFFIX[] = "@pARCH_SUFFIX@";
+#endif
+
+//! fully constructed debug build postfix; ex: d.dll or d_ln4m64
+constexpr const char cSWDEV_LIB_DEBUG_POSTFIX[] = "@CMAKE_DEBUG_POSTFIX@";
+//! fully constructed release build postfix
+constexpr const char cSWDEV_LIB_RELEASE_POSTFIX[] = "@CMAKE_RELEASE_POSTFIX@";
+
+//! install library path
+constexpr const char cINSTALL_LIB_PATH[] = "@INSTALL_LIB_PATH@";
+//! install exe path
+constexpr const char cINSTALL_EXE_PATH[] = "@INSTALL_EXE_PATH@";
+
+} // namespace BuildInfo
+} // namespace ut
+
+#endif // UT_BUILDINFOMACROS_HPP

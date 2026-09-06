@@ -1,0 +1,71 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+(struct WSF_FIRES_MOVER :base_type Mover
+                        :symbol (type moverType WSF_FIRES_MOVER)
+{
+   remove_on_impact <Bool>
+ | impact_range <Length>
+ | initial_bearing <Angle>
+ | impact_location <string> <Latitude> <Longitude> <Length>
+ | use_simple_propagation <Bool>
+ | initial_time_constant <Time>
+ | debug <Bool>
+ | time_of_flight <Time>
+ | maximum_ordinate <Length>
+ | maximum_height <Length>
+ | constrain_to_simple_propagation <Bool>
+ | azimuth_error_sigma <Angle>
+ | elevation_error_sigma <Angle>
+ | <Mover>
+})
+
+
+(struct WSF_FIRES_LAUNCH_COMPUTER :symbol (type launchComputerType WSF_FIRES_LAUNCH_COMPUTER)
+                                  :base_type WSF_LAUNCH_COMPUTER
+   (rule fires-table
+      (rule table-command {
+         range_values <ignore>* end_range_values
+       | maximum_ordinate_values <ignore>* end_maximum_ordinate_values
+       | elevation_angle_values <ignore>* end_elevation_angle_values
+       | time_of_flight_values <ignore>* end_time_of_flight_values
+      })
+   {
+      fires_table <string> <table-command>* end_fires_table
+   })
+   (rule fires-max-ord-table
+   {
+      fires_maximum_ordinate_table <string> <real>* end_fires_maximum_ordinate_table
+   })
+   (rule fires-elev-table
+   {
+      fires_elevation_angle_table <string> <real>* end_fires_elevation_angle_table
+   })
+{
+   debug
+ | <fires-table>
+ | <fires-max-ord-table>
+ | <fires-elev-table>
+ | minimum_range <Length>
+ | maximum_range <Length>
+ | <WSF_LAUNCH_COMPUTER>
+})
+(rule ballistic-path-command
+   (rule target-data {
+      aero <string>
+    | mass <Mass>
+   })
+{
+   use_fires_extrapolation <Bool>
+ | target_data <string> <target-data>* end_target_data
+ | <string>          # Any unmatched string is a ballistic type...
+                     # This should really be changed...
+})
+(rule root-command {
+   ballistic_types <ballistic-path-command>* end_ballistic_types
+})

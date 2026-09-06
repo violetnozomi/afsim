@@ -1,0 +1,110 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+As with other platform components, |component_command| may be used outside of :command:`platform` or :command:`platform.platform_type` commands to define new types, or inside those commands to instantiate an object on an instance of a :command:`platform` or :command:`platform.platform_type`. |Named component description| Usage is as follows:
+
+1. Define a new |component_command| type (occurs outside a :command:`platform` or :command:`platform.platform_type` command)
+
+.. parsed-literal::
+
+   multiresolution\_\ |component| <derived> |component_model|
+
+      fidelity <real-value>
+
+      [add | edit] model <string-value>
+         fidelity_range <real-value> <real-value>
+         [default]
+         |component| [<|component|-type>]
+            ... |base_command_reference| ...
+         end\_\ |component|
+      end_model
+      
+      [add | edit] model <string-value>
+         ... Any number of models may be specified ...
+      end_model
+      
+      common
+         ... |base_command_reference| ...
+      end_common
+   end_multiresolution\_\ |component|
+
+2. Instantiate a |component_command| object on a new :command:`platform.platform_type`:
+
+.. parsed-literal::
+
+   platform_type ...
+      multiresolution\_\ |component| |name_token| <type>
+         ... |component_command| commands ...
+      end_multiresolution\_\ |component|
+   end_platform_type
+
+3. Instantiate a (not previously existing) |component_command| object on a platform instance:
+
+.. parsed-literal::
+
+   platform ...
+      add multiresolution\_\ |component| |name_token| <type>
+         ... |component_command| commands ...
+      end_multiresolution\_\ |component|
+   end_platform
+
+4. Modify an existing |component_command| object on a platform instance:
+
+.. parsed-literal::
+
+   platform ...
+      edit multiresolution\_\ |component| |name_token| <type>
+           ... |component_command| commands ...
+      end_multiresolution\_\ |component|
+   end_platform
+
+Overview
+========
+
+|component_command| defines a container for holding one or more |component| objects on a platform and deferring the choice of which |component| to use on the platform until run-time.
+The choice of |component| is made using a fidelity_ parameter associated with the component.
+Each |component| model defined in the container is assigned a fidelity_range_ over which it is valid, and the matching |component| is set on the platform during initialization.
+
+The fidelity_range_ inputs are used to categorize models into bins that are selected by the fidelity_ parameter.
+A typical use would be to set up a |component_command| on a :command:`platform.platform_type` without specifying the fidelity_, deferring that choice to the actual :command:`platform` definition.
+
+.. note:: In the future the fidelity choice is intended to be made available at alternate locations in a scenario file, which will improve the utility of this component.
+
+Types
+=====
+
+|component_model|
+
+Commands
+========
+
+.. command:: fidelity <real-value>
+   
+   Defines the fidelity value of the component, which determines which |component| to use at run-time. Must be between 0 and 1 inclusive. This value maps directly to the fidelity_range_ defined in the model_ commands. In other words, if two models are defined with the first having fidelity_range_ 0 to 0.5 and the second having 0.5 to 1, any fidelity_ between 0 and 0.5 (but exclusive of 0.5) will select the first model. 
+   
+   **Default**: 1.0
+
+.. command:: model <string-value> ... end_model
+   :block:
+   
+   Defines or edits a contained |component| model with the name given by the string. Implicit adding (or editing if the named model_ exists) is supported along with explicit adding and editing with the ``add`` and ``edit`` commands.
+   
+   .. note:: At least one model_ block must be specified.
+   
+   .. command:: fidelity_range <real-value> <real-value>
+   
+      Defines the range of fidelity_ values over which this model should be used. Must be between 0 and 1 inclusive, in increasing order and must not overlap with another model's fidelity_range_ on this component.
+      
+      **Default**: 0.0 1.0
+
+   .. command:: default
+   
+      If specified, this model will be used as the default choice if no fidelity match is made.

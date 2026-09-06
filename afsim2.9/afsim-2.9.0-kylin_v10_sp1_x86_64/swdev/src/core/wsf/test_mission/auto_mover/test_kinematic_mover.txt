@@ -1,0 +1,121 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This scenario tests a kinematic flyer's behavior, such as:
+# - Test 1: Velocity direction correctness
+
+# Kinematic flyer's flight path
+# 2 > 3
+# ^   v
+# 1   4
+#     v
+route route
+   position 00:00n 00:00e altitude 1 km # P1
+   position 00:10n 00:00w altitude 3 km # P2
+   position 00:10n 00:10e altitude 2 km # P3
+   position 00:00n 00:10e altitude 4 km # P4
+end_route
+
+platform_type KINEMATIC_FLYER WSF_PLATFORM
+   mover WSF_KINEMATIC_MOVER
+      initial_speed 5 m/s
+      initial_flight_path_angle 15 deg
+      maximum_linear_acceleration 0.01 m/s2
+      maximum_radial_acceleration 0.1 m/s2
+      update_interval 0.1 s
+   end_mover
+end_platform_type
+
+# Test 1
+# Tests the velocity vector's direction in NED and WCS coordinate systems
+platform test_kinematic_velocity KINEMATIC_FLYER
+   use_route route
+
+   # With an initial course of due north, fly due north from P1 to P2 with increasing altitude; North component should be positive, East component should be zero, and Down component should be negative.
+   execute at_time 1500 sec absolute
+      TestVectorSimilarity(0, PLATFORM.VelocityNED(), Vec3.Construct(14.9107, 1.43978e-15, -1.63446));
+      TestVectorSimilarity(1, PLATFORM.VelocityWCS(), Vec3.Construct(1.59366, 1.43976e-15, 14.9151));
+   end_execute
+
+   # With an initial course of due north, fly due east from P2 to P3 with decreasing altitude; East component should be positive and Down component should be positive.
+   execute at_time 2500 sec absolute
+      TestVectorSimilarity(2, PLATFORM.VelocityNED(), Vec3.Construct(-2.06824, 14.8304, 0.884472));
+      TestVectorSimilarity(3, PLATFORM.VelocityWCS(), Vec3.Construct(-0.90727, 14.8286, -2.07092));
+   end_execute
+
+   # With an initial course of east-southeast, fly due south from P3 to P4 with increasing altitude. North component should be negative and Down component should be negative.
+   execute at_time 4000 sec absolute
+      TestVectorSimilarity(4, PLATFORM.VelocityNED(), Vec3.Construct(-14.7755, -1.77521, -1.87939));
+      TestVectorSimilarity(5, PLATFORM.VelocityWCS(), Vec3.Construct(1.89242, -1.76960, -14.7745));
+   end_execute
+
+   # After flying from P1 and passing through P2, turn (right downward) toward P3; North component should be negative, East component should be positive, and Down component should be negative.
+   execute at_time 1750 sec absolute
+      TestVectorSimilarity(6, PLATFORM.AccelerationNED(), Vec3.Construct(-0.0931824, 0.0360453, 0.00421695));
+      TestVectorSimilarity(7, PLATFORM.AccelerationWCS(), Vec3.Construct(-0.00392315, 0.0360444, -0.0931955));
+   end_execute
+
+   # After flying from P2 and passing through P3, turn (right upward) toward P4; North component should be positive, East component should be negative, and Down component should be negative.
+   execute at_time 3000 sec absolute
+      TestVectorSimilarity(8, PLATFORM.AccelerationNED(), Vec3.Construct(-0.0709178, -0.0694217, -0.0122998));
+      TestVectorSimilarity(9, PLATFORM.AccelerationWCS(), Vec3.Construct(0.0127145, -0.0693826, -0.070883));
+   end_execute
+
+   # After flying from P3 and passing through P4, continue on trajectory; All components should be zero.
+   execute at_time 4500 sec absolute
+      TestVectorSimilarity(10, PLATFORM.AccelerationNED(), Vec3.Construct(0, 0, 0));
+      TestVectorSimilarity(11, PLATFORM.AccelerationWCS(), Vec3.Construct(0, 0, 0));
+   end_execute
+end_platform
+
+script_variables
+   bool DEBUG = false;
+   int fails = 0;
+end_script_variables
+
+script void TestVectorSimilarity(int id, Vec3 observed, Vec3 expected)
+   // Compute angle cosine
+   double ctheta = Vec3.Dot(observed, expected) / (observed.Magnitude() * expected.Magnitude());
+
+   // Evaluate test status
+   bool fail = ctheta < 0.999;
+
+   // Handle test failure
+   if (fail)
+   {
+      writeln("-FAIL- ", id);
+      fails += 1;
+   }
+
+   // Display debug info
+   if (DEBUG)
+   {
+      if (!fail)
+      {
+         writeln("Test:     ", id);
+      }
+      writeln("Time:     ", TIME_NOW);
+      writeln("Observed: ", observed);
+      writeln("Desired:  ", expected);
+      // Display angle between observed and expected vectors
+      writeln("Angle:    ", MATH.ACos(ctheta));
+   }
+end_script
+
+script void SimulationComplete()
+   // Display test completion message
+   if (fails == 0)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+end_time 5000 seconds # Simulation ends after passing P4
+observer enable SIMULATION_COMPLETE end_observer
+#event_pipe file test_kinematic_mover.aer end_event_pipe

@@ -1,0 +1,87 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# -----------------------------------------------------------------------------
+
+antenna_pattern TEST_RADAR_ANTENNA
+   circular_pattern
+      beamwidth              1.0 deg
+      peak_gain              39.0 db
+      minimum_gain           -50 db
+end_antenna_pattern
+
+sensor TEST_RADAR WSF_RADAR_SENSOR
+   frame_time                     10 sec
+   antenna_height                 7.0 m
+
+#   scan_mode                      azimuth
+#   azimuth_scan_limits            -180 deg 180 deg
+
+   scan_mode                      azimuth_and_elevation
+   azimuth_scan_limits            -180 deg 180 deg
+   elevation_scan_limits          -10 deg 85 deg
+
+   transmitter
+      antenna_pattern             TEST_RADAR_ANTENNA
+      power                       500 kw
+      frequency                   9 ghz
+      bandwidth                   1.2 mhz
+      internal_loss               2 db
+      pulse_width                 1 usec
+      pulse_repetition_frequency  250 hz
+      polarization                vertical
+#      attenuation_model           blake
+      propagation_model           fast_multipath
+         soil_moisture_fraction   0.15
+         surface_roughness        3.0 m
+      end_propagation_model
+# land cov 12
+# land for 1
+   end_transmitter
+
+   receiver
+      antenna_pattern             TEST_RADAR_ANTENNA
+      bandwidth                   1.2 mhz
+      internal_loss               3 db
+     #noise_figure                8 db
+   end_receiver
+
+# atmospheric_attenuation 0.006
+
+   detection_threshold       12.8 db
+
+   reports_location
+end_sensor
+
+# -----------------------------------------------------------------------------
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+   sensor radar TEST_RADAR end_sensor
+end_platform_type
+
+# -----------------------------------------------------------------------------
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+end_platform_type
+
+# -----------------------------------------------------------------------------
+radar_envelope
+   output          bigese.out
+   
+   altitude from   100 ft to   500 ft  by 100 ft
+   altitude from  1000 ft to  1000 ft by 1000 ft
+   altitude from  5000 ft to 50000 ft by 5000 ft
+   
+   rcs from 0 dbsm to 20 dbsm by 2 dbsm
+   
+   altitude_units  feet
+   range_units     nm
+end_radar_envelope

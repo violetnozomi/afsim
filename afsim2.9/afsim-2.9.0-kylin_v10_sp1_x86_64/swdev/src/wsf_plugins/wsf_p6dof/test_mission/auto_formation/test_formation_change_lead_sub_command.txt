@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once default_formation.txt
+include_once ../scripts/utils.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 5 min
+
+script_variables
+   WsfFormation alpha;
+   WsfFormation beta;
+   WsfFormation cancel;
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 min absolute
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   allPassed = ExpectBool(yankee.IsValid(), true, "yankee should exist") && allPassed;
+   allPassed = ExpectString(yankee.GetLeadSubFormation().GetRelativeName(),
+                "alpha",
+                "yankee's lead should be alpha") && allPassed;
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   allPassed = ExpectBool(yankeeBeta.IsValid(), true, "yankee.beta should exist") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.IsLeader(), false, "yankee.beta should not be a leader") && allPassed;
+end_execute
+
+execute at_time 2 min absolute
+   WsfFormationChangeLeadSubCommand cmd = WsfFormationChangeLeadSubCommand.Construct("beta");
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   yankee.ExecuteCommand(cmd, WsfFormationCommandConstraint.AT_TIME(125.0));
+end_execute
+
+execute at_time 3 min absolute
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   allPassed = ExpectBool(yankee.IsValid(), true, "yankee should exist") && allPassed;
+   allPassed = ExpectString(yankee.GetLeadSubFormation().GetRelativeName(),
+                "beta",
+                "yankee.beta should be the leader") && allPassed;
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   allPassed = ExpectBool(yankeeBeta.IsValid(), true, "yankee.beta should exist") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.IsLeader(), true, "yankee.beta should be a leader") && allPassed;
+   WsfFormation yankeeAlpha = WsfFormationManager.GetFormation("yankee.alpha");
+   allPassed = ExpectBool(yankeeAlpha.IsValid(), true, "yankee.alpha should exist") && allPassed;
+   allPassed = ExpectBool(yankeeAlpha.IsLeader(), false, "yankee.alpha should not be a leader") && allPassed;
+end_execute
+
+execute at_time 4 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }     
+end_execute

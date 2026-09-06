@@ -1,0 +1,122 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#Test file for Path scripting capabilities
+script_variables 
+   bool pass = true;
+end_script_variables
+
+script void TestS(string aTest,
+                  string aValue,
+                  string aExpectedValue)
+   if (aValue != aExpectedValue)
+   {
+      writeln("-FAIL- ", aTest, " Value: ", aValue, " Expected: ", aExpectedValue);
+      pass = false;
+   }
+end_script
+
+script void TestP(string aTest,
+                  Path   aValue,
+                  Path   aExpectedValue)
+   if (aValue != aExpectedValue)
+   {
+      writeln("-FAIL- ", aTest, " Value: ", aValue.ToString(), " Expected: ", aExpectedValue.ToString());
+      pass = false;
+   }
+end_script
+
+script void TestB(string aTest,
+                  bool   aValue,
+                  bool   aExpectedValue)
+   if (aValue != aExpectedValue)
+   {
+      writeln("-FAIL- ", aTest, " Value: ", aValue, " Expected: ", aExpectedValue);
+      pass = false;
+   }
+end_script
+
+#Note: Expected strings are constructed into a path object first to make sure they
+#      are formatted to the correct operating system.
+execute at_time .1 sec absolute
+   Path thisPath = Path.Construct(Path.GetWorkingDirectory(), "test_path.txt");
+   Path workingDir = Path.GetWorkingDirectory();
+   string pathStr = thisPath.ToString();
+   
+   //======================Static tests======================
+   
+   TestB("Exists_1", Path.Exists(pathStr), true);
+   TestB("IsDirectory_1 (this file)", Path.IsDirectory(pathStr), false);
+   TestB("IsFile_1 (this file)", Path.IsFile(pathStr), true);
+   
+   TestB("IsDirectory_1 (working directory)", Path.IsDirectory(workingDir.ToString()), true);
+   TestB("IsFile_1 (working directory)", Path.IsFile(workingDir.ToString()), false);
+   
+   Path newDirs1 = Path.Construct(workingDir, "New_Directories");
+   TestB("MkDir_1", Path.MakeDirectory(newDirs1.ToString()), true);
+   newDirs1.Join("new", "directory");
+   if (!newDirs1.IsDirectory())
+   {
+      TestB("MkDir_2 (false)", Path.MakeDirectory(newDirs1.ToString(), false), false);
+   }
+   
+   TestB("MkDir_2 (true)", Path.MakeDirectory(newDirs1.ToString(), true), true);
+   
+   string testFileStr = "C:\\this\\is\\a\\test\\path.txt";
+   string testDirStr = "C:/this/is/a/test/dir";
+   
+   TestP("GetRelativePath_1", Path.GetRelativePath(testFileStr, testDirStr), Path.Construct("..\\dir"));
+   
+   //======================Non-static tests======================
+   
+   Path nullPath = Path();
+   TestP("Empty Constructor", nullPath, Path());
+   TestB("Is empty (true)", nullPath.ToString() == "", true);
+   
+   Path path = Path(thisPath);   //Copy method
+   TestP("Copy", path, thisPath);
+   
+   TestS("GetFileName_1", thisPath.GetFileName(), "test_path.txt");
+   TestS("GetFileName_2 (true)", thisPath.GetFileName(true), "test_path.txt");
+   TestS("GetFileName_2 (false)", thisPath.GetFileName(false), "test_path");
+   TestS("GetFileExtension", thisPath.GetFileExtension(), ".txt"); 
+   
+   TestB("Exists_2", path.Exists(), true);
+   TestB("IsDirectory_2 (this file)", path.IsDirectory(), false);
+   TestB("IsFile_2 (this file)", path.IsFile(), true);
+   
+   path.Up();
+   TestB("IsDirectory_2 (this directory)", path.IsDirectory(), true);
+   TestB("IsFile_2 (this directory)", path.IsFile(), false);
+   
+   Path newDirs2 = Path.Construct(thisPath.GetParentDirectory(), "New_Directories");
+   TestB("MkDir_3", newDirs2.MakeDirectory(), true);
+   newDirs2.Join("new_2", "directory_2");
+   TestP("Join", newDirs2, Path.Construct(thisPath.GetParentDirectory(), "New_Directories", "new_2", "directory_2"));
+   if (!newDirs2.IsDirectory())
+   {
+      TestB("MkDir_4 (false)", newDirs2.MakeDirectory(false), false);
+   }
+   
+   TestB("MkDir_4 (true)", newDirs2.MakeDirectory(true), true);
+   
+   Path testFile = Path.Construct(testFileStr);
+   Path testDir = Path.Construct(testDirStr);
+   string testParentDirStr = "C:\\this\\is\\a\\test";
+   TestP("GetParentDirectory", testFile.GetParentDirectory(), Path.Construct(testParentDirStr));
+   TestP("GetParentDirectory", testDir.GetParentDirectory(), Path.Construct(testParentDirStr));  
+   TestP("GetRelativePath_2", testFile.GetRelativePath(testDirStr), Path.Construct("..\\dir"));
+   TestP("GetRelativePath_3", testFile.GetRelativePath(testDir), Path.Construct("..\\dir"));
+   
+   if (pass)
+   {
+      writeln("-PASS-");
+   }
+   
+end_execute

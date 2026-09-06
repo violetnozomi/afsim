@@ -1,0 +1,108 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test some edge-cases of the route network shortest-path logic
+include ../auto_script/test_pass.txt
+script_variables
+   PassTestCount = 11;
+end_script_variables
+#script_listing on
+route_network test_network
+   # A disconnected segment:
+   route
+      position 0n 0e
+      position 0.5n 0e
+      position 1n 0e
+   end_route
+   
+   # A fork
+   route
+      position 0n 1e
+      position 0.5n 1e
+         node_id split_point
+      position 1n 1e
+   end_route
+   route
+      position 0.5n 1e
+         node_id split_point
+      position 0.5n 2e
+   end_route
+
+   # square
+   route
+      position 3n 1e
+         node_id square_bottom
+      position 3n 0e
+      position 4n 0e
+      position 5n 0e
+      position 5n 1e
+         node_id square_top
+   end_route
+   route
+      position 3n 1e
+         node_id square_bottom
+      position 3n 2e
+      position 4n 2e
+      position 5n 2e
+      position 5n 1e
+         node_id square_top
+   end_route
+
+end_route_network
+
+script WsfRoute GetPath(string aSrc, string aDest)
+   Array<string> srcParts = aSrc.Split(" ");
+   Array<string> destParts = aDest.Split(" ");
+   double sLat = MATH.StringToLat(srcParts[0]);
+   double sLon = MATH.StringToLon(srcParts[1]);
+   double dLat = MATH.StringToLat(destParts[0]);
+   double dLon = MATH.StringToLon(destParts[1]);
+   WsfRouteNetwork net = WsfRouteNetwork.FindRouteNetwork("test_network");
+   WsfRoute r = net.GeneratePathOffRouteToRoute(sLat, sLon, dLat, dLon);
+   Vec3 t1 = Vec3.Construct(r.GetWaypointAt(0).Latitude() - sLat, r.GetWaypointAt(0).Longitude() - sLon, 0);
+   Vec3 t2 = Vec3.Construct(r.GetWaypointAt(r.GetSize()-1).Latitude() - dLat, r.GetWaypointAt(r.GetSize()-1).Longitude() - dLon, 0);
+   double tol = (t1.Magnitude() + t2.Magnitude());
+   if (tol < 0.0000001)
+   {
+      #writeln(tol);
+      r.Print();
+      return r;
+   }
+   else
+   {
+      writeln("-FAIL- Route doesnt start and end in correct location: error of ", tol);
+      r.Print();
+      return null;
+   }
+end_script
+execute at_time 1 s absolute
+   extern WsfRoute GetPath(string , string );
+   extern void pass();
+   # Ensure we can path even without nodes
+   if (GetPath("0n 0e", "0.5n 0e").GetSize() == 2) pass();
+   if (GetPath("0n 0e", "1n 0e").GetSize() == 3) pass();
+
+   # Path from a node
+   if (GetPath("0.5n 1e", "0n 1e").GetSize() == 2) pass();
+   if (GetPath("0.5n 1e", "0.5n 2e").GetSize() == 2) pass();
+   
+   # Path thru the node
+   if (GetPath("0n 1e", "0.5n 2e").GetSize() == 3) pass();
+   
+   # Verify that shortest path takes into consideration the distance to the first/last nodes
+   if (GetPath("3n 2e", "4n 0e").GetSize() == 4) pass();
+   if (GetPath("5n 2e", "4n 0e").GetSize() == 4) pass();
+   if (GetPath("4n 2e", "4n 0e").GetSize() == 5) pass();
+   # Mirror the same tests:
+   if (GetPath("3n 0e", "4n 2e").GetSize() == 4) pass();
+   if (GetPath("5n 0e", "4n 2e").GetSize() == 4) pass();
+   if (GetPath("4n 0e", "4n 2e").GetSize() == 5) pass();
+
+end_execute
+

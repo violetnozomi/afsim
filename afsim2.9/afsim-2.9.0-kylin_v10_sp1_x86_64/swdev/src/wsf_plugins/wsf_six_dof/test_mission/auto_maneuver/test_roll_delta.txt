@@ -1,0 +1,77 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 30 s
+
+platform TEST_AIRCRAFT FA-LGT_RB6
+   side blue
+
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   script_variables
+      bool keepChecking = true;
+      bool allPassed = true; 
+   end_script_variables
+   
+   execute at_time 10 sec absolute
+      WsfSixDOF_RollDeltaManeuver mvr = WsfSixDOF_RollDeltaManeuver.Construct(180.0);
+      mvr.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(10.0));
+      mvr.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_ROLL_ANGLE(180.0));
+      
+      mvr.SetUrgency(0.75);
+      allPassed = ExpectDouble(mvr.GetUrgency(), 0.75, 1.0e-8, "Urgency should be 0.75") && allPassed;
+      
+      allPassed = ExpectAngleDegrees(mvr.GetRollDelta(), 180.0, 0.1, "Delta should be +/-180") && allPassed;
+      
+      mvr.SetDebug(true);
+      allPassed = ExpectBool(mvr.GetDebug(), true, "Debug flag should be set") && allPassed;
+      mvr.SetDebug(false);
+      allPassed = ExpectBool(mvr.GetDebug(), false, "Debug flag should be cleared") && allPassed;
+      
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      mov.ExecuteManeuver(mvr);
+   end_execute
+   
+   execute at_time 12 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Z(), 0.00, 0.25, "Roll Should be 0") && allPassed;
+   end_execute
+   
+   execute at_time 19.9 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Z(), 0.00, 0.25, "Roll Should be 0") && allPassed;
+   end_execute
+   
+   execute at_time 21 sec absolute
+      if (PLATFORM.OrientationNED().Z() < 0.1)
+      {
+         writeln("-FAIL- Roll should have started.");
+      }
+   end_execute
+
+   execute at_time 24 sec absolute
+      allPassed = ExpectAngleDegrees(PLATFORM.OrientationNED().Z(), 180.0, 5.0, "Roll Should be +/-180") && allPassed;
+   end_execute
+   
+   execute at_time 25 s absolute
+      if (allPassed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }   
+   end_execute     
+   
+end_platform

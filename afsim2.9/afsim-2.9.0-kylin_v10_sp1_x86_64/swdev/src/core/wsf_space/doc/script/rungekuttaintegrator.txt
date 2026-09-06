@@ -1,0 +1,89 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. method:: double Tolerance()
+
+   Return the error tolerance.
+
+.. method:: void SetTolerance(double aTolerance)
+
+   Set the error tolerance. This value must be positive, and has a default value
+   of :math:`10^{-10}`.
+
+.. method:: int MaxAdjustmentAttempts()
+
+   Return the maximum number of attempts that will be made to find an acceptable
+   step size.
+
+.. method:: void SetMaxAdjustmentAttempts(int aMaxAttempts)
+
+   Set the maximum number of attempts that will be made to find an acceptable
+   step size. This value must be positive.
+
+   **Default** 50.
+
+.. method:: double MaxStepSize()
+
+   Return the duration in seconds of the maximum step that will be taken by
+   this integrator.
+
+.. method:: void SetMaxStepSize(double aStepSize)
+
+   Set the duration in seconds of the maximum step that will be taken by
+   this integrator. This value must be positive, must be larger than
+   the minimum step size, and has a default value that is essentially infinite.
+
+.. method:: double MinStepSize()
+
+   Return the duration in seconds of the minimum step that will be taken by
+   this integrator.
+
+.. method:: void SetMinStepSize(double aStepSize)
+
+   Set the duration in seconds of the minimum step that will be taken by
+   this integrator. This value must be non-negative, must be smaller than the
+   maximum step size. 
+
+   **Default** 0
+
+.. method:: double InitialStepSize()
+
+   Return the step size of the initial step for this integrator.
+
+.. method:: void SetInitialStepSize(double aStepSize)
+
+   Set the step size of the initial step for this integrator. This step is
+   only used for the first guess for the first step. If the step does not
+   produce an acceptable error, than the first step will ultimately produce
+   a different step size for which the error is acceptable. This value must
+   be positive.
+
+   **Default** 0.1 seconds
+
+.. method:: string ErrorCriterion()
+
+   Return a string indicating which error criterion is being used to determine
+   if steps are acceptable. The return value will be equal to the return value
+   from either |L_INFINITY_METHOD| or |L_TWO_METHOD|.
+
+.. method:: void SetErrorCriterion(string aCriterion)
+
+   Set the error criterion used by this integrator. The allowed input values
+   are either return value from |L_INFINITY_METHOD| or |L_TWO_METHOD|. The
+   default value of the error criterion is to use the two norm.
+
+.. method:: string L_INFINITY()
+
+   This static method returns the string identifier corresponding to using the
+   infinity-norm for the step error acceptability criterion.
+
+.. method:: string L_TWO()
+
+   This static method return the string identifier corresponding to using the
+   two-norm for the step error acceptability criterion.

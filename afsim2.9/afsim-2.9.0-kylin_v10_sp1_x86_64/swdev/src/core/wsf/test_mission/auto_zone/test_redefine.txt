@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Testing zone redefinition.
+
+zone shared_zone
+   circular
+      maximum_radius 50 km
+end_zone
+
+zone shared_zone
+   circular
+      maximum_radius 100 km
+end_zone
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   zone local_zone
+      circular
+         maximum_radius 25 km
+   end_zone
+
+   script void TestZone(double aRadius)
+      double insideRadius  = aRadius * 1000.0 - 1000.0;
+      double outsideRadius = aRadius * 1000.0 + 1000.0;
+
+      WsfGeoPoint insidePoint  = PLATFORM.Location();
+      insidePoint.Offset(0.0, insideRadius, 0.0, 0.0);
+      WsfGeoPoint outsidePoint = PLATFORM.Location();
+      outsidePoint.Offset(0.0, outsideRadius, 0.0, 0.0);
+
+      if (insidePoint.WithinZoneOf(PLATFORM, "local_zone"))
+      {
+         writeln("-PASS- ", Name(), ": ", insideRadius * 0.001, " km inside ", aRadius, " km");
+      }
+      else
+      {
+         writeln("-FAIL- ", Name(), ": ", insideRadius * 0.001, " km inside ", aRadius, " km");
+      }
+
+      if (! outsidePoint.WithinZoneOf(PLATFORM, "local_zone"))
+      {
+         writeln("-PASS- ", Name(), ": ", outsideRadius * 0.001, " km outside ", aRadius, " km");
+      }
+      else
+      {
+         writeln("-FAIL- ", Name(), ": ", outsideRadius * 0.001, " km outside ", aRadius, " km");
+      }
+
+   end_script
+
+end_platform_type
+
+platform t1 TEST_PLATFORM
+   execute at_time 1 sec absolute
+      TestZone(25.0);
+   end_execute
+end_platform
+
+platform t2 TEST_PLATFORM
+   zone local_zone
+      circular
+         maximum_radius 50 km
+   end_zone
+
+   execute at_time 2 sec absolute
+      TestZone(50.0);
+   end_execute
+end_platform
+
+platform t3 TEST_PLATFORM
+   use_zone shared_zone as local_zone
+
+   execute at_time 3 sec absolute
+      TestZone(100.0);
+   end_execute
+end_platform
+
+end_time 5 sec
+

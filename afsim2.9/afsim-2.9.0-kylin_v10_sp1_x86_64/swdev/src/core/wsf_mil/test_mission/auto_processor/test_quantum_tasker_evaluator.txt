@@ -1,0 +1,131 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This is a test to specifically trigger a WSF_QUANTUM_TASKER_PROCESSOR
+# crash. It occurs during the evaluation step when the reallocation strategy
+# is either STATIC or EVENT and either a distance or intercept_time is selected.
+
+define_path_variable CASE test_quantum_tasker_evaluator
+
+test_feature wsf_mil
+
+script_debug_writes off
+
+platform_type TEST_PLATFORM_TYPE WSF_PLATFORM
+
+   comm radio WSF_COMM_TRANSCEIVER
+      internal_link task_mgr
+      internal_link perception
+   end_comm
+
+   processor perception WSF_PERCEPTION_PROCESSOR
+      asset_perception truth subordinates
+      report_interval 1 s
+      report_to commander via radio
+   end_processor
+
+   processor task_mgr WSF_QUANTUM_TASKER_PROCESSOR
+      update_interval 1 s
+   end_processor
+
+end_platform_type
+
+# Target
+platform tgt1 WSF_PLATFORM side red end_platform
+
+# Commander with one subordinate to task
+platform_type CMDR TEST_PLATFORM_TYPE
+   side blue
+   commander SELF
+   track platform tgt1 end_track
+   edit processor task_mgr
+
+      # Custom generator
+      script Array<WsfQuantumTask> g1 (Array<WsfLocalTrack> TRACKS, Array<WsfAssetPerception> ASSETS)
+         Array<WsfQuantumTask> tasks =  Array<WsfQuantumTask>();
+         for (int i = 0; i < TRACKS.Size(); i = i + 1)
+         {
+            // Create two tasks for each track
+            // This was causing a crash in the evaluator depending on which one was selected
+            WsfLocalTrack lt = TRACKS.Get(i);
+            WsfQuantumTask task1 = WsfQuantumTask.Construct(1.0, "TEST_TASK_1", lt);
+            tasks.PushBack(task1);
+            WsfQuantumTask task2 = WsfQuantumTask.Construct(1.0, "TEST_TASK_2", lt);
+            tasks.PushBack(task2);
+            writeln_d("T=", TIME_NOW, " Generating: ", lt.TargetName(), " by ", PLATFORM.Name());
+         }
+         return tasks;
+      end_script
+
+      reallocation_strategy static   // default
+
+      generator custom g1
+      evaluator intercept_time              // This evaluator demonstrates the crash
+                                     // when two tasks per track are generated
+   end_processor
+
+end_platform_type
+
+platform cmdr1 CMDR
+   edit processor task_mgr
+      reallocation_strategy static
+      evaluator distance
+   end_processor
+end_platform
+
+platform cmdr2 CMDR
+   edit processor task_mgr
+      reallocation_strategy static
+      evaluator intercept_time
+   end_processor
+end_platform
+
+platform cmdr3 CMDR
+   edit processor task_mgr
+      reallocation_strategy event
+      evaluator distance
+   end_processor
+end_platform
+
+platform cmdr4 CMDR
+   edit processor task_mgr
+      reallocation_strategy event
+      evaluator intercept_time
+   end_processor
+end_platform
+
+platform sub1 TEST_PLATFORM_TYPE
+   side blue
+   commander cmdr1
+end_platform
+
+platform sub2 TEST_PLATFORM_TYPE
+   side blue
+   commander cmdr2
+end_platform
+
+platform sub3 TEST_PLATFORM_TYPE
+   side blue
+   commander cmdr3
+end_platform
+
+platform sub4 TEST_PLATFORM_TYPE
+   side blue
+   commander cmdr4
+end_platform
+
+end_time 1 s
+
+script void SimulationComplete()
+   // If test does not crash then it passes!
+   writeln("-PASS-");
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer

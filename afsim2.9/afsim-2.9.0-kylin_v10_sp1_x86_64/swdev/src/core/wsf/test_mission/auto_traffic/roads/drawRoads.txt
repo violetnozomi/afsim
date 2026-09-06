@@ -1,0 +1,87 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   string networkName = "eightNetwork";
+end_script_variables
+
+// Script to draw markers to show where stops are
+script void DrawStops()   
+   WsfDraw draw = WsfDraw();
+   WsfRouteNetwork network = WsfRouteNetwork.FindRouteNetwork(networkName);
+   foreach (WsfRoute rte in network.Routes()) {    
+      WsfRoute route = rte.Copy();
+      foreach (WsfWaypoint node in route) {
+         if (node.AuxDataExists("stop_sign") && node.AuxDataBool("stop_sign")) {
+            draw.SetColor(1,0,0);
+            draw.SetEllipseMode("fill");
+            draw.BeginCircle(0, 100);
+            draw.VertexLLA(node.Latitude(), node.Longitude(), 0);
+            draw.End();
+         }
+         
+         if (node.AuxDataExists("traffic_signals") && node.AuxDataBool("traffic_signals")) {
+            draw.SetColor(1,1,0);
+            draw.SetEllipseMode("fill");
+            draw.BeginCircle(0, 100);
+            draw.VertexLLA(node.Latitude(), node.Longitude(), 0);
+            draw.End();                  
+         }
+      }
+   }   
+end_script
+
+// Script to draw the road network
+script void DrawRoads()
+   WsfDraw draw = WsfDraw();
+   WsfRouteNetwork network = WsfRouteNetwork.FindRouteNetwork(networkName);
+   WsfOSM_Traffic traffic = WsfOSM_Traffic.Traffic();
+   Array<WsfRoute> trafficRoutes = traffic.TrafficRoutes(networkName);
+   
+   foreach (WsfRoute rte in trafficRoutes) {    
+      WsfRoute route = rte.Copy();
+      route.SetAltitude(5);
+      draw.SetColor(.93,.51,.93);
+      draw.SetLayer(route.Name());
+      draw.SetId(route.Name());
+      draw.SetLineSize(2);
+      draw.BeginPolyline();
+      draw.VertexRoute(route);
+      draw.End();
+      draw.SetId(route.Name());
+      draw.SetTextSize(6);
+      draw.SetColor(0,0,0);
+#      if (route.AuxDataExists("maxspeed") || route.AuxDataExists("name")) { 
+#         string name = (string)route.AuxDataInt("name");
+#         string speedLimit = (string)route.AuxDataDouble("maxspeed") + " mph";
+#         draw.BeginText(name); 
+#      }
+
+
+      // Uncomment below to add route names/lanes to the draw
+      
+#      draw.BeginText(route.Name());
+#      WsfGeoPoint textPos = route.Waypoint(0).Location();
+#      textPos.SetAltitudeAGL(30);
+#      draw.Vertex(textPos);
+#      #draw.Vertex(route.Waypoint(0).Location());
+#      draw.End();
+#      draw.SetColor(0,0,0);
+#      draw.SetLineSize(1);
+#      draw.BeginLines();
+#      draw.Vertex(route.Waypoint(0).Location());
+#      draw.Vertex(textPos);
+#      draw.End();
+   }     
+end_script
+
+execute at_time 1 s absolute
+   DrawRoads();
+   DrawStops(); # Uncomment to see stop lights and stop signs
+end_execute

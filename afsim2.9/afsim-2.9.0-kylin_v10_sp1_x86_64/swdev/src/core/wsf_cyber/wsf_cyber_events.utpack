@@ -1,0 +1,129 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+Settings {
+   message_id_or: 2
+}
+
+Struct {
+   id: CyberBase
+   message: 0
+   base: MsgBase
+   Field { id: ownerIndex  type: index }
+   Field { id: victimIndex type: index }
+   Field { id: attackType  type: string }
+}
+
+Struct {
+   id: MsgCyberAttackInitiated
+   message: 1
+   base: CyberBase
+}
+
+Struct {
+   id: DrawPair
+   Field { id: threshold type: float }
+   Field { id: draw      type: float }
+}
+
+Struct {
+   id: CyberBaseAttackResult
+   base: CyberBase
+   Field { id: successOdds  type: DrawPair }
+   Field { id: reportStatus type: string }
+   Field { id: reportOdds   type: DrawPair }
+}
+
+Struct {
+   id: MsgCyberAttackSucceeded
+   message: 2
+   base: CyberBaseAttackResult
+   Field { id: detectOdds type: DrawPair }
+}
+
+Enum { 
+   id: AttackFailReason
+   Value { id: random_draw     value: 0 }
+   Value { id: immunity        value: 1 }
+   Value { id: blocked_by_scan value: 2 }
+   Value { id: not_vulnerable  value: 3 }
+   Value { id: none            value: 4 }
+}
+
+Struct {
+   id: MsgCyberAttackFailed
+   message: 3
+   base: CyberBaseAttackResult
+   Field { id: reason type: AttackFailReason }
+}
+
+Struct {
+   id: MsgCyberAttackDetected
+   message: 4
+   base: CyberBase
+}
+
+Struct {
+   id: MsgCyberAttackRecovery
+   message: 5
+   base: CyberBase
+   Field { id: immunityStatus type: int }
+   Field { id: immunityOdds   type: DrawPair }
+}
+
+Struct {
+   id: MsgCyberScanInitiated
+   message: 6
+   base: CyberBase
+}
+
+Struct {
+   id: CyberBaseScanResult
+   base: CyberBase
+   Field { id: detectOdds type: DrawPair }
+}
+
+Struct {
+   id: MsgCyberScanSucceeded
+   message: 7
+   base: CyberBaseScanResult
+}
+
+Enum { 
+   id: ScanFailReason
+   Value { id: immunity       value: 0 }
+   Value { id: detected       value: 1 }
+   Value { id: not_vulnerable value: 2 }
+   Value { id: none           value: 3 }
+}
+
+Struct {
+   id: MsgCyberScanFailed
+   message: 8
+   base: CyberBaseScanResult
+   Field { id: reason type: ScanFailReason }
+}
+
+Struct {
+   id: MsgCyberScanDetected
+   message: 9
+   base: CyberBase
+}
+
+Struct {
+   id: MsgCyberScanAttributed
+   message: 10
+   base: CyberBase
+}
+
+Struct {
+   id: MsgCyberAttackAttributed
+   message: 11
+   base: CyberBase
+}

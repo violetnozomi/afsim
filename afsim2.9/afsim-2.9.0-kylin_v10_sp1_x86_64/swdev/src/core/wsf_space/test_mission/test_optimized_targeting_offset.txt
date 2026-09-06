@@ -1,0 +1,201 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date apr 22 2020
+start_time 12:00:00.000
+end_time 6 hr
+
+platform target WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.02
+      revs_per_day 12.0
+      inclination 15 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 1 deg
+   end_mover
+end_platform
+
+platform chaser WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.02
+      revs_per_day 12.0
+      inclination 35 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 330 deg
+   end_mover
+end_platform
+
+platform chaser_ric WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.02
+      revs_per_day 12.0
+      inclination 35 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 330 deg
+   end_mover
+end_platform
+
+script_variables
+   Vec3   ntwOffset  = Vec3.Construct(-100.0, 10.0, 20.0);
+   Vec3   ricOffset  = Vec3.Construct(0.0, 0.0, 0.0);
+   bool   anyFailure = false;
+   double tolerance  = 1.0e-6;
+end_script_variables
+
+script void ScheduleRendezvousNTW()
+   WsfPlatform chaser = WsfSimulation.FindPlatform("chaser");
+   WsfSpaceMover mover = (WsfSpaceMover)chaser.Mover();
+   
+   WsfPlatform target = WsfSimulation.FindPlatform("target");
+   WsfTrack track = target.MakeTrack();
+   WsfLocalTrack localTrack = chaser.TrackManager().AddTrackReport(track);
+   
+   WsfTargetPoint targetPoint = WsfTargetPoint.ConstructFromTrack(localTrack.TrackId());
+   targetPoint.SetPositionOffset(ntwOffset, WsfOrbitalReferenceFrame.NTW());
+   
+   WsfRendezvousManeuver mvr = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0),
+                                                               targetPoint,
+                                                               WsfRendezvousManeuver.LEAST_DELTA_V(),
+                                                               1800.0,
+                                                               3000000.0);
+   
+   mover.ExecuteManeuver(mvr);
+end_script
+
+script void ScheduleRendezvousRIC()
+   WsfPlatform chaser = WsfSimulation.FindPlatform("chaser_ric");
+   WsfSpaceMover mover = (WsfSpaceMover)chaser.Mover();
+   
+   WsfPlatform target = WsfSimulation.FindPlatform("target");
+   WsfTrack track = target.MakeTrack();
+   WsfLocalTrack localTrack = chaser.TrackManager().AddTrackReport(track);
+   
+   WsfTargetPoint targetPoint = WsfTargetPoint.ConstructFromTrack(localTrack.TrackId());
+   targetPoint.SetPositionOffset(ricOffset, WsfOrbitalReferenceFrame.RIC());
+   
+   WsfRendezvousManeuver mvr = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(100.0),
+                                                               targetPoint,
+                                                               WsfRendezvousManeuver.LEAST_DELTA_V(),
+                                                               1800.0,
+                                                               3000000.0);
+   
+   mover.ExecuteManeuver(mvr);
+end_script
+
+script void TestFinalPositionNTW(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aPlatform.Name() != "chaser")
+   {
+      return;
+   }
+
+   // Catch the state at the end of the rendezvous
+   if (aManeuver.ManeuverType() == "RENDEZVOUS")
+   {
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      Vec3 targetPos = target.LocationECI();
+      Vec3 targetVel = target.VelocityECI();
+      
+      // Build the local NTW frame to compute where the offset should have ended
+      Vec3 xHat = targetVel.Normal();
+      Vec3 zHat = targetPos.Normal();
+      zHat.Scale(-1.0);
+      Vec3 yHat = Vec3.Cross(zHat, xHat).Normal();
+      zHat = Vec3.Cross(xHat, yHat);
+      
+      // Compute the ECI location of the offset
+      xHat.Scale(ntwOffset.X());
+      yHat.Scale(ntwOffset.Y());
+      zHat.Scale(ntwOffset.Z());
+      Vec3 offsetLoc = Vec3.Add(targetPos, Vec3.Add(xHat, Vec3.Add(yHat, zHat)));
+      
+      Vec3 observedLoc = aPlatform.LocationECI();
+      
+      Vec3 diff = Vec3.Subtract(offsetLoc, observedLoc);
+      diff.Scale(1.0 / observedLoc.Magnitude());
+      if (Math.Fabs(diff.X()) > tolerance)
+      {
+         writeln("-FAIL- delta-X too large, ", diff.X());
+         anyFailure = true;
+      }
+      if (Math.Fabs(diff.Y()) > tolerance)
+      {
+         writeln("-FAIL- delta-Y too large, ", diff.Y());
+         anyFailure = true;
+      }
+      if (Math.Fabs(diff.Z()) > tolerance)
+      {
+         writeln("-FAIL- delta-Z too large, ", diff.Z());
+         anyFailure = true;
+      }
+   }
+end_script
+
+script void TestFinalPositionRIC(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aPlatform.Name() != "chaser_ric")
+   {
+      return;
+   }
+   
+   if (aManeuver.ManeuverType() == "RENDEZVOUS")
+   {
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      Vec3 tPos = target.LocationECI();
+      Vec3 tVel = target.VelocityECI();
+      
+      Vec3 rVec = tPos.Normal();
+      Vec3 cVec = Vec3.Cross(tPos, tVel).Normal();
+      Vec3 iVec = Vec3.Cross(cVec, rVec).Normal();
+      
+      rVec.Scale(ricOffset.X());
+      iVec.Scale(ricOffset.Y());
+      cVec.Scale(ricOffset.Z());
+      Vec3 offsetLocation = Vec3.Add(tPos, Vec3.Add(rVec, Vec3.Add(iVec, cVec)));
+      
+      Vec3 observedLoc = aPlatform.LocationECI();
+      Vec3 diff = Vec3.Subtract(offsetLocation, observedLoc);
+      diff.Scale(1.0 / observedLoc.Magnitude());
+      if (Math.Fabs(diff.X()) > tolerance)
+      {
+         writeln("-FAIL- RIC relative delta-X too large, ", diff.X());
+         anyFailure = true;
+      }
+      if (Math.Fabs(diff.Y()) > tolerance)
+      {
+         writeln("-FAIL- RIC relative delta-Y too large, ", diff.Y());
+         anyFailure = true;
+      }
+      if (Math.Fabs(diff.Z()) > tolerance)
+      {
+         writeln("-FAIL- RIC relative delta-Z too large, ", diff.Z());
+         anyFailure = true;
+      }
+   }
+end_script
+
+script void FinalAssessment()
+   if (anyFailure)
+   {
+      writeln("-FAIL- One or more test failures.");
+   }
+   else
+   {
+      writeln("-PASS- All tests passed");
+   }
+end_script
+
+observer
+   enable SIMULATION_STARTING ScheduleRendezvousNTW
+   enable SIMULATION_STARTING ScheduleRendezvousRIC
+   enable ORBITAL_MANEUVER_COMPLETED TestFinalPositionNTW
+   enable ORBITAL_MANEUVER_COMPLETED TestFinalPositionRIC
+   enable SIMULATION_COMPLETE FinalAssessment
+end_observer

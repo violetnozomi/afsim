@@ -1,0 +1,149 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2019 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 2 2020
+start_time 11:00:00.000
+end_time 5 hours
+
+platform_type RANDOM_MANEUVER WSF_PLATFORM
+   script_variables
+      bool maneuver_not_detected = true;
+   end_script_variables
+   spatial_domain space   
+   mover WSF_SPACE_MOVER
+      script_variables
+            double aveDeltaV = 0.0;
+      end_script_variables
+      execute at_interval_of 10 minutes
+         Vec3 deltaV = Vec3.Construct(RANDOM.Uniform(0, aveDeltaV),
+                                      RANDOM.Uniform(0, aveDeltaV),
+                                      RANDOM.Uniform(0, aveDeltaV));
+         WsfDeltaV_Maneuver dv = WsfDeltaV_Maneuver.Construct(WsfOrbitalEventCondition.NONE(), 
+                                                              deltaV,
+                                                              WsfOrbitalReferenceFrame.INERTIAL());
+         SPACE_MOVER.ExecuteManeuver(dv);
+         PLATFORM->maneuver_not_detected = true;                                                              
+      end_execute                                                              
+   end_mover
+   
+end_platform_type
+
+script_variables
+   bool failed = false; 
+   Vec3 trackLoc = {};
+end_script_variables
+
+script void TestExtrapolatedLocationAccuracy(WsfTrack aTrack)
+   trackLoc = aTrack.CurrentLocation().LocationWCS();
+   Vec3 truthLoc = aTrack.Target().LocationWCS();
+   Vec3 diff = Vec3.Subtract(trackLoc, truthLoc);
+   if (diff.Magnitude() > 5.0)
+   {
+      writeln("-FAIL-", ":", diff.Magnitude(), ", ", trackLoc.Magnitude(), ", ", truthLoc.Magnitude());
+      failed = true;
+   }
+end_script
+
+script void SimulationComplete()
+   if (!failed)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+script void LocalTrackUpdated(WsfPlatform   aPlatform, 
+                              WsfLocalTrack aLocalTrack, 
+                              WsfTrack      aTrack)                              
+   if (aLocalTrack.Target().Type() == "RANDOM_MANEUVER")
+   {
+      aLocalTrack.Target()->maneuver_not_detected = false;
+   }                                  
+end_script
+
+observer
+   enable LOCAL_TRACK_INITIATED LocalTrackUpdated
+   enable LOCAL_TRACK_UPDATED
+   enable SIMULATION_COMPLETE
+end_observer
+
+sensor SENSE WSF_GEOMETRIC_SENSOR
+   frame_time 5 minutes
+   scan_mode both
+   slew_mode both
+   reports_location
+   reports_velocity
+   range_error_sigma 0.00001 m
+   azimuth_error_sigma 0.00000001 deg
+   elevation_error_sigma 0.00000001 deg   
+end_sensor
+
+platform_type RADAR WSF_PLATFORM
+   position 07:36:58.326n 134:30:50.691e
+   add sensor sense SENSE
+      on
+      processor tp
+   end_sensor
+   
+   add processor tp WSF_TRACK_PROCESSOR
+   end_processor
+
+   execute at_interval_of 1 minute
+      foreach (WsfLocalTrack track in PLATFORM.MasterTrackList())
+      {
+         if (track.Target().Type() == "RANDOM_MANEUVER")
+         {
+            if (track.Target()->maneuver_not_detected == false)
+            {
+               TestExtrapolatedLocationAccuracy(track);
+            }
+         }
+      }
+   end_execute
+   
+end_platform_type
+
+platform_type FILTERING_RADAR RADAR
+   track_manager
+      uncorrelated_track_drops enable
+      retain_track_history
+      fusion_method orbit_determination
+         process_noise_sigmas_XYZ 0.1 0.1 0.1
+      end_fusion_method
+   end_track_manager
+end_platform_type
+
+platform radar RADAR
+   position 07:36:58.326n 134:30:50.691e   
+end_platform
+
+platform filtering_radar FILTERING_RADAR
+   position 07:36:58.326n 134:30:50.691e   
+end_platform
+
+platform leo RANDOM_MANEUVER
+   edit mover
+      semi_major_axis 7000 km
+      inclination 0 deg
+   end_mover
+end_platform
+
+platform geo RANDOM_MANEUVER
+   edit mover
+      position 0n 130e altitude 35786 km
+   end_mover
+end_platform
+
+platform meo RANDOM_MANEUVER
+   edit mover
+      semi_major_axis 20000 km
+      inclination 68 deg
+   end_mover
+end_platform

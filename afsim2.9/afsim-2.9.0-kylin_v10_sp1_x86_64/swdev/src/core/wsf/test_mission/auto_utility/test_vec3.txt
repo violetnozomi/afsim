@@ -1,0 +1,57 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests for Vec3 script methods
+
+on_initialize
+   bool pass = true;
+   
+   // Test Negate
+   Vec3 v1 = Vec3.Construct(1, 2, 3);
+   Vec3 v2 = Vec3(v1);
+   v2.Negate();
+   foreach(int i in {0, 1, 2})
+   {
+      if (v1.Get(i) != - v2.Get(i))
+      {
+         writeln("-FAIL- Unexpected result of Vec3.Negate");
+         pass = false;
+         break;
+      }
+   }
+
+   // Test AngleWith
+   Vec3 ux = Vec3.Construct(1, 0, 0);
+   Vec3 uy = Vec3.Construct(0, 1, 0);
+   Vec3 uz = Vec3.Construct(0, 0, 1);
+   foreach(Vec3 v in {uy, uz})
+   {
+      if (Vec3.AngleWith(ux, v) != 90.0)
+      {
+         writeln("-FAIL- Unexpected result of AngleWith called with orthogonal vectors");
+         pass = false;
+      }
+   }
+   if (Vec3.AngleWith(ux, ux) != 0)
+   {
+      writeln("-FAIL- Unexpected result of AngleWith called with same argument");
+      pass = false;
+   }
+   Vec3 xy = Vec3.Construct(1, 1, 0);
+   if (Math.Fabs(Vec3.AngleWith(ux, xy) - 45.0) > 1.0e-9)
+   {
+      writeln("-FAIL- Unexpected result of AngleWith");
+      pass = false;
+   }
+
+   if (pass)
+   {
+      writeln("-PASS-");
+   }
+end_on_initialize

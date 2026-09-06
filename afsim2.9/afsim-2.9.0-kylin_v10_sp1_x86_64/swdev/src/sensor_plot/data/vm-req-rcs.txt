@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Vertical Gridded Map Example with SALRAM.
+
+###############################################################################
+#                 Define the target signature and pltform type
+#
+# The platform type must be "TARGET_PLATFORM_TYPE"
+
+radar_signature TARGET_RADAR_SIGNATURE
+  constant 1 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+  radar_signature TARGET_RADAR_SIGNATURE
+end_platform_type
+
+###############################################################################
+#                         Define the sensing platform
+#
+# The platform type MUST be SENSOR_PLATFORM_TYPE
+# The sensor name   MUST be TEST_SENSOR
+
+include ../../data/radars/radar_tps-1d.txt
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+  //sensor TEST_SENSOR TPS-1D_SENSOR show_calibration_data end_sensor
+  sensor TEST_SENSOR XWSF_SALRAM_SENSOR
+#    namelist_file ../../data/radars/salram_sinx_elscan.dat
+    namelist_file ../../data/radars/salram_csc_azscan.dat
+#    namelist_file ../../data/radars/salram_sinx_trk.dat
+#    debug
+    reports_location
+  end_sensor
+end_platform_type
+
+###############################################################################
+
+vertical_map
+  pd_map_file          vm-req-rcs.map
+  header_line_1 Line 1
+  header_line_2 Line 2
+  header_line_3 Line 3
+  variable             required_rcs
+  //detection_reference  1.0376 absolute
+
+  ground_range_limits  0 nm 200 nm
+  ground_range_step    1 nm
+  altitude_limits      0 nm  15 nm
+  altitude_step        .25 nm
+
+end_vertical_map
+  
+
+

@@ -1,0 +1,479 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test the WsfDefaultFusion class handling of six cases:
+#  1. single sensor reporting location
+#  2. single sensor reporting range/bearing/elevation
+#  3. two sensors both reporting range/bearing/elevation
+#  4. two sensors separately reporting range/bearing and elevation
+#  5. three sensors separately reporting range, bearing and elevation
+#  6. single sensor reporting range/bearing (2D test case with assumed altitude)
+#
+# For each case, verify location reports for both the sensor platform and
+# target as well as script methods that report location validity. Added when
+# correcting defect "AFSIM-209: LocationValid2D never valid for RBE track".
+#
+include_once ../auto_script/test_functions.txt
+
+end_time 601 s
+
+script_variables
+   int testCaseNumber = 0;
+   bool allTestsPassed = true;   // any failure turns it false
+   WsfPlatform targetTemplate;   // used to add 'same' target platform for each case
+   WsfGeoPoint watcherStartLoc = WsfGeoPoint.Construct(30.5, -81.33333, 10000);
+   double skipTime = -1;   // skip saving locations during track establishment
+   Array<WsfGeoPoint> case1SensorLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case1TargetLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case2SensorLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case2TargetLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case3SensorLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case3TargetLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case4SensorLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case4TargetLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case5SensorLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case5TargetLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case6SensorLoc = Array<WsfGeoPoint>();
+   Array<WsfGeoPoint> case6TargetLoc = Array<WsfGeoPoint>();
+end_script_variables
+
+platform_type TARGET_PLATFORM WSF_PLATFORM
+   side red
+   mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 30:30n 81:30w
+      altitude 9 km
+      heading 130 deg
+      speed 9000 km/hr
+   end_route
+end_platform_type
+
+platform_type SENSOR_SHIP WSF_PLATFORM
+   mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 30:30n 81:20w
+      altitude 10 km
+      heading 225 deg
+      speed 5000 km/hr
+   end_route
+end_platform_type
+
+// The watcher platform has all the sensors, a subset of which are turned
+// on for each test case.
+platform watcher SENSOR_SHIP
+   side blue
+   add sensor geo1 WSF_GEOMETRIC_SENSOR
+      off
+      #debug
+      frame_time 1 s
+      reports_location
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+   add sensor geo2 WSF_GEOMETRIC_SENSOR
+      off
+      #debug
+      frame_time 1 s
+      reports_range
+      reports_bearing
+      reports_elevation
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+   add sensor geo3 WSF_GEOMETRIC_SENSOR
+      off
+      #debug
+      frame_time 1 s
+      reports_range
+      reports_bearing
+      reports_elevation
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+   add sensor geo4 WSF_GEOMETRIC_SENSOR
+      off
+      #debug
+      frame_time 1 s
+      reports_range
+      reports_bearing
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+   add sensor geo5 WSF_GEOMETRIC_SENSOR
+      off
+      #debug
+      frame_time 1 s
+      reports_elevation
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+   add sensor geo6 WSF_GEOMETRIC_SENSOR
+      off
+      #debug
+      frame_time 1 s
+      reports_range
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+   add sensor geo7 WSF_GEOMETRIC_SENSOR
+      off
+      #debug
+      frame_time 1 s
+      reports_bearing
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+   add sensor geo8 WSF_GEOMETRIC_SENSOR
+      off
+      #debug
+      frame_time 1 s
+      reports_elevation
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+
+   add processor data_mgr WSF_TRACK_PROCESSOR
+      internal_link proc 
+   end_processor
+   
+   add processor proc WSF_SCRIPT_PROCESSOR 
+   
+      // Track messages are the basis of most tests and are used to validate track status methods
+      // and to extract position reports for comparison across test cases at the end of scenario.
+      on_message
+         type WSF_TRACK_NOTIFY_MESSAGE
+            script
+               WsfTrackNotifyMessage notifyMsg = (WsfTrackNotifyMessage)MESSAGE;
+               WsfLocalTrack theTrack = PLATFORM.TrackList(notifyMsg.TrackProcessorName()).Find(notifyMsg.TrackId());
+               WsfGeoPoint sensorLoc = theTrack.OriginatorLocation();
+               WsfGeoPoint targetLoc = theTrack.ReportedLocation();
+
+               # Optional output for troubleshooting this test
+               bool printFlag = false;
+               #printFlag = ((int)(TIME_NOW/10)*10) == ((int)TIME_NOW);
+               #printFlag = notifyMsg.ChangedReason() == 1 || TIME_NOW <= skipTime;
+               if (printFlag)
+               {
+                  writeln("T=", TIME_NOW, " MTL.Count ", PLATFORM.MasterTrackList().Count(), " Case ", testCaseNumber, " Local track ", notifyMsg.TrackId(), " changed ", notifyMsg.ChangedReason());               
+                  writeln("   ", "UpdateCount ", theTrack.UpdateCount(), " LocValid/2D/AltKnown ", theTrack.LocationValid(), " ", theTrack.LocationValid2D(), " ", theTrack.AltitudeKnown());                                         
+                  writeln("   Sensor LLA: ", sensorLoc.Latitude(), ", ", sensorLoc.Longitude(), ", ", sensorLoc.Altitude());                                         
+                  writeln("   Target LLA: ", targetLoc.Latitude(), ", ", targetLoc.Longitude(), ", ", targetLoc.Altitude());                                         
+               }
+
+               # For created tracks, validate location status methods
+               if (notifyMsg.ChangedReason() == 1)
+               {
+                  skipTime = TIME_NOW;    // used to skip updated tracks that occur at this same time
+                  if (testCaseNumber == 1)
+                  {  // one track reporting location
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid(), "expected LocationValid() to be true for created track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid2D(), "expected LocationValid2D() to be true for created track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.AltitudeKnown(), "expected AltitudeKnown() to be true for created track") && allTestsPassed;
+                  }
+                  else if (testCaseNumber == 2)
+                  {  // one track reporting RBE
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid(), "expected LocationValid() to be true for created track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid2D(), "expected LocationValid2D() to be true for created track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.AltitudeKnown(), "expected AltitudeKnown() to be true for created track") && allTestsPassed;
+                  }
+                  else if (testCaseNumber == 3)
+                  {  // two tracks reporting RBE
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid(), "expected LocationValid() to be true for created track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid2D(), "expected LocationValid2D() to be true for created track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.AltitudeKnown(), "expected AltitudeKnown() to be true for created track") && allTestsPassed;
+                  }
+                  else if (testCaseNumber == 4)
+                  {  // one track reporting RB + one track reporting E
+                     allTestsPassed = AssertFalseMessage(theTrack.LocationValid(), "expected LocationValid() to be false for created track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid2D(), "expected LocationValid2D() to be true for created track") && allTestsPassed;
+                     allTestsPassed = AssertFalseMessage(theTrack.AltitudeKnown(), "expected AltitudeKnown() to be false for created track") && allTestsPassed;
+                  }
+                  else if (testCaseNumber == 5)
+                  {  // one track reporting R + one track reporting B + one track reporting E
+                     allTestsPassed = AssertFalseMessage(theTrack.LocationValid(), "expected LocationValid() to be false for created track") && allTestsPassed;
+                     allTestsPassed = AssertFalseMessage(theTrack.LocationValid2D(), "expected LocationValid2D() to be false for created track") && allTestsPassed;
+                     allTestsPassed = AssertFalseMessage(theTrack.AltitudeKnown(), "expected AltitudeKnown() to be false for created track") && allTestsPassed;
+                  }
+                  else if (testCaseNumber == 6)
+                  {  // one track reporting RB
+                     allTestsPassed = AssertFalseMessage(theTrack.LocationValid(), "expected LocationValid() to be false for created track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid2D(), "expected LocationValid2D() to be true for created track") && allTestsPassed;
+                     allTestsPassed = AssertFalseMessage(theTrack.AltitudeKnown(), "expected AltitudeKnown() to be false for created track") && allTestsPassed;
+                  }
+               }
+               # For updated tracks, save locations and validate location status methods
+               else if (notifyMsg.ChangedReason() == 2  && TIME_NOW > skipTime)
+               {
+                  if (testCaseNumber == 1)
+                  {
+                     case1SensorLoc.PushBack(sensorLoc);
+                     case1TargetLoc.PushBack(targetLoc);
+                  }
+                  else if (testCaseNumber == 2)
+                  {
+                     case2SensorLoc.PushBack(sensorLoc);
+                     case2TargetLoc.PushBack(targetLoc);
+                  }
+                  else if (testCaseNumber == 3)
+                  {
+                        case3SensorLoc.PushBack(sensorLoc);
+                        case3TargetLoc.PushBack(targetLoc);
+                  }
+                  else if (testCaseNumber == 4)
+                  {
+                        case4SensorLoc.PushBack(sensorLoc);
+                        case4TargetLoc.PushBack(targetLoc);
+                  }
+                  else if (testCaseNumber == 5)
+                  {
+                        case5SensorLoc.PushBack(sensorLoc);
+                        case5TargetLoc.PushBack(targetLoc);
+                  }
+                  else if (testCaseNumber == 6)
+                  {
+                        case6SensorLoc.PushBack(sensorLoc);
+                        case6TargetLoc.PushBack(targetLoc);
+                  }
+            
+                  if (testCaseNumber >= 1 && testCaseNumber <= 5)
+                  {  # 3D cases - expect all methods to return true
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid(), "expected LocationValid() to be true for updated track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid2D(), "expected LocationValid2D() to be true for updated track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.AltitudeKnown(), "expected AltitudeKnown() to be true for updated track") && allTestsPassed;
+                  }
+                  else if (testCaseNumber == 6)
+                  {  # 2D case - expect only LocationValid2D to return true
+                     allTestsPassed = AssertFalseMessage(theTrack.LocationValid(), "expected LocationValid() to be false for updated track") && allTestsPassed;
+                     allTestsPassed = AssertTrueMessage(theTrack.LocationValid2D(), "expected LocationValid2D() to be true for updated track") && allTestsPassed;
+                     allTestsPassed = AssertFalseMessage(theTrack.AltitudeKnown(), "expected AltitudeKnown() to be false for updated track") && allTestsPassed;
+                  }
+               }
+            end_script
+      end_on_message
+
+   end_processor
+
+   # Start 1st test case
+   execute at_time 1 s absolute
+      targetTemplate = WsfSimulation.CreatePlatform("TARGET_PLATFORM");
+      PLATFORM.SetLocation(watcherStartLoc);
+      testCaseNumber = 1;
+      writeln("-------------------------------------------------------------------------------------");
+      writeln("+++ Test case 1: One track reporting location +++");
+      WsfSimulation.AddPlatform(targetTemplate, "target1");
+      PLATFORM.Sensor("geo1").TurnOn();
+   end_execute
+   
+   # End 1st test case
+   execute at_time 100.5 s absolute
+      WsfSimulation.DeletePlatform("target1");
+      PLATFORM.Sensor("geo1").TurnOff();
+      testCaseNumber = 0;
+   end_execute
+   
+   # Start 2nd test case
+   execute at_time 101 s absolute
+      PLATFORM.SetLocation(watcherStartLoc);
+      testCaseNumber = 2;
+      writeln("+++ Test case 2: One track reporting range/bearing/elevation +++");
+      WsfSimulation.AddPlatform(targetTemplate, "target2");
+      PLATFORM.Sensor("geo2").TurnOn();
+   end_execute
+   
+   # End 2nd test case
+   execute at_time 200.5 s absolute
+      WsfSimulation.DeletePlatform("target2");
+      PLATFORM.Sensor("geo2").TurnOff();
+      testCaseNumber = 0;
+   end_execute
+   
+   # Start 3rd test case
+   execute at_time 201 s absolute
+      PLATFORM.SetLocation(watcherStartLoc);
+      testCaseNumber = 3;
+      writeln("+++ Test case 3: Two tracks reporting range/bearing/elevation +++");
+      WsfSimulation.AddPlatform(targetTemplate, "target3");
+      PLATFORM.Sensor("geo2").TurnOn();
+      PLATFORM.Sensor("geo3").TurnOn();
+   end_execute
+   
+   # End 3rd test case
+   execute at_time 300.5 s absolute
+      WsfSimulation.DeletePlatform("target3");
+      PLATFORM.Sensor("geo2").TurnOff();
+      PLATFORM.Sensor("geo3").TurnOff();
+      testCaseNumber = 0;
+   end_execute
+   
+   # Start 4th test case
+   execute at_time 301 s absolute
+      PLATFORM.SetLocation(watcherStartLoc);
+      testCaseNumber = 4;
+      writeln("+++ Test case 4: Two tracks separately reporting range/bearing and elevation +++");
+      WsfSimulation.AddPlatform(targetTemplate, "target4");
+      PLATFORM.Sensor("geo4").TurnOn();
+      PLATFORM.Sensor("geo5").TurnOn();
+   end_execute
+   
+   # End 4th test case
+   execute at_time 400.5 s absolute
+      WsfSimulation.DeletePlatform("target4");
+      PLATFORM.Sensor("geo4").TurnOff();
+      PLATFORM.Sensor("geo5").TurnOff();
+      testCaseNumber = 0;
+   end_execute
+   
+   # Start 5th test case
+   execute at_time 401 s absolute
+      PLATFORM.SetLocation(watcherStartLoc);
+      testCaseNumber = 5;
+      writeln("+++ Test case 5: Three tracks separately reporting range, bearing and elevation +++");
+      WsfSimulation.AddPlatform(targetTemplate, "target5");
+      PLATFORM.Sensor("geo6").TurnOn();
+      PLATFORM.Sensor("geo7").TurnOn();
+      PLATFORM.Sensor("geo8").TurnOn();
+   end_execute
+   
+   # End 5th test case
+   execute at_time 500.5 s absolute
+      WsfSimulation.DeletePlatform("target5");
+      PLATFORM.Sensor("geo6").TurnOff();
+      PLATFORM.Sensor("geo7").TurnOff();
+      PLATFORM.Sensor("geo8").TurnOff();
+      testCaseNumber = 0;
+   end_execute
+   
+   # Start 6th test case
+   execute at_time 501 s absolute
+      PLATFORM.SetLocation(watcherStartLoc);
+      testCaseNumber = 6;
+      writeln("+++ Test case 6: One track reporting range/bearing (2D only) +++");
+      WsfSimulation.AddPlatform(targetTemplate, "target6");
+      PLATFORM.Sensor("geo4").TurnOn();
+   end_execute
+   
+   # End 6th test case
+   execute at_time 600.5 s absolute
+      WsfSimulation.DeletePlatform("target6");
+      PLATFORM.Sensor("geo4").TurnOff();
+      testCaseNumber = 0;
+   end_execute
+   
+end_platform
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Validate sensor and target location data for all test cases
+script void SimulationComplete()
+
+   writeln("+++ Validate sensor and target location data from all test cases +++");
+
+   # Validate location counts
+   bool locationCountsMatch = true;
+   locationCountsMatch = AssertEqualsMessage(99, case1SensorLoc.Size(), "unexpected test case 1 location count") && locationCountsMatch;
+   locationCountsMatch = AssertEqualsMessage(case1SensorLoc.Size(), case2SensorLoc.Size(), "test case 1 and 2 location count mismatch") && locationCountsMatch;
+   locationCountsMatch = AssertEqualsMessage(2*case1SensorLoc.Size(), case3SensorLoc.Size(), "test case 1 and 3 location count mismatch") && locationCountsMatch;
+   locationCountsMatch = AssertEqualsMessage(2*case1SensorLoc.Size(), case4SensorLoc.Size(), "test case 1 and 4 location count mismatch") && locationCountsMatch;
+   locationCountsMatch = AssertEqualsMessage(3*case1SensorLoc.Size(), case5SensorLoc.Size(), "test case 1 and 5 location count mismatch") && locationCountsMatch;
+   locationCountsMatch = AssertEqualsMessage(case1SensorLoc.Size(), case6SensorLoc.Size(), "test case 1 and 6 location count mismatch") && locationCountsMatch;
+
+   # Require sensor and target locations to match across test cases.  Test case 1 (sensor reporting location) serves as the
+   # 'truth' case against which the other test cases are compared.
+   # Tolerances:
+   #    0.01 for lat/lon comes from AssertLocation() in test_functions.txt and equates to ~1.1 km (max for lon)
+   #    0.05 for target lat/lon in test case 6 with assumed altitude that causes lat/lon errors due to curvature of earth
+   #    0.1  for target lat/lon in test cases 4 and 5 for intermediate fusion results of tracks with incomplete location
+   #    1    meter for altitude was an arbitrary choice (0.01 actually passed initially for cases 2 and 3)
+   #    700  meters for target altitude in test cases 4 and 5 for intermediate fusion results of tracks with incomplete location
+   #    4200  meters for *assumed* target altitude in test case 6
+   if (locationCountsMatch)
+   {
+      for (int i = 0; i < case1SensorLoc.Size(); i = i + 1)
+      {
+         # Expect case 1 and 2 sensor locations to match
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Latitude(), case2SensorLoc[i].Latitude(), 0.01, "test case 1 and 2 sensor latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Longitude(), case2SensorLoc[i].Longitude(), 0.01, "test case 1 and 2 sensor longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Altitude(), case2SensorLoc[i].Altitude(), 1, "test case 1 and 2 sensor altitude mismatch") && allTestsPassed;
+         # Expect case 1 and 2 target locations to match
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Latitude(), case2TargetLoc[i].Latitude(), 0.01, "test case 1 and 2 target latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Longitude(), case2TargetLoc[i].Longitude(), 0.01, "test case 1 and 2 target longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Altitude(), case2TargetLoc[i].Altitude(), 1, "test case 1 and 2 target altitude mismatch") && allTestsPassed;
+
+         # Expect case 1 and 3 sensor locations to match
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Latitude(), case3SensorLoc[i*2].Latitude(), 0.01, "test case 1 and 3a sensor latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Longitude(), case3SensorLoc[i*2].Longitude(), 0.01, "test case 1 and 3a sensor longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Altitude(), case3SensorLoc[i*2].Altitude(), 1, "test case 1 and 3a sensor altitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Latitude(), case3SensorLoc[i*2+1].Latitude(), 0.01, "test case 1 and 3b sensor latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Longitude(), case3SensorLoc[i*2+1].Longitude(), 0.01, "test case 1 and 3b sensor longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Altitude(), case3SensorLoc[i*2+1].Altitude(), 1, "test case 1 and 3b sensor altitude mismatch") && allTestsPassed;
+         # Expect case 1 and 3 target locations to match
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Latitude(), case3TargetLoc[i*2].Latitude(), 0.01, "test case 1 and 3a target latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Longitude(), case3TargetLoc[i*2].Longitude(), 0.01, "test case 1 and 3a target longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Altitude(), case3TargetLoc[i*2].Altitude(), 1, "test case 1 and 3a target altitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Latitude(), case3TargetLoc[i*2+1].Latitude(), 0.01, "test case 1 and 3b target latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Longitude(), case3TargetLoc[i*2+1].Longitude(), 0.01, "test case 1 and 3b target longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Altitude(), case3TargetLoc[i*2+1].Altitude(), 1, "test case 1 and 3b target altitude mismatch") && allTestsPassed;
+
+         # Expect case 1 and 4 sensor locations to match
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Latitude(), case4SensorLoc[i*2].Latitude(), 0.01, "test case 1 and 4a sensor latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Longitude(), case4SensorLoc[i*2].Longitude(), 0.01, "test case 1 and 4a sensor longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Altitude(), case4SensorLoc[i*2].Altitude(), 1, "test case 1 and 4a sensor altitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Latitude(), case4SensorLoc[i*2+1].Latitude(), 0.01, "test case 1 and 4b sensor latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Longitude(), case4SensorLoc[i*2+1].Longitude(), 0.01, "test case 1 and 4b sensor longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Altitude(), case4SensorLoc[i*2+1].Altitude(), 1, "test case 1 and 4b sensor altitude mismatch") && allTestsPassed;
+         # Expect case 1 and 4 target locations to match (increased tolerance for intermediate fusion results (4a))
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Latitude(), case4TargetLoc[i*2].Latitude(), 0.1, "test case 1 and 4a target latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Longitude(), case4TargetLoc[i*2].Longitude(), 0.1, "test case 1 and 4a target longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Altitude(), case4TargetLoc[i*2].Altitude(), 700, "test case 1 and 4a target altitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Latitude(), case4TargetLoc[i*2+1].Latitude(), 0.01, "test case 1 and 4b target latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Longitude(), case4TargetLoc[i*2+1].Longitude(), 0.01, "test case 1 and 4b target longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Altitude(), case4TargetLoc[i*2+1].Altitude(), 1, "test case 1 and 4b target altitude mismatch") && allTestsPassed;
+
+         # Expect case 1 and 5 sensor locations to match
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Latitude(), case5SensorLoc[i*3].Latitude(), 0.01, "test case 1 and 5a sensor latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Longitude(), case5SensorLoc[i*3].Longitude(), 0.01, "test case 1 and 5a sensor longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Altitude(), case5SensorLoc[i*3].Altitude(), 1, "test case 1 and 5a sensor altitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Latitude(), case5SensorLoc[i*3+1].Latitude(), 0.01, "test case 1 and 5b sensor latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Longitude(), case5SensorLoc[i*3+1].Longitude(), 0.01, "test case 1 and 5b sensor longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Altitude(), case5SensorLoc[i*3+1].Altitude(), 1, "test case 1 and 5b sensor altitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Latitude(), case5SensorLoc[i*3+2].Latitude(), 0.01, "test case 1 and 5c sensor latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Longitude(), case5SensorLoc[i*3+2].Longitude(), 0.01, "test case 1 and 5c sensor longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Altitude(), case5SensorLoc[i*3+2].Altitude(), 1, "test case 1 and 5c sensor altitude mismatch") && allTestsPassed;
+         # Expect case 1 and 5 target locations to match (increased tolerance for intermediate fusion results (5a, 5b))
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Latitude(), case5TargetLoc[i*3].Latitude(), 0.1, "test case 1 and 5a target latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Longitude(), case5TargetLoc[i*3].Longitude(), 0.1, "test case 1 and 5a target longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Altitude(), case5TargetLoc[i*3].Altitude(), 700, "test case 1 and 5a target altitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Latitude(), case5TargetLoc[i*3+1].Latitude(), 0.1, "test case 1 and 5b target latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Longitude(), case5TargetLoc[i*3+1].Longitude(), 0.1, "test case 1 and 5b target longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Altitude(), case5TargetLoc[i*3+1].Altitude(), 700, "test case 1 and 5b target altitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Latitude(), case5TargetLoc[i*3+2].Latitude(), 0.01, "test case 1 and 5c target latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Longitude(), case5TargetLoc[i*3+2].Longitude(), 0.01, "test case 1 and 5c target longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Altitude(), case5TargetLoc[i*3+2].Altitude(), 1, "test case 1 and 5c target altitude mismatch") && allTestsPassed;
+
+         # Expect case 1 and 6 sensor locations to match
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Latitude(), case6SensorLoc[i].Latitude(), 0.01, "test case 1 and 6 sensor latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Longitude(), case6SensorLoc[i].Longitude(), 0.01, "test case 1 and 6 sensor longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1SensorLoc[i].Altitude(), case6SensorLoc[i].Altitude(), 1, "test case 1 and 6 sensor altitude mismatch") && allTestsPassed;
+         # Expect case 1 and 6 target locations to match (increased tolerance for assumed altitude and related lat/lon errors)
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Latitude(), case6TargetLoc[i].Latitude(), 0.05, "test case 1 and 6 target latitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Longitude(), case6TargetLoc[i].Longitude(), 0.05, "test case 1 and 6 target longitude mismatch") && allTestsPassed;
+         allTestsPassed = AssertWithinToleranceMessage(case1TargetLoc[i].Altitude(), case6TargetLoc[i].Altitude(), 4200, "test case 1 and 6 target altitude mismatch") && allTestsPassed;
+      }
+   }
+   writeln("-------------------------------------------------------------------------------------");
+   if (allTestsPassed && locationCountsMatch)
+   {
+      writePass(true);
+   }
+end_script

@@ -1,0 +1,208 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+define_path_variable CASE eci_deltav_maneuver
+
+#event_output file ./$(CASE).evt end_event_output
+
+#event_pipe
+#   file ./$(CASE).aer
+#end_event_pipe
+
+start_date Jul 11 2018
+start_time 00:00:000
+end_time 10 hours
+
+platform_type GREY WSF_PLATFORM
+	side grey
+	mover  WSF_SPACE_MOVER
+	end_mover
+   orbit
+		1 99999U 98067A   18191.92601852  .00011951  00000-0  18828-3 0  9990
+		2 99999  00.0000 260.3859 0000001 301.4077  43.7815 15.54010757122205
+	end_orbit
+   update_interval 1.0 sec
+
+	icon agena
+end_platform_type
+
+platform ThroughEarthScript GREY
+   execute at_time 10 s absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      Vec3 velocity = Vec3.Construct(-4357.32, -6306.9, 0);
+      WsfOrbitalEventCondition throughEarthCondition = WsfOrbitalEventCondition.AT_RELATIVE_TIME(400.0);
+      WsfOrbitalManeuver maneuver = WsfDeltaV_Maneuver.Construct(throughEarthCondition, velocity, WsfOrbitalReferenceFrame.INERTIAL());
+      mover.ExecuteManeuver(maneuver);
+   end_execute
+
+   execute at_time 1000 s absolute
+      DeletePlatform();
+   end_execute
+end_platform
+
+platform quantitiative_test WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      initial_state_eci 800 km 0 km 0 km 100 m/s 3 km/s -50 m/s
+      mission_sequence
+         maneuver delta_v
+            delta_v inertial -100 m/s -1.5 km/s 50 m/s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   execute at_time 0.00001 s absolute
+      if ((MATH.Fabs(PLATFORM.VelocityECI()[0]) > 0.001) ||
+          (MATH.Fabs(PLATFORM.VelocityECI()[1] - 1500.0) > 0.001) ||
+          (MATH.Fabs(PLATFORM.VelocityECI()[2]) > 0.001))
+      {
+         writeln("-FAIL-");
+      }
+   end_execute
+end_platform
+
+platform ThroughEarthSequence GREY
+   edit mover
+      mission_sequence
+         maneuver delta_v
+            execute_at relative_time 400 s
+            delta_v inertial -4357.32 m/s -6306.9 m/s 0 m/s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+
+   execute at_time 1000 s absolute
+      DeletePlatform();
+   end_execute
+end_platform
+
+platform HyperbolicScript GREY
+   execute at_time 10 s absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      WsfOrbitalEventCondition hyperbolicCondition = WsfOrbitalEventCondition.AT_RELATIVE_TIME(200.0);
+      Vec3 deltav = Vec3.Construct(20000000, 0, 0);
+      WsfOrbitalManeuver hyperbolicManeuver = WsfDeltaV_Maneuver.Construct(hyperbolicCondition, deltav, WsfOrbitalReferenceFrame.INERTIAL());
+      mover.ExecuteManeuver(hyperbolicManeuver);
+   end_execute
+
+   execute at_time 1000 s absolute
+      DeletePlatform();
+   end_execute
+end_platform
+
+platform HyperbolicSequence GREY
+   edit mover
+      mission_sequence
+         maneuver delta_v
+            execute_at relative_time 400 s
+            delta_v inertial 2000000 m/s 0 m/s 0 m/s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+
+   execute at_time 1000 s absolute
+      DeletePlatform();
+   end_execute
+end_platform
+
+platform TransferScript GREY
+   execute at_time 10 s absolute
+      WsfSpaceMover mover = (WsfSpaceMover) PLATFORM.Mover();
+      WsfOrbitalEventCondition transferManeuverCondition = WsfOrbitalEventCondition.AT_RELATIVE_TIME(830.0);
+      Vec3 transferDeltaV = Vec3.Construct(254.1811832086, 2369.6127180139, 0.0);
+      WsfOrbitalManeuver transferManeuver = WsfDeltaV_Maneuver.Construct(transferManeuverCondition, transferDeltaV, WsfOrbitalReferenceFrame.INERTIAL());
+      WsfOrbitalEventCondition circularizeManeuverCondition = WsfOrbitalEventCondition.AT_RELATIVE_TIME(19882.0);
+      Vec3 circularizeDeltaV = Vec3.Construct(-94.7357951163, -1434.4524871896, 0.0);
+      WsfOrbitalManeuver circularizeManeuver = WsfDeltaV_Maneuver.Construct(circularizeManeuverCondition, circularizeDeltaV, WsfOrbitalReferenceFrame.INERTIAL());
+      WsfOrbitalMissionSequence missionSequence = WsfOrbitalMissionSequence.Construct();
+
+      missionSequence.AddManeuver(transferManeuver);
+      missionSequence.AddManeuver(circularizeManeuver);
+
+      mover.ExecuteMissionSequence(missionSequence);
+   end_execute
+end_platform
+
+platform TransferSequence GREY
+   edit mover
+      mission_sequence
+         maneuver delta_v
+            execute_at relative_time 830 s
+            delta_v inertial 254.1811832086 m/s 2369.6127180139 m/s 0 m/s
+         end_maneuver
+
+         maneuver delta_v
+            execute_at relative_time 19882.0 s
+            delta_v inertial -94.7357951163 m/s -1434.4524871896 m/s 0 m/s
+         end_maneuver
+      end_mission_sequence
+
+   end_mover
+end_platform
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; begin ", aManeuver.ManeuverType());
+end_script
+
+script_variables
+   bool passed = true;
+end_script_variables
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; end ", aManeuver.ManeuverType());
+   if((aPlatform.Name() == "HyperbolicScript") || (aPlatform.Name() == "HyperbolicSequence"))
+   {
+      writeln("-FAIL- Hyperbolic orbits are not allowed and should not have been completed.");
+      passed = false;
+   }
+   else
+   {
+      writeln(aPlatform.Name(), " maneuver successful as expected");
+   }
+end_script
+
+script void OrbitalManeuverCanceled(WsfPlatform        aPlatform,
+                                    WsfSpaceMover      aSM,
+                                    WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; canceled ", aManeuver.ManeuverType());
+
+   if((aPlatform.Name() != "HyperbolicScript") || (aPlatform.Name() != "HyperbolicSequence"))
+   {
+      writeln("-FAIL- All non-hyperbolic maneuvers should have completed.");
+      passed = false;
+   }
+   else
+   {
+      writeln(aPlatform.Name(), " maneuver canceled as expected");
+   }
+
+end_script
+
+script void SimulationComplete()
+   if(passed)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable ORBITAL_MANEUVER_CANCELED  OrbitalManeuverCanceled
+   enable SIMULATION_COMPLETE        SimulationComplete
+end_observer
+
+// Through earth and hyperbolic sequences should fail and stop simulation initialization.
+// Make them available to test the warning/error messages.
+platform_availability
+   name HyperbolicSequence availability 0.0
+   name ThroughEarthSequence availability 0.0
+end_platform_availability

@@ -1,0 +1,35 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_towers_of_hanoi.txt
+# Recursive function testing.
+
+script int move(int aN, int aA, int aC, int aB)
+	if (aN == 1)
+	{
+		writeln("Move from ", aA, " to ", aC);
+	}
+	else
+	{
+		move(aN-1, aA, aB, aC);
+		move(1, aA, aC, aB);
+		move(aN-1, aB, aC, aA);
+	}
+   return 0;
+end_script
+
+on_initialize
+   int numDisks = 5;
+
+   writeln("The Towers of Hanoi - ", numDisks, " disks");
+
+   move(numDisks, 1, 3, 2);
+   # If this recursive function is able to execute, this test passes automatically.
+   writeln("-PASS- : If this recursive function is able to execute, this test passes automatically.");
+end_on_initialize

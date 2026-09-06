@@ -1,0 +1,120 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Collects statistics on the scenario
+
+observer
+   enable PLATFORM_INITIALIZED collect_PlatformInitialized
+   enable PLATFORM_DELETED     collect_PlatformDeleted
+   enable PLATFORM_BROKEN      collect_PlatformBroken
+end_observer
+
+
+script_struct collectedStats
+   script_variables
+      double        time_alive = 0.0;
+      double        distance_travelled = 0.0;
+      int           samples = 0;
+      int           broken_count = 0;
+   end_script_variables
+   script void Join(struct other)
+      time_alive += other->time_alive;
+      distance_travelled += other->distance_travelled;
+      broken_count += other->broken_count;
+      samples += 1;
+   end_script
+   script void Print()
+      if (samples > 0) writeln("Samples: ", samples);
+      writeln("Alive Time: ", Format.Fixed(time_alive, 2));
+      writeln("Distance Travelled: ", Format.Fixed(distance_travelled, 2));
+   end_script
+   script bool ExpectedAliveTime(double aAliveTime, double aFactor)
+      if (MATH.Fabs((time_alive / aAliveTime) - 1.0) > aFactor) {
+         writeln("Alive time not valid.  Expected ", aAliveTime, " but found ", time_alive);
+         return false;
+      }
+      return true;
+   end_script
+   script bool ExpectedDistanceTravelled(double aDistanceTravelled, double aFactor)
+      if (MATH.Fabs((distance_travelled / aDistanceTravelled) - 1.0) > aFactor) {
+         writeln("Distance Travelled not valid.  Expected ", aDistanceTravelled, " but found ", distance_travelled);
+         return false;
+      }
+      return true;
+   end_script
+
+end_script_struct
+
+script_struct platformCollector
+   script_variables
+      WsfGeoPoint   mInitialLocation;
+      WsfPlatform   mPlatform;
+      string        mTypeName;
+      double        mCreationTime = 0.0;
+      struct        mStats;
+      bool          mBroken = false;
+   end_script_variables
+   script void Begin(WsfPlatform p)
+      mPlatform = p;
+      mInitialLocation = p.Location();
+      mCreationTime = TIME_NOW;
+      mTypeName = p.Type();
+   end_script
+   # Collects the stats up to the current time.  If platform is destroyed, returns stats before death
+   script struct Collect()
+      if (mStats) return mStats;
+      struct stats = struct.New("collectedStats");
+      stats->distance_travelled = mInitialLocation.SlantRangeTo(mPlatform.Location());
+      stats->time_alive = TIME_NOW - mCreationTime;
+      return stats;
+   end_script
+   script void Deleted()
+      if (mStats.IsNull()) mStats = Collect();
+   end_script
+   script void Broken()
+      mBroken = true;
+   end_script
+
+end_script_struct
+
+
+script_variables
+   Map<string, struct> platformCollectors = {};
+end_script_variables
+
+script void collect_PlatformInitialized(WsfPlatform p)
+   platformCollectors[p.Name()] = struct.New("platformCollector");
+   platformCollectors[p.Name()]->Begin(p);
+end_script
+
+script void collect_PlatformDeleted(WsfPlatform p)
+   if(platformCollectors.Exists(p.Name()))
+   {
+      platformCollectors[p.Name()]->Deleted();
+   }
+end_script
+script void collect_PlatformBroken(WsfPlatform p)
+   if(platformCollectors.Exists(p.Name()))
+   {
+      platformCollectors[p.Name()]->Broken();
+   }
+end_script
+
+# Return the statistics for a platform type.  Use the
+# empty string to see statistics for all platforms
+script struct collect_Summarize(string platformType)
+   struct sum = struct.New("collectedStats");
+   foreach (string name : struct c in platformCollectors) {
+      if (platformType == "" || c->mTypeName == platformType) {
+         sum->Join(c->Collect());
+      }
+   }
+   return sum;
+end_script
+

@@ -1,0 +1,67 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+platform target-1 WSF_PLATFORM
+   position 2n 3e
+   altitude 10000 m agl
+end_platform
+
+platform atc WSF_PLATFORM
+   position 1.7n 3e
+   altitude 10000 m agl
+   heading 0 degrees
+
+   track_manager
+      aux_data
+         int tag = 1234
+      end_aux_data
+   end_track_manager
+
+   add processor trk_mgr WSF_TRACK_PROCESSOR
+   end_processor
+
+   add sensor atc_radar WSF_GEOMETRIC_SENSOR
+      on
+      maximum_range 300 nm
+      reports_location
+      frame_time 1 s
+      internal_link trk_mgr
+   end_sensor
+
+   execute at_time 3 s absolute
+      int trackCount = 0;
+      int expectedTrackCount = 1;
+      int expectedAuxDataVal = 1234;
+      WsfLocalTrackList trackList = PLATFORM.MasterTrackList();
+      WsfLocalTrack myTrack;
+      foreach (WsfLocalTrack t in trackList)
+      {
+         trackCount = trackCount + 1;
+         myTrack = t;
+      }
+
+      if (trackCount != expectedTrackCount)
+      {
+         writeln("-FAIL-");
+         writeln("Expected track count: 1, instead value is: ", trackCount);
+      }
+      else if (myTrack.AuxDataInt("tag") != expectedAuxDataVal)
+      {
+         writeln("-FAIL-");
+         writeln("Expected aux data tag value: 1234");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+   end_execute
+end_platform
+
+end_time 5 s

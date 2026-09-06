@@ -1,0 +1,487 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests the basic script capabilities related to mediums and associated objects.
+// Runtime based script capabilities are not tested here.
+script_variables
+   double DEFAULT_TRANSFER_RATE = 0.0;
+   double DEFAULT_PROPAGATION_SPEED = 2.99792458E8;
+end_script_variables
+
+medium TEST_MEDIUM_SHARED WSF_COMM_MEDIUM_GUIDED
+   channels 10
+   transfer_rate 10 bits/s
+   propagation_speed 200000000 m/s
+   packet_loss_time 0.1 s
+   default_mode_name alternate
+   mode alternate
+      transfer_rate 12 bits/s
+      propagation_speed 190000000 m/s
+      packet_loss_time 0.2 s
+   end_mode
+   mode another_alternate
+      transfer_rate 13 bits/s
+      propagation_speed 190000001 m/s
+      packet_loss_time 0.3 s   
+   end_mode
+end_medium
+
+medium TEST_MEDIUM_UNIQUE WSF_COMM_MEDIUM_UNGUIDED
+   channels 200
+   use_sharing false
+   mode default
+      transfer_rate 10 bits/s
+      propagation_speed 200000000 m/s
+      packet_loss_time 0.1 s
+   end_mode
+   mode alternate
+      transfer_rate 12 bits/s
+      propagation_speed 190000000 m/s
+      packet_loss_time 0.2 s
+   end_mode
+   mode another_alternate
+      transfer_rate 13 bits/s
+      propagation_speed 190000001 m/s
+      packet_loss_time 0.3 s   
+   end_mode
+   mode snr_table
+      snr_transfer_rate_table
+         dB bit/s
+         0  9000
+         1  9000
+         2  8000
+         3  7000
+         4  4000
+         5  2000
+         55 1000
+         70 10
+      end_snr_transfer_rate_table
+   end_mode
+   mode ebno_table
+      bit_error_probability 0.000001
+      bit_error_rate_ebno_table
+        0.00000001 12
+        0.0000001  11.3
+        0.000001   10.3
+        0.00001    9.5
+        0.0001     8.3
+        0.001      6.5
+        0.01       4.3
+        0.1        0
+      end_bit_error_rate_ebno_table
+      error_correction 0.5
+   end_mode
+end_medium
+
+medium TEST_MEDIUM_ROUTER TEST_MEDIUM_SHARED
+   channels 5
+   use_sharing false
+   transfer_rate 100 bits/s
+   propagation_speed 290000000 m/s
+   packet_loss_time 0.0 s
+   default_mode_name default  
+end_medium
+
+router ROUTER_WIRED WSF_COMM_ROUTER
+   add medium TEST_MEDIUM_ROUTER end_medium
+end_router
+
+comm COMM_WIRED WSF_COMM_TRANSCEIVER
+   add medium TEST_MEDIUM_SHARED end_medium
+end_comm
+
+comm COMM_RADIO WSF_RADIO_TRANSCEIVER
+   add medium TEST_MEDIUM_UNIQUE end_medium
+   transmitter
+      frequency 50 mhz
+      power 50 watts
+   end_transmitter
+   receiver
+      frequency 50 mhz
+   end_receiver
+end_comm
+
+platform test1 WSF_PLATFORM
+   add comm comm COMM_WIRED end_comm
+end_platform
+
+platform test2 WSF_PLATFORM
+   add comm comm COMM_WIRED end_comm
+end_platform
+
+platform test3 WSF_PLATFORM
+   add comm comm COMM_RADIO end_comm
+end_platform
+
+platform test4 WSF_PLATFORM
+   add comm comm COMM_RADIO end_comm
+end_platform
+
+platform test5 WSF_PLATFORM
+   add comm comm1 COMM_WIRED end_comm
+   add comm comm2 COMM_WIRED end_comm
+   add router default ROUTER_WIRED end_router
+   add router second_router ROUTER_WIRED 
+      edit medium TEST_MEDIUM_ROUTER
+         channels 22
+         transfer_rate 122 bits/s
+         mode alternate
+            transfer_rate 1 bits/s
+         end_mode
+         mode new_mode
+            transfer_rate 2 bits/s
+         end_mode
+      end_medium
+   end_router
+end_platform
+
+script void RunMediumScriptTest(WsfCommMedium aMedium,
+                                string        aContainerName,
+                                int           aNumChannels,
+                                int           aNumModes,
+                                int           aCurModeIndex,
+                                string        aCurModeName,
+                                int           aCurTransmissionCount,
+                                int           aCurMessageStatusCount,
+                                bool          aShared)
+{
+   int numChannels = aMedium.ChannelCount();
+   if(numChannels != aNumChannels)
+   {
+      writeln(aContainerName + " failed number channels.");
+      writeln("-FAIL-");   
+   }
+
+   int modeCount = aMedium.ModeCount();
+   if(modeCount != aNumModes)
+   {
+      writeln(aContainerName + " failed number modes.");
+      writeln("-FAIL-");
+   }
+   
+   int curModeIndex = aMedium.CurrentModeIndex();
+   if(curModeIndex != aCurModeIndex)
+   {
+      writeln(aContainerName + " failed current mode index.");
+      writeln("-FAIL-");   
+   }
+   
+   string curModeName = aMedium.CurrentModeName();
+   if(curModeName != aCurModeName)
+   {
+      writeln(aContainerName + " failed current mode name.");
+      writeln("-FAIL-");   
+   }
+   
+   int transmissionCount = aMedium.TransmissionCount();
+   if(transmissionCount != aCurTransmissionCount)
+   {
+      writeln(aContainerName + " failed number current transmissions.");
+      writeln("-FAIL-");   
+   }
+   
+   int messageStatusCount = aMedium.MessageStatusCount();
+   if(messageStatusCount != aCurMessageStatusCount)
+   {
+      writeln(aContainerName + " failed number current messages statuses.");
+      writeln("-FAIL-");   
+   }
+   
+   bool shared = aMedium.IsShared();
+   if(shared != aShared)
+   {
+      writeln(aContainerName + " failed shared check.");
+      writeln("-FAIL-");   
+   }
+}
+end_script
+
+script void RunModeTest(WsfCommMedium aMedium,
+                        string        aContainerName,
+                        string        aCurModeName,
+                        double        aTransferRate,
+                        double        aPropagationSpeed,
+                        double        aPacketLossTime,
+                        double        aBitError,
+                        double        aErrorCorrection,
+                        bool          aUseEbNoTable,
+                        bool          aUseSNR_Table)
+{
+   bool castFail = true;
+   WsfCommMediumMode curMode = aMedium.GetCurrentMode();
+   
+   string curModeName = curMode.GetName();
+   if(curModeName != aCurModeName)
+   {
+      writeln(aContainerName + " failed current mode name check.");
+      writeln("-FAIL-");
+   }
+   
+   WsfCommMediumModeGuided guidedMode = (WsfCommMediumModeGuided)curMode;
+   if(guidedMode.IsValid())
+   {
+      castFail = false;
+      WsfRandomVariable transferRate = guidedMode.GetTransferRate();
+      if(transferRate.Draw() != aTransferRate)
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed transfer rate check.");
+         writeln("-FAIL-");
+      }
+      
+      WsfRandomVariable propagationSpeed = guidedMode.GetPropagationSpeed();
+      if(propagationSpeed.Draw() != aPropagationSpeed)
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed propagation speed check.");
+         writeln("-FAIL-");
+      }      
+      
+      WsfRandomVariable packetLoss = guidedMode.GetPacketLossTime();
+      if(packetLoss.Draw() != aPacketLossTime)
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed packet loss time check.");
+         writeln("-FAIL-");
+      }      
+   }
+   
+   WsfCommMediumModeUnguided unguidedMode = (WsfCommMediumModeUnguided)curMode;
+   if(unguidedMode.IsValid())
+   {
+      castFail = false;
+      WsfRandomVariable transferRate = unguidedMode.GetTransferRate();
+      if(transferRate.Draw() != aTransferRate)
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed transfer rate check.");
+         writeln("-FAIL-");
+      }
+            
+      WsfRandomVariable propagationSpeed = unguidedMode.GetPropagationSpeed();
+      if(propagationSpeed.Draw() != aPropagationSpeed)
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed propagation speed check.");
+         writeln("-FAIL-");
+      }      
+      
+      WsfRandomVariable packetLoss = unguidedMode.GetPacketLossTime();
+      if(packetLoss.Draw() != aPacketLossTime)
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed packet loss time check.");
+         writeln("-FAIL-");
+      }      
+      
+      double bitError = unguidedMode.GetBitErrorProbability();
+      if(bitError != aBitError)
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed bit error check.");
+         writeln("-FAIL-");      
+      }
+      
+      double errorCorrection = unguidedMode.GetErrorCorrection();
+      if(errorCorrection != Math.DB_ToLinear(aErrorCorrection))
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed error correction check.");
+         writeln("-FAIL-");      
+      }
+      
+      bool useEbNoTable = unguidedMode.GetUseBER_EbNoTable();
+      if(useEbNoTable != aUseEbNoTable)
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed use EbNo Table check.");
+         writeln("-FAIL-");      
+      }
+      
+      bool useSNR_Table = unguidedMode.GetUseXferRateTable();
+      if(useSNR_Table != aUseSNR_Table)
+      {
+         writeln(aContainerName + "mode: " + curModeName + " failed use SNR Table check.");
+         writeln("-FAIL-");      
+      }
+   }
+   if(castFail)
+   {
+      writeln(aContainerName + "mode: " + curModeName + " failed casting check.");
+      writeln("-FAIL-");   
+   } 
+}
+end_script
+
+execute at_time 1 s absolute
+   ////////////////test1////////////////
+   WsfPlatform platform = WsfSimulation.FindPlatform("test1");
+   WsfComm comm = platform.Comm("comm");
+   WsfCommMedium medium = comm.GetMedium();
+   string name = platform.Name() + "." + comm.Name();
+   
+   // Run medium tests
+   RunMediumScriptTest(medium, name, 10, 3, 1, "alternate", 0, 0, true);
+   // Run mode test on current mode
+   RunModeTest(medium, name, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   // Run mode tests on all modes
+   medium.SetMode(0);
+   RunModeTest(medium, name, "default", 10, 200000000, 0.1, 0, 0, false, false);
+   medium.SetMode(1);
+   RunModeTest(medium, name, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   medium.SetMode(2);
+   RunModeTest(medium, name, "another_alternate", 13, 190000001, 0.3, 0, 1.0, false, false);
+   
+   // Shared medium - return to default
+   medium.SetMode(1);
+end_execute
+
+execute at_time 1.1 s absolute
+   ////////////////test2////////////////
+   WsfPlatform platform = WsfSimulation.FindPlatform("test2");
+   WsfComm comm = platform.Comm("comm");
+   WsfCommMedium medium = comm.GetMedium();
+   string name = platform.Name() + "." + comm.Name();
+   
+   // Run medium tests
+   RunMediumScriptTest(medium, name, 10, 3, 1, "alternate", 0, 0, true);
+   // Run mode test on current mode
+   RunModeTest(medium, name, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   // Run mode tests on all modes
+   medium.SetMode(0);
+   RunModeTest(medium, name, "default", 10, 200000000, 0.1, 0, 0, false, false);
+   medium.SetMode(1);
+   RunModeTest(medium, name, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   medium.SetMode(2);
+   RunModeTest(medium, name, "another_alternate", 13, 190000001, 0.3, 0, 0, false, false);
+   
+   // Shared medium - return to default
+   medium.SetMode(1);
+end_execute
+
+execute at_time 1.2 s absolute
+   ////////////////test3////////////////
+   WsfPlatform platform = WsfSimulation.FindPlatform("test3");
+   WsfComm comm = platform.Comm("comm");
+   WsfCommMedium medium = comm.GetMedium();
+   string name = platform.Name() + "." + comm.Name();
+   
+   // Run medium tests
+   RunMediumScriptTest(medium, name, 200, 5, 0, "default", 0, 0, false);
+   // Run mode test on current mode
+   RunModeTest(medium, name, "default", 10, 200000000, 0.1, 0, 0, false, false);
+   // Run mode tests on all modes
+   medium.SetMode(0);
+   RunModeTest(medium, name, "default", 10, 200000000, 0.1, 0, 0, false, false);
+   medium.SetMode(1);
+   RunModeTest(medium, name, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   medium.SetMode(2);
+   RunModeTest(medium, name, "another_alternate", 13, 190000001, 0.3, 0, 0, false, false);
+   medium.SetMode(3);
+   RunModeTest(medium, name, "snr_table", DEFAULT_TRANSFER_RATE, DEFAULT_PROPAGATION_SPEED, 0.0, 0, 0, false, true);
+   medium.SetMode(4);
+   RunModeTest(medium, name, "ebno_table", DEFAULT_TRANSFER_RATE, DEFAULT_PROPAGATION_SPEED, 0.0, 0.000001, 0.5, true, false);
+   
+   // DO NOT RESET MODE
+   // The subsequent test should pass without a reset of the mode,
+   // as each instance of this medium type is unique.
+end_execute
+
+execute at_time 1.3 s absolute
+   ////////////////test4////////////////
+   WsfPlatform platform = WsfSimulation.FindPlatform("test4");
+   WsfComm comm = platform.Comm("comm");
+   WsfCommMedium medium = comm.GetMedium();
+   string name = platform.Name() + "." + comm.Name();
+   
+   // Run medium tests
+   RunMediumScriptTest(medium, name, 200, 5, 0, "default", 0, 0, false);
+   // Run mode test on current mode
+   RunModeTest(medium, name, "default", 10, 200000000, 0.1, 0, 0, false, false);
+   // Run mode tests on all modes
+   medium.SetMode(0);
+   RunModeTest(medium, name, "default", 10, 200000000, 0.1, 0, 0, false, false);
+   medium.SetMode(1);
+   RunModeTest(medium, name, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   medium.SetMode(2);
+   RunModeTest(medium, name, "another_alternate", 13, 190000001, 0.3, 0, 0, false, false);
+   medium.SetMode(3);
+   RunModeTest(medium, name, "snr_table", DEFAULT_TRANSFER_RATE, DEFAULT_PROPAGATION_SPEED, 0.0, 0, 0, false, true);
+   medium.SetMode(4);
+   RunModeTest(medium, name, "ebno_table", DEFAULT_TRANSFER_RATE, DEFAULT_PROPAGATION_SPEED, 0.0, 0.000001, 0.5, true, false);
+end_execute
+
+execute at_time 1.4 s absolute
+   ////////////////test5////////////////
+   WsfPlatform platform = WsfSimulation.FindPlatform("test5");
+   WsfComm comm1 = platform.Comm("comm1");
+   WsfComm comm2 = platform.Comm("comm2");
+   WsfCommRouter router = platform.Router("default");
+   WsfCommRouter otherRouter = platform.Router("second_router");
+   WsfCommMedium medium1 = comm1.GetMedium();
+   WsfCommMedium medium2 = comm2.GetMedium();
+   WsfCommMedium medium3 = router.GetMedium();
+   WsfCommMedium medium4 = otherRouter.GetMedium();
+   string name1 = platform.Name() + "." + comm1.Name();
+   string name2 = platform.Name() + "." + comm2.Name();
+   string name3 = platform.Name() + "." + router.Name();
+   string name4 = platform.Name() + "." + otherRouter.Name();
+   
+   // Run medium tests
+   RunMediumScriptTest(medium1, name1, 10, 3, 1, "alternate", 0, 0, true);
+   // Run mode test on current mode
+   RunModeTest(medium1, name1, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   // Run mode tests on all modes
+   medium1.SetMode(0);
+   RunModeTest(medium1, name1, "default", 10, 200000000, 0.1, 0, 0, false, false);
+   medium1.SetMode(1);
+   RunModeTest(medium1, name1, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   medium1.SetMode(2);
+   RunModeTest(medium1, name1, "another_alternate", 13, 190000001, 0.3, 0, 1.0, false, false);
+   
+   // Shared medium - return to default
+   medium1.SetMode(1);
+   
+   // Run medium tests
+   RunMediumScriptTest(medium2, name2, 10, 3, 1, "alternate", 0, 0, true);
+   // Run mode test on current mode
+   RunModeTest(medium2, name2, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   // Run mode tests on all modes
+   medium2.SetMode(0);
+   RunModeTest(medium2, name2, "default", 10, 200000000, 0.1, 0, 0, false, false);
+   medium2.SetMode(1);
+   RunModeTest(medium2, name2, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   medium2.SetMode(2);
+   RunModeTest(medium2, name2, "another_alternate", 13, 190000001, 0.3, 0, 1.0, false, false);
+   
+   // Shared medium - return to default
+   medium2.SetMode(1);
+   
+   // Run medium tests
+   RunMediumScriptTest(medium3, name3, 5, 3, 0, "default", 0, 0, false);
+   // Run mode test on current mode
+   RunModeTest(medium3, name3, "default", 100, 290000000, 0.0, 0, 0, false, false);
+   // Run mode tests on all modes
+   medium3.SetMode(0);
+   RunModeTest(medium3, name3, "default", 100, 290000000, 0.0, 0, 0, false, false);
+   medium3.SetMode(1);
+   RunModeTest(medium3, name3, "alternate", 12, 190000000, 0.2, 0, 0, false, false);
+   medium3.SetMode(2);
+   RunModeTest(medium3, name3, "another_alternate", 13, 190000001, 0.3, 0, 1.0, false, false);
+   
+   // Run medium tests
+   RunMediumScriptTest(medium4, name4, 22, 4, 0, "default", 0, 0, false);
+   // Run mode test on current mode
+   RunModeTest(medium4, name4, "default", 122, 290000000, 0.0, 0, 0, false, false);
+   // Run mode tests on all modes
+   medium4.SetMode(0);
+   RunModeTest(medium4, name4, "default", 122, 290000000, 0.0, 0, 0, false, false);
+   medium4.SetMode(1);
+   RunModeTest(medium4, name4, "alternate", 1, 190000000, 0.2, 0, 0, false, false);
+   medium4.SetMode(2);
+   RunModeTest(medium4, name4, "another_alternate", 13, 190000001, 0.3, 0, 1.0, false, false);
+   medium4.SetMode(3);
+   RunModeTest(medium4, name4, "new_mode", 2, DEFAULT_PROPAGATION_SPEED, 0.0, 0, 1.0, false, false);
+end_execute
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output

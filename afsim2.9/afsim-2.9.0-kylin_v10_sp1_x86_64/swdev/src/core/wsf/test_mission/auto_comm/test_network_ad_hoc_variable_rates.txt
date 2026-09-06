@@ -1,0 +1,183 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This tests the basic functionality of the ad_hoc network type.
+// It is generally like the basic ad hoc network type test, but
+// tests the variable input rate mechanic.
+//
+// The update rate for test1.comm1 is specified by name, every 11.0 s.
+// The update rate for test2.comm1 is specified by address, every 14.0 s.
+// The update rate for test3.comm1 is not specified, and defaults to the
+// generic update rate set for the network at every 5.0 s.
+//
+// Note that if the default update rate was not set, test3.comm1 would NEVER update.
+//
+// Given the initial location of the platforms, and their comm update rates in the network,
+// linkage is established as follows:
+// t == 5 s -> test3.comm1 links to test2.comm1
+// t == 11 s -> test1.comm1 links to test2.comm1
+// t == 14 s -> test2.comm1 links to test1.comm1 AND test3.comm1
+//
+// test2 is moved to ground level at t = 24 s, resulting in the next changes:
+// t = 25 s -> test3.comm1 removes link to test2.comm1
+// t = 28 s -> test2.comm1 removes links to test1.comm1 AND test3.comm1
+// t = 33 s -> test1.comm1 removes link to test2.comm1
+
+script_variables
+   int num_link_added = 0;
+   int num_link_removed = 0;
+end_script_variables
+
+observer
+   enable LINK_ADDED_TO_MANAGER LinkAdded
+   enable LINK_REMOVED_FROM_MANAGER LinkRemoved
+end_observer
+
+script void LinkAdded(WsfComm aSourceComm, WsfComm aDestinationComm)
+   if(aSourceComm.Platform().Name() == "test1")
+   {
+      if((TIME_NOW != 11.0) || (aDestinationComm.Platform().Name() != "test2"))
+      {
+         writeln("-FAIL-");
+         writeln("Link Add Failure on test1");
+      }
+   }
+   if(aSourceComm.Platform().Name() == "test2")
+   {
+      if((TIME_NOW != 14.0) || ((aDestinationComm.Platform().Name() != "test1") && (aDestinationComm.Platform().Name() != "test3")))
+      {
+         writeln("-FAIL-");
+         writeln("Link Add Failure on test2");
+      }
+   }
+   if(aSourceComm.Platform().Name() == "test3")
+   {
+      if((TIME_NOW != 5.0) || (aDestinationComm.Platform().Name() != "test2"))
+      {
+         writeln("-FAIL-");
+         writeln("Link Add Failure on test3");
+      }
+   }
+
+   num_link_added = num_link_added + 1;
+end_script
+
+script void LinkRemoved(WsfComm aSourceComm, WsfComm aDestinationComm)
+   if(aSourceComm.Platform().Name() == "test1")
+   {
+      if((TIME_NOW != 33.0) || (aDestinationComm.Platform().Name() != "test2"))
+      {
+         writeln("-FAIL-");
+         writeln("Link Remove Failure on test1");
+      }
+   }
+   if(aSourceComm.Platform().Name() == "test2")
+   {
+      if((TIME_NOW != 28.0) || ((aDestinationComm.Platform().Name() != "test1") && (aDestinationComm.Platform().Name() != "test3")))
+      {
+         writeln("-FAIL-");
+         writeln("Link Remove Failure on test2");
+      }
+   }
+   if(aSourceComm.Platform().Name() == "test3")
+   {
+      if((TIME_NOW != 25.0) || (aDestinationComm.Platform().Name() != "test2"))
+      {
+         writeln("-FAIL-");
+         writeln("Link Remove Failure on test3");
+      }
+   }
+
+   num_link_removed = num_link_removed + 1;
+end_script
+
+execute at_time 24.0 s absolute
+   WsfPlatform relayPlat = WsfSimulation.FindPlatform("test2");
+   WsfGeoPoint loc = relayPlat.Location();
+   loc.SetAltitudeHAE(0);
+   relayPlat.SetLocation(loc);
+end_execute
+
+execute at_time 34.0 s absolute
+   if(num_link_added != 4)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of links added");
+   }
+   if(num_link_removed != 4)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of links removed");
+   }
+end_execute
+
+comm TEST_COMM WSF_RADIO_TRANSCEIVER
+   transmitter
+      frequency 50.5 mhz
+      power 75 watts
+   end_transmitter
+   receiver
+      frequency 50.5 mhz
+   end_receiver
+end_comm
+
+network network_ad_hoc WSF_COMM_NETWORK_AD_HOC
+   network_address 192.168.0.0/24
+   update_rate constant 5.0 s
+   comm_update_rates
+      member test1 comm1 update_rate constant 11.0 s
+   end_comm_update_rates
+   address_update_rates
+      member 192.168.0.2/24 update_rate constant 14.0 s
+   end_address_update_rates
+end_network
+
+platform_type TEST_PLAT WSF_PLATFORM
+   add comm comm1 TEST_COMM
+   end_comm
+end_platform_type
+
+
+// NOTE:
+// We leave test1 and test5 on the ground on purpose s.t.
+// test1 and test5 cannot communicate with each other.
+platform test1 TEST_PLAT
+position 00:00:01.11s 00:00:00.39w
+//altitude 20000 ft
+edit comm comm1
+   address 192.168.0.1/24
+end_comm
+end_platform
+
+platform test2 TEST_PLAT
+position 00:00:29.59n 00:00:00.25w
+altitude 20000 ft
+add mover WSF_AIR_MOVER
+   maximum_climb_rate 20000 ft/s
+   maximum_flight_path_angle 90 deg
+end_mover
+edit comm comm1
+   address 192.168.0.2/24
+end_comm
+end_platform
+
+platform test3 TEST_PLAT
+position 00:00:02.10n 00:00:57.42w
+//altitude 20000 ft
+edit comm comm1
+   address 192.168.0.3/24
+end_comm
+end_platform
+
+end_time 35.0 s
+
+#event_output
+#   enable all
+#   file output.evt
+#end_event_output

@@ -1,0 +1,156 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# NOTE: This is currently a stub that exists only to ensure the 'random_seeds'
+#       command parses correctly.
+# -----------------------------------------------------------------------------
+# Test to ensure that two runs of the same simulation with the same random seed
+# produce EXACTLY the same results.
+# -----------------------------------------------------------------------------
+
+random_seeds
+   123456789
+   123456789
+end_random_seeds
+
+#event_output
+#   file replay_%d.evt
+#   enable PLATFORM_ADDED
+#   enable PLATFORM_DELETED
+#   enable SENSOR_DETECTION_ATTEMPT
+#   enable SENSOR_DETECTION_CHANGED
+#end_event_output
+#
+#on_initialize
+#   writeln("**** Initializing run ", WsfSimulation.RunNumber());
+#end_on_initialize
+#
+#script_variables
+#  # This doesn't work (variables get recreated on each iteration
+#  #static Map<string, double> sFirstDetectionTime = { };
+#  #static Map<string, bool>   sCheckedFirstDetection = { };
+#end_script_variables
+#
+#script void SensorDetectionChanged(WsfPlatform          aPlatform,
+#                                   WsfSensor            aSensor,
+#                                   int                  aTgtIndex,
+#                                   WsfSensorInteraction aResult)
+#  # This works (variables only get created once!)
+#  static Map<string, double> sFirstDetectionTime = { };
+#  static Map<string, bool>   sCheckedFirstDetection = { };
+#
+#  if (! aResult.Succeeded()) return;
+#
+#  string targetName = aResult.TargetPlatformName();
+#  if (WsfSimulation.RunNumber() == 1)
+#  {
+#     if (! sFirstDetectionTime.Exists(targetName))
+#     {
+#        sFirstDetectionTime[targetName] = TIME_NOW;
+#        writeln(targetName, " set ", sFirstDetectionTime[targetName], " ", TIME_NOW);
+#     }
+#  }
+#  else
+#  {
+#     if (! sCheckedFirstDetection.Exists(targetName))
+#     {
+#        sCheckedFirstDetection[targetName] = true;
+#        writeln(targetName, " chk ", sFirstDetectionTime[targetName], " ", TIME_NOW);
+#        if (TIME_NOW != sFirstDetectionTime[targetName])
+#        {
+#           writeln("-FAIL-", "Detection time mis-match for ", targetName,
+#                   " expected: ", sFirstDetectionTime[targetName],
+#                   " got: ", TIME_NOW);
+#        }
+#     }
+#  }
+#end_script
+#
+#observer
+#   enable SENSOR_DETECTION_CHANGED SensorDetectionChanged
+#end_observer
+#
+## -----------------------------------------------------------------------------
+#
+#antenna_pattern RADAR_ANTENNA
+#   circular_pattern
+#      beamwidth    10 deg
+#      peak_gain    30 db
+#end_antenna_pattern
+#
+#sensor RADAR WSF_RADAR_SENSOR
+#   frame_time 10 sec
+#   azimuth_scan_limits -180 deg 180 deg
+#   scan_mode azimuth
+#   transmitter
+#      antenna_pattern RADAR_ANTENNA
+#      frequency 3 ghz
+#      power     250 kw
+#   end_transmitter
+#   receiver
+#      antenna_pattern RADAR_ANTENNA
+#   end_receiver
+#   swerling_case 1
+#   reports_range
+#   reports_bearing
+#end_sensor
+#
+#platform_type RADAR_SITE WSF_PLATFORM
+#   icon Ground_Radar
+#   side red
+#   sensor radar RADAR
+#      on
+#   end_sensor
+#end_platform_type
+#
+## -----------------------------------------------------------------------------
+#
+#radar_signature AIRCRAFT_RADAR_SIG
+#   constant 1 m^2
+#end_radar_signature
+#
+#platform_type AIRCRAFT WSF_PLATFORM
+#   icon Wedge
+#   side blue
+#   radar_signature AIRCRAFT_RADAR_SIG
+#   mover WSF_AIR_MOVER
+#   end_mover
+#end_platform_type
+#
+## -----------------------------------------------------------------------------
+#
+#platform radar RADAR_SITE
+#   position 40n 90w
+#end_platform
+#
+#platform aircraft-1 AIRCRAFT
+#   route
+#      position 40n 87w altitude 30000 ft speed 500 kts heading 270 deg
+#   end_route
+#end_platform
+#
+#platform aircraft-2 AIRCRAFT
+#   route
+#      position 40n 87w altitude 30000 ft speed 500 kts heading 270 deg
+#   end_route
+#end_platform
+#
+#platform aircraft-3 AIRCRAFT
+#   route
+#      position 40n 87w altitude 30000 ft speed 500 kts heading 270 deg
+#   end_route
+#end_platform
+#
+#platform aircraft-4 AIRCRAFT
+#   route
+#      position 40n 87w altitude 30000 ft speed 500 kts heading 270 deg
+#   end_route
+#end_platform
+#
+#end_time 1000 sec

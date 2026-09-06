@@ -1,0 +1,155 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This scenario tests to make sure that change raan-inclination orbital maneuvers
+//    aren't attempted for (final) equatorial orbits and that they are correctly
+//    executed for non-equatorial orbits. 
+
+end_time 3 hr
+
+start_epoch 2003152.5
+
+script_variables
+   bool testPassed = true;
+   double tolerance = MATH.Pow(10,-5);
+end_script_variables
+
+platform_type SPACE_PLATFORM WSF_PLATFORM
+
+   // script_variables redefined on the platform instances
+   script_variables
+      double raan = 0.0;
+      double incl = 0.0;
+      bool maneuverAttemptedActual = false;
+      bool maneuverAttemptedExpected = false;
+   end_script_variables
+   
+   mover WSF_SPACE_MOVER 
+      semi_major_axis 9e6 m
+      eccentricity 0.0
+      inclination 10 deg
+      argument_of_periapsis 0 deg
+      raan 30 deg
+      true_anomaly 0 deg
+   end_mover
+   
+   on_initialize2
+      WsfChangeRAAN_Inclination cr = WsfChangeRAAN_Inclination.Construct(WsfOrbitalEventCondition.AT_SOUTHERN_INTERSECTION(), raan, incl);
+      ((WsfSpaceMover)Mover()).ExecuteManeuver(cr);
+   end_on_initialize2
+   
+   execute at_time 3 hr absolute
+      if (maneuverAttemptedActual != maneuverAttemptedExpected)
+      {
+         string failMessage = "Platform \"" + PLATFORM.Name() + "\"";
+         if (maneuverAttemptedActual)
+         {
+            failMessage = failMessage + " attempted a maneuver when it shouldn't have";
+         }
+         else
+         {
+            failMessage = failMessage + " did not attempt a maneuver when it should have";
+         }
+      
+         testPassed = false;
+         writeln("-FAIL- ", failMessage);
+
+      }
+   end_execute
+   
+end_platform_type
+
+platform pass1 SPACE_PLATFORM
+   script_variables
+      raan = 20.0;
+      incl = 30.0;
+      maneuverAttemptedExpected = true;
+   end_script_variables
+end_platform
+
+platform pass2 SPACE_PLATFORM
+   script_variables
+      raan = 0.0;
+      incl = 30.0;
+      maneuverAttemptedExpected = true;
+   end_script_variables
+end_platform
+
+platform pass3 SPACE_PLATFORM
+   edit mover
+      inclination 0 deg
+   end_mover
+   script_variables
+      raan = 20.0;
+      incl = 120.0;
+      maneuverAttemptedExpected = true;
+   end_script_variables
+end_platform
+
+platform fail1 SPACE_PLATFORM
+   script_variables
+      raan = 0.0;
+      incl = 0.0;
+      maneuverAttemptedExpected = false;
+   end_script_variables
+end_platform
+
+platform fail2 SPACE_PLATFORM
+   script_variables
+      raan = 20.0;
+      incl = 0.0;
+      maneuverAttemptedExpected = false;
+   end_script_variables
+end_platform
+
+platform fail3 SPACE_PLATFORM
+   script_variables
+      raan = 0.0;
+      incl = 180.0;
+      maneuverAttemptedExpected = false;
+   end_script_variables
+end_platform
+
+platform fail4 SPACE_PLATFORM
+   script_variables
+      raan = 20.0;
+      incl = 180.0;
+      maneuverAttemptedExpected = false;
+   end_script_variables
+end_platform
+
+script void OrbitalManeuverInitiated(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   aPlatform->maneuverAttemptedActual = true;
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   double raanExpected = MATH.NormalizeAngleMinus180_180(aPlatform->raan);
+   double raanActual = MATH.NormalizeAngleMinus180_180(aSpaceMover.RAAN());
+   
+   if (MATH.Fabs(raanExpected - raanActual) > tolerance)
+   {
+      testPassed = false;
+      writeln("-FAIL- ", "Platform \"", aPlatform.Name() ,"\" did not achieve desired RAAN");
+      writeln("   Actual:   ", raanActual);
+      writeln("   Expected: ", raanExpected);   
+   }
+end_script
+
+script void SimulationComplete()
+   if (testPassed)
+   {
+      writeln("-PASS- All tests passed");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED
+   enable ORBITAL_MANEUVER_COMPLETED
+   enable SIMULATION_COMPLETE
+end_observer

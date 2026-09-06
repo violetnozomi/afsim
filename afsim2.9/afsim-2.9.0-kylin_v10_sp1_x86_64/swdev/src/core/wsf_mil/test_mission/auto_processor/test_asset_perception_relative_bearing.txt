@@ -1,0 +1,39 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+platform plat WSF_PLATFORM
+   position 0N 0W
+   heading 90 deg
+   
+   add processor perception WSF_PERCEPTION_PROCESSOR
+      update_interval 1 s
+      asset_perception truth commander
+      on_update
+         Array<WsfAssetPerception> assets = PerceivedAssets();
+         if (!assets.Empty())
+         {
+            # Check WsfAssetPerception.RelativeBearingTo to ensure accuracy
+            double rel = assets[0].RelativeBearingTo(WsfGeoPoint.Construct(1, 0, 0));
+            double rel2 = assets[0].RelativeBearingTo(WsfGeoPoint.Construct(0, 1, 0));
+            if (Math.Fabs(rel + 90) > 0.01)
+            {
+               writeln("-FAIL- Expected (WsfAssetPerception) relative bearing -90deg instead of actual bearing ", rel, "deg"); 
+            }
+            if (Math.Fabs(rel2) > 0.01)
+            {
+               writeln("-FAIL- Expected WsfAssetPerception relative bearing of 0 degrees, got " + (string)rel2);
+            }
+         }
+      end_on_update
+   end_processor
+end_platform
+end_time 0.9 s

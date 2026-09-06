@@ -1,0 +1,239 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test to ensure that crash occurring when multibeam sensors link to repeaters is fixed
+
+# Define antenna patterns for 4 beams
+antenna_pattern CONSTANT_1_DBI
+   constant 1 db
+end_antenna_pattern
+
+antenna_pattern CONSTANT_2_DBI
+   constant 2 db
+end_antenna_pattern
+
+antenna_pattern CONSTANT_3_DBI
+   constant 3 db
+end_antenna_pattern
+
+antenna_pattern CONSTANT_4_DBI
+   constant 4 db
+end_antenna_pattern
+
+sensor MULTI_BEAM_ESM WSF_ESM_SENSOR
+   ignore_same_side
+   off
+
+   reports_bearing
+   reports_iff
+   reports_signal_to_noise
+   reports_type
+   reports_frequency
+   reports_pri
+   reports_pulsewidth
+
+   frame_time 10 sec
+   beam 1
+      minimum_range 0 km
+      maximum_range 500 km
+
+      azimuth_field_of_view -60 deg 60 deg
+      elevation_field_of_view -89 deg 89 deg
+
+      receiver
+         frequency_band 0.5 ghz 1.5 ghz
+         instantaneous_bandwidth 500 MHz
+         antenna_pattern CONSTANT_1_DBI
+      end_receiver
+      detection_sensitivities
+         signal_type pulsed
+         frequency 0.5 MHz -120 dbm
+         frequency 1500 MHz -120 dbm
+         signal_type continuous
+         frequency 0.5 MHz -120 dbm
+         frequency 1500 MHz -120 dbm
+      end_detection_sensitivities
+   end_beam
+
+   beam 2
+      receiver
+         frequency_band 1.5 ghz 2.5 ghz
+         antenna_pattern CONSTANT_2_DBI
+      end_receiver
+      detection_sensitivities
+         signal_type pulsed
+         frequency 1500 MHz -120 dbm
+         frequency 2500 MHz -120 dbm
+         signal_type continuous
+         frequency 1500 MHz -120 dbm
+         frequency 2500 MHz -120 dbm
+      end_detection_sensitivities
+   end_beam
+
+   beam 3
+      receiver
+         frequency_band 2.5 ghz 3.5 ghz
+         antenna_pattern CONSTANT_3_DBI
+      end_receiver
+      detection_sensitivities
+         signal_type pulsed
+
+         frequency 2500 MHz -120 dbm
+         frequency 3500 MHz -120 dbm
+
+         signal_type continuous
+
+         frequency 2500 MHz -120 dbm
+         frequency 3500 MHz -120 dbm
+
+      end_detection_sensitivities
+   end_beam
+
+   beam 4
+      receiver
+         frequency_band 3.5 ghz 4.5 ghz
+         antenna_pattern CONSTANT_4_DBI
+      end_receiver
+      detection_sensitivities
+         signal_type pulsed
+         frequency 3500 MHz -120 dbm
+         frequency 4500 MHz -120 dbm
+         signal_type continuous
+         frequency 3500 MHz -120 dbm
+         frequency 4500 MHz -120 dbm
+      end_detection_sensitivities
+   end_beam
+end_sensor
+
+end_time 140 seconds
+use_default_radar_frequencies true
+
+# Define jammer with repeater
+antenna_pattern JAMMER_ANTENNA
+   circular_pattern
+      peak_gain 10 dB
+      beamwidth 10 deg
+   end_circular_pattern
+end_antenna_pattern
+electronic_warfare    JAMMER_EA  WSF_ELECTRONIC_ATTACK
+   technique   noise_jamming  WSF_EA_TECHNIQUE
+      mitigation_class_name   noise_jamming
+      effect   power_effect   WSF_POWER_EFFECT
+         jamming_delta_gain   10 db
+      end_effect
+   end_technique
+end_electronic_warfare
+
+weapon JAMMER WSF_RF_JAMMER
+   maximum_number_of_spots 3
+
+   repeater
+      frequency_following    true
+      operating_mode         auto
+      #debug
+   end_repeater
+
+   transmitter
+      power 100 w
+      frequency_band 0.1 ghz  10 ghz
+      bandwidth 200 Mhz
+      antenna_pattern   JAMMER_ANTENNA
+
+      electronic_attack JAMMER_EA
+         technique   noise_jamming
+            default_on
+         end_technique
+      end_electronic_attack
+
+   end_transmitter
+end_weapon
+
+# Link platform multibeam sensor to repeater
+platform esm_platform WSF_PLATFORM
+   icon Global_Hawk
+   side blue
+
+   add mover WSF_AIR_MOVER
+   end_mover
+   radar_signature TARGET_RADAR_SIG
+
+   add weapon jammer JAMMER
+   #debug
+      on
+   end_weapon
+
+   add sensor esm MULTI_BEAM_ESM
+   #debug
+      on
+      internal_link jammer
+   end_sensor
+
+   route
+      position 0:0:00n 0:0:0w
+         altitude 30000.00 ft
+         heading   0 deg
+         speed 200 m/s
+   end_route
+
+end_platform
+
+#------------------------------------
+# CREATE EMITTER PLATFORM : START
+#------------------------------------
+
+radar_signature TARGET_RADAR_SIG
+   constant 0 dbsm
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+# Create emitter
+platform target WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+   end_mover
+
+   add sensor emitter WSF_RADAR_SENSOR
+      on
+      frame_time 1 sec
+      reports_location
+      transmitter
+         frequency 3.1 Ghz
+         power 60 dbm
+         antenna_pattern JAMMER_ANTENNA
+      end_transmitter
+      internal_link track_mgr
+   end_sensor
+
+   add processor track_mgr WSF_TRACK_PROCESSOR
+   end_processor
+
+   add processor track_proc WSF_TRACK_PROCESSOR
+   end_processor
+
+   route
+      position 5:00:00n  00:00:00w
+         altitude 30000 ft
+         agl
+         heading 180 deg
+         speed 250 m/s
+   end_route
+
+end_platform
+
+script void SimulationComplete()
+   writeln("-PASS-");
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer

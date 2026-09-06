@@ -1,0 +1,106 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test to ensure frame time changes during mode changes and explicit frame_time changes
+
+platform sensor WSF_PLATFORM
+   side blue
+   position 40n 90w altitude 30000 ft heading 0 deg
+
+   add sensor radar WSF_GEOMETRIC_SENSOR
+      mode_template
+         reports_location
+      end_mode_template
+
+      mode SLOW
+         frame_time             5 sec
+      end_mode
+
+      mode FAST
+         frame_time             2 sec
+      end_mode
+
+      on
+      internal_link time_check
+   end_sensor
+
+   add processor time_check WSF_SCRIPT_PROCESSOR
+      script_variables
+         Array<double> updateTimes = {   0.0,   5.0,  10.0,  15.0,  20.0,   // SLOW
+                                        22.0,  24.0,  26.0,  28.0,  30.0,   // FAST
+                                        35.0,  40.0,  45.0,  50.0,          // SLOW
+                                        52.0,  54.0,  56.0,  58.0,  60.0,   // FAST
+                                        62.0,  64.0,  66.0,  68.0,  70.0,   // ... still FAST
+                                        74.0,  78.0,  82.0,  86.0,  90.0,   // FAST, but now 4 sec
+                                       100.0, 110.0, 120.0, 130.0, 140.0    // SLOW, but now 10 sec
+                                     };
+      end_script_variables
+
+      on_message
+         type WSF_TRACK_MESSAGE
+            script
+               double updateTime = TIME_NOW;
+               bool found = false;
+               foreach (double time in updateTimes)
+               {
+                  if (MATH.Fabs(updateTime - time) < 0.1)
+                  {
+                     found = true;
+                     break;
+                  }
+               }
+               if (! found)
+               {
+                  writeln("-FAIL- Unexpected sensor update at T=", updateTime);
+               }
+            end_script
+      end_on_message
+   end_processor
+
+   execute at_time 20.1 sec absolute
+      Sensor("radar").SelectMode("FAST");
+   end_execute
+
+   execute at_time 30.1 sec absolute
+      Sensor("radar").SelectMode("SLOW");
+   end_execute
+
+   execute at_time 50.1 sec absolute
+      Sensor("radar").SelectMode("FAST");
+   end_execute
+
+   # this shouldn't do anything because SLOW isn't the active mode
+   execute at_time 60.1 sec absolute
+      Sensor("radar").ProcessInput("mode SLOW frame_time 10 sec end_mode");
+   end_execute
+
+   execute at_time 70.1 sec absolute
+      Sensor("radar").ProcessInput("mode FAST frame_time 4 sec end_mode");
+   end_execute
+
+   execute at_time 90.1 sec absolute
+      Sensor("radar").SelectMode("SLOW");
+   end_execute
+
+end_platform
+
+platform target WSF_PLATFORM
+   side red
+   position 41n 90w altitude 30000 ft heading 180 deg
+end_platform
+/*
+event_output
+   file replay.evt
+   enable SENSOR_MODE_ACTIVATED
+   enable SENSOR_MODE_DEACTIVATED
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+*/
+end_time 141 sec
+

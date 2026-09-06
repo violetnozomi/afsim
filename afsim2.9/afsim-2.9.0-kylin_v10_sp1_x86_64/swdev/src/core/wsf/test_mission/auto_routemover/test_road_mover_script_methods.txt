@@ -1,0 +1,116 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests the GoToLocation and FollowRoute methods for WSF_ROAD_MOVERs
+
+script_debug_writes off
+
+include_once ../auto_script/test_functions.txt
+include_once ../auto_script/test_pass.txt
+include_once ../road_networks/scal_roadnetwork.txt
+
+script_variables
+   PassTestCount = 6;
+   double tolerance = 1.e-6;
+   WsfGeoPoint gp = WsfGeoPoint.Construct("35:29:41.22n 117:49:56.44w");
+end_script_variables
+
+platform_type CAR WSF_PLATFORM
+   icon Car
+   mover WSF_ROAD_MOVER
+      start_position 35:30n 119:30w
+      end_position 35n 119w
+      road_network scal_roadnetwork
+      speed 100 mph
+      off_road_speed 50 mph
+#      draw_route on
+   end_mover
+
+  script void CheckSpeed(double aExpected, string aTestString)
+      double speed_mph = PLATFORM.Speed() * MATH.MPH_PER_MPS();
+      if (AssertWithinToleranceMessage(aExpected, speed_mph, tolerance, aTestString)) pass();
+      writeln_d("T=", TIME_NOW, " mph=", speed_mph);
+   end_script
+
+end_platform_type
+
+platform p1 CAR
+   side red
+
+   execute at_time 180 min absolute
+      // Test if GoToLocation works with a GeoPoint
+      PLATFORM.GoToLocation(gp);
+   end_execute
+
+   execute at_time 200 min absolute
+      // Vehicle is on off-road segment; speed should be 50 mph
+      CheckSpeed(50., "Test 1: no_off_road_speed");
+   end_execute
+
+   execute at_time 250 min absolute
+      // Vehicle is on road; speed should be 100 mph
+      CheckSpeed(100., "Test 2: no_off_road_speed");
+   end_execute
+
+   execute at_time 300 min absolute
+      // Test if at location
+      if (AssertLocation(gp.Latitude(), gp.Longitude(), PLATFORM)) pass();
+   end_execute
+
+end_platform
+
+platform p2 CAR
+   side blue
+
+   execute at_time 180 min absolute
+      # Test if GoToLocation works with a Waypoint
+      WsfWaypoint wp = WsfWaypoint.Create(gp, PLATFORM.Speed());
+      PLATFORM.GoToLocation(wp);
+   end_execute
+
+   execute at_time 300 min absolute
+      // Test if at location
+      if (AssertLocation(gp.Latitude(), gp.Longitude(), PLATFORM)) pass();
+   end_execute
+
+end_platform
+
+platform p3 CAR
+   side green
+   execute at_time 180 min absolute
+      # Test if FollowRoute works
+      WsfRoute r = WsfRoute();
+      r.Append(gp, 0.);
+      r.Append(WsfGeoPoint.Construct("36n 118w"), 0.);
+      r.Append(WsfGeoPoint.Construct("36n 117w"), 0.);
+      PLATFORM.FollowRoute(r);
+   end_execute
+
+   execute at_time 400 min absolute
+      // Test if at location
+      WsfGeoPoint test = WsfGeoPoint.Construct("36n 117w");
+      if (AssertLocation(test.Latitude(), test.Longitude(), PLATFORM)) pass();
+   end_execute
+
+   execute at_time 420 min absolute
+      # Test if FollowRoute works
+      WsfRoute r = WsfRoute();
+      r.Append(WsfGeoPoint.Construct("35:30n 119:30w"), 0.);
+      PLATFORM.FollowRoute(r);
+   end_execute
+
+   execute at_time 600 min absolute
+      // Test if at location
+      WsfGeoPoint test = WsfGeoPoint.Construct("35:30n 119:30w");
+      if (AssertLocation(test.Latitude(), test.Longitude(), PLATFORM)) pass();
+   end_execute
+
+end_platform
+
+end_time 11 hr

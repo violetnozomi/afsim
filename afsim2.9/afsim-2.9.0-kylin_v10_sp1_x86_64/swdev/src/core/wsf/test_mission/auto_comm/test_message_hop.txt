@@ -1,0 +1,96 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test to ensure functionality of the MESSAGE_HOP script observer.
+
+script_variables
+   int num_hops = 0;
+end_script_variables
+
+network bus WSF_COMM_NETWORK_GENERIC
+   comm_list 
+      member test1 comm
+      member test2 comm
+      member test3 comm
+      member test4 comm
+   end_comm_list
+   comm_link_list
+      link test1 comm test2 comm
+      link test2 comm test3 comm
+      link test3 comm test4 comm
+      link test4 comm test3 comm
+      link test3 comm test2 comm
+      link test2 comm test1 comm
+   end_comm_link_list
+end_network
+
+platform_type NODE_PLATFORM WSF_PLATFORM
+   add comm comm WSF_COMM_TRANSCEIVER end_comm
+end_platform_type
+
+platform test1 NODE_PLATFORM
+end_platform
+
+platform test2 NODE_PLATFORM
+end_platform
+
+platform test3 NODE_PLATFORM
+end_platform
+
+platform test4 NODE_PLATFORM
+end_platform
+
+script void MessageHop(WsfComm aRcvr, WsfComm aDestComm, WsfMessage aMsg)
+   num_hops = num_hops + 1;
+end_script
+
+observer
+   enable MESSAGE_HOP MessageHop
+end_observer
+
+execute at_time 1 s absolute
+   WsfMessage message = {};
+   WsfComm sender = WsfSimulation.FindPlatform("test1").Comm("comm");
+   WsfComm receiver = WsfSimulation.FindPlatform("test4").Comm("comm");
+   sender.SendMessage(message, receiver);
+end_execute
+
+execute at_time 2 s absolute
+   WsfMessage message = {};
+   WsfComm sender = WsfSimulation.FindPlatform("test4").Comm("comm");
+   WsfComm receiver = WsfSimulation.FindPlatform("test1").Comm("comm");
+   sender.SendMessage(message, receiver);
+end_execute
+
+execute at_time 3 s absolute
+   WsfMessage message = {};
+   WsfComm sender = WsfSimulation.FindPlatform("test3").Comm("comm");
+   WsfComm receiver = WsfSimulation.FindPlatform("test4").Comm("comm");
+   sender.SendMessage(message, receiver);
+end_execute
+
+execute at_time 4 s absolute
+   if(num_hops != 4)
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+end_time 5 s
+
+// Uncomment to test event_output, csv_event_output
+#event_output
+#   enable MESSAGE_HOP
+#   file test_message_hop.evt
+#end_event_output
+#
+#csv_event_output
+#   enable MESSAGE_HOP
+#   file test_message_hop.csv
+#end_csv_event_output

@@ -1,0 +1,54 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test Waypoint callback at initial waypoint in route
+//
+// Start on route1
+//
+//////////////////////////////////////////
+
+end_time 20 m
+
+route route1
+   position 30n 90w speed 50 mph
+      execute start_route1
+   position 30n 90:00:10w speed 50 mph
+end_route
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_GROUND_MOVER
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+   use_route route1
+   script_variables
+      bool pass = false;
+   end_script_variables
+   script void start_route1()
+      if (TIME_NOW == 0)
+      {
+         pass = true;
+      }
+      else
+      {
+         pass = false;
+      }
+   end_script
+   script void on_platform_deleted()
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+         writeln(" Expected callback from first waypoint at time zero (0)");
+      }
+   end_script
+end_platform
+

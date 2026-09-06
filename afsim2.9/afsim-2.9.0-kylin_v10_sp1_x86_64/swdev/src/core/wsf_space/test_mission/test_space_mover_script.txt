@@ -1,0 +1,285 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 2 days
+
+script_variables
+   bool gMadeTarget = false;
+   bool gInitialized = false;
+   bool gUpdated = false;
+   bool gCompleted = false;
+   int gNumUpdated = 0;
+   int gCounter = 0;
+   int gNumCompleted = 0;
+   string gDescriptor = "";
+   string gDesignator = "";
+   string gInlineDescriptor = "";
+   string gInlineDesignator = "";
+   string gTLE_WithDescriptor = "";
+   string gTLE_WithoutDescriptor = "";
+   string gTLE_Designator = "";
+   Color gInlineOrbitColor;
+   Color gScriptedOrbitColor;
+   Color gSetOrbitColor;
+   bool pass = true;
+end_script_variables
+
+platform test-script-inline WSF_PLATFORM
+
+   icon satellite
+   side blue
+   script_variables
+      //double TARGET_LON = -89.9;
+   end_script_variables
+   
+   add mover WSF_SPACE_MOVER
+      
+      position 0n 90w altitude 35786 km heading 90 deg
+      oblate_earth disabled
+      descriptor test-inline-descriptor
+      designator test-inline-designator
+      orbit_color green
+      on_initialize   
+      end_on_initialize
+      
+      script void Hello()
+         writeln("Hello space!");
+      end_script
+
+      maneuvering simple
+         maximum_acceleration 20 m/s2
+      end_maneuvering
+
+      script_variables
+         double TARGET_LON = -89.9;
+      end_script_variables
+         
+      mission_sequence
+         maneuver tangent   
+            delta_v -1 m/s
+         end_maneuver
+      
+         event scripted
+            duration 100 s
+            update_interval 1 s
+            on_update
+               gNumUpdated += 1;
+            end_on_update            
+         end_event
+
+         event scripted
+            execute_at apoapsis
+
+            on_initialize
+               Hello();
+               gInitialized = true;
+               WsfSpaceMover mover = (WsfSpaceMover)(PLATFORM.Mover());
+               gInlineDescriptor = mover.Descriptor();
+               gInlineDesignator = mover.Designator();
+               gInlineOrbitColor = mover.GetOrbitColor();
+            end_on_initialize
+            on_update
+               gUpdated = true;
+            end_on_update
+            is_complete
+               gCompleted = true;
+               WsfGeoPoint loc = PLATFORM.Location();
+               writeln(TIME_NOW, " ", loc.Longitude());
+               return (loc.Longitude() >= TARGET_LON);
+            end_is_complete
+            on_complete
+               writeln("...Made target");
+               gMadeTarget = true;
+               WsfOrbitalManeuver maneuver = WsfTangentManeuver.Construct(WsfOrbitalEventCondition.NONE(), 1.0);
+               SPACE_MOVER.ExecuteOrbitalEvent(maneuver);
+            end_on_complete
+         end_event
+                   
+      end_mission_sequence
+   
+   end_mover
+      
+end_platform
+
+platform test-script-scripted WSF_PLATFORM
+   icon satellite
+   side blue
+
+   add mover WSF_SPACE_MOVER
+      orbit_color 255 0 0
+      position 0n 80w altitude 35786 km heading 90 deg
+      oblate_earth disabled
+
+      script bool True()
+         return true;
+      end_script
+      
+      on_initialize
+         WsfSpaceMover mover = (WsfSpaceMover)(PLATFORM.Mover());
+         gScriptedOrbitColor = mover.GetOrbitColor();   
+      end_on_initialize
+      
+      maneuvering simple
+         maximum_acceleration 10 m/s2
+      end_maneuvering
+      
+      mission_sequence
+         maneuver change_semi_major_axis 
+            finite
+            //duration 100 s
+            execute_at relative_time 100 s
+            semi_major_axis 30000 km
+         end_maneuver                         
+      end_mission_sequence
+   
+   end_mover
+   
+   script void UpdateCounter()
+      gCounter += 1;
+   end_script
+      
+   execute at_time 110 s absolute
+      WsfOrbitalScriptEvent ev = WsfOrbitalScriptEvent.Construct(WsfOrbitalEventCondition.NONE(), 
+                                                                 "UpdateCounter", 
+                                                                 "UpdateCounter", 
+                                                                 "UpdateCounter", 
+                                                                 "True");
+      WsfSpaceMover mover = (WsfSpaceMover)(PLATFORM.Mover());
+      gDescriptor = mover.Descriptor();
+      gDesignator = mover.Designator();
+      mover.CancelMissionSequence();
+      mover.ExecuteOrbitalEvent(ev);
+   end_execute
+   
+end_platform
+
+platform test-tle-with-descriptor WSF_PLATFORM 
+   add mover WSF_SPACE_MOVER
+     orbit
+        TEST-1
+      1 25163U 98008B   14360.11457244 -.00000055  00000-0  26828-3 0   142
+      2 25163  51.9967 204.6836 0004456  88.1846  61.6550 12.63229349778207
+     end_orbit
+     
+     on_initialize
+        WsfSpaceMover mover = (WsfSpaceMover)(PLATFORM.Mover());
+        gTLE_WithDescriptor = mover.Descriptor();
+        gTLE_Designator = mover.Designator();
+        mover.SetOrbitColor(Color.Red());
+        gSetOrbitColor = mover.GetOrbitColor();
+     end_on_initialize
+   end_mover
+end_platform
+
+platform test-tle-without-descriptor WSF_PLATFORM 
+   add mover WSF_SPACE_MOVER
+     orbit
+      1 25163U 98008B   14360.11457244 -.00000055  00000-0  26828-3 0   142
+      2 25163  51.9967 204.6836 0004456  88.1846  61.6550 12.63229349778207
+     end_orbit
+     on_initialize
+        WsfSpaceMover mover = (WsfSpaceMover)(PLATFORM.Mover());
+        gTLE_WithoutDescriptor = mover.Descriptor();
+     end_on_initialize
+   end_mover
+end_platform
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   gNumCompleted += 1;
+end_script
+
+script void OrbitalManeuverCanceled(WsfPlatform        aPlatform,
+                                    WsfSpaceMover      aSM,
+                                    WsfOrbitalManeuver aManeuver)
+   gNumCompleted += 1;
+end_script
+
+script void SimulationComplete()
+   if (!gMadeTarget)
+   {
+      pass = false;
+      writeln("-FAIL- 1");
+   }
+   if (!gInitialized || !gUpdated || !gCompleted)
+   {
+      pass = false;
+      writeln("-FAIL- 2");
+   }
+   if (gNumUpdated != 101)
+   {
+      pass = false;
+      writeln("-FAIL- 3 ", gNumUpdated);
+   }
+   if (gCounter != 3)
+   {
+      pass = false;
+      writeln("-FAIL- 4");
+   }
+   if (gNumCompleted != 3)
+   {
+      pass = false;
+      writeln("-FAIL- 5 ", gNumCompleted);
+   }
+   if (gDesignator != "00001A") #default
+   {
+      pass = false;
+      writeln("-FAIL- 7 ", gDesignator);
+   }
+   if (gTLE_WithDescriptor != "TEST-1")
+   {
+      pass = false;
+      writeln("-FAIL- 10 ", gTLE_WithDescriptor);
+   }
+   if (gTLE_Designator != "98008B  ")   #Reads 8 characters
+   {
+      pass = false;
+      writeln("-FAIL- 12 ", gTLE_Designator);
+   }
+   if (gInlineOrbitColor != Color.Green())
+   {
+      pass = false;
+      writeln("-FAIL- 13 ", gInlineOrbitColor);
+   }
+   if (gScriptedOrbitColor != Color.Construct(255, 0, 0))
+   {
+      pass = false;
+      writeln("-FAIL- 14 ", gScriptedOrbitColor);
+   }
+   if (gSetOrbitColor != Color.Red())
+   {
+      pass = false;
+      writeln("-FAIL- 15 ", gSetOrbitColor);
+   }
+
+   if (pass)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable ORBITAL_MANEUVER_CANCELED OrbitalManeuverCanceled
+   enable SIMULATION_COMPLETE
+end_observer
+
+#event_output
+#   file test_space_mover_script.evt
+#   enable ORBITAL_MANEUVER_INITIATED
+#   enable ORBITAL_MANEUVER_COMPLETED
+#   enable ORBITAL_MANEUVER_CANCELED
+#end_event_output

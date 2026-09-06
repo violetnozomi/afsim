@@ -1,0 +1,121 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# ***************************************************************************
+#
+# This file set acts as the WSF weapon server.
+#
+# ***************************************************************************
+
+wsf_weapon_server
+   port 7654
+   tn_to_disid_mapping
+      tn_to_disid 1000 79:79:100
+      tn_to_disid 2000 79:79:200
+   end_tn_to_disid_mapping
+end_wsf_weapon_server
+
+link16_interface
+##   debug true
+##   debug_more print_tgt_lat_lon
+   j11
+###      network_enabled_weapon_type AIM120L 1
+###      network_enabled_weapon_type AIM120R 2
+###      network_enabled_weapon_type AIM120  3
+##      print_messages
+   end_j11
+end_link16_interface
+
+realtime
+
+############################################################
+# include common type definitions
+file_path .
+include terrain.txt
+include_once weapons/aam/aim120.txt
+include_once weapons/aam/aim-9x.txt
+include_once weapons/other/gun.txt
+include_once weapons/agm/gbu-31.txt
+
+include_once expendables/chaff/chaff.txt
+include_once expendables/flare/flare.txt
+
+include_once platforms/generic_air_mover.txt
+
+include_once link16/jtids.txt
+include_once dis_realtime.txt
+
+include_once weapons/aam/straightlineMover.txt
+############################################################
+
+include dis_realtime.txt
+
+dis_interface
+   site          1
+   application   1
+   exercise      1
+   
+   multicast 228.168.42.42   10.34.209.92
+   port 3223
+   
+   unknown_platform_type generic_platform
+   
+   entity_id generic_target_platform 300
+   
+   entity_type   GENERIC_AIR_MOVER_TYPE     1:2:225:1:5:3:0
+   entity_type   GENERIC_RED_PLATFORM_TYPE  1:2:222:3:1:0:0
+   
+   munition_type AIM-9X_BASE                2:1:225:1:1:1:0
+   munition_type AIM120                     2:1:225:1:2:3:0
+   munition_type AIM120C                    2:1:225:1:2:3:0
+   munition_type AIM120R                    2:1:225:1:2:3:0 
+   munition_type CHAFF	                    8:2:225:1:0:0:0
+   munition_type FLARE	                    8:2:225:2:0:0:0
+   
+   #munition_type AIM9XL                    2:1:225:1:1:1:0
+   #munition_type AIM9XR                    2:1:225:1:1:1:0
+   #munition_type AIM120L                   2:1:225:1:2:3:0
+   
+end_dis_interface
+
+end_time 24.0 hours
+
+realtime
+
+event_output
+   file NULL
+end_event_output
+ 
+observer
+   enable WEAPON_FIRED weaponfired
+end_observer
+
+script void weaponfired(WsfWeaponEngagement aEngagement,
+                        WsfTrack            aTrack)
+   writeln("\n****************************************************************");
+   if (aTrack.IsValid())
+   {
+      writeln("GOOD TRACK");
+   }
+   else
+   {
+      writeln("BAD TRACK");
+   }
+   writeln("Firing platform is ", aEngagement.FiringPlatformName());
+   if (aEngagement.TargetPlatform().IsValid())
+   {
+      writeln("Target platform is ", aEngagement.TargetPlatformName());
+   }
+   else
+   {
+      writeln("No target on engagement");
+   }
+   writeln("\n****************************************************************");
+end_script
+ 

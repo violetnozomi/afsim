@@ -1,0 +1,371 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+test_feature brawler
+
+file_path .
+file_path ../data
+
+#end_time 3000 sec
+end_time 300 sec
+
+random_seed 254710
+#random_seed 12345
+
+/*
+event_output
+   file   test_brawler_mover.evt
+   enable BTREE_NODE_CHILDREN
+   enable BTREE_NODE_EXEC
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+end_event_output
+
+dis_interface
+   record                      test_brawler_mover.rep   
+   mover_update_timer          1.0 sec
+   entity_position_threshold   0.03 m
+end_dis_interface
+*/
+
+platform_availability 
+   name red_2      availability 0
+   name blue_1     availability 1
+   name blue_cmdr  availability 0
+end_platform_availability
+
+include_once aim-9x.txt   #TODO - give it limited IR seekers, not perfect trackers
+
+#include behavior_default_go_to_location.txt
+#include brawler_behavior_evaluation_notes.txt
+
+# "CONTEXT-FREE" Maneuvers
+include_once behavior_alt3111_straight_level_max_speed.txt
+include_once behavior_alt3121_straight_level.txt
+
+include_once behavior_alt3211_route_maneuver.txt
+
+# Offensive 1v1 Maneuvers
+include_once behavior_alt3411_straight_flight.txt
+include_once behavior_alt3421_roll_+15_pull.txt
+include_once behavior_alt3431_roll-15_pull.txt
+include_once behavior_alt3441_tail_attack.txt
+include_once behavior_alt3451_pull_gmax_sust.txt
+include_once behavior_alt3471_slow_current_dir.txt
+include_once behavior_alt3472_slow_pull_right.txt
+include_once behavior_alt3473_slow_pull_left.txt
+include_once behavior_alt3474_slow_pull_current_plane.txt
+
+# Defensive 1v1 Maneuvers
+include_once behavior_alt3511_break_right.txt
+include_once behavior_alt3531_break_left.txt
+include_once behavior_alt3551_run_away.txt
+include_once behavior_alt3561_force_overshoot.txt
+include_once behavior_alt3581_negative_velocity.txt
+
+#missile aiming maneuever
+include_once behavior_alt3841_aim_missile_typ4.txt
+
+//include_once behavior_alt3911_evade_missile.txt 
+include_once behavior_alt3A11_low_speed_recover.txt 
+include_once behavior_alt3A21_low_speed_recover_right45.txt 
+include_once behavior_alt3A31_low_speed_recover_left45.txt
+include_once behavior_alt3B11_illuminate.txt
+
+
+# A brawler agent must have the following defined:
+# 1. A WSF_BRAWLER_MOVER or WSF_P6DOF_MOVER
+# 2. A WSF_BRAWLER_PROCESSOR (typically named task_mgr)
+# 3. A WSF_PERCEPTION_PROCESSOR (typically named perception)
+# 4. A WSF_THREAT_PROCESSOR (typically named incoming_threats)
+platform_type  BLUE_BRAWLER  WSF_PLATFORM
+   side blue
+   icon F-18
+   
+   
+#   execute at_interval_of 1 sec
+#      Vec3 dir = PLATFORM.VelocityNED();
+#      dir.SetZ(0.0);
+#      dir.Normalize();
+#      //double maxG = ((WsfBrawlerPlatform)PLATFORM).MaxSustainedGs();
+#      double maxG = 6.0;
+#      double throttle = 3.0;
+#      PLATFORM.FlyVectorWithThrottle(dir, maxG, throttle);
+#   end_execute
+
+
+   script_variables
+      WsfDraw mDraw = WsfDraw();
+      double rad  = 3.141592654/180.0;
+      double grav = 32.17405;
+      # brlrol.f
+      double rolrat = 30.0;   #Desired roll rate in degrees/sec
+      double ptchrt =  0.0;   #Desired pitch rate in degrees/sec
+      double lgees  =  2.0;   #Desired longitudinal acceleration in units of gees.
+   end_script_variables
+   
+   execute at_interval_of 30 sec 
+      writeln_d("new command! T = ", TIME_NOW);
+      
+      ## for testing FlyVectorWithThrottle or FlyVectorWithSpeed
+      mDraw.SetColor(0.0, 1.0, 0.0);
+      mDraw.SetDuration(30.0);
+      Vec3 dir = Vec3.Construct(RANDOM.Uniform(-1,1), RANDOM.Uniform(-1,1), RANDOM.Uniform(-0.2,0.2));
+      dir.Normalize();
+      dir.Scale(37040);     #scale up to 20 nm for drawing line
+      mDraw.BeginLines();
+         mDraw.Vertex(PLATFORM);
+         mDraw.VertexNED(PLATFORM, dir[0], dir[1], dir[2]);
+      mDraw.End();
+      dir.Normalize();
+      double maxG = 3.5;       #4, 6, 7
+      double throttle = 3.0;   #2.2;   #3.0;
+      double speed = 257;   #500 knots (in meters/sec)
+      PLATFORM.FlyVectorWithThrottle(dir, maxG, throttle);
+      #PLATFORM.FlyVectorWithSpeed(dir, maxG, speed);
+
+      
+#      ## for testing FlyRates (will eventually crash into ground without adjusting pitch rate)
+#      # brlrol.f
+#      rolrat *= -1.0;   # roll the other way now
+#      Vec3 w = Vec3.Construct(rolrat*rad, ptchrt*rad, 0.0);
+#      Vec3 a = Vec3.Construct(grav*lgees,0,0);
+#      //accmod = desacc
+#      PLATFORM.FlyRates(w, a);
+
+
+#      ## for testing FlyHeadingSpeedAltitude
+#      mDraw.SetColor(0.0, 1.0, 0.0);
+#      mDraw.SetDuration(90.0);
+#      WsfGeoPoint lla = WsfGeoPoint.Construct(RANDOM.Uniform(0,0.5), RANDOM.Uniform(0,0.5), RANDOM.Uniform(10000,25000)*MATH.M_PER_FT());
+#      mDraw.BeginLines();
+#         mDraw.Vertex(PLATFORM);
+#         mDraw.Vertex(lla);
+#      mDraw.End();
+#      double heading  = PLATFORM.TrueBearingTo(lla);
+#      double speed    = 257;   #500 knots (in meters/sec)
+#      double altitudeFt = lla.Altitude()*MATH.FT_PER_M();
+#      double maxG = 3.5;       #4, 6, 7
+#      double maxClimb = speed * Math.Cos(45.0);
+#      PLATFORM.FlyHeadingSpeedAltitude(heading, speed, altitudeFt, maxG, maxClimb);
+      
+
+#      ## for testing PullGsInPlaneWithSpeed or PullGsInPlaneWithThrottle
+#      mDraw.SetColor(0.0, 1.0, 0.0);
+#      mDraw.SetDuration(90.0);
+#      Vec3 dir = Vec3.Construct(RANDOM.Uniform(0,1), RANDOM.Uniform(-1,1), -0.5);
+#      dir.Normalize();
+#      dir.Scale(37040);     #scale up to 20 nm for drawing line
+#      mDraw.BeginLines();
+#         mDraw.Vertex(PLATFORM);
+#         mDraw.VertexNED(PLATFORM, dir[0], dir[1], dir[2]);
+#      mDraw.End();
+#      dir.Normalize();
+#      double maxG = 3.5;       #4, 6, 7
+#      double throttle = 2.2;   #3.0;
+#      double speed = 257;   #500 knots (in meters/sec)
+#      PLATFORM.PullGsInPlaneWithSpeed(dir, maxG, speed);
+#      #PLATFORM.PullGsInPlaneWithThrottle(dir, maxG, throttle);
+      
+      
+   end_execute
+
+   mover WSF_BRAWLER_MOVER
+      aero_file ../data/ACFT_BD.FXW
+     #draw_projection
+   end_mover
+
+   
+   weapon srm AIM-9X
+      quantity 2
+   end_weapon
+   
+   comm datalink WSF_COMM_TRANSCEIVER
+      network_name blue_net
+      internal_link data_mgr
+      internal_link task_mgr
+      #internal_link temp_quantum
+      internal_link perception
+   end_comm
+   
+   sensor simple_sensor WSF_GEOMETRIC_SENSOR
+      on
+      #azimuth_field_of_view   -45.0 degrees  45.0 degrees
+      #elevation_field_of_view  -20.0 degrees   20.0 degrees
+      azimuth_field_of_view   -180.0 degrees  180.0 degrees
+      elevation_field_of_view  -90.0 degrees   90.0 degrees
+      maximum_range 150 km
+      frame_time    0.5 sec
+      reports_location
+      reports_velocity
+      reports_range
+      reports_iff
+      track_quality 1.0
+      internal_link data_mgr
+      ignore_same_side
+   end_sensor
+   
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval  60 sec
+      report_interval 1.0 sec
+      report_to commander via datalink
+      fused_track_reporting on
+      raw_track_reporting off
+   end_processor
+   
+   processor perception WSF_PERCEPTION_PROCESSOR
+      threat_update_interval 2 sec
+      max_threat_load 5
+      reports_self on
+      report_interval 1.0 sec
+      report_to commander via datalink
+   end_processor
+
+   processor incoming_threats WSF_THREAT_PROCESSOR
+   end_processor
+
+   #when debug: prints maneuver value components of every alternative evaluation!
+   #debug
+   processor task_mgr WSF_BRAWLER_PROCESSOR
+      mind_file ../data/MIND.txt
+      # BRAWLER configuration values that control how often
+      # consciousness events occur
+      time_allowed_per_sector_search 10.0 sec
+#      #debug
+#      #show_task_messages
+#      #update_interval 1 sec
+#      behavior_tree
+#         priority_selector
+#            #when debug: prints precondition score of each selector child behavior
+#            debug
+#            #behavior_node  default_go_to_location
+#            behavior_node  alt3111_straight_level_max_speed
+#            behavior_node  alt3121_straight_level 
+##            behavior_node  alt3211_route_maneuver 
+#            behavior_node  alt3411_straight_flight 
+#            behavior_node  alt3421_roll_15_pull 
+#            behavior_node  alt3431_roll-15_pull 
+#            behavior_node  alt3441_tail_attack 
+#            behavior_node  alt3451_pull_gmax_sust 
+#            behavior_node  alt3471_slow_current_dir 
+#            behavior_node  alt3472_slow_pull_right 
+#            behavior_node  alt3473_slow_pull_left 
+#            behavior_node  alt3474_slow_pull_current_plane 
+#            behavior_node  alt3511_break_right 
+#            behavior_node  alt3531_break_left 
+#            behavior_node  alt3551_run_away 
+#            behavior_node  alt3561_force_overshoot 
+#            behavior_node  alt3581_negative_velocity 
+#            behavior_node  alt3841_aim_missile_typ4 
+#            //behavior_node  alt3911_evade_missile 
+##            behavior_node  alt3A11_low_speed_recover 
+##            behavior_node  alt3A21_low_speed_recover_right45 
+##            behavior_node  alt3A31_low_speed_recover_left45 
+##            behavior_node  alt3B11_illuminate 
+#         end_priority_selector
+#      end_behavior_tree
+   end_processor
+end_platform_type
+
+include_once behavior_debug_quantum_tasker.txt
+platform_type  BLUE_COMMANDER  WSF_PLATFORM
+   side blue
+   comm datalink WSF_COMM_TRANSCEIVER
+      network_name blue_net
+      internal_link data_mgr
+      internal_link task_mgr
+      internal_link perception
+   end_comm
+   processor data_mgr WSF_TRACK_PROCESSOR 
+      master_track_processor
+   end_processor
+   track_manager
+      retain_raw_tracks
+      retain_track_history
+      uncorrelated_track_drops disable
+   end_track_manager
+   processor perception WSF_PERCEPTION_PROCESSOR 
+      #asset_perception truth subordinates
+      asset_perception status_messages 
+   end_processor
+   processor task_mgr WSF_QUANTUM_TASKER_PROCESSOR 
+      #debug
+      #show_task_messages
+      on_initialize 
+      end_on_initialize
+      generator simple_weapon 
+      evaluator distance 
+      allocator optimal_profit 
+      update_interval 0.3 sec
+#      behavior_tree
+#         behavior_node debug_quantum_tasker
+#      end_behavior_tree
+   end_processor
+end_platform_type
+
+
+
+platform blue_cmdr BLUE_COMMANDER
+   position 1.0s 1.0e
+end_platform
+
+
+
+platform blue_1 BLUE_BRAWLER
+   commander blue_cmdr
+   
+#   execute at_interval_of 1 sec
+#      if (PLATFORM.Altitude() <= 0 || 
+#          PLATFORM.Speed() <= 0 ||
+#          PLATFORM.MasterTrackList().Count() <= 0 ||
+#          PLATFORM.GroundRangeTo(MasterTrackList().Entry(0)) > (10 * MATH.M_PER_NM()))
+#      {
+#         WsfSimulation.Terminate();
+#      }
+#   end_execute
+   
+   position 00:00:00.00n 00:00:00.00e altitude 10000.00 ft
+   #position 00:47:22.10s 00:44:55.92e altitude 10000.00 ft
+   heading 0 deg
+   #route   #behind target:
+   #   position 00:47:22.10s 00:44:55.92e altitude 10000.00 ft  speed 500.0 kts
+   #   position 01:27:22.10s 00:44:55.92e altitude 10000.00 ft  speed 500.0 kts
+   #   position 01:37:22.10s 00:44:55.92e altitude 10000.00 ft  speed 500.0 kts
+   #   position 01:47:22.10s 00:44:55.92e altitude 10000.00 ft  speed 500.0 kts
+   #end_route
+   
+#   route   #in front of target:
+#      position 00:55:40.00s 00:43:40.00e  altitude 10000.00 ft  speed 500.0 kts
+#      position 00:24:38.83s 00:43:40.00e  altitude 10000.00 ft  speed 500.0 kts
+#      position 00:03:40.86n 00:43:40.00e  altitude 10000.00 ft  speed 500.0 kts
+##      position 0.5n 0.5e  altitude 10000.0 ft  speed 500.0 kts
+##      position 1.0n 1.0e  altitude 10000.0 ft  speed 500.0 kts
+#      position 00:39:38.87n 00:44:02.96e  altitude 10000.00 ft  speed 500.0 kts
+#    position 01:15:54.97n 00:44:01.95e altitude 10000.00 ft
+#    position 02:01:16.35n 00:44:00.69e altitude 10000.00 ft
+#   end_route
+
+end_platform
+
+# Red aircraft is used to drive blue maneuers
+platform red_2 WSF_PLATFORM
+   side red
+   icon SU-27
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 00:05:00.00n 00:00:00.00e altitude 10000.00 ft speed 525.0 kts
+      position 01:05:00.00n 00:00:00.00e altitude 10000.00 ft speed 525.0 kts
+#      position 00:51:40.00s 00:44:15.00e  altitude 10000.00 ft  speed 525.0 kts
+##      position 0.5n 0.5e  altitude 10000.0 ft  speed 525.0 kts
+##      position 0.0n 0.0w  altitude 10000.0 ft  speed 525.0 kts
+##      position 0.5s 0.5w  altitude 10000.0 ft  speed 500.0 kts
+#      position 01:16:43.22s 00:44:15.00e  altitude 10000.00 ft  speed 500.0 kts
+   end_route
+end_platform

@@ -1,0 +1,303 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+# COMM RELAY TEST
+###############################################################################
+
+# Test case: Relay to commander
+#    1 red platform; 3 blue platforms
+#    SURV platform reports predefined track via satcom to CMDR
+#    All comm devices are on the same network (helpOut = A)
+#
+#    SURV                 INMARSAT2-F1                      CMDR
+#    UHF(A)  ] ---> [ uplink(A) ==> downlink(A) ] ---> [   UHF(A)
+#                             relay
+#
+# We expect that a relay will succeed here.
+# Output: CMDR will have tracks
+
+#script_listing on
+
+#include ./script_observer.txt
+
+antenna_pattern UHF_SATCOM_GS_RCVR_ANTENNA
+   uniform_pattern
+      peak_gain 30 dB                 //was 10 dB, no reception
+   end_uniform_pattern
+end_antenna_pattern
+
+antenna_pattern UHF_SATCOM_GS_XMTR_ANTENNA
+   uniform_pattern
+      peak_gain 6 dB
+   end_uniform_pattern
+end_antenna_pattern
+
+comm UHF_SATCOM_AIRBORNE WSF_RADIO_TRANSCEIVER
+   #link_protocol      csma
+   transfer_rate   19.2 kbits/sec
+
+   transmitter
+      # The earth radius multiplier is set to one to disable the
+      # computations that simulate atmospheric refraction.
+      earth_radius_multiplier 1.0
+
+      antenna_pattern UHF_SATCOM_GS_XMTR_ANTENNA
+      frequency       145.920 mhz
+      power           20 watts
+
+      # The internal loss accounts for the 'transmit feeder loss' in the
+      # link budget calculator
+      internal_loss   3 dB
+   end_transmitter
+
+   receiver
+      antenna_pattern UHF_SATCOM_GS_RCVR_ANTENNA
+      frequency       435.300 mhz
+
+      # The internal_loss is used to account the following items from the
+      # link budget calculator:
+      #   a) 3 dB polarization mismatch loss.
+      #   b) 1 dB loss for going through the ionosphere
+      #   c) 3 dB receive antenna feeder loss
+      internal_loss   7 db
+
+      # The receiver noise floor in the link budget calculator is -130 dBm
+      noise_power     -130 dBm
+
+      detection_threshold 12 dB
+   end_receiver
+
+end_comm
+
+antenna_pattern SAT_ANTENNA
+   uniform_pattern
+      peak_gain  20 dB
+   end_uniform_pattern
+end_antenna_pattern
+
+platform_type COMSAT WSF_PLATFORM
+   icon Satellite
+
+   infrared_signature VEHICLE_INFRARED_SIGNATURE
+   optical_signature  VEHICLE_OPTICAL_SIGNATURE
+   radar_signature    VEHICLE_RADAR_SIGNATURE
+
+   mover WSF_NORAD_SPACE_MOVER end_mover
+
+   comm downlink-1 WSF_RADIO_XMTR
+      # The earth radius multiplier is set to one to disable the
+      # computations that simulate atmospheric refraction.
+      network_name helpOut
+      earth_radius_multiplier 1.0
+
+      antenna_pattern SAT_ANTENNA
+      frequency       435.300 mhz
+      power           1 w
+
+      # The internal loss accounts for the 'transmit feeder loss' in the
+      # link budget calculator
+      internal_loss   0.2 dB
+
+      transfer_rate   1.544 mbit/s
+   end_comm
+
+   comm uplink-1 WSF_RADIO_TRANSCEIVER
+      network_name helpOut
+      receiver
+      antenna_pattern SAT_ANTENNA
+      frequency       145.920 mhz
+
+      # The internal_loss is used to account the following items from the
+      # link budget calculator:
+      #   a) 3 dB polarization mismatch loss.
+      #   b) 1 dB loss for going through the ionosphere
+      #   c) 0.2 dB receive antenna feeder loss
+      internal_loss   4.2 dB
+
+      # The receiver noise floor in the link budget calculator is -138 dBm
+      noise_power     -138 dBm
+
+      detection_threshold 12 dB
+      end_receiver
+
+   end_comm
+end_platform_type
+
+
+#   ----------------------------------------------
+message_table
+   default_comm_type
+      type WSF_ASSOCIATION_MESSAGE       240 bits
+      type WSF_CONTROL_MESSAGE           240 bits
+      type WSF_IMAGE_MESSAGE         1000000 bits
+      type WSF_STATUS_MESSAGE            240 bits
+      type WSF_TASK_ASSIGN_MESSAGE       240 bits
+      type WSF_TASK_CANCEL_MESSAGE       240 bits
+      type WSF_TASK_CONTROL_MESSAGE      240 bits
+      type WSF_TASK_STATUS_MESSAGE       240 bits
+      type WSF_DROP_TRACK_MESSAGE        320 bits
+      type WSF_TRACK_MESSAGE             480 bits
+      type WSF_TRACK_NOTIFY_MESSAGE      320 bits
+      type WSF_VIDEO_MESSAGE         8000000 bits
+      type WSF_COMMAND_MESSAGE           480 bits
+end_message_table
+
+#   ----------------------------------------------
+infrared_signature  VEHICLE_INFRARED_SIGNATURE
+   constant  10 watts/steradian
+end_infrared_signature
+
+optical_signature   VEHICLE_OPTICAL_SIGNATURE
+   constant  10 m^2
+end_optical_signature
+
+radar_signature     VEHICLE_RADAR_SIGNATURE
+   constant  10 m^2
+end_radar_signature
+
+infrared_signature  AIRLINER_INFRARED_SIGNATURE
+   constant  500 watts/steradian
+end_infrared_signature
+
+optical_signature   AIRLINER_OPTICAL_SIGNATURE
+   constant  500 m^2
+end_optical_signature
+
+radar_signature     AIRLINER_RADAR_SIGNATURE
+   constant  100 m^2
+end_radar_signature
+
+#   ----------------------------------------------
+platform_type GROUND_RADAR WSF_PLATFORM
+   icon Ground_Radar
+   category 2D_RADAR
+
+   infrared_signature   VEHICLE_INFRARED_SIGNATURE
+   optical_signature    VEHICLE_OPTICAL_SIGNATURE
+   radar_signature      VEHICLE_RADAR_SIGNATURE
+
+end_platform_type
+
+platform 101_radar GROUND_RADAR
+   side red
+   commander 100_radar_company
+   position 23:26:00n 117:05:36e  altitude 0.0 m agl
+end_platform
+
+#   ----------------------------------------------
+platform_type OPS_CENTER WSF_PLATFORM
+   icon Command_Truck
+
+   infrared_signature VEHICLE_INFRARED_SIGNATURE
+   optical_signature  VEHICLE_OPTICAL_SIGNATURE
+   radar_signature    VEHICLE_RADAR_SIGNATURE
+
+   comm satcom UHF_SATCOM_AIRBORNE
+      internal_link verify
+      network_name helpOut
+   end_comm
+
+   processor verify WSF_TRACK_PROCESSOR
+   end_processor
+
+end_platform_type
+
+platform CMDR OPS_CENTER
+   side blue
+   commander SELF
+   # Hickam AFB, don't have coords for Camp Smith
+   position 21:18:58n 157:55:36w  altitude 10.0 m agl
+end_platform
+
+#   ----------------------------------------------
+platform INMARSAT2-F1 COMSAT
+   side blue
+   commander CMDR
+   orbit
+1 20918U 90093A   08253.49718552 -.00000262  00000-0  10000-3 0   356
+2 20918   5.9594  57.4797 0002969 100.6890 153.1355  1.00266979 61856
+   end_orbit
+end_platform
+
+#   ----------------------------------------------
+route surv_orbit
+   label start
+   offset  30   5 nm speed 340 kts altitude 30000 ft msl
+   radial_acceleration 0.34 g
+   offset  30  -5 nm speed 340 kts altitude 30000 ft msl
+   radial_acceleration 0.34 g
+   offset -30  -5 nm speed 340 kts altitude 30000 ft msl
+   radial_acceleration 0.34 g
+   offset -30   5 nm speed 340 kts altitude 30000 ft msl
+   radial_acceleration 0.34 g
+   goto start
+end_route
+
+platform_type surv WSF_PLATFORM
+   icon 737
+   side blue
+   commander CMDR
+
+   track platform 101_radar end_track
+
+   infrared_signature AIRLINER_INFRARED_SIGNATURE
+   optical_signature  AIRLINER_OPTICAL_SIGNATURE
+   radar_signature    AIRLINER_RADAR_SIGNATURE
+
+   comm satcom UHF_SATCOM_AIRBORNE
+      network_name  helpOut
+      internal_link data_mgr
+      category      datalink
+   end_comm
+
+   mover WSF_AIR_MOVER
+      default_radial_acceleration 0.34 g
+      at_end_of_path              stop
+   end_mover
+
+   route
+      position 26:21:40n 127:46:36e speed 150 kts altitude 0 ft agl
+      position 26:19:16n 127:41:41e speed 360 kts altitude  1500 ft msl
+      position 26:00:00n 125:00:00e speed 340 kts altitude 35000 ft msl
+      position 25:00:00n 125:00:00e speed 340 kts altitude 35000 ft msl
+      position 20:30:00n 119:00:00e speed 340 kts altitude 35000 ft msl
+      insert_route surv_orbit reference_heading  0 deg
+   end_route
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval   300.0 sec
+      report_interval 1 seconds
+      raw_track_reporting off
+      fused_track_reporting on
+      external_link commander via satcom
+   end_processor
+
+end_platform_type
+
+platform 200_surv surv end_platform
+
+#   ----------------------------------------------
+#        Scenario Duration
+#   ----------------------------------------------
+start_date May 23 2008
+start_time 08:00:00
+
+end_time 10 sec
+
+execute at_time 2 seconds relative
+   if (WsfSimulation.FindPlatform("CMDR").MasterTrackList().Count())
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_execute

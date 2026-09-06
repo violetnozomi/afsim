@@ -1,0 +1,52 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the angle of attack table in WsfWaypointMover
+
+platform plane WSF_PLATFORM
+   icon B-747
+
+   add mover WSF_AIR_MOVER
+      update_interval 0.1 sec
+      angle_of_attack_table
+         altitude 0 feet
+            speed    0 kts angle 7 deg
+            speed 1000 kts angle 7 deg
+         altitude 50000 ft
+            speed    0 kts angle 7 deg
+            speed 1000 kts angle 7 deg
+      end_angle_of_attack_table
+   end_mover
+
+   route
+      position 40n 90w altitude 30000 ft speed 450 kts
+      position 40n 89w
+   end_route
+
+   script void CheckAOA()
+      # This assumes the platform is flying straight and level
+      double actual = Pitch();
+      double expected = 7.0;
+      if (Math.Fabs(actual - expected) < 0.01)
+      {
+         writeln("-PASS- T=", TIME_NOW, " Pitch: Actual: ", actual, " Expected: ", expected);
+      }
+      else
+      {
+         writeln("-FAIL- T=", TIME_NOW, " Pitch: Actual: ", actual, " Expected: ", expected);
+      }
+   end_script
+
+   execute at_time 2 sec relative CheckAOA(); end_execute
+   execute at_time 4 sec relative CheckAOA(); end_execute
+   execute at_time 6 sec relative CheckAOA(); end_execute
+   execute at_time 8 sec relative CheckAOA(); end_execute
+end_platform
+
+end_time 10 sec

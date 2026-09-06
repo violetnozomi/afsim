@@ -1,0 +1,6048 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Rules:
+# Rules provide a way to match text.  The most basic rule is defined like this:
+#  (rule RuleName
+#    { grammar-definition }
+#  )
+# This creates a new rule which can be referenced later by name.  This rule type
+# just parses text, but does map to data values (proxy values).
+#
+# There are two other rule types:
+#   value   - A rule which results in an atomic value.  'Length' is an example.
+#             When referenced in another rule, value's return the value read.
+#             This is an example of using a 'value' rule:
+#             {  width <Length>   [myLength=$1]  }
+#
+#   struct  - Contains a set of variables.  Rules match can result in changes to those variables.
+#             rule which updates a set of variables.
+#             When referenced in another rule, a struct rule operates on the struct by reference,
+#             meaning the struct rule cannot be used without ensuring the current value type matches
+#             the struct.  To use a struct to match text only ( and not store values ), it may be referenced like this:
+#             {  <:ExternalLinks>  }
+#             which is the same as:
+#             {  [skip()] <ExternalLinks>  }
+#
+#   actions - Actions appear inside '[ ... ]' regions.  These are used to assign values from parsed rules.
+#             Actions can appear before and after grammar rules, they are executed in the order given.
+#             This example sets a variable to true when matching the 'debug' command.
+#             {  debug  [debugIsOn=true]  }
+#             Actions depend on a 'current' value.  For actions in structs, the current value is the struct instance:
+#             (struct MyStruct     (var Bool debugIsOn)
+#             {  debug  [debugIsOn=true]  }
+#             )
+#             Actions can also change the current value:
+#             (struct MyStruct     (var Bool debugIsOn)  (var InternalLinks links) (var Bool linksSet)
+#             {  debug  [debugIsOn=true]
+#              | begin_links [push(links)] <InternalLinks> end_links [linksSet=true]
+#             })
+#                 Here, push(links) set the current value to the 'links' variable.  The InternalLinks rule is used
+#                 to set that variable's values.
+#                 The current value only changes for the next rule reference, and changes back to "MyStruct" afterward;
+#                 allowing linksSet=true to reference the correct variable.
+#
+#        Action functions:
+#              skip()   - Sets the current type to 'null', and allows processing of rules that would normally
+#                          require a specific current type
+#              push(varName) - Sets the current type to the variable of the given name.
+#              copy(dest,source) - Copies a value from source to dest
+#              new(mapVariableName,EntryName) - Adds a new map entry and sets the current value to the new entry.
+#              delete(mapVariableName,EntryName) - Deletes a map entry with the given name
+#              pushBack(listName) - Adds a new element to the list and sets the current value to the new entry.
+#              apply($$) - Used directly after a (new ...) or (load ...) rule performs the same operation
+#                          on the proxy values.
+#  Nested (rule ...)
+#     Nested rules are allowed.  They reduce the scope of the rule name.  Additionally, a nested rule inherits the value type
+#     of its parent.  Nested rules can be referenced outside of their scope like this:
+#        <ExternalLink.link-command>
+
+#  enumerations - Enumerations are special value types.  They contain a list of text/integer pairs, and a rule to match them:
+#     (enumeration BeamSteering
+#        (values fixed 0 azimuth 1 elevation 2 azimuth_and_elevation 3)
+#     {
+#        fixed [this=0] | azimuth [this=1] | elevation [this=2] | both [this=3] | azimuth_and_elevation [this=3]
+#     })
+
+# <$variableName>  -  Shorthand for    [push(variableName)] <VariableType>.   Not allowed in conjuction with the '*' operator.
+# <:StructName>    -  Shorthand for    [skip()] <StructName>.   Not allowed in conjuction with the '*' operator.
+
+
+# Values:
+# Values are the most atomic part of the wsf parser data model.
+# Each value type is is defined in a (value...) block.
+#
+#  (value <ValueName>
+#     (rule <sub-rule-name> { grammar-definition } )
+#     { grammar-definition }
+#  )
+#
+#  Values may be referenced in grammar definitions with this syntax:
+#  <ValueName>   or   <ValueName.subrule>
+#  A value referenced in this way effectively returns a value of this type when matched.
+#  The parser uses this to type-check assignments.
+#
+# Structs:
+# Structs aggregate member values and structures into a larger unit.
+#
+# (struct <StructName>
+#    (var <Variable-Type-1> <Variable-Name-1>)
+#    (var <Variable-Type-2> <Variable-Name-2>)
+#    (rule <Sub-Rule-Name>  { grammar-definitions } )
+#    {  grammar-definition  }
+# )
+#
+# A struct may contain any number of variables.  A variable type must either be
+#  a value type or a struct type.
+# The grammar definition of the struct defines acceptable input for a single command.
+#
+
+(grammar-version 2.2.0)
+
+#
+# Define some common values used in structs:
+(value Latitude
+   (nocase { (delimited <ll-Angle> n) | (delimited <ll-Angle> s) } )
+)
+(value Longitude
+   (nocase { (delimited <ll-Angle> e) | (delimited <ll-Angle> w) } )
+)
+
+(value Position
+   (rule lat-lon :id 1 {
+      <Latitude> <Longitude>
+   })
+   (rule MGRS :id 2 {
+      <string>
+   })
+   {
+      position <lat-lon>
+    | mgrs_coordinate <MGRS>
+   }
+)
+
+(value Length { <real> <length-unit> })
+(value Length2 { <real> <real> <length-unit> })
+(value Length3 { <real> <real> <real> <length-unit> })
+
+# Functions allow transformation of data in a way defined outside the grammar/parser.
+# The implementation of a function is user-defined
+(function MakeLength :return Length
+   (var Real   value)
+   (var String unit)
+)
+
+# Functions allow transformation of data in a way defined outside the grammar/parser.
+# The implementation of a function is user-defined
+(function MakeAngle :return Angle
+   (var Real   value)
+   (var String unit)
+)
+
+(enumeration AltitudeReference
+   (values default 0 # AGL for WSF_AIR_MOVER; MSL for other movers; MSL for platform
+           msl     1
+           agl     2)
+{
+      msl     [this=1]
+    | agl     [this=2]
+})
+(rule torque-unit { (delimited <force-unit> "*" <length-unit>)})
+
+(value Time { <real> <time-unit> })
+(value Speed { <real> <speed-unit> })
+(value Speed3 { <real> <real> <real> <speed-unit> })
+(value DataSize { <real> <data-unit> })
+(value Power { <real> <power-unit> })
+(value SolidAngle { <real> <solid-angle-unit> })
+(value Mass { <real> <mass-unit> })
+(value Force { <real> <force-unit> })
+(value Torque { <real> <torque-unit> })
+(value Area { <real> <area-unit> })
+(value AreaDB { <real> <area-db-unit> })
+(value Volume { <real> <volume-unit> })
+(value Acceleration { <real> <acceleration-unit> })
+(value Frequency { <real> <frequency-unit> })
+(value Angle { <real> <angle-unit> })
+(value AngleRate { <real> <angular-rate-unit>})
+(value AngleAcceleration { <real> <angular-acceleration-unit>})
+(value DataRate { <real> <data-rate-unit> })
+(value MassDensity { <real> <mass-density-unit> })
+(value MassTransfer { <real> <mass-transfer-unit> })
+(value Energy { <real> <energy-unit> })
+(value Fluence { <real> <fluence-unit> })
+(value Irradiance { <real> <irradiance-unit> })
+(value SpectralIrradiance { <real> <spectral-irradiance-unit> })
+(value Radiance { <real> <radiance-unit> })
+(value SpectralRadiance { <real> <spectral-radiance-unit> })
+(value Ratio { <real> <ratio-unit> })
+(value NoisePressure { <real> <noise-pressure-unit> })
+(value Pressure { <real> <pressure-unit> })
+(value Temperature { <real> <temperature-unit> })
+(value SpecificRange { <real> <specific-range-unit> })
+(value AngularInertia { <real> <angular-inertia-unit> })
+(value Capacitance { <real> <capacitance-unit> })
+(value Current { <real> <current-unit> })
+(value CurrentDensity { <real> <current-density-unit> })
+(value Responsivity { <real> <responsivity-unit> })
+(value String { <string> })
+(value QuotableString { <quotable-string> })
+(value Int { <integer> })
+(value Real { <real> })
+(value Impulse { <real> <impulse-unit> })
+
+(value Bool
+   # These rules provide a way to provide alternate an syntax
+   # for reading a value.
+   # <Bool.yes_no> is matched with this:
+   (rule yes_no { yes | no } )
+   # <Bool.on_off> is matched with this:
+   (rule on_off { on | off } )
+   # <Bool> is matched with this:
+   { (nocase {
+         true | yes | on | enable | enabled | false | no | off | disable | disabled | unknown
+   }) }
+   # both <Bool> and <Bool.yes_no> return type 'Bool'
+)
+
+
+# Note: Latitude / Longitude parsing:
+# The parser is capable of concatenating rules without spaces IF a delimiter is present.
+# In which case, the parser will find ONLY the first match of the delimiter.  Therefore
+# the writer should ensure the delimiter cannot exist in the adjacent rule.
+(rule ll-Angle {
+   <real>
+ | (delimited <integer> \: <real>)
+ | (delimited <integer> \: <integer> \: <real>)
+})
+
+(rule Longitude {
+   (nocase { (delimited <ll-Angle> e) | (delimited <ll-Angle> w) } )
+})
+
+(rule time-unit {
+ (nocase {
+      seconds | second | secs | sec | s | minutes | minute | mins | min | m | hours | hour
+    | hrs | hr | h | milliseconds | millisecond | msecs | msec | ms | microseconds | microsecond
+    | usecs | usec | us | nanoseconds | nanosecond | nsecs | nsec | ns
+    | days | day
+ })
+})
+
+(rule comm_address {
+   (delimited <integer> \. <integer> \. <integer> \. <integer> / <integer>)
+})
+
+(struct TimeVariableValue
+   (var Time value)
+   (var Time default)
+   (var String variable)
+{
+   "/variable" <$variable> "/default" <$default> [value=""]
+ | "/variable" <$variable>
+ | <$value> [default="";variable=""]
+})
+
+(struct DataRateVariableValue
+   (var DataRate value)
+   (var DataRate default)
+   (var String variable)
+{
+   "/variable" <$variable> "/default" <$default> [value=""]
+ | "/variable" <$variable>
+ | <$value> [default="";variable=""]
+})
+
+(struct SpeedVariableValue
+   (var Speed value)
+   (var Speed default)
+   (var String variable)
+{
+   "/variable" <$variable> "/default" <$default> [value=""]
+ | "/variable" <$variable>
+ | <$value> [default="";variable=""]
+})
+
+(rule data-unit {
+ (nocase {
+   bits | bit | bytes | byte | kbit | mbit | gbit
+ | kbits | mbits | gbits | kbyte | mbyte | gbyte
+ | kbytes | mbytes | gbytes
+ })
+})
+
+(rule data-rate-unit {
+   (delimited <data-unit> / <time-unit>)
+})
+
+(rule area-db-unit {
+   (nocase { dbsm })
+ | <area-unit>
+})
+
+(rule area-db-value {
+   <real> <area-db-unit>
+})
+
+(rule length-unit
+ (nocase {
+   meters | meter | m | kilometers | kilometer | km | megameters | megameter | feet | foot
+ | ft | kfeet | kft | miles | mile | mi | nm | nmi | centimeters | centimeter | cm | millimeters
+ | millimiter | mm | micrometers | micrometer | um | microns | micron | nanometers
+ | nanometer | angstroms | angstrom | inches | inch | in | au | ua
+ })
+)
+
+(rule length-variable-value {
+   <variable-reference> /default <Length>
+ | <variable-reference>
+ | <Length>
+})
+
+(rule acceleration-unit {
+ (nocase { m/s2 | ft/s2 | g } )
+ | (delimited <length-unit> / <time-unit> 2)
+ | (delimited <length-unit> / <time-unit> ^2)
+})
+
+(rule volume-unit {
+   (delimited <length-unit> 3)
+ | (delimited <length-unit> ^3)
+})
+
+(rule area-unit {
+   (delimited <length-unit> 2)
+ | (delimited <length-unit> ^2)
+})
+
+(rule speed-unit {
+ (nocase {
+   m/s | km/h | kmh | ft/s | fps | ft/m | fpm | mi/h | mph | knots | kts
+ })
+ | (delimited <length-unit> / <time-unit>)
+})
+
+(rule speed-variable-value {
+   /variable <string>
+ | <Speed>
+})
+
+(rule angle-unit {
+ (nocase { deg | degree | degrees | rad | radian | radians | mils | mil | arcseconds | arcsecond } )
+})
+
+(rule angle-variable-value {
+   /variable <string>
+ | <Angle>
+})
+
+(rule angular-rate-unit {
+  (delimited <angle-unit> / <time-unit>)
+ | (nocase { rpm } )
+})
+
+(rule angular-acceleration-unit {
+  (delimited <angle-unit> / <time-unit> 2)
+ | (delimited <angle-unit> / <time-unit> ^2)
+})
+
+(rule angular-Acceleration {
+   <real> <angular-acceleration-unit>
+})
+(rule angular-inertia-unit {
+   (delimited <mass-unit> "*" <area-unit>)
+})
+
+(rule frequency-unit {
+   (nocase { hz | khz | mhz | ghz })
+})
+
+(rule frequency-value {
+   <real> <frequency-unit>
+})
+
+(rule power-unit {
+ (nocase {
+   w | watts | kw | kilowatts | mw | megawatts | gw
+ | gigawatts | milliwatts | microwatts | dbw | dbm
+ })
+})
+
+(rule power-value {
+   <real> <power-unit>
+})
+
+(rule solid-angle-unit {
+ (nocase { steradians | steradian | sr })
+})
+
+(rule solid-Angle {
+   <real> <solid-angle-unit>
+})
+
+(rule mass-unit {
+   (nocase {
+   kg | kilo | kilogram | kilograms | g | gram | grams | lb | lbm
+ | lbs | pound | pounds | klb | ton | tons | tonne | tonnes
+ })
+})
+
+(rule force-unit {
+   (nocase {
+      nt | newton | newtons | kgf | lbf | lbsf
+   })
+})
+
+(rule mass-density-unit {
+   (delimited <mass-unit> / <volume-unit>)
+})
+
+(rule mass-density-value {
+   <real> <mass-density-unit>
+})
+
+(rule mass-transfer-unit {
+   (delimited <mass-unit> / <time-unit>)
+})
+
+(rule mass-transfer-value {
+   <real> <mass-transfer-unit>
+})
+
+(rule energy-unit {
+   (nocase { joules | j | kj | kilojoules })
+})
+
+(rule energy-value {
+   <real> <energy-unit>
+})
+
+(rule fluence-unit {
+   (delimited <energy-unit> / <area-unit>)
+})
+
+(rule fluence-value {
+   <real> <fluence-unit>
+})
+
+(rule irradiance-unit {
+   (delimited <power-unit> / <area-unit>)
+})
+
+(rule irradiance-value {
+   <real> <irradiance-unit>
+})
+
+(rule spectral-irradiance-unit {
+   (delimited <power-unit> / <area-unit> / <length-unit>)
+})
+
+(rule radiance-unit {
+   (delimited <power-unit> / <area-unit> / <solid-angle-unit>)
+})
+
+(rule radiance-value {
+   <real> <radiance-unit>
+})
+
+(rule spectral-radiance-unit {
+   (delimited <power-unit> / <area-unit> / <solid-angle-unit> / <length-unit>)
+})
+
+(rule ratio-unit {
+   (nocase { absolute | db })
+})
+
+(rule noise-pressure-unit {
+   (nocase { db_20upa | absolute } )
+})
+
+(rule noise-pressure-value {
+   <real> <noise-pressure-unit>
+})
+
+(rule pressure-unit {
+   (nocase {
+      pascal | pa | kpa | kilopascal | kilopascals | upa | micropascal | micropascals
+    | psi | psf | dbpa | dbupa
+   })
+})
+
+(rule pressure-value {
+   <real> <pressure-unit>
+})
+
+(rule pressure-variable-value {
+   /variable <string>
+ | <Pressure>
+})
+
+(rule temperature-unit {
+   (nocase {
+      kelvin | k | celsius | c | fahrenheit | f
+   })
+})
+
+(rule temperature-value {
+   <real> <temperature-unit>
+})
+
+(rule specific-range-unit {
+   (nocase { m/kg | mi/lb | mi/klb | nmi/lb | nmi/klb })
+})
+
+(rule specific-range-value {
+   <real> <specific-range-unit>
+})
+
+(rule capacitance-unit {
+   (nocase {
+      farads | farad | millifarads | millifarad | microfarads | microfarad |
+      nanofarads | nanofarad | picofarads | picofarad | femtofarads | femtofarad
+   })
+})
+
+(rule current-unit {
+   (nocase {
+      amps | amp | milliamps | milliamp | microamps | microamp | nanoamps | nanoamp
+   })
+})
+
+(rule current-density-unit {
+   (delimited <current-unit> / <area-unit>)
+})
+
+(rule responsivity-unit {
+   (delimited <current-unit> / <power-unit>)
+})
+
+(rule impulse-unit { (delimited <force-unit> "*" <time-unit>)})
+
+(rule random-variable-normal-subcommand {
+   mean <real> <string>
+ | sigma <real> <string>
+ | standard_deviation <real> <string>
+ | std_dev <real> <string>
+})
+
+(rule random-variable-value {
+   uniform minimum <real> <string> maximum <real> <string>
+ | uniform maximum <real> <string> minimum <real> <string>
+ | normal <random-variable-normal-subcommand>*
+ | log_normal <random-variable-normal-subcommand>*
+ | exponential
+ | exponential lambda <real>
+ | constant <real> <string>
+ | <real> <string>
+})
+
+(struct RandomTime
+   (var TimeVariableValue constant)
+   (var Time mean)
+   (var Time sigma)
+   (var Time minimum)
+   (var Time maximum)
+   (var Real lambda :default 1.0)
+   (rule normal-command :input RandomTime
+   {
+      mean <$mean>
+    | mean_time <$mean>
+    | sigma <$sigma>
+    | standard_deviation <$sigma>
+    | std_dev <$sigma>
+    | sigma_time <$sigma>
+   })
+{
+   uniform minimum <$minimum> maximum <$maximum>            [constant="";mean="";sigma="";lambda=""]
+ | uniform minimum_time <$minimum> maximum_time <$maximum>  [constant="";mean="";sigma="";lambda=""]
+ | uniform maximum <$maximum> minimum <$minimum>            [constant="";mean="";sigma="";lambda=""]
+ | uniform maximum_time <$maximum> minimum_time <$minimum>  [constant="";mean="";sigma="";lambda=""]
+ | normal <normal-command>*                                 [minimum="";maximum="";constant="";lambda=""]
+ | log_normal <normal-command>*                             [minimum="";maximum="";constant="";lambda=""]
+ | exponential lambda <$lambda>                             [mean="";sigma="";minimum="";maximum=""]
+ | exponential                                              [mean="";sigma="";minimum="";maximum=""]
+ | constant time <$constant>                                [mean="";sigma="";minimum="";maximum="";lambda=""]
+ | constant <$constant>                                     [mean="";sigma="";minimum="";maximum="";lambda=""]
+ | <$constant>                                              [mean="";sigma="";minimum="";maximum="";lambda=""]
+})
+
+(struct RandomDataRate
+   (var DataRateVariableValue constant)
+   (var DataRate mean)
+   (var DataRate sigma)
+   (var DataRate minimum)
+   (var DataRate maximum)
+   (var Real lambda :default 1.0)
+   (rule normal-command :input RandomDataRate
+   {
+      mean <$mean>
+    | sigma <$sigma>
+    | standard_deviation <$sigma>
+    | std_dev <$sigma>
+   })
+{
+   uniform minimum <$minimum> maximum <$maximum>            [constant="";mean="";sigma="";lambda=""]
+ | uniform maximum <$maximum> minimum <$minimum>            [constant="";mean="";sigma="";lambda=""]
+ | normal <normal-command>*                                 [minimum="";maximum="";constant="";lambda=""]
+ | log_normal <normal-command>*                             [minimum="";maximum="";constant="";lambda=""]
+ | exponential lambda <$lambda>                             [mean="";sigma="";minimum="";maximum=""]
+ | exponential                                              [mean="";sigma="";minimum="";maximum=""]
+ | constant <$constant>                                     [mean="";sigma="";minimum="";maximum="";lambda=""]
+ | <$constant>                                              [mean="";sigma="";minimum="";maximum="";lambda=""]
+})
+
+(struct RandomSpeed
+   (var SpeedVariableValue constant)
+   (var Speed mean)
+   (var Speed sigma)
+   (var Speed minimum)
+   (var Speed maximum)
+   (var Real lambda :default 1.0)
+   (rule normal-command :input RandomSpeed
+   {
+      mean <$mean>
+    | sigma <$sigma>
+    | standard_deviation <$sigma>
+    | std_dev <$sigma>
+   })
+{
+   uniform minimum <$minimum> maximum <$maximum>            [constant="";mean="";sigma="";lambda=""]
+ | uniform maximum <$maximum> minimum <$minimum>            [constant="";mean="";sigma="";lambda=""]
+ | normal <normal-command>*                                 [minimum="";maximum="";constant="";lambda=""]
+ | log_normal <normal-command>*                             [minimum="";maximum="";constant="";lambda=""]
+ | exponential lambda <$lambda>                             [mean="";sigma="";minimum="";maximum=""]
+ | exponential                                              [mean="";sigma="";minimum="";maximum=""]
+ | constant <$constant>                                     [mean="";sigma="";minimum="";maximum="";lambda=""]
+ | <$constant>                                              [mean="";sigma="";minimum="";maximum="";lambda=""]
+})
+
+(function NormalizeColor3 :return Color
+   (var Real red)
+   (var Real green)
+   (var Real blue)
+)
+
+(function NormalizeColor4 :return Color
+   (var Real red)
+   (var Real green)
+   (var Real blue)
+   (var Real alpha)
+)
+
+(function HexStringToColor :return Color
+   (var String hex)
+)
+
+(struct Color
+   (var Int red   :default 0)
+   (var Int green :default 0)
+   (var Int blue  :default 0)
+   (var Int alpha :default 255)
+   (var Real floatPlaceholder)  #The placeholders are proxy magic that allows for GUI->editor color replacements in wizard
+   (var String hexPlaceholder)
+   (rule named-color {
+    # NOTE: Named colors are taken from color mappings in UtColor.
+    # If those colors are modified, the actions here will need to be updated.
+      black                          [red=0;   green=0;   blue=0]
+    | blue                           [red=0;   green=168; blue=220]
+    | brown                          [red=61;  green=33;  blue=0]
+    | dark_blue                      [red=0;   green=107; blue=140]
+    | dark_green                     [red=0;   green=160; blue=0]
+    | dark_purple                    [red=80;  green=0;   blue=80]
+    | dark_red                       [red=200; green=0;   blue=0]
+    | dark_yellow                    [red=225; green=220; blue=0]
+    | gray                           [red=102; green=102; blue=102]
+    | grey                           [red=102; green=102; blue=102]
+    | green                          [red=0;   green=226; blue=0]
+    | indigo                         [red=74;  green=0;   blue=159]
+    | light_blue                     [red=128; green=224; blue=255]
+    | light_green                    [red=170; green=255; blue=170]
+    | light_purple                   [red=255; green=161; blue=255]
+    | light_red                      [red=255; green=128; blue=128]
+    | light_yellow                   [red=255; green=255; blue=128]
+    | magenta                        [red=255; green=0;   blue=255]
+    | orange                         [red=255; green=170; blue=0]
+    | pink                           [red=255; green=0;   blue=192]
+    | purple                         [red=128; green=0;   blue=128]
+    | red                            [red=255; green=48;  blue=49]
+    | tan                            [red=182; green=133; blue=56]
+    | violet                         [red=192; green=128; blue=255]
+    | white                          [red=255; green=255; blue=255]
+    | yellow                         [red=255; green=255; blue=0]
+   })
+{
+   <$red> <$green> <$blue> <$alpha>
+ | float <Real> <Real> <Real> <Real> [floatPlaceholder=$1;this=NormalizeColor4($1, $2, $3, $4)]
+ | <$red> <$green> <$blue>
+ | float <Real> <Real> <Real>        [floatPlaceholder=$1;this=NormalizeColor3($1, $2, $3)]
+ | <named-color>
+ # Hex string rule must be last to ensure it will not match before the named colors
+ | <string>                          [hexPlaceholder=$0;this=HexStringToColor($0)]
+})
+
+(rule agl-or-msl { agl | msl })
+
+(rule month-value {
+   (nocase {
+   jan | feb | mar | apr | may | jun | jul | aug | sep | oct | nov | dec
+   })
+})
+
+(rule iff-value { foe | friend | neutral })
+
+(enumeration SlewMode
+  (values
+   fixed                 0
+   azimuth               1
+   elevation             2
+   both                  3)
+{
+   fixed                   [this=0]
+   | azimuth               [this=1]
+   | elevation             [this=2]
+   | both                  [this=3]
+   | azimuth_and_elevation [this=3]
+})
+
+(rule variable-reference {
+   "/variable" <string>
+})
+
+(rule string-variable-value {
+   <variable-reference> "/default" <string>
+ | <variable-reference>
+ | <string>
+})
+
+(rule platform-type-variable-value {
+   <variable-reference> "/default" <string>
+ | <variable-reference>
+ | (typeref platformType)
+})
+
+(rule integer-variable-value {
+   <variable-reference> "/default" <integer>
+ | <variable-reference>
+ | <integer>
+})
+
+(struct RealVariable
+   (var String variable)
+   (var Real value)
+{
+   "/variable" <string> "/default" <real>    [variable=$1;value=$3]
+ | "/variable" <string>                      [variable=$1;value=""]
+ | <real>                                    [value=$0]
+})
+(rule real-variable-value
+{
+   <variable-reference> "/default" <real>
+ | <variable-reference>
+ | <real>
+})
+
+(rule UtTable {
+   regular_table <ignore>* end_regular_table
+ | irregular_table <ignore>* end_irregular_table
+ | interval_table <ignore>* end_interval_table
+ | curve <ignore>* end_curve
+ | matrix <ignore>* end_matrix
+ | file <string>
+})
+
+(struct InternalLinks
+   (var ObjectMap/Bool linkedParts)
+{
+   internal_link (typeref .platform_part)       [mapSet(linkedParts,$$)]
+ | processor (typeref .platform_part)           [mapSet(linkedParts,$$)]
+ | clear_internal_links                         [linkedParts=""]
+ | debug_internal_links
+})
+
+(struct AuxData
+   (var ObjectMap/String vals)
+   (var ObjectMap/String structVals)
+   (rule block {
+      aux_data <AuxData>*
+      end_aux_data
+   })
+{
+   bool <string> \= <Bool>                [mapSet(vals,$1);this=$3]
+ | double <string> \= <real>              [mapSet(vals,$1);this=$3]
+ | unitary <string> \= { <real> <string> }[mapSet(vals,$1);this=$3]
+ | int <string> \= <integer>              [mapSet(vals,$1);this=$3]
+ | string <string> \= <quotable-string>   [mapSet(vals,$1);this=$3]
+ | struct <string> <AuxData>* end_struct  [mapSet(structVals,$1);this=$$]
+ | (typeref struct) # todo needs to be able to recognize structure instantiation.
+})
+
+(struct PlatformPart
+   (var Bool on :default true)
+   (var Bool operational :default true)
+   (var Bool restorable :default true)
+   (var Bool debug :default false)
+   (var Time automaticRecoveryTime :default "0.0 sec")
+   (var Real damageFactor :default 0.0)
+   (var Bool critical :default false)
+   (var Int debugMask :default 3)
+   (var ObjectMap/Bool categories)
+   (var InternalLinks internalLinks)
+   (var AuxData auxData)
+{
+   on                                     [on=true]
+ | off                                    [on=false]
+ | operational                            [operational=true]
+ | non_operational                        [operational=false]
+ | restorable                             [restorable=true]
+ | non_restorable                         [restorable=false]
+ | automatic_recovery_time <Time>         [automaticRecoveryTime=$$]
+ | broken                                 [operational=false; restorable=false; damageFactor=1.0]
+ | dead                                   [operational=false; restorable=false; damageFactor=1.0]
+ | damage_factor <real>                   [damageFactor=$$]
+ | critical                               [critical=true]
+ | non_critical                           [critical=false]
+ | debug                                  [debug=true]
+ | no_debug                               [debug=false]
+ | debug_level <integer>                  [debugMask=$$]
+ | <group-command>
+ | <$internalLinks>
+ | category (name category)   [mapSet(categories,$1)]
+ | clear_categories           [categories=""]
+ | [push(auxData)] <AuxData.block>
+ | <wsfobject-command>
+})
+
+
+(struct ArticulatedPart :base_type PlatformPart
+   (enumeration slew-method-value (values
+      independent 0
+      coordinated 1
+   ))
+   (var Length3 location :default "0 0 0 m")
+   (var Angle yaw :default "0.0 deg")
+   (var Angle pitch :default "0.0 deg")
+   (var Angle roll :default "0.0 deg")
+   (var Angle tilt :default "0.0 deg")
+   (var AngleRate azimuthSlewRate) #these are set to no value, but there is an interesting default value
+   (var AngleRate elevationSlewRate)
+   (var Angle azimuthMin :default "-180 deg")
+   (var Angle azimuthMax :default "180 deg")
+   (var Angle elevationMin :default "-90 deg")
+   (var Angle elevationMax :default "90 deg")
+   (var slew-method-value slewMethod :default "coordinated")
+   (var SlewMode slewMode :default "fixed")
+{
+   location <$location>
+ | yaw <$yaw>
+ | pitch <$pitch>
+ | roll <$roll>
+ | tilt <$tilt>
+ | azimuth_slew_rate <$azimuthSlewRate>
+ | elevation_slew_rate <$elevationSlewRate>
+ | azimuth_slew_limits <$azimuthMin> <$azimuthMax>
+ | elevation_slew_limits <$elevationMin> <$elevationMax>
+ | slew_mode <$slewMode>
+ | slew_method <slew-method-value>          [slewMethod=$$]
+ | masking_pattern (typeref masking-pattern)
+ | <PlatformPart>
+})
+
+#TODO
+(enumeration DomainValue
+   (values land 0 air 1 surface 2 subsurface 3 space 4)
+{
+   land [this=0]
+ | air [this=1]
+ | surface [this=2]
+ | subsurface [this=3]
+ | space [this=4]
+})
+
+(rule domain-value {
+   land | air | surface | subsurface | space
+})
+
+(rule infrared-band-value {
+   default | short | medium | long | very_long
+})
+
+(enumeration PolarizationValue
+  (values default 0 horizontal 1 vertical 2 slant_45 3 slant_135 4 left_circular 5 right_circular 6)
+{
+   default [this=0]
+ | horizontal [this=1]
+ | vertical [this=2]
+ | slant_45 [this=3]
+ | slant_135 [this=4]
+ | left_circular [this=5]
+ | right_circular[this=6]
+})
+(rule polarization-value {
+   default | horizontal | vertical | slant_45 | slant_135 | left_circular | right_circular
+})
+
+(rule Bool (nocase {
+      true | yes | on | enable | enabled | false | no | off | disable | disabled | unknown
+}))
+
+# using this command requires mode.template to be defined
+(rule mode-command {
+   initial_mode <string>
+ | selection_mode single
+ | selection_mode multiple
+ | mode_select_delay <Time>
+   # edit mode template
+ | mode_template (load (subtype template)) <TypeCommand>* end_mode_template
+   # edit mode
+ | mode <string> (load (subtype mode $1)) <TypeCommand>* end_mode
+   # add mode
+ | mode <string> (new (subtype mode $1) (subtype template)) <TypeCommand>* end_mode
+   # implicit mode
+ | (load (subtype template)) <TypeCommand>
+})
+
+# WsfSensorScheduler.cpp
+(rule sensor-scheduler-command {
+   debug_scheduler
+})
+
+(rule sector-type
+{
+   azimuth | elevation | azimuth_and_elevation
+})
+
+(rule azimuth-scan-direction
+{
+   positive | negative
+})
+
+(rule sector-command
+{
+     type <sector-type>
+   | azimuth_scan_direction <azimuth-scan-direction>
+   | start_azimuth <Angle>
+   | end_azimuth <Angle>
+   | elevation <Angle>
+   | azimuth <Angle>
+   | start_elevation <Angle>
+   | end_elevation <Angle>
+   | azimuth_rate <AngleRate>
+   | elevation_rate <AngleRate>
+})
+
+(rule sector-scan-scheduler-command
+{
+   sector <sector-command>* end_sector
+ | frame_based_scheduling <Bool>
+ | <sensor-scheduler-command>
+})
+
+(rule spin-scheduler-command
+{
+   scan_period <Time>
+ | clockwise <Bool>
+ | starting_beam_azimuth <Angle>
+ | starting_azimuth_randomized
+ | <sensor-scheduler-command>
+})
+
+(rule physical-scan-scheduler-command
+{
+   initial_heading <Angle>
+ | <sensor-scheduler-command>
+})
+
+# WsfSensorTracker.cpp
+(rule sensor-tracker-command {
+   debug_tracker
+ | maximum_track_count <integer>
+ | send_track_drop_on_turn_off <Bool>
+ | <filter-instance>
+})
+
+(struct Sensor
+   :base_type ArticulatedPart
+   (script-var WsfSensor SENSOR :this 1)
+   (script-var WsfPlatform PLATFORM)
+
+   (var Bool showCalibrationData :default false)
+   (var DataSize messageLength)
+   (var Int messagePriority)
+   (var ObjectMap/Bool ignoredSides)
+   (var ObjectMap/Bool ignoredDomains)
+   (var ObjectMap/Bool ignoredCategories)
+   (var Bool ignoreSameSide :default false)
+   (var Time updateInterval)
+   (var String initialMode :default "default")
+   (var Bool canMultiSelect :default false)
+{
+   show_calibration_data         [showCalibrationData=true]
+ | message_length <DataSize>     [messageLength=$$]
+ | message_priority <integer>    [messagePriority=$$]
+ | ignore (name category)        [mapSet(ignoredCategories,$1)]
+ | ignore_side (name side)       [mapSet(ignoredSides,$1)]
+ | ignore_domain <domain-value>  [mapSet(ignoredDomains,$1)]
+ | ignore_same_side              [ignoreSameSide=true]
+ | ignore_nothing                [ignoredSides="";ignoredDomains="";ignoredCategories=""]
+ | modifier_category <string>
+ | output_dis <Bool>
+ | update_interval <Time>        [updateInterval=$1]
+ #TODO AuxData, is this handled higher up, alread?
+ #TODO modelist
+ | scheduler default <sensor-scheduler-command>* end_scheduler
+ | scheduler physical_scan <physical-scan-scheduler-command>* end_scheduler
+ | scheduler sector_scan <sector-scan-scheduler-command>* end_scheduler
+ | scheduler spin <spin-scheduler-command>* end_scheduler
+ | debug_scheduler # legacy input
+ | initial_mode <string>         [initialMode=$1]
+ | selection_mode { single [canMultiSelect=false] | multiple [canMultiSelect=true] }
+ | mode_select_delay <Time>
+ | <ArticulatedPart>
+ | <object-script-context-command>
+})
+
+
+(rule group-command {
+   group_join (typeref group)
+ | group_leave (typeref group)
+   # Groups are odd -- you can define a new group inside of a platform
+ | <group-type>
+})
+
+(rule track-command {
+   <Position>
+ | altitude <Length>
+ | agl
+ | msl
+ | speed <Speed>
+ | heading <Angle>
+   # From WsfTrack::ProcessInput():
+ | range <Length>
+ | bearing <Angle>
+ | elevation <Angle>
+ | frequency <Frequency>
+ | side (name side)
+ | spatial_domain <domain-value>
+ | type <string>
+ | platform (typeref platform)
+ | quality <real>
+ | reportable
+ | non_reportable
+ | <:AuxData.block>
+ | default_altitude <domain-value> <Length>
+})
+
+(rule log-command {
+   log <line-string>
+ | log_file (output-file-reference wsf-log)
+})
+
+(rule wsfobject-command {
+   is_a_type_of <string>
+ | is_type_of <string>
+ | <log-command>
+})
+
+(struct WSF_SCRIPT_CALLBACK :symbol (type callbackType WSF_SCRIPT_CALLBACK)
+{
+   execute <string> in (typeref .processors)
+ | execute <string>
+})
+
+
+(struct root
+   (var ObjectMap/Route routes)
+   (var ObjectMap/Platform platformType)
+   (var ObjectMap/Platform platform)
+   (var ObjectMap/Processor processorType)
+   (var ObjectMap/Comm commType)
+   (var ObjectMap/Network networkType)
+   (var ObjectMap/Router routerType)
+   (var ObjectMap/Sensor sensorType)
+   (var ObjectMap/Mover moverType)
+   (var ObjectMap/Fuel fuelType)
+   (var ObjectMap/Aero aeroType)
+   (var ObjectMap/Zone zone)
+   (var ObjectMap/Group group)
+   (var Scenario scenario)
+   (var ObjectMap/RadarSignature radarSignature)
+   (var ObjectMap/IntersectMesh intersectMesh)
+   (var ObjectMap/ThermalSystem thermalSystem)
+   (var ObjectMap/MaskingPattern maskingPattern)
+   (var ObjectMap/AntennaPattern antennaPattern)
+   (var ObjectMap/RouteNetwork routeNetwork)
+   (var ObjectMap/Protocol protocolType)
+   (var ObjectMap/RouterProtocol routerProtocolType)
+   (var ObjectMap/Medium mediumType)
+   (var DISInterface disInterface)
+   (var Terrain terrain)
+
+   (rule platform-type {
+      platform_type <string> <string>
+         (new (type platformType $1) (type platformType $2) :backup (type platformType WSF_PLATFORM)) [apply($$)]
+         <Platform.type-command>*
+      end_platform_type
+    | (error { platform_type <ignore>* end_platform_type } )
+   })
+   #<string> <string> <Error>* end_platform_type
+
+   (rule platform-instance {
+      # New platform with <default> name
+      platform \<default\> <string>
+         (new (type platform generated_name) (type platformType $2)) [apply($$)]
+         <Platform.instance-command>*
+      end_platform
+      # Edit platform
+    | edit platform <string>
+         (load (type platform $2)) [apply($$)]
+         <Platform.instance-command>*
+      end_platform
+      # New platform
+    | platform <string> <string> (new (type platform $1) (type platformType $2) :backup (type platformType WSF_PLATFORM)) [apply($$)] <Platform.instance-command>* end_platform
+   })
+
+   (rule processor-type {
+      processor <string> <string> (new (type processorType $1) (type processorType $2) :backup (type processorType WSF_SCRIPT_PROCESSOR)) [apply($$)]
+         <TypeCommand>*
+      end_processor
+    | (error { processor <ignore>* end_processor } )
+   })
+   (rule fuel-type {
+      fuel <string> <string> (new (type fuelType $1) (type fuelType $2) :backup (type fuelType WSF_VARIABLE_RATE_FUEL)) [apply($$)]
+         <TypeCommand>*
+      end_fuel
+    | (error { fuel <ignore>* end_fuel })
+   })
+
+   (rule comm-type {
+      comm <string> <string> (new (type commType $1) (type commType $2) :backup (type commType WSF_COMM_TRANSCEIVER)) [apply($$)] <TypeCommand>* end_comm
+    | (error { comm <ignore>* end_comm })
+   })
+
+   (rule network-type {
+      network <string> <string> (new (type networkType $1) (type networkType $2) :backup (type networkType WSF_COMM_NETWORK_MESH)) [apply($$)] <TypeCommand>* end_network
+    | (error { network <ignore>* end_network })
+   })
+
+   (rule router-type {
+      router <string> <string> (new (type routerType $1) (type routerType $2) :backup (type routerType WSF_COMM_ROUTER)) [apply($$)] <TypeCommand>* end_router
+    | (error { router <ignore>* end_router })
+   })
+
+   (rule medium-type {
+      medium <string> <string> (new (type mediumType $1) (type mediumType $2)
+         :backup (type mediumType WSF_COMM_MEDIUM_LEGACY)) [apply($$)]
+            <TypeCommand>*
+      end_medium
+    | (error { medium <ignore>* end_medium })
+   })
+
+   (rule protocol-type {
+      protocol <string> <string> (new (type protocolType $1) (type protocolType $2)
+         :backup (type protocolType WSF_COMM_PROTOCOL_IGMP)) [apply($$)]
+            <TypeCommand>*
+      end_protocol
+    | (error { protocol <ignore>* end_protocol })
+   })
+
+   (rule router-protocol-type {
+      router_protocol <string> <string> (new (type routerProtocolType $1) (type routerProtocolType $2)
+         :backup (type routerProtocolType WSF_COMM_ROUTER_PROTOCOL_LEGACY)) [apply($$)]
+            <TypeCommand>*
+      end_router_protocol
+    | (error { router_protocol <ignore>* end_router_protocol })
+   })
+
+   (rule mover-type {
+      mover <string> <string> (new (type moverType $1) (type moverType $2) :backup (type moverType WSF_AIR_MOVER)) [apply($$)] <TypeCommand>* end_mover
+    | (error { mover <ignore>* end_mover })
+   })
+
+   (rule sensor-type {
+      sensor <string> <string> (new (type sensorType $1) (type sensorType $2) :backup (type sensorType WSF_NULL_SENSOR)) [apply($$)]
+         <TypeCommand>*
+      end_sensor
+    | (error { sensor <ignore>* end_sensor })
+   })
+
+   #continuing with root definitons
+   {
+      <platform-type>
+    | <platform-instance>
+    | <sensor-type>
+    | <processor-type>
+    | <mover-type>
+    | zone <string> (new (type zone $1) (type zone WSF_ZONE_DEFINITION)) [apply($$)] <TypeCommand>* end_zone
+    | zone_set <string> (new (type zone $1) (type zone WSF_ZONE_SET)) [apply($$)] <TypeCommand>* end_zone_set
+    | use_zone (typeref zone) as <string>
+    | <comm-type>
+    | <network-type>
+    | <router-type>
+    | <protocol-type>
+    | <router-protocol-type>
+    | <medium-type>
+    | <fuel-type>
+    | route (typename route) [new(routes, $1)] <Route>* end_route
+    | <$scenario>
+    | radar_signature <string> <string> (new_replace (type radarSignature $1) (type radarSignature $2)) [apply($$)]
+         <TypeCommand>*
+      end_radar_signature
+    | radar_signature <string> (new_replace (type radarSignature $1) (type radarSignature WSF_RADAR_SIGNATURE)) [apply($$)]
+         <RadarSignature>*
+      end_radar_signature
+    | masking_pattern <string> (new_replace (type maskingPattern $1) (type maskingPattern WSF_MASKING_PATTERN)) [apply($$)]
+         <MaskingPattern>*
+      end_masking_pattern
+    | intersect_mesh <string> (new_replace (type intersectMesh $1) (type intersectMesh WSF_INTERSECT_MESH)) [apply($$)]
+         <IntersectMesh>*
+      end_intersect_mesh
+    | thermal_system <string> <string> (new_replace (type thermalSystem $1) (type thermalSystem WSF_THERMAL_SYSTEM)) [apply($$)]
+         <ThermalSystem>*
+      end_thermal_system
+    | antenna_pattern <string> <string> (new_replace (type antennaPattern $1) (type antennaPattern $2)) [apply($$)]
+         <TypeCommand>*
+      end_antenna_pattern
+    | antenna_pattern <string> (new_replace (type antennaPattern $1) (type antennaPattern WSF_ANTENNA_PATTERN)) [apply($$)]
+         <AntennaPattern>*
+      end_antenna_pattern
+    | route_network <string> (new (type routeNetwork $1) (type routeNetwork WSF_ROUTE_NETWORK)) [apply($$)]
+         <RouteNetwork>*
+      end_route_network
+    | aero <string> <string> (new (type aeroType $1) (type aeroType $2) :backup (type aeroType WSF_AERO)) [apply($$)]
+         <TypeCommand>*
+      end_aero
+    | callback <string> <string> (load (type callbackType $2)) <TypeCommand>* end_callback
+    | <$disInterface>
+    | <$terrain>
+   }
+)
+
+(struct Platform
+   (var String side)
+   (var String icon)
+   (var String marking)
+   (var Bool destructible :default true)
+   (var DomainValue spatialDomain)
+   #(var Latitude latitude)
+   #(var Longitude longitude)
+   (var Position position)
+   (var Length altitude :default "0 m")
+   (var AltitudeReference altitudeReference :default 0)
+   (var Angle heading :default "0 deg")
+   (var Angle pitch :default "0 deg")
+   (var Angle roll :default "0 deg")
+   (var ObjectMap/Sensor sensors)
+   (var ObjectMap/Processor processors)
+   (var ObjectMap/Comm comms)
+   (var ObjectMap/Router routers)
+   (var ObjectMap/IntersectMesh meshes)
+   (var ObjectMap/ThermalSystem ts)
+   (var ObjectMap/Mover movers)
+   (var ObjectMap/Fuel fuels)
+   (var ObjectMap/Bool categories)
+   (var ObjectMap/Zone zone)
+   (var AuxData auxData)
+   (var Mass payloadMass)
+   (var Mass emptyMass)
+   (var Mass fuelMass)
+   (var Real concealmentFactor)
+   (var Length length)
+   (var Length width)
+   (var Length height)
+   (var Time nutationUpdateInterval)
+   (var Real damageFactor)
+   (var ObjectMap/String commandChains)
+   (var RandomTime& creationTime)
+   (var String radarSignature)
+   (var String intersectMesh)
+   (var String thermalSystem)
+   (rule type-command {
+      mover <string> (new (subtype movers mover) (type moverType $1) :backup (type moverType WSF_AIR_MOVER)) [apply($$)]
+         <TypeCommand>*
+      end_mover # assume copy
+    | fuel <string> (new (subtype fuels fuel) (type fuelType $1) :backup (type fuelType WSF_VARIABLE_RATE_FUEL)) [apply($$)]
+         <TypeCommand>*
+      end_fuel
+    | processor <string> <string> (new (subtype processors $1) (type processorType $2) :backup (type processorType WSF_SCRIPT_PROCESSOR)) [apply($$)]
+         <TypeCommand>*
+      end_processor
+    | sensor <string> <string> (new (subtype sensors $1) (type sensorType $2) :backup (type sensorType WSF_NULL_SENSOR)) [apply($$)]
+         <TypeCommand>*
+      end_sensor
+    | comm <string> <string> (new (subtype comms $1) (type commType $2) :backup (type commType WSF_COMM_TRANSCEIVER)) [apply($$)]
+         <TypeCommand>*
+      end_comm
+    | router <string> <string> (new (subtype routers $1) (type routerType $2) :backup (type routerType WSF_COMM_ROUTER)) [apply($$)]
+         <TypeCommand>*
+      end_router
+    | visual_part <string> <string> (new (subtype visual_part $1) (type visual_partType $2) :backup (type visual_partType WSF_VISUAL_PART))
+         <TypeCommand>*
+      end_visual_part
+    | thermal_system <string> <string> (new (subtype ts $1) (type thermalSystem $2) :backup  (type thermalSystem WSF_THERMAL_SYSTEM)) [apply($$)]
+         <WSF_THERMAL_SYSTEM>*
+      end_thermal_system
+    | <TypeCommand>
+   })
+   (rule instance-command {
+      mover (load (subtype movers mover)) [apply($$)] <TypeCommand>* end_mover # assume edit
+    | fuel (load (subtype fuels fuel)) [apply($$)] <TypeCommand>* end_fuel
+    | processor <string> (load (subtype processors $1)) [apply($$)] <TypeCommand>* end_processor
+    | sensor <string> (load (subtype sensors $1)) [apply($$)] <TypeCommand>* end_sensor
+    | comm <string> (load (subtype comms $1)) [apply($$)] <TypeCommand>* end_comm
+    | router <string> (load (subtype routers $1)) [apply($$)] <TypeCommand>* end_router
+    | visual_part <string> (load (subtype visual_part $1)) <TypeCommand>* end_visual_part
+    | thermal_system <string> (load (subtype ts $1)) <TypeCommand>* end_thermal_system
+    | <TypeCommand>
+   })
+   (rule navigation-errors-command
+      (rule polynomial-command {
+         coefficient <real> exponent <real>
+       | coefficient <real>
+      })
+      (rule random-walk-error-command {
+         ins_random_walk_error /variable <real>
+       | ins_random_walk_error <real> deg/sqrt-hr
+      })
+   {
+      gps_in_track_error <Length>
+    | gps_cross_track_error <Length>
+    | gps_vertical_error <Length>
+    | gps_degraded_multiplier <real>
+    | ins_x_errors <polynomial-command>* end_ins_x_errors
+    | ins_y_errors <polynomial-command>* end_ins_y_errors
+    | ins_z_errors <polynomial-command>* end_ins_z_errors
+    | ins_xy_errors <polynomial-command> end_ins_xy_errors
+    | ins_accelerometer_bias_error <Acceleration>
+    | ins_gyroscope_bias_error <AngleRate>
+    | <random-walk-error-command>
+    | ins_vertical_error <Length>
+    | gps_status <integer>
+    | randomness <Bool>
+    | ins_scale_factors <real> <real> <real>
+    | show_status_changes <Bool>
+    | time_history_path <string>
+   })
+   (script-var WsfPlatform PLATFORM :this 1)
+{
+   side (name side)                                    [side=$$]
+ | icon (name icon)                                    [icon=$$]
+ | marking <string>                                    [marking=$$]
+ | indestructible                                      [destructible=false]
+ | destructible                                        [destructible=true]
+ | on_broken remove
+ | on_broken disable
+ | on_broken disabled_but_movable
+ | spatial_domain <domain-value>
+ | radar_signature (typeref radarSignature)            [radarSignature=$$]
+ | intersect_mesh (typeref intersectMesh)              [intersectMesh=$$]
+ | geo_point <string> <Latitude> <Longitude> <Length>
+ | <$position>
+ | altitude <$altitude> <$altitudeReference>
+ | altitude <$altitude> [altitudeReference=0]
+ | creation_time <$creationTime>
+ | heading <$heading>
+ | pitch <$pitch>
+ | roll <$roll>
+ | empty_mass <$emptyMass>
+ | fuel_mass <$fuelMass>
+ | payload_mass <$payloadMass>
+ | concealment_factor <$concealmentFactor>
+ | initial_damage_factor <$damageFactor>
+ | height <$height>
+ | length <$length>
+ | width <$width>
+ | nutation_update_interval <$nutationUpdateInterval>
+ | [push(auxData)] <AuxData.block>
+ | track_manager        [skip()]
+      <WSF_TRACK_MANAGER>*
+   end_track_manager
+ | <group-command>
+ | <object-script-context-command>
+ | category (name category)   [mapSet(categories,$1)]
+ | clear_categories           [categories=""]   #todo
+ #| category (name category)
+ #| clear_categories
+   #<callback-instance>
+   #<callback-named-instance>
+ | callback <string> <string> (load (type callbackType $2)) <TypeCommand>* end_callback
+ | use_callback <string> (load (type callbackType $1)) <TypeCommand>* end_use_callback
+ | commander SELF [mapSet(commandChains,"default");this="SELF"]
+ | commander (typeref platform) [mapSet(commandChains,"default");this=$1]
+ | command_chain (name command_chain) SELF [mapSet(commandChains,$1);this="SELF"]
+ | command_chain (name command_chain) (typeref platform) [mapSet(commandChains,$1);this=$2]
+ | track <track-command>* end_track
+ | navigation_errors <navigation-errors-command>* end_navigation_errors
+ | zone <string> (new_replace (subtype zone $1) (type zone WSF_ZONE_DEFINITION)) [apply($$)] <TypeCommand>* end_zone
+ | zone_set <string> (new (subtype zone $1) (type zone WSF_ZONE_SET)) [apply($$)] <TypeCommand>* end_zone_set
+ | use_zone <string> as <string> (new_replace (subtype zone $3) (type zone $1)) [apply($$)]
+ | add mover <string> (new (subtype movers mover) (type moverType $2) :backup (type moverType WSF_AIR_MOVER)) [apply($$)] <TypeCommand>* end_mover
+ | edit mover (load (subtype movers mover)) [apply($$)] <TypeCommand>* end_mover
+ | delete mover (delete (subtype movers mover)) [apply($$)]
+ | add fuel <string> (new (subtype fuels fuel) (type fuelType $2) :backup (type fuelType WSF_VARIABLE_RATE_FUEL)) [apply($$)] <TypeCommand>* end_fuel
+ | edit fuel (load (subtype fuels fuel)) [apply($$)] <TypeCommand>* end_fuel
+ | delete fuel (delete (subtype fuels fuel)) [apply($$)]
+ | add processor <string> <string> (new (subtype processors $2) (type processorType $3) :backup (type processorType WSF_SCRIPT_PROCESSOR)) [apply($$)] <TypeCommand>* end_processor
+ | edit processor <string> (load (subtype processors $2)) [apply($$)] <TypeCommand>* end_processor
+ | delete processor <string> (delete (subtype processors $2)) [apply($$)]
+ | add sensor <string> <string> (new (subtype sensors $2) (type sensorType $3) :backup (type sensorType WSF_NULL_SENSOR)) [apply($$)] <TypeCommand>* end_sensor
+ | edit sensor <string> (load (subtype sensors $2)) [apply($$)] <TypeCommand>* end_sensor
+ | delete sensor <string> (delete (subtype sensors $2)) [apply($$)]
+ | add comm <string> <string> (new (subtype comms $2) (type commType $3) :backup (type commType WSF_COMM_TRANSCEIVER)) [apply($$)] <TypeCommand>* end_comm
+ | edit comm <string> (load (subtype comms $2)) [apply($$)] <TypeCommand>* end_comm
+ | delete comm <string> (delete (subtype comms $2)) [apply($$)]
+ | add router <string> <string> (new (subtype routers $2) (type routerType $3) :backup (type routerType WSF_COMM_ROUTER)) [apply($$)] <TypeCommand>* end_router
+ | edit router <string> (load (subtype routers $2)) [apply($$)] <TypeCommand>* end_router
+ | delete router <string> (delete (subtype routers $2)) [apply($$)]
+ | add visual_part <string> <string> (new (subtype visual_part $2) (type visual_partType $3) :backup (type visual_partType WSF_VISUAL_PART)) <TypeCommand>* end_visual_part
+ | edit visual_part <string> (load (subtype visual_part $2)) <TypeCommand>* end_visual_part
+ | delete visual_part <string> (delete (subtype visual_part $2))
+ | add thermal_system <string> <string> (new (subtype ts $2) (type thermalSystem $3) :backup (type thermalSystem WSF_THERMAL_SYSTEM)) <TypeCommand>* end_thermal_system
+ | edit thermal_system <string> (load (subtype ts $2)) <TypeCommand>* end_thermal_system
+ | delete thermal_system <string> (delete (subtype ts $2))
+ | delete zone <string> (delete (subtype zone $2))
+ | (load (subtype movers mover)) [apply($$)] <TypeCommand>
+ | <wsfobject-command>
+})
+
+(struct WSF_PLATFORM
+   :symbol (type platformType WSF_PLATFORM)
+   :base_type Platform
+{
+   <Platform>
+})
+
+(rule frequency-list-command {
+   frequency_id <integer> <Frequency>
+ | id_frequency <integer> <Frequency>
+ | frequency <integer> <Frequency>
+})
+
+(rule pulse-repetition-intervals-command {
+   pulse_repetition_interval <integer> <Time>
+ | pulse_repetition_interval_id <integer> <Time>
+ | pri <integer> <Time>
+ | pri_id <integer> <Time>
+})
+
+(rule pulse-repetition-frequencies-command {
+   pulse_repetition_frequency <integer> <Frequency>
+ | pulse_repetition_frequency_id <integer> <Frequency>
+ | prf <integer> <Frequency>
+ | prf_id <integer> <Frequency>
+})
+
+(rule transmitter-powers-command {
+   frequency <Frequency> <Power>
+})
+
+(rule antenna-pattern-table-command {
+   frequency <Frequency> (typeref antennaPattern)
+ | polarization <polarization-value>
+})
+
+
+(struct XmtrRcvrBase
+   (var String antennaPattern)
+   (var Angle beamTilt)
+   (var Bool checkTerrainMasking :default true)
+   (var AuxData auxData)
+{
+   antenna_pattern (typeref antennaPattern) [antennaPattern=$1]
+ | antenna_pattern_table <antenna-pattern-table-command>* end_antenna_pattern_table
+ | beam_tilt <$beamTilt>
+ | check_terrain_masking <$checkTerrainMasking>
+ | terrain_masking_mode { terrain_and_horizon | terrain_only | horizon_only }
+ | <:Antenna>
+ | [push(auxData)] <AuxData.block>
+})
+
+# Note: To correctly capture antenna inputs, the inputs to
+# transmitters and receivers must have access to the antenna.
+# This is why XmtrRcvrAntenna and RcvrAntenna exist
+(struct XmtrRcvrAntenna
+   (var Antenna antenna)
+   (var Transmitter transmitter)
+   (var Receiver receiver)
+   (rule xmtr-command { <$transmitter> | <$antenna> })
+   (rule rcvr-command { <$receiver> | <$antenna> })
+   (rule default {
+      <$antenna>
+    | transmitter <xmtr-command>* end_transmitter
+    | receiver <rcvr-command>* end_receiver
+    })
+{
+   <default>
+})
+
+(struct XmtrAntenna
+   (var Antenna antenna)
+   (var Transmitter transmitter)
+   (rule xmtr-command { <$transmitter> | <$antenna> })
+   (rule default {
+      <$antenna>
+    | transmitter <xmtr-command>* end_transmitter
+    })
+{
+   <default>
+})
+
+(struct RcvrAntenna
+   (var Antenna antenna)
+   (var Receiver receiver)
+   (rule rcvr-command { <$receiver> | <$antenna> })
+   (rule default {
+      <$antenna>
+    | receiver <rcvr-command>* end_receiver
+    })
+{
+   <default>
+})
+
+(struct Transmitter
+   :base_type XmtrRcvrBase
+   (var Frequency bandwidth :default 0.0)
+   (var Frequency frequency :default 0.0)
+   (var Power power)
+   (var Ratio internalLoss :default "1.0 absolute")
+   (var PolarizationValue polarization :default 0)
+   (var Ratio pulseCompressionRatio :default "1.0 absolute")
+   (var Time pulseRepetitionInterval)
+   (var Frequency pulseRepetitionFrequency)
+   (var Time pulseWidth :default 0)
+   (var Real dutyCycle :default 1.0)
+   (var Length wavelength)
+   (var Real earthRadiusMultiplier :default 1.0)
+   (var Length effectiveEarthRadius)
+{
+   bandwidth <$bandwidth>
+ | earth_radius_multiplier <$earthRadiusMultiplier>
+ | effective_earth_radius <$effectiveEarthRadius>
+ | allow_zero_frequency_input <Bool>
+ | frequency <$frequency> [wavelength = ""]
+ | alternate_frequency <integer> <Frequency>
+ | frequency_list <frequency-list-command>* end_frequency_list
+ | frequency_channels <Frequency> <Frequency> <Frequency>
+ | internal_loss <$internalLoss>
+ | polarization <$polarization>
+ | power <$power>
+ | powers <transmitter-powers-command>* end_powers
+ | pulse_compression_ratio <$pulseCompressionRatio>
+ | pulse_repetition_frequency <$pulseRepetitionFrequency>
+ | pulse_repetition_interval <$pulseRepetitionInterval>
+ | pulse_repetition_frequencies <pulse-repetition-frequencies-command>* end_pulse_repetition_frequencies
+ | pulse_repetition_intervals <pulse-repetition-intervals-command>* end_pulse_repetition_intervals
+ | pulse_width <$pulseWidth>
+ | duty_cycle <$dutyCycle>
+ | use_peak_power <Bool>
+ | wavelength <$wavelength> [frequency = ""]
+ | <attenuation-instance>
+ | <propagation-instance>
+ | <XmtrRcvrBase>
+})
+
+
+(rule transmitter-block {
+   transmitter [skip()] <Transmitter>* end_transmitter
+})
+
+(struct Receiver
+   :base_type XmtrRcvrBase
+   (var Frequency frequency)
+   (var Frequency bandwidth)
+   (var Real earthRadiusMultiplier :default 1.0)
+   (var Length effectiveEarthRadius)
+   (var Ratio internalLoss)
+   (var Power noisePower)
+   (var PolarizationValue polarization)
+   (var Length wavelength)
+   (var Ratio noiseFigure :default "1.0 absolute")
+   (var Ratio antennaOhmicLoss :default "0.0 absolute")
+   (var Ratio receiveLineLoss :default "0.0 absolute")
+   (var Bool checkTransmitterMasking :default true)
+   (var Frequency instantaneousBandwidth)
+   (var Ratio detectionThreshold :default 1.9952623149688796013524553967395)     #10^.3
+{
+   bandwidth <$bandwidth>
+ | detection_threshold <$detectionThreshold>
+ | earth_radius_multiplier <$earthRadiusMultiplier>
+ | effective_earth_radius <$effectiveEarthRadius>
+ | frequency <$frequency>
+ | instantaneous_bandwidth <$instantaneousBandwidth>
+ | analysis_bandwidth <$instantaneousBandwidth>
+ | internal_loss <$internalLoss>
+ | noise_power <$noisePower>
+ | polarization <$polarization>
+ | polarization_effect <polarization-value> <real>
+ | wavelength <$wavelength>
+ | noise_figure <$noiseFigure>
+ | antenna_ohmic_loss <$antennaOhmicLoss>
+ | receive_line_loss <$receiveLineLoss>
+ | check_transmitter_masking <$checkTransmitterMasking>
+ | <attenuation-instance>
+ | <propagation-instance>
+ | <XmtrRcvrBase>
+})
+
+
+(rule receiver-block {
+   receiver [skip()] <Receiver>* end_receiver
+})
+
+(enumeration BeamSteering
+   (values fixed 0 azimuth 1 elevation 2 azimuth_and_elevation 3)
+{
+   fixed [this=0] | azimuth [this=1] | elevation [this=2] | both [this=3] | azimuth_and_elevation [this=3]
+})
+
+(enumeration ScanStabilization
+   (values none 0 pitch 1 roll 2 pitch_and_roll 3)
+{
+   none [this=0] | pitch [this=1] | roll [this=2] | pitch_and_roll [this=3]
+})
+
+# WsfFieldofView.cpp
+(rule field-of-view-command
+{
+   field_of_view <string> (new (subtype field_of_view $1) (type field_of_view $1))
+      <TypeCommand>*
+   end_field_of_view
+ | field_of_view <string> (load (subtype field_of_view $1))
+      <TypeCommand>*
+   end_field_of_view
+})
+
+(struct circular-field-of-view :symbol (type field_of_view circular)
+{
+   half_angle <Angle>
+})
+
+(struct rectangular-field-of-view :symbol (type field_of_view rectangular)
+{
+   azimuth_field_of_view <Angle> <Angle>
+ | elevation_field_of_view <Angle> <Angle>
+})
+
+(struct polygonal-field-of-view :symbol (type field_of_view polygonal)
+{
+   azimuth_elevation <Angle> <Angle>
+})
+
+(struct equatorial-field-of-view :symbol (type field_of_view equatorial)
+{
+   equatorial_field_of_view <Angle> <Angle>
+ | polar_field_of_view <Angle> <Angle>
+})
+
+(struct Antenna
+   (var Length height)
+   (var Angle pitch)
+   (var Angle tilt)
+   (var Length minimumAltitude)
+   (var Length maximumAltitude)
+   (var Length minimumRange)
+   (var Length maximumRange)
+   (var BeamSteering beamSteering)
+   (var ScanStabilization scanStabilization)
+   (var SlewMode scanMode)
+   (var Angle azimuthScanMinimum)
+   (var Angle azimuthScanMaximum)
+   (var Angle elevationScanMinimum)
+   (var Angle elevationScanMaximum)
+   (var Angle azimuthFieldOfViewMinimum)
+   (var Angle azimuthFieldOfViewMaximum)
+   (var Angle elevationFieldOfViewMinimum)
+   (var Angle elevationFieldOfViewMaximum)
+{
+   antenna_height <$height>
+ | antenna_pitch <$pitch>
+ | antenna_tilt <$tilt>
+ | minimum_altitude <$minimumAltitude>
+ | maximum_altitude <$maximumAltitude>
+ | minimum_range <$minimumRange>
+ | maximum_range <$maximumRange>
+ | electronic_beam_steering <$beamSteering>
+ | electronic_beam_steering_loss_exponent <real>
+ | electronic_beam_steering_loss_exponent_azimuth <real>
+ | electronic_beam_steering_loss_exponent_elevation <real>
+ | electronic_beam_steering_limit <Angle>
+ | scan_mode <$scanMode>
+ | scan_stabilization <$scanStabilization>
+ | azimuth_scan_limits <$azimuthScanMinimum> <$azimuthScanMaximum>
+ | elevation_scan_limits <$elevationScanMinimum> <$elevationScanMaximum>
+ | azimuth_field_of_view <$azimuthFieldOfViewMinimum> <$azimuthFieldOfViewMaximum>
+ | elevation_field_of_view <$elevationFieldOfViewMinimum> <$elevationFieldOfViewMaximum>
+ | <field-of-view-command>
+})
+
+(struct WSF_SENSOR_MODE
+   (var AngleRate azimuthCueRate)
+   (var AngleRate elevationCueRate)
+   (var Angle azimuthCueMin)
+   (var Angle azimuthCueMax)
+   (var Angle elevationCueMin)
+   (var Angle elevationCueMax)
+   (var SlewMode cueMode)
+   (var Int maximumRequestCount)
+   (var Bool moonLOS_Block :default false)
+   (var Bool searchWhileTrack :default false)
+   (var Bool disablesSearch :default false)
+   (var Time frameTime)
+   (var Time revisitTime)
+   (var Time dwellTime)
+   (var Real required_PD)
+   (var Real trackQuality)
+   (var Angle azimuthErrorSigma)
+   (var Real azimuthErrorSigmaPercentOfTrueRange)
+   (var Angle fixedAzimuthErrorSigma)
+   (var Real fixedAzimuthErrorSigmaPercentOfTrueRange)
+   (var Angle elevationErrorSigma)
+   (var Real elevationErrorSigmaPercentOfTrueRange)
+   (var Angle fixedElevationErrorSigma)
+   (var Real fixedElevationErrorSigmaPercentOfTrueRange)
+   (var Length rangeErrorSigma)
+   (var Real rangeErrorSigmaPercentOfTrueRange)
+   (var Length fixedRangeErrorSigma)
+   (var Real fixedRangeErrorSigmaPercentOfTrueRange)
+   (var Speed rangeRateErrorSigma)
+   (var Speed fixedRangeRateErrorSigma)
+   (var Real establishTrackProbability :default 1.0)
+   (var Real maintainTrackProbability :default 1.0)
+   (var Int establishTrackWindow :default 1)
+   (var Int hitsToEstablishTrack :default 1)
+   (var Int maintainTrackWindow :default 1)
+   (var Int hitsToMaintainTrack :default 1)
+   (var Angle solarExclusionAngle)
+   (var Angle lunarExclusionAngle)
+   (var DataSize messageLength)
+   (var Real messagePriority)
+   (var Bool reportsLocation :default false)
+   (var Bool reportsVelocity :default false)
+   (var Bool reportsRange :default false)
+   (var Bool reportsBearing :default false)
+   (var Bool reportsElevation :default false)
+   (var Bool reportsRangeRate :default false)
+   (var Bool reportsSide :default false)
+   (var Bool reportsType :default false)
+   (var Bool reports_IFF :default false)
+   (var Bool reportsSignalToNoise :default false)
+   (var Bool reportsFrequency :default false)
+   (var Bool reportsPulsewidth :default false)
+   (var Bool reportsPulseRepetitionInterval :default false)
+   (var Bool reportsOther :default false)
+{
+   azimuth_cue_rate <$azimuthCueRate>
+ | elevation_cue_rate <$elevationCueRate>
+ | azimuth_cue_limits <$azimuthCueMin> <$azimuthCueMax>
+ | elevation_cue_limits <$elevationCueMin> <$elevationCueMax>
+ | cue_mode <$cueMode>
+ | maximum_request_count <$maximumRequestCount>
+ | enable_moon_los_block <$moonLOS_Block>
+ | search_while_track                                       [searchWhileTrack=true]
+ | disables_search                                          [disablesSearch=true]
+ | frame_time <$frameTime>
+ | revisit_time <$revisitTime>
+ | dwell_time <$dwellTime>
+ | required_pd <$required_PD>
+ | track_quality <$trackQuality>
+ | <error-model-instance>
+ | azimuth_error_sigma <$azimuthErrorSigmaPercentOfTrueRange> percent_of_true_range                   [azimuthErrorSigma=""]
+ | azimuth_error_sigma <$azimuthErrorSigma>                                                           [azimuthErrorSigmaPercentOfTrueRange=""]
+ | fixed_azimuth_error_sigma <$fixedAzimuthErrorSigmaPercentOfTrueRange> percent_of_true_range        [fixedAzimuthErrorSigma=""]
+ | fixed_azimuth_error_sigma <$fixedAzimuthErrorSigma>                                                [fixedAzimuthErrorSigmaPercentOfTrueRange=""]
+ | elevation_error_sigma <$elevationErrorSigmaPercentOfTrueRange> percent_of_true_range               [elevationErrorSigma=""]
+ | elevation_error_sigma <$elevationErrorSigma>                                                       [elevationErrorSigmaPercentOfTrueRange=""]
+ | fixed_elevation_error_sigma <$fixedElevationErrorSigmaPercentOfTrueRange> percent_of_true_range    [fixedElevationErrorSigma=""]
+ | fixed_elevation_error_sigma <$fixedElevationErrorSigma>                                            [fixedElevationErrorSigmaPercentOfTrueRange=""]
+ | range_error_sigma <$rangeErrorSigmaPercentOfTrueRange> percent_of_true_range                       [rangeErrorSigma=""]
+ | range_error_sigma <$rangeErrorSigma>                                                               [rangeErrorSigmaPercentOfTrueRange=""]
+ | fixed_range_error_sigma <$fixedRangeErrorSigmaPercentOfTrueRange> percent_of_true_range            [fixedRangeErrorSigma=""]
+ | fixed_range_error_sigma <$fixedRangeErrorSigma>                                                    [fixedRangeErrorSigmaPercentOfTrueRange=""]
+ | range_rate_error_sigma <$rangeRateErrorSigma>
+ | fixed_range_rate_error_sigma <$fixedRangeRateErrorSigma>
+ | establish_track_probability <$establishTrackProbability>
+ | maintain_track_probability <$maintainTrackProbability>
+ | hits_to_establish_track <$hitsToEstablishTrack> <$establishTrackWindow>
+ | hits_to_maintain_track <$hitsToMaintainTrack> <$maintainTrackWindow>
+ | solar_exclusion_angle  <$solarExclusionAngle>
+ | lunar_exclusion_angle  <$lunarExclusionAngle>
+ | on_success <string>                                      #Deprecated
+ | on_failure <string>                                      #Deprecated
+ | message_length <$messageLength>
+ | message_priority <$messagePriority>
+ | reports_nothing                                          [reportsLocation=false;reportsVelocity=false;reportsRange=false;reportsBearing=false;reportsElevation=false;reportsRangeRate=false;reportsSide=false;reportsType=false;reports_IFF=false;reportsSignalToNoise=false;reportsFrequency=false;reportsPulsewidth=false;reportsPulseRepetitionInterval=false;reportsOther=false]
+ | reports_location                                         [reportsLocation=true]
+ | reports_velocity                                         [reportsVelocity=true]
+ | reports_range                                            [reportsRange=true]
+ | reports_bearing                                          [reportsBearing=true]
+ | reports_elevation                                        [reportsElevation=true]
+ | reports_range_rate                                       [reportsRangeRate=true]
+ | reports_side                                             [reportsSide=true]
+ | reports_type                                             [reportsType=true]
+ | reports_iff                                              [reports_IFF=true]
+ | reports_signal_to_noise                                  [reportsSignalToNoise=true]
+ | reports_frequency                                        [reportsFrequency=true]
+ | reports_pulsewidth                                       [reportsPulsewidth=true]
+ | reports_pw                                               [reportsPulsewidth=true]
+ | reports_pulse_repetition_interval                        [reportsPulseRepetitionInterval=true]
+ | reports_pri                                              [reportsPulseRepetitionInterval=true]
+ | target_type                                              <string>
+ | reports_other                                            [reportsOther=true]
+})
+
+
+(rule end-of-path-option {
+   extrapolate | stop | remove
+})
+
+(struct WSF_ROUTE_MOVER
+   :base_type Mover
+   (enumeration EndOfPathOption (values extrapolate 1 stop 2 remove 3) {
+      extrapolate  [this=1]
+    | stop         [this=2]
+    | remove       [this=3]
+   })
+   (var Route defaultRoute :default "")
+   (var String useRoute)
+   (var String startAt)
+   (var Bool switchOnPassing :default true)
+   (var EndOfPathOption endOfPath)
+{
+#route [useRoute="";defaultRoute="";push(defaultRoute)]
+   route [useRoute="";push(defaultRoute);waypoints=""]
+      <Route>*
+   end_route
+ | use_route (typeref routes) [defaultRoute="";useRoute=$1]
+ | start_at <$startAt>
+ | at_end_of_path <EndOfPathOption>                         [endOfPath=$$]
+ | start_time <:RandomTime>
+ | switch_on_approach                                       [switchOnPassing=false]
+ | switch_on_passing                                        [switchOnPassing=true]
+ | pathfinder <string>
+ | terrain <Bool>
+ | altitude_offset <Length>
+ | print_route <Bool>
+ | draw_route <Bool>
+ | on_turn_failure { best_effort | reverse_turn | ignore_point }
+ | turn_failure_threshold <real>
+ | <Mover>
+})
+
+
+(struct WSF_WAYPOINT_MOVER :base_type WSF_ROUTE_MOVER
+   (var Acceleration maximumRadialAcceleration)
+   (var Acceleration maximumLinearAcceleration)
+   (var Speed maximumClimbRate)
+   (var Speed defaultClimbRate)
+   (var Acceleration defaultLinearAcceleration)
+   (var Acceleration turnG_Limit)
+   (var AngleRate turnRateLimit)       # there are 2 values governing turn rate, both doing the same thing.
+   (var AngleRate maximumTurnRate)
+   (var Angle bankAngleLimit)
+   (var Length minimumAltitude)
+   (var Length maximumAltitude)
+   (var Speed minimumSpeed)
+   (var Speed maximumSpeed)
+   (var Angle maximumFlightPathAngle)
+   (var Acceleration bodyG_Limit)
+   (var AngleRate rollRateLimit)
+   (var Real headingPursuitGain)
+   (var Bool isOnGround :default false)
+{
+   default_climb_rate <Speed>
+ | debug_whole_path <Bool>
+ | debug_path <Bool>
+ | maximum_linear_acceleration <$maximumLinearAcceleration>
+ | default_linear_acceleration <$maximumLinearAcceleration>
+ | maximum_radial_acceleration <$maximumRadialAcceleration>
+ | default_radial_acceleration <$maximumRadialAcceleration>
+ | turn_g_limit <$turnG_Limit>
+ | maximum_climb_rate <$maximumClimbRate>
+ | default_climb_rate <$maximumClimbRate>
+ | default_dive_rate <$maximumClimbRate>
+ | turn_rate_limit <$turnRateLimit>
+ | bank_angle_limit <$bankAngleLimit>
+ | heading_pursuit_gain <$headingPursuitGain>
+ | body_g_limit <$bodyG_Limit>
+ | roll_rate_limit <$rollRateLimit>
+ | maximum_flight_path_angle <$maximumFlightPathAngle>
+ | maximum_altitude <$maximumAltitude>
+ | minimum_altitude <$minimumAltitude>
+ | maximum_speed <$maximumSpeed>
+ | minimum_speed <$minimumSpeed>
+ | maximum_turn_rate <$maximumTurnRate>
+ | on_ground                                                [isOnGround=true]
+ | on_road
+ | off_road
+ | no_pitch
+ | pitch_disable
+ | pitch_enable
+ | airborne                                                 [isOnGround=false]
+ | in_air                                                   [isOnGround=false]
+ | angle_of_attack_table <string>* end_angle_of_attack_table
+ | maximum_turn_angle <Angle>
+ | path_variance_radius <Length>
+ | speed_variance_percent <real>
+ | <WSF_ROUTE_MOVER>
+})
+
+
+(rule on-message-commands {
+   type <string>
+ | subtype <string>
+ | sub_type <string>
+ | default
+ | script <ScriptBlock>* end_script
+})
+
+(rule object-message-script-command {
+   on_message <on-message-commands>* end_on_message
+})
+
+(rule global-script-context-command
+{
+   <script-variables-block>
+ | <script-block>
+ | script_silent <Bool>
+ | script_silent_mode <Bool>
+ | script_debug_writes <Bool>
+ | script_call_trace <Bool>
+ | script_print_code <Bool>            # for internal development
+ | script_expect_error <Bool>          # for auto_testing only
+ | on_initialize <ScriptBlock>* end_on_initialize
+ | execute at_time <:TimeVariableValue> { relative | absolute } <ScriptBlock>* end_execute
+ | execute at_interval_of <:TimeVariableValue> <ScriptBlock>* end_execute
+})
+
+(rule object-script-context-command
+{
+   <global-script-context-command>
+ | on_initialize2 <ScriptBlock>* end_on_initialize2
+ | on_update <ScriptBlock>* end_on_update
+})
+
+(rule script-variables-block {
+   script_variables <ScriptVariables>* end_script_variables
+})
+
+(rule script-block {
+   script <ScriptFunctionBlock>* end_script
+})
+
+# WsfCommMedium.cpp
+(struct Medium :symbol (type mediumType WSF_COMM_MEDIUM)
+{
+   channels <integer>
+ | default_mode_name <string>
+ | use_sharing <Bool>
+ | <wsfobject-command>
+ | <script-block>
+ | debug
+})
+
+# WsfCommMediumGuided.cpp
+(struct WSF_COMM_MEDIUM_GUIDED :symbol (type mediumType WSF_COMM_MEDIUM_GUIDED) :base_type Medium
+(rule ModeGuided
+{
+   propagation_speed <:RandomSpeed>
+ | transfer_rate <:RandomDataRate>
+ | packet_loss_time <:RandomTime>
+})
+{
+   <Medium>
+ | <ModeGuided> #default mode input
+ | mode <string> <ModeGuided>* end_mode
+})
+
+# WsfCommMediumUnguided.cpp
+(struct WSF_COMM_MEDIUM_UNGUIDED :symbol (type mediumType WSF_COMM_MEDIUM_UNGUIDED) :base_type WSF_COMM_MEDIUM_GUIDED
+(rule ModeUnguided
+{
+   snr_transfer_rate_table <string> <string> <real>* end_snr_transfer_rate_table
+ | bit_error_probability <real>
+ | error_correction <real>
+ | bit_error_rate_ebno_table <ignore>* end_bit_error_rate_ebno_table
+ | <WSF_COMM_MEDIUM_GUIDED.ModeGuided>
+})
+{
+   <Medium>
+ | <ModeUnguided> #default mode input
+ | mode <string> <ModeUnguided>* end_mode
+})
+
+# WsfCommProtocolTypes.cpp
+(struct Protocol :symbol (type protocolType WSF_COMM_PROTOCOL)
+{
+   # Unfortunately, the grammar does not allow a struct as an interface without user input, so this is just a dummy command
+   # to avoid parse errors.
+   debug
+})
+
+# WsfCommRouterProtocolTypes.cpp
+(struct RouterProtocol :symbol (type routerProtocolType WSF_COMM_ROUTER_PROTOCOL)
+{
+   # Unfortunately, the grammar does not allow a struct as an interface without user input, so this is just a dummy command
+   # to avoid parse errors.
+   debug
+})
+
+# WsfCommRouterProtocolTypes.cpp
+(struct WSF_COMM_ROUTER_PROTOCOL_LEGACY :symbol (type routerProtocolType WSF_COMM_ROUTER_PROTOCOL_LEGACY) :base_type RouterProtocol
+{
+   <RouterProtocol>
+})
+
+# WsfCommProtocolTypes.cpp
+(struct WSF_COMM_PROTOCOL_IGMP :symbol (type protocolType WSF_COMM_PROTOCOL_IGMP) :base_type Protocol
+{
+   <Protocol>
+ | join_multicast_group <comm_address>
+ | leave_multicast_group <comm_address>
+ | join_delay <:RandomTime>
+ | leave_delay <:RandomTime>
+})
+
+# WsfCommRouterProtocolTypes.cpp
+(struct WSF_COMM_ROUTER_PROTOCOL_MULTICAST :symbol (type routerProtocolType WSF_COMM_ROUTER_PROTOCOL_MULTICAST) :base_type RouterProtocol
+{
+   <RouterProtocol>
+})
+
+# WsfCommRouterProtocolTypes.cpp
+(struct WSF_COMM_ROUTER_PROTOCOL_RIPv2 :symbol (type routerProtocolType WSF_COMM_ROUTER_PROTOCOL_RIPv2) :base_type RouterProtocol
+{
+   <RouterProtocol>
+ | update_interval <Time>
+ | invalidation_timeout <Time>
+ | garbage_collection_timeout <Time>
+ | poisoned_reverse <Bool>
+})
+
+# WsfCommRouterProtocolTypes.cpp
+(struct WSF_COMM_ROUTER_PROTOCOL_OSPF :symbol (type routerProtocolType WSF_COMM_ROUTER_PROTOCOL_OSPF) :base_type RouterProtocol
+{
+   <RouterProtocol>
+ | ospf_area <comm_address>
+ | remove_ospf_area <comm_address>
+ | backbone <comm_address>
+ | remove_backbone
+ | ospf_dr_priority <integer>
+ | hello_interval <:RandomTime>
+ | hold_timer <:RandomTime>
+})
+
+# WsfCommRouterProtocolTypes.cpp
+(struct WSF_COMM_ROUTER_PROTOCOL_AD_HOC :symbol (type routerProtocolType WSF_COMM_ROUTER_PROTOCOL_AD_HOC) :base_type RouterProtocol
+{
+   <RouterProtocol>
+ | comm_added_delay_time <:RandomTime>
+ | comm_removed_delay_time <:RandomTime>
+ | connection_added_delay_time <:RandomTime>
+ | connection_removed_delay_time <:RandomTime>
+ | <script-block>
+})
+
+# WsfCommRouter.cpp
+(struct Router
+   :base_type PlatformPart
+   (var ObjectMap/RouterProtocol routerProtocol)
+   (var ObjectMap/Medium medium)
+   (var String gatewayAddress)
+   (var String gateway)
+   (var Int hopLimit :default 64)
+   (var Bool automatedInterfaceLinking :default false)
+   (var Bool useDefaultProtocol :default true)
+   (var Bool useMulticastProtocol :default true)
+   (rule router-protocol-type-command {
+    router_protocol <string> (new (subtype routerProtocol RouterProtocol) (type routerProtocolType $1)
+        :backup (type routerProtocolType WSF_COMM_ROUTER_PROTOCOL_LEGACY)) [apply($$)] <TypeCommand>* end_router_protocol
+   })
+   (rule router-protocol-instance-command {
+    router_protocol <string> (load (subtype routerProtocol RouterProtocol)) [apply($$)] <TypeCommand>* end_router_protocol
+   })
+   (rule medium-type-command {
+    medium <string> (new (subtype medium Medium) (type mediumType $1)
+        :backup (type mediumType WSF_COMM_MEDIUM_LEGACY)) [apply($$)] <TypeCommand>* end_medium
+   })
+   (rule medium-instance-command {
+    medium <string> (load (subtype medium Medium)) [apply($$)] <TypeCommand>* end_medium
+   })
+   {
+      gateway_address <comm_address> [gatewayAddress=$1]
+    | gateway (typeref .comms) [gateway=$1]
+    | hop_limit <integer> [hopLimit=$1]
+    | <PlatformPart>
+    | add router_protocol <string> <string> (new (subtype routerProtocol $2) (type routerProtocolType $3) :backup (type routerProtocolType WSF_COMM_ROUTER_PROTOCOL_LEGACY)) [apply($$)] <TypeCommand>* end_router_protocol
+    | edit router_protocol <string> (load (subtype routerProtocol $2)) [apply($$)] <TypeCommand>* end_router_protocol
+    | delete router_protocol <string> (delete (subtype routerProtocol $2)) [apply($$)]
+    | add medium <string> (new (subtype medium $2) (type mediumType $2) :backup (type mediumType WSF_COMM_MEDIUM_LEGACY)) [apply($$)] <TypeCommand>* end_medium
+    | edit medium <string> (load (subtype medium $2)) [apply($$)] <TypeCommand>* end_medium
+    | delete medium <string> (delete (subtype medium $2)) [apply($$)]
+    | automated_interface_linking <Bool> [automatedInterfaceLinking=$1]
+    | use_default_protocol <Bool> [useDefaultProtocol=$1]
+    | use_multicast_protocol <Bool> [useMulticastProtocol=$1]
+   }
+)
+
+# WsfCommRouterTypes.cpp
+(struct WSF_COMM_ROUTER
+   :symbol (type routerType WSF_COMM_ROUTER)
+   :base_type Router
+   {
+      <Router>
+   }
+)
+
+# WsfComm.cpp
+(struct CommLink
+   (var String    linkPlatform)
+   (var String    linkComm)
+   {
+        link (typeref platform) (typeref .comms)[linkPlatform=$1; linkComm=$2]
+      | local_link (typeref .comms) [linkPlatform=local_link; linkComm=$1]
+      | link_address <comm_address> [linkPlatform=link_address; linkComm=$1]
+   }
+)
+(struct Comm
+   :base_type ArticulatedPart
+   (var ObjectMap/Protocol commProtocol)
+   (var ObjectMap/Medium medium)
+   (var String networkName)
+   (var String address)
+   (var String networkAddress)
+   (var String routerName)
+   (var String gatewayPlatform)
+   (var String gatewayComm)
+   (var List/CommLink commLinks)
+   (rule protocol-type-command {
+    protocol <string> (new (subtype commProtocol Protocol) (type protocolType $1)
+        :backup (type protocolType WSF_COMM_PROTOCOL_LEGACY)) [apply($$)] <TypeCommand>* end_protocol
+   })
+   (rule protocol-instance-command {
+    protocol <string> (load (subtype commProtocol Protocol)) [apply($$)] <TypeCommand>* end_protocol
+   })
+   (rule medium-type-command {
+    medium <string> (new (subtype medium Medium) (type mediumType $1)
+        :backup (type mediumType WSF_COMM_MEDIUM_LEGACY)) [apply($$)] <TypeCommand>* end_medium
+   })
+   (rule medium-instance-command {
+    medium <string> (load (subtype medium Medium)) [apply($$)] <TypeCommand>* end_medium
+   })
+   {
+      <ArticulatedPart>
+    | add protocol <string> <string> (new (subtype commProtocol $2) (type protocolType $3) :backup (type protocolType WSF_COMM_PROTOCOL_LEGACY)) [apply($$)] <TypeCommand>* end_protocol
+    | edit protocol <string> (load (subtype commProtocol $2)) [apply($$)] <TypeCommand>* end_protocol
+    | delete protocol <string> (delete (subtype commProtocol $2)) [apply($$)]
+    | add medium <string> (new (subtype medium $2) (type mediumType $2) :backup (type mediumType WSF_COMM_MEDIUM_LEGACY)) [apply($$)] <TypeCommand>* end_medium
+    | edit medium <string> (load (subtype medium $2)) [apply($$)] <TypeCommand>* end_medium
+    | delete medium <string> (delete (subtype medium $2)) [apply($$)]
+    | network_name "<local:master>" [networkName=$1]
+    | network_name "<local:slave>" [networkName=$1]
+    | network_name (typeref networkType) [networkName=$1]
+    | network_address <comm_address> [networkAddress=$1]
+    | address <comm_address> [address=$1]
+    | [pushBack(commLinks)] <CommLink>
+    | router_name (typeref .routers) [routerName=$1]
+    | gateway (typeref platform) (typeref platform.comms) [gatewayPlatform=$1;gatewayComm=$2]
+    | channels <integer>
+   }
+)
+
+# WsfCommTypes.cpp
+(struct WSF_COMM_TRANSCEIVER
+   :symbol (type commType WSF_COMM_TRANSCEIVER)
+   :symbol (type commType WSF_COMM_XMTR_RCVR)
+   :base_type Comm
+   {
+      <:DatalinkLayer>
+    | <:PhysicalLayer>
+    | <:PhysicalLayerLegacy>
+    | <Comm>
+   }
+)
+
+# WsfCommTypes.cpp
+(struct WSF_COMM_RCVR
+   :symbol (type commType WSF_COMM_RCVR)
+   :base_type WSF_COMM_TRANSCEIVER
+   {
+      <WSF_COMM_TRANSCEIVER>
+   }
+)
+
+# WsfCommTypes.cpp
+(struct WSF_COMM_XMTR
+   :symbol (type commType WSF_COMM_XMTR)
+   :base_type WSF_COMM_TRANSCEIVER
+   {
+      <WSF_COMM_TRANSCEIVER>
+   }
+)
+
+# WsfCommTypes.cpp
+(struct WSF_RADIO_TRANSCEIVER
+   :symbol (type commType WSF_RADIO_XMTR_RCVR)
+   :symbol (type commType WSF_RADIO_TRANSCEIVER)
+   :base_type Comm
+   (rule commRadioBase
+   {
+      <:DatalinkLayer>
+    | <:PhysicalLayer>
+    | <:PhysicalLayerLegacy>
+    | <:PhysicalLayerRF_Legacy>
+    | <:CommComponentHardware>
+    | <Comm>
+   })
+   (rule commRadioTransmit
+   {
+      <:Transmitter>
+    | <transmitter-block>
+   })
+   (rule commRadioReceive
+   {
+      <:Receiver>
+    | <receiver-block>
+   })
+   {
+      <commRadioBase>
+    | <commRadioTransmit>
+    | <commRadioReceive>
+   }
+)
+
+# WsfCommTypes.cpp
+(struct WSF_RADIO_RCVR
+   :symbol (type commType WSF_RADIO_RCVR)
+   :base_type WSF_RADIO_TRANSCEIVER
+   {
+      <WSF_RADIO_TRANSCEIVER.commRadioBase>
+    | <WSF_RADIO_TRANSCEIVER.commRadioReceive>
+   }
+)
+
+# WsfCommTypes.cpp
+(struct WSF_RADIO_XMTR
+   :symbol (type commType WSF_RADIO_XMTR)
+   :base_type WSF_RADIO_TRANSCEIVER
+   {
+      <WSF_RADIO_TRANSCEIVER.commRadioBase>
+    | <WSF_RADIO_TRANSCEIVER.commRadioTransmit>
+   }
+)
+
+# WsfCommDataLinkLayer.cpp
+(struct DatalinkLayer
+   (var Int queueLimit)
+   (var Int retransmitAttempts)
+   (var Time retransmitDelay)
+   (var Time purgeInterval)
+   (rule queue-type
+   {
+      fifo | lifo | priority
+   })
+   {
+      queue_type <queue-type>
+    | queue_limit <$queueLimit>
+    | purge_interval <$purgeInterval>
+    | retransmit_attempts <$retransmitAttempts>
+    | retransmit_delay <$retransmitDelay>
+   }
+)
+
+# WsfCommPhysicalLayer.cpp
+(struct PhysicalLayer
+   {
+      transfer_rate <:RandomDataRate>
+   }
+)
+
+# This supports legacy grammar usage. This has been migrated
+# to mediums, but is still supported directly at the comm context.
+(struct PhysicalLayerLegacy
+   {
+      propagation_speed <:RandomSpeed>
+    | packet_loss_time <:RandomTime>
+   }
+)
+
+
+# This supports legacy grammar usage. This has been migrated
+# to mediums, but is still supported directly at the comm context.
+(struct PhysicalLayerRF_Legacy
+   {
+      snr_transfer_rate_table <string> <string> <real>* end_snr_transfer_rate_table
+    | bit_error_probability <real>
+    | error_correction <real>
+    | bit_error_rate_ebno_table <ignore>* end_bit_error_rate_ebno_table
+   }
+)
+
+# WsfCommComponentHW.cpp
+(struct CommComponentHardware
+   {
+      modifier_category <string>
+    | transmit_mode intermittent
+    | transmit_mode continuous
+    | frequency_select_delay <Time>
+    | <:Antenna>
+   }
+)
+
+# WsfNetwork.cpp
+(struct Network
+   (var String networkAddress)
+   (rule namedComm
+   {
+      (typeref platform) (typeref .comms)
+   })
+   (rule namedCommMember
+   {
+      member <namedComm>
+   })
+   (rule addressMember
+   {
+      member <comm_address>
+   })
+   (rule namedCommPair
+   {
+      link <namedComm> <namedComm>
+   })
+   (rule addressPair
+   {
+      link <comm_address> <comm_address>
+   })
+   (rule network-membership-rule
+   {
+      address_list <addressMember>* end_address_list
+    | comm_list <namedCommMember>* end_comm_list
+   })
+   (rule network-edge-rule
+   {
+      address_link_list <addressPair>* end_address_link_list
+    | comm_link_list <namedCommPair>* end_comm_link_list
+   })
+   {
+       network_address <comm_address> [networkAddress=$1]
+   }
+)
+
+# WsfNetworkTypes.cpp
+(struct WSF_COMM_NETWORK_GENERIC
+   :symbol (type networkType WSF_COMM_NETWORK_GENERIC)
+   :base_type Network
+   {
+      <Network>
+    | <Network.network-edge-rule>
+    | <Network.network-membership-rule>
+   }
+)
+
+# WsfNetworkTypes.cpp
+(struct WSF_COMM_NETWORK_P2P
+   :symbol (type networkType WSF_COMM_NETWORK_P2P)
+   :base_type Network
+   {
+      <Network>
+    | <Network.network-membership-rule>
+   }
+)
+
+# WsfNetworkTypes.cpp
+(struct WSF_COMM_NETWORK_MESH
+   :symbol (type networkType WSF_COMM_NETWORK_MESH)
+   :base_type Network
+   {
+      <Network>
+    | <Network.network-membership-rule>
+   }
+)
+
+# WsfNetworkTypes.cpp
+(struct WSF_COMM_NETWORK_MESH_LEGACY
+   :symbol (type networkType WSF_COMM_NETWORK_MESH_LEGACY)
+   :base_type Network
+   {
+      <Network>
+    | <Network.network-membership-rule>
+   }
+)
+
+# WsfNetworkTypes.cpp
+(struct WSF_COMM_NETWORK_STAR
+   :symbol (type networkType WSF_COMM_NETWORK_STAR)
+   :base_type Network
+   {
+      <Network>
+    | <Network.network-membership-rule>
+    | hub_named <Network.namedComm>
+    | hub_address <comm_address>
+   }
+)
+
+# WsfNetworkTypes.cpp
+(struct WSF_COMM_NETWORK_RING
+   :symbol (type networkType WSF_COMM_NETWORK_RING)
+   :base_type Network
+   {
+      <Network>
+    | <Network.network-membership-rule>
+   }
+)
+
+# WsfNetworkTypes.cpp
+(struct WSF_COMM_NETWORK_DIRECTED_RING
+   :symbol (type networkType WSF_COMM_NETWORK_DIRECTED_RING)
+   :base_type Network
+   {
+      <Network>
+    | <Network.network-membership-rule>
+   }
+)
+
+# WsfNetworkTypes.cpp
+(struct WSF_COMM_NETWORK_AD_HOC
+   :symbol (type networkType WSF_COMM_NETWORK_AD_HOC)
+   :base_type WSF_COMM_NETWORK_GENERIC
+   (rule namedUpdateMember
+   {
+      member <Network.namedComm> update_rate <:RandomTime>
+   })
+   (rule namedUpdateRate
+   {
+      comm_update_rates <namedUpdateMember>* end_comm_update_rates
+   })
+   (rule addressUpdateMember
+   {
+      member <comm_address> update_rate <:RandomTime>
+   })
+   (rule addressUpdateRate
+   {
+      address_update_rates <addressUpdateMember>* end_address_update_rates
+   })
+{
+   <WSF_COMM_NETWORK_GENERIC>
+ | update_rate <:RandomTime>
+ | <namedUpdateRate>
+ | remove_comm_update_rate <Network.namedComm>
+ | <addressUpdateRate>
+ | remove_address_update_rate <comm_address>
+})
+
+# WsfProcessor.cpp
+(struct Processor
+   :base_type PlatformPart
+   (var Time updateInterval)
+{
+   update_interval <Time> [updateInterval=$$]
+ | <PlatformPart>
+})
+
+# WsfScriptStateMachine.cpp
+(struct WSF_STATE_MACHINE_BASE
+   (rule nested-state-command {
+      next_state <string> <ScriptBlock>* end_next_state
+    | on_entry <ScriptBlock>* end_on_entry
+    | on_exit <ScriptBlock>* end_on_exit
+    | <behavior-tree-block>
+    | <advanced-behavior-tree-block>
+   })
+   (rule state-command {
+      next_state <string> <ScriptBlock>* end_next_state
+    | on_entry <ScriptBlock>* end_on_entry
+    | on_exit <ScriptBlock>* end_on_exit
+    | <behavior-tree-block>
+    | <advanced-behavior-tree-block>
+    | state <string> <nested-state-command>* end_state
+    | show_state_evaluations
+    | show_state_transitions
+   })
+{
+   state <string> <state-command>* end_state
+ | show_state_evaluations
+ | show_state_transitions
+})
+
+# WsfExternalLinks.cpp
+(struct ExternalLink
+   (var String chainName)
+   (var String commXmtrName)
+   (var String groupName)
+   (var String commRcvrName)
+   (var String platformRcvrName)
+   (var String rcvrAddress)
+   (var Bool   reportToCommander)
+   (var Bool   reportToPeers)
+   (var Bool   reportToSubordinates)
+   (rule recipient
+   {
+      commander      [reportToCommander=true]
+    | peers          [reportToPeers=true]
+    | subordinates   [reportToSubordinates=true]
+   })
+   (rule entry-command
+   {
+      report_to
+    | external_link
+   })
+   (rule link-command
+   {
+      <entry-command> <recipient> via (typeref .comms) to (typeref .comms) [commXmtrName=$3;commRcvrName=$5]
+    | <entry-command> <recipient> via (typeref .comms) [commXmtrName=$3;commRcvrName=$3]
+    | <entry-command> command_chain <$chainName> <recipient> via (typeref .comms) to (typeref .comms) [commXmtrName=$5;commRcvrName=$7]
+    | <entry-command> command_chain <$chainName> <recipient> via (typeref .comms) [commXmtrName=$5;commRcvrName=$5]
+    | <entry-command> platform (typeref platform) comm (typeref .comms) via (typeref .comms) [platformRcvrName=$2;commRcvrName=$4;commXmtrName=$6]
+    | <entry-command> address <comm_address> via (typeref .comms) [rcvrAddress=$2;commXmtrName=$4]
+    | report_to_group (typeref group) via (typeref .comms) [groupName=$1;commXmtrName=$3]
+   })
+)
+
+(struct ExternalLinks
+   (var List/ExternalLink links)
+{
+   [pushBack(links)] <ExternalLink.link-command>
+ | clear_external_links [links=""]
+ | debug_external_links
+})
+
+(rule distribution-type {
+   constant | uniform | gaussian | log_normal
+})
+
+
+(struct WSF_DELAY_PROCESSOR :symbol (type processorType WSF_DELAY_PROCESSOR)
+                            :base_type WSF_MESSAGE_PROCESSOR
+{
+   <WSF_MESSAGE_PROCESSOR>
+})
+
+#   time_distribution <distribution-type>
+#   time <Time>
+#   minimum_time <Time>
+#   maximum_time <Time>
+#   mean_time <Time>
+#   sigma_time <Time>
+#   <processor.WSF_LINKED_PROCESSOR>
+(struct WSF_DIRECTION_FINDER_PROCESSOR
+   :symbol (type processorType WSF_DIRECTION_FINDER_PROCESSOR)
+   :base_type WSF_LINKED_PROCESSOR
+{
+   fuse_all_collects <Bool>
+ | fuse_all_measurements <Bool>
+ | measurement_replacement_interval <Time>
+ | collect_replacement_interval <Time>
+ | maximum_expected_error <Length>
+ | use_truth_altitude <Bool>
+ | test <Bool>
+ | <filter-instance>
+ | maximum_time_difference <Time>
+ | filter_bypass
+ | minimum_baseline_distance <Length>
+ | <WSF_LINKED_PROCESSOR>
+})
+
+# REMOVED:
+#(struct WSF_DUMP_MESSAGE_PROCESSOR :symbol (type processorType WSF_DUMP_MESSAGE_PROCESSOR)
+#   :base_type Processor
+#{
+#   verbose
+# | <external-link-command>
+# | <Processor>
+#})
+
+(struct WSF_LINKED_SCRIPT_PROCESSOR :symbol (type processorType WSF_LINKED_SCRIPT_PROCESSOR)
+                                    :base_type WSF_SCRIPT_PROCESSOR
+{
+   <WSF_SCRIPT_PROCESSOR>
+})
+
+
+(struct WSF_MESSAGE_PROCESSOR :symbol (type processorType WSF_MESSAGE_PROCESSOR)
+                              :base_type WSF_SCRIPT_PROCESSOR
+   (rule sender-value {
+      commander | peer | subordinate | self | script
+   })
+   (rule selector-command {
+      type <string>
+    | subtype <string>
+    | sensor_name <string>
+    | sensor_type <string>
+    | sensor_mode <string>
+    | system_name <string>
+    | sender <sender-value>
+    | script <ScriptBlock>* end_script
+   })
+   (rule action-command {
+      delay_time <:RandomTime>
+    | time_distribution <:RandomTime>
+    | ignore_message
+    | script <ScriptBlock>* end_script
+    | <:ExternalLinks>
+    | <:InternalLinks>
+   })
+   (rule process-commmand {
+      select <selector-command>* end_select
+    | <action-command>
+   })
+   (rule link-command {
+      <:InternalLinks>
+    | <:ExternalLinks>
+   })
+   (rule queuing-method {
+      first_in_first_out | fifo | last_in_first_out | lifo | priority | none
+   })
+   (rule time-delay-queue-command {
+      queuing_method <queuing-method>
+    | number_of_servers infinite
+    | number_of_servers <integer-variable-value>
+   })
+{
+   <time-delay-queue-command>
+ | process
+      <process-commmand>*
+   end_process
+ | default_process
+      <process-commmand>*
+   end_default_process
+ | default_routing
+      <link-command>*
+   end_default_routing
+ | <WSF_SCRIPT_PROCESSOR>    # this will process script blocks first
+ | <process-commmand>
+})
+
+
+(struct WSF_EXCHANGE_PROCESSOR :symbol (type processorType WSF_EXCHANGE_PROCESSOR)
+                               :base_type WSF_SCRIPT_PROCESSOR
+   (rule service {
+      quantity <real>
+    | maximum_quantity <real>
+    | rate <real>
+    | service_interval <Time>
+    | minimum_service_interval <Time>
+   })
+   (rule commodity {
+      quantity <real>
+    | maximum_quantity <real>
+    | mass_quantity <Mass>
+    | maximum_mass_quantity <Mass>
+    | rate <real>
+    | mass_rate <mass-transfer-value>
+    | maximum_mass_rate <mass-transfer-value>
+   })
+   (rule service-command {
+      service <string>
+         <service>*
+      end_service
+   })
+   (rule commodity-command {
+      commodity <string>
+         <commodity>*
+      end_commodity
+   })
+   (rule container {
+      initial_quantity <real>
+    | initial_mass_quantity <Mass>
+    | <commodity-command>
+    | <service-command>
+   })
+   (rule transactor {
+      debug
+    | offeror
+    | is_offeror
+    | supplier
+    | is_supplier
+    | requestor
+    | is_requestor
+    | receiver
+    | is_receiver
+    | continue_to_offer <Bool>
+    | hook_to_fuel <Bool>
+    | hook_to_payload <Bool>
+    | exclusive_hook_to_fuel <Bool>
+    | exclusive_hook_to_payload <Bool>
+    | proximity_limit <Length>
+    | container_name <string>
+    | time_out_clock_interval <Time>
+    | <service-command>
+    | <commodity-command>
+   })
+   (rule transactor-command {
+      transactor <string>
+         <transactor>*
+      end_transactor
+   })
+   (rule container-command {
+      container <string>
+         <container>*
+      end_container
+   })
+{
+   <container-command>
+ | <transactor-command>
+ | ignore_all_proximity_checks <Bool>
+ | force_transactions_instantaneous <Bool>
+ | commodity_and_capability_pairing <string> <string>
+ | service_and_capability_pairing <string> <string>
+ | edit container <string> <container>* end_container
+ | edit transactor <string> <transactor>* end_transactor
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+(struct WSF_MOVE_PLAN_PROCESSOR :symbol (type processorType WSF_MOVE_PLAN_PROCESSOR)
+                                :base_type WSF_SCRIPT_PROCESSOR
+{
+   <WSF_SCRIPT_PROCESSOR>
+})
+
+(struct WSF_PERFECT_TRACKER :symbol (type processorType WSF_PERFECT_TRACKER)
+                            :base_type Processor
+{
+   <Processor>
+})
+
+(struct WSF_SCRIPT_PROCESSOR :symbol (type processorType WSF_SCRIPT_PROCESSOR)
+                             :base_type Processor
+   (script-var WsfPlatform PLATFORM)
+   (script-var WsfProcessor PROCESSOR :this 1)
+   (script-var WsfMessage MESSAGE)
+   (var ExternalLinks externalLinks)
+   (rule nested-state-command {
+      next_state <string> <ScriptBlock>* end_next_state
+    | on_entry <ScriptBlock>* end_on_entry
+    | on_exit <ScriptBlock>* end_on_exit
+    | <behavior-tree-block>
+    | <advanced-behavior-tree-block>
+   })
+   (rule state-command {
+      next_state <string> <ScriptBlock>* end_next_state
+    | on_entry <ScriptBlock>* end_on_entry
+    | on_exit <ScriptBlock>* end_on_exit
+    | <behavior-tree-block>
+    | <advanced-behavior-tree-block>
+    | state <string> <nested-state-command>* end_state
+    | show_state_evaluations
+    | show_state_transitions
+   })
+{
+   <object-message-script-command>
+ | <object-script-context-command>
+ | <$externalLinks>
+ | <Processor>
+ | <behavior-tree-block>
+ | <advanced-behavior-tree-block>
+ | edit behavior <string> (load (subtype behavior $2)) <behavior-tree-node-command>* end_behavior
+ | edit behavior <string> (new (subtype behavior $2) (type behavior $2)) <behavior-tree-node-command>* end_behavior
+ | edit advanced_behavior <string> (load (subtype advanced_behavior $2)) <advanced-behavior-tree-node-command>* end_advanced_behavior
+ | edit advanced_behavior <string> (new (subtype advanced_behavior $2) (type advanced_behavior $2)) <advanced-behavior-tree-node-command>* end_advanced_behavior
+ | edit state <string> (load (subtype state $2)) <state-command>* end_state
+ | <:WSF_STATE_MACHINE_BASE>
+})
+(rule behavior-tree-node-command {
+   execute <ScriptBlock>* end_execute
+ | on_init <ScriptBlock>* end_on_init
+#| query_bid_type <string> <ScriptBlock>* end_query_bid_type
+ | <object-script-context-command>
+ | <behavior-tree-command>
+ | <object-message-script-command>
+})
+
+(rule behavior-tree-command
+   (rule selection-type {
+      for <Time>
+    | repeat <integer>
+    | until_done
+   })
+   (rule make-selection-type {
+      continuous
+    | count <integer>
+   })
+{
+   precondition <ScriptBlock>* end_precondition
+ | on_new_execute <ScriptBlock>* end_on_new_execute
+ | on_new_fail <ScriptBlock>* end_on_new_fail
+ | run_selection <selection-type>
+ | make_selection <make-selection-type>
+ | behavior_node (typeref behavior)
+ | sequence <behavior-tree-node-command>* end_sequence
+ | sequence_with_memory <behavior-tree-node-command>* end_sequence_with_memory
+ | selector <behavior-tree-node-command>* end_selector
+ | selector_with_memory <behavior-tree-node-command>* end_selector_with_memory
+ | parallel <behavior-tree-node-command>* end_parallel
+ | priority_selector <behavior-tree-node-command>* end_priority_selector
+ | weighted_random <behavior-tree-node-command>* end_weighted_random
+ | <:WSF_STATE_MACHINE_BASE>
+})
+
+(rule behavior-tree-block {
+   behavior_tree <behavior-tree-command>* end_behavior_tree
+})
+
+########### ADVANCED BEHAVIOR TREE ###########
+
+
+(rule advanced-behavior-tree-node-command
+{
+   enabled <Bool>
+ | debug
+ | <object-script-context-command>
+ | <advanced-behavior-tree-command>
+ | <object-message-script-command>
+ | color <:Color>
+ | name <string>
+})
+
+(rule advanced-behavior-tree-command
+   (rule selection-type {
+      for <Time>
+    | repeat <integer>
+    | until_done
+   })
+   (rule decorator-type {
+      inverter
+    | succeeder
+    | negator
+    | repeater <selection-type>
+   })
+   (rule success-policy {
+      succeed_on_one
+    | succeed_on_all
+    | threshold <integer>
+   })
+   (rule root-comp-node-type {
+      sequence
+    | sequence_with_memory
+    | selector
+    | selector_with_memory
+    | parallel
+    | priority_selector
+    | weighted_random
+   })
+   (rule description {
+      desc <quotable-string>
+    | description <quotable-string>
+   })
+{
+   precondition (load (type advanced_behavior WSF_SCRIPT_ADVANCED_BEHAVIOR)) <ScriptBlock>* end_precondition
+ | execute (load (type advanced_behavior WSF_SCRIPT_ADVANCED_BEHAVIOR)) <ScriptBlock>* end_execute
+ | on_init (load (type advanced_behavior WSF_SCRIPT_ADVANCED_BEHAVIOR)) <ScriptBlock>* end_on_init
+ | btt <Bool>
+ | root_node_type <root-comp-node-type>
+ | success_policy <success-policy>
+ | advanced_behavior_tree <advanced-behavior-tree-node-command>* end_advanced_behavior_tree
+ | on_new_execute (load (type advanced_behavior WSF_SCRIPT_ADVANCED_BEHAVIOR)) <ScriptBlock>* end_on_new_execute
+ | on_new_fail (load (type advanced_behavior WSF_SCRIPT_ADVANCED_BEHAVIOR)) <ScriptBlock>* end_on_new_fail
+ | behavior_node (typeref advanced_behavior)
+ | sequence <advanced-behavior-tree-node-command>* end_sequence
+ | sequence_with_memory <advanced-behavior-tree-node-command>* end_sequence_with_memory
+ | selector <advanced-behavior-tree-node-command>* end_selector
+ | selector_with_memory <advanced-behavior-tree-node-command>* end_selector_with_memory
+ | parallel <advanced-behavior-tree-node-command>* end_parallel
+ | decorator <decorator-type> <advanced-behavior-tree-decorator-child>* end_decorator
+ | priority_selector <advanced-behavior-tree-node-command>* end_priority_selector
+ | weighted_random <advanced-behavior-tree-node-command>* end_weighted_random
+ | condition (typeref advanced_behavior)
+ | name <quotable-string>
+ | <description>
+ | <:WSF_STATE_MACHINE_BASE>
+})
+
+(rule advanced-behavior-tree-decorator-child
+   (rule selection-type {
+      for <Time>
+    | repeat <integer>
+    | until_done
+   })
+   (rule decorator-type {
+      inverter
+    | succeeder
+    | negator
+    | repeater <selection-type>
+   })
+   (rule success-policy {
+      succeed_on_one
+    | succeed_on_all
+    | threshold <integer>
+   })
+{
+   behavior_node (typeref advanced_behavior)
+ | advanced_behavior_tree <advanced-behavior-tree-node-command>* end_advanced_behavior_tree
+ | decorator <decorator-type> <advanced-behavior-tree-decorator-child>* end_decorator
+ | sequence <advanced-behavior-tree-node-command>* end_sequence
+ | sequence_with_memory <advanced-behavior-tree-node-command>* end_sequence_with_memory
+ | selector <advanced-behavior-tree-node-command>* end_selector
+ | selector_with_memory <advanced-behavior-tree-node-command>* end_selector_with_memory
+ | parallel <success-policy>? <advanced-behavior-tree-node-command>* end_parallel
+ | priority_selector <advanced-behavior-tree-node-command>* end_priority_selector
+ | weighted_random <advanced-behavior-tree-node-command>* end_weighted_random
+ | condition (typeref advanced_behavior)
+})
+
+(rule advanced-behavior-tree-block {
+   advanced_behavior_tree <advanced-behavior-tree-command>* end_advanced_behavior_tree
+})
+
+(rule advanced-behavior-block {
+   advanced_behavior <string> (new (type advanced_behavior $1) (type advanced_behavior WSF_SCRIPT_ADVANCED_BEHAVIOR)) [apply($$)] <advanced-behavior-tree-node-command>* end_advanced_behavior
+})
+
+(rule advanced-behavior-condition-block {
+   condition <string> (new (type advanced_behavior $1) (type advanced_behavior WSF_SCRIPT_ADVANCED_BEHAVIOR)) [apply($$)] <advanced-behavior-tree-node-command>* end_condition
+})
+
+(rule root-command {
+   <behavior-tree-block>
+ | <behavior-block>
+ | <advanced-behavior-tree-block>
+ | <advanced-behavior-block>
+ | <advanced-behavior-condition-block>
+})
+(struct root
+   (var ObjectMap/WSF_SCRIPT_BEHAVIOR   behavior)
+   (var ObjectMap/WSF_SCRIPT_ADVANCED_BEHAVIOR   advanced_behavior)
+)
+
+(struct WSF_SCRIPT_ADVANCED_BEHAVIOR
+   :symbol (type advanced_behavior WSF_SCRIPT_ADVANCED_BEHAVIOR)
+   (script-var WsfPlatform PLATFORM)
+   (script-var WsfProcessor PROCESSOR)
+   (script-var WsfMessage MESSAGE)
+   (script-var WsfAdvancedBehaviorTreeNode this :this 1)
+)
+
+########### END ADVANCED BEHAVIOR TREE ###########
+
+(struct WSF_SCRIPT_BEHAVIOR
+   :symbol (type behavior WSF_SCRIPT_BEHAVIOR)
+   (script-var WsfPlatform PLATFORM)
+   (script-var WsfProcessor PROCESSOR)
+   (script-var WsfMessage MESSAGE)
+   (script-var WsfBehaviorTreeNode this :this 1)
+)
+
+#object_type behavior.WSF_SCRIPT_BEHAVIOR
+#   <empty>
+(rule behavior-block {
+   behavior <string> (new (type behavior $1) (type behavior WSF_SCRIPT_BEHAVIOR)) [apply($$)] <behavior-tree-node-command>* end_behavior
+})
+
+(struct WSF_STATE_MACHINE
+   :symbol (type processorType WSF_STATE_MACHINE)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WsfStateMachine STATE_MACHINE)
+{
+   <:WSF_STATE_MACHINE_BASE>
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+
+(struct WSF_TASK_PROCESSOR :symbol (type processorType WSF_TASK_PROCESSOR)
+                           :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WsfTaskProcessor PROCESSOR :this 1)
+   (script-var WsfLocalTrack TRACK)
+{
+   comm_retry_attempts <integer>
+ | comm_retry_interval <Time>
+ | operating_level <string> <real>
+ | autonomy_level <string> <real>
+ | track_processor (typeref .processors)
+ | time_to_recognize_messages <:RandomTime>
+ | track_update_interval <Time>
+ | track_update_strategy default
+ | track_update_strategy batch
+ | show_task_messages
+ | show_uncompleted_tasks
+ | number_of_servers <integer>
+   #<object-message-script-command>
+   #<object-script-context-command>
+ | <WSF_SCRIPT_PROCESSOR>
+ | <:WSF_TRACK_STATE_CONTROLLER>
+})
+
+(struct WSF_TRACK_MANAGER
+   (var Bool isFramed :default false)
+   (var Bool debugEnabled :default false)
+   (var AuxData auxData)
+   (var Bool retainRawTracks :default false)
+   (var Bool dropUncorrelatedTracks :default true)
+   (var String trackerType)
+   (rule aux-data-fusion-command {
+      variable <string> { private | only_local | prefer_local }
+   })
+   (rule cluster-correlation-command {
+      update_interval <Time>
+   })
+   (rule nearest-neighbor-correlation-command {
+      tracking_sigma <real>
+    | turning_sigma  <real>
+    | coast_time     <Time>
+    | precise_mode   <Bool>
+   })
+   (rule truth-correlation-command {
+       evaluation_interval          <Time>
+    |  maximum_correlation_distance <Length>
+    |  ignore_same_side             <Bool>
+    |  ignore_track_target          <Bool>
+   })
+   (rule fusion-method-command {
+      # can't have null rule
+      <string>
+   })
+   (rule default-fusion-method-command {
+      on_type_update <ScriptBlock>* end_on_type_update
+   })
+{
+   framed                              [isFramed=true]
+ | unframed                            [isFramed=false]
+ | debug                               [debugEnabled=true]
+ | [push(auxData)] <AuxData.block>
+ | correlation_method cluster <cluster-correlation-command>* end_correlation_method  #correlation methods are currently listed separately (todo place in type list?)
+ | correlation_method nearest_neighbor <nearest-neighbor-correlation-command>* end_correlation_method
+ | correlation_method truth <truth-correlation-command>* end_correlation_method
+ | correlation_method perfect end_correlation_method
+ | fusion_method replacement <default-fusion-method-command>* end_fusion_method
+ | fusion_method weighted_average <default-fusion-method-command>* end_fusion_method
+ | fusion_method mtt <fusion-method-command>* end_fusion_method
+ | tracker_type <$trackerType> <ignore>* end_tracker_type # Ignore these inputs for now (primarily mtt)
+ | <filter-instance>
+ | uncorrelated_track_drops <Bool>     [dropUncorrelatedTracks=$1]
+ | retain_raw_tracks                   [retainRawTracks=true]
+ | retain_track_history
+ | aux_data_fusion_rules
+      <aux-data-fusion-command>*
+   end_aux_data_fusion_rules
+ | track <track-command>* end_track
+})
+
+   # note: fusion strategies have no inputs currently
+   # When they do, they should be blocked as in fusion_method <fusion-method-commands>* end_fusion_method
+
+(struct WSF_TRACK_PROCESSOR :symbol (type processorType WSF_TRACK_PROCESSOR)
+                            :base_type WSF_SCRIPT_PROCESSOR
+   (var Bool masterTrackProcessor :default false)
+   (var Bool reportFusedTracks)
+   (var Bool reportCandidateTracks)
+   (var Bool reportUnchangedTracks)
+   #(var Bool reportRawTracks)
+   (var Bool reportPassThrough)
+   (var Bool rejectCircularReports)
+   (var Time reportInterval)
+   (var Bool reportOnUpdate)
+   (var String reportMethod)
+   (var Time purgeInterval)
+   (var Bool updateOnReport)
+   (var Time dropAfterInactive)
+
+   (rule inbound-filter-command {
+      reject non_sensor_reports
+    | reject nothing
+   })
+{
+   <:WSF_TRACK_MANAGER>
+ | master_track_processor                       [masterTrackProcessor=true]
+ | non_master_track_processor                   [masterTrackProcessor=false]
+ | report_fused_tracks                          [reportFusedTracks=true]
+ | report_candidate_tracks                      [reportCandidateTracks=true]
+ | report_unchanged_tracks                      [reportUnchangedTracks=true]
+ | report_raw_tracks                            [reportFusedTracks=false]
+ | report_pass_through                          [reportPassThrough=true]
+ | fused_track_reporting <Bool>                 [reportFusedTracks=$$]
+ | unchanged_track_reporting <Bool>             [reportUnchangedTracks=$$]
+ | candidate_track_reporting <Bool>             [reportCandidateTracks=$$]
+ | update_on_report <Bool>                      [updateOnReport=$$]
+ | raw_track_reporting <Bool>                   [reportFusedTracks=negate($1)]
+ | pass_through_reporting <Bool>                [reportPassThrough=$$]
+ | circular_report_rejection <Bool>             [rejectCircularReports=$$]
+ | report_interval <Time>                       [reportInterval=$$]
+ | report_method on_update                      [reportOnUpdate=true;reportMethod=on_update;reportUnchangedTracks=false;rejectCircularReports=true]
+ | report_method on_update_fused                [reportOnUpdate=true;reportMethod=on_update_fused;reportFusedTracks=true;reportUnchangedTracks=false;rejectCircularReports=true]
+ | report_method <string>                       [reportOnUpdate=false;reportMethod=$1]
+ | purge_interval <Time>                        [purgeInterval=$$]
+ | drop_after_inactive <Time>                   [dropAfterInactive=$$]
+ | track_history_retention_interval <Time>
+ | image_purge_multiplier <real>
+ | inbound_filter
+      <inbound-filter-command>*
+   end_inbound_filter
+ | <WSF_SCRIPT_PROCESSOR>
+ | track_manager                                [skip()]
+      <WSF_TRACK_MANAGER>*
+   end_track_manager
+})
+
+
+(struct WSF_TRACK_STATE_CONTROLLER
+   :symbol (type processorType WSF_TRACK_STATE_CONTROLLER)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WsfLocalTrack TRACK)
+   (script-var WsfLocalTrackStatus STATUS)
+   (script-var string SIGNAL)
+{
+   evaluation_interval <string> <:RandomTime>
+ | time_to_evaluate <string> <:RandomTime>
+ | evaluate_candidate_tracks <Bool>
+ | show_state_transitions
+ | on_track_drop <ScriptBlock>* end_on_track_drop
+ | <:WSF_STATE_MACHINE_BASE>
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+# WsfAERO.cpp
+# WsfAERO2D.cpp
+(struct Aero :symbol (type aeroType WSF_AERO)
+{
+   debug
+ | lift_curve_slope <real>
+ | reference_area <Area>
+ | aspect_ratio <real>
+ | oswalds_factor <real>
+ | cl_max <real>
+ | zero_lift_cd <real>
+ | mach_and_cd <real> <real>
+ | cd_zero_subsonic <real>
+ | mach_begin_cd_rise <real>
+ | cd_zero_supersonic <real>
+ | mach_end_cd_rise <real>
+ | subsonic_cd_slope <real>
+ | supersonic_cd_slope <real>
+ | mach_max_supersonic <real>
+ | <local-atmosphere-command>
+})
+
+(rule WSF_THERMAL_SYSTEM
+   (rule component {
+      specific_heat_capacity <real>
+    | specific_heat_capacity_high_temp <real>
+    | enthalpy <real>
+    | latent_heat <real>
+    | enthalpy_transition_temperature <Temperature>
+    | phase_change_temperature <Temperature>
+   })
+{
+   component <string> <Mass>
+ | component_type <string> <component>* end_component_type
+ | heat_sink <Power>
+ | target_temperature <Temperature>
+ | initial_temperature <Temperature>
+ | simple
+ | heating_time <Time>
+ | recharge_rate <real>
+ | debug <Bool>
+})
+
+
+###############################################################
+# fuel types
+###############################################################
+
+(struct Fuel
+   :symbol (type fuelType WSF_FUEL)
+   :base_type PlatformPart
+   (script-var WsfFuel FUEL :this 1)
+   (script-var WsfPlatform PLATFORM)
+
+   (var Mass maximumQuantity)
+   (var Mass initialQuantity)
+   (var Mass reserveQuantity)
+   (var Mass reserveFuel)
+   (var Mass bingoQuantity)
+   (var MassTransfer consumptionRate)
+{
+   maximum_quantity <$maximumQuantity>
+ | initial_quantity <$initialQuantity>
+ | reserve_quantity <$reserveQuantity>
+ | reserve_fuel <$reserveFuel>
+ | bingo_quantity <$bingoQuantity>
+ | bingo_fuel <$bingoQuantity>
+ | consumption_rate <$consumptionRate>
+ | on_bingo <ScriptBlock>* end_on_bingo
+ | on_empty <ScriptBlock>* end_on_empty
+ | on_refuel <ScriptBlock>* end_on_refuel
+ | on_reserve <ScriptBlock>* end_on_reserve
+ | mode <string>
+ | set_mode <string>
+ | <object-script-context-command>
+ | <PlatformPart>
+})
+
+(struct WSF_TABULAR_RATE_FUEL
+   :symbol (type fuelType WSF_TABULAR_RATE_FUEL)
+   :base_type Fuel
+   (rule table-command
+      (rule rates-command {
+         units <string> <real>*
+       | <mass-transfer-value>
+      })
+      (rule masses-command {
+         units <string> <real>*
+       | <Mass>
+      })
+   {
+      mode <string>
+    | constant <mass-transfer-value>
+    | speeds {
+         units <string> <real>*
+       | <Speed> }*
+      end_speeds
+    | altitudes {
+         units <string> <real>*
+       | <Length> }*
+      end_altitudes
+    | weights
+         <masses-command>*
+      end_weights
+    | masses
+         <masses-command>*
+      end_masses
+    | mach
+         <real>*
+      end_mach
+    | rates <rates-command>* end_rates
+   })
+{
+   fuel_table <table-command>* end_fuel_table
+ | <Fuel>
+})
+
+
+(struct WSF_VARIABLE_RATE_FUEL
+   :symbol (type fuelType WSF_VARIABLE_RATE_FUEL)
+   :base_type Fuel
+   (rule pair-value
+      (rule rates-command {
+         altitude <Length>
+       | speed <Speed>
+       | rate <mass-transfer-value>
+      })
+   {
+      rate <mass-transfer-value>
+    | rates <rates-command>* end_rates
+   })
+{
+   <pair-value>
+ | table_for_mode <string>
+ | <Fuel>
+})
+
+
+(struct WSF_TANKED_FUEL
+   :symbol (type fuelType WSF_TANKED_FUEL)
+   :base_type WSF_TABULAR_RATE_FUEL
+   (rule supply-point { left | center | right })
+   (rule supply-method { boom | hose })
+   (rule supply-location { wing | center })
+{
+   maximum_refuel_quantity <Mass>
+ | desired_top_off_quantity <Mass>
+ | receive_method <supply-method>
+ | maximum_receive_rate <mass-transfer-unit>
+ | supply_method_preference <supply-method>
+ | supply_location_preference <supply-location>
+ | supply_point <supply-point> <supply-method> <mass-transfer-value>
+ | <WSF_TABULAR_RATE_FUEL>
+})
+
+
+###############################################################
+# mover types:
+###############################################################
+(struct WSF_HYBRID_MOVER
+   :symbol (type moverType WSF_HYBRID_MOVER)
+   :base_type Mover
+   (var Mover followerMover)
+   (var Mover waypointMover)
+{
+   follower_mover <string> (new (subtype followerMover) (type moverType $1)) [apply($$)]
+ | waypoint_mover <string> (new (subtype waypointMover) (type moverType $1)) [apply($$)]
+#   follower_mover (typeref mover)
+# | waypoint_mover (typeref mover)
+ | current_mover follower_mover
+ | current_mover waypoint_mover
+ | auto_switch
+ | (load (subtype waypointMover)) [push(waypointMover)] <TypeCommand>
+ | (load (subtype followerMover)) [push(followerMover)] <TypeCommand>
+   #TODO: hybrid mover passes input to other mover types, suggest to disallow this.
+ | <Mover>
+})
+
+(struct WSF_OFFSET_MOVER :symbol (type moverType WSF_OFFSET_MOVER)
+                         :base_type Mover
+{
+   attachment_type rigid
+ | attachment_type tether
+ | reference_platform (typeref platform)
+ | offset_from_reference <Length> <Length> <Length>
+ | orphan_action <end-of-path-option>
+ | <Mover>
+})
+
+
+(struct WSF_TSPI_MOVER
+   :symbol (type moverType WSF_TSPI_MOVER)
+   :base_type Mover
+   (rule TSPI-command
+      (rule element-type {
+         time | altitude | speed | pitch | roll | heading
+      })
+   {
+      <element-type> in <string>
+    | <element-type> inverted
+   })
+   (rule relocate-and-rotate-command {
+      great_circle_heading_at_anchor_point <Angle>
+    | align_to_great_circle_through <Latitude> <Longitude>
+    | terminal_endpoint_anchor <Latitude> <Longitude>
+    | initial_endpoint_anchor <Latitude> <Longitude>
+   })
+{
+   filename (file-reference tspi)
+ | TSPI_filename (file-reference tspi)
+ | tspi_filename (file-reference tspi)
+ | start_time <Time>
+ | start_at_initial_time
+ | delete_on_destruct
+ | extrapolation <Bool>
+ | translate_to <Latitude> <Longitude>
+ | at_end_of_path <end-of-path-option>
+ | relocate_and_rotate  <relocate-and-rotate-command>* end_relocate_and_rotate
+ | <Mover>
+ | <TSPI-command>
+})
+
+
+(struct WSF_AIR_MOVER :symbol (type moverType WSF_AIR_MOVER)
+                      :base_type WSF_WAYPOINT_MOVER
+   (var Speed maximumImpactSpeed :default "100000000 m/s")
+   (initially { [endOfPath=1] _ } )
+{
+   maximum_impact_speed <Speed>              [maximumImpactSpeed=$$]
+ | <WSF_WAYPOINT_MOVER>
+})
+
+(struct WSF_GROUND_MOVER :symbol (type moverType WSF_GROUND_MOVER)
+                         :base_type WSF_WAYPOINT_MOVER
+   (initially { [endOfPath=2] _ } )
+{
+   <WSF_WAYPOINT_MOVER>
+})
+
+(struct WSF_ROAD_MOVER :symbol (type moverType WSF_ROAD_MOVER)
+                       :base_type WSF_GROUND_MOVER
+   (initially { [endOfPath=2] _ } )
+{
+   road_network (typeref routeNetwork)
+ | consider_off_road_shortcut <Bool>
+ | ignore_off_road_path <Bool>
+ | start_position <Latitude> <Longitude>
+ | end_position <Latitude> <Longitude>
+ | speed <Speed>
+ | pause_time <Time>
+ | use_closest_waypoint
+ | off_road_speed <Speed>
+ | linear_acceleration <Acceleration>
+ | <WSF_GROUND_MOVER>
+})
+
+
+(rule pid-controller-command {
+   output_stream <string>
+ | output_enable <Bool>
+ | print_modules <integer>
+ | proportional_gain <real>
+ | input_threshold <real>
+ | integral_gain <real>
+ | derivative_gain <real>
+})
+
+(struct WSF_ROTORCRAFT_MOVER_MODE :symbol (type moverType WSF_ROTORCRAFT_MOVER template)
+{
+   weathercock_speed <Speed>
+ | maximum_attitude_rate <AngleRate>
+ | minimum_upward_acceleration <Acceleration>
+ | body_rates_gain <real>
+ | maximum_ground_speed <Speed>
+ | maximum_rate_of_climb <Speed>
+ | maximum_rate_of_descent <Speed>
+ | maximum_total_acceleration <Acceleration>
+})
+
+(struct WSF_ROTORCRAFT_MOVER :symbol (type moverType WSF_ROTORCRAFT_MOVER)
+                             :base_type WSF_ITERATIVE_MOVER
+{
+   desired_heading <Angle>
+ | position_hold_capture_radius <Length>
+ | start_mode <string>
+ | vertical_acceleration_rate_pid <pid-controller-command>* end_vertical_acceleration_rate_pid
+ | lateral_acceleration_rate_pid <pid-controller-command>* end_lateral_acceleration_rate_pid
+ | vertical_acceleration_value_pid <pid-controller-command>* end_vertical_acceleration_value_pid
+ | lateral_acceleration_value_pid <pid-controller-command>* end_lateral_acceleration_value_pid
+ | ned_filter_time_constant <Time>
+ | disk_tilt_filter_time_constant <Time>
+ | altitude_error_to_rate_of_climb_gain <real>
+ | start_mode <string>
+ | <WSF_ITERATIVE_MOVER>
+ | <mode-command>
+})
+
+(struct WSF_KINEMATIC_MOVER :symbol (type moverType WSF_KINEMATIC_MOVER)
+                            :base_type WSF_ROUTE_MOVER
+{
+   switch_on_approach <Bool>
+ | switch_on_passing <Bool>
+ | detailed_debug <Bool>
+ | prefer_canopy_up <Bool>
+ | bank_to_turn <Bool>
+ | broach_at_sea_level <Bool>
+ | waypoint_switch_on_ground_turning_radius <Bool>
+ | target_speed <Speed>
+ | desired_speed <Speed>
+ | initial_speed <Speed>
+ | initial_flight_path_angle <Angle>
+ | maximum_linear_acceleration <Acceleration>
+ | maximum_radial_acceleration <Acceleration>
+ | maximum_body_turn_rate <AngleRate>
+ | maximum_body_roll_rate <AngleRate>
+ | velocity_pursuit_gain <real>
+ | proportional_navigation_gain <real>
+ | vertical_line_of_sight_rate_bias <AngleRate>
+ | horizontal_line_of_sight_rate_bias <AngleRate>
+ | <WSF_ROUTE_MOVER>
+})
+
+
+(struct WSF_SURFACE_MOVER :symbol (type moverType WSF_SURFACE_MOVER)
+                          :base_type WSF_WAYPOINT_MOVER
+   (initially { [endOfPath=2] _ } )
+{
+   <WSF_WAYPOINT_MOVER>
+})
+
+(struct WSF_ITERATIVE_MOVER :base_type WSF_ROUTE_MOVER
+{
+   <WSF_ROUTE_MOVER>
+ | no_pitch
+ | pitch_disable
+ | pitch_enable
+ | on_ground
+ | airborne
+ | in_air
+ | on_road
+ | off_road
+})
+
+
+(struct WSF_VISUAL_PART
+   :symbol (type visual_partType WSF_VISUAL_PART)
+   :base_type ArticulatedPart
+{
+ icon <string>
+ | <ArticulatedPart>
+})
+
+
+###############################################################
+# Sensor Types:
+###############################################################
+
+# WSF_COMPOSITE_SENSOR (WsfCompositeSensor.cpp)
+(struct WSF_COMPOSITE_SENSOR
+   :base_type Sensor
+   :symbol (type sensorType WSF_COMPOSITE_SENSOR)
+   :symbol (type sensorType WSF_COMPOSITE_SENSOR)
+   (symbol (type sensorType WSF_COMPOSITE_SENSOR template) WSF_SENSOR_MODE)
+   (symbol (type sensorType WSF_COMPOSITE_SENSOR template) WSF_SENSOR_MODE)
+{
+   operating_mode { independent | synchronous }
+ | sensor <string>
+ | track_quality <real>
+ | <sensor-tracker-command>
+ | <Sensor>
+ | <mode-command>
+})
+
+
+# WSF_PASSIVE_SENSOR (WsfPassive_Sensor.cpp)
+
+(rule WSF_PASSIVE_SENSOR-detector-command
+   (rule detector-sensitivities-command {
+      frequency <Frequency> <Power>
+    | signal_type { continuous | pulsed | both }
+   })
+   (rule detection-probability-command {
+      signal <Ratio> (nocase { pd }) <real>
+   })
+   (rule detection-threshold-command {
+      signal_type continuous
+    | signal_type pulsed
+    | signal_type both
+    | frequency <Frequency> <Ratio>
+   })
+{
+   detection_threshold <Ratio>
+ | continuous_detection_threshold <Ratio>
+ | pulsed_detection_threshold <Ratio>
+ | detection_thresholds <detection-threshold-command>* end_detection_thresholds
+ | detection_sensitivity <Power>
+ | continuous_detection_sensitivity <Power>
+ | pulsed_detection_sensitivity <Power>
+ | detection_sensitivities <detector-sensitivities-command>* end_detection_sensitivities
+ | detection_probability <detection-probability-command>* end_detection_probability
+})
+
+(struct WSF_PASSIVE_SENSOR-Receiver-commands
+   (var Receiver receiver)
+   (rule rcvr-command-frequency-band-suffix {
+      dwell_time <Time>
+    | revisit_time <Time>
+   })
+ {
+   frequency_band <Frequency> <Frequency> <rcvr-command-frequency-band-suffix>? <rcvr-command-frequency-band-suffix>?
+ | scan_on_scan_model <Bool>
+ | debug_scan_on_scan
+ | <$receiver>
+})
+
+(struct WSF_PASSIVE_SENSOR-RcvrAntenna
+   (var Antenna antenna)
+   (var WSF_PASSIVE_SENSOR-Receiver-commands receiver)
+   (rule rcvr-command { <$receiver> | <$antenna> })
+   (rule default {
+      <$receiver>
+    | <$antenna>
+    | receiver <rcvr-command>* end_receiver
+    })
+{
+   <default>
+})
+
+(rule WSF_EmitterTypeReporting
+   (rule block {
+      reported_emitter_type <WSF_EmitterTypeReporting>* end_reported_emitter_type
+   })
+{
+   type <string>
+ | default_type
+ | default_time_to_declare <Time>
+ | default_time_to_reevaluate <Time>
+ | time_to_declare <Time>
+ | time_to_reevaluate <Time>
+ | report_truth
+ | report_type <string> remainder
+ | report_type <string> <real>
+})
+
+(rule WSF_TargetTypeReporting
+   (rule block {
+      reported_target_type <WSF_TargetTypeReporting>* end_reported_target_type
+   })
+   (rule reported_type-data-command {
+      emitter <string>
+   })
+{
+   type <string>
+ | default_type
+ | default_time_to_declare <Time>
+ | default_time_to_reevaluate <Time>
+ | time_to_declare <Time>
+ | time_to_reevaluate <Time>
+ | report_truth
+ | report_type <string> remainder
+ | report_type <string> <real>
+ | report_type <string> [skip()] <reported_type-data-command>*
+})
+
+(struct WSF_PASSIVE_SENSOR_beam
+   :symbol (type sensorType WSF_PASSIVE_SENSOR template beams 1)
+   (var WSF_PASSIVE_SENSOR-RcvrAntenna rcvr)
+{
+   [push(rcvr)] <WSF_PASSIVE_SENSOR-RcvrAntenna.default>
+ | <WSF_PASSIVE_SENSOR-detector-command>
+})
+
+(struct WSF_PASSIVE_SENSOR_mode
+   :symbol (type sensorType WSF_PASSIVE_SENSOR template)
+   :base_type WSF_SENSOR_MODE
+   (var ObjectMap/WSF_PASSIVE_SENSOR_beam beams)  # size=1
+   (rule error-table-command {
+      frequency <Frequency> <real> percent_of_true_range
+    | frequency <Frequency> <real> <string>
+   })
+   (initially { [new(beams,1)] _ } )
+{
+   azimuth_error_sigma_table <error-table-command>* end_azimuth_error_sigma_table
+ | elevation_error_sigma_table <error-table-command>* end_elevation_error_sigma_table
+ | range_error_sigma_table <error-table-command>* end_range_error_sigma_table
+ | unframed_detection_coast_time <Time>
+ | unframed_detection_optimization <Bool>
+ | ranging_time <Time>
+ | ranging_time_track_quality <real>
+ | <WSF_SENSOR_MODE>
+ | (load (subtype beams 1)) [push(beams.1)] <TypeCommand>
+ | beam <integer> (load (subtype beams $1)) [apply($$)] #[push(beams.$1)]
+      <TypeCommand>*
+   end_beam
+ | beam <integer> (new (subtype beams $1) (subtype beams 1)) [apply($$)]
+      <TypeCommand>*
+   end_beam
+})
+
+(struct WSF_PASSIVE_SENSOR
+   :symbol (type sensorType WSF_PASSIVE_SENSOR)
+   :base_type Sensor
+   (var WSF_PASSIVE_SENSOR_mode template)
+   (var ObjectMap/WSF_PASSIVE_SENSOR_mode mode)
+{
+  <Sensor>
+ | <sensor-tracker-command>
+ | <WSF_EmitterTypeReporting.block>
+ | <WSF_TargetTypeReporting.block>
+   # edit mode template, edit mode, add mode, implicit mode
+ | mode_template (load (subtype template)) [push(template)] <TypeCommand>* end_mode_template
+ | mode <string> (load (subtype mode $1)) [apply($$)] <TypeCommand>* end_mode
+ | mode <string> (new (subtype mode $1) (subtype template)) [apply($$)] <TypeCommand>* end_mode
+ | (load (subtype template)) [apply($$)] <TypeCommand>
+})
+
+# WSF_GEOMETRIC_SENSOR (WsfGeometricSensor.cpp)
+
+(struct WSF_GEOMETRIC_SENSOR_mode
+   :symbol (type sensorType WSF_GEOMETRIC_SENSOR template)
+   :base_type WSF_SENSOR_MODE
+   (var RcvrAntenna rcvr)
+   (rule detection-range-command {
+      detection_range <Length>
+    | pd_range_table { <real> <Length> }* end_pd_range_table
+   })
+{
+   platform_type (typeref platformType) <detection-range-command>+
+ | target_solar_illumination_angle <Angle> <Angle>
+ | solar_elevation_at_target <Angle> <Angle>
+ | <:Antenna>
+ | <:Receiver>
+ | <WSF_SENSOR_MODE>
+})
+
+
+(struct WSF_GEOMETRIC_SENSOR
+   :base_type Sensor
+   :symbol (type sensorType WSF_GEOMETRIC_SENSOR)
+   (var WSF_GEOMETRIC_SENSOR_mode template)
+   (var ObjectMap/WSF_GEOMETRIC_SENSOR_mode mode)
+{
+   <Sensor>
+ | <sensor-tracker-command>
+ | mode_template (load (subtype template)) [push(template)] <TypeCommand>* end_mode_template
+ | mode <string> (load (subtype mode $1)) [apply($$)] <TypeCommand>* end_mode
+ | mode <string> (new (subtype mode $1) (subtype template)) [apply($$)] <TypeCommand>* end_mode
+ | (load (subtype template)) [apply($$)] <TypeCommand>
+})
+
+
+# WSF_NULL_SENSOR (WsfNullSensor.cpp)
+(struct WSF_NULL_SENSOR
+   :symbol (type sensorType WSF_NULL_SENSOR)
+   :base_type Sensor
+{
+   <Sensor>
+})
+
+# WsfSimpleDopplerSignalProcessor
+(struct simple_doppler
+   :symbol (type signal_processor doppler)
+   :symbol (type signal_processor Doppler)
+   :symbol (type signal_processor simple_doppler)
+   :symbol (type signal_processor simple_Doppler)
+   (var Speed minimumDopplerSpeed)
+   (var Speed maximumDopplerSpeed)
+   (var Bool filterOwnshipFromDoppler :default true)
+{
+   minimum_doppler_speed <$minimumDopplerSpeed>
+ | maximum_doppler_speed <$maximumDopplerSpeed>
+ | unfiltered_doppler_speed [filterOwnshipFromDoppler=0]
+ | filtered_doppler_speed   [filterOwnshipFromDoppler=1]
+ | debug
+})
+
+# WsfRadarMTI_AdjSignalProcessor
+(struct gmti_adjustment
+   :symbol (type signal_processor mti_adjustment)
+   :symbol (type signal_processor gmti_adjustment)
+   :symbol (type signal_processor GMTI_ADJUSTMENT)
+   (rule gmti-adjustment-command
+   {
+      closing_speed <Speed> adjustment <Ratio>
+    | doppler_frequency <Frequency> adjustment <Ratio>
+   })
+{
+      mti_adjustment_table <gmti-adjustment-command>* end_mti_adjustment_table
+    | gmti_adjustment_table <gmti-adjustment-command>* end_gmti_adjustment_table
+    | mti_adjustment_file <string>
+    | mti_adjustment_compound_file <string>
+    | mti_maximum_range <Length>
+    | debug
+})
+
+(struct mti_processor
+   :symbol (type signal_processor mti_processor)
+   :symbol (type signal_processor MTI_PROCESSOR)
+   :symbol (type signal_processor dual_delay_canceller)
+{
+   maximum_range <Length>
+ | number_of_stages <integer>
+ | interpulse_period_1 <Time>
+ | interpulse_period_2 <Time>
+ | clutter_lock <Bool>
+ | stability_constant <real>
+ | upwind <Bool>
+ | unfiltered_doppler_speed
+ | filtered_doppler_speed
+ | debug
+})
+
+
+(enumeration DetectorLaw
+   (values linear 0 square 1 log 2)
+   {
+      linear [this=0]
+    | square [this=1]
+    | log [this=2]
+   }
+)
+
+# WsfBinaryDetector.cpp
+(rule binary-detector-commands)
+
+# WsfDetectionProbabilityTable.cpp
+(rule detection-probability-table
+   (rule pd-or-probability (nocase { pd | probability } ) )
+   (rule table-command {
+      #TODO: case insensitive???
+      signal_to_noise <Ratio> <pd-or-probability> <real>
+   })
+{
+   detection_probability
+      <table-command>*
+   end_detection_probability
+})
+
+# WsfMarcumSwerling.cpp
+(rule marcum-swerling-commands
+{
+   detector_law <DetectorLaw>
+ | number_of_pulses_integrated <integer>
+ | probability_of_false_alarm <real>
+ | swerling_case { 0 | 1 | 2 | 3 | 4 }
+})
+
+# WSF_RADAR_SENSOR (WsfRadarSensor.cpp)
+(struct WSF_RADAR_SENSOR_beam
+   :symbol (type sensorType WSF_RADAR_SENSOR template beams 1)
+   (var Ratio integrationGain)
+   (var XmtrRcvrAntenna xmtrRcvr)
+   (var Ratio adjustmentFactor :default 1.0)
+   (var Ratio operatingLoss :default 0.0)
+   (var Ratio detectionThreshold :default 1.9952623149688796013524553967395)     #10^.3
+   (var Ratio postLockonDetectionThresholdAdjustment :default 1.0)
+   (var Time postLockonAdjustmentDelayTime :default "0 s")
+   (var Bool useDetector :default false)
+   (var AreaDB rangeProduct)
+   (var Length oneM2_Range)
+   (var Ratio loopGain :default "0 absolute")
+   (var Ratio lookDownFactor :default "1.0 absolute")
+   (var Ratio PRF_Factor :default "1.0 absolute")
+   (var Ratio clutterAttenuationFactor)
+
+   (rule error-model-parameters-command {
+      azimuth_beamwidth <Angle>
+    | elevation_beamwidth <Angle>
+    | pulse_width <Time>
+    | receiver_bandwidth <Frequency>
+    | doppler_resolution <Speed>
+   })
+{
+   [push(xmtrRcvr)] <XmtrRcvrAntenna.default>
+ | <clutter-instance>
+ | doppler_resolution <Speed>
+ | integration_gain <$integrationGain>
+ | adjustment_factor <$adjustmentFactor> [operatingLoss=0.0]
+ | operating_loss <$operatingLoss> [adjustmentFactor=1.0]
+ | detection_threshold <$detectionThreshold>
+ | post_lockon_detection_threshold_adjustment <$postLockonDetectionThresholdAdjustment>
+ | post_lockon_adjustment_delay_time <$postLockonAdjustmentDelayTime>
+ | <detection-probability-table>
+ | no_swerling_case [useDetector=false]
+ | <marcum-swerling-commands>
+ | error_model_parameters <error-model-parameters-command>* end_error_model_parameters
+ | one_m2_detect_range <$oneM2_Range>
+ | range_product <$rangeProduct>
+ | loop_gain <$loopGain>
+ | look_down_factor <$lookDownFactor>
+ | prf_factor <$PRF_Factor>
+ | clutter_attenuation_factor <$clutterAttenuationFactor>
+ | <signal-processor-system-command>
+})
+
+(struct WSF_RADAR_SENSOR_mode
+   :symbol (type sensorType WSF_RADAR_SENSOR template)
+   :base_type WSF_SENSOR_MODE
+   (var ObjectMap/WSF_RADAR_SENSOR_beam beams)  # size=1
+   (var Bool transmitOnly :default true)
+   (var Bool receiveOnly)
+   (var Bool computeMeasurementErrors)
+   (var Bool overrideMeasurementWithTruth)
+   (var Time frequencySelectDelay)
+   (initially { [new(beams,1)] _ } )
+{
+   compute_measurement_errors <$computeMeasurementErrors>
+ | override_measurement_with_truth <$overrideMeasurementWithTruth>
+ | receive_only                                 [receiveOnly=true]
+ | transmit_only                                [transmitOnly=true]
+ | frequency_select_delay <$frequencySelectDelay>
+ | <WSF_SENSOR_MODE>
+ | (load (subtype beams 1)) [push(beams.1)] <TypeCommand>
+ | beam <integer> (load (subtype beams $1)) [apply($$)] #[push(beams.$1)]
+      <TypeCommand>*
+   end_beam
+ | beam <integer> (new (subtype beams $1) (subtype beams 1)) [apply($$)]
+      <TypeCommand>*
+   end_beam
+})
+
+(struct WSF_RADAR_SENSOR
+   :symbol (type sensorType WSF_RADAR_SENSOR)
+   :base_type Sensor
+   (var WSF_RADAR_SENSOR_mode template)
+   (var ObjectMap/WSF_RADAR_SENSOR_mode mode)
+{
+   <Sensor>
+  | <sensor-tracker-command>
+   # TODO: wsf currently restricts trackers to be set in the C++ code,
+   # which allows us to explicitly call the correct input here.
+   # If there is ever a time when the tracker may change, this will need
+   # to be more dynamic.
+
+   # edit mode template, edit mode, add mode, implicit mode
+ | mode_template (load (subtype template)) [push(template)] <TypeCommand>* end_mode_template
+ | mode <string> (load (subtype mode $1)) [apply($$)] <TypeCommand>* end_mode
+ | mode <string> (new (subtype mode $1) (subtype template)) [apply($$)] <TypeCommand>* end_mode
+ | (load (subtype template)) [apply($$)] <TypeCommand>
+})
+
+
+###############################################################
+# Propagation models
+###############################################################
+
+(rule propagation-type
+   (rule end-keyword {
+      end_propagation
+    | end_propagation_model
+   })
+{
+   propagation <string> none {end_propagation}? (new_replace (type propagation_user $1) (type propagation none))
+ | propagation <string> <string> (new_replace (type propagation_user $1) (type propagation_user $2)) <TypeCommand>* end_propagation
+ | propagation <string> <string> (new_replace (type propagation_user $1) (type propagation $2) :backup (type propagation none)) <TypeCommand>* end_propagation
+ | propagation_model <string> none {end_propagation_model}? (new_replace (type propagation_user $1) (type propagation none))
+ | propagation_model <string> <string> (new_replace (type propagation_user $1) (type propagation_user $2)) <TypeCommand>* end_propagation_model
+ | propagation_model <string> <string> (new_replace (type propagation_user $1) (type propagation $2) :backup (type propagation none)) <TypeCommand>* end_propagation_model
+})
+
+(rule propagation-instance
+   (rule format-1 {
+      none end_propagation
+    | none
+    | <string> (load (type propagation_user $0))
+    | <string> (load (type propagation $0))
+         <TypeCommand>*
+      end_propagation
+   })
+
+   (rule format-2 {
+      none end_propagation_model
+    | none
+    | <string> (load (type propagation_user $0))
+    | <string> (load (type propagation $0))
+         <TypeCommand>*
+      end_propagation_model
+   })
+{
+   propagation <format-1>
+ | propagation_model <format-2>
+})
+
+
+#fast_multipath
+(rule WSF_EM_PROPAGATION-command {
+   debug
+ | <wsfobject-command>
+})
+
+# propagation_model none
+(struct WSF_NULL_PROPAGATION :symbol (type propagation none))
+
+# propagation_model fast_multipath (WsfEM_FastMultipath.cpp)
+(struct WSF_FAST_MULTIPATH :symbol (type propagation WSF_FAST_MULTIPATH)
+                           :symbol (type propagation fast_multipath)
+{
+   soil_moisture_fraction <real>
+ | soil_moisture <real>
+ | surface_roughness <Length>
+ | stddev_surface_height <Length>
+ | <WSF_EM_PROPAGATION-command>
+})
+
+# propagation_model ground_wave_propagation (WsfEM_GroundWavePropagation.cpp)
+(struct WSF_GROUND_WAVE_PROPAGATION :symbol (type propagation WSF_GROUND_WAVE_PROPAGATION)
+                                    :symbol (type propagation ground_wave_propagation)
+                                    :symbol (type propagation groundwave_propagation)
+{
+   relative_permittivity <real>
+ | conductivity <real>
+ | troposphere_refractivity <real>
+ | troposphere_height_scale <Length>
+ | minimum_computation_distance <Length>
+ | computation_distance_interval <Length>
+ | <WSF_EM_PROPAGATION-command>
+})
+
+###############################################################
+# attenuation models
+###############################################################
+
+(rule WSF_EM_ATTENUATION-command {
+   debug
+})
+
+(rule attenuation-type {
+   attenuation <string> <string> (new_replace (type attenuation_user $1) (type attenuation $2)) <TypeCommand>* end_attenuation
+ | attenuation <string> <string> (new_replace (type attenuation_user $1) (type attenuation_user $2)) <TypeCommand>* end_attenuation
+ | (error { attenuation <ignore>* end_attenuation })
+ | attenuation_model <string> <string> (new_replace (type attenuation_user $1) (type attenuation $2)) <TypeCommand>* end_attenuation_model
+ | attenuation_model <string> <string> (new_replace (type attenuation_user $1) (type attenuation_user $2)) <TypeCommand>* end_attenuation_model
+ | (error { attenuation_model <ignore>* end_attenuation_model })
+})
+
+
+(rule attenuation-instance
+   (rule builtin-type {
+      none
+    | blake   | WSF_BLAKE_ATTENUATION
+    | itu     | WSF_ITU_ATTENUATION
+    | optical | WSF_OPTICAL_ATTENUATION
+    | tabular | WSF_TABULAR_ATTENUATION
+    | simple  | WSF_SIMPLE_ATTENUATION
+   })
+
+   (rule instance-1 {
+      <builtin-type> end_attenuation
+    | <builtin-type>
+    | <string> (load (type attenuation_user $0))
+    | <string> (load (type attenuation $0))
+         <TypeCommand>*
+      end_attenuation
+   })
+
+   (rule instance-2 {
+      <builtin-type> end_attenuation_model
+    | <builtin-type>
+    | <string> (load (type attenuation_user $0))
+    | <string> (load (type attenuation $0))
+         <TypeCommand>*
+      end_attenuation_model
+   })
+{
+   attenuation <instance-1>
+ | attenuation_model <instance-2>
+})
+
+# attenuation_model blake (WsfEM_BlakeAttenuation.cpp)
+(struct WSF_BLAKE_ATTENUATION :symbol (type attenuation WSF_BLAKE_ATTENUATION)
+                              :symbol (type attenuation blake)
+{
+   <WSF_EM_ATTENUATION-command>
+})
+
+# attenuation_model itu (WsfEM_ITU_Attenuation.cpp)
+(struct WSF_ITU_ATTENUATION :symbol (type attenuation WSF_ITU_ATTENUATION)
+                            :symbol (type attenuation itu)
+   (rule query-command {
+      frequency <Frequency>
+    | polarization <polarization-value>
+    | range <Length>
+    | elevation <Angle>
+    | altitude <Length>
+   })
+{
+   plot <string>
+ | query <query-command>* end_query
+ | <WSF_EM_ATTENUATION-command>
+})
+
+# attenuation_model simple (WsfEM_SimpleAttenuation.cpp)
+(struct WSF_SIMPLE_ATTENUATION :symbol (type attenuation WSF_SIMPLE_ATTENUATION)
+                               :symbol (type attenuation simple)
+{
+   specific_attenuation <real> <string>
+ | attenuation_factor <Ratio>
+ | <WSF_EM_ATTENUATION-command>
+})
+
+# attenuation_model tabular (WsfTabularAttenuation.cpp)
+(struct WSF_TABULAR_ATTENUATION :symbol (type attenuation WSF_TABULAR_ATTENUATION)
+                                :symbol (type attenuation tabular)
+    (rule response-point {
+       <Length> <real>
+    })
+    (rule conversion-command {
+       sensor_to_target_transmittance <string>
+     | target_to_background_radiance <string>
+     | sensor_response_curve <response-point>* end_sensor_response_curve
+     | output <string>
+    })
+{
+   attenuation <UtTable>
+ | sort_end_points <Bool>
+ | two_way_attenuation <Bool>
+ | spectral_data_conversion <conversion-command>* end_spectral_data_conversion
+ | query <ignore>* end_query
+ | <WSF_EM_ATTENUATION-command>
+})
+
+###############################################################
+# clutter models
+###############################################################
+
+(rule clutter-type {
+   (rule end-keyword { end_clutter | end_clutter_model })
+   clutter <string> none {end_clutter}? (new_replace (type clutter_user $1) (type clutter none))
+ | clutter <string> <string> (new_replace (type clutter_user $1) (type clutter_user $2)) <TypeCommand>* end_clutter
+ | clutter <string> <string> (new_replace (type clutter_user $1) (type clutter $2) :backup (type clutter none)) <TypeCommand>* end_clutter
+ | clutter_model <string> none {end_clutter_model}? (new_replace (type clutter_user $1) (type clutter none))
+ | clutter_model <string> <string> (new_replace (type clutter_user $1) (type clutter_user $2)) <TypeCommand>* end_clutter_model
+ | clutter_model <string> <string> (new_replace (type clutter_user $1) (type clutter $2) :backup (type clutter none)) <TypeCommand>* end_clutter_model
+})
+
+(rule clutter-instance
+   (rule instance-1 {
+      none end_clutter
+    | none
+    | <string> (load (type clutter_user $0))
+    | <string> (load (type clutter $0))
+         <TypeCommand>*
+      end_clutter
+   })
+   (rule instance-2 {
+      none end_clutter_model
+    | none
+    | <string> (load (type clutter_user $0))
+    | <string> (load (type clutter $0))
+         <TypeCommand>*
+      end_clutter_model
+   })
+{
+   clutter <instance-1>
+ | clutter_model <instance-2>
+})
+
+# (WsfEM_Clutter)
+(struct Clutter
+{
+   debug
+ | <wsfobject-command>
+})
+
+# clutter_model none
+(struct WSF_CLUTTER_NULL :symbol (type clutter none) )
+
+# clutter_model surface_clutter_table (WsfEM_SurfaceClutterTable)
+(struct WSF_SURFACE_CLUTTER_TABLE :base_type Clutter
+                                  :symbol (type clutter WSF_SURFACE_CLUTTER_TABLE)
+                                  :symbol (type clutter surface_clutter_table)
+
+   (rule range-command {
+      range <real> <length-unit> clutter <power-value>
+   })
+   (rule bearing-command {
+      bearing <real> <angle-unit> <range-command>*
+   })
+   (rule alt-command {
+      altitude <real> <length-unit> <bearing-command>*
+   })
+{
+   clutters <alt-command>* end_clutters
+ | <Clutter>
+})
+
+###############################################################
+# error models
+###############################################################
+
+(struct root
+   (var ObjectMap/ErrorModel error)
+   {
+      error_model <string> <string> (new_replace (type error_user $1) (type error $2) :backup (type error none)) <TypeCommand>* end_error_model
+   }
+)
+
+(rule error-model-instance
+   (rule instance-1 {
+      none end_error_model
+    | none
+    | <string> (load (type error_user $0))
+    | <string> (load (type error $0))
+         <TypeCommand>*
+      end_error_model
+   })
+{
+   error_model <instance-1>
+})
+
+# (WsfSensorErrorModel.cpp)
+(struct ErrorModel
+{
+   debug
+ | <wsfobject-command>
+})
+
+# error_model none
+(struct WSF_ERROR_NULL :symbol (type error none) 
+                       :base_type ErrorModel
+)
+
+# error_model standard_sensor_error
+(struct WSF_ERROR_STANDARD :symbol (type error standard_sensor_error)
+                           :base_type ErrorModel
+)
+
+# error_model radar_sensor_error
+(struct WSF_ERROR_RADAR :symbol (type error radar_sensor_error)
+                        :base_type ErrorModel
+)
+
+# error_model absolute_sensor_error
+(struct WSF_ERROR_ABSOLUTE :symbol (type error absolute_sensor_error)
+                           :base_type ErrorModel
+{
+      2d_position_error_sigma <Length>
+   |  3d_position_error_sigma <Length>
+   |  <ErrorModel>
+})
+
+###############################################################
+# External interfaces (ext, dis, xio)
+###############################################################
+
+(rule ext-interface-command
+   (rule entity-type { <string> })
+{
+   entity_id <string> <string>
+ | entity_type <string> <entity-type>
+ | radio_entity_type <string> <string>
+ | unknown_platform_type <string>
+ | force <string> <integer>
+ | private type (typeref platformType)
+ | private name (typeref platform)
+ | private category (name category)
+ | private all
+ | site <integer>
+ | application <integer>
+ | map_external_entity <string>
+ | map_external_type <entity-type>
+ | deferred_connection_time <Time>
+ | start_entity <integer>
+ | entity_orientation_threshold <Angle>
+ | entity_position_threshold <Length>
+ | heartbeat_timer <Time>
+ | heartbeat_multiplier <real>
+ | mover_update_timer <Time>
+ | initial_distribution_interval <Time>
+ | test_dead_reckon
+ | debug_emission_pdu <integer>
+ | beam_function <string> <string> <string> <integer>
+ | beam_type <string> <string> <string> <integer>
+ | emitter_function <string> <integer>
+ | emitter_type <string> <integer>
+})
+
+(struct DISInterface
+   (var Connection connection)
+   (var List/EntityType entityTypes)
+   (struct Connection
+      (var Int type :default 0)
+      (var String file)
+      (var String address)
+      (var String interface)
+      (var Int port)
+   {
+      broadcast <$address> [type=3]
+    | multicast <$address> <$interface> [type=4]
+    | unicast <$address> [type=2]
+    | record <$file> [type=1]
+    | playback (file-reference dis-replay)
+    | port <$port>
+    | receive_port <integer>
+    | send_port <integer>
+   })
+   (struct EntityType
+      (var String platformType)
+      (var String entityType)
+      (var Direction direction :default 0)
+      (enumeration Direction
+         (values
+            bidirectional 0
+            incoming      1
+            outgoing      2
+         )
+      {
+           bidirectional [this=0]
+         | incoming      [this=1]
+         | outgoing      [this=2]
+      })
+   {
+        entity_type <$platformType> <$entityType> <$direction>
+      | entity_type <$platformType> <$entityType>
+   })
+   (rule filtered-connection-command
+      (rule filter-allowance
+         (rule tracking-value {
+            tracked <string>
+          | all
+         })
+      {
+         entity_type <string> <tracking-value>
+       | force <string> <tracking-value>
+      })
+   {
+      [skip()] <Connection>
+    | allow <filter-allowance>
+   })
+   (rule articulated-part-subcommand
+      (rule publish-value {
+         x | y | z
+       | x_rate | y_rate | z_rate
+       | azimuth | elevation | rotation
+       | azimuth_rate | elevation_rate | rotation_rate
+      })
+   {
+      parent <string>
+    | publish <publish-value>
+   })
+   (rule entity-appearance-command
+      (rule signature-type {
+         infrared | infrared_signature | optical | optical_signature
+       | radar | radar_signature | rcs | rcs_signature | acoustic
+       | acoustic_signature | inherent_contrast | contrast | all
+      })
+   {
+      name <string> afterburner <Bool.on_off> <signature-type> <string>
+    | type <string> afterburner <Bool.on_off> <signature-type> <string>
+    | name <string> articulation <integer> <string> <string>
+    | type <string> articulation <integer> <string> <string>
+    | name <string> configuration <integer> <string> <string>
+    | type <string> configuration <integer> <string> <string>
+   })
+   (rule dis-exchange-command
+   {
+      debug
+   })
+   (rule filter-out-subcommand {
+      ignore_site <integer>
+    | ignore_application <integer>
+   })
+(rule dis-interface-command {
+   autostart
+ | no_autostart
+ | shadow type <string>
+ | shadow name <string>
+ | shadow all
+ | shadow
+ | maximum_beam_entries <integer>
+ | maximum_track_jam_entries <integer>
+ | exercise <integer>
+ | heartbeat_multiplier <Time>
+ | time_to_live <integer>
+ | protocol_version <integer>
+ | log_created_entities
+ | send_periodic_pdus_while_paused
+ | no_periodic_pdus_while_paused
+ | use_pdu_time
+ | ignore_pdu_time
+ | suppress_comm_data <Bool>
+ | suppress_emissions_data <Bool>
+ | suppress_non_standard_data <Bool>
+ | suppress_cme_draw_data <Bool>?
+ | suppress_cme_passive_sensor <Bool>?
+ | use_deprecated_cme_draw_data <Bool>
+ | use_simple_accelerations
+ | use_simple_orientation_rates
+ | multi_thread
+ | multi_threading <Bool>
+ | debug
+ | terse_mode <Bool>
+ | remember_sender_hostname
+ | absolute_timestamp
+ | reliability
+ | no_reliability
+ | reliability_level acknowledged
+ | reliability_level unacknowledged
+ | filter_out_by_site_and_app <filter-out-subcommand> <filter-out-subcommand>
+ | ignore_kind_and_domain <integer> <integer>
+ | filter_out_by_kind_and_domain <integer> <integer>
+ | ignore_type <string>
+ | ignore_pdu_type <string>
+ | connections [skip()] <Connection>* end_connections
+ | edit_connections [skip()] <Connection>* end_edit_connections
+ | filtered_connection <filtered-connection-command>* end_filtered_connection
+ | join_exercise
+ | no_join_exercise
+ | <$connection>
+ | thread_debug
+ | debug_thread
+ | thread_sleep_time
+ | multi_thread_sleep_time <Time>
+ | articulated_part <string> <string> <string> <articulated-part-subcommand>* end_articulated_part
+   # entity state commands
+ | [pushBack(entityTypes)] <EntityType>
+ | entity_appearance <entity-appearance-command>* end_entity_appearance
+ | dis_exchange <dis-exchange-command>* end_dis_exchange
+ | debug_entity_appearance
+ | max_allowed_bad_entity_states <integer>
+   # dis platform commands
+ | sensor_update_interval <Time>
+ | suppress_cme_detect_beam <Bool>?
+ | suppress_cme_entity_data <Bool>?
+ | use_track_jam_for_tracking_requests <Bool>
+ | simple_miss_reporting <Bool>
+   #WsfBroker
+ | repair_receive_timer_1 <Time>
+ | repair_supply_timer_1 <Time>
+ | repair_supply_timer_2 <Time>
+ | resupply_receive_timer_1 <Time>
+ | resupply_receive_timer_2 <Time>
+ | resupply_supply_timer_1 <Time>
+   #WsfDisPduTracker
+ | reliability_pdu_retry_count <integer>
+ | reliability_pdu_retry_delay <Time>
+ | transaction_initiator_timer_1 <Time>
+ | transaction_initiator_timer_2 <Time>
+ | transaction_respondent_timer_1 <Time>
+ | transaction_respondent_timer_2 <Time>
+ | <ext-interface-command>
+})
+{
+   dis_interface <dis-interface-command>* end_dis_interface
+})
+
+(rule xio-interface-command {
+   port <integer>
+ | send_port <integer>
+ | receive_port <integer>
+ | unicast <string>
+ | broadcast <string>
+ | multicast <string> <string>
+ | time_to_live <integer>
+ | multicast_loopback <Bool>
+ | heartbeat_interval <Time>
+ | debug <Bool>
+ | verbose <Bool>
+ | application <string>
+ | connect_to_simulations
+ | show_transfer_rate <Bool>
+ | publisher_debug
+ | <ext-interface-command>
+ | auto_dis_mapping <Bool>
+ | auto_map_application
+ | no_auto_map_application
+ | pause_for_connection <Bool>
+ | maximum_modelled_sensors <integer>
+ | debug_modelled_sensors <Bool>
+ | external_sensor <string> <string>
+ | falling_behind_threshold <Time>
+ | send_aux_data_updates <Bool>
+})
+
+
+(rule xio-interface-block {
+   xio_interface <xio-interface-command>* end_xio_interface
+})
+
+###############################################################
+# routes
+###############################################################
+
+(struct Waypoint
+   # implicitly  input: Waypoint  output: null
+   (enumeration EndOfPathOption (values
+      default     0
+      extrapolate 1
+      stop        2
+      remove      3
+   ))
+   (enumeration TurnDirection (values
+      shortest 0
+      left     1
+      right    2
+   ))
+   (enumeration WaypointType (values
+      position 0
+      offset   1
+      turn     2
+   ))
+   (var Position position)
+   (var Latitude latitude)
+   (var Longitude longitude)
+   (var Length2 offset)
+   (var Length altitude)
+   (var AltitudeReference altitudeReference :default 0)
+   (var EndOfPathOption endOfPath :default 0)
+   (var Bool switchOnApproach)
+   (var TurnDirection turnDirection :default 0)
+   (var Speed speed)
+   (var Speed climbRate)
+   (var Speed diveRate)
+   (var Acceleration linearAcceleration :default "")
+   (var Acceleration radialAcceleration)
+   (var Angle bankAngleLimit)
+   (var Acceleration turnG_Limit)
+   (var Time pauseTime)
+   (var Length distance)
+   (var Time time)
+   (var Time timeToPoint)
+   (var Angle heading)
+   (var Angle headingChange :default "")
+   (var String executeScript)
+   (var String gotoLabel)
+   (var String label)
+   (var Bool linearAccelerationDefault)
+   (var Bool radialAccelerationDefault)
+   (var Bool climbRateDefault)
+   (var WaypointType waypointType)
+   (rule position {
+      <$position>
+         [waypointType=0]  #;latitude=$1;longitude=$2]
+         <Waypoint>*
+   })
+   (rule offset {
+      offset <$offset>         [waypointType=1]
+         <Waypoint>*
+   })
+   (rule turn_right {
+      turn_right <Angle> [waypointType=2;turnDirection=2;headingChange=$1]
+      <Waypoint>*
+   })
+   (rule turn_left {
+      turn_left <Angle> [waypointType=2;turnDirection=1;headingChange=$1]
+      <Waypoint>*
+   })
+   (rule turn_to_heading {
+      turn_to_heading <Angle> [waypointType=2;heading=$1]
+      <Waypoint>*
+   })
+   (rule waypoint-label
+   {
+      label <string>       [label=$1]
+   })
+   (rule point {
+      <position>
+    | <offset>
+    | <turn_right>
+    | <turn_left>
+    | <turn_to_heading>
+   })
+   (rule transform {
+      insert_route <Latitude> <Longitude> <Angle>
+    | insert_route <string> reference_heading <Angle>
+    | insert_route <string>
+    | insert_offset_route <Latitude> <Longitude> <Angle>
+    | insert_offset_route <string> reference_heading <Angle>
+    | insert_offset_route <string>
+    | transform_absolute_route <string> <Length> <Length> <Length>
+   })
+   (rule any {
+      <waypoint-label>? <point>
+    | <waypoint-label>? <transform>
+   })
+{
+   altitude <Length>                         [altitude=$$]
+ | depth <Length>
+ | <$altitudeReference>
+ | speed <$speed>
+ | climb_rate default                        [climbRate="";diveRate="";climbRateDefault=true]
+ | climb_rate <Speed>                        [climbRate=$$;diveRate="";climbRateDefault=""]
+ | dive_rate default                         [diveRate="";climbRate="";climbRateDefault=true]
+ | dive_rate <Speed>                         [diveRate=$$;climbRate="";climbRateDefault=""]
+ | maximum_flight_path_angle <Angle>
+ | linear_acceleration default               [linearAcceleration="";linearAccelerationDefault=true]
+ | linear_acceleration <$linearAcceleration> [linearAccelerationDefault=""]
+ | radial_acceleration default               [radialAcceleration="";radialAccelerationDefault=true]
+ | radial_acceleration <$radialAcceleration> [radialAccelerationDefault=""]
+ | bank_angle_limit <Angle>                  [bankAngleLimit=$$;turnG_Limit=""]
+ | turn_g_limit <Acceleration>               [bankAngleLimit="";turnG_Limit=$$]
+ | pause_time <$pauseTime>
+ | extrapolate                               [endOfPath=1]
+ | stop                                      [endOfPath=2]
+ | remove                                    [endOfPath=3]
+ | distance <Length>                         [distance=$$;time=""]
+ | time <Time>                               [distance="";time=$$]
+ | time_to_point <$timeToPoint>
+ | turn left                                 [turnDirection=1]
+ | turn right                                [turnDirection=2]
+ | turn shortest                             [turnDirection=0]
+ | switch_on_approach                        [switchOnApproach=true]
+ | switch_on_passing                         [switchOnApproach=false]
+ | node_id <string>
+ | heading <Angle>                           [heading=$$]
+ | action <string>
+ | execute <string>                          [executeScript=$$]
+ | mode <string>
+ | <:AuxData.block>
+ | goto <string>                             [gotoLabel=$$]
+ | go_to <string>                            [gotoLabel=$$]
+ | transform_absolute_route <string> <Length> <Length> <Length>
+ | insert_route <Latitude> <Longitude> <Angle>
+ | insert_route <string> reference_heading <Angle>
+ | insert_route <string>
+ | insert_offset_route <Latitude> <Longitude> <Angle>
+ | insert_offset_route <string> reference_heading <Angle>
+ | insert_offset_route <string>
+})
+
+   #<mover-command>
+(struct Mover
+   :base_type PlatformPart
+
+   (var TimeVariableValue updateInterval)
+   (var Time updateTimeTolerance)
+{
+   update_interval <$updateInterval>
+ | update_time_tolerance <$updateTimeTolerance>
+ | <PlatformPart>
+})
+
+(struct Route
+   (var List/Waypoint waypoints)
+{
+ #  [pushBack(waypoints)] <Waypoint.position>
+ #| [pushBack(waypoints)] <Waypoint.offset>
+ #| [pushBack(waypoints)] <Waypoint.turn_right>
+ #| [pushBack(waypoints)] <Waypoint.turn_left>
+ #| [pushBack(waypoints)] <Waypoint.turn_to_heading>
+   [pushBack(waypoints)] <Waypoint.any>
+ #| goto <string>
+ #      [push(waypoints.-1);gotoLabel=$1]
+ # | label <string>
+ #      [push(waypoints.-1);label=$1]           # wsf really sets the NEXT waypoint's label with this command!!!
+ | name <string>
+ | navigation {[pushBack(waypoints)] <Waypoint.any>}* end_navigation
+ | <:AuxData.block>
+})
+
+(struct RouteNetwork :symbol (type routeNetwork WSF_ROUTE_NETWORK)
+{
+   route [skip()]
+      <Route>*
+   end_route
+ | use_route <string>
+ | test
+ | test_nodes <integer> <integer>
+ | verbose
+})
+
+#(rule event-output-block {
+#   event_output <event_output>* end_event_output
+#})
+
+(struct root
+   (var event_output eventOutput)
+   (var csv_event_output csvEventOutput)
+   { csv_event_output [push(csvEventOutput)] <csv_event_output>* end_csv_event_output }
+   { event_output [push(eventOutput)] <event_output>* end_event_output }
+)
+(rule root-command
+   { <root> }
+)
+
+###############################################################
+# event_output
+###############################################################
+
+# WsfEventOutputBase.cpp
+
+# This is the rule for event types.
+# The values for this rule represent the values used with the enable/disable command.
+(rule event_output-event-type
+   (rule event_output-behavior-event-type {
+      BTREE_NODE_CHILDREN
+    | BTREE_NODE_EXEC
+   })
+   (rule event_output-comm-event-type {
+      COMM_ADDED_TO_MANAGER
+    | COMM_ADDED_TO_LOCAL
+    | COMM_BROKEN
+    | COMM_FREQUENCY_CHANGED
+    | COMM_NON_OPERATIONAL
+    | COMM_OPERATIONAL
+    | COMM_REMOVED_FROM_MANAGER
+    | COMM_REMOVED_FROM_LOCAL
+    | COMM_TURNED_OFF
+    | COMM_TURNED_ON
+    | LINK_ADDED_TO_MANAGER
+    | LINK_REMOVED_FROM_MANAGER
+    | LINK_ENABLED_ON_MANAGER
+    | LINK_DISABLED_ON_MANAGER
+    | LINK_ADDED_TO_LOCAL
+    | LINK_REMOVED_FROM_LOCAL
+    | LINK_ENABLED_ON_LOCAL
+    | LINK_DISABLED_ON_LOCAL
+    | MESSAGE_DELIVERY_ATTEMPT
+    | MESSAGE_DISCARDED
+    | MESSAGE_FAILED_ROUTING
+    | MESSAGE_HOP
+    | MESSAGE_QUEUED
+    | MESSAGE_RECEIVED
+    | MESSAGE_TRANSMITTED
+    | MESSAGE_TRANSMIT_ENDED
+    | MESSAGE_TRANSMITTED_HEARTBEAT
+    | MESSAGE_UPDATED
+    | NETWORK_ADDED
+    | NETWORK_REMOVED
+    | ROUTER_BROKEN
+    | ROUTER_NON_OPERATIONAL
+    | ROUTER_OPERATIONAL
+    | ROUTER_TURNED_OFF
+    | ROUTER_TURNED_ON
+   })
+   (rule event_output-exchange-event-type {
+      EXCHANGE_COMPLETED
+    | EXCHANGE_NEGOTIATED
+    | EXCHANGE_QUERIED
+    | EXCHANGE_REQUEST_FAILED
+   })
+   (rule event_output-fuel-event-type {
+      FUEL_EVENT
+    | RAN_OUT_OF_FUEL
+    | TANKING_EVENT
+   })
+   (rule event_output-mover-event-type {
+      MOVER_BROKEN
+    | MOVER_BURNED_OUT
+    | MOVER_NON_OPERATIONAL
+    | MOVER_OPERATIONAL
+    | MOVER_STAGED
+    | MOVER_TURNED_OFF
+    | MOVER_TURNED_ON
+   })
+   (rule event_output-platform-event-type {
+      COMMENT
+    | CRASHED_INTO_GROUND
+    | EXECUTE_CALLBACK
+    | NAVIGATION_STATUS_CHANGED
+    | PLATFORM_ADDED
+    | PLATFORM_APPEARANCE_CHANGED
+    | PLATFORM_BROKEN
+    | PLATFORM_CAPABILITY_CHANGED
+    | PLATFORM_DELETED
+    | PLATFORM_INITIALIZED
+    | PLATFORM_OMITTED
+    | TEAM_NAME_DEFINITION
+   })
+   (rule event_output-processor-event-type {
+      AUTONOMY_LEVEL_CHANGED
+    | OPERATING_LEVEL_CHANGED
+    | PROCESSOR_BROKEN
+    | PROCESSOR_NON_OPERATIONAL
+    | PROCESSOR_OPERATIONAL
+    | PROCESSOR_TURNED_OFF
+    | PROCESSOR_TURNED_ON
+    | STATE_ENTRY
+    | STATE_EXIT
+   })
+   (rule event_output-sensor-event-type {
+      IMAGE_CREATED
+    | SENSOR_BROKEN
+    | SENSOR_DETECTION_ATTEMPT
+    | SENSOR_DETECTION_CHANGED
+    | SENSOR_FREQUENCY_CHANGED
+    | SENSOR_MODE_ACTIVATED
+    | SENSOR_MODE_DEACTIVATED
+    | SENSOR_NON_OPERATIONAL
+    | SENSOR_OPERATIONAL
+    | SENSOR_REQUEST_CANCELED
+    | SENSOR_REQUEST_INITIATED
+    | SENSOR_REQUEST_UPDATED
+    | SENSOR_TURNED_OFF
+    | SENSOR_TURNED_ON
+   })
+   (rule event_output-simulation-event-type {
+      SIMULATION_STARTING
+    | SIMULATION_COMPLETE
+   })
+   (rule event_output-task-event-type {
+      TASK_ASSIGNED
+    | TASK_CANCELED
+    | TASK_COMPLETED
+   })
+   (rule event_output-track-event-type {
+      LOCAL_TRACK_CORRELATION
+    | LOCAL_TRACK_DECORRELATION
+    | LOCAL_TRACK_DROPPED
+    | LOCAL_TRACK_INITIATED
+    | LOCAL_TRACK_UPDATED
+    | SENSOR_TRACK_COASTED
+    | SENSOR_TRACK_DROPPED
+    | SENSOR_TRACK_INITIATED
+    | SENSOR_TRACK_UPDATED
+   })
+   (rule event_output-xio-event-type {
+      XIO_CONNECT
+    | XIO_DISCONNECT
+    | XIO_BANDWIDTH
+   })
+{
+   <event_output-behavior-event-type>
+ | <event_output-comm-event-type>
+ | <event_output-exchange-event-type>
+ | <event_output-fuel-event-type>
+ | <event_output-mover-event-type>
+ | <event_output-platform-event-type>
+ | <event_output-processor-event-type>
+ | <event_output-sensor-event-type>
+ | <event_output-simulation-event-type>
+ | <event_output-task-event-type>
+ | <event_output-track-event-type>
+ | <event_output-xio-event-type>
+})
+
+(struct event_output
+   # Proxy variables for event_output
+   (var String file)
+   (var Bool flush_output :default false)
+   (var String lat_lon_format)
+   (var Bool print_cg_miss_distance :default false)
+   (var Bool print_eci_locations :default false)
+   (var Bool print_failed_message_delivery_attempts :default true)
+   (var Bool print_failed_sensor_detection_attempts :default true)
+   (var Bool print_single_line_per_event :default false)
+   (var Bool print_track_in_message :default false)
+   (var Bool print_track_covariance :default false)
+   (var Bool print_track_residual_covariance :default false)
+   (var String time_format)
+   (var ObjectMap/Bool enabledEvents)
+   (var Bool allEventsEnabled :default false)
+{
+   # Setting command-value pairs for event_output
+   file NULL [file=""]
+ | file STDOUT [file=STDOUT]
+ | file (output-file-reference event-output) [file=$1]
+ | flush_output <$flush_output>
+ | lat_lon_format <$lat_lon_format>
+ | print_cg_miss_distance                 <$print_cg_miss_distance>
+ | print_eci_locations                    <$print_eci_locations>
+ | print_failed_message_delivery_attempts <$print_failed_message_delivery_attempts>
+ | print_failed_sensor_detection_attempts <$print_failed_sensor_detection_attempts>
+ | print_single_line_per_event            <$print_single_line_per_event>
+ | print_track_in_message                 <$print_track_in_message>
+ | print_track_covariance                 <$print_track_covariance>
+ | print_track_residual_covariance        <$print_track_residual_covariance>
+
+ # The old grammar for time_format:
+ #    | time_format <string>
+ # This is the new grammar using the variable
+ # Here, <time_format> is a reference to the member variable
+ # It automatically adds the rule to assign time_format to the result of <String>
+ | time_format <$time_format>
+
+   # Event command-value pairs for event_output
+   # the disable/enable all has to be here because it has a special behavior for the proxy variables
+ | disable all                       [allEventsEnabled=false;enabledEvents=""]
+ | disable <event_output-event-type> [delete(enabledEvents,$1)]
+ | enable all                        [allEventsEnabled=true]
+ | enable <event_output-event-type>  [mapSet(enabledEvents,$1)]
+})
+
+
+###############################################################
+# csv_event_output
+###############################################################
+
+(struct csv_event_output
+   # Proxy variables for csv_event_output
+   (var String file)
+   (var Bool flush_output :default false)
+   (var Bool insert_data_tags :default true)
+   (var ObjectMap/Bool enabledEvents)
+   (var Bool allEventsEnabled :default false)
+{
+   # Setting command-value pairs for csv_event_output
+   file NULL [file=""]
+ | file STDOUT [file=STDOUT]
+ | file (output-file-reference csv-event-output) [file=$1]
+ | flush_output <$flush_output>
+ | insert_data_tags <$insert_data_tags>
+
+   # Event command-value pairs for csv_event_output
+ | disable all                       [allEventsEnabled=false;enabledEvents=""]
+ | disable <event_output-event-type> [delete(enabledEvents,$1)]
+ | enable all                        [allEventsEnabled=true]
+ | enable <event_output-event-type>  [mapSet(enabledEvents,$1)]
+})
+
+###############################################################
+# Antenna patterns
+###############################################################
+
+(rule inline-table {
+   inline_table <string> <integer> <integer> <real>* end_inline_table
+})
+
+(struct AntennaPattern :symbol (type antennaPattern WSF_ANTENNA_PATTERN)
+   (rule base-command {
+      minimum_gain <Ratio>
+    | gain_adjustment <Ratio>
+    | gain_adjustment_table <gain-adjustment-table-entry>* end_gain_adjustment_table
+    | show_average_gain_table
+   })
+
+
+   (rule sine-command {
+      peak_gain <Ratio>
+    | beamwidth <Angle>
+    | azimuth_beamwidth <Angle>
+    | elevation_beamwidth <Angle>
+    | circular
+    | rectangular
+    | angle_modification_factor <real>
+    | <base-command>
+   })
+
+
+   (rule cosecant-command {
+      peak_gain <Ratio>
+    | azimuth_beamwidth <Angle>
+    | elevation_beamwidth <Angle>
+    | minimum_elevation_for_peak_gain <Angle>
+    | elevation_of_peak/csc2_boundary <Angle>
+    | maximum_elevation_for_csc2 <Angle>
+    | <base-command>
+   })
+
+
+   (rule constant-command {
+      peak_gain <Ratio>
+    | beamwidth <Angle>
+    | azimuth_beamwidth <Angle>
+    | elevation_beamwidth <Angle>
+    | <base-command>
+   })
+
+
+   (rule circular-command {
+      peak_gain <Ratio>
+    | beamwidth <Angle>
+    | <base-command>
+   })
+
+
+   (rule pattern-table-command {
+      <az-el-table-subcommand>
+    |  peak_gain <Ratio>
+    | azimuth_beamwidth <Angle>
+    | elevation_beamwidth <Angle>
+    | <base-command>
+   })
+{
+   <az-el-table-command>
+ | cosecant_squared_pattern <cosecant-command>*
+   # Note: this is an optional block terminator:
+ | end_cosecant_squared_pattern
+ | circular_pattern <circular-command>*
+ | end_circular_pattern
+ | lambda_pattern <circular-command>*
+ | end_lambda_pattern
+ | constant_pattern <constant-command>*
+ | end_constant_pattern
+ | uniform_pattern <constant-command>*
+ | end_uniform_pattern
+ | sine_pattern <sine-command>*
+ | end_sine_pattern
+ | rectangular_pattern <sine-command>*
+ | end_rectangular_pattern
+ | pattern_table <pattern-table-command>*
+ | end_pattern_table
+})
+
+
+(rule gain-adjustment-table-entry {
+   frequency <Frequency> <Ratio>
+})
+
+(rule az-el-table-subcommand {
+   <inline-table>
+ | file (file-reference az-el-table) units <string>
+ | plt_file (file-reference az-el-table) default { horizontal | vertical }
+ | plt_file (file-reference az-el-table)
+ | salram_file (file-reference az-el-table) units <string>
+})
+
+(rule az-el-table-command-no-units {
+   constant <real>
+ | <az-el-table-subcommand>
+})
+
+(rule az-el-table-command {
+   constant <real> <string>
+ | <az-el-table-subcommand>
+})
+
+(struct root
+   (var ObjectMap/Filter filter)
+)
+
+(struct Filter
+{
+   <ignore> # empty struct not allowed.
+})
+
+# <filter-type> matches:
+#     filter <name> <type> ... end_filter
+(rule filter-type {
+   filter <string> <string> (new (type filter $1) (type filter $2)) <TypeCommand>* end_filter
+})
+
+# <filter-instance> matches:
+#     filter <type> ... <end_filter>
+(rule filter-instance {
+   filter <string> (load (type filter $1)) <TypeCommand>* end_filter
+})
+
+#
+# filter types
+#
+(struct WSF_ALPHA_BETA_FILTER :symbol (type filter WSF_ALPHA_BETA_FILTER)
+                              :base_type Filter
+   (var Real alpha)
+   (var Real beta)
+{
+   alpha <$alpha>
+ | beta <$beta>
+ | debug
+})
+
+(struct WSF_ALPHA_BETA_GAMMA_FILTER :symbol (type filter WSF_ALPHA_BETA_GAMMA_FILTER)
+                                    :base_type Filter
+   (var Real alpha)
+   (var Real beta)
+   (var Real gamma)
+{
+   alpha <$alpha>
+ | beta <$beta>
+ | gamma <$gamma>
+ | debug
+})
+
+(struct WSF_KALMAN_FILTER :symbol (type filter WSF_KALMAN_FILTER)
+                          :base_type Filter
+{
+   range_measurement_sigma <Length>
+ | elevation_measurement_sigma <Angle>
+ | bearing_measurement_sigma <Angle>
+ | process_noise_model constant_velocity
+ | process_noise_model constant_acceleration
+ | process_noise_sigmas_XYZ <real> <real> <real>
+ | process_noise_sigmas <Acceleration> <Acceleration> <Acceleration>
+ | debug
+})
+
+(struct WSF_KALMAN_FILTER_2D_RB :symbol (type filter WSF_KALMAN_FILTER_2D_RB)
+                                :base_type Filter
+{
+   range_measurement_sigma <Length>
+ | bearing_measurement_sigma <Angle>
+ | process_noise_sigmas_XY <real> <real>
+ | debug
+})
+
+(struct ScriptManager
+   (rule interface-command {
+      silent <Bool>
+    | silent_mode <Bool>
+    | listing <Bool>
+    | compile_listing <Bool>
+    | debug
+    | debug_writes <Bool>
+    | no_debug
+    | <global-script-context-command>
+   })
+{
+   <global-script-context-command>
+ | script_interface <interface-command>* end_script_interface
+ | script_abort_on_null_references <Bool>
+})
+
+###############################################################
+# signatures
+###############################################################
+
+(rule interpolation-type { linear | logarithmic })
+
+# file WsfRadarSig.cpp
+(struct RadarSignature :symbol (type radarSignature WSF_RADAR_SIGNATURE)
+   (rule command {
+      state <string>
+    | polarization <polarization-value>
+    | frequency_limit <Frequency>
+    | use_bisector_for_bistatic <Bool>
+    | interpolate_tables <Bool>
+    | interpolation_type <interpolation-type>
+    | <az-el-table-command>
+   })
+{
+   <command>
+})
+
+# file WsfMaskingPattern.cpp
+(struct MaskingPattern :symbol (type maskingPattern WSF_MASKING_PATTERN)
+{
+   state <string>
+ | part_factor <az-el-table-command>
+ | platform_factor <az-el-table-command>
+})
+
+(struct IntersectMesh :symbol (type intersectMesh WSF_INTERSECT_MESH)
+{
+   define_offset <string> <Length> <Length> <Length>
+ | file (file-reference intersect-mesh)
+})
+
+(struct ThermalSystem :symbol (type thermalSystem WSF_THERMAL_SYSTEM)
+{
+   <WSF_THERMAL_SYSTEM>*
+})
+
+# file WsfZoneSet.cpp
+
+(rule zone-set-attenuation-parameters {
+   file (file-reference zone-attenuation)
+ | use_dted
+ | height_parameter <string>
+ | base_altitude_parameter <string>
+ | constant_height <Length>
+ | projection geocentric
+ | projection <string>
+ | sensor_modifier <string> <real>
+ | comm_modifier <string> <real>
+ | constant_base_altitude <Length> <agl-or-msl>?
+})
+
+# Base type for zones
+(struct Zone
+   (var Color fillColor)
+   (var Color lineColor)
+{
+ # For named fill colors, set the alpha to 63
+   fill_color [push(fillColor)] <Color.named-color> [fillColor.alpha=63]
+ | fill_color <$fillColor>
+ | line_color <$lineColor>
+})
+
+(struct ZoneSet
+   :base_type Zone
+   :symbol (type zone WSF_ZONE_SET)
+   (var List/String inclusionZones)
+   (var List/String exclusionZones)
+   (var List/ZoneDefinition embeddedInclusionZones)
+   (var List/ZoneDefinition embeddedExclusionZones)
+{
+   zone [pushBack(embeddedInclusionZones)] <ZoneDefinition>* end_zone
+ | exclude_zone [pushBack(embeddedExclusionZones)] <ZoneDefinition>* end_exclude_zone
+ | use_zone (typeref zone)          [pushBack(inclusionZones, $1)]
+ | use_exclude_zone (typeref zone)  [pushBack(exclusionZones, $1)]
+ | attenuation_parameters <zone-set-attenuation-parameters>* end_attenuation_parameters
+ | <Zone>
+})
+(struct ZonePoint
+   (var Latitude  latitude)
+   (var Longitude longitude)
+   (var String    mgrs)
+   (var Angle     bearing)
+   (var Length    range)
+   (var Length2   point)
+{
+   point <$latitude> <$longitude>
+ | point <$bearing> <$range>
+ | point <$point>
+ | point <Position.MGRS> [mgrs=$1]
+})
+
+(struct ZoneDefinition
+   :base_type Zone
+   :symbol (type zone WSF_ZONE_DEFINITION)
+   (enumeration Type (values circular 1 elliptical 2 polygonal 3 spherical 4) {
+      circular    [this=1]
+    | elliptical  [this=2]
+    | polygonal   [this=3]
+    | spherical   [this=4]
+   })
+   (var Type type)
+   (var Length minimumAltitude)
+   (var Length maximumAltitude)
+   (var Length minimumRadius)
+   (var Length maximumRadius)
+   (var Length longitudinalAxis)
+   (var Length lateralAxis)
+   (var Angle startAngle)
+   (var Angle stopAngle)
+   (var Bool useLatLon)
+   (var Bool useMGRS)
+   (var Bool usePolar)
+   (var String referencePlatform)
+   (var String referenceZone)
+   (var Bool negative :default false)
+   (var Angle heading)
+   (var List/ZonePoint points)
+   (var Position position)
+   (var AuxData auxData)
+{
+   <$type>
+ | minimum_altitude <$minimumAltitude>
+ | maximum_altitude <$maximumAltitude>
+ | minimum_radius <$minimumRadius>
+ | maximum_radius <$maximumRadius>
+ | longitudinal_axis <$longitudinalAxis>
+ | lateral_axis <$lateralAxis>
+ | start_angle <$startAngle>
+ | stop_angle <$stopAngle>
+ | lat_lon     [useLatLon=true]
+ | mgrs        [useMGRS=true]
+ | polar       [usePolar=true]
+ | [pushBack(points)] <ZonePoint>
+ | position <Position.lat-lon>            [position=$1; referencePlatform=""]
+ | heading <$heading>                     [referencePlatform=""]
+ | references <$referenceZone>
+ | reference_platform (typeref platform)  [referencePlatform=$1]
+ | sensor_modifier <string> <real>
+ | comm_modifier <string> <real>
+ | modifier <string> <real>
+ | negative    [negative=true]
+ | positive    [negative=false]
+ | [push(auxData)] <AuxData.block>
+ | debug
+ | <wsfobject-command>
+ | <Zone>
+})
+
+# file WsfPlatformAvailability.cpp
+(rule platform-availability-command {
+   name (typeref platform) availability <real>
+ | type (typeref platformType) availability <real>
+ | category (name category) availability <real>
+ | default availability <real>
+ | exclusion_zone (typeref zone)
+ | inclusion_zone (typeref zone)
+})
+
+(rule message-table
+   (rule type-priority-command {
+      priority <integer>
+   })
+   (rule table-subtype-command {
+      subtype <string> <DataSize> <type-priority-command>?
+   })
+   (rule subtype-command {
+      subtype <string> <DataSize> <type-priority-command>?
+   })
+   (rule type-command {
+      type <string> <DataSize> <type-priority-command>? <subtype-command>*
+    | default <DataSize> <type-priority-command>? <subtype-command>*
+   })
+   (rule command {
+      comm_type <string> <type-command>*
+    | default_comm_type <type-command>*
+   })
+{
+   message_table <command>* end_message_table
+})
+
+(rule line-of-sight-manager
+   (rule los-command {
+      maximum_location_change <Length>
+    | multi_thread
+    | multi_threading <Bool>
+    | number_of_priority_levels <integer>
+    | max_steps_in_priority_level <integer>
+    | processing_rate <integer>
+    | debug
+    | debug_thread
+    | vegetation_layer_masking <Bool>
+   })
+{
+   line_of_sight_manager
+      <los-command>*
+   end_line_of_sight_manager
+})
+
+(rule iff-mapping
+   (rule iff-command
+      (rule side-command {
+         reports <iff-value> for_side <string>
+       | reports <iff-value> for_category <string>
+       | reports <iff-value> by_default
+       | default
+       | <string>
+      })
+   {
+      side <side-command>* end_side
+    | debug
+   })
+{
+   iff_mapping <iff-command>* end_iff_mapping
+})
+
+(rule path-variable-command {
+   file_path <quotable-string>
+ | reset_file_path
+ | define_path_variable <string> <quotable-string>
+ | undefine_path_variable <string>
+ | stream_debug_on
+ | stream_debug_off
+})
+
+(rule conditionals
+   (rule conditional-command
+      (rule operator { "<" | "<=" | ">" | ">=" | "=" })
+      (rule version {
+         (delimited <integer> \. <integer> \. <integer>)
+       | (delimited <integer> \. <integer>)
+       | <integer>
+      })
+   {
+      feature_present     <string>
+    | feature_not_present <string>
+    | wsf_version         <operator> <version>
+    | type_present        <string>
+    | type_not_present    <string>
+   })
+{
+   conditionals <conditional-command>* end_conditionals
+})
+
+(rule conditional-section {
+   conditional_section
+      <conditionals>*
+})
+
+# WsfSimulationInput.cpp
+(struct SimulationInput
+   (var Time endTime :default "60 s")
+   (var Time minimumMoverTimestep)
+   (var Real clockRate)
+   (var Time multiThreadUpdateRate :default 1.0)
+   (var Time multiThreadUpdateInterval :default 1.0)
+   (var Int numberOfThreads :default 4)
+   (var Int platformUpdateMultiplier :default 1)
+   (var Int sensorUpdateMultiplier :default 1)
+   (var Time deltaUT1 :default "0.0 s")
+   (var Int deltaAT :default 32)
+   (var String startMonth)
+   (var Int startDay)
+   (var Int startYear)
+   (var String startTime)
+   (var Real startEpoch :default 2003152.5)
+   (var Bool startTimeNow :default false)
+{
+   end_time <$endTime>
+ | minimum_mover_timestep <$minimumMoverTimestep>
+ | clock_rate <$clockRate>
+ | use_constant_required_pd <Bool>
+ | randomize_radar_frequencies <Bool>
+ | use_default_radar_frequencies <Bool>
+ | timing_method { default | performance_counter | system_time | tick_count }
+ | realtime
+ | non-realtime
+ | multi_thread
+ | multi_threading <Bool>
+ | sensor_update_break_time <Time>
+ | number_of_threads <$numberOfThreads>
+ | debug_multi_threading <Bool>
+ | allow_clutter_calculation_shortcuts <Bool>
+ | allow_propagation_calculation_shortcuts <Bool>
+ | process_priority { low | normal | above_normal | high | realtime }
+ # WsfDateTime.cpp
+ | delta_universal_time <$deltaUT1>
+ | delta_atomic_time <$deltaAT>
+ | start_date <month-value> <integer> <integer>       [startMonth=$1;startDay=$2;startYear=$3;startEpoch="";startTimeNow=false]
+ | start_time <string>                                [startTime=$$;startEpoch="";startTimeNow=false]
+ | start_epoch <real>                                 [startEpoch=$$;startMonth="";startDay="";startYear="";startTime="";startTimeNow=false]
+ | start_time_now                                     [startTimeNow=true;startTime="";startEpoch="";startMonth="";startDay="";startYear=""]
+ | test_date_time
+ # WsfEventStepSimulation
+ | multi_thread_update_rate <$multiThreadUpdateRate>
+ | multi_thread_update_interval <$multiThreadUpdateInterval>
+ | platform_update_multiplier <$platformUpdateMultiplier>
+ | sensor_update_multiplier <$sensorUpdateMultiplier>
+ # WsfFrameStepSimulation
+ | frame_time <Time>
+ | frame_rate <Frequency>
+})
+
+# UtAtmosphere.cpp
+(rule global-atmosphere-command
+   (rule calibration-command   # the inputs are allowed in any order so 'or' them.
+   {
+      altitude <Length>
+    | temperature <Temperature>
+    | density <MassDensity>
+   })
+   (rule default-atmosphere-type-entry
+   {
+      default_atmosphere_type { standard_day | hot_day | tropical_day | cold_day | polar_day | custom }
+    | default_atmosphere_type simple_dt <Temperature>
+   })
+{
+   <default-atmosphere-type-entry>
+ | atmosphere_calibration <calibration-command>* end_atmosphere_calibration
+ | print_mks_atmosphere_tables
+ | print_sae_atmosphere_tables
+ | atmosphere_table <real>* end_atmosphere_table
+ | contrailing_altitude_floor <Length>
+ | contrailing_altitude_ceiling <Length>
+})
+
+(rule local-atmosphere-command    # used in objects that have instances of an atmosphere
+{
+   atmosphere_type { default | standard_day | hot_day | tropical_day | cold_day | polar_day | custom | simple_dt }
+})
+
+(struct Classification
+   (var QuotableString classificationLevel)
+   (var String trigraphsString)
+   (var String caveatsString)
+   (rule classification-command
+   {
+      level     <$classificationLevel>
+    | trigraphs <string>*              [trigraphsString=$$] end_trigraphs
+    | caveats   <string>*              [caveatsString=$$]   end_caveats
+   })
+{
+   classification <classification-command>* end_classification
+})
+
+(struct ClassLevel
+   (var QuotableString levelString)
+   (var Color color)
+   (rule color-command
+   {
+      color <$color>
+   })
+{
+   level <$levelString> <color-command>* end_level
+})
+
+# WsfScenario.cpp
+(struct Scenario
+   (var SimulationInput simulationInput)
+   (var ScriptManager scriptManager)
+   (var Int initialRunNumber)
+   (var Int finalRunNumber)
+   (var Int numberOfRuns)
+   (var Int runNumberIncrement)
+   (var Int randomSeedGenerator)
+   (var Int randomSeed)
+   (var Bool randomSeedTime)
+   (var Bool quantitativeTrackQuality)
+   (var String testFeature)
+   (var String expectInputError)
+   (var List/Classification classificationList)
+   (var List/ClassLevel classLevels)
+   (rule class-block
+   {
+      [pushBack(classLevels)] <ClassLevel>
+   })
+{
+   platform_availability <platform-availability-command>* end_platform_availability
+ | [pushBack(classificationList)] <Classification>
+ | classification_levels <class-block>* end_classification_levels
+ | <log-command>
+ | <$simulationInput>
+ | <global-atmosphere-command>
+ | <message-table>
+ | <$scriptManager>
+ | <iff-mapping>
+ | <path-variable-command>
+ | initial_run_number <$initialRunNumber>
+ | final_run_number <$finalRunNumber>
+ | number_of_runs <$numberOfRuns>
+ | run_number_increment <$runNumberIncrement>
+ | generate_random_seeds <$randomSeedGenerator>
+ | random_seed <$randomSeed>
+ | random_seeds <integer>* end_random_seeds
+ | random_seed_time     [randomSeedTime=true]
+ | quantitative_track_quality <$quantitativeTrackQuality>
+ | <conditional-section>
+ | end_conditional_section
+ | test_feature <$testFeature>
+ | expect_input_error <$expectInputError>
+ | <line-of-sight-manager>
+})
+
+(rule group-type {
+   group <string> <string> (new (type group $1) (type group $2) :backup (type group WSF_GROUP)) [apply($$)]
+      <TypeCommand>*
+   end_group
+})
+
+(struct Group :symbol (type group WSF_GROUP)
+{
+   <:AuxData.block>
+})
+
+(rule wsfdraw-block {
+   draw <wsfdraw-item> <string> <wsfdraw-command>* end_draw
+ | draw_file (output-file-reference draw)
+})
+
+(rule wsfdraw-item {
+   route
+ | route_network
+})
+
+(rule wsfdraw-command {
+   color <:Color>
+ | color2 <:Color>
+ | layer <string>
+ | line_size <integer>
+ | point_size <integer>
+})
+
+(rule air-traffic-command
+   (rule airbase-block {
+      (rule airbase-command {
+         runway_length <Length>
+       | runway_heading <real>
+       | runway <Latitude> <Longitude> <Latitude> <Longitude>
+       | departure_interval <Time>
+       | deactivation_time <Time>
+       | aircraft (typeref platformType) <real>
+       | destination (typeref airbase) <real>
+       | local_destination <Latitude> <Longitude> <Length> <real>
+      })
+      airbase (typename airbase) <Latitude> <Longitude> <airbase-command>* end_airbase
+   })
+   (rule aircraft-type-command {
+      minimum_cruise_altitude <Length>
+    | maximum_cruise_altitude <Length>
+    | mean_cruise_speed <Speed>
+    | sigma_cruise_speed <Speed>
+    | maximum_operating_range <Length>
+    | minimum_runway_length <Length>
+    | local
+    | mean_loiter_time <Time>
+    | sigma_loiter_time <Time>
+    | loiter_route (typeref routes)
+   })
+ {
+   aircraft_type (typeref platformType) <aircraft-type-command>* end_aircraft_type
+ | <airbase-block>
+ | everyone_land_time <Time>
+})
+
+(rule sea-traffic
+   (rule block {
+      sea_traffic
+         <sea-traffic>*
+      end_sea_traffic
+   })
+   (rule vehicle {
+      fraction <real>
+    | mean_loiter_time <Time>
+    | sigma_loiter_time <Time>
+    | loiter_route (typeref routes)
+    | mean_speed <Speed>
+    | sigma_speed <Speed>
+   })
+   (rule ship-block {
+      ship <string> <vehicle>*
+      end_ship
+   })
+   (rule position { position <Latitude> <Longitude> <Length> })
+   (rule lane {
+      port (typeref sea-traffic-port) ignore_port_route
+    | port (typeref sea-traffic-port)
+    | lane_route
+         <position>*
+      end_lane_route
+   })
+   (rule port {
+      <position>
+    | port_route
+         <position>*
+      end_port_route
+    | local_traffic_region <Latitude> <Longitude> <Length> <real>
+    | departure_interval <Time>
+    | use_all_lanes
+    | lane (typeref sea-traffic-lane) <real>
+   })
+{
+   port (typename sea-traffic-port)
+      <port>*
+   end_port
+ | lane (typename sea-traffic-lane)
+      <lane>*
+   end_lane
+ | departure_traffic <real>
+      <ship-block>*
+   end_departure_traffic
+ | local_traffic <real>
+      <ship-block>*
+   end_local_traffic
+})
+
+(rule road-traffic
+   (rule block {
+      road_traffic <road-traffic>* end_road_traffic
+   })
+   (rule weighted-region {
+      latitude <Latitude>
+    | longitude <Longitude>
+    | inner_radius <Length>
+    | outer_radius <Length>
+    | inner_weight <real>
+    | outer_weight <real>
+   })
+   (rule convoy {
+      start_position <Latitude> <Longitude>
+    | end_position <Latitude> <Longitude>
+    | spacing <Length>
+    | speed <Speed>
+    | use_closest_waypoint
+    | vehicle <integer> <string>
+         <vehicle>*
+      end_vehicle
+   })
+   (rule vehicle {
+      fraction <real>
+    | mean_speed <Speed>
+    | sigma_speed <Speed>
+   })
+   (rule network {
+      weighted_region <weighted-region>* end_weighted_region
+    | end_of_path_option reverse_direction
+    | end_of_path_option respawn
+    | convoy <convoy>*
+      end_convoy
+    | minimum_distance_off_road <Length>
+    | maximum_distance_off_road <Length>
+    | pause_time_off_road <Time>
+    | maximum_speed <Speed>
+    | mean_travel_time <Time>
+    | sigma_travel_time <Time>
+    | vehicle <string>
+         <vehicle>*
+      end_vehicle
+    | vehicle_count <integer>
+    | vehicle_density <real> per <length-unit>
+   })
+{
+   network (typeref routeNetwork) <network>* end_network
+ | verbose
+ | debug
+})
+
+(rule osm-traffic
+   (rule block {
+      osm_traffic <osm-traffic>* end_osm_traffic
+   })
+   (rule use-waypoint-aux-data {
+      stop <string>
+    | traffic_signals <string>
+    | highway <string>
+   })
+   (rule use-route-aux-data {
+      maximum_speed <string>
+    | minimum_speed <string>
+    | surface <string>
+    | lanes <string>
+    | one_way <string>
+    | density <string>
+   })
+   (rule vehicle {
+      fraction <real>
+    | mean_speed <Speed>
+    | sigma_speed <Speed>
+    | ignore_speed_limits
+   })
+   (rule network {
+      maximum_speed <Speed>
+    | vehicle <string>
+         <vehicle>*
+      end_vehicle
+    | vehicle_count <integer>
+    | route_aux_data_mapping <use-route-aux-data>* end_route_aux_data_mapping
+    | waypoint_aux_data_mapping <use-waypoint-aux-data>* end_waypoint_aux_data_mapping
+   })
+{
+   network (typeref routeNetwork) <network>* end_network
+ | debug
+})
+
+(rule gravity_model-commands {
+   (rule egm-type-value {
+      EGM96
+    | EGM2008
+   })
+   file <egm-type-value> (file-reference geoid)
+ | test_point <Latitude> <Longitude>
+})
+
+(struct Terrain
+   (var List/Dted dted)
+   (var List/RawDted rawDted)
+   (var List/Geotiff geotiff)
+   (struct Dted
+      (var QuotableString path)
+      (var Int level)
+   {
+      dted <$level> <$path>
+   })
+   (struct RawDted
+      (var QuotableString path)
+      (var Int level)
+      (var Int west)
+      (var Int east)
+      (var Int north)
+      (var Int south)
+   {
+      raw_dted <$level> <$path> <$south> <$west> <$north> <$east>
+      | raw-dted <$level> <$path> <$south> <$west> <$north> <$east>
+   })
+   (struct Geotiff
+      (var QuotableString path)
+   {
+      geotiff <$path>
+   })
+   (rule terrain-command {
+      disable
+    | minimum_allowable_step_size <Length>
+    | maximum_terrain_height <Length>
+    | maximum_data_size <DataSize>
+    | [pushBack(dted)] <Dted>
+    | visual_db <quotable-string>
+    | [pushBack(rawDted)] <RawDted>
+    | float_grid <quotable-string> <integer> <integer> <integer> <integer>
+    | float_grid_vegetation <quotable-string> <integer> <integer> <integer> <integer>
+    | float_grid_file <quotable-string>
+    | float_grid_vegetation_file <quotable-string>
+    | [pushBack(geotiff)] <Geotiff>
+    | bathymetry <quotable-string>
+    | load_cme_terrain
+    | cme_path <quotable-string>
+    | ignore_missing_cme_terrain
+    | debug_masking
+    | no_debug_masking
+    | earth_radius_multiplier <real>
+    | use_fast_masking_check
+    | validate_terrain
+    | dted_checksum <Bool>
+    | query_height <Latitude> <Longitude>
+    | query_horizon <Latitude> <Longitude> <Length> <Latitude> <Longitude> <Length>
+    | query_masking <Latitude> <Longitude> <Length> <Latitude> <Longitude> <Length>
+    | geoid_undulation <gravity_model-commands>* end_geoid_undulation
+    | gravity_model <gravity_model-commands>* end_gravity_model
+   })
+{
+   terrain <terrain-command>* end_terrain
+})
+
+###############################################################
+# observer
+###############################################################
+
+# WsfScriptObserver.cpp
+(rule observer-event-type {
+   COMM_ADDED_TO_MANAGER
+ | COMM_REMOVED_FROM_MANAGER
+ | COMM_ADDED_TO_LOCAL
+ | COMM_REMOVED_FROM_LOCAL
+ | COMM_FREQUENCY_CHANGED
+ | COMM_TURNED_OFF
+ | COMM_TURNED_ON
+ | COMMENT
+ | CRASHED_INTO_GROUND
+ | EXECUTE_CALLBACK
+ | FUEL_EVENT
+ | IMAGE_CREATED
+ | LINK_ADDED_TO_MANAGER
+ | LINK_REMOVED_FROM_MANAGER
+ | LINK_ENABLED_ON_MANAGER
+ | LINK_DISABLED_ON_MANAGER
+ | LINK_ADDED_TO_LOCAL
+ | LINK_REMOVED_FROM_LOCAL
+ | LINK_ENABLED_ON_LOCAL
+ | LINK_DISABLED_ON_LOCAL
+ | LOCAL_TRACK_CORRELATION
+ | LOCAL_TRACK_DECORRELATION
+ | LOCAL_TRACK_DROPPED
+ | LOCAL_TRACK_INITIATED
+ | LOCAL_TRACK_UPDATED
+ | MESSAGE_DELIVERY_ATTEMPT
+ | MESSAGE_DISCARDED
+ | MESSAGE_FAILED_ROUTING
+ | MESSAGE_HOP
+ | MESSAGE_QUEUED
+ | MESSAGE_RECEIVED
+ | MESSAGE_TRANSMITTED
+ | MESSAGE_TRANSMIT_ENDED
+ | MESSAGE_TRANSMITTED_HEARTBEAT
+ | MESSAGE_UPDATED
+ | MOVER_BROKEN
+ | MOVER_BURNED_OUT
+ | MOVER_STAGED
+ | MOVER_UPDATED
+ | NETWORK_ADDED
+ | NETWORK_REMOVED
+ | OPERATING_LEVEL_CHANGED
+ | PLATFORM_ADDED
+ | PLATFORM_APPEARANCE_CHANGED
+ | PLATFORM_BROKEN
+ | PLATFORM_CAPABILITY_CHANGED
+ | PLATFORM_DELETED
+ | PLATFORM_INITIALIZED
+ | PLATFORM_OMITTED
+ | PROCESSOR_TURNED_OFF
+ | PROCESSOR_TURNED_ON
+ | ROUTER_TURNED_OFF
+ | ROUTER_TURNED_ON
+ | SENSOR_DETECTION_ATTEMPT
+ | SENSOR_DETECTION_CHANGED
+ | SENSOR_FREQUENCY_CHANGED
+ | SENSOR_MODE_ACTIVATED
+ | SENSOR_MODE_DEACTIVATED
+ | SENSOR_REQUEST_CANCELED
+ | SENSOR_REQUEST_INITIATED
+ | SENSOR_REQUEST_UPDATED
+ | SENSOR_TRACK_COASTED
+ | SENSOR_TRACK_DROPPED
+ | SENSOR_TRACK_INITIATED
+ | SENSOR_TRACK_UPDATED
+ | SENSOR_TURNED_OFF
+ | SENSOR_TURNED_ON
+ | SIMULATION_COMPLETE
+ | SIMULATION_INITIALIZING
+ | SIMULATION_STARTING
+ | STATE_ENTRY
+ | STATE_EXIT
+ | TANKING_EVENT
+ | TASK_ASSIGNED
+ | TASK_CANCELED
+ | TASK_COMPLETED
+ | TEAM_NAME_DEFINITION
+})
+
+(rule script-observer-script-value {
+   # we interpret the string as a script unless it has these 3 values:
+   (string-except enable disable end_observer)
+})
+
+(rule script-observer-command {
+   enable <observer-event-type> <script-observer-script-value>?
+ | disable <observer-event-type> <script-observer-script-value>?
+})
+
+(rule script-observer-block {
+   observer <script-observer-command>* end_observer
+})
+
+(rule land-use-block {
+   land_use
+      <land-use-command>*
+   end_land_use
+})
+
+(rule land-use-command {
+   disable
+ | minimum_allowable_step_size <Length>
+ | maximum_landuse_value <Length>
+ | directory <quotable-string> <integer> <integer> <integer> <integer>
+ | query_landuse <Latitude> <Longitude>
+})
+
+(rule fusion-strategy-global-command {
+   default_fusion_method <string>
+ | check_fuse_estimates <Bool>
+})
+
+(rule correlation-strategy-global-command {
+   default_correlation_method <string>
+})
+
+(rule central-body-name
+{
+   earth_wgs72
+ | earth_egm96
+ | earth_wgs84
+ | moon
+ | sun
+ | jupiter
+})
+
+(rule central-body-type
+{
+   central_body <central-body-name>
+      <central-body-command>*
+   end_central_body
+})
+
+(rule central-body-command {
+   polar_offset_angles <Angle> <Angle>
+})
+
+#
+# Correlation strategies:
+# NOTE: determining which correlation strategy is enabled is NOT done by the parser.
+#       as a result, the parser will accept valid input for ANY correlation strategy.
+#
+
+(rule WSF_ENVIRONMENT-command
+   (rule env-command
+      (rule wind-table-entry {
+         <Length> <Angle> <Speed>
+      })
+      (rule ground-cover-value {
+         general | urban | agricultural | farmland | rangeland_herbaceous | rangeland-herbaceous
+       | rangeland_shrub | forest-deciduous | forest_coniferous
+       | forest_mixed | forest_clear_cut
+       | forest_block_cut | wetland-forested
+       | wetland-non_forested | desert | barren | water
+      })
+      (rule land-formation-value {
+         level | inclined | undulating | rolling | hummocky | ridged | moderately_steep | steep | broken
+      })
+   {
+      land_cover <ground-cover-value>
+    | land_formation <land-formation-value>
+    | sea_state <integer>
+    | wind_speed <Speed>
+    | wind_direction <Angle>
+    | wind_table <wind-table-entry>* end_wind_table
+    | cloud_altitude_limits <Length> <Length>
+    | cloud_limits <Length> <Length>
+    | cloud_water_density <MassDensity>
+    | rain_altitude_limit <Length>
+    | rain_rate <Speed>
+    | dust_storm_visibility <Length>
+    | polar_offset_angles <Angle> <Angle>
+    | <central-body-type>
+   })
+{
+   global_environment
+      <env-command>*
+   end_global_environment
+})
+
+(rule WSF_NOISE_CLOUD-command
+   (rule noise-cloud-command
+   {
+      noise_frequency <integer>
+    | noise_octaves <integer>
+    | threshold <real>
+    | comm_modifier <string> <real>
+    | sensor_modifier <string> <real>
+    | constant_height <Length>
+    | thickness <Length>
+    | scalar <Length>
+    | origin <Latitude> <Longitude>
+    | use_global_wind
+   })
+{
+   noise_cloud <string> <string> <noise-cloud-command>* end_noise_cloud
+})
+
+(rule enumerate-command-what {
+   dictionary | platform_types | sensor_types | processor_types | comm_types
+})
+
+(rule root-command {
+   <filter-type>
+ | visual_part <string> <string> (new (type visual_partType $1) (type visual_partType $2) :backup (type visual_partType WSF_VISUAL_PART))
+      <TypeCommand>*
+   end_visual_part
+ | (error { visual_part <ignore>* end_visual_part })
+ | <xio-interface-block>
+ #| <route-block-named>
+ | <attenuation-type>
+ | <propagation-type>
+ | <clutter-type>
+ #| <event-output-block>
+ | gravity_model <gravity_model-commands>* end_gravity_model
+ | air_traffic <air-traffic-command>* end_air_traffic
+ | <road-traffic.block>
+ | <osm-traffic.block>
+ | <sea-traffic.block>
+ | <wsfdraw-block>
+ | <group-type>
+ | <land-use-block>
+ | <script-observer-block>
+ | <fusion-strategy-global-command>
+ | <correlation-strategy-global-command>
+ | <WSF_ENVIRONMENT-command>
+ | <WSF_NOISE_CLOUD-command>
+ | stream_debug_on
+ | stream_debug_off
+ | enumerate <enumerate-command-what> to (output-file-reference enumerate)
+ | script_struct <string> (new (type script_struct $1) (type script_struct UT_SCRIPT_STRUCT))
+      <TypeCommand>*
+   end_script_struct
+ | <event-pipe>
+ | simulation_name <quotable-string>
+ | <console-output-settings>
+})
+
+(struct UT_SCRIPT_STRUCT :symbol (type script_struct UT_SCRIPT_STRUCT)
+{
+   <script-variables-block>
+ | <script-block>
+ | uncloneable
+})
+
+# WsfSensorSignalProcessor.cpp
+(struct scale_factor :symbol (type signal_processor scale_factor)
+{
+   constant <real>
+})
+
+(struct constant_clutter_suppression :symbol (type signal_processor constant_clutter_suppression)
+{
+   suppression_factor <Ratio>
+})
+
+(rule signal-processor-system-command
+{
+   signal_processor <string> (new (subtype signal_processor $1) (type signal_processor $1))
+      <TypeCommand>*
+   end_signal_processor
+ | signal_processor <string> (load (subtype signal_processor $1))
+      <TypeCommand>*
+   end_signal_processor
+ | delete_signal_processor <string> (delete (subtype signal_processor $1))
+})
+
+(rule event-pipe
+   (rule detail-level
+   {
+      default
+    | high
+    | full
+    | low
+    | <string>
+   })
+   (rule option
+   {
+      TRACK
+    | TRACK_UPDATE
+    | DETECTION_ATTEMPT
+    | DRAW
+    | MESSAGE_RECEIVED
+    | MESSAGE_TRANSMITTED
+    | MESSAGE_HOP
+    | XIO
+    | AUX_DATA
+    | BEHAVIOR_TOOL
+    | ROUTE_CHANGED
+    | ZONES
+    | COMM_INFO
+    | <string>
+   })
+   (rule command
+   {
+      file (output-file-reference event-pipe)
+	| test_without_file
+    | use_preset <detail-level>
+    | enable <option>
+    | disable <option>
+    | detail <detail-level> platform (typeref platform)
+    | detail <detail-level> type (typeref platformType)
+    | detail <detail-level> category (name category)
+    | detail <detail-level> side (name side)
+    | visual_part_update_interval <Time>
+    | entity_state_angle_threshold <Angle>
+    | entity_state_position_threshold <Length>
+    | disable_entity_state_thresholds
+    | entity_state_maximum_interval <Time>
+    | maximum_mover_update_interval <Time>
+   })
+{
+   event_pipe <command>* end_event_pipe
+})
+
+# WsfLinkedProcessor.cpp
+(struct WSF_LINKED_PROCESSOR :symbol (type processorType WSF_LINKED_PROCESSOR)
+                             :base_type Processor
+   (var ExternalLinks externalLinks)
+{
+   <$externalLinks>
+ | <Processor>
+})
+
+# WsfSensorProcessor.cpp
+(struct SensorProcessor :base_type Processor
+   (rule sensors-input-commands {
+      sensor <string>
+    | platform_sensor <string> <string>
+   })
+   (rule sensors-command {
+      sensors <sensors-input-commands>* end_sensors
+   })
+{
+   <sensors-command>
+ | message_length <DataSize>
+ | message_priority <integer>
+ | <Processor>
+})
+
+# WsfConsole
+
+(rule console-output-type
+{
+   fatal
+ | error
+ | warning
+ | info
+ | debug
+ | developer
+ | type <string>
+})
+
+(rule console-output-preset
+{
+   preset { none | low | medium | high }
+})
+
+(rule console-output-option
+{
+   <console-output-type>   <Bool>
+ | single_line             <Bool>
+ | force_flushing          <Bool>
+ | <console-output-preset>
+})
+
+(rule console-output-file
+{
+   file <quotable-string>
+      <console-output-option>*
+   end_file
+})
+
+(rule console-output-settings
+{
+   console_output
+      { <console-output-file>
+      | <console-output-option> # options for STDOUT
+      }*
+   end_console_output
+})
+
+# eof

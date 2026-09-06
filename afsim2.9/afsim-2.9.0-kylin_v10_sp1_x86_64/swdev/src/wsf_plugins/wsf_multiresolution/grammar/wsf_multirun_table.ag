@@ -1,0 +1,48 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+#  Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+(struct multiresolution_multirun_table {
+   (rule all_named_models{
+      "sensor" | "processor" | "comm"
+   })
+   (rule named_model{
+      <string> <all_named_models> <string>
+    })
+   (rule all_unnamed_models{
+      "fuel" | "mover" | "acoustic_signature" | "infrared_signature" | "optical_signature" | "radar_signature"
+   })
+   (rule unnamed_model{
+      <string> <all_unnamed_models>
+    })
+   (rule model{
+      <named_model> | <unnamed_model>
+   })
+
+   (rule model_list{
+      model_list <model>* end_model_list
+   })
+
+   (rule default_fidelity{
+      default_fidelity <real>* end_default_fidelity
+   })
+
+   (rule fidelity_table{
+      fidelity_table <real>* end_fidelity_table
+   })
+
+   <model_list> | <default_fidelity> | "loop_after_table_end" | <fidelity_table> 
+})
+
+(struct root
+(var multiresolution_multirun_table multirunTable)
+{
+   multiresolution_multirun_table [push(multirunTable)] <multiresolution_multirun_table>* end_multiresolution_multirun_table
+})

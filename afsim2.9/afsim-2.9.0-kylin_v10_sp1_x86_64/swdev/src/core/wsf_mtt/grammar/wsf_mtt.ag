@@ -1,0 +1,31 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+(rule mtt-interface-command {
+   reference_point <Latitude> <Longitude>
+ | reference_location <Latitude> <Longitude>
+})
+
+(rule root-command {
+ mtt_interface <mtt-interface-command>* end_mtt_interface
+})
+
+# This is the rule for mtt-related event_output event types.
+(rule event_output-event-type
+   (rule event_output-mtt-event-type {
+      MTT_ACTIVE_TRACK_INITIATED
+    | MTT_ACTIVE_TRACK_DROPPED
+    | MTT_CANDIDATE_TRACK_INITIATED
+    | MTT_CANDIDATE_TRACK_DROPPED
+    | MTT_EMBRYONIC_TRACK_INITIATED
+    | MTT_EMBRYONIC_TRACK_DROPPED
+   })
+{
+   <event_output-mtt-event-type>
+})

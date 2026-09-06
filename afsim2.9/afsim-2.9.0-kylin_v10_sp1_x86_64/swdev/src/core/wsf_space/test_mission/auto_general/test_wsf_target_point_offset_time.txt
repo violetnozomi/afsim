@@ -1,0 +1,96 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 1 hr
+
+include_once ../utils.txt
+
+platform_type TEST_SAT WSF_PLATFORM
+   empty_mass 1 kg
+   mover WSF_INTEGRATING_SPACE_MOVER
+      integrator prince_dormand_78
+         error_criterion L_infinity
+      end_integrator
+
+      dynamics
+         term earth_monopole
+         end_term
+      end_dynamics
+   end_mover
+end_platform_type
+
+platform target TEST_SAT
+   edit mover
+      revolutions_per_day 10.0
+   end_mover
+end_platform
+
+platform chaser TEST_SAT
+   edit mover
+      revolutions_per_day 8.0
+   end_mover
+end_platform
+
+script_variables
+   Vec3   gOffsetRIC     = Vec3.Construct(1.0, 2.0, 3.0);
+   double gOffsetTime    = 240.0;
+   double gInterceptTime = 600.0;
+end_script_variables
+
+execute at_time 2 s absolute
+   WsfPlatform chaser = WsfSimulation.FindPlatform("chaser");
+   WsfPlatform tgtPlat = WsfSimulation.FindPlatform("target");
+   chaser.TrackManager().AddTrackReport(tgtPlat.MakeTrack());
+   WsfLocalTrack track = chaser.MasterTrackList().Get(0);
+
+   WsfTargetPoint target = WsfTargetPoint.ConstructFromTrack(track.TrackId());
+   ExpectBool(target.HasLibrationPointTarget(), false, "Is not a libration point target");
+   ExpectBool(target.HasTrackTarget(), true, "Should be a track target");
+   ExpectBool(target.HasPositionOffset(), false, "Should have no offset");
+   ExpectBool(target.TrackId() == track.TrackId(), true, "Should be the correct track");
+   target.SetPositionOffset(gOffsetRIC, WsfOrbitalReferenceFrame.RIC());
+   target.SetOffsetTime(gOffsetTime);
+
+   WsfRendezvousManeuver mvr = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(58.0), target, gInterceptTime);
+   WsfSpaceMover mover = (WsfSpaceMover)chaser.Mover();
+   mover.ExecuteManeuver(mvr);
+end_execute
+
+script void CompareKinematics()
+   WsfPlatform chaser = WsfSimulation.FindPlatform("chaser");
+   WsfPlatform target = WsfSimulation.FindPlatform("target");
+   WsfSpaceMover mover = (WsfSpaceMover)target.Mover();
+   Vec3 ric = mover.RIC(chaser);
+
+   ExpectDouble(ric.X(), gOffsetRIC.X(), 1.0e-3, "Should be near in R at offset time");
+   ExpectDouble(ric.Y(), gOffsetRIC.Y(), 1.0e-3, "Should be near in I at offset time");
+   ExpectDouble(ric.Z(), gOffsetRIC.Z(), 1.0e-3, "Should be near in C at offset time");
+end_script
+
+script void ScheduleTest(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "RENDEZVOUS")
+   {
+      // At end of maneuver, should not match the RIC offset
+      WsfPlatform chaser = WsfSimulation.FindPlatform("chaser");
+      WsfPlatform target = WsfSimulation.FindPlatform("target");
+      WsfSpaceMover mover = (WsfSpaceMover)target.Mover();
+      Vec3 ric = mover.RIC(chaser);
+
+      ExpectBool(Math.Fabs(ric.X() - gOffsetRIC.X()) < 1.0e-3, false, "Should not be near in R at end of maneuver");
+      ExpectBool(Math.Fabs(ric.Y() - gOffsetRIC.Y()) < 1.0e-3, false, "Should not be near in I at end of maneuver");
+      ExpectBool(Math.Fabs(ric.Z() - gOffsetRIC.Z()) < 1.0e-3, false, "Should not be near in C at end of maneuver");
+
+      // Schedule comparison in the future
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gOffsetTime, "CompareKinematics");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED ScheduleTest
+end_observer

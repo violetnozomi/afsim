@@ -1,0 +1,71 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Conjunction Setup Commands
+==========================
+
+.. parsed-literal::
+
+   conjunction_setup
+      <initial-position-specification>
+      with_target <target-platform>
+      at_time <time>
+   end_conjunction_setup
+
+.. command:: conjunction_setup ... end_conjunction_setup
+   :block:
+   
+   Set this spacecraft's initial conditions such that a conjunction with a 
+   given target spacecraft will occur at a specified time. During 
+   initialization an attempt will be made to find a solution with 
+   the given boundary conditions. If successful, this platform's state will
+   be set so that the specified conjunction occurs. If there is no solution
+   (for example, the orbit would take the satellite through the Earth),
+   the velocity of the spacecraft will be set to a default value (see below).
+
+   The initial position specification is one of the following: from_lla_, 
+   from_eci_ or from_initial_.
+
+.. command:: from_lla <latitude-value> <longitude-value> <length-value>
+
+   Set the initial position of this spacecraft to the given latitude, 
+   longitude and altitude. If there is no solution to the conjunction, the
+   velocity of the spacecraft will be set to that of a circular orbit with
+   a heading of 90 degrees.
+
+.. command:: from_eci <length-value> <length-value> <length-value>
+
+   Set the initial position of this spacecraft to the given position in the
+   ECI frame. If there is no solution to the conjunction, the velocity of the
+   spacecraft will be set to that of a circular orbit with a heading of 90
+   degrees.
+
+.. command:: from_initial
+
+   Set the initial position of this spacecraft using other means to specify
+   the initial orbit of the spacecraft. If there is no solution to the
+   conjunction, the velocity of the spacecraft will be set to that provided
+   by the other initialization methods.
+
+.. command:: with_target <string-value>
+
+   Specify the name of the target platform of the conjunction. This spacecraft 
+   will move to the position of the target platform at the time specified in 
+   the at_time_ command. The specified target must be the name of a platform 
+   that moves in the space spatial domain.
+
+.. command:: at_time <time-value>
+
+   Specify the time at which this spacecraft should suffer a conjunction with
+   the specified target.
+
+.. command:: tolerance <real-value>
+
+   Specify the tolerance for the conjunction solution. The default value of the
+   tolerance is 1.0e-9.

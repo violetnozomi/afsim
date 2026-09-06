@@ -1,0 +1,65 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 220 s
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+platform TEST_AIRCRAFT FA-LGT_RB6
+   side blue
+   
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   execute at_time 10 sec absolute
+      WsfSixDOF_RollAngleManeuver mvr = WsfSixDOF_RollAngleManeuver.Construct(15.0);
+      mvr.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(10.0));
+      mvr.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_HEADING(-90.0));
+      mvr.SetDebug(true);
+      
+      WsfSixDOF_RollAngleManeuver stop = WsfSixDOF_RollAngleManeuver.Construct(0.0);
+      
+      WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+      sqn.Append(mvr);
+      sqn.Append(stop);
+
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();      
+      mov.ExecuteManeuver(sqn);
+   end_execute
+   
+   execute at_time 12 sec absolute
+      allPassed = ExpectAngleDegrees(PLATFORM.Heading(), 180, 1.0, "Heading should be +/-180.") && allPassed;
+   end_execute
+   
+   execute at_time 19.9 sec absolute
+      allPassed = ExpectAngleDegrees(PLATFORM.Heading(), 180, 1.0, "Heading should be +/-180.") && allPassed;
+   end_execute
+   
+   execute at_time 200 sec absolute
+      allPassed = ExpectDouble(PLATFORM.Heading(), -90, 1.0, "Heading should be -90.") && allPassed;
+   end_execute
+end_platform
+
+execute at_time 210 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }   
+end_execute   

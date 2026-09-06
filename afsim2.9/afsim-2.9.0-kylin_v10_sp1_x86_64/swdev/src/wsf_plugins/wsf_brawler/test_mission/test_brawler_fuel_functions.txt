@@ -1,0 +1,226 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests the script fuel class.
+# Tests the quantity, consumption rate, mode, estimation, and refuel functions.
+
+script_variables
+   bool mQuantityTestPass = false;
+   bool mEstimationTestPass = false;
+   bool mRefuelTestPass = false;
+end_script_variables
+
+
+script bool TestQuantityFunctions(WsfFuel aFuel)
+
+   # Start States
+
+   double StartMax       = aFuel.MaximumQuantity();
+   double StartInitial   = aFuel.InitialQuantity();
+   double StartBingo     = aFuel.BingoQuantity();
+   double StartReserve   = aFuel.ReserveQuantity();
+   double StartRemaining = aFuel.QuantityRemaining();
+
+   # Input
+
+   double SetMax = 10000;
+   double SetInitial = 9560.2;
+   double SetBingo = 300.8;
+   double SetReserve = 1000.0;
+   double SetRemaining = 5345.0;
+
+   aFuel.SetMaximumQuantity(SetMax);
+   aFuel.SetInitialQuantity(SetInitial);
+   aFuel.SetBingoQuantity(SetBingo);
+   aFuel.SetReserveQuantity(SetReserve);
+   aFuel.SetQuantityRemaining(SetRemaining);
+
+   # Output
+
+   double GetMax = aFuel.MaximumQuantity();
+   double GetInitial = aFuel.InitialQuantity();
+   double GetBingo = aFuel.BingoQuantity();
+   double GetReserve = aFuel.ReserveQuantity();
+   double GetRemaining = aFuel.QuantityRemaining();
+
+   return ( (StartMax != GetMax)             && (GetMax == SetMax)          &&
+            (StartInitial != GetInitial)     && (GetInitial == SetInitial)  &&
+            (StartBingo != GetBingo)         && (GetBingo == SetBingo)      &&
+            (StartReserve != GetReserve)     && (GetReserve == SetReserve)  &&
+            (StartRemaining != GetRemaining) && (GetRemaining == SetRemaining) );
+
+end_script
+
+
+script bool TestEstimationFunctions(WsfFuel aFuel, double aAltitude, double aSpeed, WsfRoute aRoute)
+
+   bool pass = true;
+
+   # Start States
+   double GetTimeToBingo = aFuel.TimeToBingo();
+   double GetTimeToEmpty = aFuel.TimeToEmpty();
+   double GetTimeToReserve = aFuel.TimeToReserve();
+
+   # Input
+
+   double altitude = aAltitude + 10000;
+   double speed = aSpeed + 300;
+   double distance = 1000;
+
+   # Output
+
+   double GetTimeToBingoAtAltSpd = aFuel.TimeToBingo(altitude, speed);
+   double GetTimeToEmptyAtAltSpd = aFuel.TimeToEmpty(altitude, speed);
+   double GetTimeToReserveAtAltSpd = aFuel.TimeToReserve(altitude, speed);
+
+   double QuantityRequiredForDistance = aFuel.QuantityRequired(distance);
+   double QuantityRequiredForDistanceAtAltSpd = aFuel.QuantityRequired(distance, altitude, aSpeed);
+   double QuantityRequiredForRoute = aFuel.QuantityRequired(aRoute);
+
+   pass = pass && (GetTimeToBingo > 0)                                                &&
+                  (GetTimeToEmpty > 0)                                                &&
+                  (GetTimeToReserve > 0)                                              &&
+                  (GetTimeToBingoAtAltSpd > 0)                                        &&
+                  (GetTimeToEmptyAtAltSpd > 0)                                        &&
+                  (GetTimeToReserveAtAltSpd > 0)                                      &&
+                  (QuantityRequiredForDistance > 0)                                   &&
+                  (QuantityRequiredForDistanceAtAltSpd > 0)                           &&
+                  (QuantityRequiredForRoute > 0)                                      &&
+                  (QuantityRequiredForDistanceAtAltSpd != QuantityRequiredForRoute)   &&
+                  (QuantityRequiredForDistance != QuantityRequiredForRoute);
+
+   # This fuel object does not have a consumption rate table, so the
+   # consumption at a different speed and altitude should not differ
+   # from concumption at a current speed and altitude
+   pass = pass && (GetTimeToBingo == GetTimeToBingoAtAltSpd)       &&
+                  (GetTimeToEmpty == GetTimeToEmptyAtAltSpd)       &&
+                  (GetTimeToReserve == GetTimeToReserveAtAltSpd)   &&
+                  (QuantityRequiredForDistance == QuantityRequiredForDistanceAtAltSpd);
+
+   return pass;
+
+end_script
+
+
+script bool TestRefuelFunctions(WsfFuel aFuel)
+
+   # Start States
+
+   double MaxQuantity = aFuel.MaximumQuantity();
+
+   # Input
+
+   double SetInitialQuantity = MaxQuantity * 0.5;
+   double SetRefuelAmount = MaxQuantity * 0.2;
+
+   # Output
+
+   double GetQuantityFullRefuel = 0.0;
+   double GetQuantityPartialRefuel = 0.0;
+
+   # Fully refuel the tank
+   aFuel.SetInitialQuantity(SetInitialQuantity);
+   aFuel.Refuel();
+   GetQuantityFullRefuel = aFuel.QuantityRemaining();
+
+   # Partially refuel the tank
+   aFuel.SetInitialQuantity(SetInitialQuantity);
+   aFuel.Refuel(SetRefuelAmount);
+   GetQuantityPartialRefuel = aFuel.QuantityRemaining();
+
+   return ( (GetQuantityFullRefuel == MaxQuantity) &&
+            (GetQuantityPartialRefuel == SetRefuelAmount) );
+
+end_script
+
+platform_type WSF_BRAWLER_FUEL_TEST_PLATFORM WSF_PLATFORM
+
+   mover WSF_AIR_MOVER
+      update_interval 0.5 sec
+   end_mover
+
+   fuel WSF_BRAWLER_FUEL
+     aero_file ACFT_BAC1.FXW
+     maximum_quantity 15000 kg
+     initial_quantity 9000 kg
+     bingo_quantity    100 kg
+     reserve_quantity  500 kg
+     consumption_rate  1 kg/sec
+   end_fuel
+
+end_platform_type
+
+platform wsf_brawler_fuel_test_plat WSF_BRAWLER_FUEL_TEST_PLATFORM
+
+   icon Wedge
+   side blue
+
+   route
+      position 36n 118w altitude 10000 ft msl speed 500 kts
+      position 37n 118w altitude 10000 ft msl
+   end_route
+
+   execute at_time 8.0 sec absolute
+
+      extern bool mQuantityTestPass;
+      extern bool mEstimationTestPass;
+      extern bool mRefuelTestPass;
+
+      double altitude = PLATFORM.Altitude();
+      double speed = PLATFORM.Speed();
+      WsfRoute route = PLATFORM.Route();
+
+
+      WsfFuel fuel = PLATFORM.Fuel();
+      if (fuel.IsValid())
+      {
+         mQuantityTestPass = TestQuantityFunctions(fuel);
+         mEstimationTestPass =  TestEstimationFunctions(fuel, altitude, speed, route);
+         mRefuelTestPass =  TestRefuelFunctions(fuel);
+      }
+
+   end_execute
+
+end_platform
+
+execute at_time 15 s absolute
+
+   extern bool mQuantityTestPass;
+   extern bool mEstimationTestPass;
+   extern bool mRefuelTestPass;
+
+   if (mQuantityTestPass  && mEstimationTestPass && mRefuelTestPass)
+   {
+      writeln("--PASS--");
+   }
+   else
+   {
+      string FailMessage = "";
+
+      if (!mQuantityTestPass)
+      {
+         FailMessage += " -Quantity Test Failure-";
+      }
+
+      if (!mEstimationTestPass)
+      {
+         FailMessage += " -Estimation Failure-";
+      }
+
+      if (!mRefuelTestPass)
+      {
+         FailMessage += " -Refuel Test Failure-";
+      }
+
+      writeln("-FAIL-" + FailMessage);
+   }
+
+end_execute
+
+end_time 15 sec

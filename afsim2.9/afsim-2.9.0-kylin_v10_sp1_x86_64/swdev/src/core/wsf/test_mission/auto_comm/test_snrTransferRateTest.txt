@@ -1,0 +1,125 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+
+script_variables
+  global double messageDeliveryAttemptTime = 0;
+  global double messageReceptionTime = 0;
+end_script_variables
+
+script void MessageDeliveryAttempt(WsfComm aXmtr,
+                                   WsfComm aRcvr,
+                                   WsfMessage aMsg, 
+                                   WsfCommInteraction aResult)
+
+   extern double messageDeliveryAttemptTime;
+
+   messageDeliveryAttemptTime = TIME_NOW;
+end_script
+
+script void MessageReceived(WsfComm aXmtr,
+                            WsfComm aRcvr,
+                            WsfMessage aMsg, 
+                            WsfCommInteraction aResult)
+
+   extern double messageReceptionTime;
+
+   messageReceptionTime = TIME_NOW;
+end_script
+
+observer
+  enable MESSAGE_DELIVERY_ATTEMPT
+  enable MESSAGE_RECEIVED
+end_observer
+
+script bool ValidateExpectedTransferRate()
+   if (! WithinTolerance(messageDeliveryAttemptTime, 5.0, 0.001))
+   {
+      return false;
+   }
+
+   if (! WithinTolerance(messageReceptionTime, 5.1179, 0.001))
+   {
+      writeln("Error: Message Reception time: ", messageReceptionTime, " is larger than expected.");
+      return false;
+   }
+
+   return true;
+
+end_script
+
+comm MY_COMM WSF_RADIO_TRANSCEIVER
+
+   snr_transfer_rate_table
+      dB bit/s
+      0  100
+      1  100
+      2  90
+      3  80
+      4  40
+      5  20
+      55 10
+      70 1
+   end_snr_transfer_rate_table
+
+   transfer_rate 1 bit/s
+
+   receiver
+      frequency 10 ghz
+   end_receiver
+
+   transmitter
+      power 1000 kw
+      frequency 10 ghz
+   end_transmitter
+
+   retransmit_attempts 4
+   retransmit_delay 1 second
+end_comm
+platform_type base WSF_PLATFORM
+   comm com-1 MY_COMM
+   end_comm
+end_platform_type
+
+message_table
+   default_comm_type
+      type WSF_CONTROL_MESSAGE 1 bit # 1 second to send this message
+      default 40 bits
+end_message_table
+
+platform cmd1 base
+   position 40n 0e
+   execute at_time 5 s absolute
+      WsfControlMessage msg1 = WsfControlMessage();
+      Comm("com-1").SendMessage(msg1, "sub1", "com-1");
+   end_execute
+   heading 0 deg
+   altitude 0 feet
+end_platform
+
+platform sub1 base
+   position 40n 2e
+   commander cmd1
+   altitude 10000 feet
+end_platform
+
+execute at_time 20 seconds absolute
+   if ( ValidateExpectedTransferRate() )
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+
+end_execute
+
+end_time 30 seconds

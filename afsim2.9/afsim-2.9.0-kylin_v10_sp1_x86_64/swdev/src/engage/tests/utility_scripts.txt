@@ -1,0 +1,762 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   Set<WsfPlatform> warningDisplayedSet = Set<WsfPlatform>();
+
+   #An array that holds the maneuvers that is filled based off of
+   #user specification, then worked as the simulation progresses
+   Array<struct> maneuverList = Array<struct>();
+
+   #These script variables are global in nature, and needed to track
+   #the accumulation of time in various radar modes or other conditions
+   #in order to properly define reactive maneuvering by the target
+   #These are stored in map containers in the possibility of a
+   #multiple-launcher/multiple-weapon scenario (EVENTM values in ESAMS)
+
+   Map<int, double> acquisitionTime   = Map<int, double>(); #Platform is the launcher
+   Map<int, double> trackTime         = Map<int, double>(); #Platform is the launcher
+   Map<int, double> launchTime        = Map<int, double>(); #Platform is the weapon
+   Map<int, double> impactTime        = Map<int, double>(); #Platform is the weapon
+   Map<int, double> weaponRangeNonMAR = Map<int, double>(); #Platform is the weapon
+   Map<int, double> illuminationTime  = Map<int, double>(); #Platform is the launcher
+
+   #The following variables require the use of the MAR.
+   Map<int, double> detectionTime     = Map<int, double>(); #Platform is the weapon
+   Map<int, double> weaponRange       = Map<int, double>(); #Platform is the weapon
+
+   #A container of all the explicit weapon platforms fired at the target. Ensure to check
+   #that members are valid before using
+   Set<int> launchedWeapons           = Set<int>();
+
+   #A container of weapons that have missed.
+   Set<int> missedWeapons             = Set<int>();
+
+   #A container of "sites", for the possibility of using multiple sites.
+   #Note that ESAMS refers to a single site, where here we have a separate
+   #launcher and tracker. It is assumed both are at the same location, and part of the same "site". We
+   #will use the tracker as the site, simply for position purposes.
+   Set<int> sites                     = Set<int>();
+
+   #The target, saved for easy reference outside of the target platform scope
+   int target;
+
+   #Forward declaration for use
+   Array<double> aspectAngles = Array<double>();
+
+   #Max site azimuth error value
+   double siteAzError = 0.0;
+
+   #Debug/output of maneuvers when they occur
+   bool debugManeuverOutput = false;
+end_script_variables
+
+#In the case of multiple weapon launches, there are situations
+#(such as with reactive maneuvers) where actions specified are
+#not localized to an specific weapon instance. In these cases, we
+#need to specify a weapon to concentrate on. This method will
+#provide a specific weapon in a single launch or multiple launches,
+#providing the highest threat weapon launch, as determined by which
+#weapon is the closest to the target
+#Set aCheckDetected to true when the results need to be filtered by
+#weapons detected by the target MAR
+script WsfPlatform GetWeaponThreat(int aTarget, bool aCheckDetected)
+   WsfPlatform curWeapon = null;
+   WsfPlatform curTarget = WsfSimulation.FindPlatform(aTarget);
+   if(!curTarget.IsValid())
+   {
+      return curWeapon;
+   }
+
+   double range = Math.INTEGER_MAX();
+   if(launchedWeapons.Empty())
+   {
+      return curWeapon;
+   }
+   foreach(int weaponPlatNum in launchedWeapons)
+   {
+      WsfPlatform weaponPlat = WsfSimulation.FindPlatform(weaponPlatNum);
+      if(!weaponPlat.IsValid())
+      {
+         continue;
+      }
+
+      double tempRange = curTarget.SlantRangeTo(weaponPlat);
+      if(tempRange < range)
+      {
+         if((aCheckDetected) && (detectionTime.Exists(weaponPlat)))
+         {
+            range = tempRange;
+            curWeapon = weaponPlat;
+         }
+         else if(!aCheckDetected)
+         {
+            range = tempRange;
+            curWeapon = weaponPlat;
+         }
+      }
+   }
+
+   return curWeapon;
+end_script
+
+#Same as weapons above, but selects the closest site to the target
+script WsfPlatform GetNearestSite(int aTarget)
+   WsfPlatform curSite = null;
+   WsfPlatform curTarget = WsfSimulation.FindPlatform(aTarget);
+   if(!curTarget.IsValid())
+   {
+      return curSite;
+   }
+
+   double range = Math.INTEGER_MAX();
+   if(sites.Empty())
+   {
+      return curSite;
+   }
+
+   foreach(int sitePlatNum in sites)
+   {
+      WsfPlatform sitePlat = WsfSimulation.FindPlatform(sitePlatNum);
+      if(!sitePlat.IsValid())
+      {
+         continue;
+      }
+
+      double tempRange = curTarget.SlantRangeTo(sitePlat);
+      if(tempRange < range)
+      {
+         range = tempRange;
+         curSite = sitePlat;
+      }
+   }
+
+   return curSite;
+end_script
+
+#This method returns the weapon that has the earliest impact time,
+script WsfPlatform GetEarlistImpactWeapon()
+   WsfPlatform curWeapon = null;
+   WsfPlatform iterWeapon = null;
+
+   double time = Math.INTEGER_MAX();
+   if(weaponRange.Empty())
+   {
+      return curWeapon;
+   }
+
+   for(int i = 0; i < weaponRange.Size(); i += 1)
+   {
+      #Have to add cast here due to bug in IDE parsing
+      int iterWeaponNum = (int)weaponRange.ElementKeyAtIndex(i);
+      WsfPlatform curPlat = WsfSimulation.FindPlatform(iterWeaponNum);
+      if(!curPlat.IsValid())
+      {
+         continue;
+      }
+
+      if(weaponRange[iterWeaponNum] < time)
+      {
+         time = weaponRange[iterWeaponNum];
+         curWeapon = curPlat;
+      }
+   }
+   return curWeapon;
+end_script
+
+#This method will look at all the active trackers that have entered a specific
+#mode, and return the one that was the first to enter that mode
+#aMode values correspond to the following values:
+# 0 - illumination
+# 1 - acquisition
+# 2 - track
+script WsfPlatform GetLongestTrackerModeTime(int aTarget, int aMode)
+   WsfPlatform curTracker = null;
+   WsfPlatform iterTracker = null;
+   WsfPlatform curTarget = WsfSimulation.FindPlatform(aTarget);
+   if(!curTarget.IsValid())
+   {
+      return curTracker;
+   }
+
+   double time = MATH.INTEGER_MAX();
+   if(aMode == 0)
+   {
+      if(illuminationTime.Empty())
+      {
+         return curTracker;
+      }
+
+      for(int i = 0; i < illuminationTime.Size(); i += 1)
+      {
+         #Have to add cast here due to bug in IDE parsing
+         int iterTrackerNum = (int)illuminationTime.ElementKeyAtIndex(i);
+         WsfPlatform curPlat = WsfSimulation.FindPlatform(iterTrackerNum);
+         if(!curTracker.IsValid())
+         {
+            continue;
+         }
+
+         if(illuminationTime[iterTrackerNum] < time)
+         {
+            time = illuminationTime[iterTracker];
+            curTracker = curPlat;
+         }
+      }
+   }
+   else if (aMode == 1)
+   {
+      if(acquisitionTime.Empty())
+      {
+         return curTracker;
+      }
+
+      for(int i = 0; i < acquisitionTime.Size(); i += 1)
+      {
+         #Have to add cast here due to bug in IDE parsing
+         int iterTrackerNum = (int)acquisitionTime.ElementKeyAtIndex(i);
+         WsfPlatform curPlat = WsfSimulation.FindPlatform(iterTrackerNum);
+         if(!curTracker.IsValid())
+         {
+            continue;
+         }
+         if(acquisitionTime[iterTrackerNum] < time)
+         {
+            time = acquisitionTime[iterTrackerNum];
+            curTracker = curPlat;
+         }
+      }
+   }
+   else if(aMode == 2)
+   {
+      if(trackTime.Empty())
+      {
+         return curTracker;
+      }
+
+      for(int i = 0; i < trackTime.Size(); i += 1)
+      {
+         #Have to add cast here due to bug in IDE parsing
+         int iterTrackerNum = (int)trackTime.ElementKeyAtIndex(i);
+         WsfPlatform curPlat = WsfSimulation.FindPlatform(iterTrackerNum);
+         if(!curTracker.IsValid())
+         {
+            continue;
+         }
+         if(trackTime[iterTrackerNum] < time)
+         {
+            time = trackTime[iterTrackerNum];
+            curTracker = curPlat;
+         }
+      }
+   }
+   return curTracker;
+end_script
+
+#Defines the struct object that is used to define a single ESAMS-like maneuver
+#NOTE: In ESAMS, a maneuver input could be defined as a typical manuever, or a terminal
+#maneuver. We will use the same struct for both, with a -1 initialization for these values
+#to indicate non-assignment or non-use
+script_struct Maneuver
+   script_variables
+      int maneuver_type = -1;           #TYPMAN
+      int trigger = -1;                 #EVENTM
+      double timeToStart = 0.0;         #XMB
+      double timeToStop = 0.0;          #XMF
+      double timeTerminalStart = 0.0;   #XMT
+      double angleAzMin = 0.0;          #AMB
+      double angleAzMax = 0.0;          #AMF
+      double rangeMin = 0.0;            #RMB
+      double rangeMax = 0.0;            #RMF
+      int terminalManeuver = -1;        #PULTYP
+
+      #Note that aircraft maneuverability speed (XMC), max acceleration initial(XMG),
+      #and max acceleration terminal (XMI) values are not contained here. In AFSIM,
+      #these are characteristics of the mover, and are initially defined based on mover type
+      #See the target mover for possible options
+   end_script_variables
+
+   #Script, when called on a maneuver, performs the maneuver determined
+   #by the maneuver_type value in the Maneuver struct. Note that this
+   #method does not determine if the maneuver is suitable or should be
+   #executed based on the other struct variables
+   #Also note that this in AFSIM, this maneuver execution script is easily modifiable,
+   #in that additional user defined maneuvers can be implemented "on the fly" by extending
+   #this maneuver script, and supplying the corresponding trigger constraints in the
+   #reactive_maneuvers_processor_basic logic
+   script bool ExecuteManeuver(WsfPlatform aTarget)
+      if(maneuver_type == 1) #Turn away from missile
+      {
+         WsfPlatform curWeapon = GetWeaponThreat(aTarget.Index(), false);
+         if(curWeapon == null)
+         {
+            if(debugManeuverOutput)
+            {
+               writeln("ERROR. INVALID WEAPON PLATFORM REFERENCE (MANEUVER CODE: 1)");
+            }
+            return false;
+         }
+         double weaponAngle = aTarget.RelativeAzimuthOf(curWeapon.Location());
+         weaponAngle += aTarget.Heading();
+         if(weaponAngle > 0)
+         {
+            weaponAngle -= 180;
+         }
+         else
+         {
+            weaponAngle += 180;
+         }
+         aTarget.TurnToHeading(weaponAngle);
+
+         if(debugManeuverOutput)
+         {
+            writeln("TURN AWAY FROM WEAPON! " + (string)TIME_NOW);
+         }
+      }
+      else if (maneuver_type == 2) #Turn to put weapon on beam
+      {
+         WsfPlatform curWeapon = GetWeaponThreat(aTarget.Index(), false);
+         if(curWeapon == null)
+         {
+            if(debugManeuverOutput)
+            {
+               writeln("ERROR. INVALID WEAPON PLATFORM REFERENCE (MANEUVER CODE: 2)");
+            }
+            return false;
+         }
+         double weaponAngle = aTarget.RelativeAzimuthOf(curWeapon.Location());
+         weaponAngle += aTarget.Heading();
+         aTarget.TurnToHeading(weaponAngle);
+         if(debugManeuverOutput)
+         {
+            writeln("TURN TO WEAPON! " + (string)TIME_NOW);
+         }
+      }
+      else if (maneuver_type == 3) #Turn to cross missile velocity
+      {
+         WsfPlatform curWeapon = GetWeaponThreat(aTarget.Index(), false);
+         if(curWeapon == null)
+         {
+            if(debugManeuverOutput)
+            {
+               writeln("ERROR. INVALID WEAPON PLATFORM REFERENCE (MANEUVER CODE: 3)");
+            }
+            return false;
+         }
+
+         double turnAngle = aTarget.RelativeBearingTo(curWeapon);
+         if(turnAngle < 0.0)
+         {
+            turnAngle += 90.0;
+            turnAngle += aTarget.Heading();
+         }
+         else
+         {
+            turnAngle -= 90.0;
+            turnAngle += aTarget.Heading();
+         }
+
+         aTarget.TurnToHeading(turnAngle);
+         if(debugManeuverOutput)
+         {
+            writeln("TURN TO CROSS MISSILE TRAJECTORY! " + (string)TIME_NOW);
+         }
+      }
+      else if (maneuver_type == 4) #Turn left
+      {
+         double newHeading = aTarget.Heading() - 90.0;
+         aTarget.TurnToHeading(newHeading);
+
+         if(debugManeuverOutput)
+         {
+            writeln("TURN LEFT! " + (string)TIME_NOW);
+         }
+
+      }
+      else if (maneuver_type == 5) #Turn right
+      {
+         double newHeading = aTarget.Heading() + 90.0;
+
+         aTarget.TurnToHeading(newHeading);
+         if(debugManeuverOutput)
+         {
+            writeln("TURN RIGHT! " + (string)TIME_NOW);
+         }
+      }
+      else if (maneuver_type == 6) #Aspect control
+      {
+         #Aspect control uses one of the supplied and user defined angles (in
+         #respect to the aircraft) to present to the site (not weapon). The
+         #selected angle is the one closest to the original aircraft trajectory.
+         #The calculation and maneuver is done once, and is not updated, so after
+         #a period of time, this angle to the site will degrade with target
+         #velocity (except when using aspect angles of 0 or 180). Therefore, if
+         #the user wishes to maintain the angle, simply add additional maneuver
+         #calls to the list (since they are unlimited here, unlike ESAMS use of 10)
+         int num_aspects = aspectAngles.Size();
+         if(num_aspects < 1)
+         {
+            if(debugManeuverOutput)
+            {
+               writeln("ERROR. NO ASPECT ANGLES DEFINED FOR MANEUVER (MANEUVER CODE: 6)");
+            }
+            return false;
+         }
+
+         #If using multiple sites, the closest site will default for use
+         WsfPlatform curSite = GetNearestSite(aTarget.Index());
+         if(!curSite.IsValid())
+         {
+            if(debugManeuverOutput)
+            {
+               writeln("ERROR. NO VALID SITES AVAILABLE (MANEUVER CODE: 6)");
+            }
+            return false;
+         }
+
+         int deltaAngle = MATH.INTEGER_MAX();
+         double curTurn = 0;
+         double siteAngle = aTarget.RelativeAzimuthOf(curSite.Location());
+         for(int i = 0; i < aspectAngles.Size(); i += 1)
+         {
+            double angleDif = aspectAngles[i] - siteAngle;
+            if(Math.Fabs(angleDif) < deltaAngle)
+            {
+               deltaAngle = Math.Fabs(angleDif);
+               curTurn = angleDif * -1;
+            }
+         }
+         curTurn += aTarget.Heading();
+         aTarget.TurnToHeading(curTurn);
+         if(debugManeuverOutput)
+         {
+            writeln("ASPECT CONTROL! " + (string)TIME_NOW);
+         }
+      }
+      else if (maneuver_type == 7) #Turn to put site on beam
+      {
+         WsfPlatform curSite = GetNearestSite(aTarget.Index());
+         if(curSite == null)
+         {
+            if(debugManeuverOutput)
+            {
+               writeln("ERROR. INVALID SITE PLATFORM REFERENCE (MANEUVER CODE: 7)");
+            }
+            return false;
+         }
+
+         double siteAngle = aTarget.RelativeAzimuthOf(curSite.Location());
+         siteAngle += aTarget.Heading();
+         aTarget.TurnToHeading(siteAngle);
+
+         if(debugManeuverOutput)
+         {
+            writeln("TURN TO SITE! " + (string)TIME_NOW);
+         }
+      }
+      else if (maneuver_type == 8) #Extend (fly straight and level)
+      {
+         #Seems unnecessary, but should stop any pending maneuvers that have lapsed. Otherwise, the target
+         #will continue to follow its last command, which may still be in progress.
+         aTarget.TurnToHeading(aTarget.Heading());
+         if(debugManeuverOutput)
+         {
+            writeln("EXTEND! " + (string)TIME_NOW);
+         }
+      }
+      else if (maneuver_type == 9) #Turn to put site on beam without knowledge of site truth
+      {
+         #Note: AFSIM introduces errors to track location via sensor errors using the standard radar
+         #equations (e.g. compute_measurement_errors). ESAMS uses a random number draw. The AFSIM method is preferred, but a replica of
+         #the uniform distribution bounded by user input will be used here for the sake of consistency.
+         #Monte carlo runs of site location error input are not implemented at this time
+         double errorValue = (2 * RANDOM.Uniform(0.0, 1.0) - 1) * siteAzError;
+
+         #Randomize positive or negative angle values
+         if(RANDOM.Uniform(0.0, 1.0) >= 0.50)
+         {
+            errorValue * -1;
+         }
+
+         WsfPlatform curSite = GetNearestSite(aTarget.Index());
+         if(curSite == null)
+         {
+            if(debugManeuverOutput)
+            {
+               writeln("ERROR. INVALID SITE PLATFORM REFERENCE (MANEUVER CODE: 9)");
+            }
+            return false;
+         }
+
+         double siteAngle = aTarget.RelativeAzimuthOf(curSite.Location());
+         siteAngle += aTarget.Heading();
+
+         #Apply the error angle to truth
+         siteAngle += errorValue;
+         aTarget.TurnToRelativeHeading(siteAngle);
+         if(debugManeuverOutput)
+         {
+            writeln("TURN TO SITE, IMPERFECT! " + (string)TIME_NOW);
+         }
+      }
+      else if (maneuver_type == 10) #Slice (turn away from site, full throttle)
+      {
+         WsfPlatform curWeapon = GetWeaponThreat(aTarget.Index(), false);
+         if(curWeapon == null)
+         {
+            if(debugManeuverOutput)
+            {
+               writeln("ERROR. INVALID WEAPON PLATFORM REFERENCE (MANEUVER CODE: 10)");
+            }
+            return false;
+         }
+         double weaponAngle = aTarget.RelativeAzimuthOf(curWeapon.Location());
+         if(weaponAngle > 0)
+         {
+            weaponAngle -= 180;
+            weaponAngle += aTarget.Heading();
+         }
+         else
+         {
+            weaponAngle += 180;
+            weaponAngle += aTarget.Heading();
+         }
+         aTarget.TurnToHeading(weaponAngle);
+         #Go to the max possible speed. The won't be ludicrous if the mover has
+         #maximum_speed set, as it will bound at that value
+         aTarget.GoToSpeed(Math.INTEGER_MAX());
+         if(debugManeuverOutput)
+         {
+            writeln("SLICE! " + (string)TIME_NOW);
+         }
+      }
+      #If a terminal maneuver, execute these based on terminalManeuver value
+      else if (terminalManeuver == 0)
+      {
+         #Pull up (climb) until weapon resolution. May be limited by
+         #maximum altitude settings in the mover
+         #Altitude max should be bound by the mover
+         aTarget.GoToAltitude(MATH.INTEGER_MAX());
+         if(debugManeuverOutput)
+         {
+            writeln("PULL UP! " + (string)TIME_NOW);
+         }
+      }
+#      else if (maneuver_type == XX) #USER DEFINED MANEUVER
+#      {
+#         #user defined maneuver
+#      }
+   return true;
+   end_script
+
+   #Writes out the content of the struct
+   script void DebugPrint()
+      writeln("Maneuver type: " + (string)maneuver_type);
+      writeln("Trigger: " + (string)trigger);
+      writeln("Time to Start: " + (string)timeToStart);
+      writeln("Time to Stop: " + (string)timeToStop);
+      writeln("Terminal Start Time: " + (string)timeTerminalStart);
+      writeln("Angle Azimuth Min: " + (string)angleAzMin);
+      writeln("Angle Azimuth Max: " + (string)angleAzMax);
+      writeln("Range Min: " + (string)rangeMin);
+      writeln("Range Max: " + (string)rangeMax);
+      writeln("Terminal Maneuver: " + (string)terminalManeuver);
+   end_script
+end_script_struct
+
+#script to show a weapon being tracked by the MAR
+#returns true if a weapon is detected by the MAR
+script bool declare_track(WsfPlatform aPlatform)
+   bool detection = false;
+   if(aPlatform.TrackList("mar_track_list").TrackCount() > 0)
+   {
+      foreach(WsfTrack track in aPlatform.TrackList("mar_track_list"))
+      {
+         if(track.IsValid())
+         {
+            WsfPlatform weapon = track.Target();
+            if(!weapon.IsValid())
+            {
+               continue;
+            }
+
+            #Only track SAMs. Ensure explicit weapons fired at the target
+            #are a member of the category "SAM", otherwise they won't be tracked
+            #via the MAR.
+            if(!weapon.CategoryMemberOf("SAM"))
+            {
+               continue;
+            }
+
+            #Comment out the following section if weapon warnings are wanted
+            #continuously after initially being discovered/tracked
+            if(warningDisplayedSet.Exists(weapon))
+            {
+               continue;
+            }
+            else
+            {
+               warningDisplayedSet.Insert(weapon);
+            }
+            #End comment section
+
+            #Range
+            WsfGeoPoint missileLocation = track.LocationAtTime(TIME_NOW);
+            WsfGeoPoint curLocation = aPlatform.Location();
+            double range = curLocation.SlantRangeTo(missileLocation);
+            string missileRange = (string)range;
+
+            #Delta altitude
+            double altDif = curLocation.Altitude() - missileLocation.Altitude();
+            altDif *= Math.FT_PER_M();
+            string altStr = (string)altDif;
+
+            detection = true;
+
+            #Comment out the block below to remove output printing of missile warning data
+            writeln("WEAPON WARNING! (SAM)");
+            writeln(track.TrackId().ToString() + " is being tracked at distance " + missileRange);
+            writeln("Elevation difference of " + altStr + " feet");
+            writeln("Current time of " + (string)TIME_NOW);
+            writeln("");
+         }
+      }
+   }
+   return detection;
+end_script
+
+script void WeaponMissObserver(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+   WsfPlatform missedWeapon = aWeaponEngagement.WeaponPlatform();
+   missedWeapons.Insert(missedWeapon.Index());
+end_script
+
+script void WeaponFiredObserver(WsfWeaponEngagement aWeaponEngagement, WsfTrack aTargetTrack)
+   WsfPlatform firedWeapon = aWeaponEngagement.WeaponPlatform();
+   int weaponIndex = firedWeapon.Index();
+   launchedWeapons.Insert(weaponIndex);
+   launchTime[weaponIndex] = TIME_NOW;
+#  #Give impact time a large value until updated. Assumed weapon velocity
+#  #of zero at instantiation
+   impactTime[weaponIndex] = Math.INTEGER_MAX();
+end_script
+
+observer
+  enable WEAPON_MISSED WeaponMissObserver
+  enable WEAPON_FIRED WeaponFiredObserver
+end_observer
+
+#ESAMS-like determinations of time for a weapon to intercept a target
+#Uses instantaneous velocity without regard to acceleration, so therefore
+#is only an estimate, and needs to be run repeatedly
+script double TimeToGo(WsfPlatform aWeapon, WsfPlatform aTarget)
+
+   double timeToTarget = 0.0;
+
+   if((!aWeapon.IsValid()) || (!aTarget.IsValid()))
+   {
+      writeln("------------------WARNING------------------");
+      writeln("Invalid platform passed to TimeToGo Method.");
+      return 0.0;
+   }
+
+   Vec3 weaponPos = aWeapon.LocationWCS();
+   Vec3 weaponVel = aWeapon.VelocityWCS();
+   Vec3 targetPos = aTarget.LocationWCS();
+   Vec3 targetVel = aTarget.VelocityWCS();
+
+   Vec3 resultantPos = Vec3.Subtract(weaponPos, targetPos);
+   Vec3 resultantVel = Vec3.Subtract(weaponVel, targetVel);
+
+   double dotProd = Vec3.Dot(resultantPos, resultantVel);
+   double range = resultantPos.Magnitude();
+   double resultantVelMagSquared = (resultantVel.MagnitudeSquared());
+   if(resultantVelMagSquared == 0.0)
+   {
+      return MATH.INTEGER_MAX();
+   }
+
+   timeToTarget = -(dotProd / resultantVelMagSquared);
+   return timeToTarget;
+end_script
+
+#Checks the target platform relative azimuth angle to the site. If within the specified bounds,
+#return true, otherwise, return false
+script bool ValidAzimuthBound(WsfPlatform aTarget, WsfPlatform aSite, double minAz, double maxAz)
+   #If both azimuth range values are 0, then we don't restrict trigger conditions based
+   #on site azimuth. Return true to indicate no issues
+   if((minAz == 0) && (maxAz == 0))
+   {
+      return true;
+   }
+
+   double angle = aTarget.RelativeAzimuthOf(aSite.Location());
+
+   #writeln("TIME NOW IS: " + (string)TIME_NOW);
+   #writeln("ANGLE TO SITE IS: " + (string)angle);
+   #writeln("MIN ANGLE IS: " + (string)minAz);
+   #writeln("MAX ANGLE IS: " + (string)maxAz);
+
+   if((angle >= minAz) && (angle <= maxAz))
+   {
+      #writeln("AZIMUTH RESTRICTIONS SATISFIED");
+      return true;
+   }
+   #writeln("AZIMUTH RESTRICTIONS NOT SATISFIED");
+   return false;
+end_script
+
+#Checks the target platform range to the site. If within the specified bounds,
+#return true, otherwise, return false
+script bool ValidRangeBound(WsfPlatform aTarget, WsfPlatform aSite, double minRange, double maxRange)
+   #If both range values are 0, then we don't restrict trigger conditions based
+   #on site range. Return true to indicate no issues
+   if((minRange == 0) && (maxRange == 0))
+   {
+      return true;
+   }
+
+   double range = aTarget.SlantRangeTo(aSite);
+   if((range >= minRange) && (range <= maxRange))
+   {
+      return true;
+   }
+
+   return false;
+end_script
+
+#Run this method continuously through the simulation. Constantly
+#updates various necessary variables. If not
+#using reactive maneuvers, this can be ignored
+execute at_interval_of .1 s
+   if(!launchedWeapons.Empty())
+   {
+      WsfPlatform curTarget = WsfSimulation.FindPlatform(target);
+      if(!curTarget.IsValid())
+      {
+         return;
+      }
+
+      foreach (int platNum in launchedWeapons)
+      {
+         WsfPlatform plat = WsfSimulation.FindPlatform(platNum);
+         if(!plat.IsValid())
+         {
+            continue;
+         }
+
+         #Update the estimated impact time of the weapon with the target
+         #Changes due to variations of velocity and target maneuvers
+         impactTime[plat.Index()] = TimeToGo(plat, curTarget);
+
+         #Update the weapon range using the non-MAR variable
+         weaponRangeNonMAR[plat.Index()] = plat.Location().SlantRangeTo(curTarget.Location());
+      }
+   }
+
+end_execute

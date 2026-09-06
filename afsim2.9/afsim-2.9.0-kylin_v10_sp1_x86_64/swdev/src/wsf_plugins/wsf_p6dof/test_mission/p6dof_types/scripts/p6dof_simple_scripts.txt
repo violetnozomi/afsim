@@ -1,0 +1,409 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+//*************************************************************
+// This file wraps functions in the WsfScriptP6DOF_Mover so that the user does not need
+// to type the same block of code to get the mover from the platform.
+//*************************************************************
+
+script void ActivateSequencer(WsfPlatform aPlatform, string aSequencerName)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.ActivateSequencer(aSequencerName);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void AddFuel_lbs(WsfPlatform aPlatform, double aFuelMass_lbs)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.AddFuel(aFuelMass_lbs * Math.KG_PER_LB());
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void ApplyExternalForce(WsfPlatform aPlatform, double aMagnitude_lbs, double aAngle_deg)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.ApplyExternalForce(aMagnitude_lbs, aAngle_deg);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetParkingBrake(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetParkingBrake();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void EnableControls(WsfPlatform aPlatform, bool aEnable)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.EnableControls(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script double GetFuelInTank_lbs(WsfPlatform aPlatform, string aTankName)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      return p6dofMover.GetFuelInTank(aTankName) * Math.LB_PER_KG();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return 0.0;
+   }
+end_script
+
+script void SetFuelInTank_lbs(WsfPlatform aPlatform, string aTankName, double aFuel_lbs)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetFuelInTank(aTankName,aFuel_lbs * Math.KG_PER_LB());
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script double GetTotalFuelRemaining_lbs(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      return p6dofMover.GetTotalFuelRemaining() * Math.LB_PER_KG();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return 0.0;
+   }
+end_script
+
+script double GetTotalFuelCapacity_lbs(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      return p6dofMover.GetTotalFuelCapacity() * Math.LB_PER_KG();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return 0.0;
+   }
+end_script
+
+script void LowerLandingGear(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.LowerLandingGear();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void MoveThrottleToAfterburner(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.MoveThrottleToAfterburner();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void MoveThrottleToFull(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.MoveThrottleToFull();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void MoveThrottleToIdle(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.MoveThrottleToIdle();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void RemoveExternalForce(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.RemoveExternalForce();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetVerticalSpeedMax(WsfPlatform aPlatform, double vertSpd_fpm)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetVerticalSpeedMax(vertSpd_fpm);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void EnableDirectThrottleInput(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.EnableDirectThrottleInput();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void ReleaseDirectThrottleInput(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.ReleaseDirectThrottleInput();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+
+script void EnableDirectBraking(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.EnableDirectBraking();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void ReleaseDirectBraking(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.ReleaseDirectBraking();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void ReleaseWheelBrakes(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.ReleaseWheelBrakes();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void RetractLandingGear(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.RetractLandingGear();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetAutopilotNoControl(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotNoControl();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetAutopilotPitchAngle(WsfPlatform aPlatform, double aPitchAngle_deg)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotPitchAngle(aPitchAngle_deg);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetAutopilotSpeedKCAS(WsfPlatform aPlatform, double aSpeed_KCAS)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotSpeedKCAS(aSpeed_KCAS);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetAutopilotVerticalSpeed(WsfPlatform aPlatform, double aVerticalSpeed_fpm)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotVerticalSpeed(aVerticalSpeed_fpm);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetAutopilotWaypointMode(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotWaypointMode();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetEnableNWS(WsfPlatform aPlatform, bool aNWS_Enabled)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetEnableNWS(aNWS_Enabled);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetTaxiMode(WsfPlatform aPlatform, bool aTaxiEnabled)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetTaxiMode(aTaxiEnabled);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetTaxiRadius(WsfPlatform aPlatform, double aTaxiRadius_ft)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetTaxiRadius(aTaxiRadius_ft);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script bool WeightOnWheels(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      return p6dofMover.WeightOnWheels();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return false;
+   }
+end_script
+
+

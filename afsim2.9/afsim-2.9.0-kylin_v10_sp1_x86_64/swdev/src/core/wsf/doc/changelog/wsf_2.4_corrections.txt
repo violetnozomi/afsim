@@ -1,0 +1,41 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.4.3)** Corrected an issue in which, under certain circumstances, an invalid reference may be provided within a script context, resulting in a script exception when the reference is used. *(Issue #2097)*
+* **(2.4.3)** Corrected a crash when a platform with a route mover is commanded to :method:`ReturnToRoute<WsfPlatform.ReturnToRoute>` and was never given an initial route (default route). *(ELSZ #291)*
+* **(2.4.3)** Modified the calculation of covariance ellipsoid axes to ensure the length of the major axis for an axis-aligned ellipse is equal to two times the standard deviation. The following script methods are affected: :method:`WsfCovariance.MajorAxis`, :method:`Ellipsoid.SemiAxisSide` and :method:`Ellipsoid.SemiAxisUp`. *(ELSZ #294)*
+* **(2.4.3)** Corrected a crash that may occur when executing the simulation, with a DIS interface defined, shortly after a DIS platform is removed from the simulation. *(Issue #1937)*
+* **(2.4.3)** Corrected an issue with which external entities may erroneously and repeatedly be reported as stale in simulations recording to the :command:`event_pipe`. *(Issue #1930)*
+* **(2.4.2)** Corrected an issue where comm network membership specified in the network object was not being applied. *(Issue #1389)*
+* **(2.4.2)** Corrected an issue with comparisons for equality (``==``) and inequality (``!=``) between two instantiations of a :command:`script_struct`. *(ELSZ #250)*
+* **(2.4.2)** Corrected problems with fusion of track :ref:`emitter<WsfTrack.Emitter_Methods>` and :ref:`signal<WsfTrack.Signal_Methods>` data. *(Issue #1741)*
+* **(2.4.2)** Corrected an issue where :command:`command chains<platform.command_chain>` are not correctly updated when a platform is deleted or a new commander is assigned. *(ELSZ #244)*
+* **(2.4.2)** Corrected an issue with :model:`WSF_GEOMETRIC_SENSOR` where a :command:`pd_range_table<WSF_GEOMETRIC_SENSOR.mode.platform_type.pd_range_table>` with fewer than two entries can cause crashes. Such a table now results in an input error. *(ELSZ #245)*
+* **(2.4.2)** Corrected an issue with method :class:`WsfMessage.DataTag` not returning floating point values. *(ELSZ #219)*
+* **(2.4.2)** Corrected an infinite loop which could be triggered when executing a DIS platform's sensor update events. *(ELSZ #242)*
+* **(2.4.2)** Corrected an issue where waypoint :ref:`movers<Predefined_Mover_Types>` were not being constrained by :command:`_.route_mover.minimum_speed` settings. *(ELSZ #211)*
+* **(2.4.1)** Added missing scripting language documentation for the various :ref:`Predefined_Network_Types`. *(Issue #1482)*
+* **(2.4.1)** Corrected an issue where the :ref:`docs/event/platform_events:PLATFORM_ADDED` event for :command:`event_output` and :command:`csv_event_output` was invoked upon platform initialization rather than when a platform was added to the simulation. *(ELSZ #156)*
+* **(2.4.1)** Corrected an issue where the receiver angle limits check for interactions was not being set to the proper value in the :command:`event_pipe` output. *(ELSZ #176)*
+* **(2.4.1)** Corrected an issue in which :model:`WSF_GEOMETRIC_SENSOR` was not notifying all observers of a sensor detection attempt. *(ELSZ #148)*
+* Corrected an issue in :method:`WsfComm.SendMessage` where sending a message to an invalid or deleted platform caused a crash. *(Issue #1244)*
+* Corrected an issue where a script compiler error message was not generated when a script declared with a non-void return type has an empty return statement. *(ELSZ #84)*
+* Corrected an issue where preprocessor variables were not being parsed properly when on the last line of the file. *(ELSZ #106)*
+* Corrected an issue with m^2 input units being converted to dbsm in some cases, e.g. in :command:`radar_signature` inputs. *(ELSZ #111) (Issue #1166)*
+* Corrected an issue where :model:`tracking type radars<WSF_RADAR_SENSOR>` were not being detected over :command:`DIS<dis_interface>` exercises by :model:`passive sensors<WSF_PASSIVE_SENSOR>`.
+* Corrected an issue with :ref:`error_model.standard_sensor_error` not applying the :command:`sensor_mode.range_error_sigma` properly for passive sensor types.
+* Corrected an issue with the calculation of receiver noise power when a bandwidth is not specified, but the pulse width of a linked transmitter is specified and can be used to get the matched bandwidth for the noise power calculation, e.g. in the :model:`WSF_RADAR_SENSOR`.
+* Corrected an issue with the MESSAGE_* events in the :command:`csv_event_output` not outputting all data fields. *(Issue #1327)*
+* Corrected an issue in which :method:`WsfArticulatedPart.EnableArticulationUpdates` had no effect; added an argument to accept a time interval for the updates. *(Issue #878)*
+* Corrected an issue with the units being forced to dbsm when reading from signature table from a :command:`_.az_el_table.file`. Now the units are not optional to ensure that units are properly specified by the input for all :command:`_.az_el_table.file` inputs. *(ELSZ #151)*
+* Corrected an issue in which the default installation path for the Windows MSI installer would overwrite an existing installation, which could result in loss of user data. *(ELSZ #165)*
+* Corrected an issue with multiple, simultaneous transmissions from comms due to improper scheduling of the datalink layer. *(ELSZ #108)*
+* Script method :method:`Calendar.SetTime` will now ignore invalid inputs. *(ELSZ #119)*
+* Fixed a crash caused when a track manager purges inactive raw tracks from both the raw track list and the filtered raw track list. *(Issue #1179)*
+* Corrected comm related script :command:`observers<observer>` to match documented signatures. *(ELSZ #166)*

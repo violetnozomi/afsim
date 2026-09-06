@@ -1,0 +1,270 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test script access to the various update rates of the SA Processor:
+#  - Verify max asset load defaults to -1.
+#  - Verify max threat load defaults to -1.
+#  - Verify prioritized threat max defaults to 0.
+#  - Verify prioritized target max defaults to 0.
+#  - Verify max asset load can be changed via the SetMaxAssetLoad method.
+#  - Verify max threat load can be changed via the SetMaxThreatLoad method.
+#  - Verify prioritized threat max can be changed via the SetMaxPrioritizedThreats method.
+#  - Verify prioritized target max can be changed via the SetMaxPrioritizedTargets method.
+#  - Verify max asset load initialize defaults to -1 by not initializing a value, setting a new one, and resetting the parameter.
+#  - Verify max threat load initialize defaults to -1 by not initializing a value, setting a new one, and resetting the parameter.
+#  - Verify prioritized threat max initialize defaults to 0 by not initializing a value, setting a new one, and resetting the parameter.
+#  - Verify prioritized target max initialize defaults to 0 by not initializing a value, setting a new one, and resetting the parameter.
+
+include_once ../auto_script/utility_test_functions.txt
+
+end_time 60 sec
+
+script_variables
+   bool allTestsPassed = true;     // any failure turns it false
+   int numChangeValues = 15;       // size of arrays below
+   int uniqueInitial = 111;        // initialize to unique value
+
+   # The iteration of new values during runtime
+   Array<int> changeValue =
+   {
+      1,
+      10,
+      20,
+      30,
+      40,
+      50,
+      60,
+      70,
+      80,
+      90,
+      100,
+      200,
+      1000,
+      10000,
+      1000000
+   };
+
+end_script_variables
+
+# ****************************************************************************
+# Define the SA Processor used for testing
+# ****************************************************************************
+
+processor SA_PROCESSOR_TEST WSF_SA_PROCESSOR
+   on
+   update_interval 1.0 sec
+
+end_processor
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   icon F-18E
+   side blue
+
+   mover WSF_AIR_MOVER
+   end_mover
+
+   processor sa-proc SA_PROCESSOR_TEST
+      on
+   end_processor
+
+end_platform_type
+
+# ****************************************************************************
+# Define the platform instances
+# ****************************************************************************
+
+# This platform uses defaults for all SA processor max limits. All defaults will be evaluated
+platform platform-1 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+   # Verify startup defaults
+   execute at_time 1 sec absolute
+     WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      string errStr = Name() + ": Unexpected default for ";
+    
+      #  - Verify max asset load defaults to -1.
+      allTestsPassed = AssertEqualsMessage(-1, saProc.MaxAssetLoad(), errStr + "MaxAssetLoad") && allTestsPassed;
+    
+      #  - Verify max threat load defaults to -1.
+      allTestsPassed = AssertEqualsMessage(-1, saProc.MaxThreatLoad(), errStr + "MaxThreatLoad") && allTestsPassed;
+    
+      #  - Verify prioritized threat max defaults to 0.
+      allTestsPassed = AssertEqualsMessage(0, saProc.MaxPrioritizedThreats(), errStr + "MaxPrioritizedThreats") && allTestsPassed;
+    
+      #  - Verify prioritized target max defaults to 0.
+      allTestsPassed = AssertEqualsMessage(0, saProc.MaxPrioritizedTargets(), errStr + "MaxPrioritizedTargets") && allTestsPassed;
+    
+   end_execute
+
+   # Verify ability to override defaults at runtime
+   execute at_time 2 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");    
+      string errStr = Name() + ": Set max value failed for ";
+      for (int i=0 ; i<numChangeValues ; i = i + 1)
+      {
+           #  - Verify max asset load can be changed via the SetMaxAssetLoad method.
+           saProc.SetMaxAssetLoad(changeValue[i]);
+           allTestsPassed = AssertEqualsMessage(changeValue[i], saProc.MaxAssetLoad(), errStr + "MaxAssetLoad") && allTestsPassed;
+           
+           #  - Verify max threat load can be changed via the SetMaxThreatLoad method.
+           saProc.SetMaxThreatLoad(changeValue[i]);
+           allTestsPassed = AssertEqualsMessage(changeValue[i], saProc.MaxThreatLoad(), errStr + "MaxThreatLoad") && allTestsPassed;
+           
+           #  - Verify prioritized threat max can be changed via the SetMaxPrioritizedThreats method.
+           saProc.SetMaxPrioritizedThreats(changeValue[i]);
+           allTestsPassed = AssertEqualsMessage(changeValue[i], saProc.MaxPrioritizedThreats(), errStr + "MaxPrioritizedThreats") && allTestsPassed;
+           
+           #  - Verify prioritized target max can be changed via the SetMaxPrioritizedTargets method.
+           saProc.SetMaxPrioritizedTargets(changeValue[i]);
+           allTestsPassed = AssertEqualsMessage(changeValue[i], saProc.MaxPrioritizedTargets(), errStr + "MaxPrioritizedTargets") && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to reset update rates to default value
+   execute at_time 3 sec absolute
+     WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+     string errStr = Name() + ": Reset max value to initial value failed for ";
+
+      #  - Verify max asset load initialize defaults to -1 by not initializing a value, setting a new one, and resetting the parameter.
+      saProc.ResetMaxAssetLoad();
+      allTestsPassed = AssertEqualsMessage(-1, saProc.MaxAssetLoad(), errStr + "MaxAssetLoad") && allTestsPassed;
+    
+      #  - Verify max threat load initialize defaults to -1 by not initializing a value, setting a new one, and resetting the parameter.
+      saProc.ResetMaxThreatLoad();
+      allTestsPassed = AssertEqualsMessage(-1, saProc.MaxThreatLoad(), errStr + "MaxThreatLoad") && allTestsPassed;
+    
+      #  - Verify prioritized threat max initialize defaults to 0 by not initializing a value, setting a new one, and resetting the parameter.
+      saProc.ResetMaxPrioritizedThreats();
+      allTestsPassed = AssertEqualsMessage(0, saProc.MaxPrioritizedThreats(), errStr + "MaxPrioritizedThreats") && allTestsPassed;
+    
+      #  - Verify prioritized target max initialize defaults to 0 by not initializing a value, setting a new one, and resetting the parameter.
+      saProc.ResetMaxPrioritizedTargets();
+      allTestsPassed = AssertEqualsMessage(0, saProc.MaxPrioritizedTargets(), errStr + "MaxPrioritizedTargets") && allTestsPassed;
+    
+   end_execute
+
+end_platform
+
+# This platform uses USER initialization instead of defaults for all SA processor max limits. All initialization to custom defaults on reset will be evaluated
+platform platform-2 TEST_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+   edit processor sa-proc
+      max_asset_load                111
+      max_threat_load               111
+      max_prioritized_threats       111
+      max_prioritized_targets       111
+      bogie_threat_score_multiplier 9.999
+
+   end_processor
+
+   # Verify startup defaults
+   execute at_time 1 sec absolute
+     WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+      string errStr = Name() + ": Unexpected default for ";
+          
+      #  - Verify max asset load defaults to 111 as initialized.
+      allTestsPassed = AssertEqualsMessage(111, saProc.MaxAssetLoad(), errStr + "MaxAssetLoad") && allTestsPassed;
+    
+      #  - Verify max threat load defaults to 111 as initialized.
+      allTestsPassed = AssertEqualsMessage(111, saProc.MaxThreatLoad(), errStr + "MaxThreatLoad") && allTestsPassed;
+    
+      #  - Verify prioritized threat max defaults to 111 as initialized.
+      allTestsPassed = AssertEqualsMessage(111, saProc.MaxPrioritizedThreats(), errStr + "MaxPrioritizedThreats") && allTestsPassed;
+    
+      #  - Verify prioritized target max defaults to 111 as initialized.
+      allTestsPassed = AssertEqualsMessage(111, saProc.MaxPrioritizedTargets(), errStr + "MaxPrioritizedTargets") && allTestsPassed;
+
+   end_execute
+
+   # Verify ability to override defaults at runtime
+   execute at_time 2 sec absolute
+      WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");    
+      string errStr = Name() + ": Set max value failed for ";
+      for (int i=0 ; i<numChangeValues ; i = i + 1)
+      {
+              #  - Verify max asset load can be changed via the SetMaxAssetLoad method.
+              saProc.SetMaxAssetLoad(changeValue[i]);
+              allTestsPassed = AssertEqualsMessage(changeValue[i], saProc.MaxAssetLoad(), errStr + "MaxAssetLoad") && allTestsPassed;
+              
+              #  - Verify max threat load can be changed via the SetMaxThreatLoad method.
+              saProc.SetMaxThreatLoad(changeValue[i]);
+              allTestsPassed = AssertEqualsMessage(changeValue[i], saProc.MaxThreatLoad(), errStr + "MaxThreatLoad") && allTestsPassed;
+              
+              #  - Verify prioritized threat max can be changed via the SetMaxPrioritizedThreats method.
+              saProc.SetMaxPrioritizedThreats(changeValue[i]);
+              allTestsPassed = AssertEqualsMessage(changeValue[i], saProc.MaxPrioritizedThreats(), errStr + "MaxPrioritizedThreats") && allTestsPassed;
+              
+              #  - Verify prioritized target max can be changed via the SetMaxPrioritizedTargets method.
+              saProc.SetMaxPrioritizedTargets(changeValue[i]);
+              allTestsPassed = AssertEqualsMessage(changeValue[i], saProc.MaxPrioritizedTargets(), errStr + "MaxPrioritizedTargets") && allTestsPassed;
+      }
+   end_execute
+
+   # Verify ability to reset update rates to default value
+   execute at_time 3 sec absolute
+     WsfSA_Processor saProc = (WsfSA_Processor) Processor("sa-proc");
+     string errStr = Name() + ": Reset to initial value failed for ";
+
+      #  - Verify max asset load initialize defaults to initialized value, setting a new one, and resetting the parameter.
+      saProc.ResetMaxAssetLoad();
+      allTestsPassed = AssertEqualsMessage(uniqueInitial, saProc.MaxAssetLoad(), errStr + "MaxAssetLoad") && allTestsPassed;
+    
+      #  - Verify max threat load initialize defaults to initialized value, setting a new one, and resetting the parameter.
+      saProc.ResetMaxThreatLoad();
+      allTestsPassed = AssertEqualsMessage(uniqueInitial, saProc.MaxThreatLoad(), errStr + "MaxThreatLoad") && allTestsPassed;
+    
+      #  - Verify prioritized threat max initialize defaults to initialized value, setting a new one, and resetting the parameter.
+      saProc.ResetMaxPrioritizedThreats();
+      allTestsPassed = AssertEqualsMessage(uniqueInitial, saProc.MaxPrioritizedThreats(), errStr + "MaxPrioritizedThreats") && allTestsPassed;
+    
+      #  - Verify prioritized target max initialize defaults to initialized value, setting a new one, and resetting the parameter.
+      saProc.ResetMaxPrioritizedTargets();
+      allTestsPassed = AssertEqualsMessage(uniqueInitial, saProc.MaxPrioritizedTargets(), errStr + "MaxPrioritizedTargets") && allTestsPassed;
+    
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

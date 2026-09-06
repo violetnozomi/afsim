@@ -1,0 +1,58 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../utils.txt
+
+start_date jan 12 2022
+start_time 12:00:00.000
+
+platform epoch_first WSF_PLATFORM
+  add mover WSF_SPACE_MOVER
+    epoch_date_time jan 10 2022 12:00:00.000
+    initial_state_eci 10000 km 0 km 0 km 100 m/s 3 km/s -50 m/s
+  end_mover
+end_platform
+
+platform epoch_second WSF_PLATFORM
+  add mover WSF_SPACE_MOVER
+    initial_state_eci 10000 km 0 km 0 km 100 m/s 3 km/s -50 m/s
+    epoch_date_time jan 10 2022 12:00:00.000
+  end_mover
+end_platform
+
+script void Test()
+   WsfPlatform first = WsfSimulation.FindPlatform("epoch_first");
+   WsfPlatform second = WsfSimulation.FindPlatform("epoch_second");
+   
+   # Test that the two platforms are at the same state.
+   Vec3 posDiff = Vec3.Subtract(first.LocationECI(), second.LocationECI());
+   Vec3 velDiff = Vec3.Subtract(first.VelocityECI(), second.VelocityECI());
+   ExpectDouble(posDiff[0], 0.0, 1.0e-12, "X diff");
+   ExpectDouble(posDiff[1], 0.0, 1.0e-12, "Y diff");
+   ExpectDouble(posDiff[2], 0.0, 1.0e-12, "Z diff");
+   ExpectDouble(velDiff[0], 0.0, 1.0e-12, "Vx diff");
+   ExpectDouble(velDiff[1], 0.0, 1.0e-12, "Vy diff");
+   ExpectDouble(velDiff[2], 0.0, 1.0e-12, "Vz diff");
+   
+   # Test that an epoch set before the 'initial_state_eci' is not overwritten.
+   Vec3 posIC = Vec3.Construct(10000000.0, 0.0, 0.0);
+   Vec3 velIC = Vec3.Construct(100.0, 3000.0, -50.0);
+   Vec3 icPosDiff = Vec3.Subtract(posIC, first.LocationECI());
+   Vec3 icVelDiff = Vec3.Subtract(velIC, first.VelocityECI());
+   ExpectBool(Math.Fabs(icPosDiff[0]) > 1.0e-6, true, "IC should not match X");
+   ExpectBool(Math.Fabs(icPosDiff[1]) > 1.0e-6, true, "IC should not match Y");
+   ExpectBool(Math.Fabs(icPosDiff[2]) > 1.0e-6, true, "IC should not match Z");
+   ExpectBool(Math.Fabs(icVelDiff[0]) > 1.0e-6, true, "IC should not match Vx");
+   ExpectBool(Math.Fabs(icVelDiff[1]) > 1.0e-6, true, "IC should not match Vy");
+   ExpectBool(Math.Fabs(icVelDiff[2]) > 1.0e-6, true, "IC should not match Vz");
+end_script
+
+observer
+   enable SIMULATION_STARTING Test
+end_observer

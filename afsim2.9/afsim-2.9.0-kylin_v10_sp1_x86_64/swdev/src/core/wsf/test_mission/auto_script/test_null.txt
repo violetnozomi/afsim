@@ -1,0 +1,34 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#script_listing on
+on_initialize
+   bool ok = true;
+   WsfGeoPoint unset;
+   ok = ok && (null == unset);
+   ok = ok && (null == null);
+   ok = ok && (unset == null);
+   WsfGeoPoint set = WsfGeoPoint();
+   ok = ok && (set != null);
+   ok = ok && (null != set);
+   ok = ok && (null.IsValid() == false);
+   Map<int,int> p = {}; #Map<int,int>();
+   ok = ok && (true == (p || null));
+   ok = ok && (true == (null || p));
+   ok = ok && (false == (p && null));
+   ok = ok && (false == (null && p));
+   if (! ok)
+   {
+      writeln("-FAIL-");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_on_initialize

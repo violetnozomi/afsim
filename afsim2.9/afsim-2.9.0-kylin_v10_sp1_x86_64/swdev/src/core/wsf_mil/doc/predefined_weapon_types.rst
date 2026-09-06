@@ -1,0 +1,19 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _Predefined_Weapon_Types:
+
+Predefined Weapon Types
+-----------------------
+
+* :model:`WSF_CUED_LASER_WEAPON`
+* :model:`WSF_EXPLICIT_WEAPON`
+* :model:`WSF_IMPLICIT_WEAPON`
+* :model:`WSF_LASER_WEAPON`
+* :model:`WSF_RF_JAMMER`

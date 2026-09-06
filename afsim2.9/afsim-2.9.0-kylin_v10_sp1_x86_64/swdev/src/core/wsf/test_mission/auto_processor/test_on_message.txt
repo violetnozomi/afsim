@@ -1,0 +1,93 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# ==================================================================================================
+# Tests on_message handling of WsfTrackDropMessage. WSF_DROP_TRACK_MESSAGE and WSF_TRACK_DROP_MESSAGE
+# should both catch the message.
+# ==================================================================================================
+
+platform tracker WSF_PLATFORM
+   side red
+   position 39n 90w
+
+   script_variables
+      bool FOUND_DROP_TRACK = false;
+      bool FOUND_TRACK_DROP = false;
+   end_script_variables
+
+   add sensor radar WSF_GEOMETRIC_SENSOR
+      frame_time 1 sec
+      on
+      reports_location
+      internal_link proc-1
+      internal_link proc-2
+    end_sensor
+
+    add processor proc-1 WSF_SCRIPT_PROCESSOR
+       on_message
+          type WSF_DROP_TRACK_MESSAGE
+             script
+                extern bool FOUND_DROP_TRACK;
+                FOUND_DROP_TRACK = true;
+                writeln("T=", TIME_NOW, " ", PLATFORM.Name(), ".", Name(),
+                        " WSF_DROP_TRACK_MESSAGE handling message of type ", MESSAGE.Type());
+             end_script
+          default
+             script
+                writeln("T=", TIME_NOW, " ", PLATFORM.Name(), ".", Name(),
+                        " default handling message of type ", MESSAGE.Type());
+             end_script
+       end_on_message
+    end_processor
+
+    add processor proc-2 WSF_SCRIPT_PROCESSOR
+       on_message
+          type WSF_TRACK_DROP_MESSAGE
+             script
+                extern bool FOUND_TRACK_DROP;
+                FOUND_TRACK_DROP = true;
+                writeln("T=", TIME_NOW, " ", PLATFORM.Name(), ".", Name(),
+                        " WSF_TRACK_DROP_MESSAGE handling message of type ", MESSAGE.Type());
+             end_script
+          default
+             script
+                writeln("T=", TIME_NOW, " ", PLATFORM.Name(), ".", Name(),
+                        " default handling message of type ", MESSAGE.Type());
+             end_script
+       end_on_message
+    end_processor
+
+    script void on_platform_deleted()
+       bool pass = true;
+       if (! FOUND_DROP_TRACK)
+       {
+          writeln("-FAIL- WSF_DROP_TRACK_MESSAGE handler never called");
+          pass = false;
+       }
+       if (! FOUND_TRACK_DROP)
+       {
+          writeln("-FAIL- WSF_TRACK_DROP_MESSAGE handler never called");
+          pass = false;
+       }
+       if (pass) writeln("-PASS-");
+    end_script
+end_platform
+
+platform target WSF_PLATFORM
+   icon 737
+   side red
+   position 40n 90w altitude 30000 ft
+
+   execute at_time 4 sec absolute
+      DeletePlatform();
+   end_execute
+end_platform
+
+end_time 10 sec
+

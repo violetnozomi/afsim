@@ -1,0 +1,120 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the throttle table and explicit throttle control of WSF_GUIDED_MOVER and WSF_GUIDANCE_COMPUTER
+
+include setup_test_gm.txt
+
+mover SSM_MOVER SSM_MOVER_BASE
+   stage 1  # edit stage 1
+      
+      # With this table all fuel should be exhausted after 95 sec
+      # (45 / 1 + 45 / 0.9 = 45 + 50 = 95.)
+      throttle
+         curve independent_variable time
+              0.0   sec 1.0
+             45.0   sec 1.0
+             45.001 sec 0.9
+            999.0   sec 0.9     # By using a large time we will run until empty
+         end_curve
+         
+      thrust_duration 0 sec     # Overide so all fuel is used...
+   end_stage
+
+   # In stage 2 we will be explicitly commanding via script. No changes should be necessary.
+   
+end_mover
+
+processor SSM_GUIDANCE SSM_GUIDANCE_BASE
+   # ASCENT goes until stage 2 ignites
+   phase ASCENT
+      guidance_delay                   2000.0 sec
+      next_phase MID_COURSE when stage_ignition
+   end_phase
+   
+   # MID_COURSE goes until 20 seconds after ignition (just an example)
+   phase MID_COURSE
+      guidance_delay                   2000.0 sec
+      next_phase COAST when phase_time >= 20.0 sec
+   end_phase
+   
+   # COAST goes for 10 seconds. The engines are cut off during this time. (just an example)
+   phase COAST
+      on_entry
+         SetCommandedThrottle(0.0);    # Cut the engines
+      end_on_entry
+      
+      on_exit
+         # In this case 'SetCommandedThrottle(1.0)' or 'ClearCommandedThrottle()' could be used.
+         # The first will override an mover defined throttle table while the later resumes the
+         # will resume use of the table (if defined) or the default of 1.0.
+         
+         ClearCommandedThrottle();     # Restart the engines
+         #SetCommandedThrottle(1.0);    # Restart the engines
+      end_on_exit   
+
+      # 'guidance_delay' can't be used even though we are ballistic.
+      # Throttle commands require guidance to be active.
+      
+      program NULL_PROGRAM end_program      
+      
+      next_phase TERMINAL when phase_time >= 10.0 sec       # Just an example
+   end_phase
+   
+   phase TERMINAL
+      guidance_delay 2000.0 sec
+   end_phase
+end_processor
+
+###############################################################################
+
+platform_type SSM SSM_BASE
+   mover SSM_MOVER end_mover
+   processor guidance SSM_GUIDANCE end_processor
+   
+   script_variables
+      double mIgnitionTime = 0;
+   end_script_variables
+  
+   script void on_stage_ignition(int aStage)
+     mIgnitionTime = TIME_NOW;
+   end_script
+   
+   script void on_stage_burnout(int aStage)
+      if (aStage <= 2)
+      {
+         double burnTime = TIME_NOW - mIgnitionTime;
+         double expectedBurnTime = 95.0; # Assume stage 1
+         if (aStage == 2) expectedBurnTime = 46.0;  # 36 + 10 of zero-throttle
+         string passFail = "-PASS-";
+         if (Math.Fabs(burnTime - expectedBurnTime) < 0.1)
+         {
+            gPassCount = gPassCount + 1;
+         }
+         else
+         {
+            passFail = "-FAIL-";
+         }
+         writeln(passFail, " Stage ", aStage, ", actual burn time: ", burnTime, ", expected: ", expectedBurnTime);
+      }
+   end_script
+end_platform_type
+
+###############################################################################
+
+platform launcher SSM_LAUNCHER
+   execute at_time  1 sec relative Launch(); end_execute
+end_platform
+
+on_initialize
+  gExpectedPassCount = 2; # Define the expected pass count in setup_test_gm.txt
+end_on_initialize
+
+# We only have to run until the second stage burns out
+end_time 150 sec

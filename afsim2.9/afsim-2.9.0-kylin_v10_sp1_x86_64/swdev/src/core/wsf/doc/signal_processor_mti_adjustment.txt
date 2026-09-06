@@ -1,0 +1,72 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _signal_processor.mti_adjustment:
+
+mti_adjustment
+**************
+
+.. block:: signal_processor.mti_adjustment
+
+.. parsed-literal::
+
+   signal_processor [mti_adjustment | gmti_adjustment]
+      mti_adjustment_table_ ...
+      gmti_adjustment_table_ <file-name>
+      mti_adjustment_file_ <file-name>
+      mti_adjustment_compound_file_ ...
+      mti_maximum_range_ <length-value>
+   end_signal_processor
+
+.. command:: mti_adjustment_table
+.. command:: gmti_adjustment_table
+
+   Defines a function that attempts to capture the effect that a slow moving target is harder for a MTI sensor to detect that a faster moving target of the same size, and that the effect is non-linear. The function defines an adjustment factor (degradation of the received signal) versus either the closing speed or Doppler frequency. The table is defined using one of the following two forms:
+
+   .. parsed-literal::
+
+    # adjustment vs. closing_speed
+    mti_adjustment_table  //(or gmti_adjustment)
+       closing_speed <speed-value> speed-1 adjustment <db-ratio-value> adjustment-1
+       closing_speed <speed-value> speed-2 adjustment <db-ratio-value> adjustment-2
+       ...
+       closing_speed <speed-value> speed-n adjustment <db-ratio-value> adjustment-n
+    end_mti_adjustment
+
+    # adjustment vs. doppler_frequency
+    mti_adjustment_table  //(or gmti_adjustment)
+       doppler_frequency <frequency-value> frequency-1 adjustment <db-ratio-value> adjustment-1
+       doppler_frequency <frequency-value> frequency-2 adjustment <db-ratio-value> adjustment-2
+       ...
+       doppler_frequency <frequency-value> frequency-n adjustment <db-ratio-value> adjustment-n
+    end_mti_adjustment
+
+   There must be at least two entries and the closing_speed/doppler_frequency values must be monotonically increasing. If negative values are provided then the table is assumed to be asymmetric. If no negative closing_speed/doppler_frequency values are provided then the table is assumed to be symmetric, and the absolute value of the closing speed/doppler frequency will be used to perform the evaluation. If negative values are provided then the table is assumed to by asymmetric, with positive values represent closing targets and negative values represent receding targets.
+
+   Closing speeds or Doppler frequencies that exceed the limits of the table will be clamped to the appropriate endpoint. The *<adjustment-n>* values represent the adjustment to be applied, and are typically negative dB values.
+
+   .. note::
+      This table may be using alone or in combination with the minimum_doppler_speed_ and maximum_doppler_speed_ commands documented above. The minimum_doppler_speed_ and maximum_doppler_speed_ commands are simply coarse filters, and should have generous limits when employed in conjunction with this command.
+
+.. command:: mti_adjustment_file <file-name>
+
+   Specifies an external MTI table in a comma-separated-value (CSV) file.  The file should have one header row and two columns.  The 1st column is the independent speed values, while the 2nd column is the dependent attenuation values. All entries should be unit-less.  This table only supports speed and dB entries.  The assumed units are m/sec and dB.
+
+.. command:: mti_adjustment_compound_file <file-name>
+
+   Specifies an external MTI table in a comma-separated-value (CSV) file.  The file should have one header row and 'more' than two columns.  The last column is the dependent attenuation, while all preceding columns are independent speed values which all map to the dependent attenuation.  The convention is that each independent column represents a different frequency, and that frequency is indicated in its header.  For example, a column header of "ATTN (db) 30" is the column for 30 MHz. The dependent attenuation column entry can by any string.  All entries should be unit-less. Excluding the header, this table only supports speed and dB entries.  The assumed units are m/sec and dB.
+
+.. command:: mti_maximum_range <length-value>
+
+   Specifies a maximum range to be used with the MTI "tables" only.  If the target is farther away, any MTI table will NOT be applied.
+
+   Default: Infinity
+
+.. end::
+

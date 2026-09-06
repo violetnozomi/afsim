@@ -1,0 +1,70 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once default_formation.txt
+include_once ../scripts/utils.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 11 min
+
+script_variables
+   WsfSixDOF_Formation alpha;
+   WsfSixDOF_Formation beta;
+   WsfSixDOF_Formation cancel;
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 min absolute
+   alpha = WsfSixDOF_FormationManager.GetFormation("yankee.alpha");
+   beta = WsfSixDOF_FormationManager.GetFormation("zulu.beta");
+   cancel = WsfSixDOF_FormationManager.GetFormation("zulu.alpha");
+   
+   allPassed = ExpectBool(alpha.IsAttached(), true, "yankee.alpha should be attached") && allPassed;
+   allPassed = ExpectBool(beta.IsAttached(), false, "zulu.beta should be detached") && allPassed;
+   allPassed = ExpectBool(cancel.IsAttached(), false, "zulu.alpha should be detached") && allPassed;
+end_execute
+
+execute at_time 2 min absolute
+   WsfSixDOF_FormationDetachCommand commAlpha = WsfSixDOF_FormationDetachCommand.Construct();
+   commAlpha.SetConstraint(WsfSixDOF_FormationCommandConstraint.AT_TIME(130.0));
+   alpha.ExecuteCommand(commAlpha);
+   
+   WsfSixDOF_FormationAttachCommand commBeta = WsfSixDOF_FormationAttachCommand.Construct();
+   commBeta.SetConstraint(WsfSixDOF_FormationCommandConstraint.AT_TIME(500.0));
+   beta.ExecuteCommand(commBeta);
+   
+   WsfSixDOF_FormationAttachCommand commCancel = WsfSixDOF_FormationAttachCommand.Construct();
+   commCancel.SetConstraint(WsfSixDOF_FormationCommandConstraint.AT_TIME(500.0));
+   cancel.ExecuteCommand(commCancel);
+end_execute
+
+execute at_time 3 min absolute
+   allPassed = ExpectBool(alpha.IsAttached(), false, "yankee.alpha should be detached") && allPassed;
+   allPassed = ExpectBool(beta.IsAttached(), false, "zulu.beta should be detached") && allPassed;
+   allPassed = ExpectBool(cancel.IsAttached(), false, "zulu.alpha should be detached") && allPassed;
+   cancel.GetCurrentCommand().Cancel();
+end_execute
+
+execute at_time 10 min absolute
+   allPassed = ExpectBool(alpha.IsAttached(), false, "yankee.alpha should be detached") && allPassed;
+   allPassed = ExpectBool(beta.IsAttached(), true, "zulu.beta should be attached") && allPassed;
+   allPassed = ExpectBool(cancel.IsAttached(), false, "zulu.alpha should be detached") && allPassed;
+end_execute
+
+execute at_time 11 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

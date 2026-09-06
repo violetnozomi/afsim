@@ -1,0 +1,101 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 11 min
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+platform target FA-LGT_RB6
+   side red
+
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   execute at_time 2 s absolute
+      WsfRigidBodySixDOF_Mover mover = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      WsfSixDOF_RollAngleManeuver mvr = WsfSixDOF_RollAngleManeuver.Construct(40.0);
+      mover.ExecuteManeuver(mvr);
+   end_execute
+end_platform
+
+platform chaser FA-LGT_RB6
+   side blue
+
+   route
+      position   21.325n   157.99w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.000n    157.97w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   script_variables
+      double pTestMaxKTAS  = 500.0;
+      double pTestMinKTAS  = 400.0;
+      double pTestMaxGLoad = 7.0;
+      double pTestMinGLoad = 0.0;
+      
+      string pTargetPlatform = "target";
+      double pPursuitDistance = -400.0;
+   end_script_variables
+   
+   execute at_time 10 s absolute
+      WsfSixDOF_PursueManeuver mvr = WsfSixDOF_PursueManeuver.Construct(pTargetPlatform, pPursuitDistance);
+      mvr.SetSpeedKTAS_Max(pTestMaxKTAS);
+      mvr.SetSpeedKTAS_Min(pTestMinKTAS);
+      mvr.SetG_LoadMax(pTestMaxGLoad);
+      mvr.SetG_LoadMin(pTestMinGLoad);
+      
+      allPassed = ExpectString(mvr.GetTargetPlatformName(), pTargetPlatform, "Target platform does not match constructed value") && allPassed;
+      allPassed = ExpectDouble(mvr.GetPursuitDistanceMeters(), pPursuitDistance, 1.0e-6, "Pursuit distance does not match constructed value") && allPassed;
+      
+      WsfRigidBodySixDOF_Mover mover = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      mover.SetBankAngleMax(180.0);
+      mover.SetPitchGLoadMax(8.0);
+      mover.ExecuteManeuver(mvr);
+   end_execute
+   
+   execute at_time 12 s absolute
+      WsfRigidBodySixDOF_Mover mover = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      WsfSixDOF_PursueManeuver mvr = (WsfSixDOF_PursueManeuver)mover.GetCurrentManeuver();
+      allPassed = ExpectBool(mvr.IsValid(), true, "Assigned maneuver should be a PURSUE maneuver") && allPassed;
+   end_execute
+   
+   execute at_time 9 min absolute
+      Vec3 locationChaser = PLATFORM.LocationWCS();
+      
+      WsfRigidBodySixDOF_Mover mover = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      WsfSixDOF_PursueManeuver mvr = (WsfSixDOF_PursueManeuver)mover.GetCurrentManeuver();
+      WsfPlatform targetPlatform = WsfSimulation.FindPlatform(mvr.GetTargetPlatformName());
+      Vec3 locationTarget = targetPlatform.LocationWCS();
+      
+      Vec3 diff = Vec3.Subtract(locationTarget, locationChaser);
+      double diffMag = diff.Magnitude();
+      
+      allPassed = ExpectDouble(diffMag,
+                  MATH.Fabs(pPursuitDistance),
+                  MATH.Fabs(pPursuitDistance * 0.02), // Tolerance of 2 % of target separation
+                   "Pursuing platform did not achieve target") && allPassed;
+   end_execute
+end_platform
+
+execute at_time 10 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }   
+end_execute  

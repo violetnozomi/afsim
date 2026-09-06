@@ -1,0 +1,102 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the member and static forms of IsA_TypeOf.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+comm DATALINK WSF_COMM_TRANSCEIVER
+end_comm
+
+mover SAM_MOVER WSF_GUIDED_MOVER
+end_mover
+
+processor THINKER WSF_SCRIPT_PROCESSOR
+end_processor
+
+platform_type SAM WSF_PLATFORM
+   mover SAM_MOVER end_mover
+end_platform_type
+
+weapon SAM WSF_EXPLICIT_WEAPON
+   launched_platform_type SAM
+end_weapon
+
+sensor RADAR WSF_RADAR_SENSOR
+   frame_time 1 sec
+   transmitter
+      power 1 mw
+      frequency 1 ghz
+   end_transmitter
+   reports_location
+end_sensor
+
+platform_type LAUNCHER WSF_PLATFORM
+end_platform_type
+
+platform launcher LAUNCHER
+   add mover WSF_AIR_MOVER end_mover
+   add comm      datalink DATALINK end_comm 
+   add processor thinker  THINKER end_processor
+   add sensor    radar    RADAR end_sensor
+   add weapon    sam      SAM end_weapon
+   
+   execute at_time 1 sec relative
+      bool b1;
+      bool b2;
+      bool b3;
+      bool b4;
+
+      b1 = IsA_TypeOf("LAUNCHER");
+      b2 = IsA_TypeOf("SAM");
+      b3 = WsfPlatform.IsA_TypeOf("LAUNCHER", "WSF_PLATFORM");
+      b4 = WsfPlatform.IsA_TypeOf("LAUNCHER", "SAM");
+      writeln("PLATFORM  ", b1, " ", b2, " ", b3, " ", b4);
+      if ((! b1) || b2 || (! b3) || b4) writeln("-FAIL- PLATFORM");
+      
+      b1 = Comm("datalink").IsA_TypeOf("WSF_COMM_TRANSCEIVER");
+      b2 = Comm("datalink").IsA_TypeOf("WSF_RADIO_TRANSCEIVER");
+      b3 = WsfComm.IsA_TypeOf("DATALINK", "WSF_COMM_TRANSCEIVER");
+      b4 = WsfComm.IsA_TypeOf("DATALINK", "WSF_RADIO_TRANSCEIVER");
+      writeln("COMM      ", b1, " ", b2, " ", b3, " ", b4);
+      if ((! b1) || b2 || (! b3) || b4) writeln("-FAIL- COMM");
+      
+      b1 = Mover().IsA_TypeOf("WSF_AIR_MOVER");
+      b2 = Mover().IsA_TypeOf("WSF_GROUND_MOVER");
+      b3 = WsfMover.IsA_TypeOf("SAM_MOVER", "WSF_GUIDED_MOVER");
+      b4 = WsfMover.IsA_TypeOf("SAM_MOVER", "WSF_AIR_MOVER");
+      writeln("MOVER     ", b1, " ", b2, " ", b3, " ", b4);
+      if ((! b1) || b2 || (! b3) || b4) writeln("-FAIL- MOVER");
+      
+      b1 = Processor("thinker").IsA_TypeOf("WSF_SCRIPT_PROCESSOR");
+      b2 = Processor("thinker").IsA_TypeOf("WSF_TASK_PROCESSOR");
+      b3 = WsfProcessor.IsA_TypeOf("THINKER", "WSF_SCRIPT_PROCESSOR");
+      b4 = WsfProcessor.IsA_TypeOf("THINKER", "WSF_TASK_PROCESSOR");
+      writeln("PROCESSOR ", b1, " ", b2, " ", b3, " ", b4);
+      if ((! b1) || b2 || (! b3) || b4) writeln("-FAIL- PROCESSOR");
+      
+      b1 = Sensor("radar").IsA_TypeOf("WSF_RADAR_SENSOR");
+      b2 = Sensor("radar").IsA_TypeOf("WSF_GEOMETRIC_SENSOR");
+      b3 = WsfSensor.IsA_TypeOf("RADAR", "WSF_RADAR_SENSOR");
+      b4 = WsfSensor.IsA_TypeOf("RADAR", "WSF_GEOMETRIC_SENSOR");
+      writeln("SENSOR    ", b1, " ", b2, " ", b3, " ", b4);
+      if ((! b1) || b2 || (! b3) || b4) writeln("-FAIL- SENSOR");
+      
+      b1 = Weapon("sam").IsA_TypeOf("WSF_EXPLICIT_WEAPON");
+      b2 = Weapon("sam").IsA_TypeOf("WSF_IMPLICIT_WEAPON");
+      b3 = WsfWeapon.IsA_TypeOf("SAM", "WSF_EXPLICIT_WEAPON");
+      b4 = WsfWeapon.IsA_TypeOf("SAM", "WSF_IMPLICIT_WEAPON");
+      writeln("WEAPON    ", b1, " ", b2, " ", b3, " ", b4);
+      if ((! b1) || b2 || (! b3) || b4) writeln("-FAIL- WEAPON");
+   end_execute
+end_platform
+
+end_time 2 sec
+

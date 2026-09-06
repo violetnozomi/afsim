@@ -1,0 +1,51 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the Phase method on WsfGuidanceComputer
+
+include_once ../auto_script/test_pass.txt
+include_once ../auto_script/test_functions.txt
+include_once platforms/test_platform.txt
+ 
+end_time 20 sec
+
+script_variables 
+   PassTestCount = 2;
+end_script_variables
+
+platform_type TEST_PLATFORM TEST_PLATFORM_BASE
+
+   execute at_time 5 s absolute
+   if (AssertStringEqualsMessage("one", ((WsfGuidanceComputer)Processor("guidance")).Phase(), "Phase")) pass();
+   end_execute
+
+   execute at_time 15 s absolute
+   if (AssertStringEqualsMessage("two", ((WsfGuidanceComputer)Processor("guidance")).Phase(), "Phase")) pass();
+   end_execute
+   
+   processor guidance WSF_GUIDANCE_COMPUTER
+      phase one
+         next_phase two when phase_time >= 10 s
+      end_phase
+      phase two
+      end_phase
+   end_processor
+
+end_platform_type
+
+platform launcher WSF_PLATFORM
+   add weapon test_weapon WSF_EXPLICIT_WEAPON
+      quantity 1
+      launched_platform_type TEST_PLATFORM
+   end_weapon
+
+   on_initialize2 
+      Weapon("test_weapon").Fire();
+   end_on_initialize2
+end_platform

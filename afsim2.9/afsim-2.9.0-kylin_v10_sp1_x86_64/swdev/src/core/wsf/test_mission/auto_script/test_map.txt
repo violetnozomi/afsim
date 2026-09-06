@@ -1,0 +1,90 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include test_functions.txt
+include test_pass.txt
+
+script Array MapIteratorCompare(MapIterator aIter, string aExpectedKey, Object aExpectedData)
+   Array retValue = Array();
+   retValue.PushBack(assertEquals((string)aIter.Key(), aExpectedKey));
+   retValue.PushBack(assertEquals(aExpectedData, aIter.Data()));
+   return retValue;
+end_script
+
+script_variables
+   PassTestCount = 17;
+end_script_variables
+
+on_initialize
+
+   Map<string, string> map1 = Map<string, string>();
+   map1["a"] = "Some Data";
+
+   if (AssertTrueMessage(map1.KeySet() == {"a"}, "Unexpected KeySet for map1")) { pass(); }
+
+   Map<string, string> hiMap = {"hi": "HI"};
+   if (AssertTrueMessage(hiMap.KeySet() == {"hi"}, "Unexpected KeySet for hiMap"))            { pass(); }
+   if (AssertFalseMessage(hiMap.Exists(WsfTrack()), "hiMap.Exists incorrectly returns true")) { pass(); }
+   if (AssertTrueMessage(map1["invalid"] == "", "map[invalid] is not empty"))                 { pass(); }
+   if (AssertTrueMessage(!map1.Empty(), "map.Empty() incorrectly returns false"))             { pass(); }
+
+   Array<string> keys = { "a", "b", "c" };
+   Array<Object> Datas = { "hello", 1.23, 5 };
+
+   Map<string, Object> map2 = Map<string, Object>();
+   for(int i = 0; i < keys.Size(); i = i + 1)
+   {
+      map2[keys[i]] = Datas[i];
+   }
+   if (AssertTrueMessage(map2.KeySet() == {"a", "b", "c"}, "Unexpected KeySet for map2"))     { pass(); }
+
+   // Test the map iterator
+   MapIterator mapIter = map2.GetIterator();
+   Array<int> matchCount = Array<int>();
+   for (int i = 0; i < keys.Size(); i = i + 1)
+   {
+      matchCount.PushBack(0);
+   }
+   for (; mapIter.HasNext();)
+   {
+      mapIter.Next();
+      for(int i = 0; i < keys.Size(); i = i + 1)
+      {
+         Array retValue;
+         retValue = MapIteratorCompare(mapIter, keys[i], Datas[i]);
+         if ((bool)retValue.Get(0))
+         {
+            matchCount[i] = 1 + matchCount[i];
+         }
+      }
+   }
+   for(int i = 0; i < keys.Size(); i = i + 1)
+   {
+      if (AssertEqualsMessage(1, matchCount[i], "MapIterator key " + (string)keys[i] + " count")) { pass(); }
+   }
+
+   int i = 0;
+   for (i = 0; i < map2.Size(); i = i + 1)
+   {
+      string key = (string)map2.ElementKeyAtIndex(i);
+      if (AssertEqualsMessage(keys[i], key, "ElementKeyAtIndex")) { pass(); }
+   }
+
+   # Verify we can use null as both key and value
+   Map<Object, Object> nullTester = {};
+   if (AssertTrueMessage(nullTester.KeySet().Empty(), "Unexpected KeySet for nullTester"))      { pass(); }
+   nullTester[null] = 2;
+   nullTester[null] = 1; # should overwrite 2
+   nullTester[1] = null;
+   if (AssertEqualsMessage(nullTester.Size(), 2, "Null not inserted correctly"))                { pass(); }
+   if (AssertTrueMessage(nullTester.Erase(1), "nullTester.Erase incorrectly returns false"))    { pass(); }
+   if (AssertTrueMessage(nullTester.Erase(null), "nullTester.Erase incorrectly returns false")) { pass(); }
+   if (AssertTrueMessage(nullTester.Empty(), "Null not removed correctly"))                     { pass(); }
+
+end_on_initialize

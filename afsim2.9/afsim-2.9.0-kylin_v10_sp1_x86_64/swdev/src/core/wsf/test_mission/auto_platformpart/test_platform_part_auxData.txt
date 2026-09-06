@@ -1,0 +1,86 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Filename: test_platform_part_auxData.txt
+# This file tests the command inputs & methods of the Platform Part Auxiliary data.
+
+include_once ../auto_script/test_functions.txt
+
+script_variables
+   global bool pass = true;
+end_script_variables
+
+platform radar_platform WSF_PLATFORM
+   add sensor myRadar WSF_RADAR_SENSOR
+      aux_data
+         bool myBool = false
+         int myInt = 23
+         double myDouble = 24.0
+         string myString = "itIsMyString"
+      end_aux_data
+
+      # the configuration below does not fall under the category of testing
+      reports_range
+
+      frame_time 1.0 sec
+
+      beam 1
+         transmitter
+            power 10 watts
+            frequency 10 hz
+         end_transmitter
+         receiver
+            frequency 12 hz
+         end_receiver
+      end_beam
+
+   end_sensor
+
+   on_initialize
+      extern bool pass;
+      extern bool AssertEqualsMessage(Object, Object, string);
+      extern void writePass(bool);
+
+      WsfSensor mySensor = PLATFORM.Sensor("myRadar");
+
+      # Test the auxiliary methods
+      pass = AssertEqualsMessage(mySensor.AuxDataBool("myBool"), false,
+                                 "Auxiliary boolean value is not as expected.") && pass;
+
+      pass = AssertEqualsMessage(mySensor.AuxDataInt("myInt"), 23,
+                                 "Auxiliary integer value is not as expected.") && pass;
+
+      pass = AssertEqualsMessage(mySensor.AuxDataDouble("myDouble"), 24.0,
+                                 "Auxiliary double value is not as expected.") && pass;
+
+      pass = AssertEqualsMessage(mySensor.AuxDataString("myString"), "itIsMyString",
+                                 "Auxiliary string value is not as expected.") && pass;
+
+      # Call the auxiliary mutators, they'll be checked on the next execute call...
+      mySensor.SetAuxData("myBool", true);
+      mySensor.SetAuxData("myInt", 55);
+      mySensor.SetAuxData("myDouble", 77.0);
+      mySensor.SetAuxData("myString", "myValueChanged");
+
+      # Test the results of the auxiliary mutators...
+      pass = AssertEqualsMessage(mySensor.AuxDataBool("myBool"), true,
+                                 "Auxiliary boolean value is not as expected after mutator call.") && pass;
+
+      pass = AssertEqualsMessage(mySensor.AuxDataInt("myInt"), 55,
+                                 "Auxiliary integer value is not as expected after mutator call.") && pass;
+
+      pass = AssertEqualsMessage(mySensor.AuxDataDouble("myDouble"), 77.0,
+                                 "Auxiliary double value is not as expected after mutator call.") && pass;
+
+      pass = AssertEqualsMessage(mySensor.AuxDataString("myString"), "myValueChanged",
+                                 "Auxiliary string value is not as expected after mutator call.") && pass;
+
+      writePass(pass);
+   end_on_initialize
+end_platform

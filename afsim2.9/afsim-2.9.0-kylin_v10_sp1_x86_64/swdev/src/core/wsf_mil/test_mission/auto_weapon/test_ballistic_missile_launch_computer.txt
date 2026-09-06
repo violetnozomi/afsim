@@ -1,0 +1,56 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of WSF_BALLISTIC_MISSILE_LAUNCH_COMPUTER inputs.
+#
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+launch_computer TEST WSF_BALLISTIC_MISSILE_LAUNCH_COMPUTER
+   maximum_slant_range 1 m
+   maximum_intercept_slant_range 1 m
+   minimum_intercept_altitude 1 m
+   maximum_intercept_altitude 1000 m
+   minimum_intercept_velocity 1 m/s
+   minimum_impact_velocity 1 m/s
+   integration_timestep 0.1 sec
+   integration_time_step 0.1 sec
+   ground_range_sample_interval 1 m
+   solution_validity_time 1 sec
+   predicted_trajectory_error_limit 1 m
+   allow_boost_phase_intercept false
+   compute_end_point false
+   show_results
+   debug_file_loading
+   intercept_track_location
+   intercept_truth_location
+   # The following are not included because the files are opened during input processing.
+   #surface_to_air_table sa.txt
+   #surface_to_surface_table ss.txt
+   
+#   ballistic_missile_launch_computer
+   target_data XXXX
+      mass 1 kg
+      aero XXXX_AERO
+   end_target_data
+#   end_ballistic_missile_launch_computer
+
+   # Make sure the base class input is attempted
+   
+   debug
+end_launch_computer
+
+ballistic_missile_launch_computer
+   target_data TARGET
+      mass 1 kg
+      aero TARGET_AERO
+   end_target_data
+end_ballistic_missile_launch_computer
+
+      

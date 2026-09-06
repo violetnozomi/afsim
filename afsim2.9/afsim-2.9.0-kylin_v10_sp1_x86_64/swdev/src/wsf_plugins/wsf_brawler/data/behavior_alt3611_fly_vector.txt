@@ -1,0 +1,146 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+// converted from BRAWLER v7.5 alt36.f
+// Replicates the blah blah 3,6,1,1 alternative behavior
+// blah blah
+// alt3611_fly_vector
+
+behavior alt3611_fly_vector
+
+   script_debug_writes off
+   
+   script_variables
+
+      WsfBrawlerProcessor       BRAWLER;
+      WsfPerceptionProcessor    perception;
+      WsfLocalTrack             targetTrack;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+    
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//    
+      // Flag used to enable/disable this alternative
+      bool mAlternative3611Enabled = true;
+      
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 6;
+      int icall  = 1;
+      int lcall  = 1;
+      
+      double mMaxSustainedG = 2.0;
+      
+      double mLongRange = 5.0 * Math.M_PER_NM();
+      
+      Vec3 dir0;
+      double gmx = 1.0;
+      double spd0 = 3.0;
+
+      // ALSO NEED:
+      // randomization to simulate imperfect decision making, valsig, read from MIND file, typically ~0.01
+      // Production rule bias, used in scoring of alternative
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+      
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt33841_aim_missile_typ4, T=", TIME_NOW);
+      
+      ### Evaluate conditions that would prevent behavior alternative from running
+      
+      if (!PROCESSOR.IsA_TypeOf("WSF_QUANTUM_TASKER_PROCESSOR"))
+      {
+         writeln_d("not a quantum tasker!");
+         return Failure("behavior not attached to a WSF_QUANTUM_TASKER_PROCESSOR");
+      }
+
+      ### check if alternative should even be considered?
+      
+      if (!mAlternative3611Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+      
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         return Failure("no weapon (target) tasks!");
+      }
+      WsfTask targetTask = tasks.Entry(0);
+      targetTrack = PLATFORM.MasterTrackList().Find(targetTask.LocalTrackId());
+      if (!targetTrack.IsValid())
+      {
+         return Failure("no target track!");
+      }
+
+
+
+      extern Vec3   vecfpp;
+      extern double valfpp;
+      extern double sflypp;
+   #alt36()
+      #iactn = 4
+   #set_gmx()
+      Vec3 vv = vecfpp.Normal();
+      dir0 = desvvi(BRAWLER, vv, sflypp);
+      spd0 = dir0.Magnitude();
+      dir0.Normalize();
+      
+      //spdmod = desspd;
+      //call indupk(altd1,tac_ilevel,tac_kalt,tac_icall,tac_lcall);
+      //if (tac_kalt.ne.8 .or. tac_icall.ne.2) then
+         if ((PLATFORM.Speed()*MATH.FT_PER_M()) <= spd0+100.0)
+         {
+            double gmxsut = BRAWLER.MaxSustainedGs();
+            double gmxsu = BRAWLER.MaxTacticalGs();
+            double wt = ramp(spd0 - 100.0, PLATFORM.Speed()*MATH.FT_PER_M(),spd0+100.0);
+            gmx = wt*MATH.Max(2.0,MATH.Max(gmxsut,gmxsu)) + (1.0-wt)*MATH.Min(gmxsut,gmxsu);
+            gmx = MATH.Max(gmx,2.0);
+         }
+         else
+         {
+            gmx = BRAWLER.MaxAvailableGs();  #gmxin;
+         }
+      //else
+         #LBM - not doing GCI drag tactic (1,8,2,1) right now
+         //...
+      //endif
+      spd0 *= MATH.M_PER_FT();
+      double score = BRAWLER.EvaluateVectorWithSpeed(dir0, gmx, spd0, ilevel, kalt, icall, lcall);
+      writeln_d("alt3611_fly_vector score = ", score);
+      return score;
+
+   end_precondition
+
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.FlyVectorWithSpeed(dir0, gmx, spd0);
+   end_execute
+
+end_behavior
+

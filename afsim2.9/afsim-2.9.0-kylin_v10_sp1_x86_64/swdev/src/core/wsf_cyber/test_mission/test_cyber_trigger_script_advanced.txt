@@ -1,0 +1,161 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test checks for advanced usage cases for the trigger via script.
+# Specifically, it ensures that triggers are modified correctly via
+# the script context using available accessors/mutators.
+# The behavior tested here should remain consistent despite any
+# other modifications in AFSIM.
+
+script_variables
+   int global_evals = 0;
+   int global_execs = 0;
+   int platform_evals = 0;
+   int platform_execs = 0;
+end_script_variables
+
+cyber_trigger test_trigger WSF_CYBER_TRIGGER
+   extrapolated_trigger false
+   execute_trigger false
+   update_interval
+      every 4.7 s
+   end_update_interval
+   
+   script bool OnEvaluate()
+      platform_evals = platform_evals + 1;
+   
+      if (TIME_NOW < 5.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+   
+   script void OnExecute()
+      platform_execs = platform_execs + 1;
+   end_script
+end_cyber_trigger
+
+cyber_trigger test_global_trigger WSF_CYBER_TRIGGER
+   debug
+   extrapolated_trigger true
+   execute_trigger true
+   update_interval
+      to 10.0 s every 4.3 s
+   end_update_interval
+   
+   script bool OnEvaluate()
+      global_evals = global_evals + 1;
+   
+      if (TIME_NOW < 5.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+   
+   script void OnExecute()
+      global_execs = global_execs + 1;
+   end_script
+
+end_cyber_trigger
+
+platform test1 WSF_PLATFORM
+   add cyber_trigger platform_test1_trigger1 test_trigger
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+execute at_time 1 s absolute
+   WsfCyberTrigger globalTrigger = WsfCyberTrigger.GetTrigger("test_global_trigger");
+   
+   // The triggers have done nothing at this point.
+   // The global trigger will eval at 4.3s and 8.6s, and execute at 8.6s.
+   // It is set to extrapolate, but the interval defined will prevent this.
+   // As such, add an additional interval so we get more evals and executions.
+   // The result is evals at 4.3, 8.6, 22.4, 27.4, and 32.4
+   // and execs at 8.6, 22.4, 27.4, and 32.4
+   WsfCyberTriggerInterval interval = {};
+   WsfRandomVariable from = {};
+   WsfRandomVariable to = {};
+   WsfRandomVariable every = {};
+   
+   from.Set("constant", 22.4, 0.0, "non_negative");
+   to.Set("constant", 34.0, 0.0, "non_negative");
+   every.Set("constant", 5.0, 0.0, "non_negative");
+   interval.SetFromToEvery(from, to, every);
+   globalTrigger.AddInterval(interval);
+end_execute
+
+execute at_time 9.3 s absolute
+   WsfCyberTrigger platformTrigger = WsfCyberTrigger.GetTrigger("test1", "platform_test1_trigger1");
+   // The platform trigger will eval at 4.7s and 9.4s and execute at 9.4s.
+   // Because it is not set to extrapolate, it will be removed at 9.4s.
+   // We will simply set it to extrapolate to continue executing every 4.7s.
+   platformTrigger.SetExtrapolated(true);
+   
+   // Further, modify the platform trigger so it extrapolates two more times after 9.4s
+   // by adding an interval (at 14.1s and 18.8 s)
+   // The final result is evals at 4.7, 9.4, 14.1, and 18.8
+   // with execs at 9.4, 14.1, and 18.8
+   //
+   // Note, since we are doing this right before the next executing interval, we can safely
+   // clear the existing interval, and the event will still fire using the recently cleared interval.
+   // Further interval usage of the cleared interval is stopped, and the trigger will just use
+   // the interval we are adding.
+   platformTrigger.ClearIntervals();
+   WsfCyberTriggerInterval platformInterval = {};
+   WsfRandomVariable platformFrom = {};
+   WsfRandomVariable platformTo = {};
+   WsfRandomVariable platformEvery = {};
+   platformFrom.Set("constant", 14.1, 0.0, "non_negative");
+   platformTo.Set("constant", 20.0, 0.0, "non_negative");
+   platformEvery.Set("constant", 4.7, 0.0, "non_negative");
+   platformInterval.SetFromToEvery(platformFrom, platformTo, platformEvery);
+   platformTrigger.AddInterval(platformInterval);
+   
+   Array<WsfCyberTriggerInterval> intervals = platformTrigger.GetIntervals();
+   if(intervals.Size() != 1)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong interval size check.");
+      return;
+   }
+end_execute
+
+execute at_time 35 s absolute
+   if(global_evals != 5)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of global_evals.");
+      writeln("Evals counted: " + (string)global_evals);
+   }
+   if(global_execs != 4)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of global_execs.");
+      writeln("Executes counted: " + (string)global_execs);
+   }
+   if(platform_evals != 4)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of platform_evals.");
+      writeln("Evals counted: " + (string)platform_evals);
+   }
+   if(platform_execs != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of platform_execs.");
+      writeln("Executes counted: " + (string)platform_execs);
+   }
+end_execute
+
+end_time 36 s

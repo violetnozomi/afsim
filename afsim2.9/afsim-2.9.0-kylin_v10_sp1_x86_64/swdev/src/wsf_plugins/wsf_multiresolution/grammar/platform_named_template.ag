@@ -1,0 +1,21 @@
+(struct Platform
+   (var ObjectMap/MultiresolutionComponentToReplace multiresolutionComponentToReplaces)
+
+   (rule type-command {
+      multiresolution_component_to_replace <string> <string> (new (subtype multiresolutionComponentToReplaces $1) (type multiresolutionComponentToReplaceType $2) :backup (type multiresolutionComponentToReplaceType WSF_MULTIRESOLUTION_COMPONENT_TO_REPLACE)) [apply($$)]
+         <TypeCommand>*
+      end_multiresolution_component_to_replace
+    })
+
+   (rule instance-command {
+      multiresolution_component_to_replace <string> (load (subtype multiresolutionComponentToReplaces $1)) [apply($$)] <TypeCommand>* end_multiresolution_component_to_replace
+   })
+{
+   add multiresolution_component_to_replace <string> <string> (new (subtype multiresolutionComponentToReplaces $2) (type multiresolutionComponentToReplaceType $3) :backup (type multiresolutionComponentToReplaceType WSF_MULTIRESOLUTION_COMPONENT_TO_REPLACE)) [apply($$)]
+      <TypeCommand>*
+   end_multiresolution_component_to_replace
+ | edit multiresolution_component_to_replace <string> (load (subtype multiresolutionComponentToReplaces $2)) [apply($$)]
+      <TypeCommand>*
+   end_multiresolution_component_to_replace
+ | delete multiresolution_component_to_replace <string> (delete (subtype multiresolutionComponentToReplaces $2)) [apply($$)]
+})

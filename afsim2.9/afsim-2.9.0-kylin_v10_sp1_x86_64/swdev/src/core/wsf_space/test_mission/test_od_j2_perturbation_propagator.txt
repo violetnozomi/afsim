@@ -1,0 +1,100 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 2 2020
+start_time 11:00:00.000
+end_time 5 minutes
+
+platform test WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      oblate_earth enable // j2 perturbation  
+      inclination 0.01 deg
+      eccentricity 0.01
+      semi_major_axis 32000 km
+   end_mover
+end_platform
+
+script_variables
+   bool failed = false; 
+   bool updated = false;
+end_script_variables
+
+script void TestLocationAccuracy(WsfTrack aTrack, WsfPlatform aPlatform)
+   Vec3 trackLoc = aTrack.CurrentLocation().LocationWCS();
+   Vec3 truthLoc = aPlatform.LocationWCS();
+   Vec3 diff = Vec3.Subtract(trackLoc, truthLoc);
+   if (diff.Magnitude() > 5.0)
+   {
+      writeln("-FAIL-", ":", diff.Magnitude(), ", ", trackLoc.Magnitude(), ", ", truthLoc.Magnitude());
+      failed = true;
+   }
+end_script
+
+script void OrbitDeterminationUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack)
+   updated = true;
+   TestLocationAccuracy(aLocalTrack, aLocalTrack.Target()); 
+end_script
+
+script void SimulationComplete()
+   if (updated && (!failed))
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable ORBIT_DETERMINATION_UPDATED
+   enable SIMULATION_COMPLETE
+end_observer
+
+sensor SENSE WSF_GEOMETRIC_SENSOR
+   frame_time 10 s
+   scan_mode both
+   slew_mode both
+   reports_range
+   reports_bearing
+   reports_elevation
+   range_error_sigma 0.00001 m
+   azimuth_error_sigma 0.00000001 deg
+   elevation_error_sigma 0.00000001 deg   
+end_sensor
+
+platform_type RADAR WSF_PLATFORM
+   position 07:36:58.326n 134:30:50.691e
+   add sensor sense SENSE
+      on
+      processor tp
+   end_sensor
+   
+   add processor tp WSF_TRACK_PROCESSOR
+      track_history_retention_interval 1 day
+   end_processor
+end_platform_type
+
+platform radar_automatic_propagator_matching RADAR
+   position 07:36:58.326n 134:30:50.691e
+   track_manager
+      retain_track_history
+      fusion_method orbit_determination
+         process_noise_sigmas_XYZ 1 1 1                    
+      end_fusion_method
+   end_track_manager 
+end_platform
+
+platform radar_configure_propagator RADAR
+   position 07:36:58.326n 134:30:50.691e
+   track_manager
+      retain_track_history
+      fusion_method orbit_determination
+         process_noise_sigmas_XYZ 1 1 1
+         propagator WSF_J2_PERTURBATION_PROPAGATOR
+         end_propagator                    
+      end_fusion_method
+   end_track_manager 
+end_platform

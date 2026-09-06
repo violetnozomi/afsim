@@ -1,0 +1,146 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   global string TEST_PASS_STATEMENT = "-PASS-";
+   global string TEST_FAIL_STATEMENT = "-FAIL-";
+end_script_variables
+
+script bool WithinTolerance(double aTestValue, double aNominal, double aTolerance)
+   double diff = aTestValue - aNominal;
+   if (diff < 0)
+   {
+      diff = -diff;
+   }
+   return (diff <= aTolerance);
+end_script
+
+script string ExpectedReceivedOutput(string dataType, Object aExpected, string aOperation, Object aReceived)
+   string dataTypeString = " " + dataType + ": ";
+   return "   Expected" + dataTypeString + (string)aExpected + " to be " + aOperation + " Received" + dataTypeString + (string)aReceived;
+end_script
+
+// returns true if aExpected == aReceived
+script bool assertEquals(Object aExpected, Object aReceived)
+   // "!=" doesn't implicitly cast so manually try the three types involved within this test
+   if ((((bool)aExpected)   != ((bool)aReceived)) ||
+       (((int)aExpected)    != ((int)aReceived))  ||
+       (((string)aExpected) != ((string)aReceived))
+      )
+   {
+      return false;
+   }
+   return true;
+end_script
+
+// returns true if aExpected <= aReceived
+script bool assertLessThanOrEquals(Object aExpected, Object aReceived)
+   return    (  (bool)aExpected <=   (bool)aReceived)
+          || (   (int)aExpected <= (int)   aReceived)
+          || ((string)aExpected <= (string)aReceived);
+end_script
+
+// returns true if aExpression == true
+// prints out Fail message if false
+script bool AssertTrueMessage(bool aExpression, string aFailureString)
+   if (!aExpression)
+   {
+      writeln(TEST_FAIL_STATEMENT, " ", aFailureString);
+      return false;
+   }
+   return true;
+end_script
+
+// returns true if aExpression == false
+// prints out Fail message if true
+script bool AssertFalseMessage(bool aExpression, string aFailureString)
+   if (aExpression)
+   {
+      writeln(TEST_FAIL_STATEMENT, " ", aFailureString);
+      return false;
+   }
+   return true;
+end_script
+
+// returns true if aExpected == aReceived
+// prints out Fail message if false
+script bool AssertEqualsMessage(Object aExpected, Object aReceived, string aFailureString)
+   if (!AssertTrueMessage(assertEquals(aExpected, aReceived), aFailureString))
+   {
+      writeln(ExpectedReceivedOutput("   Object", aExpected, "=", aReceived));
+      return false;
+   }
+   return true;
+end_script
+
+// returns true if aExpected == aReceived
+// prints out Fail message if false
+script bool AssertDoubleEqualsMessage(double aExpected, double aReceived, string aFailureString)
+   bool value = AssertTrueMessage(assertEquals(aExpected, aReceived), aFailureString);
+   if (!value)
+   {
+      writeln(ExpectedReceivedOutput("   Double", aExpected, "=", aReceived));
+   }
+   return value;
+end_script
+
+// returns true if aExpected == aReceived
+// prints out Fail message if false
+script bool AssertStringEqualsMessage(string aExpected, string aReceived, string aFailureString)
+   bool value = AssertTrueMessage(assertEquals(aExpected, aReceived), aFailureString);
+   if (!value)
+   {
+      writeln(ExpectedReceivedOutput("   String", aExpected, "=", aReceived));
+   }
+   return value;
+end_script
+
+// returns true if aExpected <= aReceived
+// prints out Fail message if false
+script bool AssertLessThanOrEqualsMessage(Object aExpected, Object aReceived, string aFailureString)
+   if (!AssertTrueMessage(assertLessThanOrEquals(aExpected, aReceived), aFailureString))
+   {
+      writeln(ExpectedReceivedOutput("   Object", aExpected, "<=", aReceived));
+      return false;
+   }
+   return true;
+end_script
+
+// returns true if aReceived1 withing aTolerance of aExpected1
+// prints out Fail message if false
+script bool AssertWithinToleranceMessage(double aExpected, double aReceived,
+                                         double aTolerance, string aFailureString)
+   bool ok = WithinTolerance(aReceived, aExpected, aTolerance);
+   if (! ok)
+   {
+      writeln(TEST_FAIL_STATEMENT," ", aFailureString, " Expected: ", aExpected, ", Received: ", aReceived);
+   }
+   return ok;
+   //return AssertTrueMessage(WithinTolerance(aReceived, aExpected, aTolerance), aFailureString);
+end_script
+
+// returns true if (aTargetLat, aTargetLon) == aPlatform.LocationLL() within tolerance .01
+// -FAIL- is printed if this returns false
+script bool AssertLocation(double aTargetLat, double aTargetLon, WsfPlatform aPlatform)
+   bool pass = AssertWithinToleranceMessage(aTargetLat, aPlatform.Latitude(), 0.01, "Latitude invalid")
+            && AssertWithinToleranceMessage(aTargetLon, aPlatform.Longitude(), 0.01, "Longitude invalid");
+   if (pass)
+   {
+      writeln(TEST_PASS_STATEMENT);
+   }
+   return pass;
+end_script
+
+// writes out the Pass statement if input argument is true
+script void writePass(bool aPass)
+   if (aPass)
+   {
+      writeln(TEST_PASS_STATEMENT);
+   }
+end_script

@@ -1,0 +1,385 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test script override of the default PI pruning function.
+# This pruning function only removes low-scoring entities.
+#
+include_once ../auto_script/utility_test_functions.txt
+include_once platforms/tracking_platform.txt
+include_once platforms/target_platform.txt
+
+end_time 1 min
+
+script_variables
+   bool allTestsPassed = true; // any failure turns it false
+end_script_variables
+
+platform red-1-1 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-1-2 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:10w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-1-3 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:20w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-1-4 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:30w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-1-5 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:40w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-1 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:0e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-2 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:10e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-3 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:20e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-4 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:30e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-5 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:40e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3-1 TARGET_PLATFORM
+
+   route
+      position 0:40:0n 0:05:0w
+      altitude 45000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3-2 TARGET_PLATFORM
+
+   route
+      position 0:40:0n 0:05:10w
+      altitude 45000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3-3 TARGET_PLATFORM
+
+   route
+      position 0:40:0n 0:05:20w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3-4 TARGET_PLATFORM
+
+   route
+      position 0:40:0n 0:05:30w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3-5 TARGET_PLATFORM
+
+   route
+      position 0:40:0n 0:05:40w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4-1 TARGET_PLATFORM
+
+   route
+      position 0:35:0n 0:05:0e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4-2 TARGET_PLATFORM
+
+   route
+      position 0:35:0n 0:05:20e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4-3 TARGET_PLATFORM
+
+   route
+      position 0:35:0n 0:05:10e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-1 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:0w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-2 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:10w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-3 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:20w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-4 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:30w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-5 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:40w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+# This platform uses defaults for all SA processor update intervals
+platform platform-1 TEST_PLATFORM
+
+   route
+      position 0:0:0n 0:0:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   edit processor sa-proc
+      max_threat_load 15
+      
+      script Array<WsfSA_PerceivedItem> CreatePerceivedItemPruningArray(Array<WsfSA_PerceivedItem> aItems)
+         // This is a terrible pruning function, but it's just here to demonstate that
+         // this feature works.
+         // It only drops entities until the PI limit is met.
+         WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+         Array<WsfSA_PerceivedItem> ret = Array<WsfSA_PerceivedItem>();
+         int i = 0;
+         while (i < aItems.Size()
+               && proc.CalculatePerceivedItemCount(aItems) - ret.Size() > proc.PerceivedThreatItemLimit())
+         {
+            WsfSA_PerceivedItem item = aItems[i];
+            if (item.ItemType() == 1) // group
+            {
+               // it's a group
+               WsfSA_Group group = (WsfSA_Group)item;
+               foreach (WsfSA_EntityPerception element in group.ElementList())
+               {
+                  ret.PushBack((WsfSA_PerceivedItem)element);
+                  if (proc.CalculatePerceivedItemCount(aItems) - ret.Size() <= proc.PerceivedThreatItemLimit())
+                  {
+                     break;
+                  }
+               }
+               //ret.PushBack((WsfSA_PerceivedItem)group); // This line is unnecessary, but I wanted to make sure that it wouldn't cause harm if present.
+               i = i + 1;
+            }
+            else // entity
+            {
+               ret.PushBack(item);
+            }
+         }
+         return ret;
+      end_script
+      
+   end_processor
+   
+   execute at_time 50 s absolute
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      if (proc.IsValid())
+      {
+         // Test general data.
+         Array<WsfSA_Group> groups = proc.PerceivedGroups();
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.PerceivedItemCount() <= proc.PerceivedThreatItemLimit(), "Too many PIs.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of groups.");
+         
+         // Test sorting by ascending distance.
+         groups = proc.SortedGroups("ascending distance");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of increasing distance sorted groups.");
+         double closest = 0.0;
+         foreach (WsfSA_Group group in groups)
+         {
+            WsfGeoPoint here = PLATFORM.Location();
+            WsfGeoPoint there = WsfGeoPoint.Construct(group.Lat(), group.Lon(), group.Altitude());
+            double dist = here.SlantRangeTo(there);
+            allTestsPassed = allTestsPassed && AssertTrueMessage(dist > closest, "Increasing distance sorted groups out of order.");
+            closest = dist;
+         }
+         
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(5, groups[0].NumElements(), "Closest group has the incorrect number of entities.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, groups[1].NumElements(), "Second closest group has the incorrect number of entities.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(5, groups[2].NumElements(), "Third closest group has the incorrect number of entities.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, groups[3].NumElements(), "Fourth closest group has the incorrect number of entities.");
+         
+         // The real purpose for this sorting: certain groups should be focused,
+         // and others not, according to their consideration scores.
+         allTestsPassed = allTestsPassed && AssertTrueMessage(groups[0].GetFocus(), "Closest group is incorrectly unfocused.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(groups[1].GetFocus(), "Second closest group is incorrectly unfocused.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(groups[2].GetFocus(), "Third closest group is incorrectly unfocused.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(groups[3].GetFocus(), "Fourth closest group is incorrectly unfocused.");
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

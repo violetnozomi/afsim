@@ -1,0 +1,143 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+// Make sure the correlator is on a platform and initialized
+platform test WSF_PLATFORM 
+   track_manager
+      correlation_method link16
+         window_size_multiplier 1.0
+         minimum_window_size 1 nm
+         minimum_track_quality 7
+         maximum_track_quality 10
+         minimum_ppli_track_quality 2
+         maximum_ppli_track_quality 11
+         restricted_track_quality 4
+         course_differential 45 deg
+         minimum_speed 5.08 m/s
+         percent_speed_differential 40.0
+         air_delta_speed 200 nm/h
+         surface_delta_speed 10 nm/h
+         altitude_differential 10000.0 ft
+      end_correlation_method
+   end_track_manager
+end_platform
+
+platform_type AIR_TARGET WSF_PLATFORM
+   mover WSF_AIR_MOVER
+   end_mover
+   side red
+end_platform_type
+
+platform target-1 AIR_TARGET
+   route
+      position 0n 0e altitude 500 ft heading 0 deg speed 200 knots
+   end_route 
+end_platform
+
+platform target-2 AIR_TARGET
+   route
+      position 0n 0e altitude 500 ft heading 0 deg speed 200 knots
+   end_route 
+end_platform
+
+platform target-3 AIR_TARGET
+   route
+      position 1n 0e altitude 500 ft heading 0 deg speed 200 knots
+   end_route 
+end_platform
+
+platform ct_pass AIR_TARGET
+   route
+      position 0n 0e altitude 500 ft heading 44 deg speed 200 knots
+   end_route 
+end_platform
+
+platform ct_fail AIR_TARGET
+   route
+      position 0n 0e altitude 500 ft heading 46 deg speed 200 knots
+   end_route 
+end_platform
+
+platform pos_quality AIR_TARGET
+   route
+      position 0n 0:02:00e altitude 500 ft heading 0 deg speed 200 knots
+   end_route 
+end_platform
+
+platform speed_pass AIR_TARGET
+   route
+      position 0n 0:02:00e altitude 500 ft heading 0 deg speed 250 knots
+   end_route 
+end_platform
+
+platform speed_fail AIR_TARGET
+   route
+      position 0n 0:02:00e altitude 500 ft heading 0 deg speed 400 knots
+   end_route 
+end_platform
+
+platform alt_fail AIR_TARGET
+   route
+      position 0n 0:02:00e altitude 10501 ft heading 0 deg speed 200 knots
+   end_route 
+end_platform
+
+platform alt_pass AIR_TARGET
+   route
+      position 0n 0:02:00e altitude 10498 ft heading 0 deg speed 200 knots
+   end_route 
+end_platform
+
+script WsfTrack MakeTrack(string aTarget)
+   WsfPlatform p = WsfSimulation.FindPlatform(aTarget);
+   return p.MakeTrack();
+end_script
+
+script void Test(WsfTrack t1, 
+                 WsfTrack t2, 
+                 bool     aExpected)
+   WsfPlatform tp = WsfSimulation.FindPlatform("test");
+   WsfCorrelator correlator = tp.TrackManager().Correlator();
+   bool actual = correlator.TestCorrelation(t1, t2);
+   static int testNum = 1;
+   if (actual != aExpected)
+   {
+      writeln("-FAIL- ; test ", testNum);      
+   }
+   testNum += 1;
+end_script
+
+execute at_time 1.0 s absolute
+   WsfTrack t1 = MakeTrack("target-1");
+   WsfTrack t2 = MakeTrack("target-2");
+   WsfTrack t3 = MakeTrack("target-3");
+   WsfTrack t4 = MakeTrack("ct_pass");
+   WsfTrack t5 = MakeTrack("ct_fail");
+   WsfTrack t6 = MakeTrack("pos_quality");
+   WsfTrack t7 = MakeTrack("speed_fail");
+   WsfTrack t8 = MakeTrack("speed_pass");
+   WsfTrack t9 = MakeTrack("alt_fail");
+   WsfTrack t10 = MakeTrack("alt_pass");
+   Test(t1, t2, true);  // same location
+   Test(t1, t3, false); // very different location
+   Test(t1, t4, true);
+   Test(t1, t5, false);
+   t1.SetTrackQuality(8.001/15.0);
+   t6.SetTrackQuality(8.001/15.0);
+   Test(t1, t6, true);  // close enough
+   t1.SetTrackQuality(9.001/15.0);
+   t6.SetTrackQuality(9.001/15.0);
+   Test(t1, t6, false);  // too far apart
+   Test(t1, t7, false);  // fails speed test
+   Test(t1, t8, true);  // pass speed test
+   Test(t1, t9, false); // fail alt test
+   Test(t1, t10, true); // alt test passes   
+end_execute
+

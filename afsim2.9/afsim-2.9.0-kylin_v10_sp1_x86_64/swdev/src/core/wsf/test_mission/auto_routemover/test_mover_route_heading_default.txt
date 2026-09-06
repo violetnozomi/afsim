@@ -1,0 +1,46 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test mover for the follow sequence
+//    TurnToHeading
+//    FollowRoute("DEFAULT_ROUTE")
+
+include_once ../auto_script/test_functions.txt
+
+#script_listing on
+
+end_time 30 s
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      update_interval 1 s
+      route
+         position 31n       110w altitude 10000 ft agl speed 100 knots
+         position 31:00:30n 110w altitude 10000 ft agl speed 100 knots
+      end_route
+      debug
+   end_mover
+   execute at_time 10 s absolute
+      PLATFORM.TurnToHeading(90);
+   end_execute
+   execute at_time 20 s absolute
+      PLATFORM.FollowRoute("DEFAULT_ROUTE");
+   end_execute
+   script void on_platform_deleted()
+      extern bool WithinTolerance(double, double, double);
+      if (WithinTolerance(PLATFORM.Heading(), -132, 10))
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- wrong heading expected ~(-132) got ", PLATFORM.Heading());
+      }
+   end_script
+end_platform

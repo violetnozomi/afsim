@@ -1,0 +1,21 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* Corrected a problem where the :doc:`orbit_determination<../orbit_determination_fusion>` fusion method was not producing a valid Initial Orbit Determination (IOD) result in the angles-only case (where only sensors that report bearing and elevation contribute to the IOD), particularly for satellites in Geosynchronous orbits. (:issue:`AFSIM-291`)
+* Corrected an issue with :method:`WsfSolarTerminator.PlatformSolarIllumination` for platforms on the surface of the Earth, or which had no mover. (:issue:`AFSIM-1111`)
+* Corrected an issue where the :command:`WSF_SPACE_OPTICAL_SIGNATURE.high_resolution_eclipse` option for the :model:`WSF_SPACE_OPTICAL_SIGNATURE` would incorrectly compute a zero solar illumination.
+* Corrected the behavior of :method:`WsfPlatform.FutureLocation` for platforms with space movers. (:issue:`AFSIM-744`)
+* Corrected a problem where the three argument, :class:`WsfTrackId` accepting version of :method:`WsfInterceptManeuver.Construct` would silently fail and halt the simulation when used outside a platform's script context. (:issue:`AFSIM-555`)
+* Removed the non-functional, undocumented script method WsfOrbitalManeuver.RequiredDeltaV. (:issue:`AFSIM-552`)
+* Corrected an error in orbital mission sequence execution that was causing the MOVER_STAGED :command:`observer` to not trigger for multi-stage space platforms.
+* Removed epoch warnings from most space mover types. Updated warning in :model:`WSF_NORAD_SPACE_MOVER`. (:issue:`AFSIM-719`)
+* Corrected issues where orbital targeting optimization (such as for the :doc:`../rendezvous` or :doc:`../intercept` maneuvers) would not find solutions, or give sub-optimal solutions. (:issue:`AFSIM-1347`)
+* Corrected an issue where :method:`WsfSpaceMover.RIC_AtTime` would report incorrect results for platforms with no mover. (:issue:`AFSIM-1360`)
+* Corrected an issue where :model:`WSF_INTEGRATING_SPACE_MOVER` would use an incorrect mass. (:issue:`AFSIM-1719`)
+* Corrected an issue where :model:`WSF_SPACE_MOVER` had an input order dependence between setting the initial condition's epoch and setting the initial ECI kinematics. (:issue:`AFSIM-2239`)

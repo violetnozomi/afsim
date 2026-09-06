@@ -1,0 +1,71 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of Name, Type and BaseType methods for behavior nodes
+
+behavior first
+	precondition
+		return 1;
+	end_precondition
+   execute end_execute
+end_behavior
+
+behavior second
+	precondition
+		return 2;
+	end_precondition
+   execute end_execute
+end_behavior
+
+platform plat WSF_PLATFORM
+   add processor proc WSF_MESSAGE_PROCESSOR
+      update_interval 2 sec
+      behavior_tree
+         weighted_random
+            run_selection repeat 2
+            make_selection count 5
+            behavior_node first
+            behavior_node second
+         end_weighted_random
+      end_behavior_tree
+      execute at_time 1 sec absolute
+         for(int i = 0; i < PROCESSOR.BehaviorCount(); i+=1)
+         {
+            string baseType = "WSF_BEHAVIOR";
+            string nameAndType;
+            if (i == 0)
+            {
+               nameAndType = "first";
+            }
+            else if (i == 1)
+            {
+               nameAndType = "second";
+            }
+
+            if ((baseType == BehaviorEntry(i).BaseType()) &&
+                (nameAndType == PROCESSOR.BehaviorEntry(i).Name()) &&
+                (nameAndType == PROCESSOR.BehaviorEntry(i).Type()))
+            {
+               writeln("-PASS- ", nameAndType, " ", nameAndType, " ", baseType);
+            }
+            else
+            {
+               writeln("-FAIL- ", nameAndType, " ", nameAndType, " ", baseType);
+            }
+         }
+
+         if ((PROCESSOR.Behavior("first").Name() != "first") ||
+             (PROCESSOR.Behavior("first").IsA_TypeOf("first") == false) ||
+             (PROCESSOR.Behavior("first").IsA_TypeOf("WSF_BEHAVIOR") == false))
+            {
+               writeln("-FAIL-");
+            }
+      end_execute
+   end_processor
+end_platform

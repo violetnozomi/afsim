@@ -1,0 +1,438 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool passed = true;
+end_script_variables
+
+#===================================================================================================
+script void Test_2D_Arrays()
+   Array<int> row1 = { 11, 12, 13 };
+   Array<int> row2 = { 21, 22, 23 };
+   Array<Array<int>> a = { row1, row2 };
+
+   for (int r = 0; r < 2; r += 1)
+   {
+      for (int c = 0; c < 3; c += 1)
+      {
+         int expected = ((r + 1) * 10) + (c + 1);
+         if (a[r][c] != expected)
+         {
+            writeln("-FAIL- 2D array, a[", r, "][", c, "], received ", a[r][c], ", expected ", expected);
+            passed = false;
+         }
+      }
+   }
+end_script
+
+#===================================================================================================
+
+script Array<WsfPlatform> GetKnownPlatforms()
+   Array<WsfPlatform> platforms = Array<WsfPlatform>();
+   for (int i = 0; i < WsfSimulation.PlatformCount(); i += 1)
+   {
+      platforms.PushBack(WsfSimulation.PlatformEntry(i));
+   }
+   return platforms;
+end_script
+
+script void Test_Method_Calls()
+   Array<WsfPlatform> platforms = GetKnownPlatforms();
+
+   // The list of platforms in the simulation.
+   write("Platforms in the simulation:");
+   foreach (WsfPlatform p in platforms)
+   {
+      write(" ", p.Name());
+   }
+   writeln();
+
+   writeln("p1 Location=", platforms[0].Location());
+   writeln("p1 #subordinates=", platforms[0].Subordinates().Size());
+
+   write("Subordinates of p1:");
+   # This isn't efficient, but I'm really just checking syntax...
+   for (int i = 0; i < platforms[0].Subordinates().Size(); i += 1)
+   {
+      string name = platforms[0].Subordinates()[i].Name();
+      write(" ", name);
+   }
+   writeln();
+end_script
+
+#===================================================================================================
+script_struct Cat
+   script_variables
+      string name = "unknown";
+      int livesLeft = 9;
+   end_script_variables
+   script int UseA_Life()
+      if (livesLeft > 0) livesLeft -= 1;
+      if (livesLeft <= 0)
+      {
+         writeln("So sorry, ", name, " has used all of its lives");
+      }
+      return livesLeft;
+   end_script
+end_script_struct
+
+script void Test_Struct()
+   Cat cat1 = { };
+   cat1.name = "fluffy";
+   Cat cat2 = { };
+   cat2.name = "morris";
+
+   cat1.UseA_Life();
+   cat1.UseA_Life();
+   cat1.UseA_Life();
+   cat1.UseA_Life();
+   cat1.UseA_Life();
+   cat1.UseA_Life();
+   cat1.UseA_Life();
+   cat1.UseA_Life();
+
+   int i1 = cat1.UseA_Life();
+   writeln(cat1.name, " has ", cat1.livesLeft, " lives left");
+   if (i1 != 0)
+   {
+      writeln("-FAIL- fluffy should have 0 lives left, but has ", i1);
+   }
+
+   int i2 = cat2.UseA_Life();
+   writeln(cat2.name, " has ", cat2.livesLeft, " lives left");
+   if (i2 != 8)
+   {
+      writeln("-FAIL- morris should have 8 lives left, but has ", i1);
+   }
+
+   # Some simple tests of Cats as container members. Not a full-blown test,
+   # but at least it checks compilation.
+
+   Array<Cat> catArray = { };
+   catArray.PushBack(cat1);
+   catArray.PushBack(cat2);
+   writeln("CatArray: ", catArray);
+   writeln("foreach over catArray");
+   foreach (Cat cat in catArray)
+   {
+      writeln("  cat=", cat);
+   }
+
+   {
+      Map<string, Cat> catMap = { cat1.name : cat1, cat2.name : cat2 };
+      writeln("Cat Map: ", catMap);
+      writeln("foreach over catMap");
+      foreach (string name : Cat cat in catMap)
+      {
+         writeln("  ", name, " ", cat);
+      }
+   }
+
+   {
+      Map<Cat, string> catMap = { cat1 : cat1.name, cat2 : cat2.name };
+      writeln("Cat Map: ", catMap);
+      writeln("foreach over catMap");
+      foreach (Cat cat : string name in catMap)
+      {
+         writeln("  ", cat, " ", name);
+      }
+   }
+
+   Set<Cat> catSet = { cat1, cat2 };
+   writeln("Cat Set: ", catSet);
+   writeln("foreach over catSet");
+   foreach (Cat cat in catSet)
+   {
+      writeln("  cat=", cat);
+   }
+end_script
+
+#===================================================================================================
+# Run the example from the script_struct user documentation
+script_struct Car
+   script_variables
+      WsfGeoPoint  position = { };
+      Vec3         velocity = { };
+      string       color = "red";
+   end_script_variables
+   script void Honk()
+      writeln(color, " car honks");
+   end_script
+end_script_struct
+
+script void Test_Struct_Example()
+   # Create a new instance of the struct
+   Car car = Car();
+
+   # Clone the new instance
+   Car clone = Car(car);
+   
+   # Assign some values.
+   car.color = "blue";
+   car.position.Set(39, -90, 125.0);
+   car.velocity.Set(20, 0, 0);
+
+   # Call a script
+   car.Honk();
+
+   # Print the contents of the struct
+   writeln(car);
+   string toString = car->ToString();
+   if (toString.Contains("\n"))
+   {
+      writeln("-FAIL- car->ToString() spans multiple lines");
+      passed = false;
+   }
+   
+end_script
+
+#===================================================================================================
+# This is the 'struct-on-the-fly example from the script_struct user documentation.
+
+script_variables
+   WsfGeoPoint point1 = WsfGeoPoint();
+   point1.Set(0,0,1);
+end_script_variables
+
+script void Test_Struct_On_The_Fly()
+   # Empty structs can be created and used like this:
+   struct container = struct();
+   container->a = 1.0;     # Gets recognized as a double
+   container->b = 5.0;     # Gets recognized as a double
+   container->c = "test1"; # Gets recognized as a string
+   container->d = 10;      # Gets recognized as an int
+   container->e = false;   # Boolean equal to false
+   container->x = (string)"test2"; # type cast to a string (overkill)
+   container->y = (double)10;      # force a type cast number without a decimal point to a double
+   container->z = (string)"500";   # type cast to a string (overkill)
+   container->p1 = point1;         # bring in an external complex type variable
+   container->p2 = WsfGeoPoint();  # Create an empty GeoPoint complex type
+   container->p3 = WsfGeoPoint.Construct(0,0,0); # Create a GeoPoint that has an LLA
+
+   writeln(container); # The whole container can be passed around as one object...
+
+   # THE ONLY PERIOD "." METHODS AVAILABLE WHEN USING THE "->" OPERATOR ON COMPLEX TYPES
+   # ARE ToString(), IsValid(), and IsNull().
+   writeln("p1 in container is ", container->p1.ToString() );
+   writeln("p2 in container is ", container->p2.ToString() );
+   writeln("p3 in container is ", container->p3.ToString() );
+
+   // The following illustrates how to update objects in a container.
+   // If a struct variable is a complex type, a typical period "." method CANNOT
+   // be used directly on the variable because the type is not known using the "->" operator.
+
+   container->a = container->a + 1; # Add 1 to var a. Since it is not using a ".", it will work.
+
+   #container->p2 = container->p2.Set(0,0,2); # Set p2 to a new LLA   #WRONG - THIS LINE WILL FAIL
+   #Use one of these:
+   ((WsfGeoPoint)container->p2).Set(0,0,2);   # Cast to WsfGeoPoint and call Set();   OR:
+   WsfGeoPoint p2 = container->p2;            # Get value and call Set()
+   p2.Set(0,0,2);
+
+   #container->p3.Set(0,0,3); # Set p3 to a new LLA # WRONG - THIS LINE WILL FAIL
+   ((WsfGeoPoint)container->p3).Set(0,0,3);   # Cast to WsfGeoPoint and call Set();   OR:
+   WsfGeoPoint p3 = container->p3;
+   p3.Set(0,0,3);
+
+   writeln("p2 in container after updating is ", container->p2.ToString() );
+   writeln("p3 in container after updating is ", container->p3.ToString() );
+end_script
+
+#===================================================================================================
+# Another test from the script_struct user documentation.
+platform TEST_VEHICLE WSF_PLATFORM
+   creation_time 5 sec                 # Added so platform doesn't interfere other tests
+
+   add processor script_proc WSF_SCRIPT_PROCESSOR
+      script_variables
+         struct myContainer = struct(); # Make a struct named myContainer
+         myContainer->counter = 1;  # One field being a counter
+         myContainer->JustAColor = "Gray"; # Another field with a string
+         myContainer->JustANumber = 0; # Any number
+         myContainer->MaxNumber = 50; # A maximum number
+      end_script_variables
+
+      update_interval 1 sec
+      on_update
+         extern struct myContainer; # Bring in the struct "myContainer"
+         myContainer->AirplaneType = "F-18"; # Add a member to myContainer"
+         Map<int, struct> MyMapWithStruct = Map<int, struct>(); # Create a map of a struct
+         MyMapWithStruct[0] = myContainer; # Set index 0 of the map to the contents of myContainer
+         foreach (int aKey : struct aData in MyMapWithStruct)
+         {
+            writeln("T=", TIME_NOW, " key, data ", aKey, ", ", aData);
+            myContainer->JustANumber =  MATH.Roll(1,10);
+            if(myContainer->counter >= 25)  myContainer->JustAColor = "Blue";
+            if(myContainer->counter >= (myContainer->MaxNumber - 5) ) WsfSimulation.Terminate();
+            myContainer->counter = myContainer->counter + 1;
+         }
+      end_on_update
+   end_processor
+end_platform
+
+#===================================================================================================
+# Test script_struct as global script_variable
+script_struct World
+   script_variables
+      int i;
+   end_script_variables
+   script void Hello()
+      writeln("Hello");
+   end_script
+end_script_struct
+
+script_variables
+   World world = {};
+end_script_variables
+
+script void Test_Struct_Global()
+   world.Hello();
+   world.i = 0;
+end_script
+
+script void Test_Struct_Equality()
+   World w1 = {};
+   w1->i = 1;
+   World w2 = {};
+   w2->i = 1;
+   World w3 = {};
+   w3->i = 2;
+   
+   if (w1 != w2)
+   {
+      passed = false;
+      writeln("-FAIL- Expected structs w1 and w2 to compare equal");
+   }
+   if (w1 == w3)
+   {
+      passed = false;
+      writeln("-FAIL- Expected structs w1 and w3 to compare not equal");
+   }
+end_script
+
+#===================================================================================================
+# Test that a script_struct can be cloned.
+include_once ../auto_script/test_functions.txt
+
+script_struct Battery
+   script_variables 
+      double mTotalEnergy = 0.0;
+      double mMaximumTotalEnergy = 0.0;
+      double mMaximumChargeRate = 0.0;
+   end_script_variables
+end_script_struct
+
+script Battery Battery_Construct(double aInitialEnergy,   
+                                 double aMaximumTotalEnergy,
+                                 double aChargeRate)
+   Battery battery = {};
+   
+   battery.mTotalEnergy = aInitialEnergy;
+   battery.mMaximumTotalEnergy = aMaximumTotalEnergy;
+   battery.mMaximumChargeRate = aChargeRate;
+   return battery;
+end_script
+
+script void Test_Clone()
+   Battery prototype = Battery_Construct(2.6,   // Amp-hr
+                                         2.6,   // Amp-hr
+                                         0.52); // Amp
+   Battery another = Battery(prototype);
+   passed = passed && AssertDoubleEqualsMessage(another.mTotalEnergy, prototype.mTotalEnergy, "Copied total energy does not match");
+   passed = passed && AssertDoubleEqualsMessage(another.mMaximumTotalEnergy, prototype.mMaximumTotalEnergy, "Copied max. total energy does not match");
+   passed = passed && AssertDoubleEqualsMessage(another.mMaximumChargeRate, prototype.mMaximumChargeRate, "Copied max. charge rate does not match");
+
+   // Change one of another's attributes to verify that it is a copy and not a referece to prototype.   
+   another.mTotalEnergy = 1.3;
+   passed = passed && AssertDoubleEqualsMessage(prototype.mTotalEnergy, 2.6, "Unexpected value for prototype total energy.");
+   passed = passed && AssertDoubleEqualsMessage(another.mTotalEnergy, 1.3, "Unexpected value for another total energy.");
+end_script
+
+#===================================================================================================
+# Test that nested structs do not cause a crash on exit
+script_struct Nested
+end_script_struct
+
+script_struct Nest
+   script_variables
+      Nested mNested = Nested();
+   end_script_variables
+end_script_struct
+
+#===================================================================================================
+# Test of uncloneable keyword
+script_struct Singular
+   uncloneable
+end_script_struct
+
+script_expect_error true
+script void Test_Uncloneable()
+   Singular singular = Singular();
+   Singular clone = Singular(singular); // Should cause uncloneable error
+end_script
+
+#===================================================================================================
+
+execute at_time 0.1 sec absolute
+   writeln("");
+   writeln("Beginning script tests");
+   Test_Struct();
+   Test_2D_Arrays();
+   Test_Clone();
+   Test_Method_Calls();
+   Test_Struct_Example();
+   Test_Struct_On_The_Fly();
+   Test_Struct_Global();
+   Test_Struct_Equality();
+   Test_Uncloneable();
+   writeln("");
+end_execute
+
+#===================================================================================================
+script void SimulationComplete()
+   writeln("");
+   writeln("T=", TIME_NOW, " SimulationComplete()");
+   if (passed)
+   {
+      writeln("-PASS- All tests passed!!!");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed");
+   }
+   writeln("");
+end_script
+
+observer
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+# The test case at the bottom will actually terminate the simulation at T=49.
+end_time 60 sec
+
+#===================================================================================================
+platform p1 WSF_PLATFORM
+   position 39n 90w altitude 200 m
+   commander SELF
+end_platform
+
+platform p2 WSF_PLATFORM
+   position 39n 91w altitude 200 m
+   commander p1
+end_platform
+
+platform p3 WSF_PLATFORM
+   position 39n 91w altitude 200 m
+   commander p1
+end_platform
+
+platform p4 WSF_PLATFORM
+   position 39n 91w altitude 200 m
+   commander p1
+end_platform

@@ -1,0 +1,94 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _signal_processor.moving_target_detector:
+
+moving_target_detector
+**********************
+
+.. block:: signal_processor.moving_target_detector
+
+.. parsed-literal::
+
+   signal_processor moving_target_detector | moving_target_detection
+      :ref:`MTI Signal Processor Commands<signal_processor.moving_target_indicator>`
+      :ref:`PD Signal Processor Commands<signal_processor.pulse_doppler>`
+      zvf_switch_
+      zvf_filter_bandwidth_
+      zvf_num_filter_poles_
+      zvf_filter_slr_
+      filtered_doppler_speed_
+      unfiltered_doppler_speed_
+      debug_
+   end_signal_processor
+
+Overview
+~~~~~~~~
+
+This document provides a basic description of the moving target detector (MTD) implementation in WSF for a :model:`WSF_RADAR_SENSOR`. It was largely based on an existing implementation in ALARM.
+
+The MTD signal processor block can be defined as part of a :model:`WSF_RADAR_SENSOR` . Note that the radar must have PRF (or PRI) specified. The input names and types are set up to mimic the ALARM inputs.
+
+The MTD is a combination of the :ref:`signal_processor.moving_target_indicator` and :ref:`signal_processor.pulse_doppler` with the addition Zero Velocity Filter (ZVF) inputs. The MTD system consists of two channels for incoming signal flow to the detector. The first channel consists of the MTI and PD filtering serially connected to the detector, while the ZVF is another channel allowing for zero velocity detection. In the case of the zero velocity channel the target must still compete with the clutter signal return if present.
+
+MTD Response
+~~~~~~~~~~~~
+
+The MTI portion of the MTD response is forced to be greater than the "mti_min_response", 0.0 dB by default.
+
+Applied to a Sensor Interaction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the :command:`sensor` detection result has a transmitter and a MTI signal processor the MTD response will be computed. The MTI response then applied to the result's received power, clutter power, and noise jammer power:
+
+* Result received power = Result received power * MTD target response
+* Result clutter power = Result clutter power * MTD clutter response
+* Result noise jammer power = Result noise jammer power * MTD noise jamming response
+* Result pulse jammer power = Result pulse jammer power * MTD noise jamming response
+* Result coherent jammer power = Result coherent jammer power * MTD coherent jamming response
+
+MTD Commands
+~~~~~~~~~~~~
+
+.. command:: zvf_switch <boolean-value>
+
+   Switch for Zero Velocity Filter effects being applied or not.
+
+   **Default** on
+
+.. command:: zvf_filter_bandwidth <integer> <frequency-value>
+
+   Specifies the zero velocity filter bandwidth corresponding to PRF(I), where i is the input integer value.
+   Input 0.0 for each for matched filter.
+
+   .. note::
+
+      For matched filter the Doppler filter bandwidth equals one over the integration time. If ZVF_BANDWIDTH (I) = 0.0, it
+      will be reset to PRF (I)/ZVF_FILTERS. Input for I = 1 to NPRFS.}}
+
+.. command:: zvf_num_filter_poles <integer>
+
+   Specifies the number of poles (the order) of the Chebyshev filter. Must be in the range 1 to 7.
+
+.. command:: zvf_filter_slr <dbration-value>
+
+   Specifies the mainlobe-to-peak sidelobe difference of the Chebyshev filters. Must be greater than 0.0 dB.
+
+.. command:: filtered_doppler_speed
+.. command:: unfiltered_doppler_speed
+
+   Specifies if the ownship velocity is removed from the Doppler speed computation. A MTI sensor would typically employ **filtered_doppler_speed**.
+
+   Default: filtered_doppler_speed
+         
+.. command:: debug
+
+   Presence of this flag indicates the MTI Signal Processor will output additional operational messages to the system console.
+
+.. NonExportable

@@ -1,0 +1,109 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt34.f -> alt347.f
+// Replicates the 3,4,7,1 alternative behavior
+// alt3471_slow_current_dir
+
+behavior alt3471_slow_current_dir
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3471Enabled = true;
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 4;
+      int icall  = 7;
+      int lcall  = 1;
+
+      Vec3 a0;      # maneuver plane
+      Vec3 dir0;    # direction vector
+      double gmx;   # max Gs
+      double spd0;  # throttle setting
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+      double   grav              = 32.17405;
+
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition alt3471 slow_current_dir, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3471Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      ##alt347.f line 108    //initialize value
+      #call vnorm(vp(1,me),myvdir)
+      ##alt347.f line 124 - 134
+      #iactn=4
+      #call xmit(3,myvdir,dir0)
+      #gmx=amin1(3.,gmxsu)
+      #spd0=spdnow(me)+almin*tproj3*1.1
+      #spd0 = amax1(200.,spd0)
+      #spdmod = desspd
+
+      Vec3 myvdir = PLATFORM.VelocityNED().Normal();
+      int iactn = 4;
+      dir0 = myvdir;
+      double gmxsu = BRAWLER.MaxTacticalGs();
+      gmx = MATH.Min(3.0,gmxsu);
+      double almin  = BRAWLER.MinForwardAccelWithGravity(); #ft/sec^2
+      spd0 = PLATFORM.Speed() * MATH.FT_PER_M() + almin * BRAWLER.ProjectedTimeDelta() * 1.1;
+      spd0 = MATH.Max(200.0, spd0);
+      spd0 *= MATH.M_PER_FT();
+      int spdmod = 1;   //desspd   // spdmod = thrttl (desspd = 1, thrttl = 2, desacc = 3)
+
+      ### Project and Evaluate (Score) Maneuver Alternative
+      double score = BRAWLER.EvaluateVectorWithSpeed(dir0, gmx, spd0, ilevel, kalt, icall, lcall);
+      return score;
+
+   end_precondition
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.FlyVectorWithSpeed(dir0, gmx, spd0);
+   end_execute
+
+end_behavior
+

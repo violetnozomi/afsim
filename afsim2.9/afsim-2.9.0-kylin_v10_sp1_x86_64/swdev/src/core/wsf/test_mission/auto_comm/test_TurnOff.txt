@@ -1,0 +1,51 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+	if (aRcvr.Platform().Name() == "Listener")
+	{
+		aRcvr.TurnOff();
+		if (aRcvr.TurnOff()){
+			writeln("Listener Turned off");
+		}
+		else{
+			writeln("-FAIL- Listener still on");
+
+		}
+	}
+	else{
+		writeln("-FAIL- Did not get to Listener");
+	}
+end_script
+
+observer
+	enable MESSAGE_RECEIVED
+end_observer
+
+comm Radio_A WSF_COMM_TRANSCEIVER
+	on
+end_comm
+
+platform Talker WSF_PLATFORM
+	add comm talker Radio_A
+	end_comm
+
+	execute at_time 10 seconds absolute
+		WsfMessage hello = WsfMessage();
+		WsfPlatform listener = WsfSimulation.FindPlatform("Listener");
+		PLATFORM.Comm("talker").SendMessage(hello, listener.Comm("listener_on_a"));
+	end_execute
+end_platform
+
+platform Listener WSF_PLATFORM
+	add comm listener_on_a Radio_A
+	end_comm
+end_platform
+
+end_time 100 seconds

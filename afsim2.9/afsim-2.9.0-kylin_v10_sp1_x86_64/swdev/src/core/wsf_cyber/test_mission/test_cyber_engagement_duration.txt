@@ -1,0 +1,249 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+random_seed_time
+
+// Test the duration parameter on the cyber_attack block.
+
+// Timeline
+// T = 0.01 Attack 1 happens and last 7.5 seconds. TEST_ATTACK   : No immunity draws are made.
+// T = 10.0 Attack 2 happens and last 7.5 seconds. TEST_ATTACK_2 : Immunity draw is made and now any additional attempts with the attack will fail.
+// T = 20.0 Attack 3 happens and last 17.0 seconds. TEST_ATTACK   : Verify that target is *NOT* immune.
+// T = 30.0 Attack 4 happens and last 17.0 seconds. TEST_ATTACK_2 : Verify that target *IS* immune.
+
+
+script_variables
+   WsfPlatform attacker;
+   WsfPlatform target;
+   Array<double> attack_start_times = Array<double>();
+   Array<double> attack_restore_times = Array<double>();
+   bool taskFailedSuccessfully = false;
+end_script_variables
+
+
+cyber_effect TEST_EFFECT WSF_CYBER_SCRIPT_EFFECT
+   default
+      script void Attack(WsfCyberEngagement aEngagement)
+         writeln("Attacking at time: ", TIME_NOW);
+      end_script
+      
+      script void Restore(WsfCyberEngagement aEngagement)
+         writeln("Done at time: ", TIME_NOW);
+      end_script
+   end_default
+end_cyber_effect
+
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+   effect TEST_EFFECT
+   probability_of_scan_detection 1
+   probability_of_attack_success 1
+   probability_of_status_report 1
+   probability_of_attack_detection 1
+   probability_of_future_immunity 0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+
+   duration 7.5 s
+   scan_delay_time 1 s
+   delivery_delay_time 1 s
+end_cyber_attack
+
+
+// ********************************************************
+// Same as TEST_ATTACK but with longer duration
+// We expect this duration to never be met as the effect is
+// detected before the duration is finished
+// ********************************************************
+cyber_attack TEST_ATTACK_2 WSF_CYBER_ATTACK
+   effect TEST_EFFECT
+   probability_of_scan_detection 1
+   probability_of_attack_success 1
+   probability_of_status_report 1
+   probability_of_attack_detection 1
+   probability_of_future_immunity 0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+
+   duration 20 s
+   scan_delay_time 1 s
+   delivery_delay_time 1 s
+end_cyber_attack
+
+
+cyber_protect TEST_PROTECT WSF_CYBER_PROTECT
+   attack_response TEST_ATTACK
+      probability_of_scan_detection 1
+      probability_of_attack_success 1
+      probability_of_status_report 1
+      probability_of_attack_detection 1
+      probability_of_future_immunity 1
+      
+      attack_detection_delay_time 10 s
+      attack_recovery_delay_time 7 s
+      restore
+   
+   end_attack_response
+   attack_response TEST_ATTACK_2
+      probability_of_scan_detection 1
+      probability_of_attack_success 1
+      probability_of_status_report 1
+      probability_of_attack_detection 1
+      probability_of_future_immunity 1
+      
+      attack_detection_delay_time 10 s
+      attack_recovery_delay_time 7 s
+      restore
+   
+   end_attack_response
+end_cyber_protect
+
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   cyber_protect TEST_PROTECT
+   end_cyber_protect
+end_platform_type
+
+
+platform attacker TEST_PLATFORM
+end_platform
+
+
+platform target TEST_PLATFORM
+end_platform
+
+
+execute at_time 0.01 s absolute
+   attacker = WsfSimulation.FindPlatform("attacker");
+   target = WsfSimulation.FindPlatform("target");
+  
+   // Begin engagement 1 now
+   attacker.CyberAttack(target, "TEST_ATTACK");
+end_execute
+
+execute at_time 10.0 s absolute
+   // Begin engagement 2 now
+   attacker.CyberAttack(target, "TEST_ATTACK_2");
+end_execute
+
+execute at_time 20.0 s absolute
+   // Begin engagement 3 now
+   attacker.CyberAttack(target, "TEST_ATTACK");
+end_execute
+
+execute at_time 30.0 s absolute
+   // Begin engagement 4 now
+   attacker.CyberAttack(target, "TEST_ATTACK_2");
+end_execute
+
+
+script void CyberAttackFailed(WsfCyberEngagement aEngagement) 
+   // We expect out attack executed at 30.0 s to fail but not anything else.
+   if (TIME_NOW >= 30.0)
+   {
+      if (aEngagement.Attacker() == "attacker" && aEngagement.AttackType() == "TEST_ATTACK_2")
+      {
+         taskFailedSuccessfully = true;
+         return;
+      }
+   }
+   
+   writeln("An unexpected cyber attack is failing");
+   writeln("-FAIL-");
+   
+end_script
+
+script void CyberAttackSucceeded(WsfCyberEngagement aEngagement) 
+   attack_start_times.PushBack(TIME_NOW);
+end_script
+
+
+script void CyberAttackRecovery(WsfCyberEngagement aEngagement)
+   attack_restore_times.PushBack(TIME_NOW);
+end_script
+
+
+script void SimulationComplete() 
+   Array<double> time_results = Array<double>();
+   for (int i = 0; i < attack_start_times.Size(); i += 1)
+   {
+      time_results.PushBack(attack_restore_times[i] - attack_start_times[i]);
+      writeln("Attack: ", i , " took ", time_results[i], " seconds.");
+   }
+
+   // Attack one should complete before the 17 second mark as the cyber_protect doesn't
+   // have enough time to detect and recover
+   writeln("Attack 0");
+   if (time_results[0] == 7.5)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+
+   // Attack two should not complete its 20 second duration. At 17 seconds mark the cyber_protect 
+   // should find and remove the attack    
+   writeln("Attack 1");
+   if (time_results[1] == 17.0)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+
+   writeln("Attack 2");
+   if (time_results[2] == 7.5)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+
+   writeln("Attack 3 Should fail");
+   if (taskFailedSuccessfully)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_script
+
+
+observer
+  enable CYBER_ATTACK_FAILED CyberAttackFailed
+  enable CYBER_ATTACK_SUCCEEDED CyberAttackSucceeded
+  enable CYBER_ATTACK_RECOVERY CyberAttackRecovery
+  enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+
+end_time 50 sec
+
+
+//debug
+#event_output
+#   enable all
+#   file debug.evt
+#end_event_output

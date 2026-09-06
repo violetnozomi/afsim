@@ -1,0 +1,399 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#stream_debug_on
+
+#non_realtime # (For interactive environment only)
+
+// Test Platform-to-Platform Exchanges - REPAIR SERVICES RENDERED
+
+include_once ../auto_script/test_functions.txt
+
+end_time 4200 s
+
+script_variables
+   bool passed = true;
+end_script_variables
+
+platform_type JetEngineFixer WSF_PLATFORM
+
+   position 1n 1e
+
+   processor exchange_proc WSF_EXCHANGE_PROCESSOR
+
+      script_variables
+         bool isReserved = false;
+      end_script_variables
+
+      #debug
+      update_interval 2 sec
+
+      force_transactions_instantaneous false
+      ignore_all_proximity_checks      false
+
+      service_and_capability_pairing   ENGINE_REPAIR VEHICLE_REPAIR
+      service_and_capability_pairing   WING_REPAIR   VEHICLE_REPAIR
+      commodity_and_capability_pairing JP8_FUEL      SUPPLY_FUEL
+
+      container CONTAINER
+         service ENGINE_REPAIR
+            minimum_service_interval 12 min
+            quantity  20
+         end_service
+         initial_quantity 15 # more than enough
+      end_container
+
+      transactor engine_mechanic
+         container_name CONTAINER
+         is_offeror
+         #response_time_out_interval 5 sec  # Give up on an attempted Offer in progress, and cancel it.
+         #maximum_time_per_exchange 5 min   # Maximum time per exchange cycle.  Smaller time intervals will
+                                           # break a large exchange into smaller increments spread in time.
+         proximity_limit   10000 m         # Defaults to zero, or not used.
+      end_transactor
+
+      /*script void on_transaction_complete(Transactor aTransactor)
+         writeln(" ");
+         writeln("*** ON_TRANSACTION_COMPLETE SCRIPT CALLED ***");
+         writeln("    This platform = ", PLATFORM.Name());
+         writeln("    This processor = ", PROCESSOR.Name());
+         writeln("    This Container = ", aTransactor.Container().Name());
+         writeln("    This Transactor = ", aTransactor.Name());
+         writeln("    Stuff Transacted = ", aTransactor.Query().ItemName());
+         writeln("    Quantity Desired = ", aTransactor.Query().DesiredQuantity());
+         writeln("    Quantity Offered = ", aTransactor.Query().OfferedQuantity());
+         writeln("    Quantity Negotiated = ", aTransactor.Query().NegotiatedQuantity());
+         writeln("    Direction of Transaction => I am Offeror = ", aTransactor.Query().IsOfferor());
+         writeln("    Container Quantity After Transaction = ", aTransactor.Container().CurrentQuantity());
+         writeln("    (Container Maximum is = ", aTransactor.Container().MaximumQuantity(), ")");
+         writeln("");
+      end_script*/
+
+      on_update
+         if (TIME_NOW > 20 && ! isReserved)
+         {
+            WsfExchangeProcessor exProc = (WsfExchangeProcessor)PROCESSOR;
+            if (exProc.IsValid())
+            {
+               Transactor trans = exProc.FindTransactor("engine_mechanic");
+               if (trans.IsValid())
+               {
+                  Tender reservation = Tender.Construct("ENGINE_REPAIR", 1.0, 0.08333333, true);
+                  isReserved = trans.ReserveTender(reservation);
+                  if (isReserved)
+                  {
+                     writeln("At t=", TIME_NOW, ", myJetEngineFixer reserved ONE engine repair.");
+                  }
+               }
+            }
+         }
+      end_on_update
+
+   end_processor
+
+   script void on_platform_deleted()
+      extern bool passed;
+      double finalQ = -999.0;
+
+      # Tanker starts with 15 repairs, gives one to JetWithEngineProblem, leaving 14 more.
+      extern bool AssertWithinToleranceMessage(double, double, double, string);
+
+      WsfProcessor wp = PLATFORM.Processor("exchange_proc");
+      if (wp.IsValid())
+      {
+         WsfExchangeProcessor wep = (WsfExchangeProcessor)wp;
+         if (wep.IsValid())
+         {
+            Container cont = wep.FindContainer("CONTAINER");
+            if (cont.IsValid())
+            {
+               finalQ = cont.CurrentQuantity();
+            }
+         }
+      }
+      passed = AssertWithinToleranceMessage(14.0, finalQ, 0.01,
+                  "myJetEngineFixer expected to end with 15 - 1 = 14 engine repairs.") && passed;
+   end_script
+
+end_platform_type
+
+platform_type JetWithEngineProblem WSF_PLATFORM
+
+   position 1.01n 1.01e
+
+   processor exchange_proc WSF_EXCHANGE_PROCESSOR
+
+      #debug
+
+      script_variables
+         bool requestIsMade = false;
+      end_script_variables
+
+      service_and_capability_pairing   ENGINE_REPAIR VEHICLE_REPAIR
+      service_and_capability_pairing   WING_REPAIR   VEHICLE_REPAIR
+      commodity_and_capability_pairing JP8_FUEL      SUPPLY_FUEL
+
+      container CONTAINER
+         service ENGINE_REPAIR
+            quantity  2
+         end_service
+         initial_quantity 1
+      end_container
+
+      transactor engine_problem
+
+         # === AIRCRAFT WITH JET ENGINE PROBLEM === (REQUESTS)
+
+         is_requestor
+         #request_resend_interval    11 min # Only used if a requestor
+         #response_time_out_interval  5 sec # Give up on a tranaction in progress after a time interval.
+         #maximum_time_per_exchange   4 min # Maximum time per exchange cycle.  Smaller time intervals
+                                           # break a large exchange into smaller increments spread in time.
+
+         container_name CONTAINER
+
+         proximity_limit   100000000 m     # Defaults to zero, or not used.
+
+      end_transactor
+
+      /*script void on_transaction_complete(Transactor aTransactor)
+         writeln(" ");
+         writeln("*** ON_TRANSACTION_COMPLETE SCRIPT CALLED ***");
+         writeln("    This platform = ", PLATFORM.Name());
+         writeln("    This processor = ", PROCESSOR.Name());
+         writeln("    This Container = ", aTransactor.Container().Name());
+         writeln("    This Transactor = ", aTransactor.Name());
+         writeln("    Stuff Transacted = ", aTransactor.Query().ItemName());
+         writeln("    Quantity Desired = ", aTransactor.Query().DesiredQuantity());
+         writeln("    Quantity Offered = ", aTransactor.Query().OfferedQuantity());
+         writeln("    Quantity Negotiated = ", aTransactor.Query().NegotiatedQuantity());
+         writeln("    Direction of Transaction => I am Offeror = ", aTransactor.Query().IsOfferor());
+         writeln("    Container Quantity After Transaction = ", aTransactor.Container().CurrentQuantity());
+         writeln("    (Container Maximum is = ", aTransactor.Container().MaximumQuantity(), ")");
+         writeln("");
+      end_script*/
+
+      on_update
+         if (TIME_NOW > 60 && ! requestIsMade)
+         {
+            WsfExchangeProcessor exProc = (WsfExchangeProcessor)PROCESSOR;
+            if (exProc.IsValid())
+            {
+               Transactor trans = exProc.FindTransactor("engine_problem");
+               if (trans.IsValid())
+               {
+                  WsfPlatform supplier = WsfSimulation.FindPlatform("myJetEngineFixer");
+                  if (supplier.IsValid())
+                  {
+                     Tender request = Tender.Construct("ENGINE_REPAIR", 1.0, 0.08333333, true);
+                     bool success = trans.RequestFrom(supplier, request);
+                     if (success)
+                     {
+                        writeln("At t=", TIME_NOW, ", JetWithEngineProblem has made a Request.");
+                        requestIsMade = true;
+                     }
+                  }
+               }
+            }
+         }
+      end_on_update
+
+   end_processor
+
+   script void on_platform_deleted()
+      extern bool passed;
+
+      double finalQ = -999.0;
+
+      # JetWithEngineProblem starts with 1 good engine, receives one from myJetEngineFixer, leaving 2.
+      extern bool AssertWithinToleranceMessage(double, double, double, string);
+
+      WsfProcessor wp = PLATFORM.Processor("exchange_proc");
+      if (wp.IsValid())
+      {
+         WsfExchangeProcessor wep = (WsfExchangeProcessor)wp;
+         if (wep.IsValid())
+         {
+            Container cont = wep.FindContainer("CONTAINER");
+            if (cont.IsValid())
+            {
+               finalQ = cont.CurrentQuantity();
+            }
+         }
+      }
+
+      extern bool AssertWithinToleranceMessage(double, double, double, string);
+      passed = AssertWithinToleranceMessage(2.0, finalQ, 0.01,
+         "JetWithEngineProblem expected to end with 2 good engines.") && passed;
+   end_script
+
+end_platform_type
+
+platform_type JetWithWingProblem WSF_PLATFORM
+
+   position 1.02n 1.02e
+
+   processor exchange_proc WSF_EXCHANGE_PROCESSOR
+
+      #debug
+
+      script_variables
+         bool requestIsMade = false;
+      end_script_variables
+
+      service_and_capability_pairing   ENGINE_REPAIR VEHICLE_REPAIR
+      service_and_capability_pairing   WING_REPAIR   VEHICLE_REPAIR
+      commodity_and_capability_pairing JP8_FUEL      SUPPLY_FUEL
+
+      container CONTAINER
+         service WING_REPAIR
+               quantity  1
+         end_service
+         initial_quantity 0
+      end_container
+
+      transactor broken_wing
+
+         # === AIRCRAFT WITH WING PROBLEM === (REQUESTS)
+         # For this test, there is no servicer available that will
+         # offer this type of service, so it will remain unsatisfied.
+
+         is_requestor
+         container_name CONTAINER
+
+         #request_resend_interval     60 sec
+         #request_resend_limit       20
+
+         proximity_limit   1000000000 m # Defaults to zero, or not used.
+
+      end_transactor
+
+      /*script void on_transaction_complete(Transactor aTransactor)
+         writeln(" ");
+         writeln("*** ON_TRANSACTION_COMPLETE SCRIPT CALLED ***");
+         writeln("    This platform = ", PLATFORM.Name());
+         writeln("    This processor = ", PROCESSOR.Name());
+         writeln("    This Container = ", aTransactor.Container().Name());
+         writeln("    This Transactor = ", aTransactor.Name());
+         writeln("    Stuff Transacted = ", aTransactor.Query().ItemName());
+         writeln("    Quantity Desired = ", aTransactor.Query().DesiredQuantity());
+         writeln("    Quantity Offered = ", aTransactor.Query().OfferedQuantity());
+         writeln("    Quantity Negotiated = ", aTransactor.Query().NegotiatedQuantity());
+         writeln("    Direction of Transaction => I am Offeror = ", aTransactor.Query().IsOfferor());
+         writeln("    Container Quantity After Transaction = ", aTransactor.Container().CurrentQuantity());
+         writeln("    (Container Maximum is = ", aTransactor.Container().MaximumQuantity(), ")");
+         writeln("");
+      end_script*/
+
+      on_update
+         if (TIME_NOW > 400 && ! requestIsMade)
+         {
+            WsfExchangeProcessor exProc = (WsfExchangeProcessor)PROCESSOR;
+            if (exProc.IsValid())
+            {
+               Transactor trans = exProc.FindTransactor("broken_wing");
+               if (trans.IsValid())
+               {
+                  WsfPlatform supplier = WsfSimulation.FindPlatform("myJetEngineFixer");
+                  if (supplier.IsValid())
+                  {
+                     Tender request = Tender.Construct("WING_REPAIR", 1.0, 0.08333333, true);
+                     bool success = trans.RequestFrom(supplier, request);
+                     if (success)
+                     {
+                        writeln("At t=", TIME_NOW, ", JetWithWingProblem has made a Request.");
+                        requestIsMade = true;
+                     }
+                  }
+               }
+            }
+         }
+      end_on_update
+
+   end_processor
+
+   script void on_platform_deleted()
+
+      extern bool passed;
+      double finalQ = -999.0;
+
+      # JetWithWingProblem starts with 0 good wings, requests but does not receive a wing repair, and so ends with zero.
+
+      WsfProcessor wp = PLATFORM.Processor("exchange_proc");
+      if (wp.IsValid())
+      {
+         WsfExchangeProcessor wep = (WsfExchangeProcessor)wp;
+         if (wep.IsValid())
+         {
+            Container cont = wep.FindContainer("CONTAINER");
+            if (cont.IsValid())
+            {
+               finalQ = cont.CurrentQuantity();
+            }
+         }
+      }
+
+      extern bool AssertWithinToleranceMessage(double, double, double, string);
+      passed = AssertWithinToleranceMessage(0.0, finalQ, 0.005,
+         "JetWithWingProblem expected to end with Zero good wings.") && passed;
+   end_script
+
+end_platform_type
+
+# =================================== Start Platform Instances =================
+platform myJetEngineFixer       JetEngineFixer       end_platform
+platform myJetWithEngineProblem JetWithEngineProblem end_platform
+platform myJetWithWingProblem   JetWithWingProblem   end_platform
+# =================================== End Platform Instances =================
+
+script void SimulationComplete()
+   extern bool passed;
+   extern void writePass(bool);
+   writePass(passed);
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+/*dis_interface
+
+   # This is an incomplete DIS specification, but it does indicate enumerations needed
+   # (in this test) to enable a transfer of commodities or services across a DIS connection:
+   # (Consult an enity kind enumeration reference, such as SISO-REF-010-2006 or later.)
+   # Form = A:B:C:D:E:F:G, where each letter is an enumeration as below:  (NOTE ALL UPPER CASE WORDS)
+   # A = Kind (Other, Platform, Munition, Life Form, Environmental, Cultural Feature,
+   #           SUPPLY, Radio, Expendable, Sensor/Emitter)
+   # B, C, and D <unused here> = Platform, Munition, Life Form
+   # Supplies ( All start with 6:0:0:0, and the last three enumerations describe the specifics.)
+   # E = (Other, FUELS, Oils, Lubricants, Food, Spare Parts, Personnel, Equipment, Pallets with Ammo,
+   #      Pallets with Water, Pallets of Fuel (JP8), Decontaminated Supplies)
+   # F = (Other, Gasoline, Diesel Fuel, JP4, FuelOil, JP-8 FUEL, Fog Oil, Mulitspectral Fog Oil)
+   #      Oils, Lubricants, Food, Spare Parts, Personnel, Equipment, Pallets with Ammo,
+   #      Pallets with Water, Pallets of Fuel (JP8), Decontaminated Supplies)
+   # G = <not used> = 0
+
+   entity_type JP8_FUEL       6:0:0:0:1:5:0
+
+   # (The following two do not conform to DIS standard, as I was too lazy to look them up, but as
+   #  long as each DIS Player agrees on a matching (but otherwise unused) enumeration, should work.)
+   entity_type ENGINE_REPAIR  6:0:0:0:0:7:7
+   entity_type WING_REPAIR    6:0:0:0:0:7:8
+
+end_dis_interface*/
+
+/*event_output
+   file test_exchange_service_only_output.evt
+   #enable EXCHANGE_QUERIED # Warning:  This output is quite extensive !!!
+   enable EXCHANGE_NEGOTIATED
+   enable EXCHANGE_COMPLETED
+   enable EXCHANGE_REQUEST_FAILED
+   enable PLATFORM_CAPABILITY_CHANGED
+end_event_output*/
+

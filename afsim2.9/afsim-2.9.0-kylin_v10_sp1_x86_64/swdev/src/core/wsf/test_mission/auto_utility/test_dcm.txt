@@ -1,0 +1,35 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test DCM Commands
+// (Until full scriptability is complete on this class, use a C++ test method, rather than script.)
+include_once ../auto_script/test_functions.txt
+
+platform plat WSF_PLATFORM
+
+   script_variables
+      bool pass = false;
+   end_script_variables
+
+   on_initialize
+
+      extern bool pass;
+      DCM tested = DCM();
+      pass = tested.Test();
+
+   end_on_initialize
+
+   script void on_platform_deleted()
+      extern void writePass(bool);
+      writePass(pass);
+   end_script
+
+end_platform
+
+end_time 10 s

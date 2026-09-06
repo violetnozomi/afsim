@@ -1,0 +1,39 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+The TreeDump class is a way to view an Open Scene Graph tree as a
+hierarchy of nodes that are connected.  It is useful to visually see
+how nodes are connected in a graph and that the nodes are shared
+correctly.  It doesn't include any spatial information.
+
+The TreeDump class is used by creating an object and then calling Dump
+which takes an std::ostream, the first node you want displayed, and an
+optional list of types to ignore when viewing the tree.  By default
+arrays are ignored because they can really explode the size of the
+tree.  It can be useful to dump only a subset of the scene.
+
+The output of the program is text that can be written to a file and
+read by the program dot that comes in Graphviz from AT&T Labs,
+http://www.research.att.com/sw/tools/graphviz/   One possible command
+line is `dot -Tgif -o output.gif Scene.dot` to get a gif from the text
+file.  It can also be output as a postscript file and split into
+multiple pages.  This requires editing the resulting dot file to
+uncomment the size, page, and rotate options.  The output of dot is an
+image of a hierarchy of nodes and connecting arrows.  There is one
+arrowed line per path in the graph.  If a model is used multiple times
+in the scene graph it will have one line per path.
+
+TreeDump is probably only useful on smaller scenes.  If the scene gets
+very big the gif image can get too big for programs to view.  An
+alternative is to output to postscript with multiple pages.  One graph
+with about 100 nodes was output to postscript and took up three pages.
+
+By default the nodes are colored.  Printed output seems easier to look
+at when it is black and white.  NodeAttributeClear can be called to
+make all the nodes into ellipses without color and NodeAttributeSet
+can be called to specify shapes and colors for nodes.

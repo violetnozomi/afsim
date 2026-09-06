@@ -1,0 +1,114 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test assures that as the platform moves into eclipse, the radiant intensity
+# measured for the platform transitions smoothly from the high value when fully
+# illuminated, to the low value when in the Earth's umbra. Without the 
+# high_resolution_eclipse option enabled the transition is instead a step function.
+
+start_date mar 21 2020
+start_time 14:00:00.000
+end_time 2 hr
+
+include_once utils.txt
+
+optical_signature SMALL_OPTICAL_RSO WSF_SPACE_OPTICAL_SIGNATURE 
+   surface sphere
+      radius 5.5 m                           # default = 1 meter      
+      
+      # common surface commands
+      reflectance 0.2                        # default = 1.0
+      minimum_temperature 173.15 kelvin      # default = 173.15 k
+      maximum_temperature 373.15 kelvin      # default = 373.15 k
+      temperature_change_rate 0.1 kelvin/sec # default = 0.1 k/sec
+   end_surface
+   
+   high_resolution_eclipse enable
+end_optical_signature
+
+platform geo WSF_PLATFORM
+   optical_signature SMALL_OPTICAL_RSO
+
+   add mover WSF_SPACE_MOVER
+      revolutions_per_day 1.0
+      eccentricity 0
+      raan 0 deg
+      inclination 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 165 deg
+   end_mover
+end_platform
+
+script_variables
+   double tStart;
+   double tEnd;
+   double tDelta = 10.0;
+   double tOffset = 200.0;
+   double initialValue;
+   double previousValue;
+   bool   initialCollected = false;
+end_script_variables
+
+execute at_time 1 s absolute
+   WsfPlatform plat = WsfSimulation.FindPlatform("geo");
+   WsfSpaceMover mov = (WsfSpaceMover)plat.Mover();
+   
+   WsfOrbitalEventCondition eclStart = WsfOrbitalEventCondition.AT_ECLIPSE_ENTRY();
+   tStart = mov.GetTimeToConstraint(eclStart);
+   
+   WsfOrbitalEventCondition eclEnd = WsfOrbitalEventCondition.AT_ECLIPSE_EXIT();
+   tEnd = mov.GetTimeToConstraint(eclEnd);
+   
+   // Schedule collection start based on those times
+   WsfSimulation.ExecuteAtTime(tStart - tOffset, "Measure");
+end_execute
+
+script double VisualValue()
+   WsfPlatform plat = WsfSimulation.FindPlatform("geo");
+   double lat = plat.Latitude();
+   double lon = plat.Longitude();
+   double alt = plat.Altitude();
+   // Observe from a point 100 km closer to the surface.
+   WsfGeoPoint point = WsfGeoPoint.Construct(lat, lon, alt - 100000.0);
+   return plat.RadiantIntensity(point, 1.0, "visual");
+end_script
+
+script void Measure()
+   if (initialCollected)
+   {
+      double currentValue = VisualValue();
+      double relChange = Math.Fabs(currentValue - previousValue) / initialValue;
+      writeln(TIME_NOW, " REL CHANGE: ", relChange);
+      
+      // The offsets are needed here because the eclipse start and end times are computed with an
+      // approximate algorithm.
+      if (TIME_NOW > tStart + 200.0 && TIME_NOW < tEnd - 200.0)
+      {
+         ExpectBool(relChange < 1.0e-10, true, "Small changes during eclipse");
+         ExpectBool(currentValue < 1.0e-10, true, "Small values during eclipse");
+      }
+      ExpectBool(relChange < 0.20, true, "Small changes in transition to and from eclipse");
+      
+      previousValue = currentValue;
+   }
+   else
+   {
+      // collect initial value
+      initialValue = VisualValue();
+      ExpectBool(initialValue > 2000.0, true, "Initial value well illuminated");
+      initialCollected = true;
+      previousValue = initialValue;
+   }
+
+   // Schedule next collection
+   if (TIME_NOW + tDelta < tEnd + tOffset)
+   {
+      WsfSimulation.ExecuteAtTime(TIME_NOW + tDelta, "Measure");
+   }
+end_script

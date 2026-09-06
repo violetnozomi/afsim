@@ -1,0 +1,200 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Underwater sensor detection tests geometric sensor
+define_path_variable CASE test_subsurface_sensors_terrain
+
+include ../auto_script/test_functions.txt
+
+script_debug_writes on
+
+script_variables
+   int gDetections = 0;
+   double gTestLat = 37.0020833333;         // Matches a line of latitude in the data file; for ease in setting up test cases
+end_script_variables
+
+terrain
+   // Ref: https://topex.ucsd.edu/cgi-bin/get_srtm15.cgi
+   // Descending latitudes
+   // Extents: 36.8 -75.6 37.2 -74.3
+   bathymetry bathymetry/bathymetry_xyz_tab.dat
+end_terrain
+
+// ****************************************************************************
+platform tgt_subsurface WSF_PLATFORM
+   icon submarine
+   side red
+   position 37.0020833333n 74.6w altitude -20 m msl
+   add mover WSF_SUBSURFACE_MOVER end_mover
+end_platform
+
+platform tgt_surface WSF_PLATFORM
+   icon ship
+   side red
+   position 37.0020833333n 74.6w altitude 0 m msl
+   heading 45 deg
+   add mover WSF_SURFACE_MOVER end_mover
+end_platform
+
+platform tgt_air WSF_PLATFORM
+   icon cruise_missile
+   side red
+   position 37.0020833333n 74.6w altitude 100 m msl
+   heading 90 deg
+   add mover WSF_AIR_MOVER end_mover
+end_platform
+
+// ****************************************************************************
+platform_type TEST_TYPE WSF_PLATFORM
+   sensor geo WSF_GEOMETRIC_SENSOR
+      on
+      frame_time 10 s
+      reports_location
+   end_sensor
+end_platform_type
+
+platform peer_subsurface TEST_TYPE
+   side blue
+   icon submarine
+   position 37.0020833333n 74.4w altitude -20 m msl
+end_platform
+
+script void SetMasking(bool aEnableMasking)
+   for (int i = 0; i < WsfSimulation.PlatformCount(); i += 1)
+   {
+      WsfPlatform platform = WsfSimulation.PlatformEntry(i);
+      int sensorCount = platform.SensorCount();
+      for (int j = 0; j < sensorCount; j += 1)
+      {
+         WsfSensor sensor = platform.SensorEntry(j);
+         for (int r = 0; r < sensor.RcvrCount(); r += 1)
+         {
+            sensor.Rcvr(r).SetCheckMasking(aEnableMasking);
+         }
+         for (int x = 0; x < sensor.XmtrCount(); x += 1)
+         {
+            sensor.Xmtr(x).SetCheckMasking(aEnableMasking);
+         }
+      }
+   }
+end_script
+
+script void SetMaskingMode(string aMaskingMode)
+   for (int i = 0; i < WsfSimulation.PlatformCount(); i += 1)
+   {
+      WsfPlatform platform = WsfSimulation.PlatformEntry(i);
+      int sensorCount = platform.SensorCount();
+      for (int j = 0; j < sensorCount; j += 1)
+      {
+         WsfSensor sensor = platform.SensorEntry(j);
+         for (int r = 0; r < sensor.RcvrCount(); r += 1)
+         {
+            sensor.Rcvr(r).SetMaskingMode(aMaskingMode);
+         }
+         for (int x = 0; x < sensor.XmtrCount(); x += 1)
+         {
+            sensor.Xmtr(x).SetMaskingMode(aMaskingMode);
+         }
+      }
+   }
+end_script
+
+// Sensor on but expect no detections due to masking by terrain and horizon
+execute at_time 9.999 s absolute
+   writeln_d("***T=10 TEST ", gDetections);
+   AssertEqualsMessage(0, gDetections, "1: Unexpected number of detections");
+
+   // Disable terrain and horizon masking checks for the next sensor frame
+   SetMasking(false);
+
+   // Reset detection counter
+   gDetections = 0;
+end_execute
+
+// Masking checks turned off; should get three detections
+execute at_time 19.999 s absolute
+   writeln_d("***T=20 TEST ", gDetections);
+   AssertEqualsMessage(3, gDetections, "2: Unexpected number of detections");
+
+   // Enable terrain and horizon masking checks for the next sensor frame
+   SetMasking(true);
+
+   // Reset detection counter
+   gDetections = 0;
+end_execute
+
+// Sensor on but expect no detections due to masking by terrain and horizon
+execute at_time 29.999 s absolute
+   writeln_d("***T=30 TEST ", gDetections);
+   AssertEqualsMessage(0, gDetections, "3: Unexpected number of detections");
+
+   // Set masking mode to horizon only for the next sensor frame
+   SetMaskingMode("horizon_only");
+
+   // Reset detection counter
+   gDetections = 0;
+end_execute
+
+// Sensor on but expect no detections due to masking by horizon
+execute at_time 39.999 s absolute
+   writeln_d("***T=40 TEST ", gDetections);
+   AssertEqualsMessage(0, gDetections, "4: Unexpected number of detections");
+
+   // Set masking mode to terrain only for the next sensor frame
+   SetMaskingMode("terrain_only");
+
+   // Reset detection counter
+   gDetections = 0;
+end_execute
+
+// Sensor on, terrain checking is being performed but there should be no obstruction
+execute at_time 49.999 s absolute
+   writeln_d("***T=50 TEST ", gDetections);
+   AssertEqualsMessage(3, gDetections, "5: Unexpected number of detections");
+
+   // Move the sensing platform to a lower depth; detection will be masked
+   WsfSimulation.FindPlatform("peer_subsurface").SetLocation(gTestLat, -74.6, -500.);
+
+   // Move the target platforms
+   WsfSimulation.FindPlatform("tgt_subsurface").SetLocation(gTestLat, -74.65, -20.);
+   WsfSimulation.FindPlatform("tgt_surface").SetLocation(gTestLat, -74.65, 0.);
+   WsfSimulation.FindPlatform("tgt_air").SetLocation(gTestLat, -74.65, 100.);
+
+   // Reset detection counter
+   gDetections = 0;
+end_execute
+
+// Sensor on, terrain should mask sensor
+execute at_time 59.999 s absolute
+   writeln_d("***T=60 TEST ", gDetections);
+   AssertEqualsMessage(0, gDetections, "6: Unexpected number of detections");
+end_execute
+
+#event_pipe
+#   file $(CASE).aer
+#end_event_pipe
+#
+#event_output
+#   file STDOUT
+#   enable SENSOR_DETECTION_ATTEMPT
+#end_event_output
+
+script void SensorDetectionAttempt(WsfPlatform          aPlatform,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+   if (aResult.Detected())
+   {
+      gDetections += 1;
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT
+end_observer

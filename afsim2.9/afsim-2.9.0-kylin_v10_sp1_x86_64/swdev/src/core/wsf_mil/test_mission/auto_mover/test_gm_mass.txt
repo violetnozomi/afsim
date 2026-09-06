@@ -1,0 +1,138 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the EmptyMass, TotalMass, FuelMass, and FuelFlowRate Methods
+
+include_once ../auto_script/test_pass.txt
+include_once ../auto_script/test_functions.txt
+include_once platforms/test_platform.txt
+ 
+end_time 40 sec
+minimum_mover_timestep 0.01 s
+
+script_variables 
+   double gTolerance = MATH.Pow(10, -6);
+   PassTestCount = 42;
+end_script_variables
+
+platform_type TEST_PLATFORM TEST_PLATFORM_BASE
+
+   on_initialize2 
+      WsfGuidedMover mover = (WsfGuidedMover)Mover();
+      
+      // Current Fuel should be equal to the Initial Fuel
+      // NOTE: For now, this test is commented out.
+      // Currently, the current fuel mass is not available until
+      // after the on_initialize2 block - i.e. it is initialized 
+      // (in code) during WsfGuidedMover::Initialize2
+      // The InitialFuelMass is set separately, so it returns non-zero,
+      // but the CurrentFuelMass currently returns zero.
+      //
+      //if (AssertWithinToleranceMessage(mover.CurrentFuelMass(), mover.InitialFuelMass(), gTolerance, "FuelMass")) pass();
+      //
+      
+      // Masses defined in the current stage
+      if (AssertWithinToleranceMessage($<fuelMass1:0>$, mover.InitialFuelMass(), gTolerance, "InitialFuelMass")) pass();
+      if (AssertWithinToleranceMessage($<totalMass1:0>$ + $<totalMass2:0>$ , mover.InitialTotalMass(), gTolerance, "InitialTotalMass")) pass();
+      if (AssertWithinToleranceMessage($<emptyMass1:0>$, mover.EmptyMass(), gTolerance, "Empty")) pass();
+      if (AssertWithinToleranceMessage($<totalMass2:0>$, mover.PayloadMass(), gTolerance, "Payload")) pass();
+
+      // Masses defined in stage 1
+      if (AssertWithinToleranceMessage($<fuelMass1:0>$, mover.InitialFuelMass(1), gTolerance, "InitialFuelMass")) pass();
+      if (AssertWithinToleranceMessage($<totalMass1:0>$ + $<totalMass2:0>$, mover.InitialTotalMass(1), gTolerance, "InitialTotalMass")) pass();
+      if (AssertWithinToleranceMessage($<emptyMass1:0>$, mover.EmptyMass(1), gTolerance, "Empty")) pass();
+      if (AssertWithinToleranceMessage($<totalMass2:0>$, mover.PayloadMass(1), gTolerance, "Payload")) pass();     
+     
+      // Masses defined in stage 2
+      if (AssertWithinToleranceMessage($<fuelMass2:0>$, mover.InitialFuelMass(2), gTolerance, "InitialFuelMass")) pass();
+      if (AssertWithinToleranceMessage($<totalMass2:0>$, mover.InitialTotalMass(2), gTolerance, "InitialTotalMass")) pass();
+      if (AssertWithinToleranceMessage($<emptyMass2:0>$, mover.EmptyMass(2), gTolerance, "Empty")) pass();
+      if (AssertWithinToleranceMessage(0.0, mover.PayloadMass(2), gTolerance, "Payload")) pass(); 
+
+      
+   end_on_initialize2
+
+   // At the very beginning of stage 1 - Fuel should be full, we haven't started burning yet.
+   execute at_time 0.01 s relative
+      
+      WsfGuidedMover mover = (WsfGuidedMover)Mover();
+
+      if (AssertWithinToleranceMessage($<fuelMass1:0>$, mover.InitialFuelMass(), gTolerance, "InitialFuelMass")) pass();
+      if (AssertWithinToleranceMessage($<totalMass1:0>$ + $<totalMass2:0>$, mover.InitialTotalMass(), gTolerance, "InitialTotalMass")) pass();
+      if (AssertWithinToleranceMessage($<fuelMass1:0>$, mover.CurrentFuelMass(), gTolerance, "CurrentFuelMass")) pass();
+      if (AssertWithinToleranceMessage($<totalMass1:0>$ + $<totalMass2:0>$, mover.CurrentTotalMass(), gTolerance, "CurrentTotalMass")) pass();
+      if (AssertWithinToleranceMessage($<emptyMass1:0>$, mover.EmptyMass(), gTolerance, "EmptyMass")) pass();
+      if (AssertWithinToleranceMessage($<totalMass2:0>$, mover.PayloadMass(), gTolerance, "Payload")) pass();
+      if (AssertWithinToleranceMessage(0.0, mover.CurrentFuelFlowRate(), gTolerance, "CurrentFuelFlowRate")) pass();
+
+   end_execute
+
+   // In the middle of stage 1
+  execute at_time 10 s relative
+     WsfGuidedMover mover = (WsfGuidedMover)Mover();
+     if (AssertWithinToleranceMessage(mover.CurrentTotalMass(), mover.CurrentFuelMass() + mover.EmptyMass() + mover.PayloadMass(), gTolerance, "CurrentFuelAndEmptyMass")) pass();
+     if (AssertWithinToleranceMessage(mover.InitialTotalMass(), mover.InitialFuelMass() + mover.EmptyMass() + mover.PayloadMass(), gTolerance, "CurrentFuelAndEmptyMass")) pass();
+     if (AssertGreaterThanMessage(mover.CurrentFuelFlowRate(), 0.0, "CurrentFuelFlowRate")) pass();
+  end_execute
+
+   // At the very end of stage 1 - Fuel should have run out.
+   execute at_time 18.0 s relative
+      WsfGuidedMover mover = (WsfGuidedMover)Mover();
+      
+      if (AssertWithinToleranceMessage($<totalMass2:0>$ + $<emptyMass1:0>$, mover.CurrentTotalMass(), gTolerance,"CurrentTotalMass")) pass();
+      if (AssertWithinToleranceMessage(0.0, mover.CurrentFuelMass(), gTolerance, "CurrentFuelMass")) pass();
+      if (AssertWithinToleranceMessage($<emptyMass1:0>$, mover.EmptyMass(), gTolerance, "EmptyMass")) pass();
+      if (AssertWithinToleranceMessage($<totalMass2:0>$, mover.PayloadMass(), gTolerance, "Payload")) pass();
+      if (AssertGreaterThanMessage(mover.CurrentFuelFlowRate(), 0.0, "CurrentFuelFlowRate")) pass();
+   end_execute
+
+   // At the very beginning of stage 2 - Fuel should be full, we haven't started burning yet.
+   execute at_time 18.01 s relative
+      WsfGuidedMover mover = (WsfGuidedMover)Mover();
+      if (AssertWithinToleranceMessage($<totalMass2:0>$, mover.CurrentTotalMass(), gTolerance,"CurrentTotalMass")) pass();
+      if (AssertWithinToleranceMessage($<fuelMass2:0>$, mover.CurrentFuelMass(), gTolerance,"CurrentFuelMass")) pass();
+      if (AssertWithinToleranceMessage($<emptyMass2:0>$, mover.EmptyMass(), gTolerance,"EmptyMass")) pass();
+      if (AssertWithinToleranceMessage($<totalMass2:0>$, mover.CurrentFuelMass() + mover.EmptyMass(), gTolerance,"CurrentFuelAndEmptyMass")) pass();
+      if (AssertWithinToleranceMessage(0.0, mover.PayloadMass(), gTolerance, "Payload")) pass();
+      if (AssertWithinToleranceMessage(0.0, mover.CurrentFuelFlowRate(), gTolerance,"CurrentFuelFlowRate")) pass();
+
+   end_execute
+   
+   // In the middle of stage 2
+  execute at_time 20 s relative
+      WsfGuidedMover mover = (WsfGuidedMover)Mover();
+      if (AssertWithinToleranceMessage($<emptyMass2:0>$, mover.EmptyMass(), gTolerance,"EmptyMass")) pass();
+      if (AssertWithinToleranceMessage(0.0, mover.PayloadMass(), gTolerance, "Payload")) pass();
+      if (AssertWithinToleranceMessage(mover.CurrentTotalMass(), mover.CurrentFuelMass() + mover.EmptyMass(), gTolerance, "CurrentFuelAndEmptyMass")) pass();
+      if (AssertGreaterThanMessage(mover.CurrentFuelFlowRate(), 0.0, "CurrentFuelFlowRate")) pass();
+   end_execute 
+  
+   // We have finished both stages, we should be out of fuel, and we should not be burning fuel
+   execute at_time 34 s absolute 
+      WsfGuidedMover mover = (WsfGuidedMover)Mover();
+
+   if (AssertWithinToleranceMessage($<emptyMass2:0>$, mover.CurrentTotalMass(), gTolerance,"CurrentTotalMass")) pass();
+   if (AssertWithinToleranceMessage(0.0, mover.CurrentFuelMass(), gTolerance,"CurrentFuelMass")) pass();   
+   if (AssertWithinToleranceMessage($<emptyMass2:0>$, mover.EmptyMass(), gTolerance,"EmptyMass")) pass();
+   if (AssertWithinToleranceMessage(0.0, mover.PayloadMass(), gTolerance, "Payload")) pass();
+   if (AssertWithinToleranceMessage(0.0,  mover.CurrentFuelFlowRate(), gTolerance, "CurrentFuelFlowRate")) pass();
+   end_execute
+end_platform_type
+
+
+platform launcher WSF_PLATFORM
+   add weapon test_weapon WSF_EXPLICIT_WEAPON
+      quantity 1
+      launched_platform_type TEST_PLATFORM
+   end_weapon
+
+   on_initialize2 
+      Weapon("test_weapon").Fire();
+   end_on_initialize2
+end_platform

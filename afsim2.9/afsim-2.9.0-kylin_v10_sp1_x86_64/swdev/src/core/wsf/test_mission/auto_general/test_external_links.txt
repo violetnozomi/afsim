@@ -1,0 +1,675 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This scenario tests the basic functionality of external linkage.
+# Specifically, it tests the follow use cases to ensure proper function.
+# 1. Command chain usage
+#   A. Using the default command chain, commonly named receiver
+#   B. Using a named command chain, commonly named receiver
+#   C. Using the default command chain, explicitly named receiver
+#   D. Using a named command chain, explicitly named receiver
+# 2. WsfGroup usage
+#   A. Group with all comm objects.
+#   B. A "mixed" group with non-comm objects
+# 3. Explicitly named platform-name comm-name targets
+# 4. Address based targets
+#   A. Unicast, point to point target
+#   B. Broadcast based targets
+#   C. Multicast based targets
+
+# This end time allows for a single update
+# of the processor sending the message
+end_time 1 s
+
+#event_output
+#   file replay.evt
+#   enable all
+#end_event_output
+
+script_variables
+   int test_1a = 0;
+   int test_1b = 0;
+   int test_1c = 0;
+   int test_1d = 0;
+   int test_2a = 0;
+   int test_2b = 0;
+   int test_3 = 0;
+   int test_4a = 0;
+   int test_4b = 0;
+   int test_4c = 0;
+end_script_variables
+
+processor SEND_PROC WSF_SCRIPT_PROCESSOR
+   #Make the update interval very large, as we only want
+   #a single update at time 0.0
+   update_interval 100 hours
+end_processor
+
+processor SEND_PROC_1A SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("1A");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor SEND_PROC_1B SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("1B");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor SEND_PROC_1C SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("1C");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor SEND_PROC_1D SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("1D");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor SEND_PROC_2A SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("2A");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor SEND_PROC_2B SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("2B");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor SEND_PROC_3 SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("3");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor SEND_PROC_4A SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("4A");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor SEND_PROC_4B SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("4B");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor SEND_PROC_4C SEND_PROC
+   on_update
+      WsfMessage message = {};
+      message.SetType("4C");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor RECEIVE_PROC WSF_SCRIPT_PROCESSOR
+   on_message 
+   type 1A
+      script
+         test_1a = test_1a + 1;
+      end_script
+   type 1B
+      script
+         test_1b = test_1b + 1;
+      end_script
+   type 1C
+      script
+         test_1c = test_1c + 1;
+      end_script
+   type 1D
+      script
+         test_1d = test_1d + 1;
+      end_script  
+   type 2A
+      script
+         test_2a = test_2a + 1;
+      end_script
+   type 2B
+      script
+         test_2b = test_2b + 1;
+      end_script
+   type 3
+      script
+         test_3 = test_3 + 1;
+      end_script
+   type 4A
+      script
+         test_4a = test_4a + 1;
+      end_script
+   type 4B
+      script
+         test_4b = test_4b + 1;
+      end_script
+   type 4C
+      script
+         test_4c = test_4c + 1;
+      end_script                                    
+   end_on_message
+end_processor
+
+protocol multicast WSF_COMM_PROTOCOL_IGMP
+end_protocol
+
+platform_type GENERIC_PLATFORM WSF_PLATFORM
+   comm test_comm WSF_COMM_TRANSCEIVER
+      internal_link rcvr
+   end_comm
+   processor rcvr RECEIVE_PROC
+   end_processor
+end_platform_type
+
+platform_type COMMAND_CHAIN_DEFAULT_PLATFORM_1A GENERIC_PLATFORM
+   edit comm test_comm
+      network_name test_command_chain_default_1a
+   end_comm
+   processor send SEND_PROC_1A
+   end_processor
+end_platform_type
+
+platform_type COMMAND_CHAIN_EXPLICIT_PLATFORM_1B GENERIC_PLATFORM
+   edit comm test_comm
+      network_name test_command_chain_explicit_1b
+   end_comm
+   processor send SEND_PROC_1B
+   end_processor
+end_platform_type
+
+platform_type COMMAND_CHAIN_DEFAULT_PLATFORM_1C GENERIC_PLATFORM
+   side green
+   edit comm test_comm
+      network_name test_command_chain_default_1c
+      clear_internal_links
+   end_comm
+   add comm test_comm_alternate WSF_COMM_TRANSCEIVER
+      network_name test_command_chain_default_1c
+      internal_link rcvr
+   end_comm
+   processor send SEND_PROC_1C
+   end_processor
+end_platform_type
+
+platform_type COMMAND_CHAIN_EXPLICIT_PLATFORM_1D GENERIC_PLATFORM
+   edit comm test_comm
+      network_name test_command_chain_explicit_1d
+      clear_internal_links
+   end_comm
+   add comm test_comm_alternate WSF_COMM_TRANSCEIVER
+      network_name test_command_chain_explicit_1d
+      internal_link rcvr
+   end_comm
+   processor send SEND_PROC_1D
+   end_processor
+end_platform_type
+
+platform_type GROUP_PLATFORM_2A GENERIC_PLATFORM
+   edit comm test_comm
+      network_name test_group_2a
+   end_comm
+   processor send SEND_PROC_2A
+   end_processor
+end_platform_type
+
+platform_type GROUP_PLATFORM_2B GENERIC_PLATFORM
+   edit comm test_comm
+      network_name test_group_2b
+   end_comm
+   processor send SEND_PROC_2B
+   end_processor
+end_platform_type
+
+platform_type EXPLICIT_TARGET_3 GENERIC_PLATFORM
+   edit comm test_comm
+      network_name explicit
+   end_comm
+   processor send SEND_PROC_3
+   end_processor
+end_platform_type
+
+platform_type ADDRESS_TARGET_4A GENERIC_PLATFORM
+   processor send SEND_PROC_4A
+   end_processor
+end_platform_type
+
+platform_type ADDRESS_TARGET_4B GENERIC_PLATFORM
+   processor send SEND_PROC_4B
+   end_processor
+end_platform_type
+
+platform_type ADDRESS_TARGET_4C GENERIC_PLATFORM
+   processor send SEND_PROC_4C
+   end_processor
+   edit comm test_comm
+      network_name multicast_net
+      add protocol localMulticast multicast
+         join_multicast_group 230.1.1.0/32
+      end_protocol
+   end_comm
+end_platform_type
+
+#======================================================
+#TEST CASE 1A - DEFAULT CHAIN, COMMON RECEIVER
+#======================================================
+
+platform 1A-1 COMMAND_CHAIN_DEFAULT_PLATFORM_1A
+   commander SELF
+   edit processor send
+      # 2 messages
+      external_link subordinates via test_comm
+   end_processor
+end_platform
+
+platform 1A-2 COMMAND_CHAIN_DEFAULT_PLATFORM_1A
+   commander 1A-1
+   edit processor send
+      # 1 message
+      external_link peers via test_comm
+   end_processor
+end_platform
+
+platform 1A-3 COMMAND_CHAIN_DEFAULT_PLATFORM_1A
+   commander 1A-1
+   edit processor send
+      # 1 message
+      external_link commander via test_comm
+   end_processor
+end_platform
+
+#======================================================
+#TEST CASE 1B - NAMED CHAIN, COMMON RECEIVER
+#======================================================
+
+platform 1B-1 COMMAND_CHAIN_EXPLICIT_PLATFORM_1B
+   command_chain 1B SELF
+   edit processor send
+      # 2 messages
+      external_link command_chain 1B subordinates via test_comm
+   end_processor
+end_platform
+
+platform 1B-2 COMMAND_CHAIN_EXPLICIT_PLATFORM_1B
+   command_chain 1B 1B-1
+   edit processor send
+      # 1 message
+      external_link command_chain 1B peers via test_comm
+   end_processor
+end_platform
+
+platform 1B-3 COMMAND_CHAIN_EXPLICIT_PLATFORM_1B
+   command_chain 1B 1B-1
+   edit processor send
+      # 1 message
+      external_link command_chain 1B commander via test_comm
+   end_processor
+end_platform
+
+#======================================================
+#TEST CASE 1C - DEFAULT CHAIN, EXPLICIT RECEIVER
+#======================================================
+
+platform 1C-1 COMMAND_CHAIN_DEFAULT_PLATFORM_1C
+   commander SELF
+   edit processor send
+      # 2 messages
+      external_link subordinates via test_comm to test_comm_alternate
+   end_processor
+end_platform
+
+platform 1C-2 COMMAND_CHAIN_DEFAULT_PLATFORM_1C
+   commander 1C-1
+   edit processor send
+      # 1 message
+      external_link peers via test_comm to test_comm_alternate
+   end_processor
+end_platform
+
+platform 1C-3 COMMAND_CHAIN_DEFAULT_PLATFORM_1C
+   commander 1C-1
+   edit processor send
+      # 1 message
+      external_link commander via test_comm to test_comm_alternate
+   end_processor
+end_platform
+
+#======================================================
+#TEST CASE 1D - NAMED CHAIN, EXPLICIT RECEIVER
+#======================================================
+
+platform 1D-1 COMMAND_CHAIN_EXPLICIT_PLATFORM_1D
+   command_chain 1D SELF
+   command_chain 1D-FALSE 1D-2
+   edit processor send
+      # 2 messages
+      external_link command_chain 1D subordinates via test_comm to test_comm_alternate
+   end_processor
+end_platform
+
+platform 1D-2 COMMAND_CHAIN_EXPLICIT_PLATFORM_1D
+   command_chain 1D 1D-1
+   command_chain 1D-FALSE SELF
+   edit processor send
+      # 1 message
+      external_link command_chain 1D peers via test_comm to test_comm_alternate
+   end_processor
+end_platform
+
+platform 1D-3 COMMAND_CHAIN_EXPLICIT_PLATFORM_1D
+   command_chain 1D 1D-1
+   command_chain 1D-FALSE 1D-2
+   edit processor send
+      # 1 message
+      external_link command_chain 1D commander via test_comm to test_comm_alternate
+   end_processor
+end_platform
+
+#======================================================
+#TEST CASE 2A - COMM GROUPS
+#======================================================
+
+group group_2A WSF_GROUP
+end_group
+
+platform 2A-1 GROUP_PLATFORM_2A
+   edit processor send
+      # 2 messages
+      report_to_group group_2A via test_comm
+   end_processor
+end_platform
+
+platform 2A-2 GROUP_PLATFORM_2A
+   edit comm test_comm
+      group_join group_2A
+   end_comm
+   edit processor send
+      # 1 message (won't send to self)
+      report_to_group group_2A via test_comm
+   end_processor
+end_platform
+
+platform 2A-3 GROUP_PLATFORM_2A
+   edit comm test_comm
+      group_join group_2A
+   end_comm
+end_platform
+
+platform 2A-4 GROUP_PLATFORM_2A
+   edit processor send
+      # 2 messages
+      report_to_group group_2A via test_comm
+   end_processor
+end_platform
+
+platform 2A-5 GROUP_PLATFORM_2A
+end_platform
+
+#======================================================
+#TEST CASE 2A - MIXED GROUPS
+#======================================================
+
+group group_2B WSF_GROUP
+end_group
+
+platform 2B-1 GROUP_PLATFORM_2B
+   group_join group_2B
+   edit processor send
+      # 2 messages
+      report_to_group group_2B via test_comm
+   end_processor
+end_platform
+
+platform 2B-2 GROUP_PLATFORM_2B
+   edit comm test_comm
+      group_join group_2B
+   end_comm
+end_platform
+
+platform 2B-3 GROUP_PLATFORM_2B
+   add comm dummy_comm WSF_COMM_TRANSCEIVER
+      #dummy_comm joins group, will get messages,
+      #but doesn't report to processor
+      network_name test_group_2b
+      group_join group_2B
+   end_comm
+end_platform
+
+platform 2B-4 GROUP_PLATFORM_2B
+   edit comm test_comm
+      group_join group_2B
+   end_comm
+end_platform
+
+platform 2B-5 GROUP_PLATFORM_2B
+   add sensor dummy_sensor WSF_GEOMETRIC_SENSOR
+      frame_time 10 days
+      reports_side
+      group_join group_2B
+   end_sensor
+   edit processor send
+      # 2 messages
+      report_to_group group_2B via test_comm
+   end_processor
+end_platform
+
+#======================================================
+#TEST CASE 3 - EXPLICIT LINK TARGETS
+#======================================================
+
+platform 3-1 EXPLICIT_TARGET_3
+   edit processor send
+      # 2 messages
+      external_link platform 3-2 comm test_comm via test_comm
+      external_link platform 3-3 comm test_comm via test_comm
+   end_processor
+end_platform
+
+platform 3-2 EXPLICIT_TARGET_3
+   add comm alternate_comm WSF_COMM_TRANSCEIVER
+      network_name explicit
+   end_comm
+   edit processor send
+      # 2 messages
+      external_link platform 3-1 comm test_comm via alternate_comm
+      external_link platform 3-4 comm test_comm via test_comm
+   end_processor
+end_platform
+
+platform 3-3 EXPLICIT_TARGET_3
+   edit processor send
+      # 1 message (usage of alternate_comm doesn't report)
+      external_link platform 3-4 comm alternate_comm via test_comm
+      external_link platform 3-1 comm test_comm via test_comm
+   end_processor
+end_platform
+
+platform 3-4 EXPLICIT_TARGET_3
+   add comm alternate_comm WSF_COMM_TRANSCEIVER
+      network_name explicit
+   end_comm
+end_platform
+
+#======================================================
+#TEST CASE 4A - UNICAST ADDRESSING LINKAGE
+#======================================================
+
+platform 4A-1 ADDRESS_TARGET_4A
+   edit comm test_comm
+      address 192.168.1.22/24
+   end_comm
+   edit processor send
+      # 2 messages
+      external_link address 192.168.1.3/24 via test_comm
+      external_link address 192.168.1.144/24 via test_comm
+   end_processor
+end_platform
+
+platform 4A-2 ADDRESS_TARGET_4A
+   edit comm test_comm 
+      address 192.168.1.3/24
+   end_comm
+   edit processor send
+      # 1 message (target of self won't send)
+      external_link address 192.168.1.3/24 via test_comm
+      external_link address 192.168.1.22/24 via test_comm
+   end_processor
+end_platform
+
+platform 4A-3 ADDRESS_TARGET_4A
+   edit comm test_comm 
+      address 192.168.1.144/24
+   end_comm
+   edit processor send
+      # no interface using this address, no recipient
+      external_link address 192.168.1.45/24 via test_comm
+      # 1 message
+      external_link address 192.168.1.22/24 via test_comm
+   end_processor
+end_platform
+
+#======================================================
+#TEST CASE 4B - BROADCAST ADDRESSING LINKAGE
+#======================================================
+
+platform 4B-1 ADDRESS_TARGET_4B
+   edit comm test_comm
+      address 192.169.1.1/24
+   end_comm
+   edit processor send
+      # 4 messages (exludes self)
+      external_link address 192.169.1.255/24 via test_comm
+   end_processor
+end_platform
+
+platform 4B-2 ADDRESS_TARGET_4B
+   edit comm test_comm
+      address 192.169.1.2/24
+   end_comm
+end_platform
+
+platform 4B-3 ADDRESS_TARGET_4B
+   edit comm test_comm
+      address 192.169.1.3/24
+   end_comm
+end_platform
+
+platform 4B-4 ADDRESS_TARGET_4B
+   edit comm test_comm
+      address 192.169.1.4/24
+   end_comm
+end_platform
+
+platform 4B-5 ADDRESS_TARGET_4B
+   edit comm test_comm
+      address 192.169.1.5/24
+   end_comm
+end_platform
+
+#======================================================
+#TEST CASE 4B - MULTICAST ADDRESSING LINKAGE
+#======================================================
+
+platform 4C-1 ADDRESS_TARGET_4C
+   edit processor send
+      # 4 messages (exludes self)
+      external_link address 230.1.1.0/32 via test_comm
+   end_processor
+end_platform
+
+platform 4C-2 ADDRESS_TARGET_4C
+   edit processor send
+      # 4 messages (exludes self)
+      external_link address 230.1.1.0/32 via test_comm
+   end_processor
+end_platform
+
+platform 4C-3 ADDRESS_TARGET_4C
+end_platform
+
+platform 4C-4 ADDRESS_TARGET_4C
+end_platform
+
+platform 4C-5 ADDRESS_TARGET_4C
+end_platform
+
+#======================================================
+#TEST CONCLUSION
+#======================================================
+execute at_time 0.5 s absolute
+   if(test_1a != 4)
+   {
+      writeln("FAILURE IN TEST 1A");
+      writeln("-FAIL-");
+   }
+   if(test_1b != 4)
+   {
+      writeln("FAILURE IN TEST 1B");
+      writeln("-FAIL-");   
+   }
+   if(test_1c != 4)
+   {
+      writeln("FAILURE IN TEST 1C");
+      writeln("-FAIL-");
+   }
+   if(test_1d != 4)
+   {
+      writeln("FAILURE IN TEST 1D");
+      writeln("-FAIL-");
+   }
+   if(test_2a != 5)
+   {
+      writeln("FAILURE IN TEST 2A");
+      writeln("-FAIL-");
+   }
+   if(test_2b != 4)
+   {
+      writeln("FAILURE IN TEST 2B");
+      writeln("-FAIL-");
+   }
+   if(test_3 != 5)
+   {
+      writeln("FAILURE IN TEST 3");
+      writeln("-FAIL-");
+   }
+   if(test_4a != 4)
+   {
+      writeln("FAILURE IN TEST 4A");
+      writeln("-FAIL-");
+   }
+   if(test_4b != 4)
+   {
+      writeln("FAILURE IN TEST 4B");
+      writeln("-FAIL-");
+   }
+   if(test_4c != 8)
+   {
+      writeln("FAILURE IN TEST 4C");
+      writeln("-FAIL-");
+   }
+end_execute

@@ -1,0 +1,115 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date Mar 20 2021
+start_time 15:10:00.0
+end_time 1 s
+
+include_once utils.txt
+
+
+platform_type SPACE_PLATFORM WSF_PLATFORM
+   script_variables 
+      double expectedHeading = 90;
+   end_script_variables
+   
+   
+   mover WSF_SPACE_MOVER
+      periapsis_altitude 2000 km
+      inclination 0 deg
+      raan 200 deg
+      true_anomaly 35 deg
+      argument_of_periapsis 170 deg
+      eccentricity 0.2
+   end_mover   
+
+end_platform_type
+
+platform p1 SPACE_PLATFORM
+end_platform
+
+platform p2 SPACE_PLATFORM
+
+
+   edit mover
+
+      periapsis_altitude 2000 km
+      inclination 20 deg
+      raan 10 deg
+      true_anomaly 0 deg
+      argument_of_periapsis 90 deg
+      eccentricity 0.2  
+
+   end_mover
+
+end_platform
+
+platform p3 SPACE_PLATFORM
+   script_variables 
+      expectedHeading = -90;
+   end_script_variables
+
+   edit mover
+      periapsis_altitude 2000 km
+      inclination 180 deg
+      raan 40 deg
+      true_anomaly 165 deg
+      argument_of_periapsis 15 deg
+      eccentricity 0.1
+   end_mover
+
+end_platform
+
+platform p4 WSF_PLATFORM 
+   script_variables 
+      double expectedHeading = 45;
+   end_script_variables
+   
+   
+   add mover WSF_SPACE_MOVER
+      initial_state_lla 30n 80w 2000 km 5000 m/s 5000 m/s 0 m/s
+   end_mover
+end_platform
+
+platform p5 WSF_PLATFORM 
+   script_variables 
+      double expectedHeading = 0;
+   end_script_variables
+   
+   
+   add mover WSF_SPACE_MOVER
+      initial_state_lla 30n 80w 2000 km 7000 m/s 0 m/s 0 m/s
+   end_mover
+end_platform
+
+platform p6 WSF_PLATFORM 
+   script_variables 
+      double expectedHeading = 180;
+   end_script_variables
+   
+   
+   add mover WSF_SPACE_MOVER
+      initial_state_lla 30n 80w 3000 km -6000 m/s 0 m/s 0 m/s
+   end_mover
+end_platform
+
+script void SimulationStarting()
+
+   for (int i = 0; i < WsfSimulation.PlatformCount(); i+=1)
+   {
+      WsfPlatform p = WsfSimulation.PlatformEntry(i);
+      WsfSpaceMover m = (WsfSpaceMover)p.Mover();
+      ExpectDouble(m.InitialHeading(), p->expectedHeading, MATH.Pow(10, -6), "initial heading");    
+   }
+
+end_script
+
+observer 
+   enable SIMULATION_STARTING
+end_observer

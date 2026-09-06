@@ -1,0 +1,79 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once default_formation.txt
+include_once ../scripts/utils.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 4 min
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 min absolute
+   WsfSixDOF_Formation yankee = WsfSixDOF_FormationManager.GetFormation("yankee");
+   
+   allPassed = ExpectString(yankee.GetQualifiedName(), "yankee", "Qual Name") && allPassed;
+   allPassed = ExpectString(yankee.GetRelativeName(), "yankee", "Rel Name") && allPassed;
+   allPassed = ExpectBool(yankee.IsRoot(), true, "Is root") && allPassed;
+   allPassed = ExpectBool(yankee.IsLeaf(), false, "Is leaf") && allPassed;
+   allPassed = ExpectInt(yankee.GetNumSubFormations(), 2, "subforms") && allPassed;
+   allPassed = ExpectInt(yankee.GetNumMemberPlatforms(), 4, "members") && allPassed;
+   
+   WsfSixDOF_Formation subAlpha = yankee.GetSubFormation("alpha");
+   allPassed = ExpectBool(subAlpha.IsValid(), true, "invalid alpha") && allPassed;
+   WsfSixDOF_Formation subInvalid = yankee.GetSubFormation("invalid");
+   allPassed = ExpectBool(subInvalid.IsValid(), false, "improperly valid") && allPassed;
+   
+   allPassed = ExpectBool(yankee.HasLeader(), true, "no leader") && allPassed;
+   WsfSixDOF_Formation leadSubForm = yankee.GetLeadSubFormation();
+   allPassed = ExpectBool(leadSubForm.IsValid(), true, "invalid lead subform") && allPassed;
+   allPassed = ExpectString(leadSubForm.GetRelativeName(), "alpha", "wrong lead reported") && allPassed;
+   allPassed = ExpectBool(yankee.IsLeader(), false, "should not be a leader") && allPassed;
+   
+   WsfSixDOF_Formation overallLead = yankee.GetFormationLeader();
+   allPassed = ExpectBool(overallLead.IsValid(), true, "invalid overall lead") && allPassed;
+   allPassed = ExpectString(overallLead.GetQualifiedName(), "yankee.alpha.one", "wrong overall leader reported") && allPassed;
+   WsfPlatform overallLeadPlatform = overallLead.GetMemberPlatform();
+   allPassed = ExpectBool(overallLeadPlatform.IsValid(), true, "invalid member platform") && allPassed;
+   
+   WsfPlatform memberHere = yankee.GetMemberPlatform();
+   allPassed = ExpectBool(yankee.HasMemberPlatform(), false, "reports having member platform") && allPassed;
+   allPassed = ExpectBool(memberHere.IsValid(), false, "valid member platform") && allPassed;
+   
+   WsfSixDOF_FormationOffset offset = yankee.GetOffset();
+   allPassed = ExpectDouble(offset.GetRange(), 0.0, 1.0e-10, "non-zero range") && allPassed;
+   allPassed = ExpectDouble(offset.GetRelativeBearing(), 0.0, 1.0e-10, "non-zero relative bearing") && allPassed;
+   allPassed = ExpectDouble(offset.GetStack(), 0.0, 1.0e-10, "non-zero stack") && allPassed;
+   allPassed = ExpectBool(offset.IsWelded(), true, "welded expected") && allPassed;
+end_execute
+
+execute at_time 2 min absolute
+   WsfSixDOF_Formation zbone = WsfSixDOF_FormationManager.GetFormation("zulu.beta.one");
+   allPassed = ExpectBool(zbone.IsValid(), true, "no such formation") && allPassed;
+   allPassed = ExpectBool(zbone.IsLeader(), true, "expected a leader") && allPassed;
+   allPassed = ExpectBool(zbone.IsLeaf(), true, "expected a leaf") && allPassed;
+   WsfSixDOF_Formation parent = zbone.GetParentFormation();
+   allPassed = ExpectBool(parent.IsValid(), true, "invalid parent") && allPassed;
+   allPassed = ExpectString(parent.GetQualifiedName(), "zulu.beta", "expected parent mismatch") && allPassed;
+   
+end_execute
+
+execute at_time 3 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }     
+end_execute

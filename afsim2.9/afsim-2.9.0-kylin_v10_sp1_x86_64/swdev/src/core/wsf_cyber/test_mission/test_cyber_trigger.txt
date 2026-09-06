@@ -1,0 +1,120 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This is a basic test of functionality for cyber triggers.
+# The triggers should attempt to evaluate for a specific number
+# of times until they evaluate, which is tracked by global variables.
+
+# Timeline (2 triggers, 1 global, 1 platform)
+# 30s - Global evaluate false, Platform evaluate false (+2 evaluate)
+# 60s - Global evaluate false, Platform evaluate false (+2 evaluate)
+# 90s - Global evaluate true, platform evaluate true (+2 evaluate)
+#       Global execute, platform execute (+2 execute)
+# 120s - Global evaluate true (+1 evaluate)
+#        Global execute (+1 execute)
+#
+# Note that the platform trigger stops after executing. The global trigger is
+# set to extrapolate, so it continues to evaluate and execute during its defined interval
+# at 2 min (120 s) resulting in an extra evaluate and execution.
+script_variables
+   bool triggered = false;
+   int executed = 0;
+   int evals = 0;
+end_script_variables
+
+// EVALUATES AT T = 0, 30, 60, 90
+// EXECUTES AT T = 90
+cyber_trigger test_trigger WSF_CYBER_TRIGGER
+   debug
+   extrapolated_trigger false
+   execute_trigger false
+   update_interval
+      to 2 min every 30.0 s
+   end_update_interval
+   
+   script bool OnEvaluate()
+      evals = (evals + 1);
+      #writeln("test_trigger eval at: " + (string)TIME_NOW);
+
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+   
+   script void OnExecute()
+      triggered = true;
+      executed = executed + 1;
+      #writeln("test_trigger execute at: " + (string)TIME_NOW);
+   end_script
+
+end_cyber_trigger
+
+// EVALUATES AT T = 0, 30, 60, 90, 120
+// EXECUTES AT T = 90, 120
+cyber_trigger test_global_trigger WSF_CYBER_TRIGGER
+   debug
+   extrapolated_trigger true
+   execute_trigger true
+   update_interval
+      to 2 min every 30.0 s
+   end_update_interval
+   
+   script bool OnEvaluate()
+      evals = evals + 1;
+      #writeln("test_global_trigger eval at: " + (string)TIME_NOW);
+
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+   
+   script void OnExecute()
+      triggered = true;
+      executed = executed + 1;
+      #writeln("test_global_trigger execute at: " + (string)TIME_NOW);
+   end_script
+
+end_cyber_trigger
+
+platform test1 WSF_PLATFORM
+   side blue
+   commander SELF
+   
+   add cyber_trigger platform_test1_trigger1 test_trigger
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+execute at_time 121 s absolute
+   if(evals != 7)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of evals.");
+      writeln("Evals counted: " + (string)evals);
+   }
+   if(!triggered)
+   {
+      writeln("-FAIL-");
+      writeln("Not triggered.");
+   }
+   if(executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of executions.");
+      writeln("Executes counted: " + (string)executed);
+   }
+end_execute
+
+end_time 122 s

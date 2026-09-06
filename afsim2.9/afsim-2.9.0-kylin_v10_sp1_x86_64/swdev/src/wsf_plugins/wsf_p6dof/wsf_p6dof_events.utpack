@@ -1,0 +1,153 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+Settings {
+   message_id_or: 4
+}
+
+List  { id: DoubleList        type: double }
+
+Struct {
+   id: MsgP6dofCoreData
+   message: 1
+   base: MsgBase
+   Field { id: platformIndex           type: index }
+   Field { id: altitude_m              type: double }
+   Field { id: vertSpeed_msec          type: double }
+   Field { id: KCAS                    type: double }
+   Field { id: KTAS                    type: double }
+   Field { id: mach                    type: double }
+   Field { id: heading_rad             type: double }
+   Field { id: pitch_rad               type: double }
+   Field { id: roll_rad                type: double }
+   Field { id: gLoad                   type: double }
+   Field { id: alpha_rad               type: double }
+   Field { id: gAvail                  type: double }
+   Field { id: speedbrakeAngle_rad     type: double }
+}
+
+Struct {
+   id: MsgP6dofKinematic
+   message: 2
+   base: MsgBase
+   Field { id: platformIndex           type: index }
+   Field { id: beta_rad                type: double }
+   Field { id: alphaDot_rps            type: double }
+   Field { id: betaDot_rps             type: double }
+   Field { id: yawRate_rps             type: double }
+   Field { id: pitchRate_rps           type: double }
+   Field { id: rollRate_rps            type: double }
+   Field { id: dynamicPressure_psf     type: double }
+   Field { id: nx                      type: double }
+   Field { id: ny                      type: double }
+   Field { id: flightPathAngle_rad     type: double }
+   Field { id: centerGravity_x         type: double }
+   Field { id: centerGravity_y         type: double }
+   Field { id: centerGravity_z         type: double }
+}
+
+Struct {
+   id: MsgP6dofEngineFuel
+   message: 3
+   base: MsgBase
+   Field { id: platformIndex              type: index }
+   Field { id: fuelFlow_kgsec             type: double }
+   Field { id: fuelInternal_kg            type: double }
+   Field { id: fuelExternal_kg            type: double }
+   Field { id: fuelInternalRemaining_kg   type: double }
+   Field { id: fuelExternalRemaining_kg   type: double }
+   Field { id: totalWeight_kg             type: double }
+   Field { id: afterburner_on             type: bool  bit: 0 }
+   Field { id: producing_thrust           type: bool  bit: 1 }
+   Field { id: engine_operating           type: bool  bit: 2 }
+   Field { id: engine_smoking             type: bool  bit: 3 }
+   Field { id: contrailing                type: bool  bit: 4 }
+   Field { id: jokerFuelState_kg          type: double }
+   Field { id: bingoFuelState_kg          type: double }
+   Field { id: weightOnWheels             type: bool  bit: 5 }
+}
+
+Struct {
+   id: MsgP6dofAutopilot
+   message: 4
+   base: MsgBase
+   Field { id: platformIndex           type: index }
+   Field { id: activePilot             type: string }
+   Field { id: lateralModeName         type: string }
+   Field { id: lateralModeValue        type: float }
+   Field { id: verticalModeName        type: string }
+   Field { id: verticalModeValue       type: float }
+   Field { id: speedModeName           type: string }
+   Field { id: speedModeValue          type: float }
+   Field { id: currentManeuver         type: string }
+}
+
+
+Struct {
+   id: MsgP6dofAutopilotLimits
+   message: 5
+   base: MsgBase
+   Field { id: platformIndex           type: index }
+   Field { id: pitchGLoadMin           type: double }
+   Field { id: pitchGLoadMax           type: double }
+   Field { id: alphaMin                type: double }
+   Field { id: alphaMax                type: double }
+   Field { id: pitchRateMin            type: double }
+   Field { id: pitchRateMax            type: double }
+   Field { id: verticalSpeedMin        type: double }
+   Field { id: verticalSpeedMax        type: double }
+   Field { id: yawGLoadMax             type: double }
+   Field { id: betaMax                 type: double }
+   Field { id: yawRateMax              type: double }
+   Field { id: rollRateMax             type: double }
+   Field { id: bankAngleMax            type: double }
+   Field { id: forwardAccelMin         type: double }
+   Field { id: forwardAccelMax         type: double }
+   Field { id: taxiSpeedMax            type: double }
+   Field { id: taxiYawRateMax          type: double }
+}
+
+Struct {
+   id: MsgP6dofControlInputs
+   message: 6
+   base: MsgBase
+   Field { id: platformIndex           type: index }
+   Field { id: stickBack               type: double }
+   Field { id: stickRight              type: double }
+   Field { id: rudderRight             type: double }
+   Field { id: throttle                type: double }
+   Field { id: speedBrakeLever         type: double }
+   Field { id: flapsLever              type: double }
+   Field { id: landingGearLever        type: double }
+   Field { id: spoilersLever           type: double }
+   Field { id: thrustReverserLever     type: double }
+}
+
+Struct {
+   id: MsgP6dofControlSurfaces
+   message: 7
+   base: MsgBase
+   Field { id: platformIndex           type: index }
+   Field { id: surfaceNames            type: StringList }
+   Field { id: surfaceAngles           type: DoubleList }
+}
+
+Struct {
+   id: MsgP6dofForceMoment
+   message: 8
+   base: MsgBase
+   Field { id: platformIndex           type: index }
+   Field { id: liftForce_nt            type: double }
+   Field { id: dragForce_nt            type: double }
+   Field { id: thrustForce_nt          type: double }
+   Field { id: sideForce_nt            type: double }
+   Field { id: yawMoment               type: double }
+   Field { id: pitchMoment             type: double }
+   Field { id: rollMoment              type: double }
+}

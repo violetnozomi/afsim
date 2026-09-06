@@ -1,0 +1,102 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# New file created by AFSIM Wizard
+// test of track quality check with a 3d and bearing-only sensor
+platform cmdr WSF_PLATFORM
+   side blue
+   position 39:52:27.437n 86:25:58.956w
+   command_chain sense SELF
+   add comm xr WSF_COMM_TRANSCEIVER
+      processor fuse
+   end_comm
+   add processor fuse WSF_TRACK_PROCESSOR
+   end_processor
+
+   track_manager
+   end_track_manager
+end_platform
+
+platform sense-3d WSF_PLATFORM
+   side blue
+   position 40:10:06.584n 86:28:48.535w altitude 100 m
+   command_chain sense cmdr
+   add comm xr WSF_COMM_TRANSCEIVER
+   end_comm
+   add sensor 3d WSF_GEOMETRIC_SENSOR
+      track_quality 1.0
+      ignore_same_side
+      reports_location
+      on
+      frame_time 10 s
+      processor xfer
+   end_sensor
+   add processor xfer WSF_LINKED_PROCESSOR
+      report_to command_chain sense commander via xr
+   end_processor
+end_platform
+
+platform sense-bearing WSF_PLATFORM
+   side blue
+   position 40:08:29.759n 86:23:36.930w altitude 100 m
+   command_chain sense cmdr
+   add comm xr WSF_COMM_TRANSCEIVER
+   end_comm
+   add mover WSF_AIR_MOVER
+      route
+         position 40:08:29.759n 86:23:36.930w altitude 100 m speed 10 kts
+      end_route
+   end_mover
+
+   add sensor bearing WSF_GEOMETRIC_SENSOR
+      reports_bearing
+      reports_elevation
+      ignore_same_side
+      track_quality 1.0
+      frame_time 10 s
+      processor xfer
+   end_sensor
+   execute at_time 10 s absolute
+      PLATFORM.Sensor("bearing").TurnOn();
+   end_execute
+   add processor xfer WSF_LINKED_PROCESSOR
+      report_to command_chain sense commander via xr
+   end_processor
+end_platform
+
+platform target WSF_PLATFORM
+   side red
+   position 40:11:52.886n 86:25:46.386w
+   command_chain sense cmdr
+end_platform
+
+end_time 1 hr
+
+script void LocalTrackUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack)
+   if (aLocalTrack.LocationValid())
+   {
+      Vec3 trackLoc = aLocalTrack.CurrentLocation().LocationWCS();
+      Vec3 targetLoc = aLocalTrack.Target().LocationWCS();
+      Vec3 diff = {};
+      diff.Subtract(trackLoc, targetLoc);
+      if (diff.Magnitude() > 0.01)
+      {
+         writeln("-FAIL-");
+      }
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+
+end_script
+
+observer
+   enable LOCAL_TRACK_UPDATED LocalTrackUpdated
+end_observer

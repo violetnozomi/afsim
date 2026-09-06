@@ -1,0 +1,59 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#
+# This model variant does not include landing gear.
+#
+
+include_once ./fa-lgt.txt
+include_once ../../../platforms/ft-ext.txt
+
+p6dof_object_types   
+   p6dof_object_type FA-LGT-ExternalTanks FA-LGT
+   
+      subobject TankLft FT-EXT
+         parent_rel_x        -4.0 ft
+         parent_rel_y        -10.0 ft
+         parent_rel_z        2.5 ft
+         parent_rel_pitch    0.0 deg
+         separation_vz       2.0 ft/sec
+         separation_omega_x  5.0 deg/sec
+         separation_omega_y  -20.0 deg/sec
+         separation_omega_z  -10.0 deg/sec
+      end_subobject
+
+      subobject TankRgt FT-EXT
+         parent_rel_x        -4.0 ft
+         parent_rel_y        10.0 ft
+         parent_rel_z        2.5 ft
+         parent_rel_pitch    0.0 deg
+         separation_vz       2.0 ft/sec
+         separation_omega_x  -5.0 deg/sec
+         separation_omega_y  -20.0 deg/sec
+         separation_omega_z  10.0 deg/sec
+      end_subobject
+
+      fuel_transfer LeftTankToMainXfer
+         source_tank TankLft.MainFuelTank
+         target_tank MainFuelTank
+         #target_tank LeftWingTank   # Uncomment if using multiple internal tanks for FA-LGT
+      end_fuel_transfer
+
+      fuel_transfer RightTankToMainXfer
+         source_tank TankRgt.MainFuelTank
+         target_tank MainFuelTank
+         #target_tank RightWingTank   # Uncomment if using multiple internal tanks for FA-LGT
+      end_fuel_transfer
+
+      sequencer DropExternalTanks
+         action_jett_obj TankRgt
+         action_jett_obj TankLft
+      end_sequencer
+
+   end_p6dof_object_type
+end_p6dof_object_types

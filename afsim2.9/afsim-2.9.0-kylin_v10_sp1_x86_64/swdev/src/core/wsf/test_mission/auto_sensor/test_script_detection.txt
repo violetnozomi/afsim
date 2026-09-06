@@ -1,0 +1,152 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that the common script interface works as intended on sensors.
+# It also verifies that a sensor with a defined OnSensorDetection script
+# can correctly allow/deny detections from happening.
+
+script_variables
+   int scriptAttempts = 0;
+   int observerAttempts = 0;
+   int platformTest = 0;
+end_script_variables
+
+sensor GEO_1 WSF_GEOMETRIC_SENSOR
+   mode_template
+      frame_time 1 s
+      reports_location
+   end_mode_template
+   mode short_range
+      maximum_range 1 km
+   end_mode
+   mode long_range
+      platform_type WSF_PLATFORM
+         detection_range 15 km
+         pd_range_table
+            1.0    1 km
+            0.0    1.00000001 km
+            0.0    5 km
+            0.0    8 km
+            0.0    9.99999999 km
+            1.0    10 km
+         end_pd_range_table
+      # just make sure we can parse the data
+      platform_type GARBAGE
+         detection_range 1 km
+      platform_type GARBAGE2
+         pd_range_table
+            1.0    1 km
+            0.0    5 km      
+         end_pd_range_table
+   end_mode
+end_sensor
+
+platform test_plat WSF_PLATFORM
+   position 0n 0e
+   add sensor geo-1 GEO_1
+      on
+      #debug
+      initial_mode long_range
+      
+      script bool OnSensorDetectionAttempt(WsfPlatform aTarget, WsfSensorInteraction aInteraction)
+         extern int scriptAttempts;
+         DetectAttempt2(Platform(), SENSOR, aTarget, aInteraction);
+         scriptAttempts = scriptAttempts + 1;
+         return false;
+      end_script
+   end_sensor
+end_platform
+
+platform test_plat2 WSF_PLATFORM
+   position 0n 0e
+   add sensor geo-1 GEO_1
+      on
+      #debug
+      initial_mode long_range
+      script bool OnSensorDetectionAttempt(WsfPlatform aTarget, WsfSensorInteraction aInteraction)
+         DetectAttempt2(PLATFORM, this, aTarget, aInteraction);
+         scriptAttempts = scriptAttempts + 1;
+         return true;
+      end_script
+   end_sensor
+end_platform 
+
+# Verify that WSF_PLATFORM is found in the sensor's platform_type data
+platform_type TARGET_TYPE WSF_PLATFORM end_platform_type
+platform test_target1 TARGET_TYPE
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 0n 0e
+         speed 100 m/s
+         altitude 1 km
+      position 1n 0e
+   end_route
+end_platform
+
+script bool VerifyDetection(bool aDetect, bool aExpected, string aMsg)
+   if (aDetect != aExpected)
+   {
+      writeln(aMsg);
+   }
+   return aDetect;
+end_script
+
+# Verifies that the user-defined script has access to all relevant variables
+# and that the sensor interaction parameter contains the correct detection status (the result prior to the script being invoked) 
+script bool DetectAttempt2(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+    double range = aPlatform.SlantRangeTo(aTarget);
+    if (range <= 1000)
+    {
+       return VerifyDetection(aResult.Detected(), true, "-FAIL- Did not detect under 1 km range");
+    }
+    else if (range >= 10000 && range <= 15000) 
+    {
+       return VerifyDetection(aResult.Detected(), true, "-FAIL- Failed to detect between 10 km and 15 km");
+    }
+    else 
+    {
+       return VerifyDetection(aResult.Detected(), false, "-FAIL- Detected at incorrect range");
+    }
+end_script
+
+script void check_all_pass()
+   # Verify that the script is always called when an attempt occurs, and that the script does not stop the observer callback from triggering.
+   # Each platform attempts 601 detections (once every half second, including 0). 
+   int totalAttempts = 601 * 2;
+   if (totalAttempts != scriptAttempts)
+   {
+      writeln( "-FAIL- The user-defined script was not invoked for each detection attempt");
+   }
+   if (totalAttempts != observerAttempts)
+   {
+      writeln( "-FAIL- The user-defined script prevented the observer callback from triggering");
+   }
+end_script
+
+script void DetectAttemptObserver(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   observerAttempts = observerAttempts + 1;
+   # Verify that the result was overridden and changed to always fail detection
+   if (aPlatform.Name() == "test_plat" && aResult.Detected())
+   {
+      writeln("-FAIL- The user-defined script was unsuccessful in changing the detection result");
+   }
+   # Verify that the result was not modified
+   else if (aPlatform.Name() == "test_plat2")
+   {
+      DetectAttempt2(aPlatform, aSensor, aTarget, aResult);
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT DetectAttemptObserver
+   enable SIMULATION_COMPLETE check_all_pass
+end_observer
+
+end_time 5 min

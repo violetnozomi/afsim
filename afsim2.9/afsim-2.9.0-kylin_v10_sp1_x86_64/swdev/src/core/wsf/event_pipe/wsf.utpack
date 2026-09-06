@@ -1,0 +1,1114 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+Settings {
+//   namespace: WsfEventPipe
+   message_id_or: 0
+   double_time: 1
+}
+
+// Note: There are built in basic types called "index" and "time" not listed here.
+//    Using index is equivalent to uint, but also makes the field visible to the generated GetIndex function in messages.
+//    Using time is equivalent to double, but also makes the field visible to the generated GetTime function in messages.
+// ("index" represents a platform index)
+// ("time" represents a specific point in simulation time)
+
+BasicType { id: double  cpp_type: double         encoding: le       size: 8 }
+BasicType { id: float   cpp_type: float          encoding: le       size: 4 }
+BasicType { id: string  cpp_type: "std::string"  encoding: varbytes }
+BasicType { id: int8    cpp_type: signed char    encoding: le       size: 1 }
+BasicType { id: uint8   cpp_type: unsigned char  encoding: le       size: 1 }
+BasicType { id: int16   cpp_type: short          encoding: le       size: 2 }
+BasicType { id: uint16  cpp_type: unsigned short encoding: le       size: 2 }
+BasicType { id: int     cpp_type: int            encoding: le       size: 4 }
+BasicType { id: uint    cpp_type: unsigned int   encoding: le       size: 4 }
+BasicType { id: int64   cpp_type: long long      encoding: le       size: 8 }
+BasicType { id: bool    cpp_type: bit            encoding: bit }
+
+List  { id: FloatList      type: float }
+List  { id: StringList     type: string }
+List  { id: IntList        type: uint }
+
+Struct {
+   id: MsgBase
+   message: virtual
+   Field { id: simTime   type: time }
+   Field { id: simIndex  type: uint8 } // A value of 255 represents an unknown external simulation
+}
+
+Struct {
+   id: Vec3d
+   Field { id: x type: double }
+   Field { id: y type: double }
+   Field { id: z type: double }
+}
+Struct {
+   id: Vec3f
+   Field { id: x type: float }
+   Field { id: y type: float }
+   Field { id: z type: float }
+}
+
+Struct
+{
+   id: DisEntityId
+   Field { id: site        type: uint16 }
+   Field { id: application type: uint16 }
+   Field { id: entity      type: uint16 }
+}
+
+Struct {
+   id: ApplicationUniqueId
+   Field { id: a type: uint }
+   Field { id: b type: uint }
+   Field { id: c type: uint }
+}
+
+Struct {
+   id: EntityState
+   Field { id: platformIndex     type: index }
+   Field { id: damageFactor      type: double }
+   Field { id: locationWCS       type: Vec3d }
+   // unset velocity or acceleration implies zero
+   Field { id: velocityWCS       type: Vec3f    option: 0 }
+   Field { id: accelerationWCS   type: Vec3f    option: 1 }
+   Field { id: orientationWCS    type: Vec3f    option: 2 }
+   Field { id: fuelCurrent       type: double   option: 3 }
+   Field { id: machNumber        type: double   option: 4 }
+}
+
+Struct {
+   id: MsgEntityState
+   message: 1
+   base: MsgBase
+   Field { id: state    type: EntityState }
+}
+
+Struct {
+   id: CommandChain
+   Field { id: name        type: string }
+   Field { id: commander   type: string }
+}
+
+List { id: CommandChains type: CommandChain }
+
+Enum {
+   id: SpatialDomain
+   Value { id: unknown      value: 0 }
+   Value { id: land         value: 1 }
+   Value { id: air          value: 2 }
+   Value { id: surface      value: 3 }
+   Value { id: subsurface   value: 4 }
+   Value { id: space        value: 5 }
+}
+
+Enum { 
+   id: IFFStatus 
+   Value { id: unknown     value: 0 }
+   Value { id: ambiguous   value: 1 }
+   Value { id: foe         value: 2 }
+   Value { id: friendly    value: 3 }
+   Value { id: neutral     value: 4 }
+}
+
+Struct {
+   id: MsgPlatformInfo
+   message: 2
+   base: MsgBase
+   Field { id: platformIndex  type: index }
+   Field { id: name           type: string         option: 0 }
+   Field { id: types          type: StringList     option: 1 }
+   Field { id: side           type: string         option: 2 }
+   Field { id: icon           type: string         option: 3 }
+   Field { id: marking        type: string         option: 4 }
+   Field { id: spatialDomain  type: SpatialDomain  option: 5 }
+   Field { id: commandChains  type: CommandChains  option: 6 }
+   Field { id: categories     type: StringList     option: 7 }
+   Field { id: disId          type: DisEntityId    option: 8 }
+   Field { id: fuelCapacity   type: double         option: 9 }
+}
+
+Struct {
+   id: Covariance
+   Field { id: rowCount       type: uint8 }
+   Field { id: colCount       type: uint8 }
+   Field { id: values         type: FloatList }
+}
+
+Struct {
+   id: Track
+   Struct {
+      id: Id
+      Field { id: localTrackNumber  type: int }
+      Field { id: owner             type: string }
+   }
+   Field { id: trackId           type: Id }
+   Field { id: startTime         type: time     option: 0 }
+   Field { id: updateTime        type: time     option: 1 }
+   Field { id: originatorIndex   type: index    option: 2 }
+   Field { id: sensorName        type: string   option: 3 }
+   Field { id: sensorMode        type: string   option: 4 }
+   Field { id: updateCount       type: int      option: 5 }
+   Field { id: originatorWCS     type: Vec3d    option: 6 }
+   Field { id: locationWCS       type: Vec3d    option: 7 }
+   Field { id: velocityWCS       type: Vec3f    option: 8 }
+   Field { id: range             type: float    option: 9 }
+   Field { id: rangeError        type: float    option: 10 }
+   Field { id: bearing           type: float    option: 11 }
+   Field { id: bearingError      type: float    option: 12 }
+   Field { id: elevation         type: float    option: 13 }
+   Field { id: elevationError    type: float    option: 14 }
+   Field { id: rangeRate         type: float    option: 15 }
+   Field { id: rangeRateError    type: float    option: 16 }
+   Field { id: trackQuality      type: float    option: 17  default: 0.5 }
+   Field { id: signalToNoise     type: float    option: 18 }
+   Field { id: pixelCount        type: float    option: 19 }
+   Field { id: spatialDomain     type: SpatialDomain option: 20 }
+   Field { id: stateCovariance   type: Covariance    option: 21 }
+   Field { id: targetIndex       type: index    option: 22 }
+   Field { id: side              type: string   option: 23 }
+   Field { id: type              type: string   option: 24 }
+   Field { id: icon              type: string   option: 25 }
+   Field { id: IFF               type: IFFStatus     option: 26  default: unknown }
+}
+
+Struct {
+   id: MsgLocalTrackCreated
+   message: 3
+   base: MsgBase
+   Field { id: ownerIndex        type: index }
+   Field { id: trackId           type: Track.Id  }
+   Field { id: targetIndex       type: index option: 1 }
+   Field { id: masterProcessor   type: bool  bit: 0}
+   // Followed by MsgTrackUpdate if track information is requested
+}
+Struct {
+   id: MsgLocalTrackUpdate
+   message: 4
+   base: MsgBase
+   Field { id: ownerIndex        type: index }
+   Field { id: track             type: Track }
+   Field { id: masterProcessor   type: bool bit: 0}
+}
+
+Struct {
+   id: MsgLocalTrackDrop
+   message: 5
+   base: MsgBase
+   Field { id: ownerIndex        type: index }
+   Field { id: trackId           type: Track.Id }
+   Field { id: targetIndex       type: index     option: 1 }
+   Field { id: masterProcessor   type: bool bit: 0}
+}
+
+Struct {
+   id: MsgSensorModeChange
+   message: 6
+   base: MsgBase
+   Field { id: platformIndex  type: index }
+   Field { id: sensorName     type: string }
+   Field { id: modeName       type: string }
+   Field { id: activate       type: bool     bit: 0 }
+}
+
+Struct {
+   id: MsgPlatformStatus
+   message: 7
+   base: MsgBase
+   Field { id: platformIndex  type: index }
+   Field { id: broken         type: bool  bit: 0 }
+   Field { id: removed        type: bool  bit: 1 }
+}
+
+Enum {
+   id: PartType
+     Value { id: sensor            value: 0 }
+     Value { id: mover             value: 1 }
+     Value { id: comm              value: 2 }
+     Value { id: processor         value: 3 }
+	  Value { id: visual            value: 5 }
+}
+
+Struct {
+   id: MsgPartStatus
+   message: 8
+   base: MsgBase
+   Field { id: platformIndex  type: index }
+   Field { id: partName       type: string }
+   Field { id: partType       type: PartType }
+   Field { id: on             type: bool  bit: 0 }
+   Field { id: broken         type: bool  bit: 1 }
+   Field { id: disabled       type: bool  bit: 2 }
+}
+
+Struct {
+   id: MsgComment
+   message: 9
+   base: MsgBase
+   Field { id: text           type: string }
+   Field { id: platformIndex  type: index     option: 0 }
+}
+
+
+Struct {
+   id: MsgDetectAttempt
+   message: 10
+   base: MsgBase
+
+   Field { id: sensorPlatformIndex     type: index    option: 0 }
+   Field { id: sensorName              type: string   option: 1 }
+   Field { id: targetPlatformIndex     type: index    option: 2 }
+   // beam: 0 if not provided
+   Field { id: beam                    type: int      option: 3 }
+   // Error terms: 0 if not provided
+   Field { id: rangeError              type: float    option: 4 }
+   Field { id: azimuthError            type: float    option: 5 }
+   Field { id: elevationError          type: float    option: 6 }
+   Field { id: rangeRateError          type: float    option: 7 }
+
+   Field { id: pd                      type: float    option: 8 }
+   Field { id: requiredPd              type: float    option: 9 }
+   Field { id: reportedSide            type: string   option: 10 }
+   Field { id: reportedType            type: string   option: 11 }
+   Field { id: interaction             type: EM_Interaction }
+}
+
+Struct {
+   id: Color
+   Field { id: red      type: uint8   default: 255 }
+   Field { id: green    type: uint8   default: 255 }
+   Field { id: blue     type: uint8   default: 255 }
+   Field { id: alpha    type: uint8   default: 255 }
+}
+
+Struct {
+   id: MsgDrawCommand
+   message: 11
+   Enum {
+      id: VertexType
+      Value { id: unset_vertex      value: 0 }
+      Value { id: absolute_wcs      value: 1 }
+      Value { id: relative_zero     value: 2 }
+      Value { id: relative_ecs      value: 3 }
+      Value { id: relative_ned      value: 4 }
+      Value { id: relative_ss       value: 5 }
+   }
+   Struct {
+      id: Vertex
+         Field { id: type                    type: VertexType }
+         Field { id: relativePlatformIndex   type: index    option: 0 }
+         // zero if not sent
+         Field { id: xyz                     type: Vec3f    option: 1 }
+   }
+   Enum {
+      id: DrawType
+        Value { id: line              value: 0 }
+        Value { id: point             value: 1 }
+        Value { id: icon              value: 2 }
+        Value { id: ellipse           value: 3 }
+        Value { id: erase             value: 4 }
+        Value { id: ellipsoid         value: 5 }
+        Value { id: quadrilateral     value: 6 }
+        Value { id: text              value: 7 }
+        Value { id: timer             value: 8 }
+   }
+   base: MsgBase
+   Struct {
+      id: Item
+      Field { id: drawType    type: DrawType }
+      Field { id: id          type: uint    option: 0  }
+      Field { id: color       type: uint    option: 1  }
+      Field { id: duration    type: float   option: 2  default: 1.0e20f }
+      Field { id: drawSize    type: uint8   option: 3  }
+      // Line style
+      Field { id: drawStyle   type: uint8   option: 4  }
+      // ellipse mode
+      Field { id: drawStyle2  type: uint8   option: 5  }
+      Field { id: orientation type: Vec3f   option: 6  }
+      Field { id: axis        type: Vec3f   option: 7  }
+      // Text is icon name or text to draw
+      Field { id: text        type: string  option: 8  }
+      Field { id: vertex1     type: Vertex  option: 9  }
+      Field { id: vertex2     type: Vertex  option: 10 }
+      Field { id: vertex3     type: Vertex  option: 11 }
+      Field { id: vertex4     type: Vertex  option: 12 }
+   }
+
+   List  { id: ItemList       type: Item }
+
+   Field { id: items      type: ItemList }
+   Field { id: layer      type: string     option: 1 }
+}
+
+Struct {
+   id: MsgMessageReceived
+   base: MsgBase
+   message: 12
+   Field { id: xmtrPlatformIndex  type: index   option: 0 }
+   Field { id: xmtrCommName       type: string  option: 1 }
+   Field { id: rcvrPlatformIndex  type: index   option: 2 }
+   Field { id: rcvrCommName       type: string  option: 3 }
+   Field { id: messageType        type: string  option: 4 }
+   Field { id: messageSubType     type: string  option: 5 }
+   Field { id: messageSize        type: int     option: 6 }
+   Field { id: serialNumber       type: uint    option: 7 }
+}
+
+Struct {
+   id: MsgMessageTransmitted
+   base: MsgBase
+   message: 13
+   Field { id: xmtrPlatformIndex  type: index   option: 0 }
+   Field { id: xmtrCommName       type: string  option: 1 }
+   Field { id: rcvrPlatformIndex  type: index   option: 2 }
+   Field { id: messageType        type: string  option: 3 }
+   Field { id: messageSubType     type: string  option: 4 }
+   Field { id: messageSize        type: int     option: 5 }
+   Field { id: serialNumber       type: uint    option: 6 }
+}
+
+Struct {
+   id: MsgSensorDetectionChange
+   base: MsgBase
+   message: 14
+   Field { id: ownerIndex     type: index   }
+   Field { id: sensorName     type: string }
+   Field { id: targetIndex    type: index   }
+   Field { id: detected       type: bool  bit: 0  }
+}
+
+Struct {
+   id: EM_Interaction
+   Struct {
+      id: RelativeData
+      Field { id: range             type: float }
+      Field { id: trueAzimuth       type: float }
+      Field { id: trueElevation     type: float }
+      Field { id: apparentAzimuth   type: float }
+      Field { id: apparentElevation type: float }
+   }
+   Struct {
+      id: BeamData
+      Field { id: azimuth           type: float }
+      Field { id: elevation         type: float }
+      Field { id: gain              type: float }
+   }
+   Struct {
+      id: Status
+      Field { id: rcvrRangeLimits      type: bool           bit: 0  option: 1 }
+      Field { id: rcvrAltitudeLimits   type: bool           bit: 2  option: 3 }
+      Field { id: rcvrAngleLimits      type: bool           bit: 4  option: 5 }
+      Field { id: rcvrHorizonMasking   type: bool           bit: 6  option: 7 }
+      Field { id: rcvrTerrainMasking   type: bool           bit: 8  option: 9 }
+      Field { id: xmtrRangeLimits      type: bool           bit: 10 option: 11 }
+      Field { id: xmtrAltitudeLimits   type: bool           bit: 12 option: 13 }
+      Field { id: xmtrAngleLimits      type: bool           bit: 14 option: 15 }
+      Field { id: xmtrHorizonMasking   type: bool           bit: 16 option: 17 }
+      Field { id: xmtrTerrainMasking   type: bool           bit: 18 option: 19 }
+      Field { id: signalLevel          type: bool           bit: 20 option: 21 }
+   }
+
+   Field { id: status               type: Status }
+
+   Field { id: xmtrWCS              type: Vec3d          option: 0 }
+   Field { id: rcvrWCS              type: Vec3d          option: 1 }
+   Field { id: targetWCS            type: Vec3d          option: 2 }
+
+   // Valid on when interacting with a rcvr
+   Field { id: rcvrToTarget         type: RelativeData   option: 3 }
+   Field { id: targetToRcvr         type: RelativeData   option: 4 }
+
+   // Valid only when a interacting with a xmtr
+   Field { id: xmtrToTarget         type: RelativeData   option: 5 }
+   Field { id: targetToXmtr         type: RelativeData   option: 6 }
+
+   // for one-way transmitter-receiver interactions only:
+   Field { id: xmtrToRcvr           type: RelativeData   option: 7 }
+   Field { id: rcvrToXmtr           type: RelativeData   option: 8 }
+
+   Field { id: rcvrBeam             type: BeamData       option: 9 }
+   Field { id: xmtrBeam             type: BeamData       option: 10 }
+
+   // Masking factor: 1 if not set
+   Field { id: maskingFactor        type: float          option: 11  default: 1 }
+   // Signature: 0 if not used or computed
+   Field { id: infraredSignature          type: float    option: 12 }
+   Field { id: infraredSignatureAzimuth   type: float    option: 13 }
+   Field { id: infraredSignatureElevation type: float    option: 14 }
+
+   Field { id: radarSignature             type: float    option: 15 }
+   Field { id: radarSignatureAzimuth      type: float    option: 16 }
+   Field { id: radarSignatureElevation    type: float    option: 17 }
+
+   Field { id: opticalSignature             type: float    option: 18 }
+   Field { id: opticalSignatureAzimuth      type: float    option: 19 }
+   Field { id: opticalSignatureElevation    type: float    option: 20 }
+
+   Field { id: opticalReflectivity          type: float    option: 21 }
+   Field { id: transmittedPower             type: float    option: 22 }
+   Field { id: powerDensityAtTarget         type: float    option: 23 }
+   Field { id: receivedPower                type: float    option: 24 }
+   Field { id: rcvrNoisePower               type: float    option: 25 }
+   Field { id: clutterPower                 type: float    option: 26 }
+   Field { id: interferencePower            type: float    option: 27 }
+   Field { id: signalToNoise                type: float    option: 28 }
+   Field { id: propagationFactor            type: float    option: 29 }
+   Field { id: absorbtionFactor             type: float    option: 30 }
+   Field { id: detectionThreshold           type: float    option: 31 }
+   Field { id: pixelCount                   type: float    option: 32 }
+   Field { id: zoneAttenuationFactor        type: float    option: 33 }
+}
+
+Struct {
+   id: MsgSensorTrackCreated
+   message: 15
+   base: MsgBase
+   Field { id: ownerIndex     type: index }
+   Field { id: trackId        type: Track.Id  }
+   Field { id: targetIndex    type: index     option: 1 }
+   Field { id: sensorName     type: string    option: 2 }
+   // Followed by MsgTrackUpdate if track information is requested
+}
+Struct {
+   id: MsgSensorTrackUpdate
+   message: 16
+   base: MsgBase
+   Field { id: ownerIndex     type: index }
+   Field { id: track          type: Track }
+}
+
+Struct {
+   id: MsgSensorTrackDrop
+   message: 17
+   base: MsgBase
+   Field { id: ownerIndex     type: index }
+   Field { id: trackId        type: Track.Id }
+   Field { id: targetIndex    type: index     option: 1 }
+   Field { id: sensorName     type: string    option: 2 }
+}
+
+Struct {
+   id: Vec2f
+   Field { id: x              type: float }
+   Field { id: y              type: float }
+}
+
+Enum { 
+   id: FovShape 
+   Value { id: rectangular value: 0 }
+   Value { id: circular    value: 1 }
+   Value { id: polygonal   value: 2 }
+   Value { id: equatorial  value: 3 }
+}
+
+List { id: Vec2fList type: Vec2f }
+
+Struct {
+   id: FieldOfView
+   Field { id: shape           type: FovShape }
+   Field { id: points          type: Vec2fList }
+}
+
+Struct {
+   id: AngleLimit
+   Field { id: minAzimuth     type: float }
+   Field { id: maxAzimuth     type: float }
+   Field { id: minElevation   type: float }
+   Field { id: maxElevation   type: float }
+}
+
+Enum { 
+   id: AngleMode 
+   Value { id: none      value: 0 }
+   Value { id: azimuth   value: 1 }
+   Value { id: elevation value: 2 }
+   Value { id: both      value: 3 }
+}
+
+Struct {
+   id: BeamDefinition
+   Field { id: beamId         type: int }
+   Field { id: r0_range       type: float }
+   Field { id: r0_rangeType   type: int }
+   Field { id: minRange       type: float }
+   Field { id: maxRange       type: float }
+   Field { id: stabilized     type: int }
+   Field { id: antennaTilt    type: float }
+   Field { id: fov            type: FieldOfView }
+   Field { id: scanMode       type: AngleMode }
+   Field { id: scanLimit      type: AngleLimit }
+   Field { id: beamWidthAz    type: float         option: 0 }
+   Field { id: beamWidthEl    type: float         option: 1 }
+   Field { id: beamTilt       type: float }
+}
+
+List { id: BeamList type: BeamDefinition }
+
+Struct {
+   id: MsgEmitterModeDefinition
+   message: 18
+   base: MsgBase
+   Field { id: ownerIndex     type: index }
+   Field { id: partName       type: string }
+   Field { id: partType       type: PartType }
+   Field { id: modeName       type: string }
+   Field { id: slewMode       type: AngleMode }
+   Field { id: slewLimit      type: AngleLimit }
+   Field { id: cueLimit       type: AngleLimit }
+   Field { id: beamList       type: BeamList }
+}
+
+Struct {
+   id: MsgPartArticulationStatus
+   message:19
+   base: MsgBase
+   Field { id: ownerIndex     type: index }
+   Field { id: partName       type: string }
+   Field { id: partType       type: PartType }
+   Field { id: locationECS    type: Vec3f }
+   Field { id: slewECS        type: Vec3f }
+   Field { id: cuePCS         type: Vec3f }
+}
+
+Struct {
+   id: MsgLocalTrackCorrelation
+   message:20
+   base: MsgBase
+   Field { id: ownerIndex     type: index }
+   Field { id: trackId        type: Track.Id  }
+   Field { id: addTrackId     type: Track.Id  }
+}
+
+Struct {
+   id: MsgLocalTrackDecorrelation
+   message:21
+   base: MsgBase
+   Field { id: ownerIndex     type: index }
+   Field { id: trackId        type: Track.Id  }
+   Field { id: remTrackId     type: Track.Id  }
+}
+
+Struct {
+   id: MsgSetDate
+   message:22
+   base: MsgBase
+   Field { id: year           type: int }
+   Field { id: month          type: int }
+   Field { id: day            type: int }
+   Field { id: time           type: float } // Using float instead of time
+}
+
+Struct {
+   id: MsgPlatformAppearanceChanged
+   message:23
+   base: MsgBase
+   Field { id: ownerIndex    type: index }
+   Field { id: appearance    type: uint }
+}
+
+Struct {
+   id: MsgVisualPartDefinition
+   message:24
+   base: MsgBase
+   Field { id: ownerIndex    type: index }
+   Field { id: partName      type: string }
+   Field { id: partType      type: PartType }
+   Field { id: partIcon      type: string }
+}
+
+Struct {
+   id: MsgExecData
+   message:25
+   base: MsgBase
+   Field { id: execPath       type: string }
+   Field { id: cmdLine        type: string }
+   Field { id: version        type: string }
+   Field { id: features       type: string }
+   Field { id: extensions     type: string }
+   Field { id: timeStamp      type: string }
+   Field { id: simName        type: string }
+   Field { id: disSite        type: uint16 option: 0 }
+   Field { id: disApplication type: uint16 option: 1 }
+   Field { id: runNumber      type: uint }
+}
+
+Struct {
+   id: MsgScriptData
+   message:26
+   Union
+   {
+      id: Value
+      Field { id: floating type: double option: 0 }
+      Field { id: integer  type: int    option: 1 }
+      Field { id: boolean  type: uint8  option: 2 }
+      Field { id: text     type: string option: 3 }
+   }
+   base: MsgBase
+   Field { id: platformIndex type: index }
+   Field { id: key           type: string }
+   Field { id: value         type: Value }
+}
+
+Struct {
+   id: MsgResource
+   message:27
+   Enum {
+      id: ResourceType
+      Value { id: other       value: 0 }
+      Value { id: dted        value: 1 }
+      Value { id: raw_dted    value: 2 }
+      Value { id: geotiff_dem value: 3 }
+   }
+   base: MsgBase
+   Field { id: resourceType     type: ResourceType }
+   Field { id: resourceId       type: string }
+   Field { id: resourceLocation type: StringList }
+}
+
+Struct {
+   id: MsgScenarioData
+   message:28
+   base: MsgBase
+   Field { id: classification          type: string }
+   Field { id: classificationColor     type: Vec3f }
+}
+
+Struct {
+   id: MsgXioHeartbeat
+   message:30
+   base: MsgBase
+   Field { id: timeStamp     type: float } // Using float instead of time
+   Field { id: applicationId type: ApplicationUniqueId }
+}
+
+Struct {
+   id: MsgMessageHop
+   base: MsgBase
+   message: 31
+   Field { id: xmtrPlatformIndex  type: index   option: 0 }
+   Field { id: xmtrCommName       type: string  option: 1 }
+   Field { id: rcvrPlatformIndex  type: index   option: 2 }
+   Field { id: rcvrCommName       type: string  option: 3 }
+   Field { id: messageType        type: string  option: 4 }
+   Field { id: messageSubType     type: string  option: 5 }
+   Field { id: messageSize        type: int     option: 6 }
+   Field { id: serialNumber       type: uint    option: 7 }
+}
+
+Struct {
+   id: BehaviorTreeNode
+   Field { id: filePath                type: string }
+   Field { id: fileModTime             type: int64 }
+   Field { id: nodeId                  type: uint }
+   Field { id: treeId                  type: uint }
+   Field { id: nodeType                type: string }
+   Field { id: nodeName                type: string }
+   Field { id: nodeDesc                type: string }
+   Field { id: platformHistoryColor    type: ColorF option: 1}
+   Field { id: numChildren             type: uint }
+   Field { id: childrenIds             type: IntList }
+   Field { id: isRootNode              type: bool  bit: 0 }
+   Field { id: childFsmId              type: uint }
+}
+
+List  { id: BehaviorTreeNodeList type: BehaviorTreeNode }
+
+Struct {
+   id: MsgBehaviorTree
+   message: 32
+   base: MsgBase
+   Field { id: platformIndex  type: index }
+   Field { id: id             type: uint }
+   Field { id: treeName       type: string }
+   Field { id: nodes          type: BehaviorTreeNodeList }
+}
+
+Enum {
+   id: NodeExecState
+     Value { id: running         value: 1 }
+     Value { id: success         value: 2 }
+     Value { id: failure         value: 3 }
+     Value { id: idle            value: 4 }
+     Value { id: halted          value: 5 }
+     Value { id: disabled        value: 6 }
+}
+
+Struct {
+   id: BehaviorTreeNodeExec
+   Field { id: nodeId                  type: uint }
+   Field { id: nodeName                type: string }
+   Field { id: execState               type: NodeExecState }
+   Field { id: preconditionTooltip     type: string }
+   Field { id: executeTooltip          type: string }
+}
+
+List  { id: BehaviorTreeNodeExecList type: BehaviorTreeNodeExec }
+
+Struct {
+   id: BoolDictEntry
+   Field { id: key         type: string }
+   Field { id: value       type: bool  bit: 0 }
+}
+
+List { id: BoolDict type: BoolDictEntry }
+
+Struct {
+   id: IntDictEntry
+   Field { id: key         type: string }
+   Field { id: value       type: int }
+}
+
+List { id: IntDict type: IntDictEntry }
+
+Struct {
+   id: DoubleDictEntry
+   Field { id: key         type: string }
+   Field { id: value       type: double }
+}
+
+List { id: DoubleDict type: DoubleDictEntry }
+
+Struct {
+   id: StringDictEntry
+   Field { id: key         type: string }
+   Field { id: value       type: string }
+}
+
+List { id: StringDict type: StringDictEntry }
+
+Struct {
+   id: TrackDictEntry
+   Field { id: key         type: string }
+   Field { id: value       type: Track }
+}
+
+List { id: TrackDict type: TrackDictEntry }
+
+Struct {
+   id: BehaviorTreePlatformInfo
+   Field { id: name           type: string         option: 0 }
+   Field { id: types          type: StringList     option: 1 }
+   Field { id: side           type: string         option: 2 }
+}
+
+Struct {
+   id: PlatformDictEntry
+   Field { id: key         type: string }
+   Field { id: value       type: BehaviorTreePlatformInfo }
+}
+
+List { id: PlatformDict type: PlatformDictEntry }
+
+Struct {
+   id: BehaviorTreeBlackboardData
+   Field { id: nodeId                    type: uint }
+   Field { id: sharedBlackboard          type: string }
+   Field { id: boolDict                  type: BoolDict }
+   Field { id: intDict                   type: IntDict }
+   Field { id: doubleDict                type: DoubleDict }
+   Field { id: stringDict                type: StringDict }
+   Field { id: trackDict                 type: TrackDict }
+   Field { id: platformDict              type: PlatformDict }
+}
+
+List  { id: BehaviorTreeBlackboardDataList type: BehaviorTreeBlackboardData }
+
+Struct {
+   id: MsgBehaviorTreeState
+   message: 33
+   base: MsgBase
+   Field { id: platformIndex           type: index }
+   Field { id: treeId                  type: uint }
+   Field { id: execList                type: BehaviorTreeNodeExecList }
+   Field { id: blackboardList          type: BehaviorTreeBlackboardDataList }
+   Field { id: behaviorHistoryList     type: StringList }
+}
+
+Struct {
+   id: MsgBookmark
+   message: 35
+   base: MsgBase
+   Field { id: time        type: time  }
+   Field { id: msgType     type: string }
+   Field { id: msgText     type: string }
+}
+
+Enum
+{
+   id: AuxDataType
+   Value { id: Unknown value: 0 }
+   Value { id: Boolean value: 1 }
+   Value { id: Integer value: 2 }
+   Value { id: Real    value: 3 }
+   Value { id: Text    value: 4 }
+}
+
+Struct {
+   id: AuxDataValue
+   
+   // For nested data, name is a dot-separated list of identifiers.
+   Field { id: name        type: string }
+   Field { id: type        type: AuxDataType  default: Unknown }
+   Field { id: boolean     type: bool  bit: 0 option: 1 }
+   Field { id: integer     type: int          option: 2 }
+   Field { id: real        type: double       option: 3 }
+   Field { id: text        type: string       option: 4 }
+}
+
+List { id: AuxDataValueList type: AuxDataValue }
+
+Struct {
+   id: MsgAuxData
+   message: 36
+   base: MsgBase
+   
+   Field { id: platformIndex type: index }
+   Field { id: auxData       type: AuxDataValueList }
+}
+
+Enum
+{
+   id: WaypointLocationType
+   Value { id: LatitiudeAndLongitude value: 1 }
+   Value { id: RelativeOffset        value: 2 }
+}
+
+Struct {
+   id: Waypoint
+   
+   Field { id: locationType           type: WaypointLocationType }
+   Field { id: label                  type: string }
+   Field { id: locationX              type: double } // latitude  or forward-offset
+   Field { id: locationY              type: double } // longitude or right-offset
+   Field { id: altitude               type: double option: 0 } // if none, use previous
+   Field { id: heading                type: double option: 1 } // if none, use previous
+   Field { id: gotoId                 type: string option: 2 }
+}
+
+List { id: Route type: Waypoint }
+
+Struct {
+   id: MsgRouteChanged
+   message: 37
+   base: MsgBase
+   
+   Field { id: platformIndex type: index }
+   Field { id: location      type: Vec3d }
+   Field { id: heading       type: double }
+   Field { id: route         type: Route }
+}
+
+Struct {
+   id: ColorF
+   Field { id: red      type: float   default: 1.0 }
+   Field { id: green    type: float   default: 1.0 }
+   Field { id: blue     type: float   default: 1.0 }
+   Field { id: alpha    type: float   default: 1.0 }
+}
+
+Struct {
+   id: CommonZoneData
+   
+   Field { id: zoneName           type: string }
+   Field { id: parentPlatform     type: string }
+   Field { id: referencePlatform  type: string }
+   Field { id: isGlobal           type: bool  bit: 1 }
+   Field { id: lineColor          type: ColorF }
+   Field { id: fillColor          type: ColorF }
+   Field { id: maxAltitude        type: double }
+   Field { id: maxAltitudeSet     type: bool  bit: 2 }
+   Field { id: minAltitude        type: double }
+   Field { id: minAltitudeSet     type: bool  bit: 3 }
+   Field { id: referenceLat       type: double }
+   Field { id: referenceLon       type: double } 
+   Field { id: heading            type: double }
+   Field { id: locationDefined    type: bool  bit: 4 }
+}
+
+Struct {
+   id: Vec2d
+   Field { id: x                type: double }
+   Field { id: y                type: double }
+}
+
+List { id: Vec2dList type: Vec2d }
+
+Struct {
+   id: CircularZoneInfo
+
+   Field { id: commonInfo       type: CommonZoneData }
+   Field { id: radius           type: double }
+   Field { id: minRadius        type: double }
+   Field { id: startAngle       type: double }
+   Field { id: stopAngle        type: double }
+}
+
+Struct {
+   id: EllipticalZoneInfo
+
+   Field { id: commonInfo       type: CommonZoneData }
+   Field { id: latAxis          type: double }
+   Field { id: lonAxis          type: double }
+   Field { id: minRadius        type: double }
+   Field { id: startAngle       type: double }
+   Field { id: stopAngle        type: double }
+}
+
+Struct {
+   id: SphericalZoneInfo
+
+   Field { id: commonInfo       type: CommonZoneData }
+   Field { id: radius           type: double }
+   Field { id: minRadius        type: double }
+   Field { id: startAngle       type: double }
+   Field { id: stopAngle        type: double }
+}
+
+Struct {
+   id: PolygonalZoneInfo
+
+   Field { id: commonInfo       type: CommonZoneData }
+   Field { id: Points           type: Vec2dList }
+   Field { id: useLatLon        type: bool  bit: 1 }
+}
+
+List { id: CircularZoneList     type: CircularZoneInfo }
+List { id: EllipticalZoneList   type: EllipticalZoneInfo }
+List { id: SphericalZoneList    type: SphericalZoneInfo }
+List { id: PolygonalZoneList    type: PolygonalZoneInfo }
+
+Struct {
+   id: MsgCircularZone
+   message: 38
+   base: MsgBase  
+
+   Field { id: zoneInfo         type: CircularZoneInfo }
+}
+
+Struct {
+   id: MsgEllipticalZone
+   message: 39
+   base: MsgBase  
+
+   Field { id: zoneInfo         type: EllipticalZoneInfo }
+}
+
+Struct {
+   id: MsgSphericalZone
+   message: 40
+   base: MsgBase  
+
+   Field { id: zoneInfo         type: SphericalZoneInfo }
+}
+
+Struct {
+   id: MsgPolygonalZone
+   message: 41
+   base: MsgBase  
+
+   Field { id: zoneInfo         type: PolygonalZoneInfo }
+}
+
+Struct {
+   id: MsgZoneSet
+   message: 42
+   base: MsgBase 
+
+   Field { id: zoneSetName        type: string }
+   Field { id: parentPlatform     type: string }
+   Field { id: isGlobal           type: bool  bit: 1 }
+   Field { id: lineColor          type: ColorF }
+   Field { id: fillColor          type: ColorF }
+   Field { id: circularZones      type: CircularZoneList }
+   Field { id: ellipticalZones    type: EllipticalZoneList }
+   Field { id: sphericalZones     type: SphericalZoneList }
+   Field { id: polygonalZones     type: PolygonalZoneList }
+}
+
+Struct {
+   id: MsgCommInfo
+   message: 43
+   base: MsgBase 
+
+   Field { id: commName             type: string }
+   Field { id: parentPlatform       type: string }
+   Field { id: commAddress          type: string }
+   Field { id: commType             type: string }
+   Field { id: networkName          type: string }
+   Field { id: networkAddress       type: string }
+   Field { id: routerName           type: string }
+   Field { id: gatewayAddress       type: string }
+   Field { id: gatewayCommName      type: string }
+   Field { id: gatewayPlatformName  type: string }
+   Struct {
+      id: link
+      Field { id: platformName      type: string }
+      Field { id: commName          type: string }
+   }
+   List  { id: CommLinksList     type: link }
+   Field { id: links  		      type: CommLinksList }
+   Field { id: linkAddresses  	type: StringList }
+}
+
+Struct {
+   id: MsgRouterInfo
+   message: 44
+   base: MsgBase 
+
+   Field { id: routerName           type: string }
+   Field { id: commName             type: string }
+   Field { id: parentPlatform       type: string }
+   Field { id: commAddress          type: string }
+   Field { id: routerType           type: string }
+   Field { id: gatewayAddress       type: string }
+   Field { id: gatewayCommName      type: string }
+   Field { id: hopLimit             type: uint }
+   Field { id: useDefaultProtocol   type: bool  bit: 1 }
+   Field { id: useMulticastProtocol type: bool  bit: 2 }
+}
+
+Struct {
+   id: MsgNetworkInfo
+   message: 45
+   base: MsgBase 
+
+   Field { id: networkName       type: string }
+   Field { id: networkType       type: string }
+   Field { id: networkAddress    type: string }
+}
+
+Struct {
+   id: State
+   Field { id: stateName          type: string }
+   Field { id: stateIndex         type: uint }
+   Field { id: transitions        type: IntList } // List of state indices
+   Field { id: childAbtId         type: uint } // id of child ABT
+   Field { id: childFsmId         type: uint } // id of child FSM
+}
+
+List  { id: StateList             type: State }
+
+Struct {
+   id: MsgStateMachine
+   message: 46
+   base: MsgBase
+   Field { id: platformIndex      type: index }
+   Field { id: fsmId              type: uint }
+   Field { id: states             type: StateList }
+}
+
+Struct {
+   id: MsgStateMachineState
+   message: 47
+   base: MsgBase
+   Field { id: platformIndex      type: index }
+   Field { id: fsmId              type: uint }
+   Field { id: oldStateIndex      type: uint }
+   Field { id: newStateIndex      type: uint }
+}

@@ -1,0 +1,53 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+The genio directory contains the framework necessary to perform I/O using ethernet
+(via UMP), files, and memory.  The interface is defined in GenI.hpp and
+GenO.hpp and is the same regardless of whether you are using ethernet, files, or
+memory medium.  Typically users instantiate one of the following classes which derive
+from GenI or GenO depending on the desired I/O medium:
+
+Ethernet, broadcast or unicast:         GenUmpIO, GenTCP_IO, or GenUDP_IO
+File:                                   GenFileI, GenFileO, or GenFileIO
+Memory:                                 GenMemI,  GenMemO,  or GenMemIO
+Null device:                            GenNullI, GenNullO, or GenNullIO
+
+
+These helper templates are available and may reduce your coding:
+
+Input  helper (handy for message classes like DIS):  GenIHelper
+Output helper (handy for message classes like DIS):  GenOHelper
+
+
+In addition, a client/Server framework is offered based on GenUmpIO.  Those classes are:
+
+GenUmpIOServer             Provides the server software.  Can be extended by the user.
+GenUmpIOServerCC           Is typically instantiated by GenUmpIOServer for each client
+                           connetion.  This class can be extended.
+GenUmpIOClient             Provides the client software.
+
+
+The reset of the classes are typically of not much interest, but for your info
+the main supporting classes are..
+
+GenIConvert*             Classes that deal with byte swapping when reading data
+GenOConvert*             Classes that deal with byte swapping when writing data
+GenBuf*                  Classes that hold raw data in buffers prior to a Geno.Send
+                         call or after a GenI.Receive call.
+
+
+The GenFile family and GenMem family allow you to control the endian type.  GenUmpIO
+and GenUmpIOServer use big endian.  User control of endian type could be added to
+GenUmpIO and GenUmpIOServer if ever needed..
+
+The genio framework recognizes the type of computer it is running on and performs
+byte swapping as needed. The convert classes do not swap the bytes unless they really
+need to be swapped.  Since it is known at compile time whether one is on a big or little
+endian machine, only the correct byte swapping code is compiled.  Therefore, we do not
+have the penalty of any runtime checks to determine the proper endianess.
+

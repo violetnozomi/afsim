@@ -1,0 +1,152 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+
+network network_mesh WSF_COMM_NETWORK_MESH
+   comm_list
+      member 737_1 com-1
+      member 737_2 com-1
+   end_comm_list
+end_network
+
+script_variables
+  global int numberOfMsgTransmitsAttempted = 1;
+  global Map <int, double> messageTransmissionTimes_Actual = Map<int, double>();
+end_script_variables
+
+script void MessageDeliveryAttempt(WsfComm aXmtr,
+                                   WsfComm aRcvr,
+                                   WsfMessage aMsg, 
+                                   WsfCommInteraction aResult)
+
+   extern int numberOfMsgTransmitsAttempted;
+   extern Map <int, double> messageTransmissionTimes_Actual;
+
+   messageTransmissionTimes_Actual.Set(numberOfMsgTransmitsAttempted, TIME_NOW);
+
+   numberOfMsgTransmitsAttempted = numberOfMsgTransmitsAttempted + 1;
+
+end_script
+
+observer
+  enable MESSAGE_DELIVERY_ATTEMPT
+end_observer
+
+script bool ValidateAppliedDelay()
+   if (! WithinTolerance(messageTransmissionTimes_Actual.Get(1), 5.0, 0.001))
+   {
+      writeln("Index 1, Value: ", messageTransmissionTimes_Actual.Get(1));
+      return false;
+   }
+
+   if (! WithinTolerance(messageTransmissionTimes_Actual.Get(2), 7.01859, 0.001))
+   {
+      writeln("Index 2, Value: ", messageTransmissionTimes_Actual.Get(2));
+      return false;
+   }
+
+   if (! WithinTolerance(messageTransmissionTimes_Actual.Get(3), 9.03718, 0.001))
+   {
+      writeln("Index 3, Value: ", messageTransmissionTimes_Actual.Get(3));
+      return false;
+   }
+
+   if (! WithinTolerance(messageTransmissionTimes_Actual.Get(4), 11.0558, 0.001))
+   {
+      writeln("Index 4, Value: ", messageTransmissionTimes_Actual.Get(4));
+      return false;
+   }
+
+   if (! WithinTolerance(messageTransmissionTimes_Actual.Get(5), 13.0744, 0.001))
+   {
+      writeln("Index 5, Value: ", messageTransmissionTimes_Actual.Get(5));
+      return false;
+   }
+
+   return true;
+
+end_script
+
+script bool ValidateExpectedTransmissionAttempts()
+   extern int numberOfMsgTransmitsAttempted;
+
+   # Indicating that 5 messages were really transmitted
+   if (numberOfMsgTransmitsAttempted == 6)
+   {
+      return true;
+   }
+
+   writeln("numberOfMsgTransmitsAttempted is: ", numberOfMsgTransmitsAttempted);
+   return false;
+end_script
+
+comm MY_COMM WSF_RADIO_TRANSCEIVER
+   transfer_rate 1 kbyte/s
+
+   receiver
+      frequency 10 ghz
+   end_receiver
+
+   transmitter
+      power 1000 kw
+      frequency 10 ghz
+   end_transmitter
+
+   retransmit_attempts 4
+   retransmit_delay 1 second
+
+end_comm
+
+platform_type base WSF_PLATFORM
+   comm com-1 MY_COMM
+   end_comm
+end_platform_type
+
+message_table
+   default_comm_type
+      type WSF_CONTROL_MESSAGE 1 kbytes # 1 second to send this message
+      default 40 bits
+end_message_table
+
+platform 737_1 base
+   position 40n 0e
+
+#   edit comm com-1
+#      link 737_2 com-1                 //Create a known link between this comm and receiver
+#   end_comm
+
+   execute at_time 5 s absolute
+      WsfControlMessage msg1 = WsfControlMessage();
+      Comm("com-1").SendMessage(msg1, "737_2", "com-1");
+   end_execute
+   heading 0 deg
+   altitude 0 feet
+end_platform
+
+platform 737_2 base
+   position 41n 70e
+   commander 737_1
+   altitude 10000 feet
+end_platform
+
+
+execute at_time 20 seconds absolute
+   if ( ValidateExpectedTransmissionAttempts() && ValidateAppliedDelay() )
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+
+end_execute
+
+end_time 30 seconds

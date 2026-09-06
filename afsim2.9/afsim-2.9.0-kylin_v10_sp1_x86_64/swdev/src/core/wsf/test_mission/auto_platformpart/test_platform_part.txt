@@ -1,0 +1,95 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Filename: test_platform_part.txt
+# This file tests the basic command inputs and methods of the Platform Part.
+
+include_once ../auto_script/test_functions.txt
+
+script_variables
+   global bool pass = true;
+end_script_variables
+
+platform radar_platform WSF_PLATFORM
+   add sensor myRadar WSF_RADAR_SENSOR
+      #Instantiate all of the Platform Part commands
+      off
+      on
+      # note: When an object is non-operational, it cannot be turned on
+      non_operational
+      operational
+      debug
+      no_debug
+      category myOwnCategory
+
+      # the configuration below does not fall under the category of testing
+      reports_range
+
+      frame_time 1.0 sec
+      beam 1
+         transmitter
+            power 50 watts
+            frequency 50 hz
+         end_transmitter
+         receiver
+            frequency 20 hz
+         end_receiver
+      end_beam
+   end_sensor
+
+   execute at_time 1 sec absolute
+      extern bool pass;
+      extern bool AssertTrueMessage(bool,string);
+      extern bool AssertFalseMessage(bool,string);
+      WsfSensor mySensor = PLATFORM.Sensor("myRadar");
+
+      pass = AssertFalseMessage( mySensor.IsNonOperational(),"IsNonOperational().") && pass;
+
+      pass = AssertTrueMessage( mySensor.IsOperational(),"IsOperational().") && pass;
+
+      pass = AssertFalseMessage( mySensor.IsTurnedOff(),"IsTurnedOff().") && pass;
+
+      pass = AssertTrueMessage( mySensor.IsTurnedOn(),"IsTurnedOn().") && pass;
+
+      pass = AssertFalseMessage(   mySensor.CategoryMemberOf("invalidCategoryName"),
+                                    "CategoryMemberOf... Should not be a member of this category.") && pass;
+
+      pass = AssertTrueMessage(   mySensor.CategoryMemberOf("myOwnCategory"),
+                                    "CategoryMemberOf... Should be a member of this category.") && pass;
+
+      # Make sure the TimeSinceLastStatusChange does not report a value more recent than it should
+      #  1 second should be the value here, since the status is set at initialization (0 seconds)
+      if (mySensor.TimeSinceLastStatusChange() < 0.9)
+      {
+         pass = false;
+         writeln("-FAIL- : TimeSinceLastStatusChange() should be a higher number.");
+      }
+
+      # Turn off the sensor in order to test the TimeSinceLastStatusChange function at a time shortly later
+      mySensor.TurnOff();
+
+      # Test the ability to Set the Debug to enabled (you'll need to verify this via screen output)
+      mySensor.SetDebugEnabled(false);
+
+   end_execute
+
+   execute at_time 2 sec absolute
+      extern bool pass;
+      extern void writePass(bool);
+      extern bool AssertEqualsMessage(Object, Object, string);
+      WsfSensor mySensor = PLATFORM.Sensor("myRadar");
+
+      # We turned the sensor off, thus changing the status, 2 seconds ago
+      pass = AssertEqualsMessage(    mySensor.TimeSinceLastStatusChange(), 1.0,
+                                    "TimeSinceLastStatusChange() is incorrect.") && pass;
+      writePass(pass);
+   end_execute
+end_platform
+
+end_time 3 sec

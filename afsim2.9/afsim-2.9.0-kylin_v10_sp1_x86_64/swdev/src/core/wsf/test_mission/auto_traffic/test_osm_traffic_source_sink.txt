@@ -1,0 +1,116 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that when vehicles exit the route network via a one-way road,
+# it is deleted, and a new vehicle should be spawned at an entrance road
+
+
+include_once roads/SourceSinkSquare.txt
+
+include platforms/road_platforms.txt
+
+script_variables
+   int numberAdded = 0;
+   int numberDeleted = 0;
+   WsfGeoPoint endPoint;
+   WsfGeoPoint startPoint1;
+   WsfGeoPoint startPoint2;
+end_script_variables
+
+platform_type CAR2 CAR
+   
+end_platform_type
+
+osm_traffic
+    network eightNetwork
+    vehicle_count 50
+    maximum_speed  80 mi/h
+
+    vehicle CAR
+      fraction      1.0
+      mean_speed   60 mi/h
+      sigma_speed   5 mi/h
+    end_vehicle
+  end_network
+end_osm_traffic
+
+observer
+   enable SIMULATION_STARTING simStart
+   enable SIMULATION_COMPLETE simComplete
+   enable PLATFORM_INITIALIZED platformInitialized
+   enable PLATFORM_DELETED platformDeleted
+end_observer
+
+script void simStart()
+   WsfOSM_Traffic traffic = WsfOSM_Traffic.Traffic();
+   if (traffic.IsValid())
+   {
+      writeln(traffic.TrafficRoutes("eightNetwork").Size());
+      WsfRoute deadEndRoute = traffic.IndividualRoute("eightNetwork", "roadOneWayOut", 1, true, 1);
+      WsfRoute startRoute1 = traffic.IndividualRoute("eightNetwork", "roadOneWayIn", 1, true, 1);
+      WsfRoute startRoute2 = traffic.IndividualRoute("eightNetwork", "roadOneWayInTwo", 1, true, 1);
+      endPoint = deadEndRoute.Waypoint(1).Location();
+      startPoint1 = startRoute1.Waypoint(0).Location();
+      startPoint2 = startRoute2.Waypoint(0).Location();
+   }
+   else 
+   {
+      writeln("-FAIL- Traffic not initialized");
+   }
+end_script
+
+script bool compareDouble(double aExpected, double aActual, double aFactor)
+   return MATH.Fabs((aExpected / aActual) - 1.0) < aFactor;
+end_script
+
+# To avoid graphical clipping issues in some visual applciations, 
+# traffic altitude may not be the same as the route's, but lat/lon should be equal
+# outside of a miniscule difference
+script bool latLonMatch(WsfGeoPoint aPoint1, WsfGeoPoint aPoint2)
+   bool latEqual = compareDouble(aPoint1.Latitude(), aPoint2.Latitude(), 0.000001);
+   bool lonEqual = compareDouble(aPoint1.Longitude(), aPoint2.Longitude(), 0.000001);
+   return latEqual && lonEqual;
+end_script
+
+script void platformInitialized(WsfPlatform aPlatform)
+   if (TIME_NOW > 0.0)
+   {
+      numberAdded = numberAdded + 1;
+      string expectedName = "CAR_" + (string) (50 + numberAdded);
+      if (aPlatform.Name() != expectedName)
+      {
+         writeln("-FAIL- Mismatch between vehicle deletion and addition");
+      }
+      if (!(latLonMatch(aPlatform.Location(), startPoint1)
+         || latLonMatch(aPlatform.Location(), startPoint2)))
+      {
+         writeln("-FAIL- Respawned platform was not placed at the start of a valid entrance route.");
+      }
+   }
+end_script
+
+script void platformDeleted(WsfPlatform aPlatform)
+   if (TIME_NOW > 0.0 && TIME_NOW < 300.0)
+   {
+      numberDeleted = numberDeleted + 1;
+      if (!latLonMatch(aPlatform.Location(), endPoint))
+      {
+         writeln("-FAIL- Platform was deleted prior to reaching the end of the route");
+      }
+   }
+end_script
+
+script void simComplete()
+   if (numberDeleted != numberAdded)
+   {
+      writeln("-FAIL- Mismatch between vehicle deletion and addition");
+   }
+end_script
+
+end_time 5 minutes

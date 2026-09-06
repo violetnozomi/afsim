@@ -1,0 +1,39 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.5.3)** Corrected the position of waypoints within a :command:`route` when both the :command:`route.offset` and :command:`route.transform_route` commands were used. *(AFSIM-169)*
+* **(2.5.3)** Corrected a bug where sending a message between the same :model:`WSF_SCRIPT_PROCESSOR` multiple times at the same simulation time could cause an invalid MESSAGE variable. *(AFSIM-257)*
+* **(2.5.3)** Corrected an issue with :method:`WsfPlatform.GroundRangeTo` producing different results for zero and non-zero altitudes. *(Issue #2307)*
+* **(2.5.2)** Corrected an issue with the :command:`scheduler_type.sector_scan` sensor scheduler in which scan rates were incorrectly calculated in some cases, resulting in asynchronous behavior between sectors.
+* **(2.5.2)** Corrected an issue with missing header data for :command:`csv_event_output` regarding :ref:`docs/event/message_events:MESSAGE_HOP`. *(Issue #2177)*
+* **(2.5.2)** Corrected a problem where dead reckoning algorithms were providing inconsistent platform location updates in :command:`realtime`, event-stepped simulations, leading to periodic relative location errors among platforms. *(Issue #2111)*
+* **(2.5.2)** Corrected missing router events from :command:`csv_event_output`. *(Issue #2173)*
+* **(2.5.2)** Corrected an issue in which, under certain circumstances, an invalid reference may be provided within a script context, resulting in a script exception when the reference is used. *(Issue #2097)*
+* **(2.5.2)** Corrected a crash when a platform with a route mover is commanded to :method:`ReturnToRoute<WsfPlatform.ReturnToRoute>` and was never given an initial route (default route). *(ELSZ #291)*
+* **(2.5.2)** Modified the calculation of covariance ellipsoid axes to ensure the length of the major axis for an axis-aligned ellipse is equal to two times the standard deviation. The following script methods are affected: :method:`WsfCovariance.MajorAxis`, :method:`Ellipsoid.SemiAxisSide` and :method:`Ellipsoid.SemiAxisUp`. *(ELSZ #294)*
+* **(2.5.2)** Corrected an issue with missing platform part commands on the :command:`router` object. These commands are now available for the router object, with the exception of the commands that initially disable the functionality of the router. *(Issue #1948)*
+* **(2.5.2)** Corrected a crash that may occur when executing the simulation, with a DIS interface defined, shortly after a DIS platform is removed from the simulation. *(Issue #1937)*
+* **(2.5.2)** Corrected an issue with which external entities may erroneously and repeatedly be reported as stale in simulations recording to the :command:`event_pipe`. *(Issue #1930)*
+* **(2.5.2)** Corrected a crash that could occur when using empty strings in :doc:`aux_data<../aux_data>`. *(Issue #1867)*
+* **(2.5.2)** Corrected an issue with comparisons for equality (``==``) and inequality (``!=``) between two instantiations of a :command:`script_struct`. *(ELSZ #250)*
+* **(2.5.2)** Corrected problems with fusion of track :ref:`emitter<WsfTrack.Emitter_Methods>` and :ref:`signal<WsfTrack.Signal_Methods>` data. *(Issue #1741)*
+* **(2.5.1)** Corrected an issue where :command:`command chains<platform.command_chain>` are not correctly updated when a platform is deleted or a new commander is assigned. *(ELSZ #244)*
+* **(2.5.1)** Corrected an issue with :model:`WSF_GEOMETRIC_SENSOR` where a :command:`pd_range_table<WSF_GEOMETRIC_SENSOR.mode.platform_type.pd_range_table>` with fewer than two entries can cause crashes. Such a table now results in an input error. *(ELSZ #245)*
+* **(2.5.1)** Corrected the names of script methods :method:`WsfSensor.Xmtr` and :method:`WsfSensor.XmtrCount` to match the documentation.
+* Added missing scripting language documentation for the various :ref:`Predefined_Network_Types`. *(Issue #1482)*
+* Corrected an issue in which :command:`on_update` and :command:`on_initialize2` blocks defined in the global script context were accepted as valid input but never executed. Using these commands out of context now results in an input error. *(ELSZ #135)*
+* Corrected an issue where the :ref:`docs/event/platform_events:PLATFORM_ADDED` event for :command:`event_output` and :command:`csv_event_output` was invoked upon platform initialization rather than when a platform was added to the simulation. *(ELSZ #156)*
+* A pre-briefed :command:`track` specified with a target platform not defined prior to the track definition will now result in an input error rather than silently initializing the track location to {0, 0, 0} WCS. *(Issue #1403)* 
+* Corrected an issue in which :model:`WSF_GEOMETRIC_SENSOR` was not notifying all observers of a sensor detection attempt. *(ELSZ #148)*
+* Corrected an issue where the receiver angle limits check for interactions was not being set to the proper value in the :command:`event_pipe` output. *(ELSZ #176)*
+* Corrected an issue where comm network membership specified in the network object was not being applied. *(Issue #1389)*
+* Corrected an issue where waypoint :ref:`movers<Predefined_Mover_Types>` were not being constrained by :command:`_.route_mover.minimum_speed` settings. *(ELSZ #211)*
+* Corrected an infinite loop which could be triggered when executing a DIS platform's sensor update events. *(ELSZ #242)*
+* Corrected an issue with method :class:`WsfMessage.DataTag` not returning floating point values. *(ELSZ #219)*
+

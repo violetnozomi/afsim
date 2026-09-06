@@ -1,0 +1,53 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+launch_computer BOMB_LAUNCH_COMPUTER WSF_SCRIPT_LAUNCH_COMPUTER
+   script void compute_intercept(WsfTrack aTrack, double aLaunchDelay)
+      double MAX_RANGE = 18500;
+      double MIN_RANGE = 1000;
+      double weaponSpeed = 0;
+      if (!PLATFORM.IsValid()) { return;}
+      if (PLATFORM.IsNull()) { return;}
+      if(PLATFORM.SlantRangeTo(aTrack)       >  18500 )  return;
+      if(PLATFORM.Altitude() < 500 * MATH.M_PER_FT()) return;
+      else if (PLATFORM.Altitude() < 1000 * MATH.M_PER_FT())
+      {
+         if(PLATFORM.SlantRangeTo(aTrack)       >  1000 )  return;
+      }
+      else if (PLATFORM.Altitude() < 5000 * MATH.M_PER_FT())
+      {
+         if(PLATFORM.SlantRangeTo(aTrack)       >  4000 )  return;
+      }
+      else if (PLATFORM.Altitude() < 10000 * MATH.M_PER_FT())
+      {
+         if(PLATFORM.SlantRangeTo(aTrack)       >  8000 )  return;
+      }
+      else if (PLATFORM.Altitude() < 15000 * MATH.M_PER_FT())
+      {
+         if(PLATFORM.SlantRangeTo(aTrack)       >  12000 )  return;
+      }
+      else if (PLATFORM.Altitude() < 20000 * MATH.M_PER_FT())
+      {
+         if(PLATFORM.SlantRangeTo(aTrack)       >  16000 )  return;
+      }
+      else if (PLATFORM.Altitude() < 25000 * MATH.M_PER_FT())
+      {
+         if(PLATFORM.SlantRangeTo(aTrack)       >  18520 )  return;
+      }
+      
+      #if (aTrack.IsNull()) { return; }
+      #if (!aTrack.IsValid()) { return; }
+         
+      SetInterceptPoint(WsfGeoPoint.Construct("38:49:07n 90:29:17w"));
+      SetInterceptTime(TIME_NOW);
+      SetLaunchTime(TIME_NOW + aLaunchDelay);
+      SetTimeOfFlight(900);
+
+   end_script
+end_launch_computer

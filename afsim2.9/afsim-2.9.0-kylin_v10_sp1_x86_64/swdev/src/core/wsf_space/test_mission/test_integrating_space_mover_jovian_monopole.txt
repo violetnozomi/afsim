@@ -1,0 +1,80 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test treats the Earth as a space platform. The dynamics only includes the
+# monopole term of Jupiter. If the jovian monopole is working correctly, the
+# platform should remain at the origin for long durations.
+
+start_date jan 1 2020
+start_time 12:00:00.000
+end_time 365 day
+
+platform earth WSF_PLATFORM
+   side blue
+   
+   empty_mass 1 kg
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      initial_state
+         position 0 m 0.0 m 0.0 m
+         velocity 0.0 m/s 0 m/s 0.0 m/s
+         epoch_date_time jan 1 2020 12:00:00.000
+      end_initial_state
+      
+      integrator prince_dormand_78 
+         tolerance 1.0e-11
+         error_criterion L_2
+         max_step_size 3600.0
+      end_integrator
+      
+      dynamics
+         term jupiter_monopole
+         end_term
+      end_dynamics
+   end_mover
+end_platform
+
+script_variables
+   bool foundError  = false;
+   double tolerance = 1.0e-11;
+   double interval  = 24 * 3600.0;      // 1 day in seconds.
+end_script_variables
+
+script void RunTest()
+   WsfPlatform earth = WsfSimulation.FindPlatform("earth");
+   Vec3 pos = earth.LocationECI();
+   if (pos.Magnitude() > tolerance)
+   {
+      writeln("-FAIL- At time ", TIME_NOW, " earth position outside of tolerance: ", pos);
+      foundError = true;
+   }
+   Vec3 vel = earth.VelocityECI();
+   if (vel.Magnitude() > tolerance)
+   {
+      writeln("-FAIL- At time ", TIME_NOW, " earth velocity outside of tolerance: ", vel);
+      foundError = true;
+   }
+   
+   if (!foundError)
+   {
+      WsfSimulation.ExecuteAtTime(TIME_NOW + interval, "RunTest");
+   }
+end_script
+
+script void FinalAssessment()
+   if (!foundError)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SIMULATION_STARTING RunTest
+   enable SIMULATION_COMPLETE FinalAssessment
+end_observer

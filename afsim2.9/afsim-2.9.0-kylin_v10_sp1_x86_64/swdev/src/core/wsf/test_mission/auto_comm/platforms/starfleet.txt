@@ -1,0 +1,28 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   int num_messages = 0;
+end_script_variables
+
+platform_type STARFLEET WSF_PLATFORM
+   comm STARFLEET_INSIGNIA WSF_COMM_TRANSCEIVER
+      internal_link majel_barrett
+   end_comm
+
+   processor majel_barrett WSF_SCRIPT_PROCESSOR
+      on_message
+         script
+            num_messages = num_messages + 1;
+            writeln(PLATFORM.Name() + ", incoming message, priority one, from " + MESSAGE.Originator() + ", stardate 44001.4 and " + (string)TIME_NOW + " seconds");
+            writeln(MESSAGE.Type());
+         end_script
+      end_on_message
+   end_processor
+end_platform_type

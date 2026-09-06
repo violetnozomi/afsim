@@ -1,0 +1,17 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.5.2)** Corrected a problem where targeting solutions for some orbital propagators could fail, leading to a crash. *(Issue #1852)*
+* **(2.5.2)** Corrected an issue where :doc:`../orbit_determination_fusion` was not providing orbit determination updates as accurately as in previous versions. *(Issue #2027)*
+* Corrected a problem where specifying malformed two-line elements (TLEs) in an :command:`WSF_NORAD_SPACE_MOVER.orbit` block could lead to a crash.  Added more checks to better identify malformed TLEs with missing lines, lines of improper length, and lines with illegal characters. *(Issue #1415)*
+* Corrected an issue where space domain DIS entities cause a crash. *(Issue #1466)*
+* Corrected a bug in which use of :command:`WSF_SPACE_MOVER.initial_state_lla` in :model:`WSF_SPACE_MOVER` was causing a crash. *(ELSZ #173)*
+* Corrected a problem where use of the :command:`WSF_SPACE_MOVER.true_anomaly` and :command:`WSF_SPACE_MOVER.mean_anomaly` inputs for space movers, not in the range of 0-360 degrees, was sometimes resulting in incorrect placement.  This correction now disallows inputs outside the range of 0-360 degrees. *(Issue #1557)*
+* Corrected a problem in :doc:`../orbit_determination_fusion` for angles-only measurements, where evaluation of measurements with the same update time was causing a crash. *(Issue #1623)*
+* Corrected a problem in WsfSpaceMover.AddDeltaV and WsfSpaceMover.Boost that could lead to a crash when used on platforms that have not been added to the simulation. *(Issue #1725)*

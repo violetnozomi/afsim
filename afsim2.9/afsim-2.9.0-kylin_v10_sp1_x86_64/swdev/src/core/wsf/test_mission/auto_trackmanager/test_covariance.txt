@@ -1,0 +1,87 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the state covariance script methods.
+
+platform target WSF_PLATFORM
+   side blue
+   icon Wedge
+   add mover WSF_AIR_MOVER
+   end_mover
+
+   route
+      position 40n 88w altitude 30000 ft heading 270 deg speed 300 kts
+   end_route
+end_platform
+
+platform sensor WSF_PLATFORM
+   side green
+   icon Ground_Control_Radar
+   position 40n 90w heading 90 deg
+
+   track_manager
+      filter WSF_KALMAN_FILTER
+      end_filter
+      fusion_method weighted_average
+   end_track_manager
+
+   add processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval 60 sec
+
+      script void PrintCovariance(WsfCovariance aCovariance)
+         write("     Size: ", aCovariance.Rows(), " x ", aCovariance.Columns());
+         write(" Bearing: ", aCovariance.Bearing(), " deg");
+         write(" Major Axis: ", aCovariance.MajorAxis(), " m");
+         write(" Minor Axis: ", aCovariance.MinorAxis(), " m");
+         write(" Trace: ", aCovariance.Trace());
+         writeln("");
+      end_script
+
+      on_message
+         type WSF_TRACK_MESSAGE
+         script
+            if (PLATFORM.MasterTrackList().Count() > 0)
+            {
+               WsfTrack track = PLATFORM.MasterTrackList().Entry(0);
+               if (track.IsValid() && track.StateCovariance().IsValid())
+               {
+                  writeln("T=", TIME_NOW, " Detected ", track.TargetName());
+
+                  writeln("T=", TIME_NOW, " Checking ", track.TargetName());
+                  writeln("  Last Update Time: ", track.UpdateTime());
+
+                  WsfCovariance covarNow   = track.StateCovariance();
+                  writeln("  Covariance at time of last update: ");
+                  PrintCovariance(covarNow);
+
+                  WsfCovariance covarLater = track.StateCovarianceAtTime(TIME_NOW + 10.0);
+                  writeln("  Covariance at T=", TIME_NOW + 10.0);
+                  PrintCovariance(covarLater);
+               }
+            }
+         end_script
+         default
+            script
+            end_script
+      end_on_message
+   end_processor
+
+   add sensor radar WSF_GEOMETRIC_SENSOR
+      frame_time             10 sec
+      range_error_sigma      100 m
+      azimuth_error_sigma    0.01 deg
+      elevation_error_sigma  0.01 deg
+      reports_location
+      internal_link data_mgr
+      on
+   end_sensor
+end_platform
+
+end_time 121 sec
+

@@ -1,0 +1,203 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+
+network MeshNetwork WSF_COMM_NETWORK_MESH
+end_network
+
+script_variables
+  global int numberOfMsgTransmitsAttempted = 0;
+  global int numberOfDeliverySuccesses = 0;
+  bool transmitSucceed = false;
+end_script_variables
+
+script void MessageDeliveryAttempt(WsfComm aXmtr,
+                                   WsfComm aRcvr,
+                                   WsfMessage aMsg, 
+                                   WsfCommInteraction aResult)
+
+   extern int numberOfMsgTransmitsAttempted;
+   extern int numberOfDeliverySuccesses;
+
+   numberOfMsgTransmitsAttempted = numberOfMsgTransmitsAttempted + 1;
+
+   if (aResult.Succeeded())
+   {
+      transmitSucceed = true;
+      numberOfDeliverySuccesses = numberOfDeliverySuccesses + 1;
+   }
+end_script
+
+script void MessageFailedRouting(WsfComm aXmtr, WsfPlatform aRcvr, WsfMessage aMsg)
+{
+   numberOfMsgTransmitsAttempted = numberOfMsgTransmitsAttempted + 1;
+}
+end_script
+
+observer
+  enable MESSAGE_DELIVERY_ATTEMPT
+  enable MESSAGE_FAILED_ROUTING MessageFailedRouting
+end_observer
+
+script bool ValidateExpectedTransmissionAttempts()
+   extern int numberOfMsgTransmitsAttempted;
+
+   if (numberOfMsgTransmitsAttempted == 5)
+   {
+      return true;
+   }
+
+   writeln("numberOfMsgTransmitsAttempted is: ", numberOfMsgTransmitsAttempted);
+   return false;
+end_script
+
+comm MY_COMM WSF_RADIO_TRANSCEIVER
+   transfer_rate 1 kbyte/s
+   #debug
+   network_name MeshNetwork
+   receiver
+      frequency 10 ghz
+   end_receiver
+
+   transmitter
+      power 1000 kw
+      frequency 10 ghz
+   end_transmitter
+
+   retransmit_attempts 3
+   retransmit_delay 1 second
+end_comm
+platform_type base WSF_PLATFORM
+   comm comm-1 MY_COMM
+   end_comm
+
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+message_table
+   default_comm_type
+      type WSF_CONTROL_MESSAGE 1 kbytes # 1 second to send this message
+      default 40 bits
+end_message_table
+
+platform cmd1 base
+   position 40n 0e
+   execute at_time 4 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+   execute at_time 8 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+   execute at_time 12 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+   execute at_time 16 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+   execute at_time 20 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+   execute at_time 24 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+   execute at_time 28 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+   execute at_time 32 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+   execute at_time 36 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+   execute at_time 40 s absolute
+      if(transmitSucceed == false)
+      {
+         WsfControlMessage msg1 = WsfControlMessage();
+         Comm("comm-1").SendMessage(msg1, "sub1", "comm-1");
+      }
+   end_execute
+
+   heading 0 deg
+   altitude 10000.00 ft
+
+end_platform
+
+platform sub1 base
+   position 40n 06e
+   commander cmd1
+
+   altitude 10000 ft
+
+   heading 277 deg
+   route
+      position 40n 06e altitude 10000 ft msl
+         speed 7000 kts
+      position 40:05n 04:56e altitude 10000 ft msl
+         speed 30000 kts
+   end_route
+end_platform
+
+execute at_time 40 seconds absolute
+   if ( ValidateExpectedTransmissionAttempts() && (numberOfDeliverySuccesses == 1) )
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("Expected Number of Transmission Attempts: 5");
+      writeln("Actual Number of Transmission Attempts: ", numberOfMsgTransmitsAttempted);
+
+
+      writeln("Expected Number of Delivery Successes: 1");
+      writeln("Actual Number of Delivery Successes: ", numberOfDeliverySuccesses);
+      writeln("-FAIL-");
+   }
+
+end_execute
+
+
+end_time 1 min

@@ -1,0 +1,179 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#script_listing on
+
+platform leader WSF_PLATFORM
+   side red
+   commander SELF
+
+   position 0n 0e altitude 0 m heading 270 deg
+
+   script_variables
+      double mPlatformHeading = 0.0;
+      double mSensorYaw = 0.0;
+      string mSensorHeadingStr = "";
+   end_script_variables
+
+   script void TestCase(WsfPlatform aSensorHost,
+                        string      aTargetName,
+                        string      aTargetBearingStr)
+
+      WsfTrack track = WsfSimulation.FindPlatform(aTargetName).MakeTrack();
+      bool inside = track.WithinZoneOf(aSensorHost, "multiple_target_zone",
+                                       aSensorHost.SensorEntry(0).Name());
+
+      bool expectedInside = (mSensorHeadingStr == aTargetBearingStr);
+      if (inside != expectedInside)
+      {
+         writeln("-FAIL- ", mSensorHeadingStr, " ", aTargetBearingStr,
+                 " Expected: ", expectedInside, " Got: ", inside);
+      }
+      else
+      {
+         writeln("-PASS- ", mSensorHeadingStr, " ", aTargetBearingStr,
+                 " Expected: ", expectedInside, " Got: ", inside);
+      }
+   end_script
+
+   script void Test(double aPlatformHeading,
+                    double aSensorYaw,
+                    string aSensorHeadingStr)
+      mPlatformHeading   = aPlatformHeading;
+      mSensorYaw        = aSensorYaw;
+      mSensorHeadingStr = aSensorHeadingStr;
+
+      writeln("Sensor Heading: ", mSensorHeadingStr,
+              " (Platform Heading: ", mPlatformHeading,
+              " Sensor Yaw: ", aSensorYaw, ")");
+
+      WsfPlatform sub = WsfSimulation.FindPlatform("worker");
+      sub.TurnToHeading(aPlatformHeading);
+      sub.SensorEntry(0).SetYaw(aSensorYaw);
+
+      TestCase(sub, "target_n", "n");
+      TestCase(sub, "target_s", "s");
+      TestCase(sub, "target_e", "e");
+      TestCase(sub, "target_w", "w");
+   end_script
+
+   execute at_time 1 sec absolute
+
+      Test(0.0,    0.0, "n");
+      Test(0.0,   90.0, "e");
+      Test(0.0, -270.0, "e");
+      Test(0.0,  180.0, "s");
+      Test(0.0, -180.0, "s");
+      Test(0.0,  -90.0, "w");
+      Test(0.0,  270.0, "w");
+
+      Test(90.0,    0.0, "e");
+      Test(90.0,   90.0, "s");
+      Test(90.0, -270.0, "s");
+      Test(90.0,  180.0, "w");
+      Test(90.0, -180.0, "w");
+      Test(90.0,  -90.0, "n");
+      Test(90.0,  270.0, "n");
+
+      Test(-270.0,    0.0, "e");
+      Test(-270.0,   90.0, "s");
+      Test(-270.0, -270.0, "s");
+      Test(-270.0,  180.0, "w");
+      Test(-270.0, -180.0, "w");
+      Test(-270.0,  -90.0, "n");
+      Test(-270.0,  270.0, "n");
+
+      Test(180.0,    0.0, "s");
+      Test(180.0,   90.0, "w");
+      Test(180.0, -270.0, "w");
+      Test(180.0,  180.0, "n");
+      Test(180.0, -180.0, "n");
+      Test(180.0,  -90.0, "e");
+      Test(180.0,  270.0, "e");
+
+      Test(-180.0,    0.0, "s");
+      Test(-180.0,   90.0, "w");
+      Test(-180.0, -270.0, "w");
+      Test(-180.0,  180.0, "n");
+      Test(-180.0, -180.0, "n");
+      Test(-180.0,  -90.0, "e");
+      Test(-180.0,  270.0, "e");
+
+      Test(270.0,    0.0, "w");
+      Test(270.0,   90.0, "n");
+      Test(270.0, -270.0, "n");
+      Test(270.0,  180.0, "e");
+      Test(270.0, -180.0, "e");
+      Test(270.0,  -90.0, "s");
+      Test(270.0,  270.0, "s");
+
+      Test(-90.0,    0.0, "w");
+      Test(-90.0,   90.0, "n");
+      Test(-90.0, -270.0, "n");
+      Test(-90.0,  180.0, "e");
+      Test(-90.0, -180.0, "e");
+      Test(-90.0,  -90.0, "s");
+      Test(-90.0,  270.0, "s");
+   end_execute
+
+end_platform
+
+platform worker WSF_PLATFORM
+   side red
+   commander leader
+
+   position 0n 0e altitude 0 m heading 270 deg
+
+   zone multiple_target_zone
+      circular
+         start_angle -5 deg
+         stop_angle   5 deg
+         maximum_radius 300 km
+   end_zone
+
+   add sensor ttr WSF_GEOMETRIC_SENSOR
+      off
+
+      antenna_height                   10 m
+
+      maximum_range                    300 km
+
+      azimuth_field_of_view            -70 deg 70 deg
+      elevation_field_of_view          -5 deg 85 deg
+
+      azimuth_scan_limits              -70 deg 70 deg
+      elevation_scan_limits            -5 deg 85 deg
+
+      frame_time                       1 sec
+      reports_location
+
+      ignore_same_side
+   end_sensor
+end_platform
+
+platform_type TARGET WSF_PLATFORM
+   side blue
+   icon Wedge
+end_platform_type
+
+platform target_n TARGET
+   position 1n 0e altitude 30000 ft
+end_platform
+
+platform target_s TARGET
+   position 1s 0e altitude 30000 ft
+end_platform
+
+platform target_e TARGET
+   position 0n 1e altitude 30000 ft
+end_platform
+
+platform target_w TARGET
+   position 0n 1w altitude 30000 ft
+end_platform

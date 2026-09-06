@@ -1,0 +1,177 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# --------------------------------------------------------------------------------------------------
+# This is a collection of useful scripts.
+# --------------------------------------------------------------------------------------------------
+
+# Since there is no other easy way in WSF to get a relative
+# and (accurate) NED relative position, we calculate a rough approximation here:
+script Vec3 RelativePositionNED(WsfGeoPoint from, WsfGeoPoint to)
+   double deg2ft = 364812.76313;
+   double north =  (to.Latitude() -from.Latitude() )*deg2ft;
+   double east  =  (to.Longitude()-from.Longitude())*deg2ft*MATH.Cos(from.Latitude()*MATH.RAD_PER_DEG());
+   double down  = -(to.Altitude() -from.Altitude() )*MATH.FT_PER_M();
+   Vec3 vec = Vec3.Construct( north, east, down );
+   return vec;
+end_script
+
+# This is a script by Luke Miklos. This calculates the angle between two vectors:
+script double AngleBetween(Vec3 a, Vec3 b)
+   double aMag = a.Magnitude();
+   double bMag = b.Magnitude();
+   if ((aMag == 0.0) || (bMag == 0.0))
+   {
+      return 0.0;
+   }
+   double dp = Vec3.Dot(a,b)/(aMag*bMag);
+   if(dp < -1.0)
+   {
+       dp = -1.0;
+   }
+   else if (dp > 1.0)
+   {
+       dp = 1.0;
+   }
+   return Math.ACos(dp);
+end_script
+
+script Vec3 GoodRelativePositionNED(WsfGeoPoint from, WsfGeoPoint to)
+
+   double bearing_rad = from.TrueBearingTo(to);
+   double slant_range_m = from.SlantRangeTo(to);
+   double tgtRelHgt_m = to.Altitude() - from.Altitude();
+
+   double xy = slant_range_m;
+   double ang = 0.0;
+   if( Math.Fabs(tgtRelHgt_m) > 0.000001 )
+   {
+      ang = Math.ASin(tgtRelHgt_m/slant_range_m);
+      xy = slant_range_m * Math.Cos(ang);
+   }
+
+   double north = xy * Math.Cos(bearing_rad);
+   double east  = xy * Math.Sin(bearing_rad);
+   double down  = -tgtRelHgt_m;
+
+   Vec3 vec = Vec3.Construct( north, east, down );
+
+   return vec;
+end_script
+
+script Vec3 CalcFlyVectorNED(WsfPlatform platform, WsfPlatform tgtPlatform)
+
+   # Create a geo point for the platform
+   WsfGeoPoint from = platform.Location();
+
+   # Get the range to the target
+   double downRange_m  = platform.DownRangeTo(tgtPlatform);
+   double crossRange_m = platform.CrossRangeTo(tgtPlatform);
+   double totalRange_m = Math.Sqrt( downRange_m*downRange_m + crossRange_m*crossRange_m );
+
+   # Get the platform's speed
+   double platformSpeed_mps = platform.Speed();
+
+   # Get the platform's speed
+   double tgtSpeed_mps = tgtPlatform.Speed();
+
+   # Get the target velocity
+   Vec3 velWCS = tgtPlatform.VelocityWCS();
+
+   # We scale the target veleocity vector according to how far away we are.
+   # If we are farther away, we look ahead more, but as we get closer,
+   # we look ahead less.
+
+   # Dist (km) Factor
+   #  1k   1.0
+   #  2k   2.0  (1 mile)
+   #  4k   4.0  (2 miles)
+   # 10k  10.0  (5 miles)*
+   # 20k  20.0  (10 miles)
+   # 1k  1.0
+   double scaleFactor = totalRange_m*0.001;
+
+   # Set the scale (look-ahead)
+   velWCS.Scale(scaleFactor);
+
+   # Add the look ahead to the target's location
+   Vec3 locWCS = tgtPlatform.LocationWCS();
+   locWCS = locWCS.Add(locWCS, velWCS);
+
+   # Create a geo point for the target
+   WsfGeoPoint to = WsfGeoPoint.ConstructWCS(locWCS);
+
+   return GoodRelativePositionNED(from, to);
+
+end_script
+
+script double CalcSpeedAgainstTarget_KTAS(WsfPlatform platform, WsfPlatform tgtPlatform)
+
+   WsfGeoPoint from = platform.Location();
+
+   # Get the range to the target
+   double downRange_m  = platform.DownRangeTo(tgtPlatform);
+   double crossRange_m = platform.CrossRangeTo(tgtPlatform);
+   double totalRange_m = Math.Sqrt( downRange_m*downRange_m + crossRange_m*crossRange_m );
+
+   # Get the platform's speed
+   double platformSpeed_mps = platform.Speed();
+
+   # Get the platform's speed
+   double tgtSpeed_mps = tgtPlatform.Speed();
+
+   # As we get closer to the target, we may want to slow down (in some cases)
+   # to prevent an overshoot, but in most cases, we will want to accelerate
+   # in combat.
+
+   double desiredSpeed_ktas = (3600.0 * platformSpeed_mps) / Math.M_PER_NM();
+
+   if( totalRange_m < (2.0*Math.M_PER_NM()) )
+   {
+      desiredSpeed_ktas = (3600.0 * tgtSpeed_mps) / Math.M_PER_NM();
+   }
+   else
+   {
+      desiredSpeed_ktas = (3600.0 * tgtSpeed_mps * 1.35) / Math.M_PER_NM();
+   }
+
+   return desiredSpeed_ktas;
+
+end_script
+
+script double CalcMaxGLoadAgainstTarget(WsfPlatform platform, WsfPlatform tgtPlatform)
+
+   WsfGeoPoint from = platform.Location();
+
+   # Get the range to the target
+   double downRange_m  = platform.DownRangeTo(tgtPlatform);
+   double crossRange_m = platform.CrossRangeTo(tgtPlatform);
+   double totalRange_m = Math.Sqrt( downRange_m*downRange_m + crossRange_m*crossRange_m );
+
+   # Get the platform's speed
+   double platformSpeed_mps = platform.Speed();
+
+   # Get the platform's speed
+   double tgtSpeed_mps = tgtPlatform.Speed();
+
+   # Get the target velocity
+   Vec3 velWCS      = tgtPlatform.VelocityWCS();
+   velWCS.Scale(10.0);
+
+   Vec3 locWCS = tgtPlatform.LocationWCS();
+   locWCS = locWCS.Add(locWCS, velWCS);
+
+   WsfGeoPoint to = WsfGeoPoint.ConstructWCS(locWCS);
+
+   double maxGLoad = 8;
+
+   return maxGLoad;
+
+end_script
+
+# --------------------------------------------------------------------------------------------------

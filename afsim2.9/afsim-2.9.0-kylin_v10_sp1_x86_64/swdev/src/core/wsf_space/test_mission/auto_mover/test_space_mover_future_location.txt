@@ -1,0 +1,182 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This test compares the predicted location of a platform with a space mover
+# obtained via the WsfPlatform.FutureLocation method with the location achieved
+# at the equivalent time by the simulation. The space movers (currently) have
+# restrictions on when such a prediction can be made, so this test has one
+# platform each for the various cases.
+# ****************************************************************************
+
+include_once ../utils.txt
+
+script_variables
+   double predictTime = 2000.0;
+   double tolerance   = 1.0e-6;
+end_script_variables
+
+end_time 3000 s
+
+# The platform type defines the test behavior of each test platform.
+# Each instance of this type should set the shouldCompare script variable
+# appropriately.
+platform_type SPACE_PLATFORM WSF_PLATFORM
+   mover WSF_SPACE_MOVER  
+      eccentricity 0.05
+      semi_major_axis 8000 km
+      raan 10 deg
+      inclination 25 deg
+      true_anomaly 5 deg
+      argument_of_periapsis 10 deg      
+
+      maneuvering simple
+         maximum_acceleration 0.01 g
+      end_maneuvering
+   end_mover
+
+   script_variables 
+      WsfGeoPoint predictedLocation;
+      WsfGeoPoint actualLocation;
+      Vec3 predictedLocationECI;
+      bool shouldCompare;
+   end_script_variables
+   
+   execute at_time 1000 sec absolute  
+      predictedLocation = PLATFORM.FutureLocation(predictTime);
+      ExpectBool(predictedLocation.IsValid(), shouldCompare, "Validity of predictedLocation does not match expectation");
+   end_execute
+   
+   execute at_time 2000 sec absolute
+      actualLocation = PLATFORM.Location();
+      double error = 0.0;
+      
+      if (predictedLocation.IsValid())
+      {
+         error = Vec3.Subtract(predictedLocation.LocationECI(),actualLocation.LocationECI()).Magnitude();
+         ExpectDouble(error, 0.0, tolerance, "Error between predicted location and actual location too great.");
+      }
+   end_execute   
+end_platform_type
+
+# Case 1 - No mission. Should predict.
+platform case_1 SPACE_PLATFORM
+   script_variables
+      shouldCompare = true;
+   end_script_variables
+end_platform
+
+# Case 2 - Mission is already complete.
+platform case_2 SPACE_PLATFORM
+   script_variables
+      shouldCompare = true;
+   end_script_variables
+
+   edit mover
+      mission_sequence
+         execute_at relative_time 100 seconds
+         maneuver tangent
+            execute_at relative_time 30 seconds
+            delta_v 10 m/s
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# Case 3 - During a finite maneuver. Should not predict.
+platform case_3 SPACE_PLATFORM
+   script_variables
+      shouldCompare = false;
+   end_script_variables
+
+   edit mover
+      mission_sequence
+         execute_at relative_time 890 seconds
+         maneuver tangent
+            execute_at relative_time 100 seconds
+            delta_v 10 m/s
+            finite
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# Case 4 - Before the condition of the overall sequence. Should predict.
+platform case_4 SPACE_PLATFORM
+   script_variables
+      shouldCompare = true;
+   end_script_variables
+
+   edit mover
+      mission_sequence
+         execute_at relative_time 3000 seconds
+         maneuver tangent
+            execute_at relative_time 30 seconds
+            delta_v 10 m/s
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# Case 5 - Before the condition of the first event. Should predict.
+platform case_5 SPACE_PLATFORM
+   script_variables
+      shouldCompare = true;
+   end_script_variables
+
+   edit mover
+      mission_sequence
+         execute_at relative_time 890 seconds
+         maneuver tangent
+            execute_at relative_time 3000 seconds
+            delta_v 10 m/s
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# Case 6 - Before condition of next event in sequence. Should predict.
+platform case_6 SPACE_PLATFORM
+   script_variables
+      shouldCompare = true;
+   end_script_variables
+
+   edit mover
+      mission_sequence
+         execute_at relative_time 100 seconds
+         maneuver tangent
+            execute_at relative_time 300 seconds
+            delta_v 10 m/s
+         end_maneuver
+         maneuver normal
+            execute_at relative_time 3000 seconds
+            delta_v 10 m/s
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# Case 7 - After next event begins. Should not predict.
+platform case_7 SPACE_PLATFORM
+   script_variables
+      shouldCompare = false;
+   end_script_variables
+
+   edit mover
+      mission_sequence
+         execute_at relative_time 100 seconds
+         maneuver tangent
+            execute_at relative_time 300 seconds
+            delta_v 10 m/s
+         end_maneuver
+         maneuver normal
+            execute_at relative_time 1500 seconds
+            delta_v 10 m/s
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform

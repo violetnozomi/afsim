@@ -1,0 +1,47 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2013 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+behavior default
+
+   script_debug_writes off
+
+   script_variables
+   end_script_variables
+
+   on_init
+   end_on_init
+
+   precondition
+      if (!PROCESSOR.IsA_TypeOf("WSF_QUANTUM_TASKER_PROCESSOR"))
+      {
+         return Failure("behavior not attached to a WSF_QUANTUM_TASKER_PROCESSOR");
+      }
+      WsfTaskList tasks = ((WsfQuantumTaskerProcessor)PROCESSOR).TasksReceivedOfType("WEAPON");
+      if(tasks.Count() > 0)
+      {
+         WsfTask targetTask = tasks.Entry(0);
+         WsfLocalTrack hostile = PLATFORM.MasterTrackList().Find(targetTask.LocalTrackId());
+         if (hostile.IsValid() && !hostile.TargetKilled())
+         {
+            return Failure("hostile target to contend with!");
+         }
+      }
+      return true;
+   end_precondition
+
+   execute
+      Vec3 dir = PLATFORM.VelocityNED();
+      dir.SetZ(0);
+      PLATFORM.FlyVectorWithThrottle(dir, 6, 2);   //mil power throttle, max 6 Gs
+   end_execute
+
+end_behavior
+

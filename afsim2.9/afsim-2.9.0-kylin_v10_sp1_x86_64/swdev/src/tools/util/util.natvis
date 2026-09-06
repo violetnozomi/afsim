@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+   <Type Name="UtStringId">
+      <!-- For dynamic linkage (shared libs)-->
+      <DisplayString>{{mId={mId} {*({,,util_d}UtDictionary::mInstancePtr->mNumberToString)[mId]}}}</DisplayString>
+   </Type>
+   <Type Name="UtStringId">
+      <!-- For dynamic linkage (shared libs)-->
+      <DisplayString>{{mId={mId} {*({,,util}UtDictionary::mInstancePtr->mNumberToString)[mId]}}}</DisplayString>
+   </Type>
+   <Type Name="UtStringId">
+      <!-- For static linkage-->
+      <DisplayString>{{mId={mId} {*(UtDictionary::mInstancePtr->mNumberToString)[mId]}}}</DisplayString>
+   </Type>
+   <Type Name="ut::reflect::Derive&lt;*,*&gt;" Inheritable="false">
+      <DisplayString>{"$T2",sb}</DisplayString>
+      <Expand>
+         <ExpandedItem>*($T2*)this,nd</ExpandedItem>
+      </Expand>
+   </Type>
+   <Type Name="ut::reflect::ObjectNode&lt;*&gt;::Field&lt;*&gt;">
+      <DisplayString>{mValue}</DisplayString>
+      <Expand>
+         <ExpandedItem>mValue,nd</ExpandedItem>
+      </Expand>
+   </Type>
+   <Type Name="UtTextDocumentRange">
+      <DisplayString>{mSource->mText.mDataPtr+mBegin,[mEnd+1-mBegin]s}</DisplayString>
+      <StringView>mSource->mText.mDataPtr+mBegin,[mEnd+1-mBegin]</StringView>
+      <Expand>
+         <Item Name="[size]" ExcludeView="simple">mEnd+1-mBegin</Item>
+         <Synthetic Name="[details]">
+            <DisplayString>begin={mBegin}, end={mEnd}, source={mSource->mFilePath.mPathString}</DisplayString>
+            <Expand>
+               <Item Name="begin">mBegin</Item>
+               <Item Name="end">mEnd</Item>
+               <Item Name="source">mSource</Item>
+            </Expand>
+         </Synthetic>
+         <ArrayItems>
+            <Size>mEnd+1-mBegin</Size>
+            <ValuePointer>mSource->mText.mDataPtr+mBegin</ValuePointer>
+         </ArrayItems>
+      </Expand>
+   </Type>
+   <Type Name="UtFixedCircularBuffer&lt;*&gt;">
+      <DisplayString>{{size = {mSize}}}</DisplayString>
+      <Expand>
+         <Item Name="[size]">mSize</Item>
+         <IndexListItems>
+            <Size>mSize</Size>
+            <ValueNode>mData[((mPos + $i) % mSize)]</ValueNode>
+         </IndexListItems>
+      </Expand>
+   </Type>
+</AutoVisualizer>

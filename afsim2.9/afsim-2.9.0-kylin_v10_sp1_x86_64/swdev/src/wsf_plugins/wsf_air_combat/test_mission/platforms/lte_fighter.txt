@@ -1,0 +1,104 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// sensors
+#include_once processors/sensor_cue_processor.txt
+include_once ../sensors/radar/aesa.txt
+include_once ../sensors/radar/aesa_antenna.txt
+include_once ../sensors/esm_rwr/esm.txt
+// platform type
+include_once brawler_test.txt
+include_once lte_fighter_six_dof.txt
+
+radar_signature 10dB_FuzzBall 
+   constant 10 dBsm
+end_radar_signature
+
+radar_signature 0dB_FuzzBall
+   constant 0 dbsm
+end_radar_signature
+
+platform_type SIX_DOF_FIGHTER  BRAWLER_TEST_AIRMOVER
+   icon f15c
+   #include prdata/blue.txt
+
+   radar_signature 10dB_FuzzBall
+
+   mover WSF_POINT_MASS_SIX_DOF_MOVER
+       vehicle_type LTE_FIGHTER_PM6
+       update_interval 0.05 sec
+   end_mover
+
+   comm weapon_datalink WSF_COMM_TRANSCEIVER      // uplink to weapons
+      network_name weapons_subnet
+      internal_link data_mgr
+   end_comm
+
+   sensor rdr1 aesa  
+      on
+      internal_link raw_data_mgr
+      ignore missile
+   end_sensor
+
+   sensor eyes WSF_GEOMETRIC_SENSOR
+      on
+      azimuth_field_of_view   -180.0 degrees  180.0 degrees
+      elevation_field_of_view -90.0  degrees  90.0  degrees
+      maximum_range           10 nmi
+      frame_time              1 sec
+      range_error_sigma       1000 ft
+      range_rate_error_sigma  50 m/s
+      azimuth_error_sigma     1 deg
+      elevation_error_sigma   1 deg
+      reports_location 
+      reports_velocity 
+      reports_range_rate
+      reports_range
+      reports_bearing 
+      reports_elevation 
+      reports_iff
+      internal_link raw_data_mgr
+      ignore_same_side
+      ignore missile
+#      filter WSF_KALMAN_FILTER
+#         process_noise_model      constant_acceleration
+#         process_noise_sigmas_XYZ 50 10 50          # AFSIM recommended values for high agility aircraft
+#      end_filter
+      filter WSF_KALMAN_FILTER
+         process_noise_model      constant_velocity
+         process_noise_sigmas_XYZ 2 2 2          # AFSIM recommended values for high agility aircraft
+      end_filter
+   end_sensor
+  
+    sensor rwr esm                       // 3
+      on
+      ignore IGNORE
+      ignore_same_side
+      internal_link raw_data_mgr
+   end_sensor
+end_platform_type
+
+platform_type BLUE_FIGHTER_PM6 SIX_DOF_FIGHTER 
+   edit processor assessment
+      friendly_type BLUE_FIGHTER_AIR
+      flight_id 1
+   end_processor 
+end_platform_type
+
+platform_type RED_FIGHTER_PM6 SIX_DOF_FIGHTER
+
+   icon su27
+
+   edit processor assessment
+      enemy_side    blue
+      enemy_type    BLUE_FIGHTER_AIR
+      friendly_type RED_FIGHTER_AIR
+      flight_id     202
+   end_processor 
+end_platform_type

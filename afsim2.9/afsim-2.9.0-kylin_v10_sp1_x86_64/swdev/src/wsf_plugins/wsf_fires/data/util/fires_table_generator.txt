@@ -1,0 +1,262 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2013 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+//***************************************************************************************
+// Generate a fires table using a non-fires ballistic test launcher representation.
+// These scripts also generate all associated definitions for the weapon, including
+// launched platform type, explicit and implicit weapons, and associated launcher platform
+// types.
+//***************************************************************************************
+
+
+include fires_table_platforms.txt
+
+script void PlatformInitialized(WsfPlatform aPlatform)
+   // save initial data
+   if (! mStartLoc.Exists(aPlatform.Name()))
+   {
+      //writeln(aPlatform.Name());
+      mStartLoc[aPlatform.Name()] = aPlatform.LocationWCS();
+      mCurrentOrd[aPlatform.Name()] = aPlatform.Altitude();
+   }
+end_script
+
+script void PlatformDeleted(WsfPlatform aPlatform)
+   string weaponName = aPlatform.Name();
+   if (mStartLoc.Exists(weaponName))
+   {
+      Vec3 endLoc = aPlatform.LocationWCS();
+      Vec3 rangeVec = Vec3.Subtract(mStartLoc[weaponName], endLoc);
+      double range = rangeVec.Magnitude();
+      mRange[weaponName] = range;
+      writeln(aPlatform.Name(), " ", aPlatform.Altitude());
+      mTOF[weaponName] = TIME_NOW;
+   }
+end_script
+
+script void WeaponFired(WsfWeaponEngagement aEngagement,
+                        WsfTrack            aTrack)
+   // save initial data
+   WsfPlatform weapon = aEngagement.WeaponPlatform();
+   mSystemMunition = aEngagement.WeaponSystemType();
+   //mFiresimSystemMunition = "FIRES_" + mSystemMunition;
+
+   if (! mStartLoc.Exists(weapon.Name()))
+   {
+      mSystemMunition = aEngagement.WeaponSystemName() + weapon.Name();
+      mStartLoc[weapon.Name()] = weapon.LocationWCS();
+      mCurrentOrd[weapon.Name()] = weapon.Altitude();
+   }
+end_script
+
+script void WeaponTerminated(WsfWeaponEngagement aEngagement)
+   WsfPlatform weapon = aEngagement.WeaponPlatform();
+   string weaponName = weapon.Name();
+   if (mStartLoc.Exists(weaponName))
+   {
+      Vec3 endLoc = weapon.LocationWCS();
+      Vec3 rangeVec = Vec3.Subtract(mStartLoc[weaponName], endLoc);
+      mRange[weaponName] = rangeVec.Magnitude();
+      mTOF[weaponName] = aEngagement.TimeSinceStarted();
+   }
+end_script
+
+script void MoverUpdated(WsfPlatform aPlatform, WsfMover aMover)
+   if (mStartLoc.Exists(aPlatform.Name()))
+   {
+      mCurrentOrd[aPlatform.Name()] = aPlatform.Altitude();
+      if (aPlatform.Altitude() > mMaxOrd[aPlatform.Name()])
+      {
+         mMaxOrd[aPlatform.Name()] = aPlatform.Altitude();
+         mMaxOrdTime[aPlatform.Name()] = aPlatform.TimeSinceCreation();
+      }
+   }
+end_script
+
+script void ComputeRangeOrder()
+   // bubble sort on range
+   int n = mRange.Size();
+   Array<double> sortedRange = {};
+   int i = 0;
+   foreach (string key : double range in mRange)
+   {
+      mRangeSortOrder[i] = key;
+      sortedRange[i] = range;
+      i = i + 1;
+   }
+   for (int i = 0; i < n; i=i+1)
+   {
+      for (int j = 0; j < (n-1); j=j+1)
+      {
+         if (sortedRange[j] > sortedRange[j+1])
+         {
+            double temp = sortedRange[j+1];
+            sortedRange[j+1] = sortedRange[j];
+            sortedRange[j] = temp;
+
+            string stemp = mRangeSortOrder[j+1];
+            mRangeSortOrder[j+1] = mRangeSortOrder[j];
+            mRangeSortOrder[j] = stemp;
+         }
+      }
+   }
+end_script
+
+script void SimulationComplete()
+
+   // Write out everything
+  FileIO file = FileIO();
+  string filename = mFiresimSystemMunition.Lower() + ".txt";
+  writeln(filename);
+  file.Open(filename, "out");
+  ComputeRangeOrder();
+  string lcName = mFiresimSystemMunition + "_LAUNCH_COMPUTER";
+  string lcString = "launch_computer " + lcName + " FIRES_LAUNCH_COMPUTER";
+  file.Writeln(lcString);
+  file.Writeln("  fires_table");
+  string moLead = "      " + mLaunchedPlatformType + "AMOC  RNGDAT ";
+  file.Write(moLead);
+  for (int i = 0; i < mRangeSortOrder.Size(); i = i + 1)
+  {
+     string key = mRangeSortOrder[i];
+     file.Write((string)mMaxOrd[key]);
+     file.Write(" ");
+  }
+  file.Writeln("$");
+  string rangeLead = "      " + mLaunchedPlatformType + "ARPT  RNGDAT ";
+  file.Write(rangeLead);
+  for (int i = 0; i < mRangeSortOrder.Size(); i = i + 1)
+  {
+     string key = mRangeSortOrder[i];
+     file.Write((string)mRange[key]);
+     file.Write(" ");
+  }
+  file.Write("$");
+  file.Writeln(" ");
+  string tofLead = "      " + mLaunchedPlatformType + "ATOF  RNGDAT ";
+  file.Write(tofLead);
+  for (int i = 0; i < mRangeSortOrder.Size(); i = i + 1)
+  {
+     string key = mRangeSortOrder[i];
+     file.Write((string)mTOF[key]);
+     file.Write(" ");
+  }
+  file.Writeln("$");
+/*
+  string tofTimeLead = "      " + mLaunchedPlatformType + "AMOT  RNGDAT ";
+  file.Write(tofTimeLead);
+  for (int i = 0; i < mRangeSortOrder.Size(); i = i + 1)
+  {
+     string key = mRangeSortOrder[i];
+     file.Write((string)mMaxOrdTime[key]);
+     file.Write(" ");
+  }
+  file.Writeln("");
+*/
+  file.Writeln("   end_fires_table");
+  file.Writeln("end_launch_computer");
+  file.Writeln("");
+
+//stub for weapon effects
+  string wet = mFiresimSystemMunition + "_EFFECTS";
+  string we = "weapon_effects "+ wet + " WSF_GRADUATED_LETHALITY";
+
+  file.Writeln(we);
+  file.Writeln("  radius_and_pk  250.0 m 0.50");
+  file.Writeln("  radius_and_pk   65.0 m 0.90");
+  file.Writeln("  radius_and_pk   40.0 m 0.99");
+  file.Writeln("end_weapon_effects");
+  file.Writeln("");
+
+  //explicit and implicit weapon definitions
+  string impName = mLaunchedPlatformType; // implicit weapon name same as launched platform name
+  file.Write("weapon ");
+  file.Write(impName);
+  file.Writeln(" WSF_IMPLICIT_WEAPON");
+  file.Writeln("   quantity 1000");
+  file.Writeln("   launch_computer");
+  file.Write("      ");
+  file.Writeln(lcName);
+//  file.Writeln("       min_range", mMinRange);
+//  file.Writeln("       max_range", mMaxRange);
+  file.Writeln("   end_launch_computer");
+  file.Write("  weapon_effects ");
+  file.Writeln(wet);
+  file.Writeln("end_weapon");
+  file.Writeln("");
+
+  string lpString = "platform_type " + mLaunchedPlatformType + " WSF_PLATFORM";
+  file.Writeln(lpString);
+  file.Writeln("   icon SA-10_Missile");
+  file.Writeln("   mover WSF_FIRES_MOVER");
+  file.Writeln("   end_mover");
+  file.Writeln("end_platform_type");
+  file.Writeln("");
+
+  string expName = mFiresimSystemMunition + "_EXPLICIT";
+  file.Write("weapon ");
+  file.Write(expName);
+  file.Write(" ");
+  file.Writeln("WSF_EXPLICIT_WEAPON");
+  file.Writeln("   quantity 1000");
+  file.Writeln("   launch_computer");
+  file.Write("      ");
+  file.Writeln(lcName);
+  file.Writeln("   end_launch_computer");
+  string lptName = "   launched_platform_type " + mLaunchedPlatformType;
+  file.Writeln(lptName);
+  file.Write("  weapon_effects ");
+  file.Writeln(wet);
+  file.Writeln("end_weapon");
+  file.Writeln("");
+
+  string explString = "platform_type " + mFiresimSystemMunition + "_EXPLICIT_LAUNCHER WSF_PLATFORM";
+  file.Writeln(explString);
+  file.Writeln("   icon mil_SS-Launcher-LR");
+  file.Write("   ");
+  file.Write("weapon ");
+  file.Write(mFiresimSystemMunition.Lower());
+  file.Write(" ");
+  file.Writeln(expName);
+  file.Writeln("   end_weapon");
+  file.Writeln("end_platform_type");
+  file.Writeln("");
+
+  string inplString = "platform_type " + mFiresimSystemMunition + "_IMPLICIT_LAUNCHER WSF_PLATFORM";
+  file.Writeln(inplString);
+  file.Writeln("   icon mil_SS-Launcher-LR");
+  file.Write("   ");
+  file.Write("weapon ");
+  file.Write(mFiresimSystemMunition.Lower());
+  file.Write(" ");
+  file.Writeln(impName);
+  file.Writeln("   end_weapon");
+  file.Writeln("end_platform_type");
+  file.Writeln("");
+
+  file.Close();
+
+end_script
+
+observer
+   enable PLATFORM_INITIALIZED PlatformInitialized
+   enable PLATFORM_DELETED PlatformDeleted
+   enable SIMULATION_COMPLETE SimulationComplete
+   enable WEAPON_FIRED WeaponFired
+   enable WEAPON_TERMINATED WeaponTerminated
+   enable MOVER_UPDATED MoverUpdated
+end_observer
+
+event_output
+  file fires_table_generator.evt
+  enable WEAPON_HIT
+  enable WEAPON_MISSED
+  enable PLATFORM_DELETED
+end_event_output

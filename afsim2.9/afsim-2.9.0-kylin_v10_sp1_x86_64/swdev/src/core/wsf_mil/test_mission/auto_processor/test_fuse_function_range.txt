@@ -1,0 +1,643 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//this test will check fuse_function_range to verify weapons detonate at a specific PCA from a target
+
+platform_type IED_TYPE WSF_PLATFORM
+   side red
+   #just give it a mover to play along with testing purposes
+   mover WSF_GROUND_MOVER
+      update_interval .5 s      
+   end_mover
+   
+   #NO GUIDANCE
+   processor fuse WSF_WEAPON_FUSE
+      on
+      gross_proximity_range 100 m
+      fuse_function_range 50 m
+   end_processor
+   
+   //no velocity script
+   on_initialize
+      PLATFORM.SetVelocityNED(0,0,0);
+   end_on_initialize
+end_platform_type
+
+weapon_effects IED_EFFECT WSF_GRADUATED_LETHALITY
+   radius_and_pk 100 m 1.0
+   radius_and_pk 200 m 0.1
+   radius_and_pk 300 m 0.001
+end_weapon_effects
+
+weapon IED WSF_EXPLICIT_WEAPON
+   launched_platform_type IED_TYPE
+   weapon_effects IED_EFFECT
+end_weapon
+// end weapon
+
+// launcher
+platform insurgent WSF_PLATFORM
+   side red
+
+   add mover WSF_GROUND_MOVER
+      route
+         navigation 
+            label start position 40n 89.93w altitude 10 ft speed 20 km/hr
+            label end position 40n 90.1w altitude 10 ft speed 20 km/hr extrapolate
+         end_navigation
+      end_route
+   end_mover
+   
+   add weapon ied IED
+      quantity 1
+   end_weapon
+end_platform
+// end launcher
+
+// target
+platform humvee WSF_PLATFORM
+   side blue
+   
+   add mover WSF_GROUND_MOVER
+      route
+         navigation 
+            label start position 40n 89.9w altitude 10 ft speed 20 km/hr
+            label end position 40n 90.1w altitude 10 ft speed 20 km/hr extrapolate
+         end_navigation
+      end_route   
+   end_mover
+end_platform
+// end target
+
+// weapon launch script
+execute at_time 1 min absolute
+   WsfPlatform insurgent = WsfSimulation.FindPlatform("insurgent");
+   WsfPlatform humvee = WsfSimulation.FindPlatform("humvee");
+   WsfTrack track = humvee.MakeTrack();
+   WsfWeapon ied = insurgent.Weapon("ied");
+   ied.Fire(track);
+end_execute
+// end weapon launch script
+
+
+antenna_pattern AA_MRM_RADAR_ANTENNA
+   sine_pattern
+   peak_gain            31 db            # computed using 420 mm dia & 9 GHz
+   minimum_gain         -10 db           # unknown
+   azimuth_beamwidth    4.6 deg          # 420 mm dia & 9 GHz
+   elevation_beamwidth  4.6 deg          # 420 mm dia & 9 GHz
+   end_sine_pattern
+end_antenna_pattern
+
+
+filter AA_MRM_RADAR_FILTER_TACTICS WSF_KALMAN_FILTER
+   range_measurement_sigma       4. m
+   bearing_measurement_sigma     0.2 deg
+   elevation_measurement_sigma   0.2 deg
+   process_noise_sigmas_XYZ      50 50 30
+end_filter
+
+sensor AA_MRM_RADAR WSF_RADAR_SENSOR
+   maximum_request_count          1
+   frame_time                     .30 sec       # unknown
+   one_m2_detect_range            25 km         # from aa_mrm.txt documentation
+   maximum_range                  30 km         # unknown
+   slew_mode                      azimuth_and_elevation   # Ref 1
+   azimuth_slew_limits            -30.0 deg 30.0 deg      # Ref 1
+   elevation_slew_limits          -20.0 deg 10.0 deg      # Ref 1
+   scan_mode                      azimuth_and_elevation
+   azimuth_scan_limits            -30.0 deg 30.0 deg
+   elevation_scan_limits          -20.0 deg 10.0 deg
+
+   transmitter
+      antenna_pattern             AA_MRM_RADAR_ANTENNA
+      power                       500 w         # unknown
+      frequency                   9000 mhz      # assuming X-band
+      pulse_width                 1.0 usec      # unknown
+      pulse_repetition_frequency  3600 hz       # unknown
+   end_transmitter
+  
+   receiver
+      antenna_pattern             AA_MRM_RADAR_ANTENNA
+      bandwidth                   1.0 mhz       # use inverse of pulse width
+   end_receiver
+  
+   filter AA_MRM_RADAR_FILTER_TACTICS
+   end_filter
+  
+   hits_to_establish_track  2 3    # make it easy
+   hits_to_maintain_track   1 3    # make it real easy
+   track_quality            1.0    # 'weapons' grade
+   reports_range
+   reports_bearing
+   reports_elevation
+end_sensor
+
+aero AA_MRM_AERO WSF_AERO
+  # Values estimated from Hoerner's Drag book
+   cd_zero_subsonic    0.30
+   cd_zero_supersonic  0.50
+   mach_begin_cd_rise  0.95
+   mach_end_cd_rise    1.3
+   mach_max_supersonic 4.0       # Ref
+   reference_area      0.125 m2  #  200mm body dia
+   cl_max              3.5
+end_aero
+
+platform_type AA_MRM WSF_PLATFORM
+   icon Missile
+
+   mover WSF_GUIDED_MOVER
+      total_mass       175 kg  # all of the sources say this
+      fuel_mass        80 kg # guess - 30 kg warhead, sensor weight, and body weight
+      thrust           6500 lbf # to make it go 1300 mps as stated above
+      thrust_duration  95 sec # sources say several seconds
+      update_interval  .1 sec
+      aero             AA_MRM_AERO
+   end_mover
+
+   comm uplink WSF_COMM_TRANSCEIVER
+      internal_link data_mgr
+      internal_link task_mgr
+   end_comm
+
+   processor data_mgr WSF_WEAPON_TRACK_PROCESSOR
+   end_processor
+
+   processor task_mgr WSF_TASK_PROCESSOR
+   end_processor
+
+   processor computer WSF_GUIDANCE_COMPUTER
+      proportional_navigation_gain  1000
+      g_bias                        1.1
+      maximum_commanded_g           15.0 g
+      update_interval               0.01 s
+   end_processor
+
+   processor fuse WSF_AIR_TARGET_FUSE
+      fine_update_interval 0.001 sec
+      fuse_function_range 1000 m
+   end_processor
+
+   sensor seeker  AA_MRM_RADAR
+         ignore_same_side
+         processor data_mgr
+         internal_link task_mgr
+   end_sensor
+
+   script_variables
+      bool mTrackFromE2C    = false;
+      bool mTrackFromE2CSet = false;
+   end_script_variables
+
+   processor seeker_turn_on WSF_WEAPON_TRACK_PROCESSOR
+      turn_on_sensor seeker at_range 20000.0 m before_intercept
+      update_interval 1 sec
+      on_update
+         extern bool mTrackFromE2CSet;
+         extern bool mTrackFromE2C;
+         if (!mTrackFromE2CSet)
+         {
+            if (PLATFORM.Sensor("seeker").IsTurnedOn())
+            {
+               WsfTrack extTrack = PLATFORM.CurrentTargetTrack();
+               if (extTrack.IsValid() && (extTrack.OriginatorType() == "e2c"))
+               {
+                  mTrackFromE2C = true;
+               }
+            mTrackFromE2CSet = true;
+            }
+         }
+      end_on_update
+   end_processor
+end_platform_type
+
+platform_type AA_MRM_1 AA_MRM 
+   edit processor fuse 
+      fuse_function_range 600 m
+   end_processor
+end_platform_type
+
+platform_type AA_MRM_2 AA_MRM 
+   edit processor fuse 
+      fuse_function_range 200 m
+   end_processor
+end_platform_type
+
+platform_type AA_MRM_3 AA_MRM 
+   edit processor fuse 
+      fuse_function_range 100 m
+   end_processor
+end_platform_type
+
+platform_type AA_MRM_4 AA_MRM 
+   edit processor fuse 
+      fuse_function_range 50 m
+   end_processor
+end_platform_type
+
+platform_type AA_MRM_5 AA_MRM 
+   edit processor fuse 
+      fuse_function_range 20 m
+   end_processor
+end_platform_type
+
+platform_type AA_MRM_6 AA_MRM 
+   edit processor fuse 
+      fuse_function_range 5 m
+   end_processor
+end_platform_type
+
+platform_type AA_MRM_7 AA_MRM 
+   edit processor fuse 
+      fuse_function_range 0 m
+   end_processor
+end_platform_type
+
+weapon_effects AA_MRM_EFFECT WSF_GRADUATED_LETHALITY      # unknown
+   radius_and_pk 100.0 m 0.7 #radius is unknown pk of .7 documented
+end_weapon_effects
+
+weapon AA_MRM WSF_EXPLICIT_WEAPON
+   launched_platform_type      AA_MRM
+   weapon_effects              AA_MRM_EFFECT
+   automatic_target_cueing     true
+   quantity                    1
+   firing_delay                0.2 sec   # unknown
+   salvo_interval              1.0 sec   # unknown
+   firing_interval             2.0 sec   # unknown
+   slew_mode                   azimuth_and_elevation
+   azimuth_slew_limits         -75.0 deg 75.0 deg  # allows for off boresight target slewing
+   elevation_slew_limits       -35.0 deg 15.0 deg  # allow some super-elevation for low-alt targets
+end_weapon
+
+weapon AA_MRM_1 AA_MRM
+   launched_platform_type      AA_MRM_1
+end_weapon
+
+weapon AA_MRM_2 AA_MRM
+   launched_platform_type      AA_MRM_2
+end_weapon
+
+weapon AA_MRM_3 AA_MRM
+   launched_platform_type      AA_MRM_3
+end_weapon
+
+weapon AA_MRM_4 AA_MRM
+   launched_platform_type      AA_MRM_4
+end_weapon
+
+weapon AA_MRM_5 AA_MRM
+   launched_platform_type      AA_MRM_5
+end_weapon
+
+weapon AA_MRM_6 AA_MRM
+   launched_platform_type      AA_MRM_6
+end_weapon
+
+weapon AA_MRM_7 AA_MRM
+   launched_platform_type      AA_MRM_7
+end_weapon
+
+processor AA_TACTICS WSF_TASK_PROCESSOR
+end_processor
+
+antenna_pattern GENERIC_FIRE_CONTROL_RADAR_ANTENNA_PATTERN
+   sine_pattern
+   azimuth_beamwidth        4.0 deg
+   elevation_beamwidth      4.0 deg
+   peak_gain                30 dB
+   end_sine_pattern
+end_antenna_pattern
+
+sensor GENERIC_FIRE_CONTROL_RADAR WSF_RADAR_SENSOR
+   on
+   no_debug                          # default
+   slew_mode               azimuth_and_elevation
+   azimuth_slew_limits     -45.0 degrees  45 degrees
+   elevation_slew_limits   -45.0 degrees  45 degrees
+   scan_mode               azimuth_and_elevation
+   azimuth_scan_limits     -45 degrees  45 degrees
+   elevation_scan_limits   -45 degrees  45 degrees
+   minimum_range                 .5  km
+   maximum_range                 90  km
+   frame_time                    .1 sec
+
+   transmitter
+      antenna_pattern             GENERIC_FIRE_CONTROL_RADAR_ANTENNA_PATTERN
+      power                       250 kw
+      frequency                   3 ghz
+      pulse_repetition_frequency  250 hz
+      pulse_width		  8 usec
+   end_transmitter
+
+   receiver
+      antenna_pattern             GENERIC_FIRE_CONTROL_RADAR_ANTENNA_PATTERN
+      bandwidth                   1 mhz
+   end_receiver
+
+   azimuth_error_sigma           0.3 deg
+   elevation_error_sigma         0.3 deg
+   range_error_sigma             0 m
+
+    #-- Track Formation Commands
+   reports_bearing
+   reports_elevation
+   reports_location
+   reports_velocity
+   track_quality             1.0  # Perfect track quality
+   hits_to_establish_track   2 2  # 2 of last 3 scans to establish track
+   hits_to_maintain_track    1 2  # 1 of last 2 scans to maintain  track
+end_sensor
+
+processor AA_DATA_MGR WSF_TRACK_PROCESSOR
+   purge_interval         60 sec
+end_processor
+
+processor AA_TASK_MGR AA_TACTICS
+end_processor
+
+platform_type JET_AIRCRAFT WSF_PLATFORM
+   icon F-18
+   mover WSF_AIR_MOVER
+   end_mover
+
+   weapon aa_mrm AA_MRM
+      quantity 3
+      internal_link task_mgr
+      internal_link data_mgr
+   end_weapon
+   
+   weapon aa_mrm_1 AA_MRM_1
+      quantity 3
+      internal_link task_mgr
+      internal_link data_mgr
+   end_weapon
+
+   weapon aa_mrm_2 AA_MRM_2
+      quantity 3
+      internal_link task_mgr
+      internal_link data_mgr
+   end_weapon
+   
+   weapon aa_mrm_3 AA_MRM_3
+      quantity 3
+      internal_link task_mgr
+      internal_link data_mgr
+   end_weapon
+   
+   weapon aa_mrm_4 AA_MRM_4
+      quantity 3
+      internal_link task_mgr
+      internal_link data_mgr
+   end_weapon
+     
+   weapon aa_mrm_5 AA_MRM_5
+      quantity 3
+      internal_link task_mgr
+      internal_link data_mgr
+   end_weapon
+   
+    weapon aa_mrm_6 AA_MRM_6
+      quantity 3
+      internal_link task_mgr
+      internal_link data_mgr
+   end_weapon
+   
+   weapon aa_mrm_7 AA_MRM_7
+      quantity 3
+      internal_link task_mgr
+      internal_link data_mgr
+   end_weapon
+   
+   comm cmd_net WSF_COMM_TRANSCEIVER
+      network_name <local:slave>  # it is not the commander of the network
+      internal_link data_mgr
+      internal_link task_mgr
+   end_comm
+
+   comm datalink WSF_COMM_TRANSCEIVER
+      network_name <local:master>
+      internal_link data_mgr
+   end_comm
+
+   processor data_mgr AA_DATA_MGR
+   end_processor
+
+   processor task_mgr AA_TASK_MGR
+      operating_level ENGAGE 1
+      weapon_uplink_path radar datalink
+      update_interval 1 secs
+      # check to see if I am commanded and turn on my radar
+      on_update
+            writeln_d(PLATFORM.CommanderName());
+            WsfSensor sensor = PLATFORM.Sensor("radar");
+            if (!sensor.IsTurnedOn())
+            {
+               if ((TasksReceived() > 0) ||
+                   (PLATFORM == PLATFORM.Commander()))
+               {
+               sensor.TurnOn();
+               }
+            }
+      end_on_update
+   end_processor
+
+   sensor radar GENERIC_FIRE_CONTROL_RADAR
+      off
+      internal_link data_mgr
+      internal_link task_mgr
+      ignore_same_side
+   end_sensor
+end_platform_type
+
+platform_type AIR_TARGET WSF_PLATFORM
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform target1 AIR_TARGET
+   icon F-18
+   side red
+   indestructible
+   route
+      position 37:47:18n 137:04:12e altitude 25000 ft agl speed 400 kts
+      position 39:27:18n 137:04:12e altitude 25000 ft agl speed 400 kts
+   end_route
+   execute at_time 299 sec absolute
+      PLATFORM.GoToSpeed(0.0);
+   end_execute
+end_platform
+
+
+
+platform jet_aircraft JET_AIRCRAFT
+   side blue
+   icon F-18
+   commander SELF
+   route
+      position 37:44:27.57n 137:04:10.47e altitude 25000 ft agl speed 200 kts
+      position 38:14:49.86n 137:04:24.90e altitude 25000 ft agl speed 200 kts
+   end_route
+   
+   
+   // TARGET ONE 
+   execute at_time 40 sec absolute
+      Weapon("aa_mrm").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+   
+   execute at_time 60 sec absolute
+      Weapon("aa_mrm_1").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+   
+   execute at_time 80 sec absolute
+      Weapon("aa_mrm_2").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+   
+   execute at_time 100 sec absolute
+      Weapon("aa_mrm_3").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+
+   execute at_time 120 sec absolute
+      Weapon("aa_mrm_4").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute   
+   
+   execute at_time 130 sec absolute
+      Weapon("aa_mrm_5").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute 
+   
+   execute at_time 140 sec absolute
+      Weapon("aa_mrm_6").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute 
+   
+   execute at_time 160 sec absolute
+      Weapon("aa_mrm_7").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+   
+
+//TARGET 2
+   execute at_time 300 sec absolute
+      Weapon("aa_mrm").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+   
+   execute at_time 320 sec absolute
+      Weapon("aa_mrm_1").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+   
+   execute at_time 340 sec absolute
+      Weapon("aa_mrm_2").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+   
+   execute at_time 360 sec absolute
+      Weapon("aa_mrm_3").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+
+   execute at_time 380 sec absolute
+      Weapon("aa_mrm_4").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute   
+   
+   execute at_time 400 sec absolute
+      Weapon("aa_mrm_5").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute 
+   
+   execute at_time 420 sec absolute
+      Weapon("aa_mrm_6").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute 
+   
+   execute at_time 440 sec absolute
+      Weapon("aa_mrm_7").FireSalvo(MasterTrackList().TrackEntry(0), 1);
+   end_execute
+end_platform
+visual_elements
+   range_ring target1_RangeRing
+      entity target1
+      center_radius 1000 meters
+   end_range_ring
+end_visual_elements
+
+end_time 800 sec
+
+include ../auto_script/test_functions.txt
+script_variables
+   double dist     = -1.0;
+   double tol      = 1.0; // meters
+   string err_mess = "Unexpected distance for ";
+end_script_variables
+script void checks(string weapon_name, double dist)
+   if (weapon_name == "aa_mrm_7" && AssertWithinToleranceMessage(0, dist, tol, err_mess + weapon_name))
+   {
+      writeln(weapon_name, ": -PASS-");
+   }
+   
+   if (weapon_name == "aa_mrm_6" && AssertWithinToleranceMessage(5, dist, tol, err_mess + weapon_name))
+   {
+      writeln(weapon_name, ": -PASS-");
+   }
+   
+   if (weapon_name == "aa_mrm_5" && AssertWithinToleranceMessage(20, dist, tol, err_mess + weapon_name))
+   {
+      writeln(weapon_name, ": -PASS-");
+   }
+   
+   if (weapon_name == "aa_mrm_4" && AssertWithinToleranceMessage(50, dist, tol, err_mess + weapon_name))
+   {
+      writeln(weapon_name, ": -PASS-");
+   }
+   
+   if (weapon_name == "aa_mrm_3" && AssertWithinToleranceMessage(100, dist, tol, err_mess + weapon_name))
+   {
+      writeln(weapon_name, ": -PASS-");
+   }
+   
+   if (weapon_name == "aa_mrm_2" && AssertWithinToleranceMessage(200, dist, tol, err_mess + weapon_name))
+   {
+      writeln(weapon_name, ": -PASS-");
+   }
+   
+   if (weapon_name == "aa_mrm_1" && AssertWithinToleranceMessage(600, dist, tol, err_mess + weapon_name))
+   {
+      writeln(weapon_name, ": -PASS-");
+   }
+   
+   if (weapon_name == "aa_mrm" && AssertWithinToleranceMessage(1000, dist, tol, err_mess + weapon_name))
+   {
+      writeln(weapon_name, ": -PASS-");
+   }  
+   if (weapon_name == "ied" && AssertWithinToleranceMessage(50, dist, tol, err_mess + weapon_name))
+   {
+      writeln(weapon_name, ": -PASS-");
+   }
+end_script
+
+script void WeaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+   WsfGeoPoint loc_bomb_1 = aWeaponEngagement.WeaponLocation();
+   WsfGeoPoint loc_tank   = aWeaponEngagement.TargetLocation();
+   dist                   = loc_bomb_1.SlantRangeTo(loc_tank);
+   string weapon_name     = aWeaponEngagement.WeaponSystemName();
+    
+   checks(weapon_name, dist);
+end_script
+
+script void WeaponMissed(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+   WsfGeoPoint missile_1  = aWeaponEngagement.WeaponLocation();
+   WsfGeoPoint loc_target = aWeaponEngagement.TargetLocation();
+   dist                   = missile_1.SlantRangeTo(loc_target);
+   string weapon_name     = aWeaponEngagement.WeaponSystemName();
+   
+   checks(weapon_name, dist);
+end_script
+
+console_output
+   warning false // suppresses "WSF_GUIDED_MOVER Runge-Kutta integration" warning
+end_console_output
+
+observer
+  enable WEAPON_HIT
+  enable WEAPON_MISSED
+end_observer

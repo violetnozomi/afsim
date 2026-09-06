@@ -1,0 +1,166 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of blackboard functions for advanced behavior nodes
+advanced_behavior test_blackboard
+   precondition 
+      return Success();
+   end_precondition
+   
+   execute 
+      bool varExists = BlackboardVarExists("var");
+      # BB1: We expect varExists to be false here.  We haven't declared a blackboard var yet.
+      if (!varExists)
+      {
+         writeln("-PASS- BB1: 0 = ", varExists);
+      }
+      else
+      {
+         writeln("-FAIL- BB1: 0 = ", varExists);
+      }
+      # Now we'll test SetBlackboardVar by setting a variable 'var'.
+      # Test all primitives and WsfTrack/WsfPlatform here.
+      SetBlackboardVar("var1", 1);
+      SetBlackboardVar("var2", 12.34);
+      SetBlackboardVar("var3", true);
+      SetBlackboardVar("var4", "test");
+      SetBlackboardVar("var5", PLATFORM);
+      WsfTrack t = PLATFORM.MakeTrack();
+      SetBlackboardVar("var6", t);
+      # BB2: Check if all of these vars exist
+      if (BlackboardVarExists("var1"))
+      {
+         writeln("-PASS- BB2: var1 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- BB2: var1 does not exist!");
+      }
+      if (BlackboardVarExists("var2"))
+      {
+         writeln("-PASS- BB2: var2 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- BB2: var2 does not exist!");
+      }
+      if (BlackboardVarExists("var3"))
+      {
+         writeln("-PASS- BB2: var3 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- BB2: var3 does not exist!");
+      }
+      if (BlackboardVarExists("var4"))
+      {
+         writeln("-PASS- BB2: var4 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- BB2: var4 does not exist!");
+      }
+      if (BlackboardVarExists("var5"))
+      {
+         writeln("-PASS- BB2: var5 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- BB2: var5 does not exist!");
+      }
+      if (BlackboardVarExists("var6"))
+      {
+         writeln("-PASS- BB2: var6 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- BB2: var6 does not exist!");
+      }
+      
+      # BB3: Test getting the value of the vars
+      int         var1 = (int)GetBlackboardVar("var1");
+      double      var2 = (double)GetBlackboardVar("var2");
+      bool        var3 = (bool)GetBlackboardVar("var3");
+      string      var4 = (string)GetBlackboardVar("var4");
+      WsfPlatform var5 = (WsfPlatform)GetBlackboardVar("var5");
+      WsfTrack    var6 = (WsfTrack)GetBlackboardVar("var6");
+      if (var1 == 1)
+      {
+         writeln("-PASS- BB3: var1: 1 = ", var1);
+      }
+      else
+      {
+         writeln("-FAIL- BB3: var1: 1 = ", var1);
+      }
+      if (var2 == 12.34)
+      {
+         writeln("-PASS- BB3: var2: 12.34 = ", var2);
+      }
+      else
+      {
+         writeln("-FAIL- BB3: var2: 12.34 = ", var2);
+      }
+      if (var3)
+      {
+         writeln("-PASS- BB3: var3: 1 = ", var3);
+      }
+      else
+      {
+         writeln("-FAIL- BB3: var3: 1 = ", var3);
+      }
+      if (var4 == "test")
+      {
+         writeln("-PASS- BB3: var4: test = ", var4);
+      }
+      else
+      {
+         writeln("-FAIL- BB3: var4: test = ", var4);
+      }
+      if (var5.Name() == PLATFORM.Name())
+      {
+         writeln("-PASS- BB3: var5: ", PLATFORM.Name(), " = ", var5.Name());
+      }
+      else
+      {
+         writeln("-FAIL- BB3: var5: ", PLATFORM.Name(), " = ", var5.Name());
+      }
+      if (var6.TargetName() == "plat")
+      {
+         writeln("-PASS- BB3: var6: plat = ", var6.TargetName());
+      }
+      else
+      {
+         writeln("-FAIL- BB3: var6: plat = ", var6.TargetName());
+      }
+      
+      # BB4: Test DeleteBlackboardVar by deleting 'var'. varExists should be false.
+      DeleteBlackboardVar("var1");
+      varExists = BlackboardVarExists("var1");
+      if (!varExists)
+      {
+         writeln("-PASS- BB4: 0 = ", varExists);
+      }
+      else
+      {
+         writeln("-FAIL- BB4: 0 = ", varExists);
+      }      
+      return Success();
+   end_execute
+end_advanced_behavior
+
+platform plat WSF_PLATFORM
+   add processor proc WSF_SCRIPT_PROCESSOR
+      update_interval 2 sec
+      advanced_behavior_tree
+         decorator repeater repeat 1 
+            behavior_node test_blackboard
+         end_decorator
+      end_advanced_behavior_tree
+   end_processor
+end_platform

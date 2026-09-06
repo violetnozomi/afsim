@@ -1,0 +1,77 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _signal_processor.mti_processor:
+
+mti_processor
+*************
+
+.. block:: signal_processor.mti_processor
+
+.. parsed-literal::
+
+   signal_processor mti_processor
+      maximum_range_           <length-value>
+      number_of_stages_        <integer-value>
+      interpulse_period_1_     <time-value>
+      interpulse_period_2_     <time-value>
+      clutter_lock_            <boolean-value>
+      upwind_                  <boolean-value>
+      filtered_doppler_speed_
+      unfiltered_doppler_speed_
+   end_signal_processor
+
+Allows the definition of Dual-Delay Line Canceler Moving Target Indicator (DDLC-MTI) signal processor. A target response is computed that will affect the attenuated clutter power prior to the final S/(N+C+J) computation is made.
+
+If a simple MTI processor is desired, simply define an empty **mti_processor** block.
+
+.. command:: maximum_range <length-value>
+
+   Specifies the maximum ground range from the sensor to the target for which MTI processing will occur. MTI processing will be applied only if the target is within this range.
+
+   Default: 0 meters
+
+.. command:: interpulse_period_1 <time-value>
+
+.. command:: interpulse_period_2 <time-value>
+
+   Optional values that indicate the interpulse periods.
+
+   Default: If omitted, a non-staggered MTI system is created with both values being the inverse of the PRF
+
+.. command:: number_of_stages <integer-value>
+
+   Specifies the number of stages in the MTI processor.
+
+   Default: 1
+
+.. command:: clutter_lock <boolean-value>
+
+   This is provided for compatibility with the SALRAM model.
+
+   Default: true
+
+   .. note::
+      If both **clutter_lock** and **upwind** are true, **clutter_lock** takes precedence.
+
+.. command:: upwind <boolean-value>
+
+   This is provided for compatibility with the SALRAM model.
+
+   Default: true
+
+   .. note::
+      If both **clutter_lock** and **upwind** are true, **clutter_lock** takes precedence.
+
+.. command:: filtered_doppler_speed
+.. command:: unfiltered_doppler_speed
+
+   Specifies if the ownship velocity is removed from the Doppler speed computation. A MTI sensor would typically employ **filtered_doppler_speed**.
+
+   Default: filtered_doppler_speed

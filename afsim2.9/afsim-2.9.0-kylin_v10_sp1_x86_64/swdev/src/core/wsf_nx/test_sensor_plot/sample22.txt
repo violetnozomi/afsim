@@ -1,0 +1,61 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+################################################################################
+
+terrain
+# raw_dted 1 /sdadev1a/nima/dted/lvl1-30n-50n-130w-110w 30 -130 50 -110
+end_terrain
+
+global_environment
+   land_cover     agricultural
+   land_formation level
+end_global_environment
+
+################################################################################
+
+include mti_radar4.txt
+
+radar_signature TARGET_RADAR_SIG
+   constant 0 dbsm
+end_radar_signature
+
+platform TARGET WSF_PLATFORM
+   icon F-18E
+   side red
+   radar_signature TARGET_RADAR_SIG
+end_platform
+
+platform nellis_tower WSF_PLATFORM
+   side blue
+   icon Ground_Radar
+   position 36:14:06n 115:01:36w altitude 0.00 ft agl heading 180 deg
+   add sensor radar MTI_RADAR4 on end_sensor
+end_platform
+
+flight_path_analysis
+   gnuplot_file   sample22.plt
+   variable       target_latitude
+   variable       target_longitude
+   variable       target_altitude
+   variable       down_range
+   variable       cross_range
+   variable       clutter_power
+   variable       propagation_factor
+
+   alarm_fpa_file sample22.fpa
+
+/*
+   path
+      position 35:17n 115:01:36w altitude 2100 m speed 231.5 m/s
+   end_path
+*/
+end_flight_path_analysis
+
+

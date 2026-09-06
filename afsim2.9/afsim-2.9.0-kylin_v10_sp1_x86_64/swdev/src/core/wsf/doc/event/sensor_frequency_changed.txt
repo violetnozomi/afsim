@@ -1,0 +1,42 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+SENSOR_FREQUENCY_CHANGED
+------------------------
+
+event_output Signature:
+
+.. parsed-literal::
+
+   <time> <event> <platform> Sensor: <sensor-name> Mode: <mode-name> \\
+     LLA: <lat> <lon> <alt> m \\
+     [Beam: <beam-number> Frequency Id: <id> Frequency: <frequency>] [\\]
+     ...
+
+.. note:: There may be one or more frequency detail entries for this event, one for
+          each beam defined for the sensor mode.  This event may occur when a mode
+          is not selected and does not necessarily represent an active transmitter
+          frequency change.
+
+.. table:: SENSOR_FREQUENCY_CHANGED Signature Elements
+   :align: left
+
+   ======================================== ========================================
+   Fields                                   Description
+   ======================================== ========================================
+   <time>                                   The current simulation time
+   <event>                                  The event name
+   <platform>                               Name of communications platform
+   <sensor-name>                            Name of the sensor
+   <mode-name>                              Sensor mode (modes are defined in user input file)
+   <lat> <lon> <alt>                        The platform location; altitude is always in meters
+   <beam-number>                            The sensor mode beam number for this frequency detail entry
+   <id>                                     The beam transmitter frequency Id setting from the configured alternate frequency list
+   <frequency>                              The beam transmitter frequency setting that corresponds to the frequency Id
+   ======================================== ========================================

@@ -1,0 +1,256 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#event_pipe
+#   file replay.aer
+#end_event_pipe
+
+zone poly
+   polygonal lat_lon
+   minimum_radius 10 nm
+   maximum_radius 50 nm
+   point 22:06:42.00s 65:44:53.02w
+   point 21:06:42.00s 65:44:53.02w
+   point 21:06:42.00s 66:44:53.02w
+   point 21:26:42.00s 66:24:53.02w
+   point 21:46:42.00s 66:44:53.02w
+   point 21:52:36.765s 65:07:18.825w
+   point 21:59:46.595s 65:56:03.500w
+   point 22:06:42.00s 66:44:53.02w
+end_zone
+
+zone mycylinder
+   circular
+     position 0n 51w
+
+   maximum_radius 80 nm
+   minimum_radius 30 nm
+
+end_zone
+
+zone myellipse
+   elliptical
+   position 0n 45w
+   heading 30 deg
+   maximum_radius 80 nm
+   minimum_radius 30 nm
+   longitudinal_axis 160 nm
+   lateral_axis 40 nm
+end_zone
+
+zone sphere
+   spherical
+   heading 30 deg
+   maximum_altitude 100 nm
+   minimum_radius 20 nm
+   maximum_radius 60 nm
+   position 29:45:09.463n 33:44:22.037e
+   start_angle 60 degrees
+   stop_angle 320 degrees
+end_zone
+
+zone sphere_rel spherical
+   maximum_radius 10 km
+end_zone
+
+zone_set global_zone_set
+   use_zone sphere_rel
+end_zone_set
+
+zone rotpoly
+   polygonal
+   #maximum_radius 18520 meters
+   lat_lon
+   point 21:17:59.446s 62:17:42.901w
+   point 21:35:21.170s 62:17:42.901w
+   point 21:36:16.086s 61:49:50.249w
+end_zone
+
+script_variables
+   Array<WsfZone> allZones = { WsfZone.FindZone("poly"), WsfZone.FindZone("myellipse"), WsfZone.FindZone("mycylinder"), WsfZone.FindZone("sphere"), WsfZone.FindZone("rotpoly") };
+   writeln(allZones);
+   int            totalSuccess = 0;
+end_script_variables
+script Array<string> zonesHitPoint(WsfGeoPoint p)
+   Array<string> zones = {};
+
+   foreach (WsfZone z in allZones)
+   {
+      if (z.PointIsInside(p)) {
+         zones.PushBack(z.Name());
+      }
+   }
+   return zones;
+end_script
+platform_type NOT_IN_ZONE WSF_PLATFORM
+   execute at_time 1 s absolute
+      Array<string> zl = zonesHitPoint(Location());
+      if (!zl.Empty())
+      {
+         writeln("ERROR: Should not be inside zone -- ", zl.ToString());
+         writeln("   ", Name());
+         totalSuccess-=1;
+      }
+      totalSuccess+=1;
+   end_execute
+end_platform_type
+platform_type IN_ZONE WSF_PLATFORM
+   execute at_time 1 s absolute
+      Array<string> zl = zonesHitPoint(Location());
+      if (zl.Size() != 1)
+      {
+         writeln("ERROR: Should be inside one zone -- ", zl.ToString());
+         writeln("   ", Name());
+         totalSuccess-=1;
+      }
+      totalSuccess+=1;
+   end_execute
+end_platform_type
+
+execute at_time 1 s absolute
+   // Checking points inside global & local relative zones
+   WsfPlatform zonePlatform = WsfSimulation.FindPlatform("rel");
+
+   // Construct test points
+   WsfGeoPoint insidePt  = WsfGeoPoint.Construct("34s 22.05e");
+   WsfGeoPoint outsidePt = WsfGeoPoint.Construct("34s 22.15e");
+
+   // Get references to the test zones
+   WsfZone globalZone = zonePlatform.Zone("global_sphere_rel");
+   WsfZone localZone  = zonePlatform.Zone("local_sphere_rel");
+   WsfZone globalZoneSet = zonePlatform.Zone("global_zone_set_rel");
+   WsfZone localZoneSet = zonePlatform.Zone("local_zone_set_rel");
+
+   // Check for validity
+   if (!globalZone.IsValid())    writeln("-FAIL- globalZone not valid");
+   if (!localZone.IsValid())     writeln("-FAIL- localZone not valid");
+   if (!globalZoneSet.IsValid()) writeln("-FAIL- globalZoneSet not valid");
+   if (!localZoneSet.IsValid())  writeln("-FAIL- localZoneSet not valid");
+
+   if (globalZone.IsValid())
+   {
+      // bool PointIsInside(WsfGeoPoint aLocationPoint)
+      if (globalZone.PointIsInside(insidePt))  writeln("-FAIL- PointIsInside 1");    // Failure due to relative zone
+      if (globalZone.PointIsInside(outsidePt)) writeln("-FAIL- PointIsInside 2");
+      // bool PointIsInside(WsfPlatform aRelativePlatform, WsfGeoPoint aLocationPoint)
+      if (!globalZone.PointIsInside(zonePlatform, insidePt))  writeln("-FAIL- PointIsInside 3");
+      if ( globalZone.PointIsInside(zonePlatform, outsidePt)) writeln("-FAIL- PointIsInside 4");
+   }
+
+   if (localZone.IsValid())
+   {
+      // bool PointIsInside(WsfGeoPoint aLocationPoint)
+      if (localZone.PointIsInside(insidePt))   writeln("-FAIL- PointIsInside 5");    // Failure due to relative zone
+      if (localZone.PointIsInside(outsidePt))  writeln("-FAIL- PointIsInside 6");
+      // bool PointIsInside(WsfPlatform aRelativePlatform, WsfGeoPoint aLocationPoint)
+      if (!localZone.PointIsInside(zonePlatform, insidePt))   writeln("-FAIL- PointIsInside 7");
+      if ( localZone.PointIsInside(zonePlatform, outsidePt))  writeln("-FAIL- PointIsInside 8");
+   }
+
+   if (globalZoneSet.IsValid())
+   {
+      // bool PointIsInside(WsfPlatform aRelativePlatform, WsfGeoPoint aLocationPoint)
+      if (!globalZoneSet.PointIsInside(zonePlatform, insidePt))  writeln("-FAIL- PointIsInside 9");
+      if ( globalZoneSet.PointIsInside(zonePlatform, outsidePt)) writeln("-FAIL- PointIsInside 10");
+   }
+
+   if (localZoneSet.IsValid())
+   {
+      // bool PointIsInside(WsfPlatform aRelativePlatform, WsfGeoPoint aLocationPoint)
+      if (!localZoneSet.PointIsInside(zonePlatform, insidePt))   writeln("-FAIL- PointIsInside 11");
+      if ( localZoneSet.PointIsInside(zonePlatform, outsidePt))  writeln("-FAIL- PointIsInside 12");
+   }
+end_execute
+
+execute at_time 2 s absolute
+   writeln("SUCCESS #: ", totalSuccess);
+   if (totalSuccess < 17) {
+      writeln("-FAIL- Not all tests passed");
+   }
+end_execute
+#execute at_time 2 s absolute
+#   WsfGeoPoint ll = WsfGeoPoint.Construct("28:41n 32:30e");
+#   WsfGeoPoint ur = WsfGeoPoint.Construct("30:35n 35e");
+#   WsfZone z = WsfZone.FindZone("sphere");
+#   WsfDraw inpts = WsfDraw();
+#   inpts.BeginPoints();
+#   for (double lat = ll.Latitude(); lat < ur.Latitude(); lat += .02) {
+#      for (double lon = ll.Longitude(); lon < ur.Longitude(); lon += .02) {
+#         WsfGeoPoint p = WsfGeoPoint.Construct(lat, lon, 1000);
+#         bool inside = z.PointIsInside(p);
+#         if (!inside) inpts.Vertex(p);
+#      }
+#   }
+#   inpts.End();
+#end_execute
+platform ellipse1 IN_ZONE
+   position 1.03470232065269s 45.5887367507648w
+end_platform
+platform notEllipse NOT_IN_ZONE
+   position 0.35615618672629n 44.7860105259628w
+end_platform
+platform notEllipse2 NOT_IN_ZONE
+   position 1.16511342575334n 44.3122531787404w
+end_platform
+platform circular1 IN_ZONE
+   position 0.103000547683831n 50.0259078777044w
+end_platform
+platform circular2 NOT_IN_ZONE
+   position 0.0979763887335129n 51.0823920255352w
+end_platform
+platform circular3 NOT_IN_ZONE
+   position 0.172375433898556n 49.2263986676636w
+end_platform
+platform poly1 NOT_IN_ZONE
+   position 21.4512226786406s 66.6566518449971w
+end_platform
+platform poly2 IN_ZONE
+   position 21.4488327347855s 65.9112933502562w
+end_platform
+platform poly3 IN_ZONE
+   position 21.8991902421859s 65.6240978729358w
+end_platform
+platform poly4 NOT_IN_ZONE
+   position 21.9000961681323s 66.1870898157694w
+end_platform
+platform sphere1 NOT_IN_ZONE
+   position 29.0847729026057n 33.2975523621672e
+   altitude 80 kilometers
+end_platform
+platform sphere2 NOT_IN_ZONE
+   position 29.6142200649483n 33.7312695617474e
+end_platform
+platform sphere3 IN_ZONE
+   position 30.0060201827864n 33.6409046745675e
+   altitude 20 nm
+end_platform
+platform sphere4 NOT_IN_ZONE
+   position 30.4949569062265n 33.6481148828242e
+end_platform
+platform sphere5 NOT_IN_ZONE
+   position 29.8060798530349n 34.5069768820668e
+end_platform
+platform poly5 NOT_IN_ZONE
+   position 21.2747721231123s 66.2511709674107w
+end_platform
+platform poly6 NOT_IN_ZONE
+   position 22.0449670565427s 65.8092744072461w
+end_platform
+platform rel WSF_PLATFORM
+   position 34s 22e altitude 0.00 ft msl
+   use_zone sphere_rel as global_sphere_rel
+   use_zone global_zone_set as global_zone_set_rel
+   zone local_sphere_rel spherical
+      maximum_radius 10 km
+   end_zone
+   zone_set local_zone_set_rel
+      use_zone sphere_rel
+   end_zone_set
+end_platform
+

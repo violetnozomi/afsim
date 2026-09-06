@@ -1,0 +1,90 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Ensure the standard movers have a defined spatial domain, and that the default can be overriden.
+# This is to ensure Issue #90 is addressed.
+#
+# This only tests those things that *SHOULD* have a default domain. Those that do not include:
+#
+# WSF_OFFSET_MOVER   inherits from the thing to which it attaches
+# WSF_TSPI_MOVER     must be defined by the user because the route can be anywhere
+#
+# WSF_HYBRID_MOVER and WSF_FOLLOWER are not tested because they are being deprecated.
+
+script void TestDomain(WsfPlatform aPlatform,
+                       string      aExpectedDomain)
+   if (aPlatform.SpatialDomain() != aExpectedDomain)
+   {
+      writeln("-FAIL- Platform: ", aPlatform.Name(), "; unexpected spatial domain: ", aPlatform.SpatialDomain(), ", expected: ", aExpectedDomain);
+   }
+end_script
+
+platform air WSF_PLATFORM
+   add mover WSF_AIR_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "air"); end_on_initialize2
+end_platform
+
+platform ground WSF_PLATFORM
+   add mover WSF_GROUND_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "land"); end_on_initialize2
+end_platform
+
+platform kinematic WSF_PLATFORM
+   add mover WSF_KINEMATIC_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "air"); end_on_initialize2
+end_platform
+
+platform road WSF_PLATFORM
+   add mover WSF_ROAD_MOVER speed 30 kts end_mover
+   on_initialize2 TestDomain(PLATFORM, "land"); end_on_initialize2
+end_platform
+
+platform rotocraft WSF_PLATFORM
+   add mover WSF_ROTORCRAFT_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "air"); end_on_initialize2
+end_platform
+
+platform surface WSF_PLATFORM
+   add mover WSF_SURFACE_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "surface"); end_on_initialize2
+end_platform
+
+# Make sure explicit spatial_domain command works
+
+platform override_land WSF_PLATFORM
+   spatial_domain land
+   add mover WSF_AIR_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "land"); end_on_initialize2
+end_platform
+
+platform override_air WSF_PLATFORM
+   spatial_domain air
+   add mover WSF_AIR_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "air"); end_on_initialize2
+end_platform
+
+platform override_subsurface WSF_PLATFORM
+   spatial_domain subsurface
+   add mover WSF_AIR_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "subsurface"); end_on_initialize2
+end_platform
+
+platform override_surface WSF_PLATFORM
+   spatial_domain surface
+   add mover WSF_AIR_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "surface"); end_on_initialize2
+end_platform
+
+platform override_space WSF_PLATFORM
+   spatial_domain space
+   add mover WSF_AIR_MOVER end_mover
+   on_initialize2 TestDomain(PLATFORM, "space"); end_on_initialize2
+end_platform
+
+end_time 1 sec

@@ -1,0 +1,128 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+(rule j11-command {
+   allow_any_comm
+ | wift_interval <Time>
+ | network_enabled_weapon_type <string> <integer>
+ | use_time_of_target_measurement
+ | print_messages
+})
+
+(rule l16-interface
+   (rule command {
+      send_ppli <Bool>
+    | tdl_header 6
+    | tdl_header 100
+    | tdl_header <integer>
+    | print_script_usage
+    | debug <Bool>
+    | fill_with_31.7 <Bool>
+    | set_label_npg_pair <integer> <integer>
+    | tsa_level <integer>
+    | time_slot_type <integer>
+    | swap_tdl_header_100_method fields_only
+    | swap_tdl_header_100_method fields_then_word_boundary
+    | include_dis_entity_id_in_j3x_tracks <Bool>
+    | ignore_inbound_messages <Bool>
+    | j11 <j11-command>* end_j11
+   })
+{
+   link16_interface <command>* end_link16_interface
+})
+
+(rule root-command
+{
+   <l16-interface>
+})
+
+(struct WsfL16MessageProcessor
+{
+   command_chain <string>
+ | send_interval rrn <integer>
+ | send_interval RRN <integer>
+ | send_interval <Time>
+ | npg <integer>
+ | slot_number <integer>
+ | network <integer>
+ | tsec <integer>
+ | msec <integer>
+})
+
+(struct WsfL16SurveillancePart :symbol (type l16_MessageProcessor SURVEILLANCE)
+                               :base_type WsfL16MessageProcessor
+{
+   track_number_range <string> <string>
+ | environment <DomainValue>
+ | suppress_domain <DomainValue>
+ | suppress_sensor (typeref .sensors)
+ | send_non_sensor_reports <Bool>
+ | ignore_reporting_responsibility <Bool>
+ | suppress_dead_targets <Bool>
+ | maximum_send_interval <Time>
+ | <WsfL16MessageProcessor>
+})
+
+(struct WsfL16_PPLI_Part :symbol (type l16_MessageProcessor PPLI)
+                               :base_type WsfL16MessageProcessor
+   (rule category { air | surface | subsurface | land} )
+   (rule subcategory { point | land} )
+{
+   environment <category>
+ | land_or_point <subcategory>
+ | <WsfL16MessageProcessor>
+})
+
+(struct WsfL16SystemStatusPart :symbol (type l16_MessageProcessor SYSTEM_STATUS)
+                               :base_type WsfL16MessageProcessor
+{
+   report_weapon_quantity_1 (typeref .weapons) <integer>
+ | report_weapon_quantity_2 (typeref .weapons) <integer>
+ | report_weapon_quantity_3 (typeref .weapons) <integer>
+ | <WsfL16MessageProcessor>
+})
+
+(struct WsfL16WeaponsCoordination :symbol (type l16_MessageProcessor WEAPONS_COORDINATION)
+                                  :base_type WsfL16MessageProcessor
+{
+   <WsfL16MessageProcessor>
+})
+
+(struct WsfL16NetworkEnabledWeapon :symbol (type l16_MessageProcessor NETWORK_ENABLED_WEAPON)
+                                  :base_type WsfL16MessageProcessor
+{
+   <WsfL16MessageProcessor>
+})
+
+(struct WsfL16ScriptedPart :symbol (type l16_MessageProcessor SCRIPTED)
+                           :base_type WsfL16MessageProcessor
+{
+   <object-script-context-command>
+ | <WsfL16MessageProcessor>
+})
+
+
+(struct WSF_LINK16_COMPUTER :symbol (type processorType WSF_LINK16_COMPUTER)
+                            :base_type Processor
+   (var ObjectMap/WsfL16MessageProcessor messageProcessor)
+{
+   edit message_processor <string> (load (subtype messageProcessor $2)) [apply($$)] <TypeCommand>* end_message_processor
+ | delete <string> (delete (subtype messageProcessor $1)) [apply($$)]
+ | message_processor <string> <string> (new (subtype messageProcessor $1) (type l16_MessageProcessor $2)) [apply($$)] <TypeCommand>* end_message_processor
+ | comm (typeref .comms)
+ | c2 <Bool>
+ | callsign <string>
+ | output_dis <Bool>
+ | output_wsf <Bool>
+ | decimal_track_number <integer>
+ | track_number <integer>
+ | octal_track_number <integer>
+ | ignore_surveillance <Bool>
+ | iff_color_mapping <string>* end_iff_color_mapping
+ | <Processor>
+})

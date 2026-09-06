@@ -1,0 +1,90 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This file tests turn_to_heading, turn_right and turn_left intermixed with position commands
+
+#event_pipe
+#   file test_turn_to_heading.aer
+#end_event_pipe
+
+platform p1 WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      update_interval 1.0 s
+   end_mover
+   route
+      position 0.0n 0.0e altitude 0.0 m speed 500 kts heading 0 deg
+      turn_to_heading 90 deg
+      time 1 min
+      turn_right 15 deg
+      time 1 min
+      turn_right 345 deg
+      time 1 min
+      turn_left 15 deg
+      time 1 min
+      turn_left 345 deg
+      time 1 min
+      position 0.0n 0.0e
+      turn_to_heading 170 deg
+      time 1 min
+      extrapolate
+   end_route
+   script void PrintPosition()
+      writeln("T=", TIME_NOW, " Pos= ", PLATFORM.Latitude(), "  ;  ",
+PLATFORM.Longitude());
+   end_script
+   script void AssertHeading(double aHeading)
+      PrintPosition();
+      if (Heading() > aHeading - .01 && Heading() < aHeading + .01)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-", " Heading is ", Heading(), " deg, not ", aHeading,
+" deg");
+      }
+   end_script
+   execute at_time 0.8 min absolute
+      AssertHeading(90);
+   end_execute
+   execute at_time 1.8 min absolute
+      AssertHeading(105);
+   end_execute
+   execute at_time 2.8 min absolute
+      AssertHeading(90);
+   end_execute
+   execute at_time 3.8 min absolute
+      AssertHeading(75);
+   end_execute
+   execute at_time 4.8 min absolute
+      AssertHeading(90);
+   end_execute
+
+   execute at_time 14 min absolute
+      AssertHeading(170);
+      writeln(PLATFORM.Latitude());
+      writeln(PLATFORM.Longitude());
+
+      double latError = MATH.Fabs(PLATFORM.Latitude() - -0.654459);
+      double lonError = MATH.Fabs(PLATFORM.Longitude() - 0.102386);
+      if  (latError > .001 || lonError > .001)
+      {
+         writeln("-FAIL- Final position is incorrect. Error=", latError, ", ",
+lonError);
+      }
+      else
+      {
+         writeln("-PASS- Final");
+      }
+   end_execute
+end_platform
+
+end_time 15 min
+
+

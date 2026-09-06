@@ -1,0 +1,72 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This is a simple test of router automated_linking. 
+// It does not test run-time usage.
+
+comm TEST_COMM WSF_COMM_TRANSCEIVER
+   network_name test_network
+end_comm
+
+network test_network WSF_COMM_NETWORK_MESH 
+   network_address 192.168.1.0/24
+end_network
+
+network test_network_generic WSF_COMM_NETWORK_GENERIC
+   network_address 192.168.2.0/24
+end_network
+
+router TEST_ROUTER WSF_COMM_ROUTER
+end_router
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   comm comm1 TEST_COMM end_comm
+   comm comm_gateway TEST_COMM end_comm
+   comm comm2 TEST_COMM end_comm
+   
+   comm comm3 TEST_COMM 
+      # The router name must be specified, or the comm will be assigned
+      # to the "default" router
+      router_name router1
+      network_name test_network_generic
+   end_comm
+   comm comm4 TEST_COMM 
+      router_name router1
+      network_name test_network_generic
+   end_comm
+   comm comm5 TEST_COMM 
+      router_name router1
+      network_name test_network_generic
+   end_comm
+   
+   // A non-default router. Platforms can have any
+   // number of routers.
+   router router1 TEST_ROUTER
+      # This creates the needed links for the comm interfaces to
+      # be assigned to the router. Will fail is set to "false"
+      automated_interface_linking true
+      gateway comm_gateway //THIS RESULTS IN WARNING, INVALID GATEWAY
+      hop_limit 5
+   end_router
+   
+   // User definition of the "default" router.
+   // If this was not specified via input, a standard
+   // default router would have been added implicitly.
+   // This allows the user to override default router
+   // settings.
+   router default TEST_ROUTER
+      gateway comm_gateway
+   end_router
+   
+end_platform_type
+
+platform test1 TEST_PLATFORM
+end_platform
+
+end_time 1 min

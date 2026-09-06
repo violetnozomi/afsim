@@ -1,0 +1,37 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2022 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once $(SCRIPT_PROJECT_PATH)/weapons/agm/red_gps_bomb_1.txt
+
+include_once $(SCRIPT_PROJECT_PATH)/signatures/bomber_infrared_sig.txt
+include_once $(SCRIPT_PROJECT_PATH)/signatures/bomber_optical_sig.txt
+include_once $(SCRIPT_PROJECT_PATH)/signatures/bomber_radar_sig.txt
+include_once $(SCRIPT_PROJECT_PATH)/processors/bomber_weapon_release.txt
+
+platform_type BOMBER WSF_PLATFORM 
+   icon bomber
+   
+   infrared_signature BOMBER_INFRARED_SIG
+   optical_signature BOMBER_OPTICAL_SIG
+   radar_signature BOMBER_RADAR_SIG
+   
+   mover WSF_AIR_MOVER 
+   end_mover
+   
+   weapon red_gps_bomb_1 RED_GPS_BOMB_1 
+      maximum_request_count 2
+      quantity 4
+   end_weapon
+   
+   processor fire-em BOMBER_WEAPON_RELEASE 
+   end_processor
+   
+end_platform_type

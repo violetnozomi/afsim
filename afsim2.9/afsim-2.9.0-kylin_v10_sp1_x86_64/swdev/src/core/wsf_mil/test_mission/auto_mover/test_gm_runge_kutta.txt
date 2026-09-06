@@ -1,0 +1,298 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This test demonstrates that the WSF_GUIDED_MOVER gives similar but distinct
+# results when using the two values for 'compute_all_forces_each_substep'.
+# See the mover types 'LR_SAM_MOVER' and 'LR_SAM_MOVER_LEGACY', which are
+# used in the launch platform types 'LR_SAM' and 'LR_SAM_LEGACY' respectively,
+# which are in turn used in the weapon types 'LR_SAM' and 'LR_SAM_LEGACY'
+# respectively.
+#
+# At 1800 s, the platform 'launcher' fires both of its weapons ('sam' and
+# 'sam_legacy') at the platform 'target'. This test then periodically collects
+# relative kinematics between the two launched platforms and checks that they
+# are within a certain tolerance.
+#
+# Note that this test is adapted from the orwaca_iads demo, so please see
+# that demo for further notes on the values in this file.
+
+# Target platform
+platform target WSF_PLATFORM
+   indestructible
+   
+   add mover WSF_AIR_MOVER
+   end_mover
+   
+   heading 138 deg   
+   route
+      position 48:31:34.93n 127:10:24.58w altitude 10000.00 ft speed 400 kts
+      position 40:38:41.35n 118:10:28.56w
+   end_route
+end_platform
+
+# Weapon definitions
+
+weapon_effects LR_SAM_WEAPON_EFFECTS WSF_GRADUATED_LETHALITY
+   radius_and_pk  250.0 m 0.70 // All Platforms
+   radius_and_pk   65.0 m 0.80 // All Platforms
+   radius_and_pk   40.0 m 0.90 // All Platforms
+end_weapon_effects
+
+aero LR_SAM_AERO WSF_AERO
+   cd_zero_subsonic    0.10
+   cd_zero_supersonic  0.25
+   mach_begin_cd_rise  0.95
+   mach_end_cd_rise    1.30
+   mach_max_supersonic 4.00
+   reference_area      0.159 m2 // 0.45 m. body dia
+   cl_max             10.0
+   aspect_ratio       16.0 // 32.0 // AR = B^2/Sref assume span = 5Xdia
+end_aero
+
+# Guidance computer common to both weapons.
+processor LR_SAM_AUTOPILOT WSF_GUIDANCE_COMPUTER
+   guide_to_truth true
+
+   script_variables
+      double PITCH_OVER_DELAY = 0.8;
+   end_script_variables
+
+   phase LIFT_OFF
+      guidance_delay 4 sec
+      next_phase PITCH_OVER when phase_time >= variable PITCH_OVER_DELAY secs
+   end_phase
+
+   phase PITCH_OVER
+      commanded_flight_path_angle   55 deg
+      next_phase MIDCOURSE when on_commanded_flight_path_angle
+   end_phase
+
+   phase MIDCOURSE
+      proportional_navigation_gain  4.0
+      next_phase TERMINAL when time_to_intercept < 10 sec
+   end_phase
+
+   phase TERMINAL
+      proportional_navigation_gain  4.0
+   end_phase
+end_processor
+
+# Fuse, common to both weapons.
+processor LR_SAM_FUSE WSF_AIR_TARGET_FUSE
+   time_of_flight_to_arm            20.0 sec     // Don't arm during the boost phase
+   max_time_of_flight_to_detonate  140.0 sec     // Set to max out at 100 nm.
+   coast_time_on_loss_of_target      6.0 sec
+end_processor
+
+# Guided mover using new integration method
+mover LR_SAM_MOVER WSF_GUIDED_MOVER
+   update_interval                  0.01 sec
+   integration_timestep             0.01 sec
+   integration_method               rk4
+   compute_all_forces_each_substep  true
+
+   stage 1
+      aero                          LR_SAM_AERO
+      total_mass                    0.0078 kg
+      empty_mass                    0.0001 kg
+      thrust                        51479.4 nt
+      thrust_duration               0.77 sec
+   end_stage
+
+   stage 2
+      aero                          LR_SAM_AERO
+      total_mass                    1284.001 kg
+      fuel_mass                     1284 kg
+      thrust_duration               20.0 sec
+      thrust                        165386.0 nt
+   end_stage
+
+   stage 3
+      aero                          LR_SAM_AERO
+      total_mass                    854.0 kg
+   end_stage
+end_mover
+
+# Guided mover using old integration method
+mover LR_SAM_MOVER_LEGACY LR_SAM_MOVER
+   compute_all_forces_each_substep false
+end_mover
+
+# Launched platform type that uses the new integration method
+platform_type LR_SAM WSF_PLATFORM
+   weapon_effects     LR_SAM_WEAPON_EFFECTS
+
+   mover LR_SAM_MOVER end_mover
+   processor autopilot LR_SAM_AUTOPILOT end_processor
+   processor fuse LR_SAM_FUSE end_processor
+end_platform_type
+
+# Launched platform type that uses the old integration method
+platform_type LR_SAM_LEGACY LR_SAM
+   delete mover
+   mover LR_SAM_MOVER_LEGACY end_mover
+end_platform_type
+
+# Weapon that uses the new integration method.
+weapon LR_SAM WSF_EXPLICIT_WEAPON
+   launched_platform_type LR_SAM
+   launch_delta_v 22.4 0 0 m/s
+   tilt  89.9 degrees
+   slew_mode azimuth
+   azimuth_slew_limits -180 deg 180 deg
+   quantity 4
+   firing_delay   2.0 secs
+   salvo_interval uniform minimum 5.0 secs maximum 8.0 secs
+end_weapon
+
+# Weapon that uses the old integration method.
+weapon LR_SAM_LEGACY LR_SAM
+   launched_platform_type LR_SAM_LEGACY
+end_weapon
+
+platform launcher WSF_PLATFORM
+   position 45:25:57.96n 122:00:32.59w altitude 3.28 ft agl
+   altitude 1 m agl
+
+   add weapon sam_legacy LR_SAM_LEGACY
+      quantity 4
+   end_weapon
+   
+   add weapon sam LR_SAM
+      quantity 4
+   end_weapon
+   
+   execute at_time 1800 s absolute
+      WsfPlatform targ = WsfSimulation.FindPlatform("target");
+      if (!targ.IsValid())
+      {
+         writeln("-FAIL- No such platform 'target'");
+         gAllPassed;
+      }
+      else
+      {
+         WsfWeapon weap = PLATFORM.Weapon("sam");
+         if (!weap.IsValid())
+         {
+            writeln("-FAIL- No such weapon 'sam'");
+            gAllPassed = false;
+         }
+         else
+         {
+            if (!weap.Fire(targ.MakeTrack()))
+            {
+               writeln("-FAIL- Unable to fire 'sam'");
+               gAllPassed = false;
+            }
+         }
+      
+         WsfWeapon legacy = PLATFORM.Weapon("sam_legacy");
+         if (!legacy.IsValid())
+         {
+            writeln("-FAIL- No such weapon 'sam_legacy'");
+            gAllPassed = false;
+         }
+         else
+         {
+            if (!legacy.Fire(targ.MakeTrack()))
+            {
+               writeln("-FAIL- Unable to fire 'sam_legacy'");
+               gAllPassed = false;
+            }
+         }
+      }
+   end_execute
+end_platform
+
+script_variables
+   double gCompareInterval   = 1.0;       // [s]
+   double gPositionTolerance = 90.0;      // [m]
+   double gVelocityTolerance = 2.6;       // [m/s]
+   int    gWeaponsFired      = 0;
+   int    gExpectedCalls     = 126;
+   int    gCalls             = 0;
+   string gPlatformOne;
+   string gPlatformTwo;
+   bool   gAllPassed         = true;
+end_script_variables
+
+script void CompareKinematics()
+   gCalls += 1;
+
+   WsfPlatform weapOne = WsfSimulation.FindPlatform(gPlatformOne);
+   WsfPlatform weapTwo = WsfSimulation.FindPlatform(gPlatformTwo);
+   if (weapOne.IsValid() && weapTwo.IsValid())
+   {
+      Vec3 posOne = weapOne.LocationWCS();
+      Vec3 posTwo = weapTwo.LocationWCS();
+      Vec3 posDiff = Vec3.Subtract(posTwo, posOne);
+      
+      Vec3 velOne = weapOne.VelocityWCS();
+      Vec3 velTwo = weapTwo.VelocityWCS();
+      Vec3 velDiff = Vec3.Subtract(velTwo, velOne);
+      
+      if (posDiff.Magnitude() > gPositionTolerance)
+      {
+         writeln("-FAIL- At time ", TIME_NOW, " difference between weapon positions is ", posDiff.Magnitude(), ", which is greater than ", gPositionTolerance);
+         gAllPassed = false;
+      }
+      
+      if (velDiff.Magnitude() > gVelocityTolerance)
+      {
+         writeln("-FAIL- At time ", TIME_NOW, " difference between weapon velocities is ", velDiff.Magnitude(), ", which is greater than ", gVelocityTolerance);
+         gAllPassed = false;
+      }
+      
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gCompareInterval, "CompareKinematics");
+   }
+end_script
+
+script void OnWeaponFired(WsfWeaponEngagement aEngagement, WsfTrack aTargetTrack)
+   if (gWeaponsFired == 0)
+   {
+      gPlatformOne = aEngagement.WeaponPlatformName();
+      gWeaponsFired = 1;
+   }
+   else if (gWeaponsFired == 1)
+   {
+      gPlatformTwo = aEngagement.WeaponPlatformName();
+      gWeaponsFired = 2;
+      
+      WsfSimulation.ExecuteAtTime(TIME_NOW, "CompareKinematics");
+   }
+end_script
+
+script void FinalChecks()
+   if (gCalls != gExpectedCalls)
+   {
+      writeln("-FAIL- Call count mismatch: observed = ", gCalls, " expected = ", gExpectedCalls);
+      gAllPassed = false;
+   }
+   
+   if (gWeaponsFired != 2)
+   {
+      writeln("-FAIL- Two weapons did not fire.");
+      gAllPassed = false;
+   }
+   
+   if (gAllPassed)
+   {
+      writeln("-PASS- All tests passed.");
+   }
+   else
+   {
+      writeln("-FAIL- Not all tests passed.");
+   }
+end_script
+
+observer
+   enable WEAPON_FIRED OnWeaponFired
+   enable SIMULATION_COMPLETE FinalChecks
+end_observer
+
+end_time 60 min

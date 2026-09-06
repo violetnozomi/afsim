@@ -1,0 +1,398 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# A number of chaser satellites perform a maneuver to get into a NMC with
+# respect to 'chief'. All three optimization options (delta v, delta t, none)
+# are tested for both input and scripted maneuvers. Further, the platforms
+# performing the maneuver from input and via script for each optimization
+# option perform identical maneuvers, so their subsequent evolution is
+# tested to show the results are identical.
+
+include_once utils.txt
+
+start_date jan 1 2021
+start_time 12:00:00.000
+end_time 4 hr
+
+platform_type DEFSAT WSF_PLATFORM
+   empty_mass 1.0 kg
+   
+   mover WSF_INTEGRATING_SPACE_MOVER
+      integrator prince_dormand_78
+         error_criterion L_infinity
+      end_integrator
+      
+      dynamics
+         term earth_monopole
+         end_term
+      end_dynamics
+   end_mover
+end_platform_type
+
+platform_type INTSAT WSF_PLATFORM
+   empty_mass 1.0 kg
+   
+   mover WSF_INTEGRATING_SPACE_MOVER
+      integrator prince_dormand_78
+         error_criterion L_infinity
+      end_integrator
+      
+      dynamics
+         term earth_monopole
+         end_term
+      end_dynamics
+   end_mover
+end_platform_type
+
+platform chief DEFSAT
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 0 deg
+      revs_per_day 12
+      argument_of_periapsis 0 deg
+   end_mover
+end_platform
+
+platform chaser INTSAT
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 10 deg
+      revs_per_day 12
+      argument_of_periapsis 0 deg
+      
+      mission_sequence
+         maneuver natural_motion_circumnavigation
+            execute_at relative_time 10 seconds
+            target_platform chief
+            orbit_size 30 meters
+            orbit_phase 25 degrees
+            out_of_plane_amplitude 30 meters
+            out_of_plane_phase 45 degrees
+            delta_time 1200 seconds
+            tolerance 1e-09
+         end_maneuver
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform chaser_mindeltav INTSAT
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 10 deg
+      revs_per_day 12
+      argument_of_periapsis 0 deg
+      
+      mission_sequence
+         maneuver natural_motion_circumnavigation
+            execute_at relative_time 10 seconds
+            target_platform chief
+            orbit_size 30 m
+            orbit_phase 25 deg
+            out_of_plane_amplitude 30 m
+            out_of_plane_phase 45 deg
+            optimize_delta_v
+            maximum_delta_time 1 hr
+            maximum_delta_v 100 km/s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform chaser_mindeltat INTSAT
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 10 deg
+      revs_per_day 12
+      argument_of_periapsis 0 deg
+      
+      mission_sequence
+         maneuver natural_motion_circumnavigation
+            execute_at relative_time 10 seconds
+            target_platform chief
+            orbit_size 30 m
+            orbit_phase 25 deg
+            out_of_plane_amplitude 30 m
+            out_of_plane_phase 45 deg
+            optimize_time
+            maximum_delta_time 1 hr
+            maximum_delta_v 100 km/s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform chaser_mincost INTSAT
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 10 deg
+      revs_per_day 12
+      argument_of_periapsis 0 deg
+      
+      mission_sequence
+         maneuver natural_motion_circumnavigation
+            execute_at relative_time 10 seconds
+            target_platform chief
+            orbit_size 30 m
+            orbit_phase 25 deg
+            out_of_plane_amplitude 30 m
+            out_of_plane_phase 45 deg
+            optimize_cost blended 1.0 2.0 3.0
+            maximum_delta_time 1 hr
+            maximum_delta_v 100 km/s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform script_chaser INTSAT
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 10 deg
+      revs_per_day 12
+      argument_of_periapsis 0 deg
+   end_mover
+end_platform
+
+platform script_chaser_delta_v INTSAT
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 10 deg
+      revs_per_day 12
+      argument_of_periapsis 0 deg
+   end_mover
+end_platform
+
+platform script_chaser_delta_t INTSAT
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 10 deg
+      revs_per_day 12
+      argument_of_periapsis 0 deg
+   end_mover
+end_platform
+
+platform script_chaser_cost INTSAT
+   edit mover
+      eccentricity 0
+      raan 0 deg
+      inclination 10 deg
+      true_anomaly 10 deg
+      revs_per_day 12
+      argument_of_periapsis 0 deg
+   end_mover
+end_platform
+
+script_variables
+   double gOrbitSize = 30.0;
+   double gOrbitPhase = 25.0;
+   double gAmplitude = 30.0;
+   double gOOP_Phase = 45.0;
+
+   double gMeanMotion = 0.0;
+   double gInitialDeltaX = 0.0;
+   double gInitialDeltaY = 0.0;
+   double gInitialDeltaZ = 0.0;
+   double gInitialDeltaVx = 0.0;
+   double gInitialDeltaVy = 0.0;
+   double gInitialDeltaVz = 0.0;
+end_script_variables
+
+# Compute the expected RIC offsets from the chief
+execute at_time 1 s absolute
+   WsfPlatform chief = WsfSimulation.FindPlatform("chief");
+   WsfSpaceMover chiefMover = (WsfSpaceMover)chief.Mover();
+   gMeanMotion = chiefMover.MeanMotion() * Math.RAD_PER_DEG();
+   
+   gInitialDeltaX = gOrbitSize * Math.Cos(gOrbitPhase) / 2.0;
+   gInitialDeltaY = -gOrbitSize * Math.Sin(gOrbitPhase);
+   gInitialDeltaZ = gAmplitude * Math.Cos(gOOP_Phase); 
+   
+   gInitialDeltaVx = gMeanMotion * gInitialDeltaY / 2.0;
+   gInitialDeltaVy = -2.0 * gMeanMotion * gInitialDeltaX;
+   gInitialDeltaVz = gAmplitude * gMeanMotion * Math.Sin(gOOP_Phase);
+end_execute
+
+execute at_time 10 s absolute
+   WsfPlatform chief = WsfSimulation.FindPlatform("chief");
+   WsfPlatform chaser = WsfSimulation.FindPlatform("script_chaser");
+   WsfSpaceMover mover = (WsfSpaceMover)chaser.Mover();
+   
+   chaser.TrackManager().AddTrackReport(chief.MakeTrack());
+   WsfTargetPoint point = WsfTargetPoint.ConstructFromTrack(chaser.MasterTrackList().Entry(0).TrackId());
+   
+   WsfNaturalMotionCircumnavigation nmc = WsfNaturalMotionCircumnavigation.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0),
+                                                                                     point,
+                                                                                     1200.0,
+                                                                                     2.0 * gOrbitSize);
+   ExpectDouble(nmc.OrbitSize(), 2.0 * gOrbitSize, 1.0e-12, "Construction orbit size NMC");
+   ExpectDouble(nmc.OrbitPhase(), 0.0, 1.0e-12, "Construction orbit phase NMC");
+   ExpectDouble(nmc.OutOfPlaneAmplitude(), 0.0, 1.0e-12, "Construction oop amplitude NMC");
+   ExpectDouble(nmc.OutOfPlanePhase(), 0.0, 1.0e-12, "Construction oop phase NMC");
+   
+   nmc.SetOrbitSize(gOrbitSize);
+   nmc.SetOrbitPhase(gOrbitPhase);
+   nmc.SetOutOfPlaneAmplitude(gAmplitude);
+   nmc.SetOutOfPlanePhase(gOOP_Phase);
+   
+   ExpectDouble(nmc.OrbitSize(), gOrbitSize, 1.0e-12, "Orbit size NMC");
+   ExpectDouble(nmc.OrbitPhase(), gOrbitPhase, 1.0e-12, "Orbit phase NMC");
+   ExpectDouble(nmc.OutOfPlaneAmplitude(), gAmplitude, 1.0e-12, "Orbit OOP Amplitude NMC");
+   ExpectDouble(nmc.OutOfPlanePhase(), gOOP_Phase, 1.0e-12, "Orbit OOP Phase NMC");
+   
+   mover.ExecuteManeuver(nmc);
+   
+   Array<Object> args = {"script_chaser", "chaser"};
+   WsfSimulation.ExecuteAtTime(TIME_NOW + 600.0, "CompareTwoPlatforms", args);
+end_execute
+
+execute at_time 10 s absolute
+   WsfPlatform chief = WsfSimulation.FindPlatform("chief");
+   WsfPlatform chaser = WsfSimulation.FindPlatform("script_chaser_delta_v");
+   WsfSpaceMover mover = (WsfSpaceMover)chaser.Mover();
+   
+   chaser.TrackManager().AddTrackReport(chief.MakeTrack());
+   WsfTargetPoint point = WsfTargetPoint.ConstructFromTrack(chaser.MasterTrackList().Entry(0).TrackId());
+   
+   WsfNaturalMotionCircumnavigation nmc = WsfNaturalMotionCircumnavigation.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0),
+                                                                                     point,
+                                                                                     WsfNaturalMotionCircumnavigation.LEAST_DELTA_V(),
+                                                                                     3600.0,
+                                                                                     100000.0,
+                                                                                     gOrbitSize);
+   nmc.SetOrbitPhase(gOrbitPhase);
+   nmc.SetOutOfPlaneAmplitude(gAmplitude);
+   nmc.SetOutOfPlanePhase(gOOP_Phase);
+   mover.ExecuteManeuver(nmc);
+   
+   Array<Object> args = {"script_chaser_delta_v", "chaser_mindeltav"};
+   WsfSimulation.ExecuteAtTime(TIME_NOW + 600.0, "CompareTwoPlatforms", args);
+end_execute
+
+execute at_time 10 s absolute
+   WsfPlatform chief = WsfSimulation.FindPlatform("chief");
+   WsfPlatform chaser = WsfSimulation.FindPlatform("script_chaser_delta_t");
+   WsfSpaceMover mover = (WsfSpaceMover)chaser.Mover();
+   
+   chaser.TrackManager().AddTrackReport(chief.MakeTrack());
+   WsfTargetPoint point = WsfTargetPoint.ConstructFromTrack(chaser.MasterTrackList().Entry(0).TrackId());
+   
+   WsfNaturalMotionCircumnavigation nmc = WsfNaturalMotionCircumnavigation.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0),
+                                                                                     point,
+                                                                                     WsfNaturalMotionCircumnavigation.EARLIEST_TIME(),
+                                                                                     3600.0,
+                                                                                     100000.0,
+                                                                                     gOrbitSize);
+   nmc.SetOrbitPhase(gOrbitPhase);
+   nmc.SetOutOfPlaneAmplitude(gAmplitude);
+   nmc.SetOutOfPlanePhase(gOOP_Phase);
+   mover.ExecuteManeuver(nmc);
+   
+   Array<Object> args = {"script_chaser_delta_t", "chaser_mindeltat"};
+   WsfSimulation.ExecuteAtTime(TIME_NOW + 600.0, "CompareTwoPlatforms", args);
+end_execute
+
+execute at_time 10 s absolute
+   WsfPlatform chief = WsfSimulation.FindPlatform("chief");
+   WsfPlatform chaser = WsfSimulation.FindPlatform("script_chaser_cost");
+   WsfSpaceMover mover = (WsfSpaceMover)chaser.Mover();
+   
+   chaser.TrackManager().AddTrackReport(chief.MakeTrack());
+   WsfTargetPoint point = WsfTargetPoint.ConstructFromTrack(chaser.MasterTrackList().Entry(0).TrackId());
+   
+   WsfNaturalMotionCircumnavigation nmc = WsfNaturalMotionCircumnavigation.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0),
+                                                                                     point,
+                                                                                     WsfOrbitalBlendedCost.Construct(1.0, 2.0, 3.0),
+                                                                                     3600.0,
+                                                                                     100000.0,
+                                                                                     gOrbitSize);
+   nmc.SetOrbitPhase(gOrbitPhase);
+   nmc.SetOutOfPlaneAmplitude(gAmplitude);
+   nmc.SetOutOfPlanePhase(gOOP_Phase);
+   mover.ExecuteManeuver(nmc);
+   
+   Array<Object> args = {"script_chaser_cost", "chaser_mincost"};
+   WsfSimulation.ExecuteAtTime(TIME_NOW + 600.0, "CompareTwoPlatforms", args);
+end_execute
+
+script void CompareTwoPlatforms(string aPlatformA, string aPlatformB)
+   WsfPlatform platA = WsfSimulation.FindPlatform(aPlatformA);
+   WsfPlatform platB = WsfSimulation.FindPlatform(aPlatformB);
+   
+   Vec3 posA = platA.LocationECI();
+   Vec3 posB = platB.LocationECI();
+   
+   Vec3 velA = platA.VelocityECI();
+   Vec3 velB = platB.VelocityECI();
+   
+   string names = aPlatformA + ":" + aPlatformB + " TIME: " + (string)TIME_NOW + " ";
+   ExpectDouble(posA.X(), posB.X(), 1.0e-3, names + "ECI X Position");
+   ExpectDouble(posA.Y(), posB.Y(), 1.0e-3, names + "ECI Y Position");
+   ExpectDouble(posA.Z(), posB.Z(), 1.0e-3, names + "ECI Z Position");
+   
+   ExpectDouble(velA.X(), velB.X(), 1.0e-3, names + "ECI X Velocity");
+   ExpectDouble(velA.Y(), velB.Y(), 1.0e-3, names + "ECI Y Velocity");
+   ExpectDouble(velA.Z(), velB.Z(), 1.0e-3, names + "ECI Z Velocity");
+   
+   Array<Object> args = {aPlatformA, aPlatformB};
+   WsfSimulation.ExecuteAtTime(TIME_NOW + 600.0, "CompareTwoPlatforms", args);
+end_script
+
+script void CheckNMC(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "NATURAL_MOTION_CIRCUMNAVIGATION")
+   {
+      WsfPlatform chief = WsfSimulation.FindPlatform("chief");
+      
+      // compute the RIC frame for the chief
+      Vec3 rHat = chief.LocationECI().Normal();
+      Vec3 cHat = Vec3.Cross(chief.LocationECI(), chief.VelocityECI()).Normal();
+      Vec3 iHat = Vec3.Cross(cHat, rHat).Normal();
+       
+      // then compute the RIC position and velocity of the chaser
+      Vec3 relPos = Vec3.Subtract(aPlatform.LocationECI(), chief.LocationECI());
+      Vec3 ricPos = Vec3.Construct(Vec3.Dot(relPos, rHat),
+                                   Vec3.Dot(relPos, iHat),
+                                   Vec3.Dot(relPos, cHat));
+      
+      ExpectDouble(ricPos.X(), gInitialDeltaX, 1.0e-3, "RIC Position X");
+      ExpectDouble(ricPos.Y(), gInitialDeltaY, 1.0e-3, "RIC Position Y");
+      ExpectDouble(ricPos.Z(), gInitialDeltaZ, 1.0e-3, "RIC Position Z");
+      
+      Vec3 omega = Vec3.Cross(chief.LocationECI(), chief.VelocityECI());
+      omega.Scale(1.0 / chief.LocationECI().MagnitudeSquared());
+      Vec3 nonInertialTerm = Vec3.Cross(omega, relPos);
+      Vec3 relVel = Vec3.Subtract(Vec3.Subtract(aPlatform.VelocityECI(), chief.VelocityECI()), nonInertialTerm);
+      Vec3 ricVel = Vec3.Construct(Vec3.Dot(relVel, rHat),
+                                   Vec3.Dot(relVel, iHat),
+                                   Vec3.Dot(relVel, cHat));
+      
+      ExpectDouble(ricVel.X(), gInitialDeltaVx, 1.0e-6, "RIC Velocity X");
+      ExpectDouble(ricVel.Y(), gInitialDeltaVy, 1.0e-6, "RIC Velocity Y");
+      ExpectDouble(ricVel.Z(), gInitialDeltaVz, 1.0e-6, "RIC Velocity Z");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED CheckNMC
+end_observer

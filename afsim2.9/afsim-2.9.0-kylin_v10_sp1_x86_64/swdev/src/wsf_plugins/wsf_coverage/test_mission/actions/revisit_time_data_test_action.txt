@@ -1,0 +1,20 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void MOE_DataTestAction(string aLatitude,
+                               string aLongitude,
+                               string aAltitude,
+                               string aID,
+                               string aValue)
+   ExpectDouble((double)aLatitude, 0.0, 1.0e-6, "Latitude");
+   ExpectDouble((double)aLongitude, 0.0, 1.0e-6, "Longitude");
+   ExpectDouble((double)aAltitude, 1.0, 1.0e-6, "Altitude");
+   ExpectInt((int)aID, 1, "Point ID");
+   ExpectDouble((double)aValue, gExpectedValue, 1.0e-6, "Value");
+end_script

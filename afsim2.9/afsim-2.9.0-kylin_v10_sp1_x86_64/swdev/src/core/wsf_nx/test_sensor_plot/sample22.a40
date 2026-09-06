@@ -1,0 +1,61 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2018 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# general data
+ECHO_DATA		yes
+CLASSIFICATION		UNCLASSIFIED
+TITLE			SAMPLE #22: MTI, STC, ILLUM, RSE
+DATA_FORMAT             ASCII
+#JAJ RADAR_LAT		504500N
+#JAJ RADAR_LON		081000E
+# Nellis Tower
+RADAR_LAT               361406.0N
+RADAR_LON               1150136.0W
+#
+SIM_TYPE                FPA
+#
+FPA_OVERWRITE	        yes
+FPA_PATH_FILE           ./sample22.fpa
+FPA_OUTFILE             ./sample22.bnf
+FPA_PLOT_TITLE          Sample Case 22, MTI, STC, ILLUM, RSE
+#
+INCLUDE                 ./mti_radar4.a40
+#
+# environment
+LAND_COVER		agricultural
+LAND_FORM		level
+ATM_ATTEN_SW		on
+REFRACTIVITY		1.3333333
+PROPAGATION_SW		on
+STDDEV_SURFACE_HEIGHT   3.0 m
+SOIL_MOISTURE           15. %
+#
+CLUTTER_SW		on
+CLUT_DECAY		1.0E-6 Hz2
+SIGMAC			5 Hz
+#JAJ CLUT_ANGLE_INCR		.5 deg
+#JAJ CLUT_AZ_WIDTH		2.0 deg
+CLUT_ANGLE_INCR		.1 deg
+CLUT_AZ_WIDTH		.1 deg
+CLUT_MAX_RANGE          50.0e3  meters
+CLUT_STATISTIC		numerical
+CLUT_REFLECTIVITY       -25 db
+CLUT_DELTA_REFLECT      0 db
+CLUT_SEED               378773
+#
+# target
+#
+INCLUDE                 ./one_sq_meter.a40
+#
+#TERRAIN_SW             on
+TERRAIN_SPEED_SW       on
+TERRAIN_DIR            /sdadev1a/nima/dted/lvl1-30n-50n-130w-110w
+TERRAIN_LEVEL          1
+

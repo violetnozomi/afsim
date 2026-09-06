@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+####################################################################################################
+# A simple bomber definition for the automated tests.
+####################################################################################################
+
+include_once sdb.txt
+
+platform_type BOMBER WSF_PLATFORM
+   icon F-18E
+   mover WSF_AIR_MOVER
+   end_mover
+
+   sensor radar WSF_GEOMETRIC_SENSOR
+      frame_time 5 sec
+      
+      maximum_range 200 nm
+
+      reports_location
+      internal_link track_proc
+
+      ignore_same_side
+      on
+   end_sensor
+
+   weapon sdb SDB
+      quantity 4
+   end_weapon
+
+   processor track_proc WSF_TRACK_PROCESSOR
+      purge_interval 60 secs
+   end_processor
+
+   processor task_proc WSF_TASK_PROCESSOR
+      #show_state_transitions
+
+      evaluation_interval DETECTED 5 sec
+      state DETECTED
+         next_state DETECTED
+            return ((TRACK.TimeSinceUpdated() > 15.0) ||
+                    (!TRACK.Target().IsValid()) ||
+                    (TRACK.Target().DamageFactor() >= 1.0) ||     
+                    (PLATFORM.Weapon("sdb").QuantityRemaining() <= 0));
+         end_next_state
+         next_state WEAPON_IN_FLIGHT
+            return FireAt(TRACK, "FIRE", PLATFORM.Weapon("sdb"), 2);
+         end_next_state
+      end_state
+
+      # Wait for weapon to terminate
+      evaluation_interval WEAPON_IN_FLIGHT 1 sec
+      state WEAPON_IN_FLIGHT
+         next_state WEAPON_TERMINATED
+            return (! WeaponsActiveFor(TRACK.TrackId()));
+         end_next_state
+      end_state
+
+      # Simulate BDA
+      evaluation_interval WEAPON_TERMINATED 1 sec
+      state WEAPON_TERMINATED
+         next_state DETECTED
+            return (TimeSinceWeaponLastTerminatedFor(TRACK.TrackId()) > 30.0);
+         end_next_state
+      end_state
+       
+   end_processor
+
+end_platform_type

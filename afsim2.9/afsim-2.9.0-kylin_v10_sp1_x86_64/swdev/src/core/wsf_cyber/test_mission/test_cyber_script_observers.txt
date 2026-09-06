@@ -1,0 +1,296 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests the various cyber script observers.
+// Note that the trigger observers are tested in a different file to maintain simplicity in this test.
+
+random_seed_time
+
+#Provide global references to the target test platforms for use with script calls
+script_variables
+   WsfPlatform target1;
+   string lastOutput = "";
+end_script_variables
+
+cyber_effect TEST_EFFECT WSF_CYBER_SCRIPT_EFFECT
+end_cyber_effect
+
+cyber_effect TEST_EFFECT2 WSF_CYBER_SCRIPT_EFFECT
+end_cyber_effect
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+   effect TEST_EFFECT
+   effect TEST_EFFECT2
+   probability_of_scan_detection 1
+   probability_of_attack_success 1
+   probability_of_status_report 1.0
+   probability_of_attack_detection 1.0
+   probability_of_future_immunity 1.0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 0 s
+   delivery_delay_time 0 s
+end_cyber_attack
+
+cyber_attack TEST_ATTACK2 WSF_CYBER_ATTACK
+   effect TEST_EFFECT
+   effect TEST_EFFECT2
+   probability_of_scan_detection 1
+   probability_of_attack_success 1
+   probability_of_status_report 1.0
+   probability_of_attack_detection 1
+   probability_of_future_immunity 1.0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 1 s
+   delivery_delay_time 1 s
+end_cyber_attack
+
+# All test platforms have this protection as part of the type
+cyber_protect TEST_PROTECT WSF_CYBER_PROTECT
+   attack_response TEST_ATTACK
+      probability_of_scan_detection 1
+      probability_of_attack_success 1.0
+      probability_of_status_report 1
+      probability_of_attack_detection 1.0
+      probability_of_future_immunity 1
+      
+      attack_detection_delay_time 0 s
+      attack_recovery_delay_time 0 s
+      restore
+      
+      script void OnScanDetection(WsfCyberEngagement aEngagement)
+         #writeln("Running OnScanDetection against TEST_ATTACK");
+      end_script
+      
+      script void OnAttackDetection(WsfCyberEngagement aEngagement)
+         #writeln("Running OnAttackDetection against TEST_ATTACK");
+      end_script
+      
+      script void OnAttackRecovery(WsfCyberEngagement aEngagement)
+         #writeln("Running OnAttackRecovery against TEST_ATTACK");
+      end_script
+      
+      script bool IsVulnerable(WsfCyberEngagement aEngagement)
+         #writeln("Running IsVulnerable against TEST_ATTACK");
+         return true;
+      end_script       
+            
+      
+   end_attack_response
+   
+   attack_response TEST_ATTACK2
+      probability_of_scan_detection 1
+      probability_of_attack_success 0
+      probability_of_status_report 1.0
+      probability_of_attack_detection 1.0
+      probability_of_future_immunity 1.0
+      
+      attack_detection_delay_time 0 s
+      attack_recovery_delay_time 0 s
+      restore
+      
+      script void OnScanDetection(WsfCyberEngagement aEngagement)
+         #writeln("Running OnScanDetection against TEST_ATTACK2");
+      end_script
+      
+      script void OnAttackDetection(WsfCyberEngagement aEngagement)
+         #writeln("Running OnAttackDetection against TEST_ATTACK2");
+      end_script
+      
+      script void OnAttackRecovery(WsfCyberEngagement aEngagement)
+         #writeln("Running OnAttackRecovery against TEST_ATTACK2");
+      end_script
+      
+      script bool IsVulnerable(WsfCyberEngagement aEngagement)
+         #writeln("Running IsVulnerable against TEST_ATTACK2");
+         return true;
+      end_script 
+            
+   end_attack_response
+end_cyber_protect
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   cyber_protect TEST_PROTECT
+   end_cyber_protect
+end_platform_type
+
+platform attack1 TEST_PLATFORM
+   position 39n 90:20w
+   icon EA-6B
+   altitude 10000 m
+   
+   #Should use CYBER_SCAN_INITIATED, CYBER_SCAN_DETECTED, CYBER_SCAN_FAILED
+   execute at_time 0.5 s absolute
+      bool scanSuccess = PLATFORM.CyberScan(target1, "TEST_ATTACK");
+      assert(lastOutput == "CYBER_SCAN_DETECTED");
+   end_execute
+     
+   #Should use CYBER_ATTACK_INITIATED, CYBER_ATTACK_SUCCEEDED, CYBER_ATTACK_DETECTED, CYBER_ATTACK_RECOVERY
+   execute at_time 0.75 s absolute
+      bool attackSuccess = PLATFORM.CyberAttack(target1, "TEST_ATTACK");
+      assert(lastOutput == "CYBER_ATTACK_RECOVERY");
+   end_execute
+     
+   #Should use CYBER_SCAN_INITIATED, CYBER_SCAN_FAILED
+   execute at_time 1.0 s absolute
+      bool scanSuccess = PLATFORM.CyberScan(target1, "TEST_ATTACK");
+      assert(lastOutput == "CYBER_SCAN_FAILED");
+   end_execute
+      
+   #Shouse use CYBER_ATTACK_INITIATED, CYBER_ATTACK_FAILED
+   execute at_time 1.25 s absolute
+      bool attackSuccess = PLATFORM.CyberAttack(target1, "TEST_ATTACK");
+      assert(lastOutput == "CYBER_ATTACK_FAILED");
+   end_execute
+     
+   #Should use CYBER_ATTACK_INITIATED, CYBER_ATTACK_FAILED
+   execute at_time 1.5 s absolute
+      bool attackSuccess = PLATFORM.CyberAttack(target1, "TEST_ATTACK");
+      assert(lastOutput == "CYBER_ATTACK_FAILED");
+   end_execute
+      
+   #Should use CYBER_ATTACK_INITIATED, CYBER_ATTACK_FAILED
+   execute at_time 1.75 s absolute
+      bool attackSuccess = PLATFORM.CyberAttack(target1, "TEST_ATTACK");
+      assert(lastOutput == "CYBER_ATTACK_FAILED");
+   end_execute
+      
+   #Use a different attack to get a scan in progress status, and an attack failure status
+   ##Should use CYBER_SCAN_INITIATED, CYBER_SCAN_SUCCEEDED (with 1.0 s delay)
+   execute at_time 2.0 s absolute
+      bool scanSuccess = PLATFORM.CyberScan(target1, "TEST_ATTACK2");
+      assert(lastOutput == "CYBER_SCAN_INITIATED");
+   end_execute
+      
+   execute at_time 4.0 s absolute
+      bool attackSuccess = PLATFORM.CyberAttack(target1, "TEST_ATTACK2");
+      assert(lastOutput == "CYBER_ATTACK_INITIATED");
+   end_execute
+   
+   execute at_time 5.1 s absolute #Give some wiggle room for the last event to fire
+      assert(lastOutput == "CYBER_ATTACK_FAILED");
+   end_execute
+       
+end_platform
+
+platform target1 TEST_PLATFORM
+   position 38:45n 90:20w
+   icon AAA
+   on_initialize
+      target1 = PLATFORM;
+   end_on_initialize
+end_platform
+
+end_time 1 min
+
+event_output
+   file STDOUT
+   #enable PLATFORM_ADDED
+   #enable PLATFORM_DELETED
+   #enable CYBER_ATTACK_INITIATED
+   #enable CYBER_ATTACK_SUCCEEDED
+   #enable CYBER_ATTACK_FAILED
+   #enable CYBER_ATTACK_DETECTED
+   #enable CYBER_ATTACK_RECOVERY
+   #enable CYBER_SCAN_INITIATED
+   #enable CYBER_SCAN_SUCCEEDED
+   #enable CYBER_SCAN_DETECTED
+   #enable CYBER_SCAN_FAILED
+end_event_output
+
+script void attackInitiated(WsfCyberEngagement aEngagement)
+   writeln("CYBER_ATTACK_INITIATED");
+   lastOutput = "CYBER_ATTACK_INITIATED";
+end_script
+
+script void attackSucceeded(WsfCyberEngagement aEngagement)
+   writeln("CYBER_ATTACK_SUCCEEDED");
+   lastOutput = "CYBER_ATTACK_SUCCEEDED";
+end_script
+
+script void attackFailed(WsfCyberEngagement aEngagement)
+   writeln("CYBER_ATTACK_FAILED");
+   lastOutput = "CYBER_ATTACK_FAILED";
+end_script
+
+script void attackDetected(WsfCyberEngagement aEngagement)
+   writeln("CYBER_ATTACK_DETECTED");
+   lastOutput = "CYBER_ATTACK_DETECTED";
+end_script
+
+script void attackRecovery(WsfCyberEngagement aEngagement)
+   writeln("CYBER_ATTACK_RECOVERY");
+   lastOutput = "CYBER_ATTACK_RECOVERY";
+end_script
+
+script void scanInitiated(WsfCyberEngagement aEngagement)
+   writeln("CYBER_SCAN_INITIATED");
+   lastOutput = "CYBER_SCAN_INITIATED";
+end_script
+
+script void scanSucceeded(WsfCyberEngagement aEngagement)
+   writeln("CYBER_SCAN_SUCCEEDED");
+   lastOutput = "CYBER_SCAN_SUCCEEDED";
+end_script
+
+script void scanFailed(WsfCyberEngagement aEngagement)
+   writeln("CYBER_SCAN_FAILED");
+   lastOutput = "CYBER_SCAN_FAILED";
+end_script
+
+script void scanDetected(WsfCyberEngagement aEngagement)
+   writeln("CYBER_SCAN_DETECTED");
+   lastOutput = "CYBER_SCAN_DETECTED";
+end_script
+
+#Correct output should be the following:
+#CYBER_SCAN_INITIATED
+#CYBER_SCAN_FAILED
+#CYBER_SCAN_DETECTED
+#CYBER_ATTACK_INITIATED
+#CYBER_ATTACK_SUCCEEDED
+#CYBER_ATTACK_DETECTED
+#CYBER_ATTACK_RECOVERY
+#CYBER_SCAN_INITIATED
+#CYBER_SCAN_FAILED
+#CYBER_ATTACK_INITIATED
+#CYBER_ATTACK_FAILED
+#CYBER_ATTACK_INITIATED
+#CYBER_ATTACK_FAILED
+#CYBER_ATTACK_INITIATED
+#CYBER_ATTACK_FAILED
+#CYBER_SCAN_INITIATED
+#CYBER_SCAN_SUCCEEDED
+#CYBER_ATTACK_INITIATED
+#CYBER_ATTACK_FAILED
+
+observer
+   enable CYBER_ATTACK_INITIATED attackInitiated
+   enable CYBER_ATTACK_SUCCEEDED attackSucceeded
+   enable CYBER_ATTACK_FAILED   attackFailed
+   enable CYBER_ATTACK_DETECTED attackDetected
+   enable CYBER_ATTACK_RECOVERY attackRecovery
+   enable CYBER_SCAN_INITIATED scanInitiated
+   enable CYBER_SCAN_SUCCEEDED scanSucceeded
+   enable CYBER_SCAN_FAILED scanFailed
+   enable CYBER_SCAN_DETECTED scanDetected
+end_observer
+
+

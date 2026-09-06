@@ -1,0 +1,78 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test MinPoint, MaxPoint, Centroid, Reference
+
+zone isr_zone
+  polygonal
+  lat_lon
+   point 06s 12e
+   point 05s 24e
+   point 07s 33e
+   point 12s 40e
+   point 19s 35e
+   point 24s 11e
+   point 16s 11e
+   point 11s 13e
+end_zone
+
+zone circle
+   circular
+   maximum_radius 18520 meters
+   lat_lon
+   position 10n 20e
+end_zone
+
+zone square
+   polygonal
+   lat_lon
+   point 35n 139w
+   point 35n 141w
+   point 37n 141w
+   point 37n 139w
+end_zone
+
+zone ellipse
+   lat_lon
+   longitudinal_axis 10 km
+   lateral_axis 20 km
+   position 30s 170e
+end_zone
+
+script bool PointNear(double aValue, double aReference)
+   static double cTOL = 1.0e-10;
+   return (Math.Fabs(aValue - aReference) < cTOL);
+end_script
+
+script void Test()
+   WsfZone zone = WsfZone.FindZone("isr_zone");
+   WsfGeoPoint lowerLeft = zone.MinPoint();
+   WsfGeoPoint upperRight = zone.MaxPoint();
+   if (!PointNear(lowerLeft.Latitude(),-24)) writeln ("-FAIL-");
+   if (!PointNear(lowerLeft.Longitude() ,  11)) writeln ("-FAIL-");
+   if (!PointNear(upperRight.Latitude() ,  -5))  writeln ("-FAIL-");
+   if (!PointNear(upperRight.Longitude() ,  40))  writeln ("-FAIL-");
+   WsfZone circle = WsfZone.FindZone("circle");
+   WsfZone square = WsfZone.FindZone("square");
+   WsfGeoPoint circleRef = circle.Reference();
+   if (!PointNear(circleRef.Latitude() ,  10)) writeln("-FAIL-");
+   if (!PointNear(circleRef.Longitude() ,  20)) writeln("-FAIL-");
+   WsfGeoPoint squareCentroid = square.Centroid();
+   if (!PointNear(squareCentroid.Latitude() ,  36)) writeln("-FAIL-");
+   if (!PointNear(squareCentroid.Longitude() ,  -140)) writeln("-FAIL-");
+   WsfZone ellipse = WsfZone.FindZone("ellipse");
+   WsfGeoPoint ellipseRef = ellipse.Reference();
+   if (!PointNear(ellipseRef.Latitude() ,  -30)) writeln("-FAIL-");
+   if (!PointNear(ellipseRef.Longitude() ,  170)) writeln("-FAIL-");
+end_script
+
+execute at_time 1.0 s absolute
+   Test();
+end_execute
+

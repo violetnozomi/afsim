@@ -1,0 +1,113 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_if.txt
+# Test the if block capabilities
+
+include test_functions.txt
+
+on_initialize
+   // TEST 1: No brackets to open and close the block
+   string message = "A";
+   bool success = false;
+   bool pass = true;
+
+   if (message == "A")
+      success = true;
+
+   if (!success)
+   {
+      pass = false;
+      writeln("-FAIL- : On if statement with assignment in block, but no brackets.");
+   }
+
+
+   // TEST 2: Normal block following the if statement
+   success = false;
+   if (message == "A")
+   {
+      success = true;
+   }
+
+   if (!success)
+   {
+      pass = false;
+      writeln("-FAIL- : Normal bracketed block following an assignment inside the if block");
+   }
+
+
+   // TEST 3 : Testing of else if and else (should enter else block)
+   success = false;
+   message = "C";
+   if (message == "A")
+   {
+      success = true;
+   }
+   else if (message == "B")
+   {
+      success = false;
+   }
+   else
+   {
+      success = true;
+   }
+
+   if (!success)
+   {
+      pass = false;
+      writeln("-FAIL- : on else if and else [should reach else block] blocks after if block");
+   }
+
+
+   // TEST 4: If test and else if [should enter else-if block] test
+   message = "B";
+   success = false;
+   if (message == "A")
+   {
+      success = false;
+   }
+   else if (message == "B")
+   {
+      success = true;
+   }
+
+   if (success == false)
+   {
+      pass = false;
+      writeln("-FAIL- : If test and else-if test.");
+   }
+
+   // TEST 5: Consecutive else-if testing.  Should enter second else-if block.
+   success = false;
+   message = "C";
+   if (message == "A")
+   {
+      success = false;
+   }
+   else if (message == "B")
+   {
+      success = false;
+   }
+   else if (message == "C")
+   {
+      success = true;
+   }
+   else
+   {
+      success = false;
+   }
+
+   if (!success)
+   {
+      pass = false;
+      writeln("-FAIL- : Consecutive else-if testing.  Should enter second else-if block.");
+   }
+
+   writePass(pass);
+end_on_initialize

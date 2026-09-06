@@ -1,0 +1,35 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.7.3)** Updated CMake configuration to support building AFSIM as a sub-project for another top-level project. *(AFSIM-411)*
+* **(2.7.3)** ``WsfXIO_ScriptListPkt`` now correctly reports a platform index of 0 for global scripts. *(AFSIM-1053)*
+* **(2.7.3)** Removed the redefinition of ``isfinite`` on Windows systems in ``DisValidationUtils.hpp``, allowing developers to use ``std::isfinite`` in translation units that include it. *(AFSIM-978)*
+* **(2.7.2)** Updated the ``wsf::event::Result`` constructor to allow the use of a default ``Settings`` object and take an optional name argument to support runtime type recognition. *(AFSIM-893)*
+* **(2.7.2)** Added a new flag to ``UtProcess`` that allows the console window to be hidden when executing the process on Windows systems. *(AFSIM-591)*
+* **(2.7.2)** ``WsfSensor`` constructor now takes its ``WsfScenario`` argument by reference to ``const``. *(AFSIM-590)*
+* **(2.7.1)** Fixed an issue with ``WsfDateTime::GetCurrentTime`` returning inaccurate results in some circumstances. *(AFSIM-610)*
+* **(2.7.1)** Added the method ``ConvertVelocityWCSToECI`` to the ``UtEntity`` class. *(AFSIM-551)*
+* **(2.7.1)** Corrected an issue where subscribers of ``WsfObserver::RouteChanged`` would not be notified by :method:`WsfPlatform.SetRoute` for certain movers. *(AFSIM-634)*
+* Provided a public accessor ``GetMaximumRange()`` to return the maximum range of a ``WsfSensorMode``. *(AFSIM-302)*
+* ``UtInputPreprocessor`` now stores default values for all usages of preprocessor variables. *(AFSIM-303)*
+* Modified ``UtCalendar::SetCurrentDateAndTime`` so that *seconds* are provided to nanosecond precision (previously only integral seconds were provided). *(Issue #2156)*
+* Removed the deprecated overloads of ``AddEvent`` and ``AddWallEvent`` in ``WsfSimulation`` which took raw pointers. *(Issue #1446)*
+* Added more interface methods for :command:`comm` protocol stack manipulation to clear, insert, and remove layers. *(Issue #2149)(Issue #2266)*
+* Deprecated the specification of memory management in ``ut::script::Data``. The management of memory is implied by the type that is stored.
+* Event-pipe message id conflicts will now result in a fatal error. *(Issue #2213)*
+* Corrected an issue where retaining the application object while creating more than one scenario object could cause a segmentation fault due to missing :command:`medium` component factories. *(Issue #2226)*
+* Namespace ``WsfMeasurementUtil`` has been deprecated and is now an alias for ``UtMeasurementUtil``.
+* Created a unit test for geodata's ``DtedTile``. *(Issue #2271)*
+* Fixed an issue in ``WsfDisData`` where the constructor would incorrectly override request ID values from externally received ``DisData`` PDUs. *(AFSIM-216)*
+* Deprecated ``UtScriptClass`` methods ``GetClassNameId``, ``GetName``, and ``GetTypeId``, which have the same implementation as ``GetClassName``.
+* ``UtAttributeBase`` and its child classes have been updated to use smart pointers instead of raw pointers. Some methods in the old interface have been deprecated.
+* ``WsfAttribute`` template class and its aliases have been deprecated.
+* Corrected an issue where the internal linkage class variable was referred to as external linkage and vice versa in ``WsfMessageProcessor``. *(AFSIM-285)*
+* Modified ``wsf::comm::Comm::SendMessage()`` to remove the parameter ``wsf::comm::SendOptions``. ``wsf::comm::SendOptions`` has been removed as support for legacy comm functionality that does not use addressing. Legacy communications group specification is now placed on ``WsfMessage`` directly until core functionality is fully compliant with updates to communications. *(Issue #2266)*
+* ``WsfAuxDataEnabled::GetAuxData()`` now has const and non-const versions. An additional method named ``GetAuxDataConst()`` allows the const version to be called explicitly. Calling the non-const version will queue a ``MsgAuxData`` in the event pipe, if enabled.

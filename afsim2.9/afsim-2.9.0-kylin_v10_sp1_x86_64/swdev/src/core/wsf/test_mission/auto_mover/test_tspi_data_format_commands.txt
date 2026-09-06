@@ -1,0 +1,60 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform_type AIRCRAFT WSF_PLATFORM
+   icon 737
+   mover WSF_TSPI_MOVER
+      time in sec
+	  altitude in meters
+	  speed in meters/second
+	  heading in radians
+	  pitch in radians
+	  roll in radians
+      filename ./tspi_data.tspi
+   end_mover
+end_platform_type
+
+platform test_remove AIRCRAFT
+   creation_time 0 sec
+   at_end_of_path remove
+end_platform
+
+platform test_stop AIRCRAFT
+   creation_time 100 sec
+   at_end_of_path stop
+end_platform
+
+platform test_extrap AIRCRAFT
+   creation_time 200 sec
+   at_end_of_path extrapolate
+end_platform
+
+platform test_extrap_default AIRCRAFT
+   creation_time 300 sec
+end_platform
+
+platform test_extrap_on AIRCRAFT
+   creation_time 400 sec
+   extrapolation true
+end_platform
+
+platform test_extrap_off AIRCRAFT
+   creation_time 500 sec
+   extrapolation false
+end_platform
+
+
+include ../auto_script/test_functions.txt
+platform test_interpolate AIRCRAFT
+   execute at_time 0.9 sec absolute
+      AssertWithinToleranceMessage(-1.99637, PLATFORM.Latitude(), 0.0001, "Latitude Check");
+   end_execute
+end_platform
+
+end_time 4800 sec

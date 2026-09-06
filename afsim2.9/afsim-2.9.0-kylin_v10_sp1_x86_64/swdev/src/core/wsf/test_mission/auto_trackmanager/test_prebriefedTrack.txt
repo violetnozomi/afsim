@@ -1,0 +1,103 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+  int failureCount = 0;
+end_script_variables
+
+platform target WSF_PLATFORM
+   position 2n 3e
+   altitude 10000 m agl
+end_platform
+
+platform atc WSF_PLATFORM
+   side green
+   track_manager
+      track
+         position 1n 2e
+         altitude 10000 m agl
+         heading 45 degrees
+         speed 30 m/s
+         spatial_domain air
+         side brown
+         platform target
+      end_track
+   end_track_manager
+
+   script void IncrementFailureCount()
+      extern int failureCount;
+      failureCount = failureCount + 1;
+   end_script
+
+   execute at_time 3 s absolute
+      extern int failureCount;
+      int trackCount = 0;
+      WsfLocalTrackList trackList = PLATFORM.MasterTrackList();
+      WsfLocalTrack myTrack;
+      foreach (WsfLocalTrack t in trackList)
+      {
+         trackCount = trackCount + 1;
+         myTrack = t;
+      }
+
+      if (trackCount != 1)
+      {
+         IncrementFailureCount();
+         writeln("Expected track count: 1, instead value is: ", trackCount);
+      }
+      if (myTrack.Latitude() != 1)
+      {
+         IncrementFailureCount();
+         writeln("Expected latitude: 1n");
+      }
+      if (myTrack.Longitude() != 2)
+      {
+         IncrementFailureCount();
+         writeln("Expected longitude: 2e");
+      }
+      if (myTrack.Altitude() != 10000)
+      {
+         IncrementFailureCount();
+         writeln("Expected altitude: 10000 m");
+      }
+      if (Math.Fabs(myTrack.Heading() - 45) > 0.001)
+      {
+         IncrementFailureCount();
+         writeln("Expected heading: 45 deg");
+         writeln("Actual: ", myTrack.Heading());
+      }
+      if (Math.Fabs(myTrack.Speed() - 30) > 0.001)
+      {
+         IncrementFailureCount();
+         writeln("Expected speed: 30 m/s");
+      }
+      if (!myTrack.AirDomain())
+      {
+         IncrementFailureCount();
+         writeln("Expected domain: air");
+      }
+      if (myTrack.Side() != "brown")
+      {
+         IncrementFailureCount();
+         writeln("Expected side: brown");
+      }
+
+      if (failureCount > 0)
+      {
+         writeln("-FAIL-");
+         writeln("Failure count: ", failureCount);
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+   end_execute
+end_platform
+
+end_time 5 s

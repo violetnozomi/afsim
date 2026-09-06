@@ -1,0 +1,65 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+|BATTLE_MANAGEMENT|
+===================
+
+Adds various plots and data displays related to battle management.
+
+Plots
+-----
+
+There are 2 plots available in the Tools > Battle Management menu.
+
+* Platform Counts: Shows the number of platforms and weapons on each visible side.
+   For the purposes of this plot, a "weapon" is an AFSIM explicit weapon, e.g. a missile or bomb.
+   A "platform" is any WSF_PLATFORM that is not a weapon.
+   
+   .. image:: ../images/bm_platform_count_plot.png
+   
+* Platform Type Counts: Allows the user to set filters based on side, platform_type, and category.
+   The "Preview" series shows the currently selected filters. Clicking "Add Series" creates a new series with the previewed filters.
+   
+   .. image:: ../images/bm_platform_type_count_plot.png
+
+All plots have a buttton which shows or hides the "Initial Count Options".
+When enabled, the value of a series at the initial time is shown as a dotted horizontal line.
+The initial time can be adjusted to account for distributed scenarios connecting after T = 0.
+
+Selecting "Export Settings" from the context menu allows the current state of the plots, including axis bounds, initial time and overlays, and series visibility. Selecting "Import Settings" restores the saved off configuration. Exported configurations are automatically saved and can be reloaded on different runs of the application.
+
+.. note:: Exported settings are shared between Warlock and Mystic.
+
+Platform Status
+---------------
+
+The Platform Status display organizes platforms by side and type, and provides color-coded data about each platform.
+
+.. image:: ../images/bm_platform_status.png
+
+The panel on the right lets the user customize the color scales based on a first-match set of rules.
+Colors can be added or removed via the context menu or "Add Color" button.
+
+The "Add Aux Data" button brings up a dialog that adds a column populated with aux data values based on the provided key and type.
+Supported types are Boolean, Number, Text, and Ratio. The Ratio option takes two numeric aux data values and computes the ratio between them.
+
+In the data display, sides and types may be expanded or collapsed by double-clicking on them.
+Sides, types, and platforms may be hidden completely via the context menu.
+
+Platform names are highlighted in red if the platform is destroyed, or highlighed in blue if the platform does not exist yet (Mystic only).
+
+Current categories include:
+
+* :command:`Damage Factor<platform.initial_damage_factor>`: Measured on a scale from 0 (no damage) to 1 (destroyed).
+* :command:`Fuel<platform.fuel>`: Absolute value measured in kilograms. Relative value measured from 0% to 100% of initial value.
+* :command:`Aux Data<platform.aux_data>`: Boolean, numerical, text, or ratio values.
+
+For the Fuel and Aux Data Ratio columns, thresholds may be specified either as a specific value (e.g. 42) or as a percent (e.g. 42%).
+If a specific value is specified, the color will be based on the kilograms of fuel remaining, or the value in the numerator of the ratio.
+If a percent is specified, the color will be based on the percentage of fuel remaining, or the calculated ratio.

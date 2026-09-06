@@ -1,0 +1,127 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Orbital Event
+=============
+
+.. contents::
+   :local:
+
+**Script Type:** :class:`WsfOrbitalEvent`
+
+.. parsed-literal::
+
+   event_ :ref:`<event type><orbital_event.types>`
+      :ref:`Event Constraint   ...<orbital_event.constraints>`
+      finite_          ...
+      duration_        ...
+      update_interval_ ...
+      event-specific commands ...
+   end_event
+
+.. _orbital_event.event:
+.. _orbital_event.maneuver:
+.. command:: event ... end_event
+.. command:: maneuver ... end_maneuver
+
+   Specify an event that is to be executed as part of a executed as part of an :ref:`orbital mission sequence<orbital_mission_sequence>`.   A :ref:`constraint<orbital_event.constraints>` can be specified to delay execution of the event.  With many events, a specific constraint type is required, but for some other events it is optional.  Consult the documentation for each :ref:`event type<orbital_event.types>` for allowed constraints.
+
+.. note:: :ref:`Maneuver types<orbital_maneuver_types>` can be defined with a maneuver_ ... end_maneuver block.
+
+**Available event types are the following**
+
+.. _orbital_maneuver_types:
+
+.. include:: orbital_maneuver_types_list.txt
+
+.. _orbital_non_maneuver_types:
+
+.. include:: orbital_non_maneuver_types_list.txt
+
+.. _orbital_event.common_commands:
+
+Common Event Commands
+=====================
+
+.. _orbital_event.finite:
+
+.. command:: finite
+
+   Specify that the event is to be executed over a finite time (i.e., it is non-impulsive).
+
+   .. note:: Individual events may not support finite execution.  For example, finite orbital maneuvering is only supported for in-plane maneuvers.
+
+.. command:: duration
+
+   The desired duration of finite_ events.  If no duration_ is specified, the event will be executed as quickly as possible.
+
+.. command:: update_interval <time-value>
+
+   The update_interval for which finite_ events are updated.
+
+   **Default** 1.0 s
+
+.. _orbital_event.constraints:
+
+Event Constraints
+=================
+
+.. parsed-literal::
+
+   execute_at orbit_ <orbit-num> <constraint_>
+   execute_at                   <constraint_>
+
+Specify a constraint determining when at which point in an orbit an event will occur.  Normally constraints must be specified for all simple event types (i.e., all but :doc:`hohmann_transfer<hohmann_transfer>`, :doc:`compound<compound>`, and the top-level :ref:`mission_sequence events block<orbital_mission_sequence>`).  Valid constraints vary by event; consult each specific :ref:`event type<orbital_event.types>` for allowed constraints. With the exception of relative_time_, these constraints may only be used with bound orbits.
+
+.. command::  orbit <orbit-num>
+
+Execute the event only after a specified number of orbits have been propagated.
+
+   .. note:: The orbit number constraint is used in combination with another constraint, in order to provide an additional delay in execution.  If an event is to be executed as fast as possible, this constraint can be omitted.
+
+.. _constraint:
+
+**<constraint>** is one of the following:
+
+.. command:: relative_time <time-value>
+
+   Execute the event at a relative time in the future.
+
+   .. note:: This constraint can be used for non-elliptical orbits, but any orbit_ number offset will be ignored.
+
+.. command:: periapsis
+.. command:: apoapsis
+
+   Execute the event once the satellite reaches one of the apses (either periapsis or apoapsis).
+
+.. command:: ascending_node
+.. command:: descending_node
+
+   Execute the event once the satellite reaches either the ascending or descending nodes.
+
+.. command:: ascending_radius <length-value>
+.. command:: descending_radius <length-value>
+
+   Execute the event once the satellite reaches the specified radius, and after reaching either the ascending or descending nodes.
+
+   .. note:: These constraints are currently only used with the :doc:`circularize<circularize>` event.
+
+.. command:: northern_intersection
+.. command:: southern_intersection
+
+   Execute the event once the satellite reaches a event-specific northern latitude intersection or a southern latitude intersection.
+
+   .. note:: These constraints are only used with the :doc:`change_raan<change_raan>` and :doc:`change_raan_inclination<change_raan_inclination>` mission events
+
+.. command:: eclipse_entry
+.. command:: eclipse_exit
+
+   Execute the event when the satellite enters or exits earth's shadow.
+
+.. _orbital_event.types:

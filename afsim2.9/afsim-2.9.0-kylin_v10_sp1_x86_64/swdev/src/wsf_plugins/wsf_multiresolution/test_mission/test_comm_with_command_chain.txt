@@ -1,0 +1,79 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once comm_include.txt
+
+end_time 1 min
+
+network imperial_net WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member palpatine mr_comm
+      member vader mr_comm
+      member tarkin mr_comm
+   end_comm_list
+   comm_link_list
+      link palpatine mr_comm vader mr_comm
+      link palpatine mr_comm tarkin mr_comm
+   end_comm_link_list
+end_network
+
+processor MESSAGE_RECEIVER WSF_SCRIPT_PROCESSOR
+   on_message
+      default
+      script
+         writeln(PLATFORM.Name(), " recieved from ", MESSAGE.Originator(), " with comm type ", PLATFORM.Comm("mr_comm").Type());
+      end_script
+   end_on_message
+end_processor
+
+platform palpatine WSF_PLATFORM
+   command_chain IMPERIAL SELF
+   add multiresolution_comm mr_comm MR_COMM
+      fidelity 0
+      common
+         network_name imperial_net
+      end_common
+   end_multiresolution_comm
+   add processor message_sender WSF_SCRIPT_PROCESSOR
+      update_interval 10 sec
+      on_update
+         writeln(PLATFORM.Name(), " sending message to subordinates using comm with type ", PLATFORM.Comm("mr_comm").Type());
+         PLATFORM.Comm("mr_comm").SendMessageToSubordinates("IMPERIAL", WsfMessage());
+      end_on_update
+   end_processor
+end_platform
+
+platform vader WSF_PLATFORM
+   command_chain IMPERIAL palpatine
+   add multiresolution_comm mr_comm MR_COMM
+      fidelity 1
+      common
+         network_name imperial_net
+         internal_link message_receiver
+      end_common
+   end_multiresolution_comm
+   add processor message_receiver MESSAGE_RECEIVER
+   end_processor
+end_platform
+
+platform tarkin WSF_PLATFORM
+   command_chain IMPERIAL palpatine
+   add processor message_receiver MESSAGE_RECEIVER
+   end_processor
+   add multiresolution_comm mr_comm MR_COMM
+      fidelity 0
+      common
+         network_name imperial_net
+         internal_link message_receiver
+      end_common
+   end_multiresolution_comm
+end_platform
+

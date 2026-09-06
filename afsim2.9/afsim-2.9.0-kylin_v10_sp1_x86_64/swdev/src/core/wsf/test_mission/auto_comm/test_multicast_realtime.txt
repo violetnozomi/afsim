@@ -1,0 +1,136 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#script_variables
+#   int gNumReceived = 0;
+#   int gNumIntercepted = 0;
+#end_script_variables
+#
+#protocol multicast WSF_COMM_PROTOCOL_IGMP
+#end_protocol
+#
+#comm TELEMETRY_XR WSF_COMM_TRANSCEIVER
+#end_comm
+#
+#platform_type SENDER-GROUP WSF_PLATFORM
+#   comm send TELEMETRY_XR
+#      link receiver receive
+#      link interceptor intercept
+#      add protocol localMulticast multicast
+#         level_1_multicast
+#      end_protocol
+#   end_comm
+#
+#   execute at_time 1 seconds absolute
+#      WsfTrack ppli = PLATFORM.MakeTrack();
+#      WsfTrackMessage msg = {};
+#      msg.SetTrack(ppli);
+#      WsfAddress multicastGroup = {};
+#      multicastGroup.SetAddress("230.1.1.0", 32);
+#      PLATFORM.Comm("send").SendMessage(msg, multicastGroup);
+#   end_execute
+#
+#   execute at_time 10 seconds absolute
+#      WsfTrack ppli = PLATFORM.MakeTrack();
+#      WsfTrackMessage msg = {};
+#      msg.SetTrack(ppli);
+#      WsfAddress multicastGroup = {};
+#      multicastGroup.SetAddress("230.1.1.0", 32);
+#      PLATFORM.Comm("send").SendMessage(msg, multicastGroup);
+#   end_execute
+#end_platform_type
+#
+#platform_type RECEIVER WSF_PLATFORM
+#
+#   execute at_time 5 s absolute
+#      //! Dynamically join groups during a simulation run
+#      //! Note the commented out input for joining multicast groups
+#      //! in the comm definitions below. We attempt to send at 1 s,
+#      //! which fails. We join groups at 5 seconds, then resend at 10 s,
+#      //! which succeeds.
+#      WsfAddress multicastGroup = {};
+#      multicastGroup.SetAddress("230.1.1.0", 32);
+#      Array<WsfCommProtocol> protocols = PLATFORM.Comm("receive").GetProtocols();
+#      int numProtocols = protocols.Size();
+#      for(int i = 0; i < numProtocols; i = i + 1)
+#      {
+#         WsfCommProtocolIGMP multicastProtocol = (WsfCommProtocolIGMP)protocols.Get(i);
+#         //if(multicastProtocol.IsValid())
+#         //{
+#         //   multicastProtocol.JoinMulticastGroup(multicastGroup);
+#         //}
+#      }
+#
+#   end_execute
+#
+#   comm receive TELEMETRY_XR
+#      internal_link print
+#      network_name receiver
+#      add protocol localMulticast multicast
+#         //join_multicast_group 230.1.1.0/32   // NOTE: The cidr value is ignored here
+#      end_protocol
+#   end_comm
+#
+#   processor print WSF_SCRIPT_PROCESSOR
+#      on_message type WSF_TRACK_MESSAGE
+#         script
+#            writeln("Received Message...");
+#            gNumReceived += 1;
+#         end_script
+#      end_on_message
+#   end_processor
+#end_platform_type
+#
+#platform_type INTERCEPTOR WSF_PLATFORM
+#   comm intercept TELEMETRY_XR
+#      internal_link print
+#      network_name interceptor
+#      add protocol localMulticast multicast
+#         //join_multicast_group 230.1.1.0/32   // NOTE: The cidr value is ignored here
+#      end_protocol
+#   end_comm
+#
+#   processor print WSF_SCRIPT_PROCESSOR
+#      on_message type WSF_TRACK_MESSAGE
+#         script
+#            writeln("Intercepted Message...");
+#            gNumIntercepted += 1;
+#         end_script
+#      end_on_message
+#   end_processor
+#end_platform_type
+#
+#platform sender-group SENDER-GROUP
+#end_platform
+#
+##platform sender-address SENDER-ADDRESS
+##end_platform
+#
+#platform receiver RECEIVER
+#end_platform
+#
+#platform interceptor INTERCEPTOR
+#end_platform
+#
+#script void SimulationComplete()
+#   if (gNumIntercepted != 1)
+#   {
+#      writeln("-FAIL- Intercepted messages not received.");
+#   }
+#   if (gNumReceived !=1)
+#   {
+#      writeln("-FAIL- Messages not received.");
+#   }
+#end_script
+#
+#observer
+#   enable SIMULATION_COMPLETE SimulationComplete
+#end_observer
+#
+#end_time 100 s

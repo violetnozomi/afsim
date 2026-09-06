@@ -1,0 +1,123 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+# Test of using an alternate track processor with a task processor
+
+platform t WSF_PLATFORM
+   side blue
+
+   position 40n 90w
+   
+   script_variables
+      bool FAIL = false;
+      bool MAIN_FOUND_YELLOW = false;
+      bool AUX_FOUND_GREEN = false;
+   end_script_variables
+   
+   # The 'main' sensor should only see the yellow player, report it to
+   # the 'main' track processor which should update the MASTER track
+   # list, and subsequently detected by the 'main' task processor.
+     
+   add sensor main_sensor WSF_GEOMETRIC_SENSOR
+      frame_time 5 sec
+      reports_location
+      reports_side
+      ignore_side blue
+      ignore_side green
+      internal_link main_track_proc
+      on
+   end_sensor
+   
+   add processor main_track_proc WSF_TRACK_PROCESSOR
+   end_processor
+   
+   add processor main_task_proc WSF_TASK_PROCESSOR
+      show_state_transitions
+      
+      evaluation_interval DETECTED 5 sec
+      state DETECTED
+         on_entry
+            extern bool MAIN_FOUND_YELLOW;
+            extern bool FAIL;
+            if (TRACK.Side() == "yellow")
+            {
+               MAIN_FOUND_YELLOW = true;
+            }
+            else
+            {
+               FAIL = true;
+               writeln("-FAIL- main_task_proc found ", TRACK.Side(), " player");
+            }
+         end_on_entry
+      end_state         
+   end_processor
+ 
+   # The 'aux' sensor should only see the GREEN player, report it to
+   # the 'aux' track processor which should update its LOCAL track
+   # list, and subsequently detected by the 'aux' task processor.
+  
+   add sensor aux_sensor WSF_GEOMETRIC_SENSOR
+      frame_time 5 sec
+      reports_location
+      reports_side
+      ignore_side blue
+      ignore_side yellow
+      internal_link aux_track_proc
+      on
+   end_sensor
+   
+   add processor aux_track_proc WSF_TRACK_PROCESSOR
+      non_master_track_processor
+   end_processor
+   
+   add processor aux_task_proc WSF_TASK_PROCESSOR
+      track_processor aux_track_proc
+
+      show_state_transitions
+      
+      evaluation_interval DETECTED 5 sec
+      state DETECTED
+         on_entry
+            extern bool AUX_FOUND_GREEN;
+            extern bool FAIL;
+            if (TRACK.Side() == "green")
+            {
+               AUX_FOUND_GREEN = true;
+            }
+            else
+            {
+               FAIL = true;
+               writeln("-FAIL- aux_task_proc found ", TRACK.Side(), " player");
+            }
+         end_on_entry
+      end_state         
+   end_processor
+   
+   script void on_platform_deleted()
+      if (! MAIN_FOUND_YELLOW)  { FAIL = true; writeln("-FAIL main_task_proc did not see yellow player"); }
+      if (! AUX_FOUND_GREEN) { FAIL = true; writeln("-FAIL aux_task_proc did not see green player"); }
+      if (! FAIL) writeln("-PASS-");
+   end_script
+end_platform
+
+platform yellow WSF_PLATFORM
+   side yellow
+   position 41n 89.5w altitude 30000 ft
+end_platform
+
+platform green WSF_PLATFORM
+   side green
+   position 41n 90.5w altitude 30000 ft
+end_platform
+
+end_time 20 sec
+

@@ -1,0 +1,436 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This is a test of script based trigger capabilities.
+# The initial static scenario input is the same as the basic cyber trigger test (test_cyber_trigger.txt)
+# The initial three types of trigger definitions are derived from twice for usage in both the global
+# and platform context, for a total of 6 derived trigger instances.
+# In addition, two triggers are constructed completely in the script context.
+# Each instance is tested for validity and correct functionality, to include the correct number
+# of total evaluations and executions in the simulation due to the triggers.
+#
+# Timeline (static definitions, 2 total)
+# 30s - Global evaluate false, Platform evaluate false (+2 evaluate)
+# 60s - Global evaluate false, Platform evaluate false (+2 evaluate)
+# 90s - Global evaluate true, platform evaluate true (+2 evaluate)
+#       Global execute, platform execute (+2 execute)
+# 120s - Global evaluate true (+1 evaluate)
+#        Global execute (+1 execute)
+#
+# Timeline (derived script definitions, 6 total)
+# 30s - All evaluate (+6 evaluate)
+# 60s - All evaluate (+6 evaluate)
+# 90s - All evaluate (+6 evaluate)
+#       All execute (+6 execute)
+# 120s - Derived trigger 3,4 evaluate (+2 evaluate)
+#        Derived trigger 3,4 execute (+2 execute)
+#
+# Timeline (new script created definitions, 2 total)
+# 19.4s - Platform script trigger evaluation and execution (+1 evaluate, +1 execute)
+# 22.2s - Global script trigger evaluation and execution (+1 evaluate, +1 execute)
+#
+# TOTAL - 29 evaluations, 13 executions
+script_variables
+   bool triggered = false;
+   int executed = 0;
+   int evals = 0;
+   bool script_gen_global_eval = false;
+   bool script_gen_global_execute = false;
+   bool script_gen_platform_eval = false;
+   bool script_gen_platform_execute = false;
+end_script_variables
+
+// For the triggers created in script, their evaluation and execution script methods can
+// utilize existing script methods declared globally, allowing such triggers to be created
+// from any existing script methods that have the correct signature. These script methods
+// will be utilized to provide the evaluation and execution methods for these triggers.
+script bool MyEvalScriptForGlobal()
+   script_gen_global_eval = true;
+   evals = (evals + 1);
+   //writeln("The script created global trigger has EVALUATED at time: " + (string)TIME_NOW);
+   return true;
+end_script
+
+script void MyExecuteScriptForGlobal()
+   script_gen_global_execute = true;
+   executed = executed + 1;
+   //writeln("The script created global trigger has EXECUTED at time: " + (string)TIME_NOW);
+end_script
+
+script bool MyEvalScriptForPlatform()
+   script_gen_platform_eval = true;
+   evals = (evals + 1);
+   //writeln("The script created platform trigger has EVALUATED at time: " + (string)TIME_NOW);
+   return true;
+end_script
+
+script void MyExecuteScriptForPlatform()
+   executed = executed + 1;
+   //writeln("The script created platform trigger has EXECUTED at time: " + (string)TIME_NOW);
+   script_gen_platform_execute = true;
+end_script
+
+cyber_trigger test_trigger WSF_CYBER_TRIGGER
+   debug
+   extrapolated_trigger false
+   execute_trigger false
+   update_interval
+      to 2 min every 30.0 s
+   end_update_interval
+   
+   script bool OnEvaluate()
+      evals = (evals + 1);
+   
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+   
+   script void OnExecute()
+      triggered = true;
+      executed = executed + 1;
+   end_script
+
+end_cyber_trigger
+
+cyber_trigger test_global_trigger WSF_CYBER_TRIGGER
+   debug
+   extrapolated_trigger true
+   execute_trigger true
+   update_interval
+      to 2 min every 30.0 s
+   end_update_interval
+   
+   script bool OnEvaluate()
+      evals = evals + 1;
+   
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+   
+   script void OnExecute()
+      triggered = true;
+      executed = executed + 1;
+   end_script
+
+end_cyber_trigger
+
+platform test1 WSF_PLATFORM
+   side blue
+   commander SELF
+   
+   //A copy of an existing script, to ensure only the globals are used.
+   script bool MyEvalScriptForGlobal()
+      writeln("-FAIL-");
+      writeln("Incorrect script context usage.");
+      return false;
+   end_script
+   
+   add cyber_trigger platform_test1_trigger1 test_trigger
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+script void TestInvalidTrigger(string testName, WsfCyberTrigger aTrigger)
+   if(aTrigger.IsValid() || !aTrigger.IsNull())
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Invalid trigger check fail.");
+   }
+end_script
+
+script void TestTrigger(string testName, bool extrapolated, bool executing, bool hasExecuted,
+                        double nextIntervalTime, WsfCyberTrigger aTrigger, string aIdentifier)
+   if(!aTrigger.IsValid() || aTrigger.IsNull())
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Invalid trigger " + aTrigger.Type());
+   }
+   
+   bool isExtrapolated = aTrigger.IsExtrapolated();
+   if(isExtrapolated != extrapolated)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Invalid trigger extrapolation " + aTrigger.Type());
+   }
+   
+   bool isExecuting = aTrigger.IsExecutingTrigger();
+   if(isExecuting != executing)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Invalid trigger execution directive " + aTrigger.Type());
+   }
+   
+   double nextInterval = aTrigger.NextIntervalTime();
+   if(nextIntervalTime != nextInterval)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Interval was: " + (string)nextInterval);
+      writeln("Invalid next interval " + aTrigger.Type());
+   }
+   
+   string identifier = aTrigger.GetIdentifier();
+   if(aIdentifier != identifier)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Invalid trigger identifier.");
+      writeln("Trigger identifier: " + identifier + " does not match identifier: " + aIdentifier);
+   }
+   
+   bool hasTriggered = aTrigger.HasTriggered();
+   if(hasTriggered != hasExecuted)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Trigger execution check failure.");
+   }
+end_script
+
+execute at_time 1 s absolute
+   /////////////////////EXISTING TRIGGERS/////////////////////
+   WsfCyberTrigger trigger1 = WsfCyberTrigger.GetTrigger("test_trigger");
+   WsfCyberTrigger trigger2 = WsfCyberTrigger.GetTrigger("test_global_trigger");
+   WsfCyberTrigger trigger3 = WsfCyberTrigger.GetTrigger("test1", "platform_test1_trigger1");
+
+   TestTrigger("test_trigger test", false, false, false, 30.0, trigger1, "test_trigger");
+   TestTrigger("test_global_trigger test", true, true, false, 30.0, trigger2, "test_global_trigger");
+   TestTrigger("platform_test1_trigger1 test", false, true, false, 30.0, trigger3, "platform_test1_trigger1");
+   
+   /////////////////////CREATED DERIVED TRIGGERS/////////////////////
+   // Create derived triggers from existing instances.
+   WsfCyberTrigger derivedTrigger1 = trigger1.CreateDerivedTrigger("test_trigger_derived");
+   if(!derivedTrigger1.IsValid())
+   {
+      writeln("-FAIL-");
+      writeln("Fail creation of trigger1.");
+   }
+   
+   WsfCyberTrigger derivedTrigger2 = trigger2.CreateDerivedTrigger("test_global_trigger_derived");
+   if(!derivedTrigger2.IsValid())
+   {
+      writeln("-FAIL-");
+      writeln("Fail creation of trigger2.");
+   }
+   
+   WsfCyberTrigger derivedTrigger3 = trigger3.CreateDerivedTrigger("platform_test1_trigger1_derived");
+   if(!derivedTrigger3.IsValid())
+   {
+      writeln("-FAIL-");
+      writeln("Fail creation of trigger3.");
+   }
+   
+   // Test settings for derived trigger instances. These will be identical
+   // to the triggers derived from, except they are always executing.
+   TestTrigger("derived trigger1 test", false, true, false, 30.0, derivedTrigger1, "test_trigger_derived");
+   TestTrigger("derived trigger2 test", true, true, false, 30.0, derivedTrigger2, "test_global_trigger_derived");
+   TestTrigger("derived trigger3 test", false, true, false, 30.0, derivedTrigger3, "platform_test1_trigger1_derived");
+   
+   // Add derived triggers to both contexts for testing.
+   bool success1 = derivedTrigger1.AddGlobalTrigger();
+   bool success2 = derivedTrigger1.AddPlatformTrigger("test1");
+   bool success3 = derivedTrigger2.AddGlobalTrigger();
+   bool success4 = derivedTrigger2.AddPlatformTrigger("test1");
+   bool success5 = derivedTrigger3.AddGlobalTrigger();
+   bool success6 = derivedTrigger3.AddPlatformTrigger("test1");
+   
+   if(!success1)
+   {
+      writeln("-FAIL-");
+      writeln("Fail global addition of derived trigger 1.");
+   }
+   if(!success2)
+   {
+      writeln("-FAIL-");
+      writeln("Fail platform addition of derived trigger 1.");
+   }
+   if(!success3)
+   {
+      writeln("-FAIL-");
+      writeln("Fail global addition of derived trigger 2.");
+   }
+   if(!success4)
+   {
+      writeln("-FAIL-");
+      writeln("Fail platform addition of derived trigger 2.");
+   }
+   if(!success5)
+   {
+      writeln("-FAIL-");
+      writeln("Fail global addition of derived trigger 3.");
+   }
+   if(!success6)
+   {
+      writeln("-FAIL-");
+      writeln("Fail platform addition of derived trigger 3.");
+   }
+   
+   //Get the newly added triggers, and retest.
+   WsfCyberTrigger derivedAddedTrigger1 = WsfCyberTrigger.GetTrigger("test_trigger_derived");
+   WsfCyberTrigger derivedAddedTrigger2 = WsfCyberTrigger.GetTrigger("test1", "test_trigger_derived");
+   WsfCyberTrigger derivedAddedTrigger3 = WsfCyberTrigger.GetTrigger("test_global_trigger_derived");
+   WsfCyberTrigger derivedAddedTrigger4 = WsfCyberTrigger.GetTrigger("test1", "test_global_trigger_derived");
+   WsfCyberTrigger derivedAddedTrigger5 = WsfCyberTrigger.GetTrigger("platform_test1_trigger1_derived");
+   WsfCyberTrigger derivedAddedTrigger6 = WsfCyberTrigger.GetTrigger("test1", "platform_test1_trigger1_derived");
+   
+   // By adding these triggers, they all become executing. All other settings are retained from the parent trigger.
+   TestTrigger("test_trigger_derived added global test", false, true, false, 30.0, derivedAddedTrigger1, "test_trigger_derived");
+   TestTrigger("test_trigger_derived added platform test", false, true, false, 30.0, derivedAddedTrigger2, "test_trigger_derived");
+   TestTrigger("test_global_trigger_derived added global test", true, true, false, 30.0, derivedAddedTrigger3, "test_global_trigger_derived");
+   TestTrigger("test_global_trigger_derived added platform test", true, true, false, 30.0, derivedAddedTrigger4, "test_global_trigger_derived");
+   TestTrigger("platform_test1_trigger1_derived added global test", false, true, false, 30.0, derivedAddedTrigger5, "platform_test1_trigger1_derived");
+   TestTrigger("platform_test1_trigger1_derived added platform test", false, true, false, 30.0, derivedAddedTrigger6, "platform_test1_trigger1_derived");
+
+   /////////////////////NEW SCRIPT GENERATED TRIGGERS/////////////////////
+   // Create a new global trigger.
+   WsfCyberTrigger newGlobalTrigger = {};
+   // Create a new platform trigger.
+   WsfCyberTrigger newPlatformTrigger = {};
+   
+   // Add time intervals for these new triggers. For testing purposes, they need
+   // to evaluate and execute before t=30.
+   WsfCyberTriggerInterval globalInterval = {};
+   WsfRandomVariable fromGlobal = {};
+   WsfRandomVariable everyGlobal = {};
+   fromGlobal.Set("constant", 22.2, 0.0, "non_negative");
+   everyGlobal.Set("constant", 5.0, 0.0, "non_negative");
+   globalInterval.SetFromEvery(fromGlobal, everyGlobal);
+   
+   WsfCyberTriggerInterval platformInterval = {};
+   WsfRandomVariable fromPlatform = {};
+   WsfRandomVariable everyPlatform = {};
+   fromGlobal.Set("constant", 19.4, 0.0, "non_negative");
+   everyGlobal.Set("constant", 5.0, 0.0, "non_negative");
+   platformInterval.SetFromEvery(fromGlobal, everyGlobal);
+   
+   newGlobalTrigger.AddInterval(globalInterval);
+   newPlatformTrigger.AddInterval(platformInterval);
+   
+   // Set the identifier. This must be done for script context triggers that are not derived or
+   // obtained from existing triggers.
+   newGlobalTrigger.SetIdentifier("newGlobalTrigger");
+   newPlatformTrigger.SetIdentifier("newPlatformTrigger");
+   
+   // Test default settings for script created trigger instances.
+   TestTrigger("newGlobalTrigger test initial", false, true, false, 22.2 , newGlobalTrigger, "newGlobalTrigger");
+   TestTrigger("newPlatformTrigger test initial", false, true, false, 19.4 , newPlatformTrigger, "newPlatformTrigger");
+   
+   // Set the script method overloads for these new triggers.
+   bool success = newGlobalTrigger.SetOnEvaluate("MyEvalScriptForGlobal");
+   if(!success)
+   {
+      writeln("-FAIL-");
+      writeln("Fail set global trigger evaluate.");
+   }
+   
+   success = newGlobalTrigger.SetOnExecute("MyExecuteScriptForGlobal");
+   if(!success)
+   {
+      writeln("-FAIL-");
+      writeln("Fail set global trigger execute.");
+   }
+   
+   success = newPlatformTrigger.SetOnEvaluate("MyEvalScriptForPlatform");
+   if(!success)
+   {
+      writeln("-FAIL-");
+      writeln("Fail set platform trigger evaluate.");
+   }
+   
+   success = newPlatformTrigger.SetOnExecute("MyExecuteScriptForPlatform");
+   if(!success)
+   {
+      writeln("-FAIL-");
+      writeln("Fail set platform trigger execute.");
+   }
+   
+   // At this point, script created triggers only exist in the script context. For them
+   // to actively be used by the simulation, they must be added.
+   // Note that after any trigger is added to the simulation, further changes to
+   // the trigger are only valid to the local script instantiation. Thus, ensure all
+   // all changes occur BEFORE adding it to the simulation for management.
+   success = newGlobalTrigger.AddGlobalTrigger();
+   if(!success)
+   {
+      writeln("-FAIL-");
+      writeln("Fail addition of new global trigger to simulation.");
+   }
+   
+   success = newPlatformTrigger.AddPlatformTrigger("test1");
+   if(!success)
+   {
+      writeln("-FAIL-");
+      writeln("Fail addition of new platform trigger to simulation.");
+   }
+      
+end_execute
+
+execute at_time 23 s absolute
+   // The user created script methods should have evaluated and executed at this time.
+   if(!script_gen_global_eval)
+   {
+      writeln("-FAIL-");
+      writeln("Fail script generated global evaluation.");
+   }
+   if(!script_gen_global_execute)
+   {
+      writeln("-FAIL-");
+      writeln("Fail script generated global execution.");
+   }
+   if(!script_gen_platform_eval)
+   {
+      writeln("-FAIL-");
+      writeln("Fail script generated platform evaluation.");
+   }
+   if(!script_gen_platform_execute)
+   {
+      writeln("-FAIL-");
+      writeln("Fail script generated platform execution.");
+   }
+   
+   // These triggers should be invalid now, since they have completed execution.
+   WsfCyberTrigger newGlobalTrigger = WsfCyberTrigger.GetTrigger("newGlobalTrigger");
+   WsfCyberTrigger newPlatformTrigger = WsfCyberTrigger.GetTrigger("test1", "newPlatformTrigger");
+   TestInvalidTrigger("newGlobalTrigger_invalid_test", newGlobalTrigger);
+   TestInvalidTrigger("newPlatformTrigger_invalid_test", newPlatformTrigger);
+end_execute
+
+execute at_time 121 s absolute
+   if(evals != 29)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of evals.");
+      writeln("Evals counted: " + (string)evals);
+   }
+   if(!triggered)
+   {
+      writeln("-FAIL-");
+      writeln("Not triggered.");
+   }
+   if(executed != 13)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of executions.");
+      writeln("Executes counted: " + (string)executed);
+   }
+end_execute
+
+end_time 122 s

@@ -1,0 +1,847 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#This processor will receive track update messages
+#in order conduct reactive maneuvers to an incoming
+#weapon. The frequency (and thus initial reaction) to
+#a weapon track is directly tied to the interval that
+#the track list is updated. Therefore, the delay in reaction
+#time to a initial and subsequent missile detections by the MAR
+#will be bounded by the MAR frame_time.
+
+processor BASIC_MANEUVER_PROCESSOR WSF_SCRIPT_PROCESSOR
+   #show_state_transitions
+   script_variables
+      #struct curManeuver = null;
+      int maneuverIndex = -1;
+      WsfPlatform workingPlatform = null;
+   end_script_variables
+
+   update_interval 0.1 s
+
+   on_message
+      type WSF_TRACK_NOTIFY_MESSAGE
+      script
+
+         WsfTrackNotifyMessage curMessage = (WsfTrackNotifyMessage)MESSAGE;
+         WsfTrackId curTrackId = curMessage.TrackId();
+         WsfLocalTrack curTrack = PLATFORM.TrackList("mar_track_list").FindTrack(curTrackId);
+         if(!curTrack.IsValid())
+         {
+            return;
+         }
+
+         #As we receive update notifications from the track manager, update the values
+         #we track for use with reactive maneuvers
+         if(curTrack.Target().IsValid())
+         {
+            #Only store detection time on the first track report of a particular weapon/platform
+            if(!detectionTime.Exists(curTrack.Target()))
+            {
+               detectionTime[curTrack.Target().Index()] = TIME_NOW;
+            }
+
+            #Update range to weapon every time, based on MAR track data. Overwrites old data
+            #Uses truth data to get exact range. Can use track range otherwise
+            WsfGeoPoint platPoint = PLATFORM.Location();
+            WsfGeoPoint weaponPoint = curTrack.Target().Location();
+            weaponRange[curTrack.Target().Index()] = platPoint.SlantRangeTo(weaponPoint);
+         }
+         #Debug output notification of message received
+#         writeln("");
+#         writeln("A message has been received at " + (string)TIME_NOW + " by the reactive maneuver processor.");
+#         writeln("");
+      end_script
+   end_on_message
+
+   script bool ConductManeuvers()
+      int counter = 0;
+
+      #Get the nearest weapon site for use in range and azimuth checks
+      WsfPlatform curSite = GetNearestSite(PLATFORM.Index());
+      if(!curSite.IsValid())
+      {
+         return false;
+      }
+
+      foreach (struct man in maneuverList)
+      {
+         int trig = man->trigger;
+#         writeln("CHECKING MANEUVER, TRIGGER VALUE " + (string)trig + " " + (string)TIME_NOW);
+#         int listSize = maneuverList.Size();
+#         writeln("MANEUVER LIST SIZE IS: " + (string)listSize);
+#         writeln("CURRENT COUNTER IS: " + (string)counter);
+
+         #In order to determine if a maneuver should be initiated,
+         #we traverse the maneuvers list to see if any of the trigger
+         #conditions are within parameters. If so, we initiate. The first
+         #valid maneuver is instanced first, even if multiple maneuvers are
+         #valid. As like ESAMS, it is possible to never instance a maneuver
+         #due to parameters that never occur or exclusion by another maneuver
+
+         #Check if this is a terminal manuever. It doesn't use the
+         #initial trigger set values
+         if(man->terminalManeuver >= 0)
+         {
+            if(man->timeTerminalStart == 0.0)
+            {
+               counter += 1;
+               continue;
+            }
+
+            WsfPlatform curWeapon = GetEarlistImpactWeapon();
+            if(curWeapon == null)
+            {
+               counter += 1;
+               continue;
+            }
+
+            double curImpactTime = impactTime[curWeapon.Index()];
+            if(curImpactTime <= man->timeTerminalStart)
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter += 1;
+                  continue;
+               }
+               workingPlatform = curWeapon;
+               return true;
+            }
+         }
+         else if(man->trigger == 0)
+         {
+            #Based on simulation time
+            if(man->timeToStart == man->timeToStop)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check azimuth bounds
+            if(!ValidAzimuthBound(PLATFORM, curSite, man->angleAzMin, man->angleAzMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check range bounds
+            if(!ValidRangeBound(PLATFORM, curSite, man->rangeMin, man->rangeMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            if((TIME_NOW >= man->timeToStart) && (TIME_NOW < man->timeToStop))
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter+=1;
+                  continue;
+               }
+               return true;
+            }
+         }
+         else if(man->trigger == 1)
+         {
+            #Based on rader acquisition time
+            #Time will accrue even if site changes to another mode
+            #after entering acquisition mode
+            #NOTE: In the case of multiple trackers, the tracker
+            #selected for use here will default to the platform with the longest
+            #time in acquisition mode
+            if(man->timeToStart == man->timeToStop)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check azimuth bounds
+            if(!ValidAzimuthBound(PLATFORM, curSite, man->angleAzMin, man->angleAzMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check range bounds
+            if(!ValidRangeBound(PLATFORM, curSite, man->rangeMin, man->rangeMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            WsfPlatform curTracker = GetLongestTrackerModeTime(PLATFORM.Index(), 1);
+            if(curTracker == null)
+            {
+               counter += 1;
+               continue;
+            }
+
+            double deltaTime = TIME_NOW - acquisitionTime[curTracker.Index()];
+            if((TIME_NOW >= man->timeToStart) && (TIME_NOW < man->timeToStop))
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter +=1;
+                  continue;
+               }
+               workingPlatform = curTracker;
+               return true;
+            }
+         }
+         else if (man->trigger == 2)
+         {
+            #trigger == 2 does not exist according to ESAMS usage
+            counter += 1;
+            continue;
+         }
+         else if (man->trigger == 3)
+         {
+            #Based on rader track time
+            #Time will accrue even if site changes to another mode
+            #after entering track mode
+            #NOTE: In the case of multiple trackers, the tracker
+            #selected for use here will default to the platform with the longest
+            #time in track mode
+            if(man->timeToStart == man->timeToStop)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check azimuth bounds
+            if(!ValidAzimuthBound(PLATFORM, curSite, man->angleAzMin, man->angleAzMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check range bounds
+            if(!ValidRangeBound(PLATFORM, curSite, man->rangeMin, man->rangeMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            WsfPlatform curTracker = GetLongestTrackerModeTime(PLATFORM.Index(), 2);
+            if(curTracker == null)
+            {
+               counter += 1;
+               continue;
+            }
+
+            double deltaTime = TIME_NOW - trackTime[curTracker.Index()];
+            if((TIME_NOW >= man->timeToStart) && (TIME_NOW < man->timeToStop))
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter +=1;
+                  continue;
+               }
+               workingPlatform = curTracker;
+               return true;
+            }
+         }
+         else if (man->trigger == 4)
+         {
+            #Based on time since missile launch (using the closest weapon)
+            if(man->timeToStart == man->timeToStop)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check azimuth bounds
+            if(!ValidAzimuthBound(PLATFORM, curSite, man->angleAzMin, man->angleAzMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check range bounds
+            if(!ValidRangeBound(PLATFORM, curSite, man->rangeMin, man->rangeMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            WsfPlatform curWeapon = GetWeaponThreat(PLATFORM.Index(), false);
+            if(curWeapon == null)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #This map entry should be guaranteed. If a weapon exists, it has a launch time
+            double deltaTime = TIME_NOW - launchTime[curWeapon.Index()];
+            #writeln("CHECKING TRIG 4, deltaTime = " + (string)deltaTime);
+            if((deltaTime >= man->timeToStart) && (deltaTime < man->timeToStop))
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter +=1;
+                  continue;
+               }
+               workingPlatform = curWeapon;
+               return true;
+            }
+         }
+         else if (man->trigger == 5)
+         {
+            #Based on time to impact(based on earlist weapon impact)
+            if(man->timeToStart == man->timeToStop)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check azimuth bounds
+            if(!ValidAzimuthBound(PLATFORM, curSite, man->angleAzMin, man->angleAzMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check range bounds
+            if(!ValidRangeBound(PLATFORM, curSite, man->rangeMin, man->rangeMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            WsfPlatform curWeapon = GetEarlistImpactWeapon();
+            if(curWeapon == null)
+            {
+               counter += 1;
+               continue;
+            }
+
+            double curImpactTime = impactTime[curWeapon.Index()];
+            if((curImpactTime <= man->timeToStart) && (curImpactTime > man->timeToStop))
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter +=1;
+                  continue;
+               }
+               workingPlatform = curWeapon;
+               return true;
+            }
+         }
+         else if (man->trigger == 6)
+         {
+            #Based on time since MAR detection(using closest weapon)
+            if(man->timeToStart == man->timeToStop)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check azimuth bounds
+            if(!ValidAzimuthBound(PLATFORM, curSite, man->angleAzMin, man->angleAzMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check range bounds
+            if(!ValidRangeBound(PLATFORM, curSite, man->rangeMin, man->rangeMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            WsfPlatform curWeapon = GetWeaponThreat(PLATFORM.Index(), true);
+            if(curWeapon == null)
+            {
+               counter += 1;
+               continue;
+            }
+
+            double curDetectionTime = TIME_NOW - detectionTime[curWeapon.Index()];
+            if((curDetectionTime >= man->timeToStart) && (curDetectionTime < man->timeToStop))
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter +=1;
+                  continue;
+               }
+               workingPlatform = curWeapon;
+               return true;
+            }
+         }
+         else if (man->trigger == 7)
+         {
+            #Based on range to weapon, MAR dependent
+            WsfPlatform curWeapon = GetWeaponThreat(PLATFORM.Index(), true);
+            if(curWeapon == null)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check azimuth bounds
+            if(!ValidAzimuthBound(PLATFORM, curSite, man->angleAzMin, man->angleAzMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Don't check range bounds here. It is used for the weapon, not the site
+
+            double range = weaponRange[curWeapon.Index()];
+            if((range >= man->rangeMin) && (range <= man->rangeMax))
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter +=1;
+                  continue;
+               }
+               workingPlatform = curWeapon;
+               return true;
+            }
+         }
+         else if (man->trigger == 8)
+         {
+            #Based on range to weapon, MAR independent
+            WsfPlatform curWeapon = GetWeaponThreat(PLATFORM.Index(), false);
+            if(curWeapon == null)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check azimuth bounds
+            if(!ValidAzimuthBound(PLATFORM, curSite, man->angleAzMin, man->angleAzMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Don't check range here. It is used for the weapon, not the site
+
+            double range = weaponRangeNonMAR[curWeapon.Index()];
+            if((range >= man->rangeMin) && (range <= man->rangeMax))
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter +=1;
+                  continue;
+               }
+               workingPlatform = curWeapon;
+               return true;
+            }
+         }
+         else if (man->trigger == 9)
+         {
+            #Based on illumination start
+            if(man->timeToStart == man->timeToStop)
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check azimuth bounds
+            if(!ValidAzimuthBound(PLATFORM, curSite, man->angleAzMin, man->angleAzMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            #Check range bounds
+            if(!ValidRangeBound(PLATFORM, curSite, man->rangeMin, man->rangeMax))
+            {
+               counter += 1;
+               continue;
+            }
+
+            WsfPlatform curTracker = GetLongestTrackerModeTime(PLATFORM.Index(), 0);
+            if(curTracker == null)
+            {
+               counter += 1;
+               continue;
+            }
+
+            double deltaTime = TIME_NOW - illuminationTime[curTracker.Index()];
+            if((TIME_NOW >= man->timeToStart) && (TIME_NOW < man->timeToStop))
+            {
+               maneuverIndex = counter;
+               if(!man->ExecuteManeuver(PLATFORM))
+               {
+                  counter +=1;
+                  continue;
+               }
+               workingPlatform = curTracker;
+               return true;
+            }
+         }
+#         else if (man->tigger == XX) #USER DEFINED MANEUVER START CHECK
+#         {
+#            #Using provided constraints, check to see if user defined maneuver
+#            #should be started. If so, ensure the following is set
+#
+#            #maneuverIndex = counter;               #track which maneuver in the list of maneuvers we're using
+#            #man->ExecuteManeuver(PLATFORM);        #call to execute the maneuver, user defined in utility_scripts.txt
+#                                                    #returns false is maneuver cannot be performed currently, usually due
+#                                                    #to a missing platform (a launched weapon when turning to weapon, for example)
+#            #workingPlatform = WsfPlatform(XX);     #Sets the current platform we used to make determinations
+#                                                    #on trigger conditions, such as range, time, etc.
+#                                                    #Only necessary if trigger conditions rely on an external
+#                                                    #platform to the target (such as a weapon, site, etc.) for
+#                                                    #use to determine if maneuver is completed in ManeuverOver()
+#            #return true;                           #Inform the state machine we are using a maneuver, and short-circuit
+#                                                    #the evaluation of additional maneuvers to reduce overhead
+#         }
+         counter += 1;
+      }#End ForEach
+      #No maneuvers satisfied criteria for use
+      return false;
+   end_script
+
+   #Determines if a maneuver is completed, based on the currently executing maneuver
+   #values
+   script bool ManeuverOver()
+      bool endHold = false;
+      #Get the nearest weapon site for use in range and azimuth checks
+      WsfPlatform curSite = GetNearestSite(PLATFORM.Index());
+      if(!curSite.IsValid())
+      {
+         writeln("CURRENT SITE NOT VALID!!");
+         return true;
+      }
+
+      if(maneuverIndex == -1)
+      {
+         writeln("MANEUVER INDEX -1, ENDING MANEUVER");
+         endHold = true;
+      }
+      else
+      {
+         int triggerVal = maneuverList.Get(maneuverIndex)->terminalManeuver;
+         #writeln("CHECKING MANEUVER OVER WITH TRIGGER: " + (string)triggerVal);
+         if(maneuverList.Get(maneuverIndex)->terminalManeuver >= 0)
+         {
+            #Terminal maneuver. A terminal maneuver does not have a defined
+            #end point, as the assumption is that the maneuver will be continued
+            #until the weapon resolves. As such, check to see if the weapon missed
+            if(missedWeapons.Exists(workingPlatform))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+         else if(maneuverList.Get(maneuverIndex)->trigger == 0)
+         {
+            #Based on simulation time
+            if(TIME_NOW >= maneuverList.Get(maneuverIndex)->timeToStop)
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check azimuth bounds
+            else if(!ValidAzimuthBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->angleAzMin,
+            maneuverList.Get(maneuverIndex)->angleAzMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check range bounds
+            else if(!ValidRangeBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->rangeMin,
+            maneuverList.Get(maneuverIndex)->rangeMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+         else if(maneuverList.Get(maneuverIndex)->trigger == 1)
+         {
+            #Based on rader acquisition time
+            if((!workingPlatform.IsValid()) || (!acquisitionTime.Exists(workingPlatform)))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+
+            double elapsedTime = TIME_NOW - acquisitionTime[workingPlatform.Index()];
+            if(elapsedTime >= maneuverList.Get(maneuverIndex)->timeToStop)
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check azimuth bounds
+            else if(!ValidAzimuthBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->angleAzMin,
+            maneuverList.Get(maneuverIndex)->angleAzMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check range bounds
+            else if(!ValidRangeBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->rangeMin,
+            maneuverList.Get(maneuverIndex)->rangeMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+         else if (maneuverList.Get(maneuverIndex)->trigger == 2)
+         {
+            #(trigger == 2) Not Defined
+            endHold = true;
+         }
+         else if (maneuverList.Get(maneuverIndex)->trigger == 3)
+         {
+            #Based on time in track mode
+            if((!workingPlatform.IsValid()) || (!trackTime.Exists(workingPlatform)))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+
+            double elapsedTime = TIME_NOW - trackTime[workingPlatform.Index()];
+            if(elapsedTime >= maneuverList.Get(maneuverIndex)->timeToStop)
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check azimuth bounds
+            else if(!ValidAzimuthBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->angleAzMin,
+            maneuverList.Get(maneuverIndex)->angleAzMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check range bounds
+            else if(!ValidRangeBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->rangeMin,
+            maneuverList.Get(maneuverIndex)->rangeMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+         else if (maneuverList.Get(maneuverIndex)->trigger == 4)
+         {
+            #Based on time since missile launch
+            if((!workingPlatform.IsValid()) || (!launchTime.Exists(workingPlatform)))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+
+            double elapsedTime = TIME_NOW - launchTime[workingPlatform.Index()];
+            if(elapsedTime >= maneuverList.Get(maneuverIndex)->timeToStop)
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check azimuth bounds
+            else if(!ValidAzimuthBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->angleAzMin,
+            maneuverList.Get(maneuverIndex)->angleAzMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check range bounds
+            else if(!ValidRangeBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->rangeMin,
+            maneuverList.Get(maneuverIndex)->rangeMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+         else if (maneuverList.Get(maneuverIndex)->trigger == 5)
+         {
+            #Based on time until impact
+            if((!workingPlatform.IsValid()) || (!impactTime.Exists(workingPlatform)))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+
+            double elapsedTime = TIME_NOW - impactTime[workingPlatform.Index()];
+            if(elapsedTime >= maneuverList.Get(maneuverIndex)->timeToStop)
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check azimuth bounds
+            else if(!ValidAzimuthBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->angleAzMin,
+            maneuverList.Get(maneuverIndex)->angleAzMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check range bounds
+            else if(!ValidRangeBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->rangeMin,
+            maneuverList.Get(maneuverIndex)->rangeMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+         else if (maneuverList.Get(maneuverIndex)->trigger == 6)
+         {
+            #Based on time since MAR detection
+            if((!workingPlatform.IsValid()) || (!detectionTime.Exists(workingPlatform)))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+
+            double elapsedTime = TIME_NOW - detectionTime[workingPlatform.Index()];
+            if(elapsedTime >= maneuverList.Get(maneuverIndex)->timeToStop)
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check azimuth bounds
+            else if(!ValidAzimuthBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->angleAzMin,
+            maneuverList.Get(maneuverIndex)->angleAzMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check range bounds
+            else if(!ValidRangeBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->rangeMin,
+            maneuverList.Get(maneuverIndex)->rangeMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+         else if (maneuverList.Get(maneuverIndex)->trigger == 7)
+         {
+            #Based on range to weapon, MAR dependent
+            if((!workingPlatform.IsValid()) || (!weaponRange.Exists(workingPlatform)))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+
+            double range = weaponRange[workingPlatform.Index()];
+            if((range < maneuverList.Get(maneuverIndex)->rangeMin) ||
+               (range > maneuverList.Get(maneuverIndex)->rangeMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check azimuth bounds
+            else if(!ValidAzimuthBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->angleAzMin,
+            maneuverList.Get(maneuverIndex)->angleAzMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+         else if (maneuverList.Get(maneuverIndex)->trigger == 8)
+         {
+            #Based on range to weapon, MAR independent
+            if((!workingPlatform.IsValid()) || (!weaponRangeNonMAR.Exists(workingPlatform)))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+
+            double range = weaponRangeNonMAR[workingPlatform.Index()];
+            if((range < maneuverList.Get(maneuverIndex)->rangeMin) ||
+               (range > maneuverList.Get(maneuverIndex)->rangeMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check azimuth bounds
+            else if(!ValidAzimuthBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->angleAzMin,
+            maneuverList.Get(maneuverIndex)->angleAzMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+         else if (maneuverList.Get(maneuverIndex)->trigger == 9)
+         {
+            #Based on time since illumination
+            if((!workingPlatform.IsValid()) || (!illuminationTime.Exists(workingPlatform)))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+
+            double elapsedTime = TIME_NOW - illuminationTime[workingPlatform.Index()];
+            if(elapsedTime >= maneuverList.Get(maneuverIndex)->timeToStop)
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check azimuth bounds
+            else if(!ValidAzimuthBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->angleAzMin,
+            maneuverList.Get(maneuverIndex)->angleAzMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+            #Check range bounds
+            else if(!ValidRangeBound(PLATFORM, curSite, maneuverList.Get(maneuverIndex)->rangeMin,
+            maneuverList.Get(maneuverIndex)->rangeMax))
+            {
+               endHold = true;
+               workingPlatform = null;
+            }
+         }
+#         else if (maneuverList.Get(maneuverIndex)->trigger == XX)   #USER DEFINED MANEUVER TERMINATION CHECK
+#         {
+#            #Insert the logic here to determine if a user defined manuever has
+#            #completed (so other maneuvers can be utilized)
+#            #If it is determined that the maneuver is completed, set the
+#            #following variables:
+#            #
+#            #endhold = true;           #Informs the state machine that we can use a new maneuver
+#            #workingPlatform = null;   #Optional, if using an external platform to the target, such
+#                                       #as a weapon, site, etc. to determine if a maneuver is completed,
+#                                       #set this value to null for following maneuvers
+#         }
+      }
+
+      #If we're done with the current maneuver, its no longer of use to us
+      #Remove it from the list to reduce iteration times
+      #This might need to change if multiple weapon launches are allowed
+      if((endHold) && (maneuverIndex >= 0))
+      {
+         #writeln("DELETING MANEUVER AT INDEX: " + (string)maneuverIndex + " AT TIME: " + (string)TIME_NOW);
+         maneuverList.EraseAt(maneuverIndex);
+         maneuverIndex = -1;
+      }
+      return endHold;
+   end_script
+
+   #We alternate between these two states:
+   # MANEUVER_READY - ready to accept a new reactive maneuver for use.
+   # MANEUVER_HOLD - in the process of performing a user-defined manuever
+   state MANEUVER_READY
+      next_state MANEUVER_HOLD
+         #Determine here if a maneuver should be instanced
+         return ConductManeuvers();
+      end_next_state
+   end_state
+   state MANEUVER_HOLD
+      #Note that it is very likely for the target to end in this state
+      #due to being destroyed while maneuvering, especially with a
+      #terminal maneuver being utilized
+      next_state MANEUVER_READY
+         #Determine here if a maneuver is over
+         return ManeuverOver();
+      end_next_state
+   end_state
+
+end_processor

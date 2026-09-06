@@ -1,0 +1,45 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Verifies that the WsfRoute.Waypoint(), and WsfWaypoint.Index() methods work as expected.
+route r1
+   label start
+   position 1n 1e  altitude 0 m
+   label next
+   position 2n 1e  altitude 0 m
+   label end
+   position 3n 1e  altitude 0 m
+      aux_data
+         double myDouble = 2.0
+         int    myInt = 42
+         string myString = "HiThere"
+      end_aux_data
+end_route
+
+script bool same_object(Object a, Object b)
+   return a == b;
+end_script
+execute at_time 1 s absolute
+   WsfRoute r1 = WsfRoute.CopyGlobal("r1");
+   bool ok = same_object(r1.Waypoint(0), r1.Waypoint("start"));
+   ok = ok && same_object(r1.Waypoint(1), r1.Waypoint("next"));
+   ok = ok && same_object(r1.Waypoint(2), r1.Waypoint("end"));
+   ok = ok && same_object(r1[2], r1.Waypoint("end"));
+   ok = ok && (r1.Waypoint(2).Index() == 2);
+   ok = ok && (r1.Waypoint("end").Label() == "end");
+   WsfWaypoint endWpt = r1.Waypoint("end");
+   ok = ok && (endWpt.AuxDataInt("myInt") == 42);
+   ok = ok && (endWpt.AuxDataDouble("myDouble") == 2.0);
+   ok = ok && (endWpt.AuxDataString("myString") == "HiThere");
+   if (ok)
+      writeln("-PASS-");
+   else
+      writeln("-FAIL-");
+end_execute
+

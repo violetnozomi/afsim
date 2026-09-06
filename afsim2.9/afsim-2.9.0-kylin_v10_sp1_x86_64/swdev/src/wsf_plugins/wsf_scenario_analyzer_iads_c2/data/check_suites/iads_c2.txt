@@ -1,0 +1,143 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+script void ScenarioAnalyzerDependenciesIADSC2()   
+   string d1 = "wsf_scenario_analyzer_iads_c2";
+   string d2 = "wsf_iads_c2";
+   string d3 = "wsf_mil";
+end_script
+
+// Asset manager checks
+
+script void Asset_managers_should_have_update_interval_defined()
+   ScenarioAnalyzerIADSC2.CheckAssetManagersHaveUpdateInterval();
+end_script
+
+script void Asset_manager_platforms_should_deploy_disseminate_C2_manager()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithAssetManagerHasDisseminateC2Manager();
+end_script
+
+
+// Battle manager checks
+
+script void Battle_manager_platforms_must_be_C2_capable()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithBattleManagerIsC2Capable();
+end_script
+
+script void Battle_managers_must_have_subordinate_weapons_managers_linked_by_CC_capable_platforms()
+   ScenarioAnalyzerIADSC2.CheckBattleManagerConnectedToSubordinateWeaponsManagerByC2CapablePlatforms();
+end_script
+
+script void Battle_managers_must_not_conflict_with_each_other()
+   ScenarioAnalyzerIADSC2.CheckBattleManagersDontConflict();
+end_script
+
+script void Battle_managers_should_be_reachable_by_subordinate_sensors()
+   ScenarioAnalyzerIADSC2.CheckBattleManagerReachableBySubordinateSensors();
+end_script
+
+script void Battle_managers_should_have_subordinate_sensors_managers_linked_by_CC_capable_platforms()
+   ScenarioAnalyzerIADSC2.CheckBattleManagerConnectedToSubordinateSensorsManagerByC2CapablePlatforms();
+end_script
+
+
+// Disseminate C2 manager checks
+
+script void Disseminate_C2_manager_platforms_must_have_internal_comm_links()
+  ScenarioAnalyzerIADSC2.CheckPlatformWithDisseminateC2ManagerHasInternalCommLinks();
+end_script
+
+
+// Sensors manager checks
+
+script void Sensors_manager_platforms_must_be_C2_capable()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithSensorsManagerIsC2Capable();
+end_script
+
+script void Sensors_manager_platforms_must_be_connected_to_battle_manager_with_commit_authority()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithSensorsManagerConnectedToBattleManagerWithCommitAuthority();
+end_script
+
+script void Sensors_managers_must_not_conflict_with_each_other()
+   ScenarioAnalyzerIADSC2.CheckSensorsManagersMustNotConflict();
+end_script
+
+script void Sensors_manager_platforms_must_be_connected_to_TAR_or_TTR()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithSensorsManagerConnectedToTAROrTTR();
+end_script
+
+script void Sensors_manager_max_acquisition_times_should_be_long_enough_for_subordinate_sensors_to_form_tracks()
+   ScenarioAnalyzerIADSC2.CheckMaxAquisitionTimeLongEnoughForSensorsToFormTracks();
+end_script
+
+script void Platforms_with_TAR_or_TTR_should_be_connected_to_sensors_manager()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithTAROrTTRConnectedToSensorsManager();
+end_script
+
+
+// FOV sensors manager checks
+
+script void TTRs_managed_by_FOV_sensors_manager_must_not_manipulate_on_off_state()
+   ScenarioAnalyzerIADSC2.CheckTTRWithFOVSensorsManagerDoesNotManipulateOnOff();
+end_script
+
+script void TTRs_managed_by_FOV_sensors_manager_must_use_default_sensor_scheduler()
+   ScenarioAnalyzerIADSC2.CheckTTRWithFOVSensorsManagerUsesDefaultSensorScheduler();
+end_script
+
+script void TTRs_managed_by_FOV_sensors_manager_should_provide_auxiliary_data()
+   ScenarioAnalyzerIADSC2.CheckTTRWithFOVSensorsManagerHasAuxDataFields();
+end_script
+
+script void TTRs_managed_by_FOV_sensors_manager_should_use_one_beam_per_mode()
+   ScenarioAnalyzerIADSC2.CheckTTRWithFOVSensorsManagerHasOneBeamPerMode();
+end_script
+
+
+// Weapons manager checks
+
+script void Platforms_with_weapons_should_deploy_weapons_manager()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithWeaponHasWeaponsManager();
+end_script
+
+script void Weapons_manager_platforms_must_be_C2_capable()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithWeaponsManagerIsC2Capable();
+end_script
+
+script void Weapons_manager_platforms_must_be_connected_to_battle_manager_with_commit_authority()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithWeaponsManagerConnectedToBattleManagerWithCommitAuthority();
+end_script
+
+script void Weapons_manager_platforms_must_deploy_weapons()
+   ScenarioAnalyzerIADSC2.CheckPlatformWithWeaponsManagerHasWeapon();
+end_script
+
+script void Weapons_manager_platforms_should_have_access_to_required_sensor()
+  ScenarioAnalyzerIADSC2.CheckPlatformWithWeaponsManagerHasAccessToRequiredSensor();
+end_script
+
+
+// WMAI checks
+
+script void WMAI_platforms_using_RWR_response_must_deploy_an_RWR()
+   ScenarioAnalyzerIADSC2.CheckWMAIPlatformHasRequiredRWR();
+end_script
+
+script void WMAI_platforms_using_RWR_response_should_have_RWR_tuned_to_detect_enemy_TTRs()
+    ScenarioAnalyzerIADSC2.CheckWMAIPlatformDetectsEnemyTTRs();
+end_script
+
+script void Weapons_on_WMAI_platforms_should_have_required_auxiliary_data()
+      ScenarioAnalyzerIADSC2.CheckWeaponsOnWMAIPlatformHavRequiredAuxData();
+end_script
+
+
+
+
+
+

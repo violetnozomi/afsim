@@ -1,0 +1,40 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+   script int ex_pass1()
+      return 42;
+   end_script
+   script int ex_pass2(int v)
+      return 42+v;
+   end_script
+   script void ex_pass3()
+      extern void pass();
+      if (MATH.Fabs(TIME_NOW - 5) < 0.1)
+      {
+         pass();
+      }
+      else
+      {
+         writeln("-FAIL- Test 5");
+      }
+   end_script
+   script void ex_pass4(int v)
+      extern void pass();
+      writeln(TIME_NOW);
+      if (MATH.Fabs(TIME_NOW - 5) < 0.1
+         && v == 42)
+      {
+         pass();
+      }
+      else
+      {
+         writeln("-FAIL- Test 6");
+      }
+   end_script
+

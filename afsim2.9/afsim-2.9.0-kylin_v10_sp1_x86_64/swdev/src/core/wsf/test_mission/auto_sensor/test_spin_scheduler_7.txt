@@ -1,0 +1,57 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# EZJA test case 7
+# Two targets along the same radial line
+
+include_once spin_scheduler_resources.txt
+include_once ../auto_script/test_functions.txt
+
+execute at_time .0001 sec absolute 
+   WsfSimulation.DeletePlatform("sam_1");
+end_execute
+script_variables
+   double last_detected_time = -1.0;
+   string last_detected_platform = "";
+   bool toggle = false;
+end_script_variables
+
+observer 
+   enable SENSOR_DETECTION_ATTEMPT 
+end_observer
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   if (aPlatform.Name() == "200_ew_radar")
+   {
+      if (!toggle)
+      {
+         last_detected_platform = aTarget.Name();
+         last_detected_time = TIME_NOW;
+      }
+      else {
+         AssertTrueMessage(aTarget.Name() != last_detected_platform, "Same platform detected twice in a row");
+         AssertTrueMessage(Math.Fabs(TIME_NOW - last_detected_time) < .1, "Platforms not detected at same time");
+
+      }
+      toggle = !toggle;
+   } 
+end_script
+
+platform bomber_case_7_1 BOMBER 
+   position 30:35n 81:25w
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+end_platform
+platform bomber_case_7_2 BOMBER 
+   position 30:35n 81:24w
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+end_platform

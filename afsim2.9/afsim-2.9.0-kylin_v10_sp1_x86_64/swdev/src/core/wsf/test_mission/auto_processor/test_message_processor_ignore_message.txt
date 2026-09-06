@@ -1,0 +1,77 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+ bool aMessageRcvd = false;
+end_script_variables
+
+comm RADIO WSF_COMM_TRANSCEIVER
+end_comm
+
+sensor 787_RADAR_SENSOR WSF_GEOMETRIC_SENSOR
+   frame_time 1 sec
+   reports_location
+end_sensor
+
+# -------------------------------------------------------------------------------------------------
+
+platform 737 WSF_PLATFORM
+   side green
+   position 40n 90w altitude 30000 ft
+end_platform
+
+# -------------------------------------------------------------------------------------------------
+
+platform 787 WSF_PLATFORM
+   side blue
+   position 39.1n 90w
+
+   add processor msg_proc WSF_MESSAGE_PROCESSOR
+
+      default_routing
+	  end_default_routing
+
+	  process
+		select
+		   type WSF_TRACK_MESSAGE
+		end_select
+		ignore_message
+   	    script
+		   writeln("(process)Message received: ", MESSAGE.Type());
+		   extern bool aMessageRcvd;
+		   aMessageRcvd = true;
+	    end_script
+	  end_process
+   end_processor
+
+   add comm radio-1 RADIO
+      on
+	  internal_link msg_proc
+   end_comm
+
+   add sensor airplane_scanner 787_RADAR_SENSOR
+      on
+	  update_interval 1 second
+      internal_link msg_proc
+   end_sensor
+end_platform
+
+execute at_time 5 seconds absolute
+   extern bool aMessageRcvd;
+   if (aMessageRcvd)
+   {
+      writeln("-FAIL-");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+end_time 60 sec

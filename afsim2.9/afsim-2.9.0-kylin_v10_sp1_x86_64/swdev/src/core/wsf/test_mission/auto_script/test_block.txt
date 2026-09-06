@@ -1,0 +1,47 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include test_functions.txt
+
+on_initialize
+   bool pass = true;
+   bool entered = true;
+
+   if (true)
+   {
+      { }
+      {
+      }
+      { { entered = true; } }
+   }
+
+   pass = AssertTrueMessage(entered,"sequential embedded blocks") && pass;
+
+   entered = false;
+   { int temp; int temp2; entered = true; }
+
+   pass = AssertTrueMessage(entered, "multiple assignments on same line within block.") && pass;
+
+   entered = false;
+   { entered = true; }
+
+   pass = AssertTrueMessage(entered, "single assignment inside block.") && pass;
+
+   entered = false;
+
+   {
+      int temp = 1;
+      entered = true;
+   }
+
+   pass = AssertTrueMessage(entered, "assignment within block on second line") && pass;
+
+   writePass(pass);
+
+end_on_initialize

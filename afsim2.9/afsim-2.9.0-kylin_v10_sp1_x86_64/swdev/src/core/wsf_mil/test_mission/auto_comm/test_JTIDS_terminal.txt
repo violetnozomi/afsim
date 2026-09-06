@@ -1,0 +1,108 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+define_path_variable CASE test_JTIDS_terminal
+
+script_variables
+   int numMsgsXmit = 0;
+end_script_variables
+
+script void MessageTransmitted(WsfComm aComm, WsfMessage aMsg)
+   #writeln (numMsgsXmit, " ", TIME_NOW);
+   
+   if      ((numMsgsXmit == 0) && (TIME_NOW > 12))         writeln("-FAIL");
+   else if ((numMsgsXmit == 1) && (TIME_NOW > 12))         writeln("-FAIL");
+   else if ((numMsgsXmit == 2) && (TIME_NOW > 12.0078125)) writeln("-FAIL");
+   else if ((numMsgsXmit == 3) && (TIME_NOW > 12.0078125)) writeln("-FAIL");
+   else if ((numMsgsXmit < 6) && (TIME_NOW > 24))          writeln("-FAIL");
+   else if ((numMsgsXmit < 8) && (TIME_NOW > 48))          writeln("-FAIL");
+
+   numMsgsXmit = numMsgsXmit + 1; 
+end_script
+
+observer
+   enable MESSAGE_TRANSMITTED
+end_observer
+
+comm Radio_A WSF_JTIDS_TERMINAL
+   #debug
+   command_chain TEST TEST_A
+   slot_group TEST_A
+   end_slot_group
+end_comm
+
+comm Radio_B WSF_JTIDS_TERMINAL
+   #debug
+   command_chain TEST TEST_B
+   slot_group TEST_B
+      slots_per_frame 1536
+      per_unit_slots_per_frame 1536 
+   end_slot_group
+end_comm
+
+platform Talker WSF_PLATFORM
+   command_chain TEST SELF
+   position 38n 114w altitude 30 kft 
+   add comm talker_a Radio_A end_comm
+   add comm talker_b Radio_B end_comm
+   
+   execute at_time 12 seconds absolute
+      WsfMessage hello = WsfMessage();
+      hello.SetSizeInBits(210);
+      PLATFORM.Comm("talker_a").SendMessageToSubordinates("TEST", hello);
+
+      WsfMessage helloAgain = WsfMessage();
+      helloAgain.SetSizeInBits(210);           
+      PLATFORM.Comm("talker_a").SendMessageToSubordinates("TEST", helloAgain);
+   end_execute
+   
+   execute at_time 12 seconds absolute
+      WsfMessage hello = WsfMessage();
+      hello.SetSizeInBits(210);
+      PLATFORM.Comm("talker_b").SendMessageToSubordinates("TEST", hello);
+      WsfMessage helloAgain = WsfMessage();
+      helloAgain.SetSizeInBits(210);           
+      PLATFORM.Comm("talker_b").SendMessageToSubordinates("TEST", helloAgain);
+   end_execute   
+end_platform
+
+platform Listener WSF_PLATFORM
+   command_chain TEST Talker
+   position 38n 114:10w altitude 30 kft 
+   add comm listener_a Radio_A  end_comm
+   add comm listener_b Radio_B end_comm
+   
+   execute at_time 12 seconds absolute
+      WsfMessage hello = WsfMessage();
+      hello.SetSizeInBits(210);
+      PLATFORM.Comm("listener_a").SendMessageToCommander("TEST", hello);
+      WsfMessage helloAgain = WsfMessage();
+      helloAgain.SetSizeInBits(210);  
+      PLATFORM.Comm("listener_a").SendMessageToCommander("TEST", helloAgain);
+   end_execute
+   
+   execute at_time 12 seconds absolute
+      WsfMessage hello = WsfMessage();
+      hello.SetSizeInBits(210);
+      PLATFORM.Comm("listener_b").SendMessageToCommander("TEST", hello);
+      WsfMessage helloAgain = WsfMessage();
+      helloAgain.SetSizeInBits(210);  
+      PLATFORM.Comm("listener_b").SendMessageToCommander("TEST", helloAgain);
+   end_execute   
+end_platform
+
+#event_output  
+#   file   $(CASE).evt
+##   enable MESSAGE_DELIVERY_ATTEMPT
+#   enable MESSAGE_DISCARDED
+#   enable MESSAGE_QUEUED
+#   enable MESSAGE_RECEIVED 
+#   enable MESSAGE_TRANSMITTED
+#   enable MESSAGE_UPDATED
+#end_event_output

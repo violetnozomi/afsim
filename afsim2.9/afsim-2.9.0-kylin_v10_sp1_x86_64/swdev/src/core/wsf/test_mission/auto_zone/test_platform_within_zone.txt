@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Testing WithinZone script methods on WsfPlatform
+
+# Define some absolute zones and attach to a platform type
+platform_type ZONE_TYPE WSF_PLATFORM
+   zone INSIDE
+      position 1.1n 1.1w
+      circular maximum_radius 100 km
+   end_zone
+   zone OUTSIDE
+      position 10n 10w
+      circular maximum_radius 100 km
+   end_zone
+end_platform_type
+
+# Create a target platform
+platform tgt WSF_PLATFORM
+   position 10n 10w
+end_platform
+
+# Define our platform that has the zones attached
+platform p1 ZONE_TYPE
+   position 1n 1w
+
+   execute at_time 1 s absolute
+      # First check ownship relative to zones defined on the ownship platform
+      if (PLATFORM.WithinZone("INSIDE"))          # True - our ownship is within the zone called "INSIDE"
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- Test WithinZone INSIDE");
+      }
+
+      if (!PLATFORM.WithinZone("OUTSIDE"))       # False - our ownship is not within the zone called "OUTSIDE"
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- Test WithinZone OUTSIDE");
+      }
+
+      # Now check if the target platform is inside/outside of zone attached to ownship
+      WsfPlatform tgtPlatform = WsfSimulation.FindPlatform("tgt");
+      if (!tgtPlatform.WithinZoneOf(PLATFORM, "INSIDE"))   # False - our target is not within the zone called "INSIDE"
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- Test WithinZoneOf INSIDE");
+      }
+
+      if (tgtPlatform.WithinZoneOf(PLATFORM, "OUTSIDE"))   # True - our target is within the zone called "OUTSIDE"
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- Test WithinZoneOf OUTSIDE");
+      }
+   end_execute
+
+end_platform
+

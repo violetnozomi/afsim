@@ -1,0 +1,27 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(Issue #213)** Modified :model:`WSF_BALLISTIC_MISSILE_LAUNCH_COMPUTER` so it would compute intercepts for space targets modeled using :model:`WSF_SPACE_MOVER`, :model:`WSF_NORAD_SPACE_MOVER` or :model:`WSF_GUIDED_MOVER`. Before this change computations involving space targets would typically cause the simulation to crash. To circumvent the problem the space object had to be replaced with one that used :model:`WSF_GUIDED_MOVER` and modified so it would eventually hit the Earth's surface. With the change the standard space movers can be used directly.
+* **(Issue #214) (Issue #409)** Significantly improved the 'launch-to-orbit' capabilities of :model:`WSF_GUIDED_MOVER` and :model:`WSF_GUIDANCE_COMPUTER`. Trajectories are now more realistic and transitions into orbit are smoother. Orbital launch computers will need to be regenerated.
+* **(Issue #277)** During initialization of a :model:`WSF_JTIDS_TERMINAL` comm, each :command:`command chain<WSF_JTIDS_TERMINAL.command_chain>` mapped to a slot group is verified to be a valid command chain on the platform.
+* **(Issue #285) (MANTIS #263)** Corrected an issue with the :model:`WSF_TSPI_MOVER` incorrectly extrapolating its route to due a sin/cos swap when calculating the NED velocity.
+* **(Issue #294)** The target track being used in the Air-to-Air Launch Computer generator had the wrong location information. This caused the generator to fire at the center of the earth and never find any intercept solutions.
+* **(Issue #311) (MANTIS #186)** When in route following mode, the :model:`WSF_GUIDANCE_COMPUTER` was not correctly determining when a waypoint was passed.
+* **(Issue #323)** Improved documentation for aimpoint offsets in :model:`WSF_GUIDANCE_COMPUTER` and updated the model to issue an error if the aimpoint offset input values are inconsistent (If either aimpoint_azimuth_offset and aimpoint_range_offset is non-zero then both must be non-zero.)
+* **(Issue #345)** Fixed an issue with :command:`comm` :command:`comm.jamming_perception_threshold` not operating properly for the receiver side of the :command:`comm` devices. Also fixes to grammar for proper parsing of jamming perception commands.
+* **(Issue #365)** Fixed a crash in the Air to Ground launch computer when using the script method :method:`CanIntercept<WsfLaunchComputer.CanIntercept>`.
+* **(Issue #402) (MANTIS #292)** Fixed a grammar issue in :command:`WSF_ESM_SENSOR.detection_thresholds` for the frequency ratio value not being properly parsed.
+* **(Issue #403) (MANTIS #237)** Fixed a error in the :model:`WSF_JTIDS_TERMINAL` when reading in user-specified time slot blocks.
+* **(Issue #405) (MANTIS #266)** Deprecated :command:`aero` base-type of **WSF_2D_AERO** in lieu of WSF_AERO base-type, no capability loss. Other miscellaneous grammar and documentation fixes.
+* **(Issue #404) (MANTIS #239)** Fixed missing grammar issue in :command:`WSF_IMAGE_PROCESSOR.target_recognition` and in :ref:`target_recognition_commands`.
+* **(Issue #407) (MANTIS #238)** Fixed a error in the :model:`WSF_JTIDS_TERMINAL` not using user-specified time slot blocks.
+* **(Issue #426) (MANTIS #300)** Fixed a error in the :model:`WSF_JTIDS_TERMINAL` not using user-specified :command:`maximum_range<WSF_JTIDS_TERMINAL.maximum_range>`.
+* **(Issue #436) (MANTIS #265)** Fixed issue with :model:`WSF_LINK16_COMPUTER` registering to receive ALL messages being sent in the simulation between comm devices.
+* **(Issue #441)** Fixed an issue where the :command:`event_output` for the event :ref:`MOVER_GUIDANCE_PHASE_CHANGED` was missing the trailing 'D' in the event name.
+* **(Issue #360) (MANTIS #297)** Fix runtime and grammar issues in hellfire_demos.

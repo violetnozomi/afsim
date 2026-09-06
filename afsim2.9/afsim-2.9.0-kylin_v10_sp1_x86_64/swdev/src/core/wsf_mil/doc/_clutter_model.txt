@@ -1,0 +1,28 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+surface_clutter
+***************
+
+This is an algorithmic model that computes the clutter power. It uses the parameters from the :command:`global_environment`
+for determining land formation, land coverage and sea state.
+
+.. important::
+   For :command:`surface<platform.spatial_domain>` platforms, this clutter model is intended to be used in ships with antennas of significant height compared to wave height (as specified by :command:`global_environment.sea_state`). In the case of low antenna height, other geometrical conflicts occur, and may produce undesired results.
+
+::
+
+ clutter_model <derived-name> surface_clutter
+ end_clutter_model
+
+.. command:: use_legacy_data <boolean-value>
+
+   Specified whether to use an older set of tables of clutter strength.
+
+   **Default** disabled

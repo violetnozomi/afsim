@@ -1,0 +1,27 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. command:: clear_internal_links
+
+   Remove all of the currently defined internal links defined by the internal_link_ or processor_ commands. This is useful if one wants to reuse an existing platform definition with some modifications.
+
+.. command:: internal_link <platform-part-name>
+.. command:: processor <platform-part-name>
+
+   Specify that messages that originate from this object are to be routed to the specified platform part object on the same platform. This command may be specified multiple times to route the message to multiple recipients.
+
+   *<platform-part-name>* is one the following:
+
+   * The name of a :command:`processor` on the platform.
+   * The name of a :command:`comm` device on the platform.
+   * The name of a :command:`sensor` device on the platform.
+   * The string **mover** to indicate the recipient is the :command:`mover` object on the platform.
+   * The string **fuel** to indicate the recipient is the :command:`fuel` object on the platform.
+
+   the first form where the recipient is a processor is currently the only one used. At the current time no platform parts implemented by the unclassified WSF core support receiving messages, so linking to them would not perform any useful function.

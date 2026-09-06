@@ -1,0 +1,124 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test script method WsfPlatform.FutureLocationWCS()
+
+script_variables
+   bool FAIL = false;
+end_script_variables
+
+script void SimulationComplete()
+   if (! FAIL) writeln("-PASS-");
+end_script
+
+observer
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+#event_pipe
+#   file replay.aer
+#end_event_pipe
+
+# ==============================================================================
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   icon 737
+   side green
+
+   mover WSF_AIR_MOVER
+      update_interval 1.0 sec
+   end_mover
+
+   script_variables
+      WsfDraw d = WsfDraw();
+      Array<int>         futureTimes = Array<int>();
+      Array<WsfGeoPoint> futurePoints = Array<WsfGeoPoint>();
+   end_script_variables
+
+   script void CheckPoint()
+      extern bool FAIL;
+      double      ft = futureTimes.Back();
+      WsfGeoPoint fp = futurePoints.Back();
+      WsfGeoPoint cp = Location();
+      double error = cp.SlantRangeTo(fp);
+      if (error > 1.0)
+      {
+         FAIL = true;
+         writeln("-FAIL- T=", ft, " ", Name(), ", Got ", cp, ", Expected ", fp,
+                 ", delta=", error);
+      }
+
+      futurePoints.PopBack();
+      futureTimes.PopBack();
+      if (! futureTimes.Empty())
+      {
+         ExecuteAtTime(futureTimes.Back(), "CheckPoint");
+      }
+   end_script
+
+   execute at_time 1 sec absolute
+      extern bool FAIL;
+      d.SetColor(0.6, 0.6, 0.6);
+      d.SetPointSize(10);
+      d.BeginPoints();
+      for (int t = 500; t <= 6000; t = t + 500)
+      {
+         if (t > 3000) d.SetColor(0.3, 0.3, 0.3);
+         WsfGeoPoint p = FutureLocation(t);
+         if (p.IsValid())
+         {
+            futureTimes.PushBack(t);
+            futurePoints.PushBack(p);
+            d.Vertex(p);
+         }
+         else
+         {
+            FAIL = true;
+            writeln("-FAIL- ", Name(), " no location for T=", t);
+         }
+      }
+      d.End();
+      if (! futureTimes.Empty())
+      {
+         futureTimes.Reverse();
+         futurePoints.Reverse();
+         ExecuteAtTime(futureTimes.Back(), "CheckPoint");
+      }
+   end_execute
+
+ end_platform_type
+
+ platform test-1 TEST_PLATFORM
+    route
+     label loop
+       position 1s 1e altitude 30000 ft speed 400 kts radial_acceleration 1.0 g
+       position 0n 2e
+       position 1n 1e
+       position 0n 0e
+     goto loop
+   end_route
+end_platform
+
+ platform test-2 TEST_PLATFORM
+    edit mover
+       switch_on_approach
+    end_mover
+
+    route
+     label loop
+       position 1s 3e altitude 30000 ft speed 400 kts radial_acceleration 1.0 g
+       position 0n 4e
+       position 1n 3e
+       position 0n 2e
+     goto loop
+   end_route
+end_platform
+
+end_time 6300 sec
+

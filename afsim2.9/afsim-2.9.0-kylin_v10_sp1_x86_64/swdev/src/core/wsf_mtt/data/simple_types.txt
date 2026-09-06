@@ -1,0 +1,244 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2013 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+// Platform types used for stl scenarios
+
+processor TRACK_VISUALIZATION_PROCESSOR WSF_SCRIPT_PROCESSOR
+
+   script_variables
+      WsfDraw draw = WsfDraw();
+   end_script_variables
+
+   on_initialize
+      draw.SetPointSize(5);
+   end_on_initialize
+
+   script void ProcessTrackUpdate(double aSimTime, WsfTrack aTrack)
+      string trackId = aTrack.TrackId().ToString();
+      draw.Erase(trackId);
+      draw.SetId(trackId);
+      draw.BeginPoints();
+      draw.VertexWCS(aTrack.X(), aTrack.Y(), aTrack.Z());
+      draw.End();
+      draw.BeginPolyline();
+      draw.Vertex(PLATFORM);
+      draw.VertexWCS(aTrack.X(), aTrack.Y(), aTrack.Z());
+      draw.End();
+   end_script
+
+   on_message
+      type WSF_TRACK_MESSAGE
+        script
+           //writeln(TIME_NOW, " : got track message.");
+           WsfTrackMessage msg = (WsfTrackMessage)MESSAGE;
+           writeln(TIME_NOW," ",PLATFORM.Name()," Processed Track Name: ", msg.Track().TargetName());
+           ProcessTrackUpdate(TIME_NOW, msg.Track());
+        end_script
+   end_on_message
+
+   on_message
+      type WSF_TRACK_NOTIFY_MESSAGE
+         script
+            WsfTrackNotifyMessage msg = (WsfTrackNotifyMessage)MESSAGE;
+            WsfTrackId id = msg.TrackId();
+            WsfTrack track = PLATFORM.MasterTrackList().Find(id);
+            writeln(TIME_NOW," Track Notify Name: ", track.TargetName());
+            if (track.IsValid())
+            {
+               //writeln(TIME_NOW, " : got track notify message.");
+               writeln(TIME_NOW," Processed Track Notify Name: ", track.TargetName());
+               ProcessTrackUpdate(TIME_NOW, track);
+            }
+         end_script
+   end_on_message
+end_processor
+
+
+##############################################################################
+#                         Generic Acquisition Radar
+#
+# A simple implementation of an 3-D acquisition radar.
+##############################################################################
+
+antenna_pattern ACQ_RADAR_ANTENNA
+   circular_pattern
+      beamwidth 2.0 deg
+      peak_gain  30 dB
+   end_circular_pattern
+end_antenna_pattern
+
+sensor ACQ_RADAR_SENSOR WSF_RADAR_SENSOR
+
+   location 0 0 -30 m
+//   location 0 0 0 m
+
+   frame_time 6 sec
+
+   //slew_mode             azimuth_and_elevation
+   //azimuth_slew_limits   -180.0 degrees 180 degrees
+   //elevation_slew_limits    0.0 degrees 85 degrees
+   //scan_mode             azimuth_and_elevation
+   //azimuth_scan_limits   -2.0 degrees 2.0 degrees
+   //elevation_scan_limits -2.0 degrees 2.0 degrees
+
+   scan_mode             azimuth_and_elevation
+   azimuth_scan_limits     -180.0 degrees 180.0 degrees
+   elevation_scan_limits     -5.0 degrees  30.0 degrees
+
+   transmitter
+      antenna_pattern ACQ_RADAR_ANTENNA
+      power     250 kw
+      frequency 3 ghz
+      pulse_repetition_frequency 250 hz
+      earth_radius_multiplier 1.0
+#      internal_loss              10 db
+   end_transmitter
+
+   receiver
+      earth_radius_multiplier 1.0
+      antenna_pattern ACQ_RADAR_ANTENNA
+      bandwidth                   1 mhz
+#      internal_loss               19 dB
+   end_receiver
+
+//   filter WSF_ALPHA_BETA_FILTER
+//      alpha  0.6
+//      beta   0.2
+//   end_filter
+
+   azimuth_error_sigma               0.5 deg
+   elevation_error_sigma             0.5 deg
+   range_error_sigma                 20 m
+   compute_measurement_errors false
+
+   hits_to_establish_track  2 3   # 2 of last 3 scans to establish track
+   hits_to_maintain_track   2 3   # 2 of last 3 scans to establish track
+
+   track_quality 0.7         # The reports from this sensor aren't weapon quality but they are pretty good.
+#   reports_location
+   reports_range
+   reports_range_rate
+   reports_bearing
+   reports_elevation
+   reports_velocity
+   reports_iff
+
+   ignore_same_side
+
+end_sensor
+
+//---------------------------------------
+
+platform_type RBE WSF_PLATFORM
+
+  //include on_off_script.txt
+
+  side red
+
+  add comm xcvr WSF_COMM_TRANSCEIVER
+  end_comm
+
+  track_manager
+     debug
+     //coast_time 30.0 sec
+  end_track_manager
+
+  icon EW_TEMPLATE
+
+  sensor 3d ACQ_RADAR_SENSOR
+    on
+    processor pass-thru
+
+   filter WSF_KALMAN_FILTER
+      //debug
+      //process_noise_model constant_acceleration
+      # Per Erik, the following are valid for a maneuverable high-speed target
+      # For a surface vessel he indicated they should be 2 2 2
+      process_noise_sigmas_XYZ    200 500 100
+      //process_noise_sigmas_XYZ   20 10 5
+   end_filter
+
+   //have a filter so we might as well
+   reports_velocity
+
+  end_sensor
+
+   processor pass-thru WSF_LINKED_PROCESSOR
+       report_to detect commander via xcvr
+       processor track-proc
+   end_processor
+
+  track_manager
+    uncorrelated_track_drops off
+    //debug
+  end_track_manager
+
+  processor track-proc WSF_TRACK_PROCESSOR
+    //report_to detect commander via xcvr
+    processor track-vis
+    fused_track_reporting on
+    raw_track_reporting off
+  end_processor
+
+  processor track-vis TRACK_VISUALIZATION_PROCESSOR
+    //show_correlations enabled
+  end_processor
+
+end_platform_type
+
+//---------------------------------------
+
+radar_signature F-18E_RADAR_SIGNATURE
+   constant 10 dbsm
+#   constant 1 dbsm
+end_radar_signature
+
+platform_type F-18E WSF_PLATFORM
+
+  radar_signature   F-18E_RADAR_SIGNATURE
+
+  icon F-18E
+  side blue
+
+  mover WSF_AIR_MOVER
+  end_mover
+
+end_platform_type
+
+//---------------------------------------
+
+platform_type Command_Truck WSF_PLATFORM
+
+  add comm xcvr WSF_COMM_TRANSCEIVER
+     processor track-proc
+  end_comm
+
+  side red
+  icon Command_Truck
+
+  track_manager
+
+  uncorrelated_track_drops off
+    //debug
+  end_track_manager
+
+  // For 1st level commander reporting to second level
+  processor track-proc WSF_TRACK_PROCESSOR
+    raw_track_reporting off
+    fused_track_reporting on
+    report_interval 10.0 s
+    processor track-vis
+  end_processor
+
+  processor track-vis TRACK_VISUALIZATION_PROCESSOR
+    //show_correlations enabled
+  end_processor
+
+end_platform_type

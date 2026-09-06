@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+script_variables
+   int debugLevel = 1;
+end_script_variables
+
+sensor GEO WSF_GEOMETRIC_SENSOR
+   on
+   maximum_range 400 nm
+   reports_location
+   frame_time 1 second
+end_sensor
+
+platform geo1 WSF_PLATFORM
+   position 47:26:50n 122:18:34w altitude 433 ft msl heading 0 degrees
+   
+   command_chain southwest atc1
+   
+   add sensor mySensor GEO
+      internal_link myTrackMgr
+   end_sensor
+   
+   add processor myTrackMgr WSF_TRACK_PROCESSOR
+      master_track_processor
+      internal_link myTaskMgr
+   end_processor
+   
+   add processor myTaskMgr WSF_TASK_PROCESSOR
+      script void on_track_drop()
+         writeln("-PASS-");
+         if (debugLevel)
+         {
+            writeln("Track dropped at time: ", TIME_NOW);
+         }
+         WsfSimulation.Terminate();
+      end_script
+   end_processor   
+   
+   execute at_time 8 seconds absolute
+      writeln("-FAIL");  #note, we should never get here if all behavior is correct.
+   end_execute
+end_platform
+
+platform 737_swa_flt1 WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+   end_mover
+   position 47:26:56n 122:18:34w altitude 433 ft msl heading 0 degrees
+   
+   execute at_time 5 seconds absolute
+      WsfSimulation.DeletePlatform("737_swa_flt1");
+   end_execute
+end_platform
+
+end_time 11 seconds

@@ -1,0 +1,95 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform target WSF_PLATFORM
+   icon satellite
+   side blue
+
+   add mover WSF_NORAD_SPACE_MOVER
+      eccentricity 0.001
+      inclination 20.0 deg
+      raan 60.0 deg
+      semi_major_axis 12000 km
+      true_anomaly 0 deg
+      argument_of_periapsis 0.0 deg
+   end_mover
+end_platform
+
+platform eci-chaser WSF_PLATFORM
+   icon satellite
+   side blue
+   
+   add mover WSF_NORAD_SPACE_MOVER
+      conjunction_setup
+         from_eci 12000 km 0 km 500 km
+         with_target target
+         at_time 1 hour
+      end_conjunction_setup
+   end_mover
+end_platform
+
+platform lla-chaser WSF_PLATFORM
+   icon satellite
+   side blue
+   
+   add mover WSF_NORAD_SPACE_MOVER
+      conjunction_setup
+         from_lla 20:00:00n 180:00:00w 5000 km
+         with_target target
+         at_time 1.5 hour
+      end_conjunction_setup
+   end_mover
+end_platform
+
+platform init-chaser WSF_PLATFORM
+   icon satellite
+   side blue
+   
+   add mover WSF_NORAD_SPACE_MOVER
+      eccentricity 0.001
+      inclination 20.0 deg
+      raan 0.0 deg
+      semi_major_axis 12000 km
+      true_anomaly 30 deg
+      argument_of_periapsis 0.0 deg
+      
+      conjunction_setup
+         from_initial
+         with_target target
+         at_time 2.0 hour
+      end_conjunction_setup
+   end_mover
+end_platform
+
+script void TestConjunction(string aTarget, string aChaser, double aTolerance)
+   WsfPlatform chaser = WsfSimulation.FindPlatform(aChaser);
+   WsfPlatform target = WsfSimulation.FindPlatform(aTarget);
+   double sep = Vec3.Subtract(chaser.LocationECI(), target.LocationECI()).Magnitude();
+   if (sep > aTolerance)
+   {
+      writeln("-FAIL- ", aTarget, " too far from ", aChaser, " sep = ", sep);
+   }
+end_script
+
+execute at_time 1 hour absolute
+   TestConjunction("target", "eci-chaser", 0.01);
+end_execute
+
+execute at_time 1.5 hour absolute
+   TestConjunction("target", "lla-chaser", 0.01);
+end_execute
+
+execute at_time 2.0 hour absolute
+   TestConjunction("target", "init-chaser", 0.01);
+end_execute
+
+start_date mar 18 2017
+start_time 0:00:00
+
+end_time 3 hr

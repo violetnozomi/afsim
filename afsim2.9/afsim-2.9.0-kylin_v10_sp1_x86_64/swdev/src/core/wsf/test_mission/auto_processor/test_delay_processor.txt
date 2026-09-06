@@ -1,0 +1,155 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+################################################################################
+# A basic test of WSF_DELAY_PROCESSOR, and the ability to use script variables
+# for some command values.
+#
+# NOTE: As of 1.7.3, WSF_DELAY_PROCESSOR is a synonym for WSF_MESSAGE_PROCESSOR.
+#
+################################################################################
+#
+# Sends 3 messages at 5, 6 and 7 seconds to delay processors that have a 3 second
+# delay. One processor has a simple delay (no queueing) and so processes the
+# messages at 8, 9 and 10 seconds. The other is single-threaded (one server), and
+# so processes the messages at 8, 11 and 14 seconds.
+#
+################################################################################
+
+include ../auto_script/test_functions.txt
+
+#log_file replay.log
+
+# Some of the parameters are configured by script variables to test the variable
+# references.
+
+script_variables
+   double SIMPLE_DELAY_TIME = 3.0;     # No default, must be specified
+   double QUEUED_DELAY_TIME = 3.0;     # Should override the default
+   #int    NUMBER_OF_SERVERS = 2;      # Commented out, let the default of 1 be used
+end_script_variables
+
+platform tester WSF_PLATFORM
+
+   add processor simple_delay WSF_DELAY_PROCESSOR
+      # Try all forms of the command... only the last one (constant time) will be used.
+      time_distribution uniform    minimum_time 10.0 sec maximum_time 11.0 sec
+      time_distribution normal     mean_time    10.0 sec sigma_time   1.0 sec
+      time_distribution log_normal mean_time    10.0 sec sigma_time   1.0 sec
+      time_distribution constant   time /variable SIMPLE_DELAY_TIME
+
+      internal_link simple_delay_test
+   end_processor
+
+   add processor queued_delay WSF_DELAY_PROCESSOR
+      number_of_servers /variable NUMBER_OF_SERVERS /default 1
+      time_distribution constant time /variable QUEUED_DELAY_TIME /default 4.0 sec
+
+      internal_link queued_delay_test
+   end_processor
+
+   add processor simple_delay_test WSF_SCRIPT_PROCESSOR
+      script_variables
+         bool ok1 = false;
+         bool ok2 = false;
+         bool ok3 = false;
+      end_script_variables
+      on_message
+         type TEST_MESSAGE
+            script
+               writeln("T=", TIME_NOW, " ", Name(), " Received message");
+               if (Math.Fabs(TIME_NOW - 8.0) < 0.01)
+               {
+                  if (ok1) writeln("-FAIL- ", Name(), " Received duplicate message T=", TIME_NOW);
+                  ok1 = true;
+               }
+               else if (Math.Fabs(TIME_NOW - 9.0) < 0.01)
+               {
+                  if (ok2) writeln("-FAIL- ", Name(), " Received duplicate message T=", TIME_NOW);
+                  ok2 = true;
+               }
+               else if (Math.Fabs(TIME_NOW - 10.0) < 0.01)
+               {
+                  if (ok3) writeln("-FAIL- ", Name(), " Received duplicate message T=", TIME_NOW);
+                  ok3 = true;
+               }
+               else
+               {
+                  writeln("-FAIL- ", Name(), " Received unexpected message T=", TIME_NOW);
+               }
+            end_script
+      end_on_message
+
+      execute at_time 20 sec absolute
+         if (! (ok1 && ok2 && ok3))
+         {
+            writeln("-FAIL- ", Name(), " Failed to receive expected messages: ", ok1, ok2, ok3);
+         }
+      end_execute
+   end_processor
+
+   add processor queued_delay_test WSF_SCRIPT_PROCESSOR
+      script_variables
+         bool ok1 = false;
+         bool ok2 = false;
+         bool ok3 = false;
+      end_script_variables
+      on_message
+         type TEST_MESSAGE
+            script
+               writeln("T=", TIME_NOW, " ", Name(), " Received message");
+               if (Math.Fabs(TIME_NOW - 8.0) < 0.01)
+               {
+                  if (ok1) writeln("-FAIL- ", Name(), " Received duplicate message T=", TIME_NOW);
+                  ok1 = true;
+               }
+               else if (Math.Fabs(TIME_NOW - 11.0) < 0.01)
+               {
+                  if (ok2) writeln("-FAIL- ", Name(), " Received duplicate message T=", TIME_NOW);
+                  ok2 = true;
+               }
+               else if (Math.Fabs(TIME_NOW - 14.0) < 0.01)
+               {
+                  if (ok3) writeln("-FAIL- ", Name(), " Received duplicate message T=", TIME_NOW);
+                  ok3 = true;
+               }
+               else
+               {
+                  writeln("-FAIL- ", Name(), " Received unexpected message T=", TIME_NOW);
+               }
+            end_script
+      end_on_message
+
+      execute at_time 20 sec absolute
+         if (! (ok1 && ok2 && ok3))
+         {
+            writeln("-FAIL- ", Name(), " Failed to receive expected messages: ", ok1, ok2, ok3);
+         }
+      end_execute
+   end_processor
+
+   add processor sender WSF_SCRIPT_PROCESSOR
+
+      script void SendTestMessage()
+         WsfMessage message = WsfMessage();
+         message.SetType("TEST_MESSAGE");
+         SendMessage(message);
+      end_script
+
+      internal_link simple_delay
+      internal_link queued_delay
+
+      execute at_time 5.0 sec absolute SendTestMessage(); end_execute
+      execute at_time 6.0 sec absolute SendTestMessage(); end_execute
+      execute at_time 7.0 sec absolute SendTestMessage(); end_execute
+   end_processor
+end_platform
+
+end_time 25 sec
+

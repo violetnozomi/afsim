@@ -1,0 +1,161 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# A very simple test of WSF_LADAR_SENSOR.
+#
+# This is the example from Chapter 1 of:
+#   SPIE Tutorial Text: Direct Detction LADAR Systems (TT85)
+#
+# This is not an exhaustive test, but it ensures that everything parses and the correct
+# signal/noise is produced and Pd is produced.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include ../auto_script/test_functions.txt
+
+# Expected detector data:
+#  Xmtd_Power: 10000 W Rcvd_Power: 3.18307e-08 W Rcvr_Noise: 5.16094e-09 W  S/N: 1.85029 Threshold: 1
+#  Noise_Rates: Background: 6826.73 MHz (Solar: 585.218 MHz, Dark: 6241.51 MHz)
+#  Photon_Counts: Signal: 745.114 Background: 95.671 (Solar: 5.85218, Signal: 27.4038, Dark: 62.4151) Thermal: 401.691
+#  Pd: 0.802417 RequiredPd: 0.714634 Detected: 1  
+sensor LADAR WSF_LADAR_SENSOR
+   frame_time 1 sec
+   
+   transmitter
+      wavelength                       1550 nanometers
+      power                            0.1 watts // average
+      pulse_width                      10 nanoseconds
+      pulse_repetition_frequency       10 hz
+      aperture_diameter                0.01 m
+      optics_transmission_factor       1.0
+      beam_divergence_angle            0.01 rad
+   end_transmitter
+      
+   receiver
+      aperture_diameter                0.01 m
+      optics_transmission_factor       1.0
+      quantum_efficiency               0.3
+      detector_gain                    1.0
+
+      # Parameters for computing instantaneous field-of-view (IFOV)
+      focal_length                     0.1 m
+      detector_size                    0.0001 m
+      
+      # Parameters for computing thermal noise
+      circuit_temperature              300 K
+      circuit_capacitance              1.0E-12 farads
+      
+      # Parameters for computing background noise
+      dark_current                     1 nanoamp
+      dark_count_rate                  6231.51 mHz        # Preferred alternative: produces 1 nanoamp
+   end_receiver
+   
+   # More parameters for computing background noise
+   background_irradiance               1000.0 watts/m^2/um
+   background_temperature              5641.95 K          # Perferred alternative: produces 1000 w/m^2/um
+   
+   detection_threshold                 1.0
+   
+   reports_location
+end_sensor
+
+# =============================================================================
+
+# Tweak parameters so it is more sensitive to changes in solar background.
+# These parameters should produce identical results to the definition above.
+sensor TEST_SOLAR_BACKGROUND_LADAR WSF_LADAR_SENSOR
+   frame_time 1 sec
+
+   transmitter
+      wavelength                       1550 nanometers
+      power                            0.01 watts
+      pulse_width                      10 nanoseconds
+      pulse_repetition_frequency       100 hz
+      aperture_diameter                0.1 m
+      optics_transmission_factor       1.0
+      beam_divergence_angle            0.01 rad
+   end_transmitter
+      
+   receiver
+      aperture_diameter                0.1 m
+      optics_transmission_factor       1.0
+      quantum_efficiency               0.3
+      detector_gain                    1.0
+
+      # Parameters for computing instantaneous field-of-view (IFOV)
+      focal_length                     0.1 m
+      detector_size                    0.0001 m
+      
+      # Parameters for computing thermal noise
+      circuit_temperature              300 K
+      circuit_capacitance              1.0E-12 farads
+      
+      # Parameters for computing background noise
+      dark_current                     1 nanoamp
+      dark_count_rate                  6241.51 mHz        # Preferred alternative: produces 1 nanoamp
+   end_receiver
+   
+   # More parameters for computing background noise
+   background_irradiance               1000.0 watts/m^2/um
+   background_temperature              5641.95 K          # Perferred alternative: produces 1000 w/m^2/um
+   
+   detection_threshold                 1.0
+   
+   reports_location
+end_sensor
+
+# Optical cross section of target chosen so it is bigger than beam.
+optical_signature TARGET_OPTICAL_SIG
+   constant 1000 m^2
+end_optical_signature
+
+optical_reflectivity TARGET_OPTICAL_REFLECTIVITY
+   constant 0.1
+end_optical_reflectivity
+
+platform target WSF_PLATFORM
+   optical_signature     TARGET_OPTICAL_SIG
+   optical_reflectivity  TARGET_OPTICAL_REFLECTIVITY
+   
+   # Defined to get 1000 meter range
+   position 0n 0.0089789e altitude 10000 ft
+end_platform
+
+platform sensor WSF_PLATFORM
+   add sensor ladar LADAR
+      debug
+      on
+   end_sensor
+   add sensor test_solar_background_ladar TEST_SOLAR_BACKGROUND_LADAR
+      debug
+      on
+   end_sensor
+   position 0n 0e altitude 10000 ft
+end_platform
+
+script void SensorDetectionAttempt(WsfPlatform          aPlatform,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+   double snr = MATH.DB_ToLinear(aResult.SignalToNoise());
+   double pd  = aResult.Pd();
+   bool passed = true;
+   
+   // Expected results changed in AFSIM 2.4 to include effect of signal shot noise.
+   if (! AssertWithinToleranceMessage(0.802417, pd,  0.00001, "Pd")) passed = false;
+   if (! AssertWithinToleranceMessage(1.85029,  snr, 0.0001, "SNR")) passed = false;
+   writePass(passed);
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+end_observer
+
+end_time 0.5 sec

@@ -1,0 +1,104 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Filename: test_electronic_beamwidth_steering.txt
+
+include ../auto_script/test_functions.txt
+
+antenna_pattern SIMPLE
+   circular_pattern
+      peak_gain 10 dB
+      minimum_gain -30 dB
+      beamwidth 10 deg
+end_antenna_pattern
+
+sensor SIMPLE_RADAR WSF_RADAR_SENSOR
+   on
+   frame_time 10 s
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_signal_to_noise 
+   compute_measurement_errors true
+   
+   transmitter
+      power 1000 kw
+      frequency 1 GHz
+      antenna_pattern SIMPLE
+   end_transmitter
+
+   receiver
+      antenna_pattern SIMPLE
+   end_receiver
+   
+   scan_mode both
+   azimuth_scan_limits -60 deg 60 deg
+   elevation_scan_limits -60 deg 60 deg
+   
+   electronic_beam_steering both
+   
+   one_m2_detect_range 50 NM
+end_sensor
+
+radar_signature CUEBALL_0DB
+   constant 0 dBsm
+end_radar_signature
+
+platform sensor_platform WSF_PLATFORM
+   position 0n 0e altitude 1 kft agl
+
+   add sensor SIMPLE SIMPLE_RADAR
+   end_sensor
+end_platform
+
+platform target WSF_PLATFORM
+   icon B52
+   radar_signature CUEBALL_0DB
+   position 0.1n 0.5e altitude 1 kft agl
+   execute at_interval_of 10 s
+      static double az = 90;
+      static double el = 0;
+      
+      if (az <= -90)
+      {
+         az = 90;
+         el += 10;
+         if (30 <= el) { WsfSimulation.Terminate(); }
+      }
+      WsfGeoPoint loc = WsfGeoPoint.Construct(0,0,0);
+      loc.OffsetRBE(15000, az, el);
+      PLATFORM.SetLocation(loc);
+      az -= 10;
+   end_execute
+end_platform
+
+observer
+   enable SENSOR_TRACK_UPDATED
+end_observer
+
+# SENSOR_TRACK_UPDATED
+script void SensorTrackUpdated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)     
+      double error_denominator = MATH.Sqrt(2.0 * aTrack.SignalToNoise());
+      double freq = MATH.Pow(10,9);
+      
+      double EBS_az = aPlatform.TrueBearingTo(aTrack.Target());
+      double EBS_el = aPlatform.RelativeElevationOf(aTrack.Target().Location());
+      double azBeam = MATH.RAD_PER_DEG() * aSensor.Rcvr(0).AntennaPattern(freq).AzimuthBeamwidth(freq, EBS_az, EBS_el);
+      double elBeam = MATH.RAD_PER_DEG() * aSensor.Rcvr(0).AntennaPattern(freq).ElevationBeamwidth(freq, EBS_az, EBS_el);
+
+      double azBeamUnsteered = MATH.RAD_PER_DEG() * aSensor.Rcvr(0).AntennaPattern(freq).AzimuthBeamwidth(freq);
+      double azBeamSteered = azBeamUnsteered / MATH.Cos(EBS_az);  
+      AssertWithinToleranceMessage(azBeamSteered, azBeam, 0.000001, "Steered azimuth beamwidth");
+
+      double elBeamUnsteered = MATH.RAD_PER_DEG() * aSensor.Rcvr(0).AntennaPattern(freq).ElevationBeamwidth(freq);
+      double elBeamSteered = elBeamUnsteered / MATH.Cos(EBS_el);  
+      AssertWithinToleranceMessage(elBeamSteered, elBeam, 0.000001, "Steered elevation beamwidth");   
+end_script
+
+end_time 5 min

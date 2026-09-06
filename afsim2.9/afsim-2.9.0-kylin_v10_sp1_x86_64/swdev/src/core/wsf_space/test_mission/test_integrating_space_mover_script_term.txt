@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 1 2020
+start_time 12:00:00.000
+end_time 1 min
+
+platform test WSF_PLATFORM
+   icon cubesat
+   side blue
+   
+   empty_mass 1.0 kg   // NOTE: If you change this, change the script variable below.
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      initial_state
+         position 1.0 m 0.0 m 0.0 m
+         velocity 0.0 m/s 1.0 m/s 0.0 m/s
+         epoch_date_time jan 1 2020 12:00:00.000
+      end_initial_state
+      
+      integrator prince_dormand_78
+         tolerance 1.0e-12
+      end_integrator
+      
+      dynamics
+         term scripted
+            script SimpleHarmonicOscillator 
+         end_term
+      end_dynamics
+   end_mover 
+end_platform
+
+script_variables
+   double gSpringConstant  = 0.04386490844928603;
+   double gMass            = 1.0;
+   double gOmega           = Math.Sqrt(gSpringConstant / gMass);
+   Vec3   gInitialPosition = Vec3.Construct(1.0, 0.0, 0.0);
+   Vec3   gInitialVelocity = Vec3.Construct(0.0, 1.0, 0.0);
+   bool   gAnyFailure      = false;
+   double gTolerance       = 1.0e-8;
+   double gTestInterval    = 0.1;
+   double gMassFailed      = false;
+end_script_variables
+
+script Vec3 SimpleHarmonicOscillator(WsfIntegratingSpaceMover aMover, double aMass, Calendar aTime, Vec3 aPosition, Vec3 aVelocity)
+   if (!gMassFailed && Math.Fabs(aMass - gMass) > 1.0e-12)
+   {
+      writeln("-FAIL- Provided mass in script term does not match expected platform mass.");
+      gAnyFailure = true;
+      gMassFailed = true;
+   }
+   double factor = -gOmega * gOmega;
+   return Vec3.Construct(aPosition.X() * factor, aPosition.Y() * factor, aPosition.Z() * factor);
+end_script
+
+script double SHO_Function(double aDt, double aOmega, double aA, double aB)
+   double angle = aOmega * aDt * Math.DEG_PER_RAD();
+   return aA * Math.Cos(angle) + aB * Math.Sin(angle);
+end_script
+
+script Vec3 SHO_PositionSolution(double aTime)
+   return Vec3.Construct(SHO_Function(aTime, gOmega, gInitialPosition.X(), gInitialVelocity.X() / gOmega),
+                         SHO_Function(aTime, gOmega, gInitialPosition.Y(), gInitialVelocity.Y() / gOmega),
+                         SHO_Function(aTime, gOmega, gInitialPosition.Z(), gInitialVelocity.Z() / gOmega)); 
+end_script
+
+script Vec3 SHO_VelocitySolution(double aTime)
+   return Vec3.Construct(SHO_Function(aTime, gOmega, gInitialVelocity.X(), -gInitialPosition.X() * gOmega),
+                         SHO_Function(aTime, gOmega, gInitialVelocity.Y(), -gInitialPosition.Y() * gOmega),
+                         SHO_Function(aTime, gOmega, gInitialVelocity.Z(), -gInitialPosition.Z() * gOmega));
+end_script
+
+script void RunTest()
+   WsfPlatform test = WsfSimulation.FindPlatform("test");
+   Vec3 pos = test.LocationECI();
+   Vec3 vel = test.VelocityECI();
+
+   Vec3 posSoln = SHO_PositionSolution(TIME_NOW);
+   Vec3 velSoln = SHO_VelocitySolution(TIME_NOW);
+   
+   Vec3 posDiff = Vec3.Subtract(pos, posSoln);
+   Vec3 velDiff = Vec3.Subtract(vel, velSoln);
+   
+   if (posDiff.Magnitude() > gTolerance)
+   {
+      writeln("-FAIL- Position difference at time ", TIME_NOW, " too great: ", posDiff.Magnitude());
+      gAnyFailure = true;
+   }
+   if (velDiff.Magnitude() > gTolerance)
+   {
+      writeln("-FAIL- Velocity difference at time ", TIME_NOW, " too great: ", velDiff.Magnitude());
+      gAnyFailure = true;
+   }
+   
+   if (!gAnyFailure)
+   {
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gTestInterval, "RunTest");
+   }
+end_script
+
+script void FinalAssessment()
+   if (!gAnyFailure)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SIMULATION_STARTING RunTest
+   enable SIMULATION_COMPLETE FinalAssessment
+end_observer

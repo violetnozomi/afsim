@@ -1,0 +1,298 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2019 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script WsfSpaceMover GetSpaceMover(WsfPlatform aPlatform)
+   if (aPlatform.IsValid())
+   {
+      WsfSpaceMover mover = (WsfSpaceMover)aPlatform.Mover();
+      if (mover.IsValid())
+      {
+         return mover;
+      }
+      else
+      {
+         writeln("-FAIL- platform ", aPlatform.Name(), " does not have a space mover");
+      }
+   }
+   else
+   {
+      writeln("-FAIL- no such platform: ", aPlatform);
+   }
+   return (WsfSpaceMover)WsfSpaceMover.Create("WSF_SPACE_MOVER");
+end_script
+
+# Checks aRIC against a calculated ric value from aPlatform and aLocECI
+script void CheckRIC(WsfPlatform aPlatform, Vec3 aRIC, Vec3 aLocECI, double aSimTime, double aTolerance, string aParamName)
+   WsfSpaceMover primaryMover = GetSpaceMover(aPlatform);
+   
+   Vec3 refPos = primaryMover.LocationECI_AtTime(aSimTime);
+   Vec3 refVel = primaryMover.VelocityECI_AtTime(aSimTime);
+   Vec3 refAngularMomentum = Vec3.Cross(refPos, refVel);
+   Vec3 radialVec = refPos;                               
+   Vec3 crossTrackVec = refAngularMomentum;                     
+   Vec3 inTrackVec = Vec3.Cross(crossTrackVec, radialVec);
+   Vec3 radialNorm = radialVec.Normal();
+   Vec3 inTrackNorm = inTrackVec.Normal();
+   Vec3 crossTrackNorm = crossTrackVec.Normal();
+   Vec3 relPos = Vec3.Subtract(aLocECI, refPos);
+   
+   double relRadial =     Vec3.Dot(radialNorm, relPos);
+   double relInTrack =    Vec3.Dot(inTrackNorm, relPos);
+   double relCrossTrack = Vec3.Dot(crossTrackNorm, relPos);
+
+   Vec3 expected = Vec3.Construct(relRadial, relInTrack, relCrossTrack);
+
+   if (MATH.Fabs(aRIC[0] - expected[0]) > aTolerance || MATH.Fabs(aRIC[1] - expected[1]) > aTolerance || MATH.Fabs(aRIC[2] - expected[2]) > aTolerance)
+   {
+      writeln("-FAIL- RIC at ", aSimTime, " for platform ", aPlatform.Name(), " and ", aParamName, " is ", aRIC, " when it is expected to be ", expected);
+   }
+end_script
+
+# Gets the ECI location for aTrack at TIME_NOW, then check that RIC is accurate from it.
+script void CalculateECIAndCheckRIC_Track(WsfPlatform aPlat, WsfTrack aTrack, Vec3 aRIC, double aTolerance, string aParamName)
+   Vec3 trackLocECI = aPlat.ConvertWCSToECI(aTrack.LocationAtTime(TIME_NOW).LocationWCS());
+   CheckRIC(aPlat, aRIC, trackLocECI, TIME_NOW, aTolerance, aParamName);
+end_script
+
+# Gets the ECI location for aOther at TIME_NOW, then check that RIC is accurate from it.
+script void CalculateECIAndCheckRIC_Plat(WsfPlatform aPlat, WsfPlatform aOther, Vec3 aRIC, double aTolerance, string aParamName)
+   WsfSpaceMover mover = GetSpaceMover(aOther);
+   Vec3 otherLocECI = mover.LocationECI_AtTime(TIME_NOW);
+   CheckRIC(aPlat, aRIC, otherLocECI, TIME_NOW, aTolerance, aParamName);
+end_script
+
+
+script void TestApoapsis(WsfPlatform aPlatform, double aExpected, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   double apo = mover.Apoapsis();
+   if (MATH.Fabs(apo - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Apoapsis of ", aPlatform.Name(), " is ", apo, " when it is expected to be ", aExpected);
+   }
+end_script
+
+script void TestApoapsisAltitude(WsfPlatform aPlatform, double aExpected, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   double apo = mover.ApoapsisAltitude();
+   if (MATH.Fabs(apo - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Apoapsisa altitude of ", aPlatform.Name(), " is ", apo, " when it is expected to be ", aExpected);
+   }
+end_script
+
+script void TestPeriapsis(WsfPlatform aPlatform, double aExpected, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   double peri = mover.Periapsis();
+   if (MATH.Fabs(peri - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Periapsis of ", aPlatform.Name(), " is ", peri, " when it is expected to be ", aExpected);
+   }
+end_script
+
+script void TestPeriapsisAltitude(WsfPlatform aPlatform, double aExpected, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   double peri = mover.PeriapsisAltitude();
+   if (MATH.Fabs(peri - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Periapsis altitude of ", aPlatform.Name(), " is ", peri, " when it is expected to be ", aExpected);
+   }
+end_script
+
+script void TestOrbitalPeriod(WsfPlatform aPlatform, double aExpected, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   double per = mover.OrbitalPeriod();
+   if (MATH.Fabs(per - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Orbital period of ", aPlatform.Name(), " is ", per, " when it is expected to be ", aExpected);
+   }
+end_script
+
+script void TestOrbitalRegime(WsfPlatform aPlatform, string aExpected)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   string regime = mover.OrbitalRegime();
+   if (regime != aExpected)
+   {
+      writeln("-FAIL- Orbital regime of ", aPlatform.Name(), " is ", regime, " when it is expected to be ", aExpected);
+   }
+end_script
+
+script void TestRevNumber(WsfPlatform aPlatform, double aSince, double aExpected, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   double revs = mover.RevolutionNumber(aSince);
+   if (MATH.Fabs(revs - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Revolution number of ", aPlatform.Name(), " is ", revs, " when it is expected to be ", aExpected);
+   }
+end_script
+
+script void TestRevNumberCal(WsfPlatform aPlatform, Calendar aSince, double aExpected, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   double revs = mover.RevolutionNumber(aSince);
+   if (MATH.Fabs(revs - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Revolution number of ", aPlatform.Name(), " is ", revs, " when it is expected to be ", aExpected);
+   }
+end_script
+
+script void TestRevsPerDay(WsfPlatform aPlatform, double aExpected, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   double rpd = mover.RevolutionsPerDay();
+   if (MATH.Fabs(rpd - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Revolutions per day  ", aPlatform.Name(), " is ", rpd, " when it is expected to be ", aExpected);
+   }
+end_script
+
+script void TestRICPlatformPresent(WsfPlatform aPlatform, WsfPlatform aOther, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   Vec3 ric = mover.RIC_AtTime(TIME_NOW, aOther);
+
+   # Calculate and compare RIC values
+   CalculateECIAndCheckRIC_Plat(aPlatform, aOther, ric, aTolerance, "platform " + aOther.Name()); 
+end_script
+
+# Compares RIC at present
+script void TestRICTrackPresent(WsfPlatform aPlatform, WsfTrack aTrack, double aTolerance)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   Vec3 ric = mover.RIC(aTrack);
+   
+   # Calculate and compare RIC values
+   CalculateECIAndCheckRIC_Track(aPlatform, aTrack, ric, aTolerance, "track " + aTrack.TrackId().ToString()); 
+end_script
+
+script void TestRICPlatformFuture(WsfPlatform aPlatform, WsfPlatform aOther, double aTolerance, double aSimTime)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   Vec3 ric = mover.RIC_AtTime(aSimTime, aOther);
+
+   # Schedule calculation and comparison of RIC values at aSimTime
+   Array<Object> args = { aPlatform, aOther, ric, aTolerance, "platform " + aOther.Name() };
+   WsfSimulation.ExecuteAtTime(aSimTime, "CalculateECIAndCheckRIC_Plat", args);
+end_script
+
+# Compares RIC at a future point
+script void TestRICTrackFuture(WsfPlatform aPlatform, WsfTrack aTrack, double aTolerance, double aSimTime)
+   WsfSpaceMover mover = GetSpaceMover(aPlatform);
+   Vec3 ric = mover.RIC_AtTime(aSimTime, aTrack);
+
+   # Schedule calculation and comparison of RIC values at aSimTime
+   Array<Object> args = { aPlatform, aTrack, ric, aTolerance, "track " + aTrack.TrackId().ToString() };
+   WsfSimulation.ExecuteAtTime(aSimTime, "CalculateECIAndCheckRIC_Track", args);
+end_script
+
+platform_type TEST WSF_PLATFORM
+   mover WSF_SPACE_MOVER
+   end_mover
+end_platform_type
+
+platform leo TEST
+   edit mover
+      eccentricity 0
+      inclination 0 deg
+      semi_major_axis 8370 km
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      raan 0 deg
+   end_mover
+
+   execute at_time 5 min absolute
+      TestOrbitalRegime(PLATFORM, "LEO");
+   end_execute
+end_platform
+
+platform meo TEST
+   edit mover
+      eccentricity 0
+      inclination 0 deg
+      semi_major_axis 15000 km
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      raan 0 deg
+   end_mover
+
+   execute at_time 5 min absolute
+      TestOrbitalRegime(PLATFORM, "MEO");
+   end_execute
+end_platform
+
+platform geo TEST
+   edit mover
+      eccentricity 0
+      inclination 0 deg
+      semi_major_axis 42157 km
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      raan 0 deg
+   end_mover
+
+   execute at_time 5 min absolute
+      TestOrbitalRegime(PLATFORM, "GEO");
+   end_execute
+end_platform
+
+platform heo TEST
+   edit mover
+      eccentricity 0.8
+      inclination 0 deg
+      revs_per_day 2
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      raan 0 deg
+   end_mover
+
+   execute at_time 5 min absolute
+      double expectedPeriod = 86400.0 / 2.0;   // half a day
+
+      TestOrbitalRegime(PLATFORM, "HEO");
+      TestOrbitalPeriod(PLATFORM, expectedPeriod, 0.1);
+      TestRevNumber(PLATFORM, TIME_NOW - expectedPeriod, 1.0, 0.001);
+
+      # Construct a calendar for 2 days ago
+      Calendar testDate = Calendar.Construct();
+      testDate.SetDate(2019, 1, 1);
+      testDate.SetTime(0, 5, 0);
+      TestRevNumberCal(PLATFORM, testDate, 2.0, 0.001);
+
+      # Now do from the start of the sim
+      TestRevNumber(PLATFORM, 0, 5.0 * 60.0 / expectedPeriod, 0.001);
+
+      TestRevsPerDay(PLATFORM, 2.0, 0.0001);
+
+      WsfPlatform testPlat = WsfSimulation.FindPlatform("geo");
+      WsfTrack testTrack = testPlat.MakeTrack();
+      TestRICPlatformPresent(PLATFORM, testPlat,  0.001);
+      TestRICPlatformFuture( PLATFORM, testPlat,  0.001, TIME_NOW + 5);
+      TestRICTrackPresent(   PLATFORM, testTrack, 0.001);
+      TestRICTrackFuture(    PLATFORM, testTrack, 0.001, TIME_NOW + 5);
+   end_execute
+end_platform
+
+platform none TEST
+   edit mover
+      eccentricity 0.3
+      inclination 0 deg
+      semi_major_axis 40000 km
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      raan 0 deg
+   end_mover
+
+   execute at_time 5 min absolute
+      TestOrbitalRegime(PLATFORM, "");
+      TestApoapsis(PLATFORM, 40000000 * (1.0 + 0.3), 10);
+      TestApoapsisAltitude(PLATFORM, 40000000 * (1.0 + 0.3) - Earth.MEAN_RADIUS(), 10);
+      TestPeriapsis(PLATFORM, 40000000 * (1.0 - 0.3), 10);
+      TestPeriapsisAltitude(PLATFORM, 40000000 * (1.0 - 0.3) - Earth.MEAN_RADIUS(), 10);
+   end_execute
+end_platform
+
+start_date jan 2 2019
+start_time 00:00:00.000
+end_time 10 min

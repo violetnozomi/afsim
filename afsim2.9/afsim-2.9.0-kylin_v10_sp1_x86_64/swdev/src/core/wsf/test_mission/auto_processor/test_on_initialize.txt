@@ -1,0 +1,36 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform tester WSF_PLATFORM
+	add processor script_proc WSF_SCRIPT_PROCESSOR
+		update_interval 1 sec
+		script_variables
+			int x = 5;
+			int expected_value = 3;
+		end_script_variables
+		on_initialize
+			extern int x;
+			x = 3;
+		end_on_initialize
+		on_update
+			extern int x;
+			extern int expected_value;
+			if (x == expected_value) {
+				writeln("Test Passed");
+			}
+			else{
+				writeln("-FAIL- X was never assigned");
+			}
+			WsfSimulation.Terminate();
+		end_on_update
+	end_processor
+end_platform
+end_time 200 sec
+
+

@@ -1,0 +1,200 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test checks user supplied error sigmas for the standard sensor error model.
+
+script_variables
+   int azimuth_failures = 0;
+   int elevation_failures = 0;
+   int range_failures = 0;
+   int range_rate_failures = 0;
+   bool pass = true;
+end_script_variables
+
+sensor TEST_SENSOR WSF_GEOMETRIC_SENSOR
+   on
+   frame_time 0.1 sec # DO NOT MODIFY
+
+   azimuth_error_sigma 3.0 percent_of_true_range
+   elevation_error_sigma 2.0 percent_of_true_range
+   range_error_sigma 5.0 percent_of_true_range
+   range_rate_error_sigma 2.0 m/s
+
+   reports_range
+   reports_range_rate
+   reports_bearing
+   reports_elevation
+   reports_location
+end_sensor
+
+platform target WSF_PLATFORM
+   position 0.1n 0.1e altitude 1000 m
+   
+   add mover WSF_AIR_MOVER
+   end_mover
+
+   route
+     position 0.1n 0.0e altitude 1000 m heading 270 deg speed 5 m/s
+   end_route
+
+end_platform
+
+platform tracker WSF_PLATFORM
+   position 0.1n 0.11e altitude 1000 m
+   
+   add sensor sensor TEST_SENSOR
+   end_sensor
+end_platform
+
+#This will be called every frame of the sensor (every 0.1 s) except for the first, at time 0.0
+script void SensorTrackUpdated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+   double azimuth = aTrack.Bearing();
+   double elevation = aTrack.Elevation();
+   double range = aTrack.Range();
+   double rangeRate = aTrack.RangeRate();
+
+   double azimuthError = Math.DEG_PER_RAD() * aTrack.BearingErrorSigma();
+   double elevationError = Math.DEG_PER_RAD() * aTrack.ElevationErrorSigma();
+   double rangeError = aTrack.RangeErrorSigma();
+   double rangeRateError = aTrack.RangeRateErrorSigma();
+
+   double trueAzimuth = aPlatform.RelativeAzimuthOf(aTrack.Target().Location());
+   double trueElevation = aPlatform.RelativeElevationOf(aTrack.Target().Location());
+   double trueRange = aPlatform.SlantRangeTo(aTrack.Target().Location());
+   double trueRangeRate = Math.Fabs(aPlatform.ClosingSpeedOf(aTrack.Target()));
+
+   // Check for correctly reported sigmas based on user input for percent of truth.
+   // This only needs to be checked once.
+   static bool checkedInitial = false;
+   if(!checkedInitial)
+   {
+      double computedError = Math.ATan2(0.03 * trueRange, trueRange);
+      writeln("Initial az; computed error: ", computedError, " actual: ", azimuthError);
+      if((computedError - azimuthError) != 0)
+      {
+         writeln("AZIMUTH ERROR COMPARISON");
+         pass = false;
+         writeln("-FAIL- Initial az; computed error: ", computedError, " actual: ", azimuthError);
+      }
+      computedError = Math.ATan2(0.02 * trueRange, trueRange);
+      if((computedError - elevationError) != 0.0)
+      {
+         writeln("ELEVATION ERROR COMPARISON");
+         pass = false;
+         writeln("-FAIL- initial el");
+      }
+      computedError = 0.05 * trueRange;
+      if((computedError - rangeError) != 0.0)
+      {
+         writeln("RANGE ERROR COMPARISON");
+         pass = false;
+         writeln("-FAIL-");
+      }
+      computedError = Math.Fabs(trueRangeRate - rangeRate);
+      if(Math.Fabs(computedError - rangeRateError) != 0.0)  
+      {
+         pass = false;
+         writeln("RANGE RATE ERROR COMPARISON");
+         writeln("-FAIL-");
+      }
+      checkedInitial = true;
+   }
+
+   # The reported sigma is the error before a random factor is multiplied
+   # to vary it from detection to detection. For the standard sensor
+   # error model, this factor is a normal distribution draw with mean of 0
+   # and standard deviation of 1. Three standard deviations is a good
+   # metric for error checking here, since the values will fall within
+   # this range 99.7% of the time. We do expect failures, but they should
+   # be limited to roughly less than 99.7% of all draws. We count the
+   # failures here, and check the number of values that exceed three sigma
+   # at the end of the simulation.
+   double threeSigmaAzimuth = azimuthError * 3;
+   double threeSigmaElevation = elevationError * 3;
+   double threeSigmaRange = rangeError * 3;
+   double threeSigmaRangeRate = rangeRateError * 3;
+
+   if(Math.Fabs(azimuth - trueAzimuth) > threeSigmaAzimuth)
+   {
+      //writeln("AZIMUTH SIGMA RANGE FAIL");
+      azimuth_failures = azimuth_failures + 1;
+   }
+   if(Math.Fabs(elevation - trueElevation) > threeSigmaElevation)
+   {
+      //writeln("ELEVATION SIGMA RANGE FAIL");
+      elevation_failures = elevation_failures + 1;
+   }
+   if(Math.Fabs(range - trueRange) > threeSigmaRange)
+   {
+      //writeln("RANGE SIGMA RANGE FAIL");
+      range_failures = range_failures + 1;
+   }
+   if(Math.Fabs(rangeRate - trueRangeRate) > threeSigmaRangeRate)
+   {
+      //writeln("RANGE RATE SIGMA RANGE FAIL");
+      range_rate_failures = range_rate_failures + 1;
+   }
+end_script
+
+script void SimulationComplete()
+   double minutes = 30.0;
+   double seconds_per_minute = 60.0;
+   double frames_per_second = 10.0;
+
+   double number_draws = (minutes * seconds_per_minute * frames_per_second);
+
+   writeln("Num draws: " + (string)number_draws);
+   writeln("Num azimuth failures: " + (string)azimuth_failures);
+   writeln("Num elevation failures: " + (string)elevation_failures);
+   writeln("Num range failures: " + (string)range_failures);
+   writeln("Num range rate failures: " + (string)range_rate_failures);
+
+   //Check that the number of failures for any given variables is generally
+   //within our three sigma range (we use 0.4 percent failures to allow
+   //for just some noise to avoid having to have a very large sample size).
+   //We should also observe some failures. Lack of any failures
+   //also indicates an issue with the correct application of user
+   //indicated sigma.
+   if(((azimuth_failures / number_draws) > 0.004) || azimuth_failures == 0)
+   {
+      pass = false;
+      writeln("AZIMUTH ERROR FAILURE");
+      writeln("-FAIL-");
+   }
+   if(((elevation_failures / number_draws) > 0.004) || elevation_failures == 0)
+   {
+      pass = false;
+      writeln("ELEVATION ERROR FAILURE");
+      writeln("-FAIL-");
+   }
+   if(((range_failures / number_draws) > 0.004) || range_failures == 0)
+   {
+      pass = false;
+      writeln("RANGE ERROR FAILURE");
+      writeln("-FAIL-");
+   }
+   if(((range_rate_failures / number_draws) > 0.004))
+   {
+      pass = false;
+      writeln("RANGE RATE ERROR FAILURE");
+      writeln("-FAIL-");
+   }
+
+   if(pass)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SENSOR_TRACK_UPDATED
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 30 min # DO NOT MODIFY

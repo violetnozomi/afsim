@@ -1,0 +1,92 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool mPassed = true;
+   bool mDebug = false;
+end_script_variables
+
+#event_pipe
+#   file test_air_mover_max_radial_acceleration.aer
+#end_event_pipe
+
+platform staticReference WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      route
+         position 34:10:18.42n 103:57:32.41w altitude 10000.00 meters agl heading 0 deg speed 0 m/s
+      end_route
+   end_mover
+end_platform
+
+platform 737_sw_aircraft WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      # radial acceleration = (velocity^2)/radius, for an object traveling a circular path at a constant velocity.
+      # Source: http://www.aerospaceweb.org/question/performance/q0146.shtml
+      maximum_radial_acceleration 9.80665 m/s^2 #Equivalent to 1g
+      route
+         label orbit
+            position 34:10:18.42n 103:57:32.41w altitude 10000 m agl speed 900 m/s #speed 300 m/s
+         goto orbit
+      end_route
+
+   end_mover
+
+   add processor processor_data WSF_SCRIPT_PROCESSOR
+      update_interval 1.0 sec
+
+      script_variables
+         double mRadialAccelerationThreshold = 9.80665; # = 1g
+         double mDiameter = -1;
+      end_script_variables
+
+      on_update
+         extern bool mDebug;
+         double relAz = WsfSimulation.FindPlatform("staticReference").RelativeAzimuthOf(PLATFORM.Location());
+         if (mDebug)
+         {
+            writeln("TIME: ", TIME_NOW);
+            writeln("Current speed: ", PLATFORM.Speed());
+            writeln("Current rel az: ", relAz);
+         }
+         if (MATH.AngleIsBetween(relAz, -91.0, -89.0))
+         {
+            double distToRef = PLATFORM.SlantRangeTo(WsfSimulation.FindPlatform("staticReference"));
+            mDiameter = distToRef;
+            writeln("Slant range to static platform = ", distToRef);
+         }
+
+         if (mDiameter > 0)
+         {
+            double radius = mDiameter / 2.0;
+            double velocity = PLATFORM.Speed();
+            double velocitySquared = velocity * velocity;
+            double radialAcceleration = velocitySquared / radius;
+            if (radialAcceleration > mRadialAccelerationThreshold)
+            {
+               writeln("-FAIL- test_air_mover_max_radial_acceleration.txt");
+            }
+            else
+            {
+               if (mDebug)
+               {
+                  writeln("PASS - test_air_mover_max_radial_acceleration.txt");
+                  writeln("diameter = ", mDiameter);
+                  writeln("radius = ", radius);
+                  writeln("velocity = ", velocity);
+                  writeln("Radial acceleration = ", radialAcceleration);
+                  writeln("Radial acceleration limit = ", mRadialAccelerationThreshold);
+               }
+            }
+            WsfSimulation.Terminate();
+         }
+      end_on_update
+   end_processor
+end_platform
+
+end_time 800 sec

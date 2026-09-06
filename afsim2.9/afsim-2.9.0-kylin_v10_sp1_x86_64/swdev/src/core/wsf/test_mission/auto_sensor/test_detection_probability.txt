@@ -1,0 +1,335 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+################################################################################
+# A basic test for the detection_probability table in WSF_RADAR_SENSOR.
+################################################################################
+
+include ../auto_script/test_functions.txt
+
+# The radar has been tuned to give a 1 m^2 detect range of about 100 nm.
+# 'one_m2_detect_range' was not used because it uses the detection threshold
+# and we don't want that because we are varying the detector!
+
+antenna_pattern RADAR_ANTENNA
+   constant 35 db
+end_antenna_pattern
+
+sensor RADAR_BASE WSF_RADAR_SENSOR
+   frame_time 10 sec
+
+   transmitter
+      antenna_pattern        RADAR_ANTENNA
+      power                  500 kw
+      frequency              3 ghz
+   end_transmitter
+
+   receiver
+      noise_power            -150 dbw
+   end_receiver
+
+   reports_range
+   reports_bearing
+   reports_elevation
+
+   ignore_same_side
+
+   on
+   #show_calibration_data
+end_sensor
+
+sensor RADAR_BINARY RADAR_BASE
+   detection_threshold 12.8251 db
+end_sensor
+
+sensor RADAR_SWERLING RADAR_BASE
+   # Swerling case 1 gives a Pd=0.5 for a detection threshold of 12.8251
+   swerling_case 1
+end_sensor
+
+sensor RADAR_CURVE RADAR_BASE
+   # This 'curve' is very, very crude approximation to the Swerling case 1 curve.
+   detection_probability
+      signal_to_noise   0.0000 db    pd 0.0
+      signal_to_noise   7.6000 db    pd 0.1
+      signal_to_noise  12.8251 db    pd 0.5
+      signal_to_noise  21.0000 db    pd 0.9
+      signal_to_noise  25.0000 db    pd 1.0
+   end_detection_probability
+
+   # This curve is the same as Swerling case 1. It is not used, but provided for reference.
+/*
+   detection_probability
+      signal_to_noise 1.00 db   pd 0.0000
+      signal_to_noise 1.20 db   pd 0.0000
+      signal_to_noise 1.40 db   pd 0.0001
+      signal_to_noise 1.60 db   pd 0.0001
+      signal_to_noise 1.80 db   pd 0.0002
+      signal_to_noise 2.00 db   pd 0.0002
+      signal_to_noise 2.20 db   pd 0.0003
+      signal_to_noise 2.40 db   pd 0.0005
+      signal_to_noise 2.60 db   pd 0.0007
+      signal_to_noise 2.80 db   pd 0.0010
+      signal_to_noise 3.00 db   pd 0.0013
+      signal_to_noise 3.20 db   pd 0.0018
+      signal_to_noise 3.40 db   pd 0.0023
+      signal_to_noise 3.60 db   pd 0.0031
+      signal_to_noise 3.80 db   pd 0.0040
+      signal_to_noise 4.00 db   pd 0.0051
+      signal_to_noise 4.20 db   pd 0.0065
+      signal_to_noise 4.40 db   pd 0.0081
+      signal_to_noise 4.60 db   pd 0.0101
+      signal_to_noise 4.80 db   pd 0.0124
+      signal_to_noise 5.00 db   pd 0.0152
+      signal_to_noise 5.20 db   pd 0.0183
+      signal_to_noise 5.40 db   pd 0.0219
+      signal_to_noise 5.60 db   pd 0.0260
+      signal_to_noise 5.80 db   pd 0.0307
+      signal_to_noise 6.00 db   pd 0.0359
+      signal_to_noise 6.20 db   pd 0.0417
+      signal_to_noise 6.40 db   pd 0.0481
+      signal_to_noise 6.60 db   pd 0.0551
+      signal_to_noise 6.80 db   pd 0.0628
+      signal_to_noise 7.00 db   pd 0.0711
+      signal_to_noise 7.20 db   pd 0.0801
+      signal_to_noise 7.40 db   pd 0.0897
+      signal_to_noise 7.60 db   pd 0.1000
+      signal_to_noise 7.80 db   pd 0.1109
+      signal_to_noise 8.00 db   pd 0.1225
+      signal_to_noise 8.20 db   pd 0.1346
+      signal_to_noise 8.40 db   pd 0.1473
+      signal_to_noise 8.60 db   pd 0.1606
+      signal_to_noise 8.80 db   pd 0.1744
+      signal_to_noise 9.00 db   pd 0.1886
+      signal_to_noise 9.20 db   pd 0.2033
+      signal_to_noise 9.40 db   pd 0.2185
+      signal_to_noise 9.60 db   pd 0.2339
+      signal_to_noise 9.80 db   pd 0.2497
+      signal_to_noise 10.00 db   pd 0.2658
+      signal_to_noise 10.20 db   pd 0.2822
+      signal_to_noise 10.40 db   pd 0.2987
+      signal_to_noise 10.60 db   pd 0.3154
+      signal_to_noise 10.80 db   pd 0.3322
+      signal_to_noise 11.00 db   pd 0.3491
+      signal_to_noise 11.20 db   pd 0.3660
+      signal_to_noise 11.40 db   pd 0.3830
+      signal_to_noise 11.60 db   pd 0.3999
+      signal_to_noise 11.80 db   pd 0.4167
+      signal_to_noise 12.00 db   pd 0.4335
+      signal_to_noise 12.20 db   pd 0.4501
+      signal_to_noise 12.40 db   pd 0.4665
+      signal_to_noise 12.60 db   pd 0.4828
+      signal_to_noise 12.80 db   pd 0.4989
+      signal_to_noise 13.00 db   pd 0.5148
+      signal_to_noise 13.20 db   pd 0.5304
+      signal_to_noise 13.40 db   pd 0.5458
+      signal_to_noise 13.60 db   pd 0.5608
+      signal_to_noise 13.80 db   pd 0.5756
+      signal_to_noise 14.00 db   pd 0.5901
+      signal_to_noise 14.20 db   pd 0.6043
+      signal_to_noise 14.40 db   pd 0.6181
+      signal_to_noise 14.60 db   pd 0.6317
+      signal_to_noise 14.80 db   pd 0.6449
+      signal_to_noise 15.00 db   pd 0.6577
+      signal_to_noise 15.20 db   pd 0.6702
+      signal_to_noise 15.40 db   pd 0.6824
+      signal_to_noise 15.60 db   pd 0.6943
+      signal_to_noise 15.80 db   pd 0.7058
+      signal_to_noise 16.00 db   pd 0.7169
+      signal_to_noise 16.20 db   pd 0.7277
+      signal_to_noise 16.40 db   pd 0.7382
+      signal_to_noise 16.60 db   pd 0.7484
+      signal_to_noise 16.80 db   pd 0.7582
+      signal_to_noise 17.00 db   pd 0.7677
+      signal_to_noise 17.20 db   pd 0.7769
+      signal_to_noise 17.40 db   pd 0.7858
+      signal_to_noise 17.60 db   pd 0.7943
+      signal_to_noise 17.80 db   pd 0.8026
+      signal_to_noise 18.00 db   pd 0.8106
+      signal_to_noise 18.20 db   pd 0.8183
+      signal_to_noise 18.40 db   pd 0.8257
+      signal_to_noise 18.60 db   pd 0.8329
+      signal_to_noise 18.80 db   pd 0.8397
+      signal_to_noise 19.00 db   pd 0.8464
+      signal_to_noise 19.20 db   pd 0.8528
+      signal_to_noise 19.40 db   pd 0.8589
+      signal_to_noise 19.60 db   pd 0.8648
+      signal_to_noise 19.80 db   pd 0.8705
+      signal_to_noise 20.00 db   pd 0.8759
+      signal_to_noise 20.20 db   pd 0.8812
+      signal_to_noise 20.40 db   pd 0.8862
+      signal_to_noise 20.60 db   pd 0.8910
+      signal_to_noise 20.80 db   pd 0.8957
+      signal_to_noise 21.00 db   pd 0.9001
+      signal_to_noise 21.20 db   pd 0.9044
+      signal_to_noise 21.40 db   pd 0.9085
+      signal_to_noise 21.60 db   pd 0.9124
+      signal_to_noise 21.80 db   pd 0.9162
+      signal_to_noise 22.00 db   pd 0.9198
+      signal_to_noise 22.20 db   pd 0.9233
+      signal_to_noise 22.40 db   pd 0.9266
+      signal_to_noise 22.60 db   pd 0.9298
+      signal_to_noise 22.80 db   pd 0.9328
+      signal_to_noise 23.00 db   pd 0.9358
+      signal_to_noise 23.20 db   pd 0.9386
+      signal_to_noise 23.40 db   pd 0.9412
+      signal_to_noise 23.60 db   pd 0.9438
+      signal_to_noise 23.80 db   pd 0.9463
+      signal_to_noise 24.00 db   pd 0.9486
+      signal_to_noise 24.20 db   pd 0.9509
+      signal_to_noise 24.40 db   pd 0.9530
+      signal_to_noise 24.60 db   pd 0.9551
+      signal_to_noise 24.80 db   pd 0.9571
+      signal_to_noise 25.00 db   pd 0.9590
+      signal_to_noise 25.20 db   pd 0.9608
+      signal_to_noise 25.40 db   pd 0.9625
+      signal_to_noise 25.60 db   pd 0.9642
+      signal_to_noise 25.80 db   pd 0.9658
+      signal_to_noise 26.00 db   pd 0.9673
+      signal_to_noise 26.20 db   pd 0.9687
+      signal_to_noise 26.40 db   pd 0.9701
+      signal_to_noise 26.60 db   pd 0.9714
+      signal_to_noise 26.80 db   pd 0.9727
+      signal_to_noise 27.00 db   pd 0.9739
+      signal_to_noise 27.20 db   pd 0.9751
+      signal_to_noise 27.40 db   pd 0.9762
+      signal_to_noise 27.60 db   pd 0.9772
+      signal_to_noise 27.80 db   pd 0.9783
+      signal_to_noise 28.00 db   pd 0.9792
+      signal_to_noise 28.20 db   pd 0.9801
+      signal_to_noise 28.40 db   pd 0.9810
+      signal_to_noise 28.60 db   pd 0.9819
+      signal_to_noise 28.80 db   pd 0.9827
+      signal_to_noise 29.00 db   pd 0.9835
+      signal_to_noise 29.20 db   pd 0.9842
+      signal_to_noise 29.40 db   pd 0.9849
+      signal_to_noise 29.60 db   pd 0.9856
+      signal_to_noise 29.80 db   pd 0.9862
+      signal_to_noise 30.00 db   pd 0.9868
+      signal_to_noise 30.20 db   pd 0.9874
+      signal_to_noise 30.40 db   pd 0.9880
+      signal_to_noise 30.60 db   pd 0.9885
+      signal_to_noise 30.80 db   pd 0.9890
+      signal_to_noise 31.00 db   pd 0.9895
+      signal_to_noise 31.20 db   pd 0.9900
+      signal_to_noise 31.40 db   pd 0.9904
+      signal_to_noise 31.60 db   pd 0.9909
+      signal_to_noise 31.80 db   pd 0.9913
+      signal_to_noise 32.00 db   pd 0.9917
+      signal_to_noise 32.20 db   pd 0.9920
+      signal_to_noise 32.40 db   pd 0.9924
+      signal_to_noise 32.60 db   pd 0.9927
+      signal_to_noise 32.80 db   pd 0.9931
+      signal_to_noise 33.00 db   pd 0.9934
+      signal_to_noise 33.20 db   pd 0.9937
+      signal_to_noise 33.40 db   pd 0.9940
+      signal_to_noise 33.60 db   pd 0.9942
+      signal_to_noise 33.80 db   pd 0.9945
+      signal_to_noise 34.00 db   pd 0.9947
+      signal_to_noise 34.20 db   pd 0.9950
+      signal_to_noise 34.40 db   pd 0.9952
+      signal_to_noise 34.60 db   pd 0.9954
+      signal_to_noise 34.80 db   pd 0.9956
+      signal_to_noise 35.00 db   pd 1.0000
+   end_detection_probability
+*/
+
+end_sensor
+
+platform_type RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+   sensor binary   RADAR_BINARY
+   end_sensor
+   sensor swerling RADAR_SWERLING
+   end_sensor
+   sensor curve    RADAR_CURVE
+   end_sensor
+end_platform_type
+
+radar_signature TARGET_RADAR_SIG
+   constant 1 m^2
+end_radar_signature
+
+platform_type TARGET WSF_PLATFORM
+   icon Wedge
+   radar_signature TARGET_RADAR_SIG
+end_platform_type
+
+################################################################################
+
+platform target-1 TARGET
+   side red
+   # The position has been tweaked to get a Pd of 0.5 from the swerling detector
+   position 41.710945n 90w altitude 30000 ft heading 180 deg
+end_platform
+
+platform target-2 TARGET
+   side red
+   # The position has been tweaked to get a Pd of 0.6 from the swerling detector
+   position 41.586n 90w altitude 30000 ft heading 180 deg
+end_platform
+
+platform radar RADAR_SITE
+   side blue
+   position 40n 90w heading 0 deg
+end_platform
+
+script void SensorDetectionAttempt(WsfPlatform          aPlatform,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+   if (aTarget.Name() == "target-1")
+   {
+      AssertWithinToleranceMessage(12.8251, aResult.SignalToNoise(), 0.0002,
+                                   " target-1 signal");
+   }
+   else if (aTarget.Name() == "target-2")
+   {
+      AssertWithinToleranceMessage(14.1393, aResult.SignalToNoise(), 0.0002,
+                                   " target-2 signal");
+   }
+
+   if (aSensor.Name() == "binary")
+   {
+      AssertDoubleEqualsMessage(1.0, aResult.Pd(), aTarget.Name() + " binary");
+   }
+   else if (aTarget.Name() == "target-1")
+   {
+      AssertWithinToleranceMessage(0.5, aResult.Pd(), 0.001,
+                                   " target-1 " + aSensor.Name() + " Pd nominal");
+   }
+   else if (aTarget.Name() == "target-2")
+   {
+      if (aSensor.Name() == "swerling")
+      {
+         AssertWithinToleranceMessage(0.6, aResult.Pd(), 0.001, "target-2 swerling");
+      }
+      else
+      {
+         # SNR for target-2 is 14.1393. The result should be
+         #
+         # 0.5 + ((14.1393 - 12.8251) / (21.0 - 12.8251)) * (0.9 - 0.5)
+
+         double f = (14.1393 - 12.8251) / (21.0 - 12.8251);
+         double expectedPd = 0.5 + f * (0.9 - 0.5);
+         AssertWithinToleranceMessage(expectedPd, aResult.Pd(), 0.001, "target-2 swerling");
+      }
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+end_observer
+
+event_output
+   file STDOUT
+   #enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+end_time 6 sec

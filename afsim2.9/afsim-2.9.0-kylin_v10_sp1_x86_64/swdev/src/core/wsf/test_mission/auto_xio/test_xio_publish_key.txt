@@ -1,0 +1,24 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+execute at_time 1 s absolute
+   WsfXIO_PublishKey key = WsfXIO_PublishKey.Construct("TEST");
+   writeln("Field is: ", key.Field(0));
+   writeln("Key is: ", key.ToString());
+   
+   if (key.Field(0) != "TEST")
+   {
+      writeln("-FAIL- Field name does not match.");
+   }
+   if (key.ToString() != "TEST...")
+   {
+      writeln("-FAIL- key.ToString()");
+   }
+   
+end_execute

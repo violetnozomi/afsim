@@ -1,0 +1,280 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Key to interface diagrams below:
+// Mx = multicast enabled interface, group member
+// Ox = multicast enabled interface, not a group member
+// Ux = non-multicast enabled interface (unicast)
+// <-> = bi-directional linkage
+
+//////////// TEST 1 ////////////
+// This test creates a 'chain' of interfaces between platforms
+// s.t. a message originating at the start of the chain must traverse 
+// all members to reach the end of the chain. Some members are in the
+// same multicast group. The expected behavior is that when the member
+// at the beginning of the chain sends a multicast message, all the
+// other recipients are 'down' the chain, but only one message will
+// be transmitted, and each interface will retransmit that message
+// down the chain until the last member receives the message.
+//
+// M1 <-> M2 <-> O1 <-> M3 <-> O2
+// M2, and M3 receive the message transmitted from M1 for the multicast group.
+//
+//////////// TEST 2 ////////////
+// This test shows the limitation and reliance on multicast enabled interface.
+// A link between some of the multicast group members is not capable of
+// supporting the reception of multicast messages, and thus cannot forward
+// a message intended for a downstream member.
+//
+// M4 <-> M5 <-> U1 <-> M6
+// M5 receives the message transmitted from M4 for the multicast group.
+//
+// NOTE: The generic multicasting protocol available in core AFSIM and
+// used here does not maintain its own network state graph for routing.
+// As a result, routing messages does not path 'around' non-multicast enabled
+// interfaces. 
+
+script_variables
+   int M1_receive = 0;
+   int M2_receive = 0;
+   int M3_receive = 0;
+   int M4_receive = 0;
+   int M5_receive = 0;
+   int M6_receive = 0;
+end_script_variables
+
+protocol MULTICAST WSF_COMM_PROTOCOL_IGMP
+end_protocol
+
+comm INTERFACE WSF_COMM_TRANSCEIVER
+end_comm
+
+network TEST1 WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member M1 interface
+      member M2 interface
+      member O1 interface
+      member M3 interface
+      member O2 interface
+   end_comm_list
+   
+   comm_link_list 
+      link M1 interface M2 interface
+      link M2 interface M1 interface
+      link M2 interface O1 interface
+      link O1 interface M2 interface
+      link O1 interface M3 interface
+      link M3 interface O1 interface
+      link M3 interface O2 interface
+      link O2 interface M3 interface
+   end_comm_link_list
+end_network
+
+network TEST2 WSF_COMM_NETWORK_GENERIC
+   comm_list
+      member M4 interface
+      member M5 interface
+      member U1 interface
+      member M6 interface
+   end_comm_list
+   
+   comm_link_list 
+      link M4 interface M5 interface
+      link M5 interface M4 interface
+      link M5 interface U1 interface
+      link U1 interface M5 interface
+      link U1 interface M6 interface
+      link M6 interface U1 interface
+   end_comm_link_list
+end_network
+
+processor MESSAGE_PROCESSOR WSF_SCRIPT_PROCESSOR
+   on_message type MULTICAST_TEST
+      script
+         writeln("Received message on platform: " + PLATFORM.Name());
+         
+         string platName = PLATFORM.Name();
+         if(platName == "M1")
+         {
+            M1_receive = M1_receive + 1;
+         }
+         else if(platName == "M2")
+         {
+            M2_receive = M2_receive + 1;
+         }
+         else if(platName == "M3")
+         {
+            M3_receive = M3_receive + 1;
+         }
+         else if(platName == "M4")
+         {
+            M4_receive = M4_receive + 1;
+         }
+         else if(platName == "M5")
+         {
+            M5_receive = M5_receive + 1;
+         }
+         else if(platName == "M6")
+         {
+            M6_receive = M6_receive + 1;
+         }         
+      end_script
+   end_on_message
+end_processor
+
+platform_type MULTICAST_ENABLED_PLATFORM WSF_PLATFORM
+   comm interface INTERFACE
+      add protocol multicast MULTICAST
+      end_protocol
+      internal_link msgProc
+   end_comm
+   
+   processor msgProc MESSAGE_PROCESSOR
+   end_processor
+end_platform_type
+
+platform_type NON_MULTICAST_ENABLED_PLATFORM WSF_PLATFORM
+   comm interface INTERFACE
+      internal_link msgProc
+   end_comm
+   
+   processor msgProc MESSAGE_PROCESSOR
+   end_processor
+end_platform_type
+
+platform M1 MULTICAST_ENABLED_PLATFORM
+   edit comm interface
+      edit protocol multicast
+         join_multicast_group 230.1.1.0/32
+      end_protocol
+   end_comm
+end_platform
+
+platform M2 MULTICAST_ENABLED_PLATFORM
+   edit comm interface
+      edit protocol multicast
+         join_multicast_group 230.1.1.0/32
+      end_protocol
+   end_comm
+end_platform
+
+platform M3 MULTICAST_ENABLED_PLATFORM
+   edit comm interface
+      edit protocol multicast
+         join_multicast_group 230.1.1.0/32
+      end_protocol
+   end_comm
+end_platform
+
+platform M4 MULTICAST_ENABLED_PLATFORM
+   edit comm interface
+      edit protocol multicast
+         join_multicast_group 231.4.2.33/32
+      end_protocol
+   end_comm
+end_platform
+
+platform M5 MULTICAST_ENABLED_PLATFORM
+   edit comm interface
+      edit protocol multicast
+         join_multicast_group 231.4.2.33/32
+      end_protocol
+   end_comm
+end_platform
+
+platform M6 MULTICAST_ENABLED_PLATFORM
+   edit comm interface
+      edit protocol multicast
+         join_multicast_group 231.4.2.33/32
+      end_protocol
+   end_comm
+end_platform
+
+platform O1 MULTICAST_ENABLED_PLATFORM
+   # No group membership
+end_platform
+
+platform O2 MULTICAST_ENABLED_PLATFORM
+   # No group membership
+end_platform
+
+platform U1 NON_MULTICAST_ENABLED_PLATFORM
+end_platform
+
+
+execute at_time 1 s absolute
+   ////// TEST1 //////
+   WsfMessage message = {};
+   message.SetType("MULTICAST_TEST");
+   message.SetSizeInBits(1024);
+   WsfAddress multicastGroup = {};
+   multicastGroup.SetAddress("230.1.1.0", 32);
+   WsfSimulation.FindPlatform("M1").Comm("interface").SendMessage(message, multicastGroup);
+end_execute
+
+execute at_time 10 s absolute
+   ////// TEST2 //////
+   WsfMessage message = {};
+   message.SetType("MULTICAST_TEST");
+   message.SetSizeInBits(1024);
+   WsfAddress multicastGroup = {};
+   multicastGroup.SetAddress("231.4.2.33", 32);
+   WsfSimulation.FindPlatform("M4").Comm("interface").SendMessage(message, multicastGroup);
+end_execute
+
+script void SimulationComplete()
+   bool fail = false;
+   if(!M1_receive == 0)
+   {
+      fail = true;
+      writeln("M1 FAILURE");
+   }
+   if(!M2_receive == 1)
+   {
+      fail = true;
+      writeln("M2 FAILURE");
+   }
+   if(!M3_receive == 1)
+   {
+      fail = true;
+      writeln("M3 FAILURE");
+   }
+   if(!M4_receive == 0)
+   {
+      fail = true;
+      writeln("M4 FAILURE");
+   }
+   if(!M5_receive == 1)
+   {
+      fail = true;
+      writeln("M5 FAILURE");
+   }
+   if(!M6_receive == 0)
+   {
+      fail = true;
+      writeln("M6 FAILURE");
+   }
+
+
+   if (fail)
+   {
+      writeln("-FAIL-");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+event_output
+   file replay.evt
+   enable all
+end_event_output
+
+end_time 30 s

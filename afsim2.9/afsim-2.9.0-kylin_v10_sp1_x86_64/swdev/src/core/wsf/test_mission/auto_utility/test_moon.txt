@@ -1,0 +1,28 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+execute at_time 1.0 s absolute
+   bool allPass = true;
+   Calendar cal = {};
+   cal.SetDate(2005, 3, 20);
+   cal.SetTime(12, 0, 0.0);
+   Vec3 unitVecWCS = Moon.UnitVecWCS(cal);
+   Vec3 vecWCS = Moon.LocationWCS(cal);
+   vecWCS.Normalize();
+
+   if (Vec3.Dot(vecWCS, unitVecWCS) < 0.999)
+   {
+      writeln("-FAIL-");
+   }
+
+   if (allPass)
+   {
+      writeln("-PASS- All tests passed.");
+   }
+end_execute

@@ -1,0 +1,204 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test for simple zone attenuation of sensor and comm signals.
+
+sensor RADAR WSF_RADAR_SENSOR
+      pitch                               90 deg
+      frame_time                          5 sec
+      # This is just for culling purposes
+      maximum_range                       2800000 km
+
+      electronic_beam_steering            azimuth_and_elevation
+      electronic_beam_steering_limit      90 deg
+      electronic_beam_steering_loss_exponent 1.4
+
+      scan_mode                           azimuth_and_elevation
+      azimuth_scan_limits                 -180 deg 180 deg
+      elevation_scan_limits               -90 deg 90 deg
+
+   transmitter
+      frequency                        1 MHz
+      power                            1 watts
+   end_transmitter
+
+   receiver
+   end_receiver
+
+   detection_threshold                 12.8 db
+   one_m2_detect_range                 2800000 km
+   hits_to_establish_track             2 3
+   hits_to_maintain_track              1 3
+   track_quality                       1
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_velocity
+   reports_iff
+end_sensor
+
+   comm XCVR WSF_RADIO_TRANSCEIVER
+      transmitter
+         frequency 1 ghz
+         power 1 kw
+      end_transmitter
+
+      receiver
+         frequency 1 ghz
+      end_receiver
+
+   end_comm
+
+#General SSN Radar platform
+platform_type  SSN_RADAR  WSF_PLATFORM
+   side blue
+
+   comm comm XCVR
+      processor link
+   end_comm
+
+   processor link WSF_SCRIPT_PROCESSOR
+      on_message default
+         script
+         end_script
+      end_on_message
+   end_processor
+
+   sensor radar RADAR
+      on
+   end_sensor
+
+   processor report WSF_LINKED_PROCESSOR
+      report_to commander via comm
+   end_processor
+end_platform_type
+
+#Haystack Observatory
+antenna_pattern HAYSTACK
+   circular_pattern
+      beamwidth                        .058 deg
+      peak_gain                        64.0 db
+end_antenna_pattern
+
+platform HAYSTACK SSN_RADAR
+   icon C2
+   position 0n 90e altitude 0 m agl
+
+   edit sensor radar
+      on
+      azimuth_slew_rate                   2 deg/sec
+      elevation_slew_rate                 2 deg/sec
+      modifier_category cloud_mod
+
+      transmitter
+         antenna_pattern                  HAYSTACK
+         frequency                        22.5 ghz
+         power                            250 kw
+         bandwidth                        1 ghz
+         wavelength                       1.3 cm
+      end_transmitter
+
+      receiver
+         antenna_pattern                  HAYSTACK
+      end_receiver
+      internal_link report
+      elevation_error_sigma 0.000833 deg
+      azimuth_error_sigma 0.00111 deg
+   end_sensor
+
+end_platform
+
+observer
+   enable SENSOR_DETECTION_CHANGED SensorDetectionChanged
+   enable MESSAGE_TRANSMITTED MessageTransmitted
+   enable MESSAGE_RECEIVED MessageReceived
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+script_variables
+   int gNumChanges = 0;
+   int gNumTransmits = 0;
+   int gNumReceives = 0;
+   bool gDetected = false;
+end_script_variables
+
+script void SensorDetectionChanged(WsfPlatform aPlatform, WsfSensor aSensor, int aTgtIdx, WsfSensorInteraction aResult)
+   gNumChanges += 1;
+   gDetected = aResult.Detected();
+   //writeln(TIME_NOW, ": sensor detection changed ", gDetected);
+end_script
+
+execute at_interval_of 1 s
+   WsfZone hz = WsfZone.FindZone("haystack_zone");
+   WsfGeoPoint hl = WsfSimulation.FindPlatform("HAYSTACK").Location();
+   WsfGeoPoint loc = WsfSimulation.FindPlatform("sat").Location();
+   //writeln(TIME_NOW, ": ", hz.PenetrationDistance(hl, loc));
+end_execute
+
+script void MessageTransmitted(WsfComm aComm, WsfMessage aMsg)
+   gNumTransmits += 1;
+end_script
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   gNumReceives += 1;
+   if ((gNumReceives + 28 != gNumTransmits) && (TIME_NOW > 30.0))
+   {
+      writeln(TIME_NOW, ": -FAIL-");
+      writeln(gNumReceives, " ", gNumTransmits);
+   }
+   if ((gNumReceives > 0) && (TIME_NOW < 27.0))
+   {
+      writeln(TIME_NOW, ": -FAIL-");
+   }
+end_script
+
+script void SimulationComplete()
+   if ((gNumChanges != 1) || (!gDetected))
+   {
+      writeln(TIME_NOW, ": -FAIL-");
+   }
+end_script
+
+end_time 50 s
+
+platform sat WSF_PLATFORM
+   side red
+   icon satellite
+   add processor send-msg-proc WSF_SCRIPT_PROCESSOR
+      update_interval 1.0 s
+      on_update
+         WsfComm xcvr = PLATFORM.Comm("xcvr");
+         xcvr.SendMessage(WsfControlMessage(), "HAYSTACK", "comm");
+      end_on_update
+   end_processor
+
+   add mover WSF_AIR_MOVER
+      route
+         position 0.01n 90e altitude 10 km heading 0 deg speed 7881 m/s
+         position 02:30:22.89n 89:51:13.56e altitude 10040.231 m
+      end_route  
+   end_mover
+
+   add comm xcvr XCVR
+      modifier_category comm_mod
+   end_comm
+end_platform
+
+zone haystack_zone
+  polygonal
+  lat_lon
+  sensor_modifier cloud_mod 0.1
+  comm_modifier comm_mod 0.1
+  minimum_altitude 1000 m
+  maximum_altitude 3000 m
+   point 0.2n 89e
+   point 0.2n 91e
+   point 0.2s 91e
+   point 0.2s 89e
+end_zone

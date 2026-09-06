@@ -1,0 +1,51 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test movers GoToPoint method with callback
+//    insure callback occurs once after GoToPoint has completed
+//    not in the middle of GoToPoint or more than once.
+
+end_time 20 s
+
+platform test_plat WSF_PLATFORM
+   geo_point WSF_REFUEL_POINT 31:00:20n 110:00:06w 10000.0 ft
+   add mover WSF_AIR_MOVER
+      route
+         position 31n 110w altitude 10000 ft agl speed 100 knots
+         position 32n 110w altitude 10000 ft agl speed 100 knots
+      end_route
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+
+   script_variables
+      bool pass = false;
+      bool bingo = true;
+   end_script_variables
+
+   execute at_time 10 s absolute
+      PLATFORM.GoToPoint("WSF_REFUEL_POINT", "test_script");
+      bingo = true;
+   end_execute
+   script void test_script()
+      static bool haveExecutedOnce = false;
+      pass = !haveExecutedOnce && bingo;
+      haveExecutedOnce = true;
+   end_script
+   script void on_platform_deleted()
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+end_platform
+

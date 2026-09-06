@@ -1,0 +1,86 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test for the script callback capability
+# Both a global callback and a platform-scope callback are tested.
+# Four items are commented out because they will cause the simulation initialization to fail
+# but are left here for completeness.
+# Error messages are expected to be written to output but will not cause the simulation to fail.
+
+include_once test_pass.txt
+
+script_debug_writes off
+
+ script_variables
+   PassTestCount = 6;
+ end_script_variables
+
+// Global callback
+callback testGlobalCallback WSF_SCRIPT_CALLBACK
+
+   execute testScriptProcessor in testProcessor            // Pass
+   execute testScriptProcessor in testProcessorError       // Fail - processor does not exist
+   execute testScriptProcessorError in testProcessor       // Fail - script does not exist
+   execute testScriptProcessorError in testProcessorError  // Fail - script and processor do not exist
+
+   execute testScriptPlatform                              // Pass
+   execute testScriptPlatformError                         // Fail - Platform unable to invoke script
+
+end_callback
+
+// Test platform
+platform p1 WSF_PLATFORM
+
+   // Platform callback
+   callback testPlatformCallback WSF_SCRIPT_CALLBACK
+
+      execute testScriptProcessor in testProcessor            // Pass
+#      execute testScriptProcessor in testProcessorError       // Fail - processor does not exist
+#      execute testScriptProcessorError in testProcessor       // Fail - script does not exist
+#      execute testScriptProcessorError in testProcessorError  // Fail - script and processor do not exist
+
+      execute testScriptPlatform                              // Pass
+#      execute testScriptPlatformError                         // Fail - Platform unable to invoke script
+   end_callback
+
+   // Test the execute callback command on a route
+   geo_point TEST_GEO_POINT 1.01n 1e 1 kft
+   add mover WSF_AIR_MOVER
+      route
+         position 1n 1e altitude 1 kft speed 200 knots
+         position 1.01n 1e execute testGlobalCallback            // Fail - cannot use this command to invoke global callback
+         position 1.02n 1e execute testPlatformCallback          // Pass
+      end_route
+   end_mover
+
+   execute at_time 25 s absolute
+      writeln_d("\n*** GoToPoint(string, string)");
+      PLATFORM.GoToPoint("TEST_GEO_POINT", "testGlobalCallback");
+   end_execute
+
+   execute at_time 50 s absolute
+      writeln_d("\n*** GoToPoint(WsfGeoPoint, string)");
+      PLATFORM.GoToPoint(WsfGeoPoint.Construct(1., 1., 1.), "testGlobalCallback");
+   end_execute
+
+   script void testScriptPlatform()
+      writeln_d("T=", TIME_NOW, " Executing testScriptPlatform");
+      pass();
+   end_script
+
+   add processor testProcessor WSF_SCRIPT_PROCESSOR
+      script void testScriptProcessor()
+         writeln_d("T=", TIME_NOW, " Executing testScriptProcessor");
+         pass();
+      end_script
+   end_processor
+
+end_platform
+
+end_time 60 sec

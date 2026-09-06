@@ -1,0 +1,155 @@
+// This file was generated  on 12/5/2018 at 1:1:48 PM by the Boeing OMS CAL generation tools
+// @warning  This file was automatically generated, edit at your own risk
+
+/**
+* Unclassified               U N C L A S S I F I E D               Unclassified
+*
+* DEVELOPMENT:
+*    This document wholly developed with USG funds.
+*    For additional information, contact the AFRCO.
+*
+* ‒  DISTRIBUTION STATEMENT D.  Distribution authorized to the Department
+*    of Defense and U.S. DoD contractors only; Critical Technology; 17 Sep 2015.
+*    Other requests shall be referred to Air Force Rapid Capabilities Office,
+*    Bolling AFB, Washington DC 20032-6400. 
+*
+* EXPORT CONTROL:
+*    WARNING - ITAR CONTROLLED - US ONLY
+*    This distribution contains technical data whose export is restricted by
+*    the Arms Export Control Act (Title 22, U.S.C., Sec. 2751 et seq. or the
+*    Export Administration Act of 1979 as amended Title 50, U.S.C., App.
+*    2401-2420 et seq.), as amended. Violation of these export laws are subject
+*    to severe criminal penalties.  Disseminate in accordance with provisions of DoD
+*    Directive 5230.25.
+*/
+#ifndef Uci__Type__StrikeSpecificDataType_h
+#define Uci__Type__StrikeSpecificDataType_h 1
+
+#if !defined(Uci__Base__Accessor_h)
+# include "uci/base/Accessor.h"
+#endif
+
+#if !defined(Uci__Type__StoreType_h)
+# include "uci/type/StoreType.h"
+#endif
+
+//  The namespace in which all UAS C2 Initiative data types are declared
+namespace uci {
+
+   //  The namespace in which all generated data types are declared
+   namespace type {
+
+      /** This is the StrikeSpecificDataType sequence accessor class */
+      class StrikeSpecificDataType : public virtual uci::base::Accessor {
+      public:
+
+         /** The destructor */
+         virtual ~StrikeSpecificDataType()
+         { }
+
+         /** Returns this accessor's type constant, i.e. StrikeSpecificDataType
+           *
+           * @return This accessor's type constant, i.e. StrikeSpecificDataType
+           */
+         virtual uci::base::accessorType::AccessorType getAccessorType() const
+            throw()
+         {
+            return uci::type::accessorType::strikeSpecificDataType;
+         }
+
+
+         /** Initializes the contents of this accessor by copying the contents of the specified accessor
+           *
+           * @param accessor The accessor whose contents are to be used to initialize the contents of this accessor
+           */
+         virtual void copy(const StrikeSpecificDataType& accessor)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the accessor that provides access to the complex content that is identified by the CapabilityType.
+           *
+           * @return The acecssor that provides access to the complex content that is identified by CapabilityType.
+           */
+         virtual const uci::type::StoreType& getCapabilityType() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns the accessor that provides access to the complex content that is identified by the CapabilityType.
+           *
+           * @return The acecssor that provides access to the complex content that is identified by CapabilityType.
+           */
+         virtual uci::type::StoreType& getCapabilityType()
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Sets the complex content that is identified by the CapabilityType to the contents of the complex content that is
+           * accessed by the specified accessor.
+           *
+           * @param value The accessor that provides access to the sequence whose contents are to be used to set the contents of
+           *      the sequence identified by CapabilityType
+           */
+         virtual void setCapabilityType(const uci::type::StoreType& value)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Returns whether the Element that is identified by CapabilityType exists (is enabled) or not.
+           *
+           * @return A boolean indicating whether the Element identified by CapabilityType is emabled or not
+           */
+         virtual bool hasCapabilityType() const
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Enables the Element that is identified by CapabilityType
+           *
+           * @param type = uci::type::accessorType::storeType This Accessor's accessor type
+           */
+         virtual void enableCapabilityType(uci::base::accessorType::AccessorType type = uci::type::accessorType::storeType)
+            throw(uci::base::UCIException) = 0;
+
+
+         /** Clears (disabled) the Element that is identified by CapabilityType */
+         virtual void clearCapabilityType()
+            throw(uci::base::UCIException) = 0;
+
+
+
+      protected:
+
+         /** The constructor [only available to derived classes]. */
+         StrikeSpecificDataType()
+         { }
+
+         /** The copy constructor [only available to derived classes]
+           *
+           * @param rhs The StrikeSpecificDataType to copy from
+           */
+         StrikeSpecificDataType(const StrikeSpecificDataType& rhs)
+         {
+            (void)rhs;
+         }
+
+         /** The assignment operator. Sets the contents of this StrikeSpecificDataType to the contents of the
+           * StrikeSpecificDataType on the right hand side (rhs) of the assignment operator.StrikeSpecificDataType [only available
+           * to derived classes]
+           *
+           * @param rhs The StrikeSpecificDataType on the right hand side (rhs) of the assignment operator whose contents are used
+           *      to set the contents of this uci::type::StrikeSpecificDataType
+           * @return A constant reference to this StrikeSpecificDataType.
+           */
+         const StrikeSpecificDataType& operator=(const StrikeSpecificDataType& rhs)
+         {
+            (void)rhs;
+
+            return *this;
+         }
+
+
+      }; // StrikeSpecificDataType
+
+
+   } // Namespace: type
+} // Namespace: uci
+
+#endif // Uci__Type__StrikeSpecificDataType_h
+

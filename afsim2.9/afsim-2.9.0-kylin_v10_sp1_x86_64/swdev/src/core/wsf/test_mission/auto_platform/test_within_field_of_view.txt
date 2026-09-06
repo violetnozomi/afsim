@@ -1,0 +1,371 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+sensor RADAR WSF_RADAR_SENSOR
+   # the configuration below does not fall under the category of testing
+   reports_range
+   frame_time 10000 s
+
+   beam 1
+      transmitter
+         earth_radius_multiplier 1.0
+         power 10 watts
+         frequency 10 hz
+      end_transmitter
+      receiver
+         maximum_range 10000.0 m
+         earth_radius_multiplier 1.0
+         frequency 12 hz
+      end_receiver
+   end_beam
+end_sensor
+
+sensor GENERIC WSF_GEOMETRIC_SENSOR
+   maximum_range 10000.0 m
+   frame_time 10000.0 s
+   reports_bearing
+   reports_elevation
+end_sensor
+
+radar_signature const WSF_RADAR_SIGNATURE 
+   constant 0 dbsm
+end_radar_signature
+
+platform_type TARGET WSF_PLATFORM
+   radar_signature const   
+end_platform_type
+
+script_variables
+   Array<string> gPlatformNames = {};
+   bool gFailed = false;
+   int gNumPassed = 0;
+   double gTol = 0.1; // deg
+   double gAz = 5.0; // deg
+   double gEl = 5.0; // deg
+   double gRange = 9999.9; // should be slightly less than the maximum range of the sensors
+end_script_variables
+
+platform plat_tx WSF_PLATFORM
+   position 0n 88w
+   altitude 20000 ft
+   script
+      void Detect(string aPlatformName, string aSensorName)
+      WsfPlatform target = WsfSimulation.FindPlatform(aPlatformName);
+      if (target.IsValid())
+      {
+         WsfSensor sensor = PLATFORM.Sensor(aSensorName);
+         WsfGeoPoint point = WsfGeoPoint.ConstructWCS(target.LocationWCS());
+         if (!sensor.WithinFieldOfView(point))
+         {
+            write(TIME_NOW, ": -FAIL-  ");
+            gFailed = true;
+            writeln(aPlatformName, " : ", aSensorName, " (unexpected non-detection)");
+         }
+         else
+         {
+            gNumPassed += 1;
+         }
+      }
+   end_script
+   script
+      void NoDetect(string aPlatformName, string aSensorName)
+      WsfPlatform target = WsfSimulation.FindPlatform(aPlatformName);
+      if (target.IsValid())
+      {
+         WsfSensor sensor = PLATFORM.Sensor(aSensorName);
+         WsfGeoPoint point = WsfGeoPoint.ConstructWCS(target.LocationWCS());
+         if (sensor.WithinFieldOfView(point))
+         {
+            write(TIME_NOW, ": -FAIL-  ");
+            gFailed = true;
+            writeln(aPlatformName, " : ", aSensorName, " (unexpeced detection)");
+         }
+         else
+         {
+            gNumPassed += 1;
+         }
+      }
+   end_script
+
+   script void EvaluateCommonFOV_Checks(string aSensorName)
+      NoDetect("center_ndet", aSensorName);
+      Detect("center_det", aSensorName);
+      Detect("lower_center_det", aSensorName);
+      NoDetect("lower_center_ndet", aSensorName);
+      Detect("upper_center_det", aSensorName);
+      NoDetect("upper_center_ndet", aSensorName);
+      Detect("upper_right_det", aSensorName);
+      NoDetect("upper_right_ndet", aSensorName);
+      NoDetect("lower_left_ndet", aSensorName);
+   end_script
+   
+   script void EvaluateFOV_Checks()
+      EvaluateCommonFOV_Checks("circular");
+      Detect("lower_left_det", "circular");
+      NoDetect("upper_right_det_r", "circular");
+      NoDetect("lower_left_det_r", "circular");
+
+      EvaluateCommonFOV_Checks("rectangular");
+      Detect("lower_left_det", "rectangular");
+      Detect("upper_right_det_r", "rectangular");
+      Detect("lower_left_det_r", "rectangular");
+
+      EvaluateCommonFOV_Checks("rectangular-legacy");
+      Detect("lower_left_det", "rectangular-legacy");
+      Detect("upper_right_det_r", "rectangular-legacy");
+      Detect("lower_left_det_r", "rectangular-legacy");
+
+      EvaluateCommonFOV_Checks("polygonal");
+      NoDetect("lower_left_det", "polygonal");
+      Detect("upper_right_det_r", "polygonal");
+      NoDetect("lower_left_det_r", "polygonal");
+
+      EvaluateCommonFOV_Checks("generic");
+      Detect("lower_left_det", "generic");      
+      Detect("upper_right_det_r", "generic");
+      Detect("lower_left_det_r", "generic");
+
+      EvaluateCommonFOV_Checks("equatorial");
+
+   end_script
+
+   script void PrintCircular(WsfFieldOfView aFOV)
+      WsfCircularFieldOfView cfov = (WsfCircularFieldOfView)(aFOV);
+      writeln("FOV: ", cfov.Type());
+      writeln("     half angle: ", cfov.HalfAngle());
+   end_script
+   
+   script void PrintRectangular(WsfFieldOfView aFOV)
+      WsfRectangularFieldOfView rfov = (WsfRectangularFieldOfView)(aFOV);
+      Array<double> azFOV = rfov.AzimuthFieldOfView();
+      Array<double> elFOV = rfov.ElevationFieldOfView();
+      writeln("FOV: ", rfov.Type());
+      writeln("     az extents: ", azFOV[0], ", ", azFOV[1]);
+      writeln("     el extents: ", elFOV[0], ", ", elFOV[1]);
+   end_script
+   
+   script void PrintEquatorial(WsfFieldOfView aFOV)
+      WsfEquatorialFieldOfView efov = (WsfEquatorialFieldOfView)(aFOV);
+      Array<double> raFOV = efov.EquatorialFieldOfView();
+      Array<double> decFOV = efov.PolarFieldOfView();
+      writeln("FOV: ", efov.Type());
+      writeln("     ra extents: ", raFOV[0], ", ", raFOV[1]);
+      writeln("     dec extents: ", decFOV[0], ", ", decFOV[1]);
+   end_script
+
+   script void PrintPolygonal(WsfFieldOfView aFOV)
+      WsfPolygonalFieldOfView pfov = (WsfPolygonalFieldOfView)(aFOV);
+      writeln("FOV: ", pfov.Type());
+      Array<Array<double>> points = pfov.AzElPoints();
+      writeln("(az, el) points: ");
+      foreach (Array<double> point in points)
+      {
+         writeln("( ", point.Get(0), ", ", point.Get(1), ")");
+      }
+   end_script
+
+   script void ExamineFOVs()
+      PrintCircular(PLATFORM.Sensor("circular").FOV());
+      PrintCircular(PLATFORM.Sensor("circular").FOV(0));
+      PrintRectangular(PLATFORM.Sensor("rectangular").FOV());
+      PrintEquatorial(PLATFORM.Sensor("equatorial").FOV());
+      PrintPolygonal(PLATFORM.Sensor("polygonal").FOV());
+   end_script
+
+   execute at_time 1.0 s absolute      
+      EvaluateFOV_Checks();
+      ExamineFOVs();
+   end_execute
+   
+   script void InsertPointInArray(Array<Array<double>> aPoints, double aAz, double aEl)
+      Array<double> point = {};
+      point.PushBack(aAz);
+      point.PushBack(aEl);
+      aPoints.PushBack(point);
+   end_script 
+   
+   script void ConstructAndSetFOVs()
+      WsfCircularFieldOfView cfov = WsfCircularFieldOfView.Construct(Math.Min(gAz, gEl));
+      PLATFORM.Sensor("circular").SetFOV(cfov);
+
+      WsfRectangularFieldOfView rfov = WsfRectangularFieldOfView.Construct(-gAz, gAz, -gEl, gEl);
+      PLATFORM.Sensor("rectangular").SetFOV(rfov);
+      PLATFORM.Sensor("rectangular-legacy").SetFOV(rfov);
+      WsfRectangularFieldOfView rfov2 = WsfRectangularFieldOfView(rfov);
+      PLATFORM.Sensor("generic").SetFOV(rfov);
+
+      Array<Array<double>> polygonalPoints = {};
+      InsertPointInArray(polygonalPoints, -gAz, gEl);
+      InsertPointInArray(polygonalPoints,  0, -gEl);
+      InsertPointInArray(polygonalPoints, gAz, gEl);
+      WsfPolygonalFieldOfView pfov = WsfPolygonalFieldOfView.Construct(polygonalPoints);
+      PLATFORM.Sensor("polygonal").SetFOV(pfov);      
+      
+      WsfEquatorialFieldOfView efov = WsfEquatorialFieldOfView.Construct(-gAz, gAz, -gEl, gEl);
+      PLATFORM.Sensor("equatorial").SetFOV(efov);
+   end_script
+   
+   execute at_time 2.0 s absolute
+      // Set a new fov for each sensor
+      gAz = 3.0;
+      gEl = 2.0;
+      MovePlatforms();
+      ConstructAndSetFOVs();      
+   end_execute
+   
+   execute at_time 3.0 s absolute
+      EvaluateFOV_Checks();
+      ExamineFOVs();
+   end_execute
+   
+   add sensor circular RADAR
+      beam 1
+         field_of_view circular
+            half_angle 5 degrees
+         end_field_of_view
+      end_beam
+   end_sensor
+   add sensor rectangular RADAR
+      beam 1
+         field_of_view rectangular
+            azimuth_field_of_view -5 deg 5 deg
+            elevation_field_of_view -5 deg 5 deg
+         end_field_of_view
+      end_beam
+   end_sensor
+   add sensor rectangular-legacy RADAR
+      beam 1
+         azimuth_field_of_view -5 deg 5 deg
+         elevation_field_of_view -5 deg 5 deg
+      end_beam
+   end_sensor
+   add sensor polygonal RADAR
+      beam 1
+         field_of_view polygonal
+            // Triangular
+            azimuth_elevation -5 deg  5 deg
+            azimuth_elevation  0 deg -5 deg
+            azimuth_elevation  5 deg  5 deg
+         end_field_of_view
+      end_beam
+   end_sensor
+   add sensor generic GENERIC
+      field_of_view rectangular
+         azimuth_field_of_view -5 deg 5 deg
+         elevation_field_of_view -5 deg 5 deg
+      end_field_of_view
+   end_sensor
+   add sensor equatorial GENERIC
+      slew_mode both // Needed to prevent warning messages.  See initial CueToAzEl call, below.
+      field_of_view equatorial
+         equatorial_field_of_view -5 deg 5 deg
+         polar_field_of_view -5 deg 5 deg 
+      end_field_of_view
+   end_sensor
+   
+   on_initialize2
+      PLATFORM.Sensor("equatorial").CueToAzEl(0.0, 0.0);
+   end_on_initialize2
+   
+end_platform
+
+script
+   void MovePlatformTo(double aAz,
+                       double aEl,
+                       double aRange,
+                       string aName)
+   WsfPlatform platform = WsfSimulation.FindPlatform(aName);
+   if (platform.IsValid())
+   {
+      WsfPlatform sensing = WsfSimulation.FindPlatform("plat_tx");
+      WsfGeoPoint gp = sensing.Location();
+      double distance = aRange;
+      Vec3 offsetNED = Vec3.Construct(distance * Math.Cos(-aEl) * Math.Cos(aAz),
+                                      distance * Math.Cos(-aEl) * Math.Sin(aAz),
+                                      distance * Math.Sin(-aEl));
+      gp.OffsetNED(offsetNED);
+      platform.SetLocation(gp.Latitude(), gp.Longitude(), gp.Altitude());   
+   }
+end_script
+
+script
+   void CreatePlatform(string aName)
+   {
+      WsfPlatform platform = WsfSimulation.CreatePlatform("TARGET");
+      WsfSimulation.AddPlatform(platform, aName);
+   }
+end_script
+
+script
+   void CreatePlatforms()
+   {
+      foreach(string name in gPlatformNames)
+      {
+         CreatePlatform(name);
+      }
+   }
+end_script
+
+script
+   void MovePlatforms()
+   {
+      double detAz = gAz - gTol;
+      double detEl = gEl - gTol;
+      double ndetAz = gAz + gTol;
+      double ndetEl = gEl + gTol;
+      double detCirc = Math.Min(detAz, detEl) / Math.Sqrt(2.0);
+      double ndetCirc = Math.Min(ndetAz, ndetEl) / Math.Sqrt(2.0);      
+      MovePlatformTo(0.0, 0.0, gRange, "center_det");
+      MovePlatformTo(0.0, 0.0, (gRange + 1000.0), "center_ndet");
+      MovePlatformTo(ndetAz, ndetEl, gRange, "upper_right_ndet");
+      MovePlatformTo(-ndetAz, -ndetEl, gRange, "lower_left_ndet");
+      MovePlatformTo( detCirc, detCirc, gRange, "upper_right_det");
+      MovePlatformTo(-detCirc, -detCirc, gRange, "lower_left_det");
+      MovePlatformTo( ndetCirc, ndetCirc, gRange, "upper_right_det_r");
+      MovePlatformTo(-ndetCirc, -ndetCirc, gRange, "lower_left_det_r");
+      MovePlatformTo(0.0, detEl, gRange, "upper_center_det");
+      MovePlatformTo(0.0, ndetEl, gRange, "upper_center_ndet");
+      MovePlatformTo(0.0, -detEl, gRange, "lower_center_det");
+      MovePlatformTo(0.0, -ndetEl, gRange, "lower_center_ndet");
+   }
+end_script
+
+execute at_time 1.0E-6 s absolute
+   gPlatformNames.PushBack("center_ndet");
+   gPlatformNames.PushBack("center_det");
+   gPlatformNames.PushBack("upper_right_ndet");
+   gPlatformNames.PushBack("lower_left_ndet");
+   gPlatformNames.PushBack("upper_right_det");
+   gPlatformNames.PushBack("lower_left_det");
+   gPlatformNames.PushBack("upper_center_det");
+   gPlatformNames.PushBack("lower_center_det");
+   gPlatformNames.PushBack("upper_center_ndet");
+   gPlatformNames.PushBack("lower_center_ndet");
+   gPlatformNames.PushBack("upper_right_det_r");
+   gPlatformNames.PushBack("lower_left_det_r");
+   
+   CreatePlatforms();
+   MovePlatforms();
+end_execute
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+script
+   void SimulationComplete()
+   {
+      if (!gFailed)
+      {
+         writeln("-PASS- (", gNumPassed, " tests)");
+      }
+   }
+end_script
+
+end_time 20 s

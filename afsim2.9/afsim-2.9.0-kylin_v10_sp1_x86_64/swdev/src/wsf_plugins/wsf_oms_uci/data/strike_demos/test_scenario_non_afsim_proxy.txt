@@ -1,0 +1,199 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# platform "sense" is internally moved. Strike UCI messages are received
+# for platform "sense" in the other simulation.
+# The weapon on platfom sense is run in the other simulation
+
+include ./test_scenario_common.txt
+
+dis_interface 
+   application 1
+
+   // Entity type SIMPLE_SENSE maps to SENSE type in uci-enabled app
+   entity_type SIMPLE_SENSE 1:2:225:1:12:0:0   
+   entity_type EARLY_WARNING_AIRCRAFT 1:2:225:1:12:0:1 
+   
+   entity_id sense 1
+   entity_id target_1 2
+end_dis_interface
+
+uci_interface
+   service_name ship1
+   service_descriptor SHIP1
+end_uci_interface
+
+platform sense SIMPLE_SENSE
+   route
+#     Take off
+      position 38:44:52.3n 90:21:36.4w altitude 6 ft agl speed 20 kts
+      position 38:45:07.6n 90:22:09.4w altitude 6 ft agl speed 120 kts # climb_rate 1000 fpm
+      position 38:49:00n 90:29:00w altitude 15000 ft speed 400 kts
+      position 39:29:00n 91:30:00w altitude 35000 ft
+      position 38:45:00n 90:06:08w
+      position 38:38:24n 90:07:46w altitude 10000 ft speed 250 kts
+#     Landing
+      position 38:44:52.3n 90:21:36.4w altitude 6 ft agl speed 120 kts
+      position 38:45:07.6n 90:22:09.4w altitude 6 ft agl speed 0 kts
+   end_route
+
+   edit uci_component computer
+      processor strike_command
+      debug
+   end_uci_component
+
+   add processor strike_command WSF_SCRIPT_PROCESSOR
+      internal_link computer
+      on_message 
+         type UCI_STRIKE_CAPABILITY_MESSAGE
+         script
+            SuppressMessage();
+            if (!MESSAGE.IsNull())
+            {
+               UCI_StrikeCapabilityMessage msg = (UCI_StrikeCapabilityMessage)MESSAGE;
+
+               if (!msg.IsNull())
+               {
+                  writeln_d("Received UCI_StrikeCapabilityMessage");
+                  RequestControl(msg);
+               }
+               else
+               {
+                  writeln_d("Invalid UCI_STRIKE_CAPABILITY_MESSAGE");
+               }
+            }
+            else
+            {
+               writeln_d("Invalid UCI_STRIKE_CAPABILITY_MESSAGE");
+            }
+         end_script
+
+         type UCI_STRIKE_ACTIVITY_MESSAGE
+         script
+            SuppressMessage();
+            if (!MESSAGE.IsNull())
+            {
+               UCI_StrikeActivityMessage msg = (UCI_StrikeActivityMessage)MESSAGE;
+               if (!msg.IsNull())
+               {
+                  int size = msg.Size();
+                  
+                  for (int i = 0; i < size; i +=1)
+                  {
+                     UCI_StrikeActivity activity = msg.Activity(i);
+                     writeln_d("Activity ", i, ":");
+                     if (!activity.IsNull())
+                     {
+                        writeln_d("   ", activity.ActivityId().UUID());
+                        string capabilityIds;
+                        for (int j = 0; j < activity.Size(); j +=1)
+                        {
+                           if (j != 0)
+                           {
+                              capabilityIds += ", ";
+                           }
+                           capabilityIds += activity.CapabilityId(j).UUID();
+                        }
+                        writeln_d("   ", capabilityIds);
+                        if (activity.IsReadyForRelease()) writeln_d("   Ready for release");
+                        if (activity.IsSelectedForJettison()) writeln_d("   Selected for jettison");
+                        if (activity.IsSelectedForKeyLoad()) writeln_d("   Selected for key load");
+                        if (activity.IsSelectedForRelease()) writeln_d("   Selected for release");
+                        if (activity.IsWeaponArmed()) writeln_d("   Weapon armed");
+
+                        if (activity.IsActiveFullyConstrained()) writeln_d("   Active fully constrained");
+                        if (activity.IsActivePartiallyConstrained()) writeln_d("   Active partially constrained");
+                        if (activity.IsActiveUnconstrained()) writeln_d("   Active unconstrained");
+                        if (activity.HasFailed()) writeln_d("   Failed");
+                        if (activity.IsCompleted()) writeln_d("   Completed");
+                        if (activity.IsDeleted()) writeln_d("   Deleted");
+                        if (activity.IsDisabled()) writeln_d("   Disabled");
+                        if (activity.IsEnabled()) writeln_d("   Enabled");
+                     }
+                     else
+                     {
+                        writeln_d("    Not Valid"); 
+                     }
+                  }
+               }
+            }
+            else
+            {
+               writeln_d("Received invalid strike activity message");
+            }
+         end_script
+
+         type UCI_STRIKE_CAPABILITY_STATUS_MESSAGE
+         script
+            SuppressMessage();
+            if (!MESSAGE.IsNull())
+            {
+               if (MESSAGE.IsValid())
+               {
+                  writeln_d(TIME_NOW, " Received UCI_STRIKE_CAPABILITY_STATUS_MESSAGE");
+               }
+            }
+            else
+            {
+               writeln_d("Received invalid UCI_STRIKE_CAPABILITY_STATUS_MESSAGE");
+            }
+         end_script
+
+         type UCI_SYSTEM_STATUS_MESSAGE
+            script
+               SuppressMessage();
+               if (!MESSAGE.IsNull())
+               {
+                  writeln_d(TIME_NOW, " Received system status message");
+               }
+               else
+               {
+                  writeln_d("Received invalid system status message");
+               }
+            end_script
+
+         default
+         script
+            SuppressMessage();
+            if (!MESSAGE.IsNull())
+            {
+               writeln_d("Received ", MESSAGE.Type());
+            }
+            else
+            {
+               writeln_d("Received invalid default message");
+            }
+         end_script
+
+      end_on_message
+
+      execute at_time 96 s absolute
+         if (!capabilities.Empty())
+         {
+            if (useDMPI)
+            {
+               SendDMPI_Command();
+            }
+            else
+            {
+               SendStrikeCommand();
+            }
+         }
+      end_execute
+
+   end_processor
+
+end_platform
+
+platform target_1 TARGET
+   side red
+   position 38:49:07n 90:29:17w
+
+end_platform
+

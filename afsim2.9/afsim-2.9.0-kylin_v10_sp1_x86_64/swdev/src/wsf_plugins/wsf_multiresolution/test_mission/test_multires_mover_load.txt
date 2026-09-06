@@ -1,0 +1,133 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+test_feature multiresolution
+
+$define UPDATE_INTERVAL_1 30.0
+$define UPDATE_INTERVAL_2 0.5
+
+event_pipe
+   #file temp.aer
+   maximum_mover_update_interval 5 s
+end_event_pipe
+
+mover LOW_FIDELITY_MOVER WSF_AIR_MOVER
+   # The -1 is to have this line pass the grammar check; if the value somehow
+   # gets used, the script will fail, as negative update_interval values are invalid.
+   update_interval $<UPDATE_INTERVAL_1:-1>$ sec
+end_mover
+
+platform_type SIMPLE_FIGHTER WSF_PLATFORM
+   icon F-18  
+
+   multiresolution_mover WSF_MULTIRESOLUTION_MOVER
+     
+     model high_fidelity_mover 
+        fidelity_range 0.5 1.0
+        mover HIGH_FIDELITY_MOVER
+        end_mover
+     end_model
+    
+     add model low_fidelity_mover 
+        fidelity_range 0.0 0.5 
+        mover LOW_FIDELITY_MOVER
+        end_mover
+     end_model
+   end_multiresolution_mover
+end_platform_type
+
+# Tests deferred loading
+mover HIGH_FIDELITY_MOVER WSF_AIR_MOVER
+   update_interval 0.25 sec
+end_mover
+
+platform test SIMPLE_FIGHTER
+  multiresolution_mover
+     fidelity 0.25
+     common
+       route
+          position 0n 0e altitude 20000 ft heading 0 deg speed 444.36398 kts
+          position 0.1n 0e altitude 20000 ft speed 444.36398 kts
+          position 0.1n 0.1e altitude 25000 ft speed 444.36398 kts
+       end_route
+     end_common
+  end_multiresolution_mover
+  
+  on_initialize2
+    // Check that the correct mover was loaded, and check update_interval
+    WsfMover mover = PLATFORM.Mover();
+    if(mover != NULL){
+      if(mover.UpdateInterval() != $<UPDATE_INTERVAL_1>$){
+        writeln("Wrong mover update interval: got ",
+                mover.UpdateInterval(),
+                ", should be ",
+                $<UPDATE_INTERVAL_1>$,
+                ".");
+        writeln("-FAIL-");
+      }
+      else if(!mover.IsA_TypeOf("LOW_FIDELITY_MOVER")){
+        writeln("Wrong mover. Expected LOW_FIDELITY_MOVER, got ", mover.Type());
+        writeln("-FAIL-");
+      }
+      else{
+         writeln("-PASS-");
+      }
+    } else {
+      writeln("No mover");
+      writeln("-FAIL-");
+    }
+  end_on_initialize2
+end_platform
+
+platform test2 SIMPLE_FIGHTER
+   multiresolution_mover
+      model low_fidelity_mover # Implicit edit
+         fidelity_range 0.3 0.5
+         mover
+            update_interval 20.0 sec
+         end_mover
+      end_model
+      edit model high_fidelity_mover # Explicit edit
+         mover
+            # The -1 is to have this line pass the grammar check; if the value somehow
+            # gets used, the script will fail, as negative update_interval values are invalid.
+            update_interval $<UPDATE_INTERVAL_2:-1>$ sec
+         end_mover
+         default
+      end_model
+   end_multiresolution_mover
+
+  on_initialize2
+    // Check that the correct mover was loaded, and check update_interval
+    WsfMover mover = PLATFORM.Mover();
+    if(mover != NULL){
+      if(mover.UpdateInterval() != $<UPDATE_INTERVAL_2>$){
+        writeln("Wrong mover update interval: got ",
+                mover.UpdateInterval(),
+                ", should be ",
+                $<UPDATE_INTERVAL_2>$,
+                ".");
+        writeln("-FAIL-");
+      }
+      else if(!mover.IsA_TypeOf("HIGH_FIDELITY_MOVER")){
+        writeln("Wrong mover. Expected HIGH_FIDELITY_MOVER, got ", mover.Type());
+        writeln("-FAIL-");
+      }
+      else{
+         writeln("-PASS-");
+      }
+    } else {
+      writeln("No mover");
+      writeln("-FAIL-");
+    }
+  end_on_initialize2
+
+end_platform

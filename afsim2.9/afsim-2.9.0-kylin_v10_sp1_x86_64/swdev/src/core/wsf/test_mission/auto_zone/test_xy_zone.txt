@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test X/Y zones.
+#
+# Note: The zone is defined asymmetrically and then installed on a platform whose
+#       heading is 90 deg
+#
+# Note: At the equator, 1 deg ~111.3 km
+#       A coordinate of 0.5 deg will be somewhere in between the 50 and 100 km range.
+#
+#
+# 'x' marks the zone nodes, and T is the test points (NE,SE,SW,NW). One can see that
+# only the SE point should be in the zone as instantiated on the host platform.
+# If the coordinate transformations were invalid then something else might appear in
+# the zone.
+#
+#    +X
+#     |
+#   x-+---x
+#  T| |  T|                 T  |  T
+#   | |   |                  x-+---x
+#   | |   |                  | |   |
+#  -+-+---+- +Y  installed  -+-+---+- +X
+#   | |   |                  | |   |
+#   x-+-- x                  | |   |
+#  T  |  T                  T| |  T|
+#                            x-+---x
+#                              |
+#                              +Y
+
+zone POLY_ZONE
+   polygonal
+      point  100.0  -50.0 km
+      point  100.0  100.0 km
+      point  -50.0  100.0 km
+      point  -50.0  -50.0 km
+end_zone
+
+platform test_platform WSF_PLATFORM
+   position 0n 0w heading 90 deg                 # Note rotation
+
+   use_zone POLY_ZONE as poly_zone
+
+   script void ZoneTest(string aTargetName, string aZoneName, bool aShouldBeInside)
+      WsfPlatform target = WsfSimulation.FindPlatform(aTargetName);
+      if (! target.IsValid())
+      {
+         writeln("-FAIL- Unable to find platform ", aTargetName);
+         return;
+      }
+      WsfGeoPoint point = target.Location();
+      bool inside =  point.WithinZoneOf(PLATFORM, aZoneName);
+      if (inside != aShouldBeInside)
+      {
+         writeln("-FAIL- ", aTargetName, " ", aZoneName, "; ", inside, " != ", aShouldBeInside);
+      }
+      else
+      {
+         writeln("-PASS- ", aTargetName, " ", aZoneName, "; ", inside, " == ", aShouldBeInside);
+      }
+   end_script
+
+   execute at_time 1 sec absolute
+      ZoneTest("target-ne", "poly_zone", false);
+      ZoneTest("target-se", "poly_zone", true);
+      ZoneTest("target-sw", "poly_zone", false);
+      ZoneTest("target-nw", "poly_zone", false);
+   end_execute
+
+end_platform
+
+platform target-ne   WSF_PLATFORM position 0.5n 0.5e end_platform
+platform target-se   WSF_PLATFORM position 0.5s 0.5e end_platform
+platform target-sw   WSF_PLATFORM position 0.5s 0.5w end_platform
+platform target-nw   WSF_PLATFORM position 0.5n 0.5w end_platform
+
+end_time 2 sec
+

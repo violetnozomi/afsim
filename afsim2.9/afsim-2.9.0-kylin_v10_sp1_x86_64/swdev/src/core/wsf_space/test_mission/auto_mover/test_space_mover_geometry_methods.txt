@@ -1,0 +1,251 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../utils.txt
+
+platform_type SAT WSF_PLATFORM
+   mover WSF_SPACE_MOVER
+   end_mover
+end_platform_type
+
+platform horizon_test SAT
+   side red
+   
+   edit mover
+      eccentricity 0
+      inclination 35 deg
+      raan 15 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 93 deg
+      revs_per_day 4
+      
+      execute at_time 1 s absolute
+         double D = PLATFORM.LocationECI().Magnitude();
+         double R = Earth.MEAN_RADIUS();
+   
+         double L = Math.Sqrt(D * D - R * R);
+         double theta = Math.ASin(R / D);
+   
+         WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+         ExpectDouble(mover.DistanceToHorizon(), L, 0.5, "Distance to horizon");
+         ExpectDouble(mover.LookAngleToHorizon(), theta, 1.0e-4, "Look angle to horizon");
+      end_execute
+   end_mover
+end_platform
+
+platform angles_target SAT
+   side blue
+   
+   edit mover
+      eccentricity 0
+      inclination 0 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 80 deg
+      revs_per_day 8
+   end_mover
+end_platform
+
+platform angles_test SAT
+   side blue
+   
+   edit mover
+      eccentricity 0
+      inclination 0 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      revs_per_day 8
+   end_mover
+   
+   add sensor reploc WSF_GEOMETRIC_SENSOR
+      elevation_field_of_view -90 deg 90 deg
+      azimuth_field_of_view -180 deg 180 deg
+      frame_time 1 s
+      on
+      reports_location
+      ignore_same_side
+      internal_link track-proc
+   end_sensor
+
+   add processor track-proc WSF_TRACK_PROCESSOR
+   end_processor
+   
+   # Test Angles for a track that has location information.
+   execute at_time 15 s absolute
+      int nTracks = PLATFORM.MasterTrackList().Count();
+      ExpectInt(nTracks, 1, "'angles_test' Should have 1 track");
+      
+      WsfTrack track = PLATFORM.MasterTrackList().Entry(0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      double la = mover.LookAngleTo(track);
+      double ia = mover.IncidenceAngle(track);
+      double tea = mover.TargetElevationAngle(track);
+      double sa = mover.SquintAngleTo(track);
+      
+      // Expected value; no nice geometry, so have to just compute it
+      Vec3 obs = PLATFORM.LocationWCS();
+      Vec3 tgt = track.LocationAtTime(TIME_NOW).LocationWCS();
+      Vec3 diff = Vec3.Subtract(obs, tgt).Normal();
+      double dotLA = Vec3.Dot(diff, obs.Normal());
+      double dotIA = Vec3.Dot(diff, tgt.Normal());
+      double expectedLA = Math.ACos(dotLA);
+      double expectedIA = Math.ACos(dotIA);
+      double expectedTEA = 90.0 - expectedIA;
+      
+      // Work out expected squint angle
+      // 1) Construct local horizontal frame
+      Vec3 cross = Vec3.Cross(PLATFORM.LocationWCS(), PLATFORM.VelocityWCS()).Normal();
+      Vec3 up = PLATFORM.LocationWCS().Normal();
+      Vec3 ahead = Vec3.Cross(cross, up).Normal();
+      // 2) Work out components of displacement in that frame
+      Vec3 saDiff = Vec3.Subtract(tgt, obs);
+      double aComp = Vec3.Dot(saDiff, ahead);
+      double cComp = Vec3.Dot(saDiff, cross);
+      // 3) Trig
+      double expectedSA = Math.ATan2(cComp, aComp);
+      
+      ExpectDouble(la, expectedLA, 1.0e-3, "'angles_test' look angle for track target");
+      ExpectDouble(ia, expectedIA, 1.0e-3, "'angles_test' incidence angle for track target");
+      ExpectDouble(tea, expectedTEA, 1.0e-3, "'angles_test' target elevation angle for track target");
+      ExpectDouble(sa, expectedSA, 1.0e-3, "'angles_test' squint angle for track target");
+   end_execute
+   
+   # Test Angles for a geo point.
+   execute at_time 20 s absolute
+      // Create a geo point that forms an equilateral triangle with the center of the Earth and
+      // PLATFORM
+      Vec3 platLoc = PLATFORM.LocationWCS();
+      double ct = Math.Cos(60.0);
+      double st = Math.Sin(60.0);
+      Vec3 tgtLoc = Vec3.Construct(ct * platLoc.X() + st * platLoc.Y(),
+                                   -st * platLoc.X() + ct * platLoc.Y(),
+                                   platLoc.Z());
+      WsfGeoPoint point = WsfGeoPoint.ConstructWCS(tgtLoc);
+      
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      double la = mover.LookAngleTo(point);
+      double ia = mover.IncidenceAngle(point);
+      double tea = mover.TargetElevationAngle(point);
+      double sa = mover.SquintAngleTo(point);
+      
+      ExpectDouble(la, 60.0, 1.0e-3, "'angles_test' look angle for geo point");
+      ExpectDouble(ia, 120.0, 1.0e-3, "'angles_test' incidence angle for geo point");
+      ExpectDouble(tea, -30.0, 1.0e-3, "'angles_test' target elevation angle for geo point");
+      
+      // tgtLoc is rotated westward by 60 degrees with respect to this platform. When projected onto
+      // the local horizontal, that is directly behind this platform.
+      ExpectDouble(sa, 180.0, 1.0e-3, "'angles_test' squint angle for geo point");
+   end_execute
+   
+   # Test Angles for a platform.
+   execute at_time 25 s absolute
+      // The platform 'angles_target' makes an isosceles triangle with this platform
+      // and the center of the earth. Thus, the look angle to it should be
+      // (180 - change in true anomaly) / 2.
+      double expectedLA = (180.0 - 80.0) / 2.0;         // See the true anomaly of the target platform.
+      double expectedIA = expectedLA + 80.0;
+      double expectedTEA = 90.0 - expectedIA;
+      
+      // Projected onto the local horizontal, `angles_test` is dead ahead.
+      double expectedSA = 0.0;
+      
+      WsfPlatform target = WsfSimulation.FindPlatform("angles_target");
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      double la = mover.LookAngleTo(target);
+      double ia = mover.IncidenceAngle(target);
+      double tea = mover.TargetElevationAngle(target);
+      double sa = mover.SquintAngleTo(target);
+      
+      ExpectDouble(la, expectedLA, 1.0e-3, "'angles_test' look angle for target platform");
+      ExpectDouble(ia, expectedIA, 1.0e-3, "'angles_test' incidence angle for target platform");
+      ExpectDouble(tea, expectedTEA, 1.0e-3, "'angles_test' target elevation angle for target platform");
+      ExpectDouble(sa, expectedSA, 1.0e-3, "'angles_test' squint angle for target platform");
+   end_execute
+   
+   # Test Angles for LLA
+   execute at_time 25 s absolute
+      // Set up an LLA such that PLATFORM's subsatellite point makes a right triangle with
+      // PLATFORM's location and the LLA location. This picks the same latitude, and a
+      // known difference in longitude, so the LookAngleTo is easy to compute from geometry.
+      // Notice also this platform has an equatorial orbit, so we make sure to use the equatorial
+      // radius of the Earth.
+      double theta = 20.0;
+      double lon = PLATFORM.Longitude() + theta;
+      double lat = PLATFORM.Latitude();
+      double L = Earth.EQUATORIAL_RADIUS() * Math.Tan(theta);
+      double alt = L / Math.Sin(theta) - Earth.EQUATORIAL_RADIUS();
+      double expectedLA = Math.ATan2(L, PLATFORM.Altitude());
+      // Draw the triangle containing the center of the Earth, the target, and the space mover. Also
+      // extend the line connecting the center of the Earth and the target. theta is one angle of the
+      // triangle, the look angle is another. And the incidence angle is supplementary to the third
+      // angle of the triangle. 
+      double expectedIA = theta + expectedLA;
+      double expectedTEA = 90.0 - expectedIA;
+      
+      // The longitude of the target LLA is ahead of the longitude of this platform. So when projected
+      // onto the local horizontal, that is dead ahead.
+      double expectedSA = 0.0;
+      
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      double la = mover.LookAngleTo(lat, lon, alt);
+      double ia = mover.IncidenceAngle(lat, lon, alt);
+      double tea = mover.TargetElevationAngle(lat, lon, alt);
+      double sa = mover.SquintAngleTo(lat, lon, alt);
+      
+      ExpectDouble(la, expectedLA, 1.0e-3, "'angles_test' look angle for LLA");
+      ExpectDouble(ia, expectedIA, 1.0e-3, "'angles_test' incidence angle for LLA");
+      ExpectDouble(tea, expectedTEA, 1.0e-3, "'angles_test' target elevation angle for LLA");
+      ExpectDouble(sa, expectedSA, 1.0e-3, "'angles_test' squint angle for LLA");
+   end_execute
+end_platform
+
+# This tests that a track that does not have a valid position will return -360 for LookAngleTo
+platform angles_test_incomplete_track SAT
+   side blue
+   
+   edit mover
+      eccentricity 0
+      inclination 0 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      revs_per_day 8
+   end_mover
+
+   add sensor reprange WSF_GEOMETRIC_SENSOR
+      elevation_field_of_view -90 deg 90 deg
+      azimuth_field_of_view -180 deg 180 deg
+      frame_time 1 s
+      on
+      reports_range
+      ignore_same_side
+      internal_link track-proc
+   end_sensor
+
+   add processor track-proc WSF_TRACK_PROCESSOR
+   end_processor
+   
+   execute at_time 15 s absolute
+      int nTracks = PLATFORM.MasterTrackList().Count();
+      ExpectInt(nTracks, 1, "'angles_test_incomplete_track' Should have 1 track");
+      
+      WsfLocalTrack track = PLATFORM.MasterTrackList().Entry(0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      double la = mover.LookAngleTo(track);
+      double ia = mover.IncidenceAngle(track);
+      double tea = mover.TargetElevationAngle(track);
+      double sa = mover.SquintAngleTo(track);
+      
+      ExpectDouble(la, -360.0, 1.0e-3, "'angles_test_incomplete_track' look angle should return -360");
+      ExpectDouble(ia, -360.0, 1.0e-3, "'angles_test_incomplete_track' incidence angle should return -360");
+      ExpectDouble(tea, -360.0, 1.0e-3, "'angles_test_incomplete_track' target elevation angle should return -360.0");
+      ExpectDouble(sa, -360.0, 1.0e-3, "'angles_test_incomplet_track' squint angle should return -360");
+   end_execute
+end_platform

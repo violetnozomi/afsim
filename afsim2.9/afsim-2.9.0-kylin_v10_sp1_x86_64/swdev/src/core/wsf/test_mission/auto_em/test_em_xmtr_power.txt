@@ -1,0 +1,118 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests the correct application of peak vs average power for a transmitter.
+// Two sensing platforms are co-located, with the same sensor definition using
+// a duty cycle that is not 1.0, with the only difference being one sensor
+// indicated to use peak power, while the other is using average power by default.
+// With the relative geometry provided in this scenario, using peak power will
+// result in a detection, while using average power will not. More specific checks
+// are made to ensure the difference between the resulting sensor results reflect
+// the proper difference in using peak vs average power.
+script_variables
+   bool ok = true;
+end_script_variables
+
+sensor AVERAGE_POWER_RADAR_SENSOR WSF_RADAR_SENSOR
+   reports_location
+   frame_time 1 s
+   ignore_same_side
+   transmitter
+      power                       1000.0 kw
+      frequency                   3000 mhz
+      internal_loss               2 db
+      pulse_width                 35 usec
+      pulse_repetition_interval   350 usec
+      duty_cycle                  0.1
+   end_transmitter
+   receiver
+      frequency 3000 mhz
+   end_receiver
+end_sensor
+
+sensor PEAK_POWER_RADAR_SENSOR WSF_RADAR_SENSOR
+   reports_location
+   frame_time 1 s
+   ignore_same_side
+   transmitter
+      power                       1000.0 kw
+      frequency                   3000 mhz
+      internal_loss               2 db
+      pulse_width                 35 usec
+      pulse_repetition_interval   350 usec
+      duty_cycle                  0.1
+      use_peak_power true         # TEST VARIABLE
+   end_transmitter
+   receiver
+      frequency 3000 mhz
+   end_receiver
+end_sensor
+
+
+platform sensing_avg WSF_PLATFORM
+   side blue
+   add sensor sensor AVERAGE_POWER_RADAR_SENSOR
+      on
+      //debug
+   end_sensor
+end_platform
+
+platform sensing_peak WSF_PLATFORM
+   side blue
+   add sensor sensor PEAK_POWER_RADAR_SENSOR
+      on
+      //debug
+   end_sensor
+end_platform
+
+platform target WSF_PLATFORM
+   side red
+   position 0.5n 0e altitude 10000 m
+end_platform
+
+end_time 1 min
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   if(aResult.Detected() && aPlatform.Name() == "sensing_avg")
+   {
+      writeln("-FAIL-");
+      ok = false;
+   }
+   static int iteration = 0;
+   static double xmted_power = 0.0;
+   if(Math.Mod(iteration, 2) == 1)
+   {
+      //Given the sensor definitions, the difference in transmitted
+      //power between the sensor using average power and the sensor
+      //using peak power should always be 10 dBw
+      if(Math.Fabs(aResult.XmtdPower() - xmted_power) != 10.0)
+      {
+         ok = false;
+         writeln("-FAIL-");
+      }
+      xmted_power = 0.0;
+   }
+   else
+   {
+      xmted_power = aResult.XmtdPower();
+   }
+   iteration = iteration + 1;
+end_script
+
+script void SimulationComplete()
+   if(ok)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SIMULATION_COMPLETE
+end_observer

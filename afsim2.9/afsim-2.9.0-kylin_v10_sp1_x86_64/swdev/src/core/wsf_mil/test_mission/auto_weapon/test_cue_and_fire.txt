@@ -1,0 +1,74 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Verify that the weapon cues before firing
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+script_variables
+   bool gPass = true;
+end_script_variables
+
+platform_type missile WSF_PLATFORM
+   mover WSF_STRAIGHT_LINE_MOVER
+      maximum_lateral_acceleration .01 g
+      tof_and_speed
+         0 s 500 kts
+         100 s 1000 kts
+      end_tof_and_speed 
+   end_mover 
+   execute at_time .01 s relative
+      writeln("Az: ", Heading(), " Pitch:", Pitch()); 
+      if (MATH.Fabs(Heading() - 45.0) >= .5 || MATH.Fabs(Pitch() - 20.0) >= .5)
+      {
+         writeln("-FAIL-");
+         gPass = false;
+      }
+   end_execute
+   
+end_platform_type
+platform launcher WSF_PLATFORM
+
+   add weapon wpn WSF_EXPLICIT_WEAPON
+       slew_mode both
+       cue_to_predicted_intercept false
+       launched_platform_type missile   
+       weapon_effects WSF_SPHERICAL_LETHALITY
+       quantity 5
+   end_weapon
+   
+   execute at_time 5 s absolute
+      writeln("FIRE");
+      Weapon("wpn").CueToAbsoluteAzEl(45.0, 20.0);
+      Weapon("wpn").Fire();
+   end_execute
+end_platform
+
+script void WeaponFired(WsfWeaponEngagement aEngagement, WsfTrack aTargetTrack)
+   if (aTargetTrack.IsValid() ||
+       !aTargetTrack.IsNull() ||
+       aTargetTrack != null)
+   {
+      writeln("-FAIL- Unexpected valid target track");
+      gPass = false;
+   }
+end_script
+
+script void SimulationComplete()
+   if (gPass) { writeln("-PASS-"); }
+end_script
+
+observer
+   enable WEAPON_FIRED
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 10 s
+

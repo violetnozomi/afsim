@@ -1,0 +1,226 @@
+ # ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#This test verifies that tbm's can be successfully fired at low ground ranges.
+
+platform_type TANK_TARGET WSF_PLATFORM
+   icon demo_tank
+   side red
+   mover WSF_GROUND_MOVER end_mover
+end_platform_type
+
+infrared_signature VEHICLE_INFRARED_SIGNATURE
+   constant  1000 watts/steradian
+end_infrared_signature
+
+optical_signature VEHICLE_OPTICAL_SIGNATURE
+   constant  1000 m^2
+end_optical_signature
+
+radar_signature VEHICLE_RADAR_SIGNATURE
+   constant  1000 m^2
+end_radar_signature
+
+sensor GEO_SENSOR WSF_GEOMETRIC_SENSOR
+   on
+   ignore_same_side
+   frame_time 5 sec
+   check_terrain_masking false
+   maximum_range 10000 km
+   maximum_altitude 10000 km
+   reports_bearing
+   reports_elevation
+   reports_location
+   reports_velocity
+   reports_range
+   reports_type
+   
+   establish_track_probability 1.0
+   maintain_track_probability 1.0
+end_sensor
+
+platform_type TBM_WEAPON WSF_PLATFORM
+   icon missile
+   mover WSF_TBM_MOVER
+      show_status
+      empty_mass              6.12 kg 
+      fuel_mass               5.62 kg
+      burn_time               0.10 sec 
+      thrust                  29439 lbf 
+      trajectory_type         depressed
+      ballistic_coefficient   9600 nt/m^2 
+      cep                     1 meters  
+   end_mover
+
+   processor fuse WSF_GROUND_TARGET_FUSE      
+   end_processor
+end_platform_type
+
+weapon_effects TBM_WEAPON_LETHALITY  WSF_GRADUATED_LETHALITY
+   radius_and_pk     40 m   1.0  
+   incidental_damage_allowed true
+end_weapon_effects
+
+weapon TBM_WEAPON WSF_EXPLICIT_WEAPON   
+   launched_platform_type    TBM_WEAPON
+   weapon_effects            TBM_WEAPON_LETHALITY
+   quantity                  10
+end_weapon
+
+processor LAUNCH_WEAPON_PROCESSOR WSF_TASK_PROCESSOR
+   script_variables 
+      string WEAPON_NAME   = ""; 
+      double MAX_RANGE     = 4000; 
+      double MIN_RANGE     = 500;
+      double time          = 0;
+      double waitTime      = 15;
+      int counter          = 0;
+   end_script_variables
+
+# START OF THE STATE MACHINE
+   evaluation_interval DETECTED 1 sec
+   evaluation_interval ENGAGE 1 sec
+   evaluation_interval FIRING 1 sec
+   evaluation_interval END 1 day 
+
+   state DETECTED
+      next_state END
+         if (!TRACK.IsValid() || !TRACK.Target().IsValid())
+            return true;
+         if (TRACK.IFF_Friend())
+            return true;
+         return false;
+      end_next_state
+      next_state ENGAGE
+         if (PROCESSOR.CountInState("ENGAGE") + PROCESSOR.CountInState("FIRING") >= 1)
+            return false;
+         return true;
+      end_next_state
+   end_state
+
+   state ENGAGE
+      on_entry
+         WEAPON_NAME = "tbm_weapon";  
+         PLATFORM.TurnToHeading(PLATFORM.TrueBearingTo(TRACK));
+         time = TIME_NOW;
+         counter = 0;
+      end_on_entry    
+      next_state END
+         //if WEAPON_NAME is valid, do nothing. If not valid, return true and send to END state
+         for (int i = 0; i < PLATFORM.WeaponCount(); i += 1)
+         {
+            if ((WEAPON_NAME == PLATFORM.WeaponEntry(i).Name()))
+            {
+               counter += 1;
+            }
+         }
+         if (!TRACK.IsValid() || !TRACK.Target().IsValid() || counter == 0)
+            return true;
+         if (TRACK.IFF_Friend())
+            return true;
+         return false;
+      end_next_state  
+      next_state FIRING
+         if (TIME_NOW <= time + waitTime)
+         {
+            return false;
+         }
+         PLATFORM.Weapon(WEAPON_NAME).Fire(TRACK);
+         return true;
+      end_next_state
+   end_state
+   
+   state FIRING
+      next_state END
+         if (!TRACK.IsValid() || !TRACK.Target().IsValid())
+            return true;
+         if (TRACK.IFF_Friend())
+            return true;
+         return false;
+      end_next_state
+      next_state ENGAGE
+         if ((PLATFORM.WeaponsActiveFor(TRACK.TrackId()) < 1) && (TRACK.IsValid() || TRACK.Target().IsValid()))
+         {
+            return true;
+         }
+         return false;
+      end_next_state
+   end_state
+   state END
+   end_state
+end_processor
+
+platform_type TANK_TYPE WSF_PLATFORM
+   icon tank
+   length 6.45 m # [1]
+   width  3.37 m # [1]
+   height 2.4 m  # [1]
+
+   mover WSF_GROUND_MOVER end_mover
+
+   sensor geo_sensor GEO_SENSOR
+      internal_link data_mgr
+   end_sensor 
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval 10 seconds
+   end_processor
+
+   processor task_mgr WSF_TASK_PROCESSOR
+   end_processor
+
+   processor launch_processor LAUNCH_WEAPON_PROCESSOR
+   end_processor
+
+   weapon tbm_weapon TBM_WEAPON
+      quantity 10
+   end_weapon  
+end_platform_type
+
+platform tank_target_works_1 TANK_TARGET
+   position 28:15:05.31n 81:46:22.31w
+   heading 0 degrees
+end_platform
+
+platform tank_target_fails_1 TANK_TARGET
+   position 28:15:02.30n 81:46:21.18w
+   heading 0 degrees
+end_platform
+
+platform tank_target_works_2 TANK_TARGET
+   position 28:15:00.29n 81:46:20.61w
+   heading 0 degrees
+end_platform
+
+platform tank_target_fails_2 TANK_TARGET
+   position 28:15:59.79n 81:46:18.34w
+   heading 0 degrees
+end_platform
+
+// BLUE PLATFORMS
+platform platTank TANK_TYPE
+   side blue
+   position 28:14:31.4670n 81:45:57.1388w 
+end_platform 
+
+execute at_time 2.5 min absolute
+   bool retVal = (WsfSimulation.PlatformCount() == 1);
+   WsfPlatform tank = WsfSimulation.FindPlatform("platTank");
+   retVal = retVal && (tank.Weapon("tbm_weapon").QuantityRemaining() == 6.0);
+   if (retVal)
+   {
+      writeln("-PASS-");
+   }
+   else 
+   {
+      writeln("-FAIL- The tank did not fire at and eliminate the expected number of targets.");
+   }
+end_execute
+
+end_time 3 min

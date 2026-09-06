@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>WkfRouteBrowserDialog</class>
+ <widget class="QDialog" name="WkfRouteBrowserDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>550</width>
+    <height>515</height>
+   </rect>
+  </property>
+  <property name="modal">
+   <bool>false</bool>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,2">
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout1">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string>Add Waypoints</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="wkf::LocationSelector" name="mLocationSelector">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTreeWidget" name="treeWidget">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>1</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="selectionMode">
+          <enum>QAbstractItemView::SingleSelection</enum>
+         </property>
+         <attribute name="headerVisible">
+          <bool>false</bool>
+         </attribute>
+         <column>
+          <property name="text">
+           <string notr="true">1</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QFormLayout" name="waypointPropertiesSheet">
+       <item row="1" column="0" colspan="2">
+        <widget class="QFrame" name="waypoint_separator">
+         <property name="frameShape">
+          <enum>QFrame::HLine</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="lineWidth">
+          <number>2</number>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="mLabelLabel">
+         <property name="text">
+          <string>Label: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="mLabelEdit"/>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="mLatLabel">
+         <property name="text">
+          <string>Latitude: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="UtQtLatPosLineEdit" name="mLatEdit"/>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="mLonLabel">
+         <property name="text">
+          <string>Longitude: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="UtQtLonPosLineEdit" name="mLonEdit"/>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="mAltLabel">
+         <property name="text">
+          <string>Altitude: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="UtQtLengthValueEdit" name="mAltEdit"/>
+       </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="mAltRefLabel">
+         <property name="text">
+          <string>Altitude Reference: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="1">
+        <widget class="QComboBox" name="mAltRefEdit">
+         <item>
+          <property name="text">
+           <string>Mover Default</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>MSL</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>AGL</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="7" column="0">
+        <widget class="QLabel" name="mGoToLabel">
+         <property name="text">
+          <string>Go To: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="1">
+        <widget class="QComboBox" name="mGoToEdit"/>
+       </item>
+       <item row="8" column="0">
+        <widget class="QLabel" name="mSpeedLabel">
+         <property name="text">
+          <string>Speed: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="1">
+        <widget class="UtQtSpeedValueEdit" name="mSpeedEdit"/>
+       </item>
+       <item row="9" column="0">
+        <widget class="QLabel" name="mClimbRateLabel">
+         <property name="text">
+          <string>Climb Rate: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="9" column="1">
+        <widget class="UtQtSpeedValueEdit" name="mClimbRateEdit"/>
+       </item>
+       <item row="10" column="0">
+        <widget class="QLabel" name="mLinAccelLabel">
+         <property name="text">
+          <string>Linear Acceleration: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="10" column="1">
+        <widget class="UtQtAccelerationValueEdit" name="mLinAccelEdit"/>
+       </item>
+       <item row="11" column="0">
+        <widget class="QComboBox" name="mRadAccelComboBox">
+         <property name="sizeAdjustPolicy">
+          <enum>QComboBox::AdjustToContents</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="12" column="0">
+        <widget class="QLabel" name="mTurnDir">
+         <property name="text">
+          <string>Turn Direction: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="12" column="1">
+        <widget class="QComboBox" name="mTurnDirEdit">
+         <property name="currentIndex">
+          <number>1</number>
+         </property>
+         <item>
+          <property name="text">
+           <string>Left</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Shortest</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Right</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="13" column="0">
+        <widget class="QLabel" name="mSwitchLabel">
+         <property name="text">
+          <string>Switch Type: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="13" column="1">
+        <widget class="QComboBox" name="mSwitchTypeEdit">
+         <item>
+          <property name="text">
+           <string>Mover Default</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>On Passing</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>On Approach</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="14" column="0" colspan="2">
+        <widget class="QFrame" name="route_separator">
+         <property name="frameShape">
+          <enum>QFrame::HLine</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="lineWidth">
+          <number>1</number>
+         </property>
+        </widget>
+       </item>
+       <item row="16" column="0">
+        <widget class="QLabel" name="mEndPathLabel">
+         <property name="text">
+          <string>End Of Path Option: </string>
+         </property>
+        </widget>
+       </item>
+       <item row="16" column="1">
+        <widget class="QComboBox" name="mEndPathEdit">
+         <item>
+          <property name="text">
+           <string>Mover Default</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Extrapolate</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Stop</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Remove</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="11" column="1">
+        <widget class="QStackedWidget" name="mRadAccelStackedWidget">
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <widget class="QWidget" name="mRadAccelPage">
+          <layout class="QHBoxLayout" name="mRadAccelPageLayout">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="UtQtAccelerationValueEdit" name="mRadAccelEdit"/>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="mBankAnglePage">
+          <layout class="QHBoxLayout" name="mBankAnglePageLayout">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="UtQtAngleValueEdit" name="mBankAngleEdit"/>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="mMaxGPage">
+          <layout class="QHBoxLayout" name="mMaxGPageLayout">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="UtQtAccelerationValueEdit" name="mMaxGEdit"/>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+       <item row="17" column="1">
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>100</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="18" column="1">
+        <widget class="QLabel" name="mChangesLabel">
+         <property name="text">
+          <string>Applying Changes...</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Apply|QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>UtQtLatPosLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>UtQtUnitValueEdit.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>UtQtLonPosLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>UtQtUnitLineEdit.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>UtQtLengthValueEdit</class>
+   <extends>QLineEdit</extends>
+   <header>UtQtUnitValueEdit.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>UtQtSpeedValueEdit</class>
+   <extends>QLineEdit</extends>
+   <header>UtQtUnitValueEdit.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>UtQtAccelerationValueEdit</class>
+   <extends>QLineEdit</extends>
+   <header>UtQtUnitValueEdit.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>UtQtAngleValueEdit</class>
+   <extends>QLineEdit</extends>
+   <header>UtQtUnitValueEdit.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>wkf::LocationSelector</class>
+   <extends>QPushButton</extends>
+   <header>WkfSelectorWidgets.hpp</header>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>mLocationSelector</tabstop>
+  <tabstop>treeWidget</tabstop>
+  <tabstop>mLabelEdit</tabstop>
+  <tabstop>mLatEdit</tabstop>
+  <tabstop>mLonEdit</tabstop>
+  <tabstop>mAltEdit</tabstop>
+  <tabstop>mAltRefEdit</tabstop>
+  <tabstop>mGoToEdit</tabstop>
+  <tabstop>mSpeedEdit</tabstop>
+  <tabstop>mClimbRateEdit</tabstop>
+  <tabstop>mLinAccelEdit</tabstop>
+  <tabstop>mRadAccelComboBox</tabstop>
+  <tabstop>mRadAccelEdit</tabstop>
+  <tabstop>mTurnDirEdit</tabstop>
+  <tabstop>mSwitchTypeEdit</tabstop>
+  <tabstop>mEndPathEdit</tabstop>
+  <tabstop>mBankAngleEdit</tabstop>
+  <tabstop>mMaxGEdit</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>

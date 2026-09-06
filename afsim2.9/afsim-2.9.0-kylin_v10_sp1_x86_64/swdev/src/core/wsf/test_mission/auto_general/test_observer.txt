@@ -1,0 +1,170 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Ensure all 'observer' commands and event names parse correctly.
+
+script void comment(WsfPlatform aPlatform, string aCommentString) end_script
+script void commTurnedOff(WsfComm aComm) end_script
+script void commTurnedOn(WsfComm aComm) end_script
+script void commFrequencyChanged(WsfComm aComm) end_script
+script void commAddedToManager(WsfComm aComm) end_script
+script void commRemovedFromManager(WsfComm aComm) end_script
+script void commAddedToLocal(WsfCommRouter aLocalRouter, string aProtocolName, WsfAddress aAddedComm) end_script
+script void commRemovedFromLocal(WsfCommRouter aLocalRouter, string aProtocolName, WsfAddress aRemovedComm) end_script
+script void crashedIntoGround(WsfPlatform aPlatform) end_script
+script void executeCallback(WsfPlatform aPlatform, string aCallbackName) end_script
+script void fuelEvent(WsfPlatform aPlatform, WsfFuel aFuel, string aEventName) end_script
+script void imageCreated(WsfSensor aSensorPtr, WsfImage aImagePtr) end_script
+script void linkAddedToManager(WsfComm aSenderComm, WsfComm aReceiverComm) end_script
+script void linkRemovedFromManager(WsfComm aSenderComm, WsfComm aReceiverComm) end_script
+script void linkEnabledOnManager(WsfComm aSourceComm, WsfComm aDestinationComm) end_script
+script void linkDisabledOnManager(WsfComm aSourceComm, WsfComm aDestinationComm) end_script
+script void linkAddedToLocal(WsfCommRouter aLocalRouter, string aProtocolName, WsfAddress aSenderComm, WsfAddress aReceiverComm) end_script
+script void linkRemovedFromLocal(WsfCommRouter aLocalRouter, string aProtocolName, WsfAddress aSenderComm, WsfAddress aReceiverComm) end_script
+script void linkEnabledOnLocal(WsfCommRouter aRouter, string aProtocolType, WsfAddress aSourceAddress, WsfAddress aDestinationAddress) end_script
+script void linkDisabledOnLocal(WsfCommRouter aRouter, string aProtocolType, WsfAddress aSourceAddress, WsfAddress aDestinationAddress) end_script
+script void localTrackCorrelation(WsfPlatform aPlatform, WsfTrackId aLocalTrackId, WsfTrackId aNonLocalTrackId) end_script
+script void localTrackDecorrelation(WsfPlatform aPlatform, WsfTrackId aLocalTrackId, WsfTrackId aNonLocalTrackId) end_script
+script void localTrackDropped(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack) end_script
+script void localTrackInitiated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack) end_script
+script void localTrackUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack) end_script
+script void messageDeliveryAttempt(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult) end_script
+script void messageDiscarded(WsfComm aComm, WsfMessage aMsg, string aReason) end_script
+script void messageFailedRouting(WsfComm aComm, WsfPlatform aPlatform, WsfMessage aMsg) end_script
+script void messageHop(WsfComm aRcvr, WsfComm aDstComm, WsfMessage aMsg) end_script
+script void messageUpdated(WsfComm aComm, WsfMessage aOldMsg, WsfMessage aNewMsg) end_script
+script void messageQueued(WsfComm aComm, WsfMessage aMsg, int aQueueSize) end_script
+script void messageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult) end_script
+script void messageTransmitted(WsfComm aComm, WsfMessage aMsg) end_script
+script void messageTransmittedHeartbeat(WsfComm aComm, WsfMessage aMsg) end_script
+script void messageTransmitEnded(WsfComm aComm, WsfMessage aMsg) end_script
+script void moverBroken(WsfPlatform aPlatform, WsfMover aMover) end_script
+script void moverBurnedOut(WsfPlatform aPlatform, WsfMover aMover) end_script
+script void moverStaged(WsfPlatform aPlatform, WsfMover aMover) end_script
+script void moverUpdated(WsfPlatform aPlatform, WsfMover aMover) end_script
+script void networkAdded(WsfNetwork aNetwork) end_script
+script void networkRemoved(WsfNetwork aNetwork) end_script
+script void operatingLevelChanged(WsfPlatform aPlatform, WsfProcessor aProcessor, string aName, int aLevel) end_script
+script void platformAdded(WsfPlatform aPlatform) end_script
+script void platformApperanceChanged(WsfPlatform aPlatform, string aItemType) end_script
+script void platformCapabilityChanged(WsfPlatform aPlatform, string aCapabilityId, bool aIsGained) end_script
+script void platformDeleted(WsfPlatform aPlatform) end_script
+script void platformInitialized(WsfPlatform aPlatform) end_script
+script void platformBroken(WsfPlatform aPlatform) end_script
+script void platformOmitted(WsfPlatform aPlatform) end_script
+script void processorTurnedOff(WsfPlatform aPlatform, WsfProcessor aProcessor) end_script
+script void processorTurnedOn(WsfPlatform aPlatform, WsfProcessor aProcessor) end_script
+script void routerTurnedOff(WsfPlatform aPlatform, WsfCommRouter aRouter) end_script
+script void routerTurnedOn(WsfPlatform aPlatform, WsfCommRouter aRouter) end_script
+script void sensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult) end_script
+script void sensorDetectionChanged(WsfPlatform aPlatform, WsfSensor aSensor, int aTgtIdx, WsfSensorInteraction aResult) end_script
+script void sensorFrequencyChanged(WsfPlatform aPlatform, WsfSensor aSensor) end_script
+script void sensorModeActivated(WsfPlatform aPlatform, WsfSensor aSensor) end_script
+script void sensorModeDeactivated(WsfPlatform aPlatform, WsfSensor aSensor) end_script
+script void sensorRequestCanceled(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack) end_script
+script void sensorRequestInitiated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack) end_script
+script void sensorRequestUpdated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack) end_script
+script void sensorTrackCoasted(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack) end_script
+script void sensorTrackDropped(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack) end_script
+script void sensorTrackInitiated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack) end_script
+script void sensorTrackUpdated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack) end_script
+script void sensorTurnedOff(WsfPlatform aPlatform, WsfSensor aSensor) end_script
+script void sensorTurnedOn(WsfPlatform aPlatform, WsfSensor aSensor) end_script
+script void simulationComplete() end_script
+script void simulationInitializing() end_script
+script void simulationStarting() end_script
+script void stateEntry(WsfPlatform aPlatform, WsfProcessor aProcessor, WsfTrack aTrack, string aStateName) end_script
+script void stateExit(WsfPlatform aPlatform, WsfProcessor aProcessor, WsfTrack aTrack, string aStateName) end_script
+script void tankingEvent(WsfPlatform aSupplyPlatform, WsfPlatform aRcvrPlatform, string aEvent) end_script
+script void taskAssigned(WsfTask aTask, WsfTrack aTrack) end_script
+script void taskCanceled(WsfTask aTask) end_script
+script void taskCompleted(WsfTask aTask, string aStatus) end_script
+script void teamNameDefinition(WsfPlatform aPlatform) end_script
+
+observer
+   enable COMMENT comment
+   enable COMM_FREQUENCY_CHANGED commFrequencyChanged
+   enable COMM_TURNED_OFF commTurnedOff
+   enable COMM_TURNED_ON commTurnedOn
+   enable COMM_ADDED_TO_MANAGER commAddedToManager
+   enable COMM_REMOVED_FROM_MANAGER commRemovedFromManager
+   enable COMM_ADDED_TO_LOCAL commAddedToLocal
+   enable COMM_REMOVED_FROM_LOCAL commRemovedFromLocal
+   enable CRASHED_INTO_GROUND crashedIntoGround
+   enable EXECUTE_CALLBACK executeCallback
+   enable FUEL_EVENT fuelEvent
+   enable IMAGE_CREATED imageCreated
+   enable LINK_ADDED_TO_MANAGER linkAddedToManager
+   enable LINK_REMOVED_FROM_MANAGER linkRemovedFromManager
+   enable LINK_ENABLED_ON_MANAGER linkEnabledOnManager
+   enable LINK_DISABLED_ON_MANAGER linkDisabledOnManager
+   enable LINK_ADDED_TO_LOCAL linkAddedToLocal
+   enable LINK_REMOVED_FROM_LOCAL linkRemovedFromLocal
+   enable LINK_ENABLED_ON_LOCAL linkEnabledOnLocal
+   enable LINK_DISABLED_ON_LOCAL linkDisabledOnLocal
+   enable LOCAL_TRACK_CORRELATION localTrackCorrelation
+   enable LOCAL_TRACK_DECORRELATION localTrackDecorrelation
+   enable LOCAL_TRACK_DROPPED localTrackDropped
+   enable LOCAL_TRACK_INITIATED localTrackInitiated
+   enable LOCAL_TRACK_UPDATED localTrackUpdated
+   enable MESSAGE_DELIVERY_ATTEMPT messageDeliveryAttempt
+   enable MESSAGE_DISCARDED messageDiscarded
+   enable MESSAGE_FAILED_ROUTING messageFailedRouting
+   enable MESSAGE_HOP messageHop
+   enable MESSAGE_UPDATED messageUpdated
+   enable MESSAGE_QUEUED messageQueued
+   enable MESSAGE_RECEIVED messageReceived
+   enable MESSAGE_TRANSMITTED messageTransmitted
+   enable MESSAGE_TRANSMITTED_HEARTBEAT messageTransmittedHeartbeat
+   enable MESSAGE_TRANSMIT_ENDED messageTransmitEnded
+   enable MOVER_UPDATED moverUpdated
+   enable MOVER_BROKEN moverBroken
+   enable MOVER_BURNED_OUT moverBurnedOut
+   enable MOVER_STAGED moverStaged
+   enable NETWORK_ADDED networkAdded
+   enable NETWORK_REMOVED networkRemoved
+   enable OPERATING_LEVEL_CHANGED operatingLevelChanged
+   enable PLATFORM_ADDED platformAdded
+   enable PLATFORM_APPEARANCE_CHANGED platformApperanceChanged
+   enable PLATFORM_BROKEN platformBroken
+   enable PLATFORM_CAPABILITY_CHANGED platformCapabilityChanged
+   enable PLATFORM_DELETED platformDeleted
+   enable PLATFORM_INITIALIZED platformInitialized
+   enable PLATFORM_OMITTED platformOmitted
+   enable PROCESSOR_TURNED_OFF processorTurnedOff
+   enable PROCESSOR_TURNED_ON processorTurnedOn
+   enable ROUTER_TURNED_OFF routerTurnedOff
+   enable ROUTER_TURNED_ON routerTurnedOn
+   enable SENSOR_DETECTION_ATTEMPT sensorDetectionAttempt
+   enable SENSOR_DETECTION_CHANGED sensorDetectionChanged
+   enable SENSOR_FREQUENCY_CHANGED sensorFrequencyChanged
+   enable SENSOR_MODE_ACTIVATED sensorModeActivated
+   enable SENSOR_MODE_DEACTIVATED sensorModeDeactivated
+   enable SENSOR_REQUEST_CANCELED sensorRequestCanceled
+   enable SENSOR_REQUEST_INITIATED sensorRequestInitiated
+   enable SENSOR_REQUEST_UPDATED sensorRequestUpdated
+   enable SENSOR_TRACK_COASTED sensorTrackCoasted
+   enable SENSOR_TRACK_DROPPED sensorTrackDropped
+   enable SENSOR_TRACK_INITIATED sensorTrackInitiated
+   enable SENSOR_TRACK_UPDATED sensorTrackUpdated
+   enable SENSOR_TURNED_OFF sensorTurnedOff
+   enable SENSOR_TURNED_ON sensorTurnedOn
+   enable SIMULATION_COMPLETE simulationComplete
+   enable SIMULATION_INITIALIZING simulationInitializing
+   enable SIMULATION_STARTING simulationStarting
+   enable STATE_ENTRY stateEntry
+   enable STATE_EXIT stateExit
+   enable TANKING_EVENT tankingEvent
+   enable TASK_ASSIGNED taskAssigned
+   enable TASK_CANCELED taskCanceled
+   enable TASK_COMPLETED taskCompleted
+   enable TEAM_NAME_DEFINITION teamNameDefinition
+
+
+end_observer

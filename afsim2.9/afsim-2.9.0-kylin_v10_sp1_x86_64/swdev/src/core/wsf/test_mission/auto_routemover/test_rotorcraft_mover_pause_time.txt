@@ -1,0 +1,47 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This WSF_ROTORCRAFT_MOVER is tested with pause_times set in the route.
+
+include_once ../auto_script/test_functions.txt
+
+script_debug_writes off
+
+platform p WSF_PLATFORM
+
+   script_variables
+      // Expected arrival times 
+      //                     { 0., 109., 217., 325., 433. };  without pauses              
+      Array<double> mTimes = { 0., 109., 317., 425., 633. }; 
+      int mIndex = 0;
+   end_script_variables
+
+   script void AtPoint()
+      writeln_d("T=", TIME_NOW, " arrived at point ", mIndex);
+      AssertWithinToleranceMessage(mTimes[mIndex], TIME_NOW, 1., "Arrival time");
+      mIndex += 1;
+   end_script
+
+   add mover WSF_ROTORCRAFT_MOVER
+      update_interval 1 s
+      at_end_of_path remove
+#      draw_route on
+   end_mover
+
+   route
+      position 29.9n 140.7w  altitude 150 feet agl speed 100 nm/h execute AtPoint
+      position 29.95n 140.7w altitude 150 feet agl speed 100 nm/h execute AtPoint pause_time 100 sec
+      position 30.0n 140.7w  altitude 150 feet agl speed 100 nm/h execute AtPoint
+      position 30.05n 140.7w altitude 150 feet agl speed 100 nm/h execute AtPoint pause_time 100 sec
+      position 30.1n 140.7w  altitude 150 feet agl speed 100 nm/h execute AtPoint
+   end_route
+   
+end_platform
+
+end_time 30 minutes

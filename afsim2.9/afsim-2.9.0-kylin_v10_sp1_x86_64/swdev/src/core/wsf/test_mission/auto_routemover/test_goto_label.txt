@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void OnPlatformDeleted(WsfPlatform aPlatform, int aWaypointIndex)
+   // platform should be paused and at given waypoint
+   if ((aPlatform.RoutePointIndex() != aWaypointIndex) &&
+       (aPlatform.Speed() > 0.0))
+   {
+      writeln("-FAIL- ", aPlatform.Name());
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+
+ route route-1
+    label start
+    position 00:24:59.19n 00:19:03.98w altitude 40000 ft speed 17000 mph
+    position 00:28:18.39n 00:13:52.09w
+    position 00:25:31.31n 00:10:40.76w
+    position 00:22:19.02n 00:13:47.92w
+    position 00:27:26.52n 00:24:31.35w
+    position 00:23:44.78n 00:27:32.18w
+    position 00:20:59.71n 00:22:57.60w
+    goto start
+ end_route
+
+ route route-2
+    position 00:24:59.19n 00:19:03.98w altitude 40000 ft speed 17000 mph
+    position 00:28:18.39n 00:13:52.09w
+    position 00:25:31.31n 00:10:40.76w
+    label middle
+    position 00:22:19.02n 00:13:47.92w
+    position 00:27:26.52n 00:24:31.35w
+    position 00:23:44.78n 00:27:32.18w
+    position 00:20:59.71n 00:22:57.60w
+    goto middle
+ end_route
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   icon F-16
+   side blue
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform player-1 TEST_PLATFORM
+   heading 57 deg
+   edit mover
+      use_route route-1
+   end_mover
+   script void on_platform_deleted()
+      OnPlatformDeleted(PLATFORM, 0);
+   end_script
+end_platform
+
+platform player-2 TEST_PLATFORM
+   heading 57 deg
+   edit mover
+      use_route route-2
+   end_mover
+   script void on_platform_deleted()
+      OnPlatformDeleted(PLATFORM, 3);
+   end_script
+end_platform
+
+end_time 10 seconds

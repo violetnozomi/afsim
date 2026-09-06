@@ -1,0 +1,106 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 1 2020
+start_time 12:00:00.000
+end_time 24 hr
+
+platform twobody WSF_PLATFORM
+   icon cubesat
+   side blue
+   
+   add mover WSF_SPACE_MOVER
+       initial_state_eci 10454671.68821085 m 0 m 0 m
+                         0 m/s 6205.46609271325 m/s 0 m/s
+       epoch_date_time jan 1 2020 12:00:00.000
+   end_mover
+end_platform
+
+platform wism WSF_PLATFORM
+   icon cubesat
+   side red
+   
+   empty_mass 1 kg
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      initial_state
+         position 10454671.68821085 m 0 m 0 m
+         velocity 0 m/s 6205.46609271325 m/s 0 m/s
+         epoch_date_time jan 1 2020 12:00:00.000
+      end_initial_state
+      
+      integrator prince_dormand_45
+         tolerance 1.0e-11
+         error_criterion L_infinity
+      end_integrator
+      
+      dynamics
+         term earth_monopole
+            wgs84
+         end_term
+      end_dynamics
+   end_mover
+end_platform
+
+script_variables
+   bool   gAnyFailure = false;
+   double gInterval   = 600.0;
+   double gTolerance  = 0.001;
+end_script_variables
+
+script void RunTest()
+   WsfPlatform twobody = WsfSimulation.FindPlatform("twobody");
+   Vec3 twobodyPos = twobody.LocationECI();
+   Vec3 twobodyVel = twobody.VelocityECI();
+   Vec3 twobodyAcc = twobody.AccelerationECI();
+   
+   WsfPlatform wism = WsfSimulation.FindPlatform("wism");
+   Vec3 wismPos = wism.LocationECI();
+   Vec3 wismVel = wism.VelocityECI();
+   Vec3 wismAcc = wism.AccelerationECI();
+   
+   Vec3 posDiff = Vec3.Subtract(twobodyPos, wismPos);
+   Vec3 velDiff = Vec3.Subtract(twobodyVel, wismVel);
+   Vec3 accDiff = Vec3.Subtract(twobodyAcc, wismAcc);
+   
+   if (posDiff.Magnitude() > gTolerance)
+   {
+      writeln("-FAIL- Position difference too great (", posDiff.Magnitude(), ") at time ", TIME_NOW);
+      gAnyFailure = true;
+   }
+
+   if (velDiff.Magnitude() > gTolerance)
+   {
+      writeln("-FAIL- Velocity difference too great (", velDiff.Magnitude(), ") at time ", TIME_NOW);
+      gAnyFailure = true;
+   }
+
+   if (accDiff.Magnitude() > gTolerance)
+   {
+      writeln("-FAIL- Acceleration difference too great (", accDiff.Magnitude(), ") at time ", TIME_NOW);
+      gAnyFailure = true;
+   }
+
+   if (!gAnyFailure)
+   {
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gInterval, "RunTest");
+   }
+end_script
+
+script void FinalAssessment()
+   if (!gAnyFailure)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SIMULATION_STARTING RunTest
+   enable SIMULATION_COMPLETE FinalAssessment
+end_observer

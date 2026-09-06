@@ -1,0 +1,47 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# this test verifies that aux data methods are operating correctly
+# for platforms, tracks, messages, and platform parts
+include_once test_pass.txt
+script_variables
+   PassTestCount = 13*1;
+end_script_variables
+group GROUP1 WSF_GROUP
+end_group
+platform p WSF_PLATFORM
+   group_join GROUP1
+   add processor p WSF_SCRIPT_PROCESSOR
+   end_processor
+   script void test_task(WsfQuantumTask o)
+      extern void pass();
+      if (o.AuxDataBool("hi") == false) pass();
+      o.SetAuxData("hi", true);
+      if (o.AuxDataBool("hi") == true) pass();
+      if (((bool)o.AuxDataObject("hi")) == true) pass();
+      if (o.AuxDataDouble("hi2") == 0.0) pass();
+      o.SetAuxData("hi2", 1.0);
+      if (o.AuxDataDouble("hi2") == 1.0) pass();
+      if ((double)o.AuxDataObject("hi2") == 1.0) pass();
+      if (o.AuxDataString("hi3") == "") pass();
+      o.SetAuxData("hi3", "hi");
+      if (o.AuxDataString("hi3") == "hi") pass();
+      if ((string)o.AuxDataObject("hi3") == "hi") pass();
+      if (o.AuxDataInt("hi4") == 0) pass();
+      o.SetAuxData("hi4", 10); 
+      if (o.AuxDataInt("hi4") == 10) pass();
+      if ((int)o.AuxDataObject("hi4") == 10) pass();
+      o.SetAuxData("obj_test", WsfGeoPoint.Construct(1,2,3));
+      WsfGeoPoint gp = (WsfGeoPoint)o.AuxDataObject("obj_test");
+      if (gp.Latitude() == 1.0) pass();
+   end_script
+   execute at_time 1 s absolute
+      test_task(WsfQuantumTask.Construct(99.9));
+   end_execute
+end_platform

@@ -1,0 +1,221 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jul 1 2020
+start_time 12:00:00.000
+end_time 10 min
+
+include_once utils.txt
+
+include_once platforms/grid_template_platform.txt
+include_once platforms/leo_sat.txt
+
+platform test_asset LEO_SAT
+   edit mover
+      true_anomaly 90 deg
+   end_mover
+end_platform
+
+zone diamond
+   minimum_altitude 0 m
+   maximum_altitude 30 km
+   polygonal
+      lat_lon
+      point 5s 0w
+      point 0n 5e
+      point 5n 0w
+      point 0n 5w
+end_zone
+
+grid test_grid WSF_ZONE_BASED_GRID
+   altitude 1 m msl
+   latitude_spacing 0.9999 deg
+   longitude_spacing 0.9999 deg
+   asset TEST_GRID_PLATFORM none
+   zone diamond
+end_grid
+
+coverage test_coverage WSF_SENSOR_COVERAGE
+   grid test_grid 
+   assets
+      platform test_asset camera
+   end_assets
+   output_dir zonebasedgrid
+   raw_data_file intervals.csv
+   moe sc WSF_SIMPLE_COVERAGE_MOE
+      output data
+      end_output
+      
+      output grid_stats 
+      end_output
+      
+      output lat_lon_stats
+         latitude
+      end_output
+      
+      output lat_lon_stats
+         longitude 
+      end_output
+   end_moe
+end_coverage
+
+script_variables
+   int gExpectedGridPointCount = 61;
+   int gExpectedRawDataLineCount = 11;
+   int gExpectedGridStatsLineCount = 1;
+   int gExpectedLatStatsLineCount = 11;
+   int gExpectedLonStatsLineCount = 11;
+end_script_variables
+
+script void RawIntervalsTestAction(string aId,
+                                   string aGridDevice,
+                                   string aFreeAsset,
+                                   string aFreeDevice,
+                                   string aStartEpoch,
+                                   string aEndEpoch,
+                                   string aStartTime,
+                                   string aEndTime,
+                                   string aDuration)
+   ExpectString(aGridDevice, "none", "Grid asset device");
+   ExpectString(aFreeAsset, "test_asset", "Free asset name");
+   ExpectString(aFreeDevice, "camera", "Free asset device");
+   
+   double t0 = (double)aStartTime;
+   double t1 = (double)aEndTime;
+   double dt = (double)aDuration;
+   ExpectBool(t1 > t0, true, "End time greater than start time");
+   ExpectDouble(t1 - t0, dt, 1.0e-10, "Duration equal to difference in times");
+   
+   Calendar e0 = Calendar.Construct(aStartEpoch);
+   Calendar e1 = Calendar.Construct(aEndEpoch);
+   ExpectDouble(e1.TimeSince(e0), dt, 1.0e-10, "Epoch difference matches interval");
+   ExpectDouble(e0.TimeSince(WsfDateTime.StartTime()), t0, 1.0e-3, "Start epoch matches start sim time");
+   ExpectDouble(e1.TimeSince(WsfDateTime.StartTime()), t1, 1.0e-3, "End epoch matches end sim time");
+end_script
+
+script void MOE_DataTestAction(string aLatitude,
+                               string aLongitude,
+                               string aAltitude,
+                               string aID,
+                               string aValue)
+   double lat = (double)aLatitude;
+   double lon = (double)aLongitude;
+   double alt = (double)aAltitude;
+   WsfGeoPoint pt = WsfGeoPoint.Construct(lat, lon, alt);
+   ExpectBool(pt.WithinZone("diamond"), true, "Grid point inside zone");
+   if (Math.Fabs(lat) > 0.01)
+   {
+      ExpectDouble((double)aValue, 0.0, 1.0e-6, "Simple coverage value high latitudes");
+   }
+   else
+   {
+      ExpectDouble((double)aValue, 1.0, 1.0e-6, "Simple coverage value low latitudes");
+   }
+end_script
+
+script void GridStatsTestAction(string aMinValue,
+                                string aMaxValue,
+                                string aMeanValue,
+                                string aCount)
+   ExpectDouble((double)aMinValue, 0.0, 1.0e-10, "Min value grid stats");
+   ExpectDouble((double)aMaxValue, 1.0, 1.0e-10, "Max value grid stats");
+   ExpectDouble((double)aMeanValue, 11.0 / 61.0, 1.0e-6, "Mean value grid stats");
+   ExpectInt((int)aCount, gExpectedGridPointCount, "Count grid stats");
+end_script
+
+script void LatStatsTestAction(string aLatitude,
+                               string aMinValue,
+                               string aMaxValue,
+                               string aMeanValue,
+                               string aCount)
+   double lat = (double)aLatitude;
+   double min = (double)aMinValue;
+   double max = (double)aMaxValue;
+   double mean = (double)aMeanValue;
+   int count = (int)aCount;
+   if (Math.Fabs(lat) > 0.01)
+   {
+      ExpectDouble(min, 0.0, 1.0e-6, "Min value lat stats A");
+      ExpectDouble(max, 0.0, 1.0e-6, "Max value lat stats A");
+      ExpectDouble(mean, 0.0, 1.0e-6, "Mean value lat stats A");
+   }
+   else
+   {
+      ExpectDouble(min, 1.0, 1.0e-6, "Min value lat stats B");
+      ExpectDouble(max, 1.0, 1.0e-6, "Max value lat stats B");
+      ExpectDouble(mean, 1.0, 1.0e-6, "Mean value lat stats B");
+   }
+   
+   double deltaLat = Math.Fabs(lat);
+   int latIdx = Math.Floor(deltaLat / 0.999);
+   int expected = 11 - 2 * latIdx;
+   ExpectInt(count, expected, "Count lat stats");
+end_script
+
+script void LonStatsTestAction(string aLongitude,
+                               string aMinValue,
+                               string aMaxValue,
+                               string aMeanValue,
+                               string aCount)
+   double lon = (double)aLongitude;
+   double min = (double)aMinValue;
+   double max = (double)aMaxValue;
+   double mean = (double)aMeanValue;
+   int count = (int)aCount;
+   
+   
+   double deltaLon = Math.Fabs(lon);
+   int lonIdx = Math.Floor(deltaLon / 0.999);
+   int expected = 11 - 2 * lonIdx;
+   ExpectInt(count, expected, "Count lon stats");
+   
+   if (expected == 1)
+   {
+      ExpectDouble(min, 1.0, 1.0e-6, "Min value lon stats");
+   }
+   else
+   {
+      ExpectDouble(min, 0.0, 1.0e-6, "Min value lon stats");
+   }
+   ExpectDouble(max, 1.0, 1.0e-6, "Max value lon stats");
+   ExpectDouble(mean, 1.0 / expected, 1.0e-6, "Mean value lon stats");
+end_script
+
+script void RunTests()
+   Path path = Path.GetWorkingDirectory();
+   path.Join("zonebasedgrid");
+   
+   path.Join("intervals.csv");
+   CheckDataFile(path, "Raw data file", "RawIntervalsTestAction", gExpectedRawDataLineCount); 
+   path.Up();
+   
+   path.Join("test_coverage_sc_data.csv");
+   CheckDataFile(path, "MOE data", "MOE_DataTestAction", gExpectedGridPointCount);
+   path.Up();
+   
+   path.Join("test_coverage_sc_grid_stats.csv");
+   CheckDataFile(path, "MOE grid stats", "GridStatsTestAction", gExpectedGridStatsLineCount);
+   path.Up();
+   
+   path.Join("test_coverage_sc_lat_stats.csv");
+   CheckDataFile(path, "MOE lat stats", "LatStatsTestAction", gExpectedLatStatsLineCount);
+   path.Up();
+   
+   path.Join("test_coverage_sc_lon_stats.csv");
+   CheckDataFile(path, "MOE lon stats", "LonStatsTestAction", gExpectedLonStatsLineCount);
+   path.Up();
+   
+   FinalAssessment();
+   
+   RemoveCoverageOutputDir(path);
+end_script
+
+observer
+   enable SIMULATION_COMPLETE RunTests
+end_observer

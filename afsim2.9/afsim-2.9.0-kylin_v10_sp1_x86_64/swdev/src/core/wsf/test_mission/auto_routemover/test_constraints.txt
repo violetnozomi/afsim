@@ -1,0 +1,57 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This file tests that minimum/maximum altitude and speed are applied
+platform plat WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      minimum_altitude 5000 m
+      maximum_altitude 10000 m
+      minimum_speed    180 m/s
+      maximum_speed    300 m/s
+      maximum_linear_acceleration 5 m/s2
+   end_mover
+
+   route
+      position 0n 0e
+         altitude 6 km
+         heading 90 deg
+      offset 30 0 km
+         altitude 11 km
+         time_to_point 60 sec
+         execute CheckMax
+      offset 0 35 km
+         altitude 4 km
+         time_to_point 300 sec
+         execute CheckMin
+   end_route
+
+   script void CheckMin()
+      if (MATH.Fabs(180 - Speed()) > .1)
+      {
+         writeln("-FAIL- Min speed failed");
+      }
+      if (MATH.Fabs(5000 - Altitude()) > .1)
+      {
+         writeln("-FAIL- Min Altitude failed");
+      }
+   end_script
+   script void CheckMax()
+      if (MATH.Fabs(300 - Speed()) > .1)
+      {
+         writeln("-FAIL- Max speed failed");
+      }
+      if (MATH.Fabs(10000 - Altitude()) > .1)
+      {
+         writeln("-FAIL- Max Altitude failed");
+      }
+   end_script
+end_platform
+
+end_time 6 min
+

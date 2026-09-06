@@ -1,0 +1,109 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test of track degredation as a track is handed off in a task assignment.
+// Once a track, associated with a task, is stored in the master track list,
+// it's track quality should be reduced to 0.5.  This change is made in order
+// to make sure track updates are fused with the initial handoff track.
+// Otherwise, only the handoff is used, and the track data become stale.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+platform commander WSF_PLATFORM
+  commander self
+
+  add comm xcvr WSF_COMM_TRANSCEIVER
+  end_comm
+  
+  position 0n 0e altitude 1000 ft agl
+  
+  track_manager    
+  end_track_manager
+
+  add sensor see WSF_GEOMETRIC_SENSOR
+    maximum_range 1000 nm
+    processor track-proc
+    reports_location
+    track_quality 0.8
+    frame_time 10.0 seconds
+    on
+    //debug    
+  end_sensor
+  
+  add processor track-proc WSF_TRACK_PROCESSOR
+    processor task-mgr
+  end_processor
+
+  add processor task-mgr WSF_TASK_PROCESSOR   
+
+    external_link subordinates via xcvr
+
+    evaluation_interval ASSIGN 1.0 second 
+    state ASSIGN
+       next_state HOLD
+          WsfPlatform sub = WsfSimulation.FindPlatform("sub");
+          bool ok = AssignTask(TRACK, "default", sub, "xcvr");
+          writeln("Attempted to assign task for track ", TRACK.TrackId(), ", quality: ", TRACK.TrackQuality(), " : result: ", ok);
+          return ok;
+       end_next_state
+    end_state
+   
+   evaluation_interval HOLD 1000.0 second
+   state HOLD
+      on_entry
+      end_on_entry
+   end_state
+   
+  end_processor
+
+end_platform
+
+platform sub WSF_PLATFORM
+   commander commander
+
+  add comm xcvr WSF_COMM_TRANSCEIVER
+    internal_link task-mgr
+  end_comm
+  
+  position 0n 1e altitude 2000 ft agl
+
+  track_manager
+    //debug
+  end_track_manager
+  
+  add processor task-mgr WSF_TASK_PROCESSOR
+   
+    script void on_task_assign(WsfTask aTask, WsfTrack aTrack)
+      WsfLocalTrackList trackList = PLATFORM.MasterTrackList();
+      WsfTrack track = trackList.Entry(0);
+      if (track.IsValid())
+      {
+         writeln("Received track quality is : ", track.TrackQuality());
+         if (track.TrackQuality() == 0.5)
+         {
+            writeln("-PASS-");         
+         }
+         else
+         {
+            writeln("-FAIL-"); 
+         }         
+      }
+    end_script
+    
+  end_processor
+  
+  script_variables
+     double lastTrackQuality = 0.0;
+     bool passed = false;
+  end_script_variables
+
+end_platform
+
+end_time 1000 seconds

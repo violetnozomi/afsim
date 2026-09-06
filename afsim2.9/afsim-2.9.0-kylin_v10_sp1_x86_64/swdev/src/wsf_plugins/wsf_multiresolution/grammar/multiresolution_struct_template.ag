@@ -1,0 +1,36 @@
+(struct MultiresolutionComponentToReplace
+
+   (struct ComponentToReplaceModel
+      :symbol (type modelType MULTIRESOLUTION_COMPONENT_TO_REPLACE_MODEL)
+   {
+        default 
+      | fidelity_range <real> <real>
+      | component_to_replace (typeref component_base_type) (new_replace (subtype component_to_replace) (type component_base_type $1)) <TypeCommand>* end_component_to_replace 
+      | component_to_replace (load (subtype component_to_replace)) <TypeCommand>* end_component_to_replace
+   })
+
+   (var ObjectMap/ComponentToReplaceModel modelTypes)
+   (var ComponentToReplaceModel commonType)
+
+   (rule new-model
+   {
+      (new_replace (subtype modelTypes commonType) (type modelType MULTIRESOLUTION_COMPONENT_TO_REPLACE_MODEL)) [apply($$)]
+         <ComponentToReplaceModel>*
+      end_model
+   })
+{
+   fidelity <real>
+ | model (typeref modelTypes) (load (subtype modelTypes $1)) [apply($$)] <ComponentToReplaceModel>* end_model # Implicit edit
+ | model <string> <new-model> (new (subtype modelTypes $1) (subtype modelTypes commonType)) # Implicit add
+ | add model <string> <new-model> (new (subtype modelTypes $2) (subtype modelTypes commonType))
+ | edit model (typeref modelTypes) (load (subtype modelTypes $2)) [apply($$)] <ComponentToReplaceModel>* end_model
+ | common (load (subtype modelTypes commonType component_to_replace)) <TypeCommand>* end_common # Just check w/ last loaded type
+ | <wsfobject-command>
+})
+
+(struct WSF_MULTIRESOLUTION_COMPONENT_TO_REPLACE
+   :symbol (type multiresolutionComponentToReplaceType WSF_MULTIRESOLUTION_COMPONENT_TO_REPLACE)
+   :base_type MultiresolutionComponentToReplace
+{
+   <MultiresolutionComponentToReplace>
+})

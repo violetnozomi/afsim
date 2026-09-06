@@ -1,0 +1,74 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# linear acceleration is determined in the following way:
+# 1. If defined in waypoint, use min(waypoint linear accel, max linear accel)
+# 2. Else If maximum is defined, use maximum
+# 3. Else compute a based on distance
+
+platform_type plat_type WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      update_interval 1.0 s
+   end_mover
+   route
+      position 0n 0e heading 0 deg speed 100 m/s
+      offset 10000 0 m speed 200 m/s
+         linear_acceleration 2 m/s2
+      offset 10000 0 m speed 100 m/s
+   end_route
+   script void CheckSpeed(double speed, string msg)
+      double speedError = MATH.Fabs(speed - Speed());
+      if (speedError > 2)
+      {
+         writeln("-FAIL- ", msg);
+         writeln("   good speed=", speed, "\treal speed=", Speed());
+      }
+   end_script
+end_platform_type
+
+# 10,000 meters going from 100 to 200 m/s
+# t * 100 + t^2 * accel/2 = 10,000
+# t = (200 - 100) / accel
+# 100^2 / accel + 100^2 / (accel * 2) = 10,000
+# accel = 3/2, t = 66.6666...
+platform compute_tester plat_type
+   execute at_time 33.33333 sec absolute
+      CheckSpeed(150.0, "Computed accel");
+   end_execute
+   execute at_time 66.66666 sec absolute
+      CheckSpeed(200.0, "speed reached");
+   end_execute
+end_platform
+
+# accel = 4.0
+# t = 25.0
+platform max_tester plat_type
+   maximum_linear_acceleration 4.0 m/s2
+   execute at_time 10 sec absolute
+      CheckSpeed(140.0, "maximum_linear_acceleration");
+      DeletePlatform();
+   end_execute
+end_platform
+
+platform wpt_tester plat_type
+   maximum_linear_acceleration 700 m/s2
+   route
+      position 0n 0e altitude 0 m heading 0 deg speed 100 m/s
+         linear_acceleration 4.0 m/s2
+      offset 10000 0 m speed 200 m/s
+   end_route
+
+   execute at_time 10 sec absolute
+      CheckSpeed(140.0, "maximum_linear_acceleration");
+      DeletePlatform();
+   end_execute
+end_platform
+
+end_time 2 min
+

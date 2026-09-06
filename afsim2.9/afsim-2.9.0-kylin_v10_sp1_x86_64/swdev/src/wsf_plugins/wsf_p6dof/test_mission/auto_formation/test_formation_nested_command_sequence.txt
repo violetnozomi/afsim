@@ -1,0 +1,82 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once default_formation.txt
+include_once ../scripts/utils.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 400 s
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 min absolute
+   WsfFormationCommandSequence sqn = WsfFormationCommandSequence.Construct();
+   
+   sqn.AppendCommand(WsfFormationDetachCommand.Construct(),
+                     WsfFormationCommandConstraint.AT_RELATIVE_TIME(60.0));
+   sqn.AppendCommand(WsfFormationAttachCommand.Construct(),
+                     WsfFormationCommandConstraint.AT_RELATIVE_TIME(60.0));
+
+   WsfFormationCommandSequence nest = WsfFormationCommandSequence.Construct();
+   nest.AppendCommand(WsfFormationDetachCommand.Construct());
+   nest.AppendCommand(WsfFormationAttachCommand.Construct());
+   nest.AppendCommand(WsfFormationDetachCommand.Construct(),
+                      WsfFormationCommandConstraint.AT_RELATIVE_TIME(60.0));
+   nest.AppendCommand(WsfFormationAttachCommand.Construct());
+   
+   sqn.AppendCommand(nest, WsfFormationCommandConstraint.AT_RELATIVE_TIME(60.0));
+   sqn.AppendCommand(WsfFormationDetachCommand.Construct(),
+                     WsfFormationCommandConstraint.AT_RELATIVE_TIME(60.0));
+
+   WsfFormationManager.GetFormation("yankee.beta").ExecuteCommand(sqn);
+end_execute
+
+execute at_time 130 s absolute
+   allPassed = ExpectBool(WsfFormationManager.GetFormation("yankee.beta").IsAttached(),
+              false,
+              "yankee.beta should be detached") && allPassed;
+end_execute
+
+execute at_time 190 s absolute
+   allPassed = ExpectBool(WsfFormationManager.GetFormation("yankee.beta").IsAttached(),
+              true,
+              "yankee.beta should be attached") && allPassed;
+end_execute
+
+execute at_time 250 s absolute
+   allPassed = ExpectBool(WsfFormationManager.GetFormation("yankee.beta").IsAttached(),
+              true,
+              "yankee.beta should be attached") && allPassed;
+end_execute
+
+execute at_time 310 s absolute
+   allPassed = ExpectBool(WsfFormationManager.GetFormation("yankee.beta").IsAttached(),
+              true,
+              "yankee.beta should be attached") && allPassed;
+end_execute
+
+execute at_time 370 s absolute
+   allPassed = ExpectBool(WsfFormationManager.GetFormation("yankee.beta").IsAttached(),
+              false,
+              "yankee.beta should be detached") && allPassed;
+end_execute
+
+execute at_time 380 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   } 
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

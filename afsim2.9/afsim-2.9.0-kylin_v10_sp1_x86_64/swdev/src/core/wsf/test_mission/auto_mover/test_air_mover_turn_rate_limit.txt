@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool mPassed = true;
+   bool mDebug = false;
+end_script_variables
+
+#event_pipe
+#   file test_air_mover_turn_rate_limit.aer
+#end_event_pipe
+
+platform 737_sw_aircraft WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      turn_rate_limit 2 deg/s
+      route
+         position 34:10:18.42n 103:57:32.41w altitude 30000.00 ft heading 0 deg speed 300 m/s
+         position 34:22:22.06n 103:57:32.41w altitude 30000.00 ft heading 0 deg
+         position 34:10:18.42n 103:57:32.41w altitude 30000.00 ft heading 180 deg
+      end_route
+   end_mover
+
+   add processor processor_data WSF_SCRIPT_PROCESSOR
+      update_interval 1.0 sec
+
+      script_variables
+         double mPreviousHeadingValue = -1;
+         double mTurnRateLimit = 2.1; #note, the behavior is precise to the level of one tenth.  There are also adjustments when going to 180 degrees.
+      end_script_variables
+
+      script void CheckPlatformHeading(WsfPlatform aPlatform)
+         extern bool mDebug;
+         extern double mTurnRateLimit;
+         extern double mPreviousHeadingValue;
+         extern bool mPassed;
+         double heading = aPlatform.Heading();
+         double differenceFromPreviousHeadingValue = 0;
+         if (mPreviousHeadingValue == -1)
+         {
+            mPreviousHeadingValue = heading;
+         }
+         if (heading < 0)
+         {
+            if (mPreviousHeadingValue > 0)
+            {
+               if (mPreviousHeadingValue > 90.0)
+               {
+                  double distanceOne = 180 + heading;
+                  double distanceTwo = 180 - mPreviousHeadingValue;
+                  differenceFromPreviousHeadingValue = distanceOne + distanceTwo;
+               }
+               else
+               {
+                  double distanceOne = 0 - heading;
+                  double distanceTwo = mPreviousHeadingValue;
+                  differenceFromPreviousHeadingValue = distanceOne + distanceTwo;
+               }
+            }
+            else
+            {
+               differenceFromPreviousHeadingValue = mPreviousHeadingValue - heading;
+            }
+         }
+         else if (heading > 0)
+         {
+            if (mPreviousHeadingValue < 0)
+            {
+               if (heading > 90)
+               {
+                  double distanceOne = 180 - heading;
+                  double distanceTwo = 180 + mPreviousHeadingValue;
+                  differenceFromPreviousHeadingValue = distanceOne + distanceTwo;
+               }
+               else
+               {
+                  double distanceOne = heading;
+                  double distanceTwo = 0 - mPreviousHeadingValue;
+                  differenceFromPreviousHeadingValue = distanceOne + distanceTwo;
+               }
+            }
+            else
+            {
+               differenceFromPreviousHeadingValue = heading - mPreviousHeadingValue;
+            }
+         }
+
+         if (differenceFromPreviousHeadingValue > mTurnRateLimit)
+         {
+             writeln("-FAIL- : test_air_mover_simple_test.txt, because turn rate surpassed limit");
+             mPassed = false;
+             if (mDebug)
+             {
+               writeln("Difference from previous value = ", differenceFromPreviousHeadingValue);
+            }
+         }
+
+         mPreviousHeadingValue = heading;
+
+         if (mDebug)
+         {
+            writeln("The platform\'s heading is: ", aPlatform.Heading());
+         }
+      end_script
+
+      on_update
+         CheckPlatformHeading(PLATFORM);
+      end_on_update
+   end_processor
+end_platform
+
+end_time 700 sec

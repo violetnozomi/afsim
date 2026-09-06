@@ -1,0 +1,456 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2013 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+    flight_controls
+
+        # Gain scheduling and mapping tables
+        
+        # Mapping tables include: MachMappingTable, KTASMappingTable, AlphaMappingTable,
+        #                         BetaMappingTable, GLoadMappingTable, AltMappingTable,
+        #                         QMappingTable, SignalMappingTable
+
+        # Gain tables include: MachGainTable, KTASGainTable, AlphaGainTable, BetaGainTable,
+        #                      GLoadGainTable, AltGainTable, QGainTable
+
+        # Other control signal modifiers include: ScalarGain, ClampGain, SASChannel
+        
+        mapping_table
+            name SignalMappingTableName
+            type signal_mapping
+            table_data
+                irregular_table          
+                    independent_variable control_value precision float
+                    independent_variable input         precision float
+                    dependent_variable                 precision float
+                    control_value 0.0
+                        input   -1.0 -0.5  0.0  0.5  1.0
+                        values  -0.8 -0.4  0.0  0.4  0.8
+                    control_value 1.0
+                        input   -1.0 -0.5  0.0  0.5  1.0
+                        values  -0.8 -0.4  0.0  0.4  0.8
+                    control_value 2.0
+                        input   -1.0 -0.5  0.0  0.5  1.0
+                        values  -0.8 -0.4  0.0  0.4  0.8
+                end_irregular_table
+            end_table_data
+        end_mapping_table        
+        
+        scalar_gain
+          name NegativeGain
+          gain -1.0
+        end_scalar_gain
+
+        scalar_gain
+          name HalfGain
+          gain 0.5
+        end_scalar_gain
+ 
+        scalar_gain
+          name DoubleGain
+          gain 2.0
+        end_scalar_gain
+
+        scalar_gain
+          name Gain60
+          gain 60.0
+        end_scalar_gain
+
+        scalar_gain
+          name Gain90
+          gain 90.0
+        end_scalar_gain
+
+        scalar_gain
+          name UnityGain
+          gain 1.0
+        end_scalar_gain
+
+        clamp_gain
+          name      Clamp_PosNeg
+          min_clamp  -1.0
+          max_clamp  1.0
+        end_clamp_gain
+        
+        clamp_gain
+          name      Clamp_ZeroOne
+          min_clamp  0.0
+          max_clamp  1.0
+        end_clamp_gain
+
+        clamp_gain
+          name      Clamp_Zero90
+          min_clamp  0.0
+          max_clamp  90.0
+        end_clamp_gain     
+      
+        clamp_gain
+          name      Clamp_Zero60
+          min_clamp  0.0
+          max_clamp  60.0
+        end_clamp_gain
+
+        clamp_gain
+          name      TestItem
+          min_clamp  0.0
+          max_clamp  2.0
+        end_clamp_gain
+ 
+        gain_table
+          name MachGainTableName
+          type mach_gain
+          simple_table
+            #controlValue outputGain
+            0.00          1.0
+            1.00          0.5
+            2.00          0.1
+          end_simple_table
+        end_gain_table
+
+        gain_table
+          name AlphaGainTableName
+          type alpha_gain
+          simple_table
+            #controlValue outputGain
+            0.00          1.0
+            1.00          0.5
+            2.00          0.1
+          end_simple_table
+        end_gain_table
+
+        gain_table
+          name BetaGainTableName
+          type beta_gain
+          simple_table
+            #controlValue outputGain
+            0.00          1.0
+            1.00          0.5
+            2.00          0.1
+          end_simple_table
+        end_gain_table
+
+        # List of control surfaces
+
+      control_surface
+           name                      ElevatorTEUp
+         min_angle                  -20.0 deg
+         max_angle                  20.0 deg
+         inputs
+            control_input
+               name                StickBack
+             modifier            Clamp_PosNeg
+            end_control_input
+         end_inputs
+         
+           angle_mapping_table
+               -1.00 -20.000
+                0.00   0.000
+                1.00  20.000
+         end_angle_mapping_table
+
+         actuator
+            lag                 0.01 sec
+#          max_positive_accel  30.0 deg/sec2
+#          max_negative_accel  -30.0 deg/sec2
+           max_positive_rate   30.0 deg/sec
+           max_negative_rate   -30.0 deg/sec
+           max_angle           20.0 deg
+           min_angle           -20.0 deg
+           current_angle       0.00 deg
+         end_actuator         
+      end_control_surface
+        
+      control_surface
+           name                      BothAilerons_Right
+         min_angle                  -20.0 deg
+         max_angle                  20.0 deg
+         inputs
+            control_input
+               name                StickRight
+             modifier            Clamp_PosNeg
+            end_control_input
+         end_inputs        
+           angle_mapping_table
+              #input    angle_deg
+                -1.00   -20.000
+                -0.95   -15.474
+                -0.90   -12.812
+                -0.85   -10.593
+                -0.80   -8.744
+                -0.75   -7.204
+                -0.70   -5.920
+                -0.65   -4.850
+                -0.60   -3.958
+                -0.55   -3.215
+                -0.50   -2.596
+                -0.45   -2.080
+                -0.40   -1.650
+                -0.35   -1.292
+                -0.30   -0.993
+                -0.25   -0.744
+                -0.20   -0.537
+                -0.15   -0.364
+                -0.10   -0.220
+                -0.05   -0.100
+                0.00 0.000
+                0.05 0.100
+                0.10 0.220
+                0.15 0.364
+                0.20 0.537
+                0.25 0.744
+                0.30 0.993
+                0.35 1.292
+                0.40 1.650
+                0.45 2.080
+                0.50 2.596
+                0.55 3.215
+                0.60 3.958
+                0.65 4.850
+                0.70 5.920
+                0.75 7.204
+                0.80 8.744
+                0.85 10.593
+                0.90 12.812
+                0.95 15.474
+                1.00 20.000
+           end_angle_mapping_table        
+         actuator
+            lag                0.01 sec
+#          MaxPositiveAccel   30.0 deg/sec2
+#          MaxNegativeAccel   -30.0 deg/sec2
+           max_positive_rate  30.0 deg/sec
+           max_negative_rate  -30.0 deg/sec
+           max_angle          20.0 deg
+           min_angle          -20.0 deg
+           current_angle      0.00 deg
+         end_actuator         
+      end_control_surface
+
+      control_surface
+           name                      RudderTERight
+         min_angle                  -20.0 deg
+         max_angle                  20.0 deg
+         inputs
+            control_input
+               name                RudderRight
+             modifier            Clamp_PosNeg
+            end_control_input
+         end_inputs
+           angle_mapping_table
+              #input    angle_deg
+                -1.00   -20.000
+                -0.95   -15.474
+                -0.90   -12.812
+                -0.85   -10.593
+                -0.80   -8.744
+                -0.75   -7.204
+                -0.70   -5.920
+                -0.65   -4.850
+                -0.60   -3.958
+                -0.55   -3.215
+                -0.50   -2.596
+                -0.45   -2.080
+                -0.40   -1.650
+                -0.35   -1.292
+                -0.30   -0.993
+                -0.25   -0.744
+                -0.20   -0.537
+                -0.15   -0.364
+                -0.10   -0.220
+                -0.05   -0.100
+                0.00 0.000
+                0.05 0.100
+                0.10 0.220
+                0.15 0.364
+                0.20 0.537
+                0.25 0.744
+                0.30 0.993
+                0.35 1.292
+                0.40 1.650
+                0.45 2.080
+                0.50 2.596
+                0.55 3.215
+                0.60 3.958
+                0.65 4.850
+                0.70 5.920
+                0.75 7.204
+                0.80 8.744
+                0.85 10.593
+                0.90 12.812
+                0.95 15.474
+                1.00 20.000
+           end_angle_mapping_table        
+         actuator
+            lag               0.01 sec
+#          max_positive_accel  30.0 deg/sec2
+#          max_negative_accel -30.0 deg/sec2
+           max_positive_rate   30.0 deg/sec
+           max_negative_rate  -30.0 deg/sec
+           max_angle          20.0 deg
+           min_angle          -20.0 deg
+           current_angle      0.00 deg
+         end_actuator         
+      end_control_surface
+        
+      control_surface
+           name                      AllGearDown
+         min_angle                  0.0 deg
+         max_angle                  90.0 deg
+         inputs
+            control_input
+               name                LandingGearDown
+             modifier            Clamp_ZeroOne
+            end_control_input
+         end_inputs
+           angle_mapping_table
+              #input        angle_deg
+              0.00          0.0
+              1.00          90.0
+           end_angle_mapping_table
+         actuator
+            lag                 0.01 sec
+#          max_positive_accel  30.0 deg/sec2
+#          max_negative_accel  -30.0 deg/sec2
+           max_positive_rate   30.0 deg/sec
+           max_negative_rate   -30.0 deg/sec
+           max_angle           90.0 deg
+           min_angle           0.0 deg
+           current_angle       0.00 deg
+         end_actuator
+      end_control_surface
+
+      control_surface
+           name                      BothFlapsDown
+         min_angle                  0.0 deg
+         max_angle                  60.0 deg
+         inputs
+            control_input
+               name                FlapsDown
+             modifier            Clamp_ZeroOne
+            end_control_input
+         end_inputs
+           angle_mapping_table
+              #input        angle_deg
+              0.00          0.0
+              1.00          60.0
+           end_angle_mapping_table
+         actuator
+            lag                 0.01 sec
+#          max_positive_accel  10.0 deg/sec2
+#          max_negative_accel  -10.0 deg/sec2
+           max_positive_rate   10.0 deg/sec
+           max_negative_rate   -10.0 deg/sec
+           max_angle           60.0 deg
+           min_angle           0.0 deg
+           current_angle       0.00 deg
+         end_actuator
+      end_control_surface
+
+      control_surface
+           name                      BothSpeedBrakesOut
+         min_angle                  0.0 deg
+         max_angle                  60.0 deg
+         current_angle              0.0 deg
+         inputs
+            control_input
+               name                SpeedBrakesOut
+             modifier            Clamp_ZeroOne
+            end_control_input   
+         end_inputs
+           angle_mapping_table
+              #input        angle_deg
+              0.00          0.0
+              1.00          60.0
+           end_angle_mapping_table
+         actuator
+            lag                 0.01 sec
+#          max_positive_accel  120.0 deg/sec2
+#          max_negative_accel  -180.0 deg/sec2
+           max_positive_rate   60.0 deg/sec
+           max_negative_rate   -90.0 deg/sec
+           max_angle           60.0 deg
+           min_angle           0.0 deg
+           current_angle       0.00 deg
+         end_actuator
+      end_control_surface  
+
+        # ....................................................
+        
+      control_value
+           name                      ThrottleMilitary
+         min_value                 0.0
+         max_value                 1.0
+         current_value             0.0
+         inputs
+            control_input
+               name                ThrottleMil
+             modifier            Clamp_ZeroOne
+            end_control_input
+         end_inputs
+      end_control_value
+        
+      control_value
+           name                      ThrottleAfterburner
+         min_value                 0.0
+         max_value                 1.0
+         current_value             0.0
+         inputs
+            control_input
+               name                ThrottleAB
+             modifier            Clamp_ZeroOne
+            end_control_input
+         end_inputs
+      end_control_value
+
+        # ....................................................
+
+      control_boolean
+           name                      TriggerPulled
+         current_value              0
+         threshold_value            0.5
+         inputs
+            control_input
+               name                TriggerPulled
+             modifier            Clamp_ZeroOne
+            end_control_input
+         end_inputs
+      end_control_boolean
+
+      control_boolean
+           name                      ButtonPressed
+         current_value              0
+         threshold_value            0.5
+         inputs
+            control_input
+               name                ButtonPressed
+             modifier            Clamp_ZeroOne
+            end_control_input
+         end_inputs
+      end_control_boolean
+
+      control_value
+           name                      ParkingBrake
+         min_value                  0.0
+         max_value                  1.0
+         current_value              0.0
+         inputs
+            control_input
+               name                SpeedBrakesOut
+             modifier            Clamp_ZeroOne
+            end_control_input
+         end_inputs
+      end_control_value
+        
+    end_flight_controls
+ 
+#Controls: StickBack,StickRight,RudderRight,ThrottleMil,ThrottleAB,LandingGearDown,
+#          FlapsDown,SpeedBrakesOut,TriggerPulled,ButtonPressed
+#Surfaces: ElevatorTEUp,BothAilerons_Right,RudderTERight,ThrottleMilitary,ThrottleAfterburner,
+#          AllGearDown,BothFlapsDown,BothSpeedBrakesOut,TriggerPulled,ButtonPressed

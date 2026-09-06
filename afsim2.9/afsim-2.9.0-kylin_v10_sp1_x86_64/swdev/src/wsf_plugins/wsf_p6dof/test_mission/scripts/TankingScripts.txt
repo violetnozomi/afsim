@@ -1,0 +1,351 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# ================================================================================
+# This file contains the behavior scripts for the tanking demo.
+# ================================================================================
+
+# Create an orbit path for the tanker.
+script WsfManeuver CreateOrbitManeuver()
+   double delta = 9.0;
+
+   WsfRollAngleManeuver turn = WsfRollAngleManeuver.Construct(-20.0);
+   turn.SetExitConstraint(WsfManeuverConstraint.AT_HEADING(-90.0 + delta));
+
+   WsfRollAngleManeuver flat = WsfRollAngleManeuver.Construct(0.0);
+   flat.SetExitConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(120.0));
+
+   WsfRollAngleManeuver back = WsfRollAngleManeuver.Construct(-20.0);
+   back.SetExitConstraint(WsfManeuverConstraint.AT_HEADING(90.0 + delta));
+
+   WsfRollAngleManeuver level = WsfRollAngleManeuver.Construct(0.0);
+   level.SetExitConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(120.0));
+
+   WsfManeuverSequence sqn = WsfManeuverSequence.Construct();
+   sqn.Append(turn);
+   sqn.Append(flat);
+   sqn.Append(back);
+   sqn.Append(level);
+   sqn.SetLoop(true);
+   sqn.SetEntryConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(95.0));
+
+   return sqn;
+end_script
+
+# Convert the initial finger-four formation into an echelon formation to
+# prepare for joining the tanker's formation.
+script void InitialYankeeRearrange()
+   WsfFormation yankeeTwo = WsfFormationManager.GetFormation("yankee.two");
+   WsfFormationChangeOffsetCommand twoCmd = WsfFormationChangeOffsetCommand.Construct();
+   twoCmd.AddOffset(WsfFormationOffset.Construct(30, 180.0, -10.0, false));
+   twoCmd.AddOffset(WsfFormationOffset.Construct(30, -135.0, -1.0, false));
+   twoCmd.SetTransitionTime(20.0);
+   yankeeTwo.ExecuteCommand(twoCmd);
+
+   WsfFormation yankeeThree = WsfFormationManager.GetFormation("yankee.three");
+   WsfFormationChangeOffsetCommand threeCmd = WsfFormationChangeOffsetCommand.Construct();
+   threeCmd.AddOffset(WsfFormationOffset.Construct(60.0, -135.0, -2.0, false));
+   threeCmd.SetTransitionTime(20.0);
+   yankeeThree.ExecuteCommand(threeCmd);
+
+   WsfFormation yankeeFour = WsfFormationManager.GetFormation("yankee.four");
+   WsfFormationChangeOffsetCommand fourCmd = WsfFormationChangeOffsetCommand.Construct();
+   fourCmd.AddOffset(WsfFormationOffset.Construct(90.0, -135.0, -3.0, false));
+   fourCmd.SetTransitionTime(20.0);
+   yankeeFour.ExecuteCommand(fourCmd);
+end_script
+
+# Turn yankee along the flight path of the tanker.
+script void YankeeTurnToIntercept()
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   WsfFormationTurnToHeadingCommand cmd = WsfFormationTurnToHeadingCommand.Construct(-90.0);
+   cmd.SetMaxBankAngle(20.0);
+   yankee.ExecuteCommand(cmd);
+end_script
+
+# Attach yankee as a subformation of foxtrot. This takes two steps: add yankee as
+# a subformation of foxtrot, and attach yankee to foxtrot. Once attached, yankee
+# and all of its members will form up relative to the leader of foxtrot (lambda),
+# and keep station once proper formation has been achieved.
+script void YankeeAttachToFoxtrot()
+   WsfFormationAddSubCommand cmd = WsfFormationAddSubCommand.Construct("yankee",
+                                                                       WsfFormationOffset.Construct(140.0, -155.0, -30.0, false));
+   WsfFormationAttachCommand att = WsfFormationAttachCommand.Construct();
+
+   WsfFormationCommandSequence sqn = WsfFormationCommandSequence.Construct();
+   sqn.AppendCommand(cmd);
+   sqn.AppendCommand(att);
+
+   WsfFormation foxtrot = WsfFormationManager.GetFormation("foxtrot");
+   foxtrot.ExecuteCommand(sqn);
+end_script
+
+# This will compute the offset of a member of yankee with respect to
+# foxtrot to aid in the reparenting operation.
+script WsfFormationOffset ReparentOffsetBeforeTanking(string aName)
+   WsfFormation form = WsfFormationManager.GetFormation(aName);
+   WsfFormationOffset retval = WsfFormationOffset.Construct(0.0, 0.0, 0.0, false);
+   while (form.IsValid() && !form.IsRoot())
+   {
+      retval = WsfFormationOffset.Add(retval, form.GetOffset());
+      form = form.GetParentFormation();
+   }
+   return retval;
+end_script
+
+# This adds the newly released unit formations (see ReparentRemoveBefore below)
+# back into foxtrot as direct subformations. This is called from ReparentRemoveBefore.
+script void ReparentAddBefore(WsfFormationOffset aOffsetTwo,
+                              WsfFormationOffset aOffsetThree,
+                              WsfFormationOffset aOffsetFour)
+   WsfFormationAddSubCommand addTwo   = WsfFormationAddSubCommand.Construct("two", aOffsetTwo);
+   WsfFormationAddSubCommand addThree = WsfFormationAddSubCommand.Construct("three", aOffsetThree);
+   WsfFormationAddSubCommand addFour  = WsfFormationAddSubCommand.Construct("four", aOffsetFour);
+
+   WsfFormationAttachCommand attach = WsfFormationAttachCommand.Construct();
+
+   WsfFormationCommandSequence sqn = WsfFormationCommandSequence.Construct();
+   sqn.AppendCommand(addTwo);
+   sqn.AppendCommand(addThree);
+   sqn.AppendCommand(addFour);
+   sqn.AppendCommand(attach);
+
+   WsfFormation foxtrot = WsfFormationManager.GetFormation("foxtrot");
+   foxtrot.ExecuteCommand(sqn);
+end_script
+
+# This will remove the non-lead units from foxtrot.yankee so that they may be
+# added as direct subformations of foxtrot. Before they are removed, the offsets
+# relative to foxtrot are collected so that they may be passed into
+# ReparentAddBefore. This schedules ReparentAddBefore instead of calling it directly
+# because the unit formations removed here cannot be readded until they have actually
+# been removed (see the note below).
+script void ReparentRemoveBefore()
+   WsfFormationOffset offsetTwo   = ReparentOffsetBeforeTanking("foxtrot.yankee.two");
+   WsfFormationOffset offsetThree = ReparentOffsetBeforeTanking("foxtrot.yankee.three");
+   WsfFormationOffset offsetFour  = ReparentOffsetBeforeTanking("foxtrot.yankee.four");
+
+   WsfFormationRemoveSubCommand removeTwo   = WsfFormationRemoveSubCommand.Construct("yankee.two");
+   WsfFormationRemoveSubCommand removeThree = WsfFormationRemoveSubCommand.Construct("yankee.three");
+   WsfFormationRemoveSubCommand removeFour  = WsfFormationRemoveSubCommand.Construct("yankee.four");
+
+   WsfFormationCommandSequence sqn = WsfFormationCommandSequence.Construct();
+   sqn.AppendCommand(removeTwo);
+   sqn.AppendCommand(removeThree);
+   sqn.AppendCommand(removeFour);
+
+   WsfFormation foxtrot = WsfFormationManager.GetFormation("foxtrot");
+   // NOTE: This command is assigned to foxtrot at this time (TIME_NOW), but the
+   // first execution of it will not occur until this script has been completed.
+   // The execution of formation commands proceeds as a series of events, and
+   // until the current event (executing this script) has completed, the
+   // event performing the work of this command sequence cannot begin.
+   //
+   // Given that there were no constraints placed on the commands in the
+   // sequence, or on the sequence itself, the removal of these subformations
+   // will occur before TIME_NOW advances. So scheduling ReparentAddBefore
+   // for even a small time after TIME_NOW will suffice.
+   foxtrot.ExecuteCommand(sqn);
+
+   Array<Object> args = Array<Object>();
+   args.PushBack(offsetTwo);
+   args.PushBack(offsetThree);
+   args.PushBack(offsetFour);
+
+   WsfSimulation.ExecuteAtTime(TIME_NOW + 1.0e-8, "ReparentAddBefore", args);
+end_script
+
+# While tanking, the members of yankee (except alpha) are reparented so that
+# they are direct subformations of foxtrot. This allows for the offsets during
+# the tanking operation to be computed directly.
+script void ReparentAllSubsBeforeTanking()
+   ReparentRemoveBefore();
+end_script
+
+script_variables
+   double tankingTime             = 100.0;
+   double tankingTransitionTime   =  20.0;
+   double tankingInteropDelayTime =  20.0;
+   double tankingPreStack         = -30.0;
+   double tankingCloseStack       = -15.0;
+   double tankingPostStack        =   0.0;
+   double tankingPreRange         =  30.0;
+   double tankingCloseRange       =  20.0;
+end_script_variables
+
+# The tanking operation use changes in the offset of a subformation to represent
+# tanking. During the tanking, the offset changes from fixed_altitude to
+# welded_wing so that the platform 'taking on fuel' keeps the same relative
+# position and orientation as the tanker.
+script void PerformTanking(string aFormName)
+   WsfFormation formation = WsfFormationManager.GetFormation(aFormName);
+
+   double initialRight = formation.GetOffset().GetRight();
+   double initialAhead = formation.GetOffset().GetAhead();
+
+   WsfFormationChangeOffsetCommand under = WsfFormationChangeOffsetCommand.Construct();
+   under.AddOffset(WsfFormationOffset.Construct(tankingPreRange, 180.0, tankingPreStack, true));
+   under.SetTransitionTime(tankingTransitionTime);
+
+   WsfFormationChangeOffsetCommand close = WsfFormationChangeOffsetCommand.Construct();
+   close.AddOffset(WsfFormationOffset.Construct(tankingCloseRange, 180.0, tankingCloseStack, true));
+   close.SetTransitionTime(tankingTransitionTime);
+   close.SetConstraint(WsfFormationCommandConstraint.AT_RELATIVE_TIME(tankingInteropDelayTime));
+
+   WsfFormationChangeOffsetCommand done = WsfFormationChangeOffsetCommand.Construct();
+   done.AddOffset(WsfFormationOffset.Construct(Vec3.Construct(-initialRight, initialAhead, tankingCloseStack), false));
+   done.AddOffset(WsfFormationOffset.Construct(Vec3.Construct(-initialRight, initialAhead, tankingPostStack), false));
+   done.SetTransitionTime(1.5 * tankingTransitionTime);
+   done.SetConstraint(WsfFormationCommandConstraint.AT_RELATIVE_TIME(tankingTime));
+
+   WsfFormationCommandSequence sqn = WsfFormationCommandSequence.Construct();
+   sqn.AppendCommand(under);
+   sqn.AppendCommand(close);
+   sqn.AppendCommand(done);
+
+   formation.ExecuteCommand(sqn);
+end_script
+
+# This runs the schedule of tanking operations for the four members. Note that
+# platform alpha's tanking operations are given to foxtrot.yankee, demonstrating
+# the flexibility of the formation offsets.
+script void RunTankingSchedule()
+   Array<Object> args = Array<Object>();
+   double execTime = TIME_NOW;
+
+   args.PushBack("foxtrot.yankee");
+   WsfSimulation.ExecuteAtTime(execTime, "PerformTanking", args);
+
+   args.PopBack();
+   args.PushBack("foxtrot.two");
+   execTime += 2.0 * tankingTransitionTime + tankingInteropDelayTime + tankingTime;
+   WsfSimulation.ExecuteAtTime(execTime, "PerformTanking", args);
+
+   args.PopBack();
+   args.PushBack("foxtrot.three");
+   execTime += 2.0 * tankingTransitionTime + tankingInteropDelayTime + tankingTime;
+   WsfSimulation.ExecuteAtTime(execTime, "PerformTanking", args);
+
+   args.PopBack();
+   args.PushBack("foxtrot.four");
+   execTime += 2.0 * tankingTransitionTime + tankingInteropDelayTime + tankingTime;
+   WsfSimulation.ExecuteAtTime(execTime, "PerformTanking", args);
+end_script
+
+# Get the offset of the members that will be needed after the post-tanking
+# reparenting operation.
+script WsfFormationOffset ReparentOffsetAfterTanking(string aFormName)
+   WsfFormation form = WsfFormationManager.GetFormation(aFormName);
+   WsfFormationOffset yankeeOffset = WsfFormationManager.GetFormation("foxtrot.yankee").GetOffset();
+   return WsfFormationOffset.Subtract(form.GetOffset(), yankeeOffset);
+end_script
+
+# This re-adds the members to foxtrot.yankee. This is called from ReparentRemoveAfter
+# below.
+script void ReparentAddAfter(WsfFormationOffset aOffsetTwo,
+                             WsfFormationOffset aOffsetThree,
+                             WsfFormationOffset aOffsetFour)
+   WsfFormationAddSubCommand addTwo   = WsfFormationAddSubCommand.Construct("two", aOffsetTwo);
+   WsfFormationAddSubCommand addThree = WsfFormationAddSubCommand.Construct("three", aOffsetThree);
+   WsfFormationAddSubCommand addFour  = WsfFormationAddSubCommand.Construct("four", aOffsetFour);
+
+   WsfFormationAttachCommand attach = WsfFormationAttachCommand.Construct();
+
+   WsfFormationChangeOffsetCommand drop = WsfFormationChangeOffsetCommand.Construct();
+   drop.AddOffset(WsfFormationOffset.Construct(140.0, 155.0, -30.0, false));
+   drop.SetTransitionTime(20.0);
+
+   WsfFormationCommandSequence sqn = WsfFormationCommandSequence.Construct();
+   sqn.AppendCommand(addTwo);
+   sqn.AppendCommand(addThree);
+   sqn.AppendCommand(addFour);
+   sqn.AppendCommand(attach);
+   sqn.AppendCommand(drop);
+
+   WsfFormation yankee = WsfFormationManager.GetFormation("foxtrot.yankee");
+   yankee.ExecuteCommand(sqn);
+end_script
+
+# In a manner similar to the reparenting that occurs before tanking, this
+# will reparent the members back to their original formation (yankee).
+script void ReparentRemoveAfter()
+   WsfFormationOffset offsetTwo   = ReparentOffsetAfterTanking("foxtrot.two");
+   WsfFormationOffset offsetThree = ReparentOffsetAfterTanking("foxtrot.three");
+   WsfFormationOffset offsetFour  = ReparentOffsetAfterTanking("foxtrot.four");
+
+   WsfFormationRemoveSubCommand removeTwo   = WsfFormationRemoveSubCommand.Construct("two");
+   WsfFormationRemoveSubCommand removeThree = WsfFormationRemoveSubCommand.Construct("three");
+   WsfFormationRemoveSubCommand removeFour  = WsfFormationRemoveSubCommand.Construct("four");
+
+   WsfFormationCommandSequence sqn = WsfFormationCommandSequence.Construct();
+   sqn.AppendCommand(removeTwo);
+   sqn.AppendCommand(removeThree);
+   sqn.AppendCommand(removeFour);
+
+   WsfFormation foxtrot = WsfFormationManager.GetFormation("foxtrot");
+   foxtrot.ExecuteCommand(sqn);
+
+   Array<Object> args = Array<Object>();
+   args.PushBack(offsetTwo);
+   args.PushBack(offsetThree);
+   args.PushBack(offsetFour);
+
+   WsfSimulation.ExecuteAtTime(TIME_NOW + 1.0e-8, "ReparentAddAfter", args);
+end_script
+
+# Reparent members beta, gamma and delta to be subformations of foxtrot.yankee.
+script void ReparentAllSubsAfterTanking()
+   ReparentRemoveAfter();
+end_script
+
+# This will turn yankee to its final heading. This is scheduled by SeparateFromTanker
+# below.
+script void TurnYankeeToFinal()
+   WsfFormationTurnToHeadingCommand cmd = WsfFormationTurnToHeadingCommand.Construct(-25.0);
+   cmd.SetMaxBankAngle(30.0);
+   cmd.SetConstraint(WsfFormationCommandConstraint.AT_RELATIVE_TIME(10.0));
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   yankee.ExecuteCommand(cmd);
+end_script
+
+# This will remove yankee as a subformation of foxtrot. After this operation, the
+# formations will have the same logical structure as they did at the start of the
+# scenario. The physical arrangement of the yankee formation will differ.
+script void SeparateFromTanker()
+   WsfFormationRemoveSubCommand remove = WsfFormationRemoveSubCommand.Construct("yankee");
+   WsfFormation foxtrot = WsfFormationManager.GetFormation("foxtrot");
+   foxtrot.ExecuteCommand(remove);
+
+   // We have to schedule this operation instead of using a command sequence because
+   // the two operations (WsfFormationRemoveSubCommand and WsfFormationTurnToHeading)
+   // need to be executed by different formations.
+   WsfSimulation.ExecuteAtTime(TIME_NOW + 1.0e-8, "TurnYankeeToFinal");
+end_script
+
+# This is a final rearrangement of the yankee formation into its (fictional)
+# mission profile.
+script void FinalizeYankeeFormation()
+   WsfFormationChangeOffsetCommand betaCmd = WsfFormationChangeOffsetCommand.Construct();
+   betaCmd.AddOffset(WsfFormationOffset.Construct(30, 180, -10.0, false));
+   betaCmd.AddOffset(WsfFormationOffset.Construct(100, -90.0, -5.0, false));
+   betaCmd.SetTransitionTime(60.0);
+   WsfFormation beta = WsfFormationManager.GetFormation("yankee.two");
+   beta.ExecuteCommand(betaCmd);
+
+   WsfFormationChangeOffsetCommand gammaCmd = WsfFormationChangeOffsetCommand.Construct();
+   gammaCmd.AddOffset(WsfFormationOffset.Construct(3000.0, 90.0, 0.0, false));
+   gammaCmd.SetTransitionTime(120.0);
+   WsfFormation gamma = WsfFormationManager.GetFormation("yankee.three");
+   gamma.ExecuteCommand(gammaCmd);
+
+   WsfFormationChangeOffsetCommand deltaCmd = WsfFormationChangeOffsetCommand.Construct();
+   deltaCmd.AddOffset(WsfFormationOffset.Construct(3100.0, 90.0, -5.0, false));
+   deltaCmd.SetTransitionTime(120.0);
+   WsfFormation delta = WsfFormationManager.GetFormation("yankee.four");
+   delta.ExecuteCommand(deltaCmd);
+end_script

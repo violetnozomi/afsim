@@ -1,0 +1,146 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+##############################################################################
+#                      SAM missile type and subsystem definitions
+##############################################################################
+
+antenna_pattern MISSILE_RDR_RX_ANTENNA
+  uniform_pattern
+    peak_gain                20 db
+    azimuth_beamwidth       360 degrees
+    elevation_beamwidth     180 degrees
+  end_uniform_pattern
+end_antenna_pattern
+
+antenna_pattern MISSILE_RDR_TX_ANTENNA
+  uniform_pattern
+    peak_gain                20 db
+    azimuth_beamwidth       360 degrees
+    elevation_beamwidth     180 degrees
+  end_uniform_pattern
+end_antenna_pattern
+
+sensor MISSILE_RADAR WSF_RADAR_SENSOR
+  one_m2_detect_range          25 km
+
+  hits_to_establish_track      3 3
+
+  frame_time                   1 sec
+
+  maximum_request_count        1
+  search_while_track
+
+  scan_mode                    both
+
+  maximum_range                25 km
+
+  transmitter
+    antenna_pattern            MISSILE_RDR_TX_ANTENNA
+    power                      1 mw
+    frequency                  14.8 ghz
+    pulse_repetition_frequency 250 hz
+    internal_loss              10 db
+  end_transmitter
+
+  receiver
+    antenna_pattern            MISSILE_RDR_RX_ANTENNA
+    bandwidth                  1.6 mhz
+    detection_threshold        3 db
+    noise_power                -160 dbw
+    internal_loss              10 db
+  end_receiver
+
+  # for now the filter is required if we're to report velocity
+  filter WSF_ALPHA_BETA_FILTER
+    alpha 0.6
+    beta  0.2
+  end_filter
+
+  reports_location
+  reports_velocity
+  reports_bearing
+  reports_type
+end_sensor
+
+
+aero MISSILE_AERO WSF_AERO
+  cd_zero_subsonic    0.12
+  cd_zero_supersonic  0.35
+  mach_begin_cd_rise  0.95
+  mach_end_cd_rise     1.3
+  mach_max_supersonic  3.3  // max speed of 994 m/sec
+  reference_area      0.09 m2
+  cl_max               5.0
+  aspect_ratio         1.5
+end_aero
+
+
+platform_type MISSILE WSF_PLATFORM
+  icon SA-10_Missile
+
+  sensor missile_radar MISSILE_RADAR
+    on
+    processor track_processor
+    ignore ignored-by-iads-radar
+  end_sensor
+
+  mover WSF_GUIDED_MOVER
+    //show_status
+    initial_mass        500 kg
+    fuel_mass           200 kg
+    specific_impulse    300 sec
+    thrust            44000 nt
+    aero          MISSILE_AERO
+  end_mover
+
+  processor track_processor WSF_TRACK_PROCESSOR
+    purge_interval 1 min
+  end_processor
+
+  processor missile_guidance_computer WSF_GUIDANCE_COMPUTER
+    //JAJ proportional_navigation_gain   4
+    //JAJ velocity_pursuit_gain          10
+    //JAJ g_bias                         1
+    proportional_navigation_gain   10.0
+    velocity_pursuit_gain          4.0
+    g_bias                         1.2
+#   continuous_g_bias
+    maximum_commanded_g            40.0 g
+    guidance_delay                  4.0 sec
+  end_processor
+
+  processor fuze WSF_AIR_TARGET_FUSE
+    time_of_flight_to_arm            10.0 sec     // Don't arm during the boost phase
+    coast_time_on_loss_of_target      4.0 sec
+  end_processor
+
+  category ignored-by-bomber-radar
+  category ignored-by-iads-radar
+end_platform_type
+
+
+weapon_effects MISSILE_WARHEAD WSF_GRADUATED_LETHALITY
+  use_3d_radius
+
+  radius_and_pk  100 m  0.75
+  radius_and_pk  500 m  0.55
+  radius_and_pk 5000 m  0
+end_weapon_effects
+
+
+weapon missile WSF_EXPLICIT_WEAPON
+  launched_platform_type  MISSILE
+  weapon_effects          MISSILE_WARHEAD
+  launch_delta_v          50.0 0.0 0.0 m/s
+
+  slew_mode               both
+
+  //elevation_slew_limits   30 deg 80 deg
+  elevation_slew_limits   60 deg 89.5 deg
+end_weapon

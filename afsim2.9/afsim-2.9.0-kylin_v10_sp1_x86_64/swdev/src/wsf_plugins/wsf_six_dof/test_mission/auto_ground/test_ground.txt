@@ -1,0 +1,366 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This is a test ground operations with P6DOF mover
+# --------------------------------------------------------------------------------------------------
+
+# test_feature wsf_p6dof
+
+include_once ../platforms/fa-lgt_landing-gear.txt
+   
+script void SetTaxiRadius(WsfPlatform aPlatform, double aTaxiRadius_ft)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      p6dofMover.SetTaxiRadius(aTaxiRadius_ft);
+   }
+end_script
+
+script void ReleaseWheelBrakes(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      p6dofMover.ReleaseWheelBrakes();
+   }
+end_script
+
+script void ReleaseDirectBraking(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      p6dofMover.ReleaseDirectBraking();
+   }
+end_script
+
+script void TurnOnEngines(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      p6dofMover.StartupEngines(TIME_NOW);
+   }
+end_script
+
+script void SetAutopilotWaypointMode(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      p6dofMover.SetAutopilotWaypointMode();
+   }
+end_script
+
+script void FollowRouteWithCallback(WsfPlatform aPlatform, string aRouteName, string aCallbackName)         
+   WsfRoute route = WsfRoute.CopyGlobal(aRouteName);
+   route.Back().SetCallback(aCallbackName);
+   aPlatform.FollowRoute(route);
+end_script
+
+script void SetParkingBrake(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      p6dofMover.SetParkingBrake();
+   }
+end_script
+
+end_time 30 min
+       
+route Route1
+   label RouteStart
+   position   21.3281n  157.9270w  altitude 19.0 ft  speed 7.0 kts
+   position   21.3280n  157.9270w  altitude 19.0 ft  speed 7.0 kts
+   position   21.3274n  157.9281w  altitude 19.0 ft  speed 7.0 kts
+   position   21.3274n  157.9290w  altitude 19.0 ft  speed 7.0 kts
+   position   21.3252n  157.9290w  altitude 19.0 ft  speed 7.0 kts
+   position   21.3269n  157.9260w  altitude 19.0 ft  speed 7.0 kts
+   position   21.3269n  157.9234w  altitude 19.0 ft  speed 7.0 kts
+   position   21.3277n  157.9238w  altitude 19.0 ft  speed 7.0 kts
+   position   21.3277n  157.9246w  altitude 19.0 ft  speed 7.0 kts
+   position   21.3285n  157.9246w  altitude 19.0 ft  speed 7.0 kts 
+end_route
+    
+platform test_aircraft FA-LGT-LANDING-GEAR
+   update_interval 0.01 sec
+   side blue
+   
+   route
+      position   21.3281n  157.9270w  altitude 19.0 ft  speed 7.0 kts
+      position   21.3280n  157.9270w  altitude 19.0 ft  speed 7.0 kts
+      position   21.3274n  157.9281w  altitude 19.0 ft  speed 7.0 kts
+      position   21.3274n  157.9290w  altitude 19.0 ft  speed 7.0 kts
+      position   21.3252n  157.9290w  altitude 19.0 ft  speed 7.0 kts
+      position   21.3269n  157.9260w  altitude 19.0 ft  speed 7.0 kts
+      position   21.3269n  157.9234w  altitude 19.0 ft  speed 7.0 kts
+      position   21.3277n  157.9238w  altitude 19.0 ft  speed 7.0 kts
+      position   21.3277n  157.9246w  altitude 19.0 ft  speed 7.0 kts
+      position   21.3285n  157.9246w  altitude 19.0 ft  speed 7.0 kts 
+   end_route
+
+   edit mover
+      engines_on false
+      landing_gear_down true
+      parking_brake_on true
+      throttle_idle true
+      taxi_mode_enabled true
+      nws_enabled true
+   end_mover
+   
+   script_variables
+      bool passed = true;
+   end_script_variables
+   
+script bool CheckStateData(WsfPlatform aPlatform,
+                           double targetLat,
+                           double targetLon,
+                           double targetSpeed_KTAS,
+                           double targetHeading_deg,
+                           double targetPitch_deg,
+                           double targetRoll_deg)
+                           
+      double lat = aPlatform.Latitude();
+      double lon = aPlatform.Longitude();
+      double speed_KTAS = aPlatform.Speed()*MATH.NMPH_PER_MPS();
+      double heading_deg = aPlatform.Heading();
+      double pitch_deg = aPlatform.Pitch();
+      double roll_deg = aPlatform.Roll();
+
+      double deltaLat = MATH.Fabs(lat-targetLat);
+      double deltaLon = MATH.Fabs(lon-targetLon);
+      double deltaSpeed_KTAS = MATH.Fabs(speed_KTAS-targetSpeed_KTAS);
+      double deltaHeading_deg = MATH.Fabs(heading_deg-targetHeading_deg);
+      double deltaPitch_deg = MATH.Fabs(pitch_deg-targetPitch_deg);
+      double deltaRoll_deg = MATH.Fabs(roll_deg-targetRoll_deg);
+   
+      if(deltaHeading_deg > 180.0)
+      {
+         deltaHeading_deg -= 360.0;
+      }
+      else if(deltaHeading_deg < -180.0)
+      {
+         deltaHeading_deg += 360.0;
+      }
+
+      if(deltaRoll_deg > 180.0)
+      {
+         deltaRoll_deg -= 360.0;
+      }
+      else if(deltaRoll_deg < -180.0)
+      {
+         deltaRoll_deg += 360.0;
+      }
+   
+      double debugMultiplier = 1.0; // Set to -1 for testing
+      
+      // For lat/lon, the desired tolerance is 500 feet. Since a nautical mile
+      // is approx 0.016667 deg, 500 feet is roughly 0.00137 deg.
+      double toleranceLat = debugMultiplier * 0.00137;
+      double toleranceLon = debugMultiplier * 0.00137;
+      
+      // Speed should be within 1%. Thus, at 450 KTAS, this is 4.5 knots.
+      double toleranceSpeed_KTAS = debugMultiplier * targetSpeed_KTAS*0.01;
+
+      // Heading should be within 2 deg
+      double toleranceHeading_deg = debugMultiplier * 2.0;
+
+      // Pitch should be within 2 deg
+      double tolerancePitch_deg = debugMultiplier * 2.0;
+   
+      // Roll should be within 2 deg
+      double toleranceRoll_deg = debugMultiplier * 2.0;
+   
+      bool testPassed = true;
+
+      // Uncomment this line when debugging to add a space line
+      //writeln("-FAIL-");
+   
+      if( deltaLat > toleranceLat )
+      {
+         testPassed  = false;
+         writeln("-FAIL- Latitude = ", lat, " deg is not within tolerance of (", toleranceLat, ") from the target of ", targetLat, " deg at time = ", TIME_NOW, " sec");
+      }
+   
+      if( deltaLon > toleranceLon )
+      {
+         testPassed  = false;
+         writeln("-FAIL- Longitude = ", lon, " deg is not within tolerance of (", toleranceLon, ") from the target of ", targetLon, " deg at time = ", TIME_NOW, " sec");
+      }
+   
+      if( deltaSpeed_KTAS > toleranceSpeed_KTAS )
+      {
+         testPassed  = false;
+         writeln("-FAIL- Speed = ", speed_KTAS, " KTAS is not within tolerance of (", toleranceSpeed_KTAS, ") from the target of ", targetSpeed_KTAS, " KTAS at time = ", TIME_NOW, " sec");
+      }
+
+      if( deltaHeading_deg > toleranceHeading_deg )
+      {
+         testPassed  = false;
+         writeln("-FAIL- Heading = ", heading_deg, " deg is not within tolerance of (", toleranceHeading_deg, ") from the target of ", targetHeading_deg, " deg at time = ", TIME_NOW, " sec");
+      }
+   
+      if( deltaPitch_deg > tolerancePitch_deg )
+      {
+         testPassed  = false;
+         writeln("-FAIL- Pitch = ", pitch_deg, " deg is not within tolerance of (", tolerancePitch_deg, ") from the target of ", targetPitch_deg, " deg at time = ", TIME_NOW, " sec");
+      }
+   
+      if( deltaRoll_deg > toleranceRoll_deg )
+      {
+         testPassed  = false;
+         writeln("-FAIL- Roll = ", roll_deg, " deg is not within tolerance of (", toleranceRoll_deg, ") from the target of ", targetRoll_deg, " deg at time = ", TIME_NOW, " sec");
+      }
+   
+      if( debugMultiplier < 0.0 )
+      {
+         writeln(" ");
+      }
+       
+      return testPassed;
+
+   end_script   
+   
+   execute at_time 1 sec absolute      
+      //Set turn radius
+      SetTaxiRadius(PLATFORM, 24.384);
+      
+      ReleaseWheelBrakes(PLATFORM);
+      ReleaseDirectBraking(PLATFORM);
+      TurnOnEngines(PLATFORM);
+      SetAutopilotWaypointMode(PLATFORM);
+      
+      FollowRouteWithCallback(PLATFORM, "Route1", "RouteComplete"); 
+   end_execute
+
+   execute at_time 12 sec absolute
+   
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        21.3279,  // targetLat
+                                        -157.927, // targetLon
+                                        7.048,    // targetSpeed_KTAS
+                                        -113.98,  // targetHeading_deg
+                                        0.49,     // targetPitch_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   
+   end_execute
+
+   execute at_time 49 sec absolute
+
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        21.3274,  // targetLat
+                                        -157.928, // targetLon
+                                        7.048,    // targetSpeed_KTAS
+                                        -89.63,   // targetHeading_deg
+                                        0.49,     // targetPitch_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+      
+   end_execute
+
+   execute at_time 112 sec absolute
+   
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        21.3258,  // targetLat
+                                        -157.929, // targetLon
+                                        7.048,    // targetSpeed_KTAS
+                                        -179.99,  // targetHeading_deg
+                                        0.49,     // targetPitch_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+      
+   end_execute
+
+   execute at_time 142 sec absolute
+
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        21.3256,  // targetLat
+                                        -157.928, // targetLon
+                                        7.048,    // targetSpeed_KTAS
+                                        59.07,    // targetHeading_deg
+                                        0.49,     // targetPitch_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+      
+   end_execute
+
+   execute at_time 200 sec absolute    
+     
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        21.3265,  // targetLat
+                                        -157.927, // targetLon
+                                        7.048,    // targetSpeed_KTAS
+                                        58.84,    // targetHeading_deg
+                                        0.49,     // targetPitch_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+
+   end_execute
+
+   execute at_time 240 sec absolute      
+
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        21.3269,  // targetLat
+                                        -157.925, // targetLon
+                                        7.048,    // targetSpeed_KTAS
+                                        90.01,    // targetHeading_deg
+                                        0.49,     // targetPitch_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+
+   end_execute
+
+   execute at_time 325 sec absolute 
+        
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        21.3277,  // targetLat
+                                        -157.924, // targetLon
+                                        7.048,    // targetSpeed_KTAS
+                                        -90.06,   // targetHeading_deg
+                                        0.49,     // targetPitch_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+
+   end_execute
+
+   script void RouteComplete()
+   
+      SetParkingBrake(PLATFORM);
+ 
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        21.3285,  // targetLat
+                                        -157.925, // targetLon
+                                        7.048,    // targetSpeed_KTAS
+                                        -0.01,    // targetHeading_deg
+                                        0.49,     // targetPitch_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+      
+      WsfSimulation.Terminate();
+      
+   end_script 
+
+   script void on_platform_deleted()
+   
+      if(passed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+      
+   end_script
+
+end_platform

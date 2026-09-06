@@ -1,0 +1,114 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../scripts/utils.txt
+include_once default_formation.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 4 min
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+script WsfFormation TestedCreate(string aType, string aName)
+   WsfFormation retval = WsfFormationManager.CreateFormation(aType, aName);
+   allPassed = ExpectBool(retval.IsValid(), true, "unable to create formation '" + aName + "' with type '" + aType + "'") && allPassed;
+   allPassed = ExpectString(retval.GetRelativeName(), aName, "Name mismatch") && allPassed;
+   return retval;
+end_script
+
+execute at_time 1 min absolute
+   allPassed = ExpectBool(WsfFormationManager.DisbandFormation("yankee"),
+              true,
+              "Trouble removing yankee formation") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.DisbandFormation("zulu"),
+              true,
+              "Trouble removing zulu formation") && allPassed;
+end_execute
+
+execute at_time 90 s absolute
+   WsfFormation top = TestedCreate("formation", "able");
+   WsfFormation bottom = TestedCreate("formation", "baker");
+   
+   allPassed = ExpectBool(top.AddSubFormation(bottom, WsfFormationOffset.Construct(0, 0, 0, false)),
+              true,
+              "Trouble adding child formation") && allPassed;
+   allPassed = ExpectBool(bottom.AddSubFormation(top, WsfFormationOffset.Construct(0, 0, 0, false)),
+              false,
+              "Created a formation cycle") && allPassed;
+   
+   allPassed = ExpectBool(WsfFormationManager.DisbandFormation("able"), true, "Unable to remove 'able'") && allPassed;
+end_execute
+
+script void SetupSection(WsfFormation aSection, string aLead, string aWing)
+   allPassed = ExpectBool(aSection.SetMember("ThisIsANonsensePlatformName"), false, "Should not be able to set members of sections") && allPassed;
+
+   WsfFormation alphaOne = TestedCreate("unit", "one");
+   allPassed = ExpectBool(alphaOne.SetMember(aLead), true, "unable to set member '" + aLead + "'") && allPassed;
+   
+   WsfFormation alphaTwo = TestedCreate("unit", "two");
+   allPassed = ExpectBool(alphaTwo.SetMember(aLead), false, "Should not be able to set lead member twice") && allPassed;
+   allPassed = ExpectBool(alphaTwo.SetMember(aWing), true, "unable to set member '" + aWing + "'") && allPassed;
+      
+   allPassed = ExpectBool(aSection.AddSubFormation(alphaOne, WsfFormationOffset.Construct(0, 0, 0, false)),
+              true, "Unable to add 'one'") && allPassed;
+   allPassed = ExpectBool(aSection.AddSubFormation(alphaTwo, WsfFormationOffset.Construct(100, 90, 5, false)),
+              true, "Unable to add 'two'") && allPassed;
+   allPassed = ExpectBool(aSection.SetLeader("one"), true, "Unable to set 'one' as leader") && allPassed;
+end_script
+
+execute at_time 2 min absolute
+   WsfFormation topLevel = TestedCreate("formation", "red");
+   allPassed = ExpectBool(topLevel.AddSubFormation(topLevel, WsfFormationOffset.Construct(0, 0, 0, false)),
+              false,
+              "Should not be able to add formation as subformation of itself") && allPassed;
+   
+   allPassed = ExpectBool(topLevel.SetMember("ThisIsANonsensePlatformName"),
+              false,
+              "Should not be able to set members of general formations") && allPassed;   
+   
+   WsfFormation alphaSection = TestedCreate("section", "alpha");
+   SetupSection(alphaSection, "alpha", "bravo");
+   allPassed = ExpectBool(topLevel.AddSubFormation(alphaSection, WsfFormationOffset.Construct(0, 0, 0, false)),
+              true,
+              "Unable to add alpha section") && allPassed;
+              
+   WsfFormation betaSection = TestedCreate("section", "beta");
+   SetupSection(betaSection, "charlie", "delta");
+   allPassed = ExpectBool(topLevel.AddSubFormation(betaSection, WsfFormationOffset.Construct(1000, 90, 25, false)),
+              true,
+              "Unable to add beta section") && allPassed;
+   
+   WsfFormation gammaSection = TestedCreate("section", "gamma");
+   SetupSection(gammaSection, "echo", "foxtrot");
+   allPassed = ExpectBool(topLevel.AddSubFormation(gammaSection, WsfFormationOffset.Construct(1000, 180, 25, false)),
+              true,
+              "Unable to add gamma section") && allPassed;
+
+   WsfFormation deltaSection = TestedCreate("section", "delta");
+   SetupSection(deltaSection, "golf", "hotel");
+   allPassed = ExpectBool(topLevel.AddSubFormation(deltaSection, WsfFormationOffset.Construct(1000, -90, 25, false)),
+              true,
+              "Unable to add gamma section") && allPassed;
+   
+   allPassed = ExpectBool(topLevel.SetLeader("alpha"), true, "Unable to set lead for 'red'") && allPassed;
+end_execute
+
+execute at_time 3 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   } 
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

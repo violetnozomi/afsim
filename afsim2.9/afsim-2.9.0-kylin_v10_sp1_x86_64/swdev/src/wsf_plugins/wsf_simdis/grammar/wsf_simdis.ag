@@ -1,0 +1,38 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2018 - 2019 Lockheed Martin Corporation. All Rights Reserved.
+# Lockheed Martin Corporation hereby provides the below source code to the
+# United States Government with Unlimited Rights as such is defined in
+# DFARS 252.227 - 7014.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#
+#   wsf_simdis commands
+#
+
+#==============================================================================
+# File WsfSIMDIS_Interface.cpp
+
+(rule FHN { F | H | N } )
+
+(rule simdis-interface-command
+{
+   file (file-reference asi_file)
+ | hit_icon (name icon)
+ | kill_icon (name icon)
+ | event_duration <Time>
+ | enable_beams <Bool>
+ | default_beam_color (name color)
+ | beam_color (typeref sensorType) (name color)
+ | reference_lla <Latitude> <Longitude> <Length>
+ | define_fhn <string> <FHN>
+})
+
+(rule root-command {
+   simdis_interface <simdis-interface-command>* end_simdis_interface
+})

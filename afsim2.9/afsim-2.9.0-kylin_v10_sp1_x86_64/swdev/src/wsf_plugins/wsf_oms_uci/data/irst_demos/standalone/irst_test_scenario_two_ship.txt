@@ -1,0 +1,67 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Combined test scenario meant to be run in a single process. 
+include ../irst_test_scenario_common.txt
+
+platform sense SENSE
+   position 39:29:54.175n 86:31:49.474w
+   route
+      label begin
+      position 39:29:54.175n 86:31:49.474w altitude 10000.00 ft
+         speed 500 mph
+      position 40:31:27.000n 86:31:09.000w
+      goto begin
+   end_route
+end_platform
+
+platform sense2 SENSE
+   position 39:29:53.175n 86:31:48.474w
+   route
+      label begin
+      position 39:29:53.175n 86:31:48.474w altitude 10000.00 ft
+         speed 500 mph
+      position 40:31:26.000n 86:31:08.000w
+      goto begin
+   end_route
+end_platform
+
+platform target_1 TARGET
+   position 39:59:47.400n 86:31:19.560w altitude 1000 ft
+end_platform
+platform target_2 TARGET
+   position 39:47:21.480n 86:32:04.560w altitude 1000 ft
+end_platform
+platform target_3 TARGET
+   position 40:25:09.840n 86:30:24.480w altitude 1000 ft
+end_platform
+platform target_4 TARGET
+   position 40:11:25.800n 86:30:34.560w altitude 1000 ft
+end_platform
+
+#dis_interface 
+#   exercise 1
+#   application 1
+#   autostart 
+#   connections 
+#      broadcast 255.255.255.255 port 3000
+#   end_connections
+#   // Entity type SIMPLE_SENSE maps to SENSE type in uci-enabled app
+#   entity_type SIMPLE_SENSE  1:2:225:9:10:1:0
+#   entity_type TARGET 2:1:222:0:0:0:0
+#   entity_id sense 1
+#   entity_id target_1 2
+#   entity_id target_1 3
+#   entity_id target_1 4
+#end_dis_interface
+#realtime
+
+event_pipe   
+   file irst_test_scenario_single.aer 
+end_event_pipe

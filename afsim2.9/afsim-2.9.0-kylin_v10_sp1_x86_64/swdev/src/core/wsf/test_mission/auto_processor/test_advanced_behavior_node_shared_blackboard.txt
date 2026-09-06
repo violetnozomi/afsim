@@ -1,0 +1,204 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of shared blackboard functions for advanced behavior nodes
+
+advanced_behavior test_shared_blackboard
+   precondition 
+      return Success();
+   end_precondition
+   
+   execute 
+      bool bbExists = SharedBlackboardExists("bb");
+      # SBB1: Test SharedBlackboardExists. We expect bbExists to be false here,
+      # as we haven't declared a shared blackboard yet.
+      if (!bbExists)
+      {
+         writeln("-PASS- SBB1: 0 = ", bbExists);
+      }
+      else
+      {
+         writeln("-FAIL- SBB1: 0 = ", bbExists);
+      }
+      # SBB2: Test CreateSharedBlackboard by setting a shared blackboard 'bb'.
+      # If bbExists is true, we know it worked.
+      CreateSharedBlackboard("bb");
+      
+      bbExists = SharedBlackboardExists("bb");
+      if (bbExists)
+      {
+         writeln("-PASS- SBB2: 1 = ", bbExists);
+      }
+      else
+      {
+         writeln("-FAIL- SBB2: 1 = ", bbExists);
+      }
+      # SBB3: Test ShareBlackboard by sharing this node's blackboard
+      # to the shared blackboard list ShareBlackboard.
+      # If bb2Exists is true, then it worked.
+      ShareBlackboard("bb2");
+      bool bb2Exists = SharedBlackboardExists("bb2");
+      if (bb2Exists)
+      {
+         writeln("-PASS- SBB3: 1 = ", bb2Exists);
+      }
+      else
+      {
+         writeln("-FAIL- SBB3: 1 = ", bb2Exists);
+      }
+      # SBB4: Test SharedBlackboardVarExists.  We haven't added any variables yet,
+      # so this should be false.
+      bool sVarExists = SharedBlackboardVarExists("bb", "var");
+      if (!sVarExists)
+      {
+         writeln("-PASS- SBB4: 0 = ", sVarExists);
+      }
+      else
+      {
+         writeln("-FAIL- SBB4: 0 = ", sVarExists);
+      }
+      # SBB5: Test SetSharedBlackboardVar.
+      SetSharedBlackboardVar("bb", "var1", 1);
+      SetSharedBlackboardVar("bb", "var2", 12.34);
+      SetSharedBlackboardVar("bb", "var3", true);
+      SetSharedBlackboardVar("bb", "var4", "test");
+      SetSharedBlackboardVar("bb", "var5", PLATFORM);
+      WsfTrack t = PLATFORM.MakeTrack();
+      SetSharedBlackboardVar("bb", "var6", t);
+      sVarExists = SharedBlackboardVarExists("bb", "var");
+      if (SharedBlackboardVarExists("bb", "var1"))
+      {
+         writeln("-PASS- SBB5: var1 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- SBB5: var1 does not exist!");
+      }
+      if (SharedBlackboardVarExists("bb", "var2"))
+      {
+         writeln("-PASS- SBB5: var2 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- SBB5: var2 does not exist!");
+      }
+      if (SharedBlackboardVarExists("bb", "var3"))
+      {
+         writeln("-PASS- SBB5: var3 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- SBB5: var3 does not exist!");
+      }
+      if (SharedBlackboardVarExists("bb", "var4"))
+      {
+         writeln("-PASS- SBB5: var4 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- SBB5: var4 does not exist!");
+      }
+      if (SharedBlackboardVarExists("bb", "var5"))
+      {
+         writeln("-PASS- SBB5: var5 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- SBB5: var5 does not exist!");
+      }
+      if (SharedBlackboardVarExists("bb", "var6"))
+      {
+         writeln("-PASS- SBB5: var6 exists.");
+      }
+      else
+      {
+         writeln("-FAIL- SBB5: var6 does not exist!");
+      }
+
+      # SBB6: Test GetSharedBlackboardVar
+      int         var1 = (int)GetSharedBlackboardVar("bb", "var1");
+      double      var2 = (double)GetSharedBlackboardVar("bb", "var2");
+      bool        var3 = (bool)GetSharedBlackboardVar("bb", "var3");
+      string      var4 = (string)GetSharedBlackboardVar("bb", "var4");
+      WsfPlatform var5 = (WsfPlatform)GetSharedBlackboardVar("bb", "var5");
+      WsfTrack    var6 = (WsfTrack)GetSharedBlackboardVar("bb", "var6");
+      if (var1 == 1)
+      {
+         writeln("-PASS- SBB6: var1: 1 = ", var1);
+      }
+      else
+      {
+         writeln("-FAIL- SBB6: var1: 1 = ", var1);
+      }
+      if (var2 == 12.34)
+      {
+         writeln("-PASS- SBB6: var2: 12.34 = ", var2);
+      }
+      else
+      {
+         writeln("-FAIL- SBB6: var2: 12.34 = ", var2);
+      }
+      if (var3)
+      {
+         writeln("-PASS- SBB6: var3: 1 = ", var3);
+      }
+      else
+      {
+         writeln("-FAIL- SBB6: var3: 1 = ", var3);
+      }
+      if (var4 == "test")
+      {
+         writeln("-PASS- SBB6: var4: test = ", var4);
+      }
+      else
+      {
+         writeln("-FAIL- SBB6: var4: test = ", var4);
+      }
+      if (var5.Name() == PLATFORM.Name())
+      {
+         writeln("-PASS- SBB6: var5: ", PLATFORM.Name(), " = ", var5.Name());
+      }
+      else
+      {
+         writeln("-FAIL- SBB6: var5: ", PLATFORM.Name(), " = ", var5.Name());
+      }
+      if (var6.TargetName() == "plat")
+      {
+         writeln("-PASS- SBB6: var6: plat = ", var6.TargetName());
+      }
+      else
+      {
+         writeln("-FAIL- SBB6: var6: plat = ", var6.TargetName());
+      }
+      
+      # SBB7: Test DeleteSharedBlackboardVar.  if sVarExists is false it passes.
+      DeleteSharedBlackboardVar("bb", "var1");
+      sVarExists = SharedBlackboardVarExists("bb", "var1");
+      if (!sVarExists)
+      {
+         writeln("-PASS- SBB7: 0 = ", sVarExists);
+      }
+      else
+      {
+         writeln("-FAIL- SBB7: 0 = ", sVarExists);
+      }
+      return Success();
+   end_execute
+end_advanced_behavior
+
+platform plat WSF_PLATFORM
+   add processor proc WSF_SCRIPT_PROCESSOR
+      update_interval 2 sec
+      advanced_behavior_tree
+         decorator repeater repeat 1 
+            behavior_node test_shared_blackboard
+         end_decorator
+      end_advanced_behavior_tree
+   end_processor
+end_platform

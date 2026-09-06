@@ -1,0 +1,94 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2013 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+//***************************************************************************************
+// Define a test launcher type.  Place these at regular spacings from a target,
+// and generate sample trajectories.  These are used to generate fires table entries.
+//***************************************************************************************
+
+//Assume the name of the input file is the same as the initial launched platform type
+
+// Include the (non-fires) ballistic type definition that will be used to generate table entries.
+
+include_once ../platforms/all_entities.txt
+
+script_variables
+  global double mMinDistance = 441.0;
+  global double mMaxDistance = 5383.0;
+  global double mTotal = 20;
+  global double mSeparation = (mMaxDistance - mMinDistance) / mTotal;
+//  global double mSeparation = 9000.0;
+//  global double mTotal = 1;
+  global string mSystemMunition = "120MM_ARTILLERY";
+  global string mFiresimSystemMunition = "FIRES_"+mSystemMunition;
+  global string mLaunchedPlatformType = mFiresimSystemMunition;
+  global Map<string, double> mRange = {};
+  global Map<string, double> mMaxOrd = {};
+  global Map<string, double> mTOF = {};
+  global Map<string, double> mMaxOrdTime = {};
+  global Map<string, Vec3> mStartLoc = {};
+  global Map<string, double> mCurrentOrd = {};
+  global Array<string> mRangeSortOrder = {};
+end_script_variables
+
+platform target WSF_PLATFORM
+  side blue
+  icon Tower
+  indestructible
+  position 34:52:51.00n 110:11:59.39w
+end_platform
+
+platform_type TEST_LAUNCHER 120MM_MORTAR_PLATFORM  // Change base type
+// platform_type TEST_LAUNCHER 122MM_ROCKET_PLATFORM  // Change base type
+  indestructible
+   edit processor gcp
+      debug
+      queued_fire_request
+         fire_time       0.1 seconds
+         trajectory    depressed
+         round_type   120mm_MORTAR_BASE  // Change round type
+//         round_type   122mm_ROCKET_BASE  // Change round type
+         charge_type    UNKNOWN
+         target_state
+            location 34:52:51.00n 110:11:59.39w 0 m
+            number_of_rounds         1
+         end_target_state
+      end_queued_fire_request
+   end_processor
+
+end_platform_type
+
+platform_type WEAPON_PLATFORM_GENERATOR WSF_PLATFORM
+   script void CreatePlatforms(string aType)
+      extern double mSeparation;
+      extern double mMinDistance;
+      extern double mTotal;
+      for (int i = 0; i < mTotal; i = i + 1)
+      {
+         WsfPlatform launcher = WsfSimulation.CreatePlatform(aType);
+         WsfPlatform target = WsfSimulation.FindPlatform("target");
+         Vec3 launcherLocECS = Vec3.Construct(i * mSeparation + mMinDistance, 0.0, 0.0);
+         Vec3 launcherLocWCS = target.ConvertECSToWCS(launcherLocECS);
+         WsfGeoPoint gp = WsfGeoPoint.ConstructWCS(launcherLocWCS);
+         writeln(gp.Latitude(), " ", gp.Longitude(), "  ", gp.Altitude());
+         launcher.SetLocation(gp);
+         WsfSimulation.AddPlatform(launcher, "");
+      }
+   end_script
+
+end_platform_type
+
+platform weapon_platform_generator WEAPON_PLATFORM_GENERATOR
+  position 34n 110w
+   execute at_time 0.01 seconds absolute
+      CreatePlatforms("TEST_LAUNCHER");
+   end_execute
+end_platform
+

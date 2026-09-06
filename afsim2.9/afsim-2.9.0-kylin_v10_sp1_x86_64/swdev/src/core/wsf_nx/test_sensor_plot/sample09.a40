@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2018 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# general radar data
+ECHO_DATA		yes
+CLASSIFICATION		UNCLASSIFIED
+TITLE			Sample #9 MTI, RSE
+SIM_TYPE		FPA
+DATA_FORMAT             ASCII
+#JAJ RADAR_LAT		504500N
+#JAJ RADAR_LON		081000E
+# Nellis Tower
+RADAR_LAT		361406.0N
+RADAR_LON		1150136.0W
+#
+FPA_OVERWRITE	        yes
+FPA_PATH_FILE           ./sample09.fpa
+FPA_OUTFILE             ./sample09.bnf
+FPA_PLOT_TITLE          Sample Case 9, MTI, RSE
+#
+INCLUDE                 ./mti_radar2.a40
+#
+# environment
+#
+#JAJ LAND_COVER		forest
+#JAJ LAND_FORM		moderately steep
+LAND_COVER              rangeland
+LAND_FORM               level
+ATM_ATTEN_SW		on
+REFRACTIVITY		1.3333333
+PROPAGATION_SW		on
+EPSILON_ONE		6.0
+SIGMA_ZERO		0.006
+ROUGHNESS_FACTOR	.9
+#
+CLUTTER_SW		on
+CLUT_DECAY		1.0E-6 Hz2
+SIGMAC			10 Hz
+CLUT_ANGLE_INCR		.1 deg
+#JAJ CLUT_AZ_WIDTH		20.0 deg
+CLUT_AZ_WIDTH		.1 deg
+CLUT_MAX_RANGE          50.0e3  meters
+CLUT_STATISTIC		mean
+#
+# target
+#
+INCLUDE                 ./one_sq_meter.a40
+#
+TERRAIN_SW		on
+TERRAIN_SPEED_SW	on
+TERRAIN_DIR		/sdadev1a/nima/dted/lvl1-30n-50n-130w-110w
+TERRAIN_LEVEL		1
+
+# TEST STUFF
+
+#LAND_COVER              6
+#LAND_FORM               1

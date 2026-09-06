@@ -1,0 +1,132 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once roads/squareIntersections.txt
+
+include platforms/road_platforms.txt
+include_once ../auto_script/collect_stats.txt
+
+//include roads/drawRoads.txt
+
+//random seed by default is 0
+
+osm_traffic
+  network eightNetwork
+    vehicle_count 50
+    maximum_speed  80 mi/h
+
+    vehicle CAR
+      fraction      0.5
+      mean_speed   80 mi/h
+      sigma_speed   5 mi/h
+    end_vehicle
+
+    vehicle PICKUP_TRUCK
+      fraction      0.5
+      mean_speed   80 mi/h
+      sigma_speed  10 mi/h
+    end_vehicle
+
+  end_network
+end_osm_traffic
+
+//A visual test for manual review
+#execute at_time 0.1 sec absolute
+#   DrawRoads();
+#   DrawStops();
+#end_execute
+
+script bool compareDouble(double aExpected, double aActual, double aFactor)
+   return MATH.Fabs((aExpected / aActual) - 1.0) < aFactor;
+end_script
+
+script_variables
+   bool noVehiclesSpeeding = true;
+end_script_variables
+
+observer
+   enable SIMULATION_COMPLETE simComplete
+end_observer
+
+
+conditional_section
+   conditionals
+      feature_present os:linux
+   end_conditionals
+end_conditional_section
+
+conditional_section
+   conditionals
+      feature_present os:windows
+   end_conditionals
+   script_variables
+   end_script_variables
+   //Verify that vehicles line up at a red traffic light/stop sign
+   execute at_time 28 sec absolute
+      WsfOSM_Traffic traffic = WsfOSM_Traffic.Traffic();
+      WsfPlatform pickup9 = WsfSimulation.FindPlatform("PICKUP_TRUCK_9");
+      WsfPlatform pickup14 = WsfSimulation.FindPlatform("PICKUP_TRUCK_14");
+      WsfPlatform car16 = WsfSimulation.FindPlatform("CAR_16");
+
+      bool vehicleStopped = (pickup9.Speed() == 0 &&
+            pickup14.Speed() == 0 && car16.Speed() == 0);
+            
+      if (vehicleStopped)
+         writeln("-PASS-");
+      else 
+         writeln("-FAIL- The monitored vehicles did not stop at the intersection at the expected time.");
+      
+      //Verify that implicit subroutes are correctly acquired. DistanceAlongRoute isn't always precise enough for this test,
+      //so latitude comparison is used instead. These vehicles all have the same longitude.
+      //Vehicles should be very close to each other, but not at the exact same location. 
+      //The margin of error needs to be very small since the distance between is so small as well
+      WsfRoute road = traffic.IndividualRoute("eightNetwork", "roadTwo", 2, false, 1);
+      bool separateVehicles = compareDouble(car16.Location().Latitude(), pickup9.Location().Latitude(), 0.000005)
+                            && compareDouble(pickup14.Location().Latitude(), pickup9.Location().Latitude(), 0.000005)
+                            && car16.Location().Latitude() != pickup9.Location().Latitude()
+                            && pickup14.Location().Latitude() != pickup9.Location().Latitude();
+#      double distCar16 = road.DistanceAlongRoute(car16.Location());
+#      double distPickup9 = road.DistanceAlongRoute(pickup9.Location());
+#      double distPickup14 = road.DistanceAlongRoute(pickup14.Location());
+#      bool separateVehicles  = compareDouble(distCar16, distPickup9, 0.005)
+#                            && compareDouble(distPickup9, distPickup14, 0.005)
+#                            && distCar16 != distPickup9 && distPickup9 != distPickup14;  
+      if (separateVehicles)
+         writeln("-PASS-");
+      else
+         writeln("-FAIL- Vehicles at intersections are behaving incorrectly.");
+   end_execute
+end_conditional_section
+
+//Verify that defined speed limits are followed and take precedence over defined vehicle speed
+execute at_interval_of 2 seconds
+   WsfOSM_Traffic traffic = WsfOSM_Traffic.Traffic();
+   WsfRoute roadThree = traffic.IndividualRoute("eightNetwork", "roadThree", 1, true, 1);
+   WsfPlatformList roadThreeVehicles = traffic.VehiclesAlongRoute("roadThree", roadThree.Name());
+   bool notSpeeding = true;
+   for (int i = 0; i < roadThreeVehicles.Count(); i += 1)
+   {
+      //40 mph = 17.8816 m/s
+      if (roadThreeVehicles[i].Speed() > 17.8816) 
+      {
+         noVehiclesSpeeding = false;
+         break;
+      }
+   } 
+end_execute
+
+script void simComplete()
+   if (noVehiclesSpeeding)
+      writeln("-PASS-");
+   else
+      writeln("-FAIL- Vehicle speed exceeded the speed limit of 40 mph");
+end_script
+
+
+end_time 10 minutes

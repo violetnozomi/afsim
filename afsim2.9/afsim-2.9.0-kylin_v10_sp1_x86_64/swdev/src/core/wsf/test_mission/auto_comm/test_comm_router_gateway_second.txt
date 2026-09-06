@@ -1,0 +1,105 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests routing, as well as gateway usage.
+//! A = plat1, B = plat2, C = plat3
+//! Sets up connectivity in this way
+//! A ---> B ---> C
+//!
+//! Removes the protocols such that the router does nothing
+//! to determine how to forward the message. However, since
+//! gateways have beend defined, the interfaces can use default
+//! forwarding. Since the default forwarding does in fact lead
+//! to the intended recipient, the message succeeds transmission.
+//!
+//! In this test, A will have a defined gateway that is B, so that
+//! even though routing will fail, the message will get passed to
+//! B, who can then successfully send the message to C.
+
+end_time 3 s
+
+script_variables
+   int num_messages = 0;
+end_script_variables
+
+comm comm1 WSF_COMM_TRANSCEIVER
+   on
+end_comm
+
+processor MESSAGE_PROC WSF_SCRIPT_PROCESSOR
+      on_message
+         script
+            writeln(PLATFORM.Name() + ", incoming message, from " + MESSAGE.Originator() + ", at time " + (string)TIME_NOW + " seconds");
+            num_messages = num_messages + 1;
+         end_script
+      end_on_message
+   end_processor
+
+platform_type TEST_PLAT WSF_PLATFORM
+   add comm test_Comm comm1
+      internal_link msg_proc
+   end_comm
+   add processor msg_proc MESSAGE_PROC
+   end_processor
+end_platform_type
+
+platform test1 TEST_PLAT
+   add router default WSF_COMM_ROUTER 
+      gateway test_Comm         # REMOVING THIS CAUSES THE TEST TO FAIL, AS INTENDED
+      use_default_protocol false
+   end_router
+   edit comm test_Comm
+      network_name network1
+      gateway test2 test_Comm   # REMOVING THIS CAUSES THE TEST TO FAIL, AS INTENDED
+   end_comm
+end_platform
+
+platform test2 TEST_PLAT
+   edit comm test_Comm
+      network_name network1
+      link test3 test_Comm
+   end_comm
+end_platform
+
+platform test3 TEST_PLAT
+   edit comm test_Comm
+      network_name network2
+   end_comm
+end_platform
+
+execute at_time 1 s absolute
+   WsfMessage message1 = WsfMessage();
+   message1.SetSizeInBits(100);
+   message1.SetType("THIS IS A TEST");
+   WsfMessage message2 = WsfMessage();
+   message1.SetSizeInBits(100);
+   message1.SetType("THIS IS A TEST");
+   WsfMessage message3 = WsfMessage();
+   message1.SetSizeInBits(100);
+   message1.SetType("THIS IS A TEST");
+   WsfPlatform plat1 = WsfSimulation.FindPlatform("test1");
+   WsfPlatform plat2 = WsfSimulation.FindPlatform("test2");
+   WsfPlatform plat3 = WsfSimulation.FindPlatform("test3");
+
+   plat1.Comm("test_Comm").SendMessage(message1, plat2.Comm("test_Comm"));
+   plat2.Comm("test_Comm").SendMessage(message2, plat3.Comm("test_Comm"));
+   plat1.Comm("test_Comm").SendMessage(message3, plat3.Comm("test_Comm"));
+end_execute
+
+execute at_time 3 s absolute
+   if(num_messages != 3)
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+#event_output
+#   file replay.evt
+#   enable all
+#end_event_output

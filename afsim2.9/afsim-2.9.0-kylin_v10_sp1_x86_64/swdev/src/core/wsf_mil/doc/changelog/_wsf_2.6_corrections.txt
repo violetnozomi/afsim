@@ -1,0 +1,30 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.6.3)** Fixed issue where the mover of a weapon with a deferred launch would be initialized twice, resulting in invalid data. *(AFSIM-142)*
+* **(2.6.3)** Corrected an issue where using :method:`WsfWeaponEngagement.SetPkDegrade` was ineffective if called from within the :command:`weapon_effects.on_weapon_target_engagement` script. *(AFSIM-895)*
+* **(2.6.2)** Corrected an issue where the :model:`WSF_SAR_SENSOR` was no longer checking the resulting signal-to-noise against the receiver's detection threshold when determining probability of detection. The change occurred somewhere between v1.10.5 and v2.0.1. As a result, the electronic attack :model:`WSF_JAMMER_POWER_EFFECT` was having no effect on the outcome of a detection attempt. *(AFSIM-324)*
+* **(2.6.2)** Corrected an issue where a jammer could cause a crash when publishing to the event-pipe. *(Issue #2471)*
+* **(2.6.2)** Corrected an issue where values returned from :method:`WsfPerceptionProcessor.PerceivedAssets` and values passed into a custom :command:`WSF_QUANTUM_TASKER_PROCESSOR.generator` would become invalid outside the scope of the calling script. *(AFSIM-212)*
+* **(2.6.2)** Corrected an issue with :command:`csv_event_output` involving inconsistencies between the header and data being output in regard to :ref:`WEAPON_HIT`, :ref:`WEAPON_MISSED`, :ref:`WEAPON_KILLED`, and :ref:`WEAPON_TERMINATED`. *(AFSIM-148)*
+* **(2.6.2)** Corrected an issue with weapon uplinks not occurring at the interval specified by the :command:`WSF_TASK_PROCESSOR.uplink_send_interval` on a :model:`WSF_TASK_PROCESSOR`. *(AFSIM-136)*
+* **(2.6.2)** Corrected a bug where values returned from :method:`WsfClusterManager.ConvexHull` could become invalid outside the calling script context. *(AFSIM-106)*
+* **(2.6.2)** Added missing grammar for the :command:`WSF_WEAPON_FUSE.fuse_function_range` command in the :model:`WSF_WEAPON_FUSE`. *(AFSIM-158)*
+* **(2.6.2)** Added missing grammar for the :command:`WSF_THREAT_PROCESSOR.ignore_without_location` and :command:`WSF_THREAT_PROCESSOR.ignore_without_velocity` commands in the :model:`WSF_THREAT_PROCESSOR`. *(AFSIM-200)*
+* **(2.6.2)** Added a detailed description for the :command:`WSF_FORMATION_FLYER.velocity_pursuit_gain` command in the :model:`WSF_FORMATION_FLYER`. *(AFSIM-231)*
+* **(2.6.2)** Corrected an issue with the :method:`WsfEM_Interaction.SignalToNoiseClutterJamming`, :method:`WsfEM_Interaction.NoiseJammerPower`, :method:`WsfEM_Interaction.PulseJammerPower`, and :method:`WsfEM_Interaction.CoherentJammerPower` methods returning a value of zero by default. A value of -300 will now be returned for 0 power cases to be consistent with other EM interactions power query methods. *(AFSIM-390)*
+* **(2.6.1)** Corrected an issue with :class:`WsfTaskManager` weapon task methods :method:`TimeSinceWeaponLastFiredFor<WsfTaskManager.TimeSinceWeaponLastFiredFor>`, :method:`TimeSinceWeaponLastTerminatedFor<WsfTaskManager.TimeSinceWeaponLastTerminatedFor>`, :method:`WeaponsActiveFor<WsfTaskManager.WeaponsActiveFor>`, :method:`SalvosFiredAt<WsfTaskManager.SalvosFiredAt>`, :method:`RoundsFiredAt<WsfTaskManager.RoundsFiredAt>`, and :method:`AbortFiringAt<WsfTaskManager.AbortFiringAt>` producing erroneous results. *(Issue #2287)*
+* **(2.6.1)** Corrected an issue with :model:`WSF_WEAPON_FUSE` in which proximity checks for detonation would not occur against the first platform defined in the scenario when :command:`WSF_WEAPON_FUSE.do_not_use_current_target` was enabled. *(Issue #2251)*
+* **(2.6.1)** Corrected an issue in which a :ref:`WEAPON_MISSED` event (see :command:`observer`, :command:`event_output`, :command:`csv_event_output`) was not generated when the intended target was invulnerable to the :command:`weapon_effects`, for example, when outside the maximum lethal radius. *(Issue #1453)*
+* **(2.6.1)** Fixed a crash that sometimes occurred when a multi-beam :model:`WSF_ESM_SENSOR` linked to a :model:`WSF_RF_JAMMER` with a :command:`WSF_RF_JAMMER.mode.repeater`. *(AFSIM-154)*
+* Corrected an issue in which a :command:`processor` of type :model:`WSF_WEAPON_FUSE` could not be cast to a :class:`WsfWeaponFuse` in script.
+* Corrected an issue with the :model:`WSF_JTIDS_TERMINAL` in which a failed message delivery attempt for any member in a JTIDS slot group resulted in a delivery failure for any subsequent member in the slot group. *(Issue #2012)*
+* Corrected a crash while updating :command:`false_target` blip positions when using :model:`WSF_FALSE_TARGET_EFFECT`. 
+* Corrected a crash when constructing a :class:`WsfQuantumTask` in a custom allocator in a :model:`WSF_QUANTUM_TASKER_PROCESSOR`. *(ELSZ #247)*
+* Corrected an issue with the script methods :method:`WsfTaskManager.WeaponsFiredAt` and :method:`WsfTaskManager.WeaponsActiveFor` not returning correct values after firing a :model:`WSF_IMPLICIT_WEAPON`. *(ELSZ #246)*

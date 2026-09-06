@@ -1,0 +1,322 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! This tests the basic capabilities of the track processor effect.
+//! This test is identical to the track manager effect basic test,
+//! except it is acting on a non-master track manager instance held by
+//! the track processor. In addition, a second instance of the track
+//! processor is added, to test that the effect is valid for all named instances.
+//!
+//! Initially, two targets are available for tracking.
+//! 0-60 s -> Normal operation. Two targets are tracked.
+//! 60.0 s -> Victim is attacked, platform track processor track manager is affected.
+//! 65.0 s -> Two new platforms appear, eligible for tracking. However, the effect
+//!    prevents one of these new platforms from being tracked.
+//! 180.0 s -> Raw tracks begin being blocked for platform tracked_1.
+//! 230.75 s -> Platform tracked_1 is decorrelated due to lack of raw track updates.
+//! 240.0 s -> The effect ends. The effect logic specifies that when the effect ends, all
+//!    tracks are dropped, so all tracks are removed.
+//! 240.0 s to end of simulation -> Behavior resumes as normal, four platforms are now tracked,
+//!    given enough time for the sensor to complete a full frame.
+
+cyber_effect test_effect WSF_CYBER_TRACK_PROCESSOR_EFFECT
+   target_platform test_victim
+   target_processor TRACK_PROCESSOR
+   
+   script void OnEntry(WsfTrackManager aTrackManager)
+      //writeln("THE TRACK EFFECT HAS STARTED AT TIME: " + (string)TIME_NOW);
+   end_script
+   
+   script void OnExit(WsfTrackManager aTrackManager)
+      //writeln("THE TRACK EFFECT HAS ENDED AT TIME: " + (string)TIME_NOW);
+      
+      //! Drop all tracks on effect end.
+      int rawCount = aTrackManager.RawTrackList().Count();
+      Array<WsfTrackId> idArray = {};
+      for(int i = 0; i < rawCount; i = i + 1)
+      {
+         idArray.PushBack(aTrackManager.GetRawTrackList().Entry(i).TrackId());
+      }
+      
+      for(int i = 0; i < idArray.Size(); i = i + 1)
+      {
+         aTrackManager.DropTrack(idArray[i]);
+      }  
+   end_script
+   
+   script bool OnTrack(WsfTrack aTrack, WsfTrackManager aTrackManager)
+      //writeln("OnTrack Evoked at: " + (string)TIME_NOW + " for target: " + aTrack.Target().Name());
+      if(aTrack.Target().IsA_TypeOf("SPECIAL_PLATFORM"))
+      {
+         //writeln("Blocking track");
+         return false;
+      }
+      return true;
+   end_script
+   
+   script bool OnRawTrack(WsfTrack aTrack, WsfTrackManager aTrackManager)
+      //writeln("OnRawTrack Evoked at: " + (string)TIME_NOW + " for target: " + aTrack.Target().Name());
+      if((TIME_NOW > 180.0) && (aTrack.Target().Name() == "tracked_1"))
+      {
+         //writeln("Blocking track");
+         return false;
+      }
+      return true;
+   end_script
+   
+   script bool OnTrackDrop(WsfTrackId aTrack, WsfTrackManager aTrackManager)
+      //writeln("OnTrackDrop Evoked at: " + (string)TIME_NOW);
+      return true;
+   end_script
+   
+end_cyber_effect
+
+cyber_protect default_protect WSF_CYBER_PROTECT
+   attack_response test_track_attack
+      restore
+      probability_of_attack_detection 1.0
+      attack_detection_delay_time 1.0 min
+      attack_recovery_delay_time 2.0 min
+   end_attack_response
+end_cyber_protect
+
+cyber_attack test_track_attack WSF_CYBER_ATTACK
+   effect test_effect
+   scan_delay_time 0.0 s
+   delivery_delay_time 0.0 s
+   
+   probability_of_scan_detection 0.0
+   probability_of_attack_success 1.0
+   probability_of_status_report 1.0
+   probability_of_attack_detection 1.0
+   probability_of_future_immunity 0.0
+end_cyber_attack
+
+sensor SIMPLE_SENSOR WSF_GEOMETRIC_SENSOR
+   frame_time 25.0 s
+   reports_location
+end_sensor
+
+processor TRACK_PROCESSOR WSF_TRACK_PROCESSOR
+   non_master_track_processor 
+end_processor
+
+platform_type SPECIAL_PLATFORM WSF_PLATFORM
+end_platform_type
+
+platform attacker WSF_PLATFORM
+   category invisible
+   side blue
+   position 0n 0.1e
+   altitude 30000 ft
+end_platform
+
+platform tracked_1 WSF_PLATFORM
+end_platform
+
+platform tracked_2 WSF_PLATFORM
+end_platform
+
+platform test_victim WSF_PLATFORM
+   side red
+   add cyber_protect default_protect
+   end_cyber_protect
+   
+   add sensor victim_sensor SIMPLE_SENSOR
+      on
+      maximum_range 1000 km
+      internal_link track_mgr1
+      internal_link track_mgr2
+      ignore invisible
+   end_sensor
+   
+   add processor track_mgr1 TRACK_PROCESSOR
+      drop_after_inactive 35.0 s
+   end_processor
+   
+   add processor track_mgr2 TRACK_PROCESSOR
+      drop_after_inactive 35.0 s
+   end_processor
+   
+   track_manager
+   end_track_manager
+end_platform
+
+execute at_time 60.0 s absolute
+   WsfPlatform attacker = WsfSimulation.FindPlatform("attacker");
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   attacker.CyberAttack(victim, "test_track_attack");
+end_execute
+
+execute at_time 65.0 s absolute
+   WsfPlatform add1 = WsfSimulation.CreatePlatform("WSF_PLATFORM");
+   WsfPlatform add2 = WsfSimulation.CreatePlatform("SPECIAL_PLATFORM");
+   WsfSimulation.AddPlatform(add1, "tracked_3");
+   WsfSimulation.AddPlatform(add2, "untracked_1");
+end_execute
+
+///////////////////TRACK MANAGER STATE CHECKS///////////////////
+execute at_time 59.9 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr1");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 2)
+   {
+      writeln("-FAIL-");
+   }
+   if(manager.LocalTrackList().Count() != 2)
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 59.9 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr2");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 2)
+   {
+      writeln("-FAIL-");
+   }
+   if(manager.LocalTrackList().Count() != 2)
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 120.0 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr1");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 3)
+   {
+      writeln("-FAIL-");
+   }
+   if(manager.LocalTrackList().Count() != 3)
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 120.0 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr2");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 3)
+   {
+      writeln("-FAIL-");
+   }
+   if(manager.LocalTrackList().Count() != 3)
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 231.0 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr1");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 2)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.RawTrackList().Count());
+   }
+   if(manager.LocalTrackList().Count() != 2)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.LocalTrackList().Count());
+   }
+end_execute
+
+execute at_time 231.0 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr2");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 2)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.RawTrackList().Count());
+   }
+   if(manager.LocalTrackList().Count() != 2)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.LocalTrackList().Count());
+   }
+end_execute
+
+execute at_time 240.1 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr1");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 0)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.RawTrackList().Count());
+   }
+   if(manager.LocalTrackList().Count() != 0)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.LocalTrackList().Count());
+   }
+end_execute
+
+execute at_time 240.1 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr2");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 0)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.RawTrackList().Count());
+   }
+   if(manager.LocalTrackList().Count() != 0)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.LocalTrackList().Count());
+   }
+end_execute
+
+execute at_time 300.0 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr1");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 4)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.RawTrackList().Count());
+   }
+   if(manager.LocalTrackList().Count() != 4)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.LocalTrackList().Count());
+   }
+end_execute
+
+execute at_time 300.0 s absolute
+   WsfPlatform victim = WsfSimulation.FindPlatform("test_victim");
+   WsfTrackProcessor trackProcessor = (WsfTrackProcessor)victim.Processor("track_mgr2");
+   WsfTrackManager manager = trackProcessor.TrackManager();
+   if(manager.RawTrackList().Count() != 4)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.RawTrackList().Count());
+   }
+   if(manager.LocalTrackList().Count() != 4)
+   {
+      writeln("-FAIL-");
+      writeln((string)manager.LocalTrackList().Count());
+   }
+end_execute
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output
+
+end_time 301 s

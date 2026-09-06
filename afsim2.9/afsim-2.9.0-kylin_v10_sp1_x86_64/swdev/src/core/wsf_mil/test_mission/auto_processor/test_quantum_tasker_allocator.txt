@@ -1,0 +1,178 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Testing for construction of additional tasks WsfQuantumTask inside a custom allocator script.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+script_variables
+   int numAssigned = 0;
+   int numCanceled = 0;
+end_script_variables
+
+script void TaskAssigned(WsfTask aTask, WsfTrack aTrack)
+   numAssigned += 1;
+end_script
+
+script void TaskCanceled(WsfTask aTask)
+   numCanceled += 1; 
+end_script
+
+script void SimulationComplete()
+   if (numAssigned != 6) { writeln("-FAIL- Incorrect number of tasks assigned: ", numAssigned); }
+   if (numCanceled != 2) { writeln("-FAIL- Incorrect number of tasks canceled: ", numCanceled); }
+   if ((numAssigned == 6) && (numCanceled == 2)) { writeln("-PASS-"); }
+end_script
+
+observer
+   enable TASK_ASSIGNED
+   enable TASK_CANCELED
+   enable SIMULATION_COMPLETE
+end_observer
+
+#event_output
+#   file STDOUT
+#   enable TASK_ASSIGNED
+#   enable TASK_CANCELED
+#end_event_output
+
+platform_type QT_TYPE WSF_PLATFORM
+
+   comm comm_net WSF_COMM_TRANSCEIVER
+      network_name <local:slave> 
+      internal_link perception
+      internal_link task_mgr
+   end_comm
+   
+   processor perception WSF_PERCEPTION_PROCESSOR 
+      report_interval 1 s
+      asset_perception truth subordinates
+      report_to commander via comm_net
+   end_processor
+   
+   processor task_mgr WSF_QUANTUM_TASKER_PROCESSOR
+   
+      // Simple custom generator so the allocator can be tested
+      script Array<WsfQuantumTask> MyTaskGeneration(Array<WsfLocalTrack> aTracks, Array<WsfAssetPerception> aAssets)
+         Array<WsfQuantumTask> tasks = Array<WsfQuantumTask>();
+           
+         writeln_d("T=", TIME_NOW, " GENERATING ", PLATFORM.Name(), " ", aTracks.Size());      
+         for (int i = 0; i < aTracks.Size(); i = i + 1)
+         {
+            WsfLocalTrack lt = aTracks.Get(i);
+            if (lt.IsValid())
+            {
+               WsfQuantumTask task = WsfQuantumTask.Construct(1.0, "GENERATOR", lt);
+               tasks.PushBack(task);
+               writeln_d("T=", TIME_NOW, " Task generated for: ", lt.TargetName(), ", updated time: ", lt.UpdateTime());
+            }
+         }
+         return tasks;
+      end_script
+      
+      script double MyTaskEvaluation (WsfQuantumTask aTask, WsfAssetPerception aAsset)
+         writeln_d("T=", TIME_NOW, " EVALUATING ",aTask.TaskType(), " ", aAsset.Name());
+         return 1.0;
+      end_script
+
+      script Map<WsfAssetPerception, WsfQuantumTask> MyTaskAllocation ( Array<Array<double>> aMatrix, Array<WsfAssetPerception> aAssets, Array<WsfQuantumTask> aTasks)
+         Map<WsfAssetPerception,WsfQuantumTask> assetToTaskMap = Map<WsfAssetPerception,WsfQuantumTask>();
+
+         writeln_d("T=", TIME_NOW, " ALLOCATING ", PLATFORM.Name(), " ", aAssets.Size(), " ", aTasks.Size());   
+         if ((aAssets.Size() > 0) && (aTasks.Size() > 0))
+         {
+            // Testing syntax for externally created task
+            WsfAssetPerception asset1 = aAssets.Get(0);
+            WsfQuantumTask task1 = aTasks.Get(0);                          
+            assetToTaskMap.Set(asset1, task1);
+            writeln_d("T=", TIME_NOW, " Task (external) allocated to: ", asset1.Name());
+            
+            // Testing syntax for allocator-created task; reusing track; 
+            // Must supply a unique ID or gets assigned and canceled each frame
+            WsfTrack track = PLATFORM.MasterTrackList().FindTrack(task1.TrackId());
+            WsfQuantumTask task2 = WsfQuantumTask.Construct(1.0, "ALLOCATOR_1", track);
+            task2.UniqueId(99);            
+            assetToTaskMap[aAssets.Get(1)] = task2;
+            writeln_d("T=", TIME_NOW, " Task (internal #1) allocated to: ", aAssets.Get(1).Name());
+                        
+            // Testing syntax for allocator-created task; no track; must supply unique ID
+            // This one gets assigned and canceled each frame
+            WsfQuantumTask task3 = WsfQuantumTask.Construct(1.0, "ALLOCATOR_2");
+            task3.UniqueId(999);            
+            assetToTaskMap[aAssets.Get(2)] = task3;
+            writeln_d("T=", TIME_NOW, " Task (internal #2) allocated to: ", aAssets.Get(2).Name());
+            
+            // Testing syntax for allocator-created task; no track; 
+            // No unique ID so gets assigned and canceled each frame
+            WsfQuantumTask task4 = WsfQuantumTask.Construct(1.0, "ALLOCATOR_3");
+            //task2.UniqueId(99);            
+            assetToTaskMap[aAssets.Get(3)] = task4;
+            writeln_d("T=", TIME_NOW, " Task (internal #3) allocated to: ", aAssets.Get(3).Name());
+            
+         }    
+
+         return assetToTaskMap;
+      end_script
+      
+      update_interval        1.0 sec
+      asset_representation   resources   #   [platform, systems, resources]
+      reallocation_strategy  dynamic
+      generator              custom          MyTaskGeneration
+      evaluator              custom          MyTaskEvaluation
+      allocator              custom          MyTaskAllocation   
+
+   end_processor
+
+end_platform_type
+
+platform cmdr QT_TYPE
+   side red
+   position 1n 1e altitude 30 kft
+   add sensor geo WSF_GEOMETRIC_SENSOR
+      on
+      frame_time 1 s
+      reports_location
+      ignore_same_side
+      internal_link data_mgr
+   end_sensor
+   add processor data_mgr WSF_TRACK_PROCESSOR
+   end_processor     
+end_platform
+
+platform sub1 QT_TYPE 
+   side red
+   commander cmdr
+   position 1n 1e altitude 30 kft
+end_platform
+
+platform sub2 QT_TYPE
+   side red
+   commander cmdr
+   position 1n 1e altitude 30 kft
+end_platform
+
+platform sub3 QT_TYPE
+   side red
+   commander cmdr
+   position 1n 1e altitude 30 kft
+end_platform
+
+platform sub4 QT_TYPE
+   side red
+   commander cmdr
+   position 1n 1e altitude 30 kft
+end_platform
+
+platform tgt WSF_PLATFORM
+   side blue
+   position 2n 1e altitude 30 kft
+end_platform
+
+end_time 3 s

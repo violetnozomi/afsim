@@ -1,0 +1,106 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _signal_processor.moving_target_indicator:
+
+moving_target_indicator
+***********************
+
+.. block:: signal_processor.moving_target_indicator
+
+.. parsed-literal::
+
+   signal_processor moving_target_indicator
+      mti_switch_
+      mti_num_delays_
+      mti_min_response_
+      mti_num_gates_
+      mti_range_limits_
+      mti_angle_limits_
+      filtered_doppler_speed_
+      unfiltered_doppler_speed_
+      debug_
+   end_signal_processor
+
+Overview
+~~~~~~~~
+
+This document provides a basic description of the moving target indication (MTI) implementation in WSF for a :model:`WSF_RADAR_SENSOR`. It was largely based on an existing implementation in ALARM.
+
+The MTI signal processor block can be defined as part of a :model:`WSF_RADAR_SENSOR`. Note that the radar must have PRF (or PRI) specified. The input names and types are set up to mimic the ALARM inputs.
+
+MTI Response
+~~~~~~~~~~~~
+
+The MTI response is forced to be greater than the "mti_min_response", 0.0 dB by default.
+
+Applied to a Sensor Interaction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the :command:`sensor` detection result has a transmitter and a MTI signal processor the MTI response will be computed.
+The MTI response then applied to the result's received power, clutter power, and noise jammer power:
+
+* Result received power = Result received power * MTI target response
+* Result clutter power = Result clutter power * MTI clutter response
+* Result noise jammer power = Result noise jammer power * MTI noise jamming response
+* Result pulse jammer power = Result pulse jammer power * MTI noise jamming response
+* Result coherent jammer power = Result coherent jammer power * MTI coherent jamming response
+
+MTI Commands
+~~~~~~~~~~~~
+
+.. command:: mti_switch <boolean-value>
+
+   Switch for Moving Target Indicator (MTI) effects being applied or not.
+
+  **Default** on
+
+.. command:: mti_num_delays <integer-value>
+
+   Specifies the Number of MTI delay lines.Must be greater than 0.
+
+.. command:: mti_min_response <power-value>
+
+   Specifies the minimum power response of the MTI system, floor value of the MTI power response.
+
+   **Default** 0.0 dB
+
+.. command:: mti_num_gates <integer-value>
+
+   Specifies the number of MTI gates. Must be between in the range of 1-4. If 0 MTI is off.
+
+.. command:: mti_range_limits <integer-value> <length-value> <length-value>
+
+   Specifies the MTI gate minimum and maximum range for the Ith MTI gate.
+
+   .. note::
+
+      MTI processing is performed between the minimum and maximum gate ranges. No MTI processing is performed outside of
+      the MTI gates.
+
+.. command:: mti_angle_limits <integer-value> <angle-value> <angle-value>
+
+   Specifies the MTI gate minimum and maximum azimuth for the Ith MTI gate.
+
+   .. note::
+
+      MTI processing is performed between the minimum and maximum gate angles. No MTI processing is performed outside of the MTI gates.
+
+.. command:: filtered_doppler_speed
+.. command:: unfiltered_doppler_speed
+
+   Specifies if the ownship velocity is removed from the Doppler speed computation. A MTI sensor would typically employ **filtered_doppler_speed**.
+
+   Default: filtered_doppler_speed
+
+.. command:: debug
+
+   Presence of this flag indicates the MTI Signal Processor will output additional operational messages to the system console.
+
+.. NonExportable

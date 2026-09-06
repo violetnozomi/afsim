@@ -1,0 +1,102 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+##########################################################################
+# Test of WsfSpaceMover Initial State Accessors.
+##########################################################################
+
+script_variables
+   bool pass = false;
+end_script_variables
+
+script void SimulationComplete()
+   if (pass)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+platform_type TEST_SATELLITE WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      maneuvering simple
+      end_maneuvering
+   end_mover
+   
+   processor test_proc WSF_SCRIPT_PROCESSOR
+      update_interval 5 sec
+      
+      script void TestWsfSpaceMoverInitialState()
+         WsfSpaceMover test_mover = (WsfSpaceMover)PLATFORM.Mover();
+         
+         WsfGeoPoint initPosLLA = test_mover.InitialPositionLLA();
+         Vec3 initPosECI = test_mover.InitialPositionECI();
+         Vec3 initPosWCS = test_mover.InitialPositionWCS();
+         Vec3 initVelECI = test_mover.InitialVelocityECI();
+         Vec3 initVelWCS = test_mover.InitialVelocityWCS();
+
+         double latErr = Math.Fabs(0 - initPosLLA.Latitude());
+         double lonErr = Math.Fabs(0 - initPosLLA.Longitude());
+         double altErr = Math.Fabs(400000 - initPosLLA.Altitude());
+
+         // Equivalence operator not defined for Vec3, so compute magnitude of error and check if within tolerances
+         double initPosECIErrSq = Vec3.Subtract(Vec3.Construct(2.3716321989e+06, 6.3496851251502e+06, -845.658), initPosECI).MagnitudeSquared();
+         double initPosWCSErrSq = Vec3.Subtract(Vec3.Construct(6778137, -1.00929e-7, -1.16996e-7), initPosWCS).MagnitudeSquared();
+         double initVelECIErrSq = Vec3.Subtract(Vec3.Construct(-5078.0902, 1897.41, 5423.985), initVelECI).MagnitudeSquared();
+         double initVelWCSErrSq = Vec3.Subtract(Vec3.Construct(0.0, 4928.22, 5422.49), initVelWCS).MagnitudeSquared();
+
+         writeln("initVelWCSErrSq = ", initVelWCSErrSq);
+
+
+         
+         if (latErr > 1.0e-6 || lonErr > 1.0e-6 || altErr > 1.0e-6)
+         {
+            writeln("-FAIL- Unexpected initial position (LLA)", initPosLLA);
+         }
+         else if (initPosECIErrSq > 1.0e-06)
+         {
+            writeln("-FAIL- Unexpected initial position (ECI)", initPosECI);
+         }
+         else if (initPosWCSErrSq > 1.0e-06)
+         {
+            writeln("-FAIL- Unexpected initial position (WCS)", initPosWCS);
+         }
+         else if (initVelECIErrSq > 1.0e-05)
+         {
+            writeln("-FAIL- Unexpected initial velocity (ECI)", initVelECI);
+         }
+         else if (initVelWCSErrSq > 1.0e-06)
+         {
+            writeln("-FAIL- Unexpected initial velocity (WCS)", initVelWCS);
+         }
+         else
+         {
+            pass = true;
+         }
+      end_script
+      
+      on_update 
+         TestWsfSpaceMoverInitialState();
+      end_on_update
+
+   end_processor
+end_platform_type
+
+############################# Begin Scenario #############################
+
+platform test_sat TEST_SATELLITE
+   mover
+      position 0n 0e altitude 400 km heading 45 deg
+   end_mover
+end_platform
+
+execute at_time 6 s absolute
+   SimulationComplete();
+end_execute
+
+end_time 6 s

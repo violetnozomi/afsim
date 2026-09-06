@@ -1,0 +1,153 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Test that a final SENSOR_DETECTION_CHANGED message is provided on TurnOff or when 
+# a target is deleted, for currently detected targets.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+sensor EOIR_SENSOR WSF_EOIR_SENSOR
+   slew_mode                   both
+   frame_time                  1.0 sec
+   pixel_count                 640 480
+   azimuth_field_of_view       -0.25 deg 0.25 deg
+   elevation_field_of_view     -0.20 deg 0.20 deg
+   reports_location
+   band                        medium                   # 3-5um
+   atmospheric_attenuation     6.7e-5 per m
+   background_radiance         8.5e-5 w/cm^2/sr
+   noise_equivalent_irradiance 9.0e-13 w/cm2
+   detection_threshold         3.0
+end_sensor
+
+sensor IRST_SENSOR WSF_IRST_SENSOR
+   slew_mode                   both
+   frame_time                  1.0 sec
+   azimuth_field_of_view       -0.25 deg 0.25 deg
+   elevation_field_of_view     -0.20 deg 0.20 deg
+   reports_location
+   band                        medium                   # 3-5um
+   atmospheric_attenuation     6.7e-5 per m
+   background_radiance         8.5e-5 w/cm^2/sr
+   noise_equivalent_irradiance 9.0e-13 w/cm2
+   detection_threshold         3.0
+end_sensor
+
+
+###############################################################################
+
+infrared_signature TARGET_INFRARED_SIG
+   constant 10 w/sr
+end_infrared_signature
+
+inherent_contrast TARGET_CONTRAST
+   constant 10.0
+end_inherent_contrast
+
+optical_signature TARGET_OPTICAL_SIG
+   constant 1 m^2
+end_optical_signature
+
+platform_type TARGET WSF_PLATFORM
+    icon                     Truck
+    infrared_signature       TARGET_INFRARED_SIG
+    inherent_contrast        TARGET_CONTRAST
+    optical_signature        TARGET_OPTICAL_SIG
+end_platform_type
+
+###############################################################################
+# The sensor is looking broadside at the target...
+
+platform ground_target TARGET
+   side red
+   position 0n 0.041133e altitude 0 m heading 180 deg  # 11 km slant range
+end_platform
+
+###############################################################################
+
+platform isr WSF_PLATFORM
+   icon MMA
+   side blue
+
+   add sensor eoir EOIR_SENSOR
+      maximum_range 12 km
+   end_sensor
+
+   add sensor irst IRST_SENSOR
+      maximum_range 12 km
+   end_sensor
+
+   add mover WSF_AIR_MOVER
+      route 
+      position 0n 0e altitude 10000 m heading 270 deg speed 100 kts
+      end_route
+   end_mover
+   script_variables
+      string mCurrentSensor;
+   end_script_variables
+
+   // Cue a sensor, activate a mode and turn it on.
+   // Also schedules the event to turn if off in 0.1 sec.
+
+   script void CueAndTurnOn(string aSensor, string aTarget)
+      WsfPlatform p = WsfSimulation.FindPlatform(aTarget);
+      WsfSensor s = Sensor(aSensor);
+      s.CueToPoint(p.Location());
+      s.TurnOn();
+      mCurrentSensor = aSensor;
+   end_script
+
+   // Turn off the sensor turned on by CueAndTurnOn
+   script void TurnOff(string aSensorName)
+      WsfSensor s = Sensor(aSensorName);
+      s.TurnOff();
+   end_script
+
+   execute at_time  1.0 sec absolute  CueAndTurnOn("eoir", "ground_target"); end_execute
+   execute at_time  1.5 sec absolute  TurnOff("eoir");                       end_execute
+   execute at_time  2.0 sec absolute  CueAndTurnOn("irst", "ground_target"); end_execute
+   execute at_time  2.5 sec absolute  TurnOff("irst");                       end_execute
+   execute at_time  3.0 sec absolute  CueAndTurnOn("eoir", "ground_target"); end_execute
+   execute at_time  4.0 sec absolute  CueAndTurnOn("irst", "ground_target"); end_execute
+   execute at_time  5.0 sec absolute  WsfSimulation.FindPlatform("ground_target").DeletePlatform(); end_execute
+
+end_platform
+
+###############################################################################
+
+script_variables
+   bool gPassed = true;
+   int  gReceivedChanges = 0;
+   int  gEXPECTED_CHANGES = 8;
+end_script_variables
+
+
+script void SimulationComplete()
+
+   if (gReceivedChanges != gEXPECTED_CHANGES)
+   {
+      writeln("-FAIL- Incorrect number of detection changes processed, expected: ", gEXPECTED_CHANGES,
+              " received: ", gReceivedChanges);
+      gPassed = false;
+   }
+   string passFail = "-PASS-";
+   if (! gPassed) passFail = "-FAIL-";
+   writeln(passFail);
+end_script
+
+observer
+   enable SENSOR_DETECTION_CHANGED   
+   enable SIMULATION_COMPLETE
+end_observer
+
+script void SensorDetectionChanged(WsfPlatform aPlatform, WsfSensor aSensor, int aTgtIdx, WsfSensorInteraction aResult)
+   gReceivedChanges += 1;
+end_script
+
+end_time 10 sec

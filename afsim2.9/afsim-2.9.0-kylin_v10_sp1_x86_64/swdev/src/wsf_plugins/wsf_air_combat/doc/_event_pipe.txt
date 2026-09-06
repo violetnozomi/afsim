@@ -1,0 +1,402 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _air_combat_event_pipe:
+
+Air Combat Commands
+===================
+
+Additional Air Combat related <file-name>:
+
+ **use_preset [ default | low | high | full]**
+
+  Configures the messages that will be output. By default, the default preset is used. The messages output presets are as follows:
+
+  full:
+
+  * AIRCOMBAT
+
+Inside the :model:`WSF_SA_PROCESSOR`, custom data rates may be set for each message type to change how frequently Air Combat data is output to the event_pipe:
+
+**report_interval <time-value>**
+
+**engagement_data_update_interval <time-value>**
+
+**flight_data_update_interval <time-value>**
+
+**fuel_data_update_interval <time-value>**
+
+**nav_data_update_interval <time-value>**
+
+**flight_controls_data_update_interval <time-value>**
+
+**weapons_data_update_interval <time-value>**
+
+**track_data_update_interval <time-value>**
+
+**asset_update_interval <time-value>**
+
+**threat_update_interval <time-value>**
+
+**group_data_update_interval <time-value>**
+
+**prioritized_data_update_interval <time-value>**
+
+See also: :ref:`sa_update_interval_commands`
+
+Air Combat Structures
+=====================
+
+EngagedTargetData
+~~~~~~~~~~~~~~~~~
+
+* index targetIndex
+* float rangeMax_nm
+* float rangeNe_nm
+* float rangeMin_nm
+* float rangeCurrent_nm
+* float rangeClosureRate_kts
+* float timeToIntercept_sec
+* float timeToActive_sec
+* float targetKTAS
+* float targetAspect_deg
+* float targetAz_deg
+* float targetEl_deg
+
+PerceivedGroup
+~~~~~~~~~~~~~~
+
+* string                  groupName
+* double                  centroidLat_deg
+* double                  centroidLon_deg
+* float                   centroidAlt_ft
+* float                   centroidHeading_deg
+* float                   centroidSpeed_kts
+* float                   radiusCurrent_nm
+* float                   radiusMinimum_nm
+* float                   simtimeAtCoast_sec
+* float                   maxCoastingTime_sec
+* SA_EntityPerceptionList elementList
+
+SA_EngagementData
+~~~~~~~~~~~~~~~~~
+
+* index   targetIndex
+* string  targetName
+* string  targetType
+* float   angleOff_deg
+* float   aspectAngle_deg
+* float   currentRange_nm
+* float   currentDeltaAlt_ft
+* float   trackQuality
+* string  targetCID
+* float   threatLevel
+* float   targetValue
+* float   detectionRange_nm
+* float   wezDesiredRange_nm
+* float   wezMinimum_nm
+* float   wezMaximum_nm
+* float   wezNoEscape_nm
+* float   risk
+* float   defensiveness
+* float   urgency
+* bool    tgtTracked
+* bool    acceptableWez
+
+SA_EntityPerception
+~~~~~~~~~~~~~~~~~~~
+
+* double  lat_deg
+* double  lon_deg
+* float   altitude_ft
+* float   bearing_deg
+* float   speed_kts
+* float   heading_deg
+* float   threatLevel
+* float   targetValue
+* float   risk
+* float   defensiveness
+* float   urgency
+* string  idString
+* index   perceivedIndex
+* string  perceivedName
+* string  perceivedType
+* uint16  flightId
+* string  idFlag
+* uint8   identification
+* bool    friendlyAsset
+* bool    angleOnly
+* bool    idIffFriend
+* bool    idIffFoe
+* bool    idIffNeutral
+* bool    idIffUnknown
+* bool    idAuxFriend
+* bool    idAuxFoe
+* bool    idAuxNeutral
+* bool    idAuxUnknown
+* bool    idSideFriend
+* bool    idSideFoe
+* bool    idSideNeutral
+* bool    idSideUnknown
+* bool    idTypeFriend
+* bool    idTypeFoe
+* bool    idTypeNeutral
+* bool    idTypeUnknown
+* bool    isHostile
+* bool    altitudeValid
+* bool    speedValid
+* bool    headingValid
+
+TargetTrack
+~~~~~~~~~~~
+
+* index   targetPlatformIndex
+* double  lat_deg
+* double  lon_deg
+* float   altitude_ft
+* float   bearing_deg
+* float   elevation_deg
+* float   range_nm
+* float   rangeRate_kts
+* float   targetSpeed_kts
+* float   targetHdg_deg
+* float   targetAspect_deg
+* string  idString
+* string  tgtPlatformName
+* string  tgtTypeName
+* uint8   identification
+* bool    latLonValid
+* bool    altitudeValid
+* bool    bearingValid
+* bool    elevationValid
+* bool    rangeValid
+* bool    rangeRateValid
+* bool    targetSpeedValid
+* bool    targetHdgValid
+* bool    targetAspectValid
+* bool    idIffValid
+* bool    idAuxValid
+* bool    idSideValid
+* bool    idTypeValid
+
+TrackProcessorTracks
+~~~~~~~~~~~~~~~~~~~~
+
+* string          trackProcessorName
+* TargetTrackList tracks
+* bool            isMasterProcessor
+
+WaypointData
+~~~~~~~~~~~~
+
+* uint8         numWaypoints
+* WaypointList  waypoints
+* uint8         currentWaypoint
+* float         headingBug_deg
+* float         distanceToWaypoint_nm
+* float         timeToWaypoint_sec
+
+WaypointLatLon
+~~~~~~~~~~~~~~
+
+* float lat_deg
+* float lon_deg
+
+WeaponNameQty
+~~~~~~~~~~~~~
+
+* string weaponName
+* uint16 quantity
+
+Air Combat Messages
+===================
+
+.. _msg_sa_engagement_summary_data:
+
+MsgSA_EngagementSummaryData
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* index                 platformIndex
+* bool                  radarEmitting
+* bool                  jammerEmitting
+* bool                  otherEmitting
+* bool                  afterburner
+* bool                  contrails
+* string                missionTask
+* uint8                 riskAcceptable
+* float                 riskCurrent
+* float                 defensiveness
+* float                 urgency
+* float                 selfRisk
+* float                 flightRisk
+* float                 packageRisk
+* float                 missionRisk
+* StringList            prioritizedTargetList
+* StringList            prioritizedThreatList
+* StringList            trackedPlatformList
+* SA_EngagementDataList engagementDataList
+
+.. _msg_sa_flight_kinematics_data:
+
+MsgSA_FlightKinematicsData
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* index   platformIndex
+* uint16  flightId
+* string  idFlag
+* double  lat_deg
+* double  lon_deg
+* float   kcas
+* float   ktas
+* float   mach
+* float   altBaro_ft
+* float   altRadar_ft
+* float   vertSpd_fpm
+* float   alpha_deg
+* float   beta_deg
+* float   gLoad
+* float   gAvail
+* float   heading_deg
+* float   pitch_deg
+* float   roll_deg
+* float   gX
+* float   gY
+* string  pilotType
+* bool    afterburnerOn
+* bool    contrailing
+* bool    stallWarning
+* bool    alphaValid
+* bool    betaValid
+* bool    kcasValid
+* bool    nxValid
+* bool    nyValid
+* bool    nzValid
+* bool    gAvailValid
+
+.. _msg_sa_fuel_data:
+
+MsgSA_FuelData
+~~~~~~~~~~~~~~
+
+* index platformIndex
+* float fuelInternal_lbs
+* float fuelExternal_lbs
+* float fuelCapInt_lbs
+* float fuelCapExt_lbs
+* float grossWgt_lbs
+* float joker_lbs
+* float bingo_lbs
+* float fuelFlow_pph
+* float normalizedFuelQty
+* float numExtTanks
+* bool  dropTanksPresent
+* bool  fuelValid
+
+.. _msg_sa_nav_data:
+
+MsgSA_NavData
+~~~~~~~~~~~~~
+
+* index         platformIndex
+* WaypointData  waypointData
+* bool          wayptDataValid
+
+.. _msg_sa_flight_controls_data:
+
+MsgSA_FlightControlsData
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+* index platformIndex
+* float stickRgtInput
+* float stickBackInput
+* float rudderRgtInput
+* float speedBrakeInput
+* float throttleInput
+* float aileronRgtNormalized
+* float aileronLftNormalized
+* float flapRgtNormalized
+* float flapLftNormalized
+* float stabilizerRgtNormalized
+* float stabilizerLftNormalized
+* float rudderRgtNormalized
+* float rudderLeftNormalized
+* float rudderRgtNormalized
+* float speedBrakeNormalized
+* float thrustNormalized
+* float landingGear
+* float throttleValid
+* float aileronsValid
+* float flapsValid
+* float twinRuddersValid
+* float singleRudderValid
+
+.. _msg_sa_weapons_data:
+
+MsgSA_WeaponsData
+~~~~~~~~~~~~~~~~~
+
+* index platformIndex
+* WeaponList weaponList
+* string selectedWeapon
+* uint16 numSelectedWeapon
+* uint16 initialNumWeapons
+* EngagedTargetList engagedTargetList
+* uint8 numChaff
+* uint8 numFlares
+* uint8 numDecoys
+* bool weaponBayDoorsOpen
+* bool supportingWeapon
+* bool masterWarning
+* bool masterCaution
+* bool shootCueActive
+* bool shootCueBlink
+* bool masterArmActive
+* bool jammingDetected
+
+.. _msg_sa_track_data:
+
+MsgSA_TrackData
+~~~~~~~~~~~~~~~
+
+* index              platformIndex
+* TrackProcessorList trackProcessors
+
+.. _msg_sa_asset_data:
+
+MsgSA_PerceivedAssetsData
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* index                   platformIndex
+* SA_EntityPerceptionList assetsList
+
+.. _msg_sa_threat_data:
+
+MsgSA_PerceivedBogiesAndBanditsData
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* index                   platformIndex
+* SA_EntityPerceptionList bogiesList
+* SA_EntityPerceptionList banditsList
+
+.. _msg_sa_group_data:
+
+MsgSA_GroupsData
+~~~~~~~~~~~~~~~~
+
+* index              platformIndex
+* PerceivedGroupList groupList
+
+.. _msg_sa_prioritized_data:
+
+MsgSA_PrioritizedThreatsAndTargetsData
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* index                   platformIndex
+* SA_EntityPerceptionList prioritizedThreatsList
+* SA_EntityPerceptionList prioritizedTargetsList

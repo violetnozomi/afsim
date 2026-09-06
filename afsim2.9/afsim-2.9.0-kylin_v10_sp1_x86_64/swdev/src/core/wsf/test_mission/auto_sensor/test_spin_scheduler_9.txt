@@ -1,0 +1,159 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test clockwise spinning, moving targets
+
+include_once ../auto_script/test_functions.txt
+
+radar_signature sig WSF_RADAR_SIGNATURE 
+   constant 1 m^2
+end_radar_signature
+platform_type TARGET WSF_PLATFORM
+   radar_signature sig
+end_platform_type
+
+observer 
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SIMULATION_COMPLETE 
+end_observer
+
+script_variables 
+   Array<int> encounter_order = {};
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   encounter_order.PushBack(aTarget.Index());
+end_script
+
+script void SimulationComplete()
+   int previous = 0;
+   bool pass = true;
+   //check that targets are being encountered in-order
+   pass = pass && Math.Mod(encounter_order[0]+1, 6) == Math.Mod(encounter_order[1], 6);
+   pass = pass && Math.Mod(encounter_order[1]+2, 6) == Math.Mod(encounter_order[2], 6); //three is skipped here
+   pass = pass && Math.Mod(encounter_order[2]+1, 6) == Math.Mod(encounter_order[3], 6);
+   pass = pass && Math.Mod(encounter_order[3]+1, 6) == Math.Mod(encounter_order[4], 6);
+   pass = pass && Math.Mod(encounter_order[4]+1, 6) == Math.Mod(encounter_order[5], 6);
+   pass = pass && Math.Mod(encounter_order[5]+1, 6) == Math.Mod(encounter_order[6], 6);
+   pass = pass && Math.Mod(encounter_order[6]+2, 6) == Math.Mod(encounter_order[7], 6); //three is skipped here
+   
+   //check that the first detection on three happens at the correct time
+   for (int i = 0; i < encounter_order.Size(); i += 1)
+   {
+      if (encounter_order[i] == 3)
+      {
+         pass = pass && encounter_order[i-1] == 2;
+         
+         //lastly, ensure this doesn't upset future detection ordering: 
+         while (encounter_order[i] == 3)
+         {
+            i = i+1;
+         }
+         pass == pass && encounter_order[i] == 4;
+         break;
+      }
+   }
+   AssertTrueMessage(pass, "Spin scheduler polar detection order incorrect");
+end_script
+
+platform two TARGET
+   position 46:27:32.40n 02:00:31.84e
+   altitude 1 km
+   heading 0 degrees
+end_platform
+
+platform four TARGET
+   position 46:39:37.30n 02:27:15.16e
+   altitude 1 km
+   heading 8.53774e-07 degrees
+end_platform
+
+platform six TARGET
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 46:47:08.660n 03:26:36.110e altitude 3280.84 ft msl
+         speed 500 mi/h 
+      label 1
+         position 46:32:31.383n 02:55:43.914e
+         altitude 3280.84 ft 
+      label 2
+         position 46:21:31.845n 02:43:48.886e
+         altitude 3280.84 ft 
+      label 3
+         position 46:11:19.513n 02:38:11.324e
+         altitude 3280.84 ft 
+      label 4
+         position 46:10:06.243n 02:21:49.523e
+         altitude 3280.84 ft 
+      label 5
+         position 46:18:37.936n 02:02:20.811e
+         altitude 3280.84 ft 
+      label 6
+         position 46:14:04.079n 01:33:31.561e
+         altitude 3280.84 ft 
+      label 7
+         position 45:32:44.583n 01:55:19.305e
+         altitude 3280.84 ft 
+      label 8
+         position 45:39:12.177n 03:14:04.567e
+         altitude 3280.84 ft
+         stop 
+   end_route
+
+end_platform
+
+
+platform eight TARGET
+   position 46:12:06.57n 02:53:11.27e
+   altitude 1 km
+   heading 0 degrees
+end_platform
+
+platform ten TARGET
+   position 46:00:37.44n 02:30:59.59e
+   altitude 1 km
+   heading -8.53774e-07 degrees
+end_platform
+
+platform twelve TARGET
+   position 46:08:31.55n 02:07:07.35e
+   altitude 1 km
+   heading -1.47878e-06 degrees
+end_platform
+
+platform plat WSF_PLATFORM
+   position 46:18:44.71n 02:28:16.71e
+   altitude 1 km
+   add sensor sens WSF_RADAR_SENSOR
+      on
+      scheduler spin
+         scan_period 30 sec
+         starting_beam_azimuth 240 deg
+         clockwise true
+      end_scheduler
+      maximum_range 54 km
+
+      transmitter 
+         power 10 gw
+         frequency 10 ghz
+         bandwidth 10 mhz
+      end_transmitter
+      receiver   
+         frequency 10 ghz
+         bandwidth 10 mhz
+      end_receiver
+      update_interval 1 sec
+      frame_time 20 sec
+      reports_location
+      reports_velocity
+   end_sensor
+end_platform
+
+end_time 5 min

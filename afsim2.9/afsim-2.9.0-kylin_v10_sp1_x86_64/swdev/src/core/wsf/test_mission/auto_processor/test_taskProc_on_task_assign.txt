@@ -1,0 +1,135 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   int debugLevel = 0;
+end_script_variables
+
+sensor GEO WSF_GEOMETRIC_SENSOR
+   on
+   maximum_range 400 nm
+   reports_location
+   frame_time 1 second
+end_sensor
+
+comm COMMUNICATOR WSF_COMM_TRANSCEIVER
+   on
+end_comm
+
+platform geo1 WSF_PLATFORM
+   position 47:26:50n 122:18:34w altitude 433 ft msl heading 0 degrees
+
+   command_chain southwest atc1
+
+   add sensor mySensor GEO
+      internal_link myTaskMgr
+   end_sensor
+
+   add processor myTaskMgr WSF_TASK_PROCESSOR
+      on_message
+         type WSF_TRACK_MESSAGE
+            script
+               PLATFORM.Comm("myComm").SendMessageToCommander(MESSAGE);
+            end_script
+         default
+            script
+               if (debugLevel == 2)
+               {
+                  writeln("Geo task processor received message of type: ", MESSAGE.Type());
+               }
+            end_script
+      end_on_message
+   end_processor
+
+   add comm myComm COMMUNICATOR
+   end_comm
+end_platform
+
+platform atc1 WSF_PLATFORM
+   position 47:26:36n 122:18:34w altitude 433 ft msl heading 0 degrees
+   command_chain southwest self
+
+   script_variables
+      bool assignmentSent = false;
+   end_script_variables
+
+   add processor myTaskMgr WSF_TASK_PROCESSOR
+      track_update_interval 1 second
+      on_message
+         type WSF_TRACK_MESSAGE
+            script
+               if (debugLevel == 2)
+               {
+                  writeln("At time: ", TIME_NOW);
+                  writeln("atc1 received track message.");
+               }
+               if (!assignmentSent)
+               {
+                  WsfPlatform geo2 = WsfSimulation.FindPlatform("geo2");
+                  AssignTask(((WsfTrackMessage)MESSAGE).Track(), "Monitor", geo2);
+                  assignmentSent = true;
+               }
+            end_script
+         default
+            script
+               if (debugLevel == 2)
+               {
+                  writeln("At time: ", TIME_NOW);
+                  writeln("atc1 received non-track message of type: ", MESSAGE.Type());
+               }
+            end_script
+      end_on_message
+   end_processor
+
+   add comm myComm COMMUNICATOR
+      internal_link myTaskMgr
+   end_comm
+
+end_platform
+
+platform geo2 WSF_PLATFORM
+   position 47:26:36n 122:18:34w altitude 433 ft msl heading 0 degrees
+   command_chain southwest atc1
+   script_variables
+      bool assignmentRcvd = false;
+   end_script_variables
+
+   add processor myTaskMgr WSF_TASK_PROCESSOR
+      script void on_task_assign(WsfTask aTask, WsfTrack aTrack)
+         assignmentRcvd = true;
+         if (debugLevel == 2)
+         {
+            writeln("TIME: ", TIME_NOW);
+            writeln("geo2 received task assignment.");
+         }
+         writeln("-PASS-");
+         WsfSimulation.Terminate();
+      end_script
+   end_processor
+
+   add comm myComm COMMUNICATOR
+      internal_link myTaskMgr
+   end_comm
+
+   execute at_time 10 seconds absolute
+      if (!assignmentRcvd)
+      {
+         writeln("-FAIL- No assigment received.");
+      }
+
+   end_execute
+end_platform
+
+platform 737_swa_flt1 WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+   end_mover
+   position 47:26:56n 122:18:34w altitude 433 ft msl heading 0 degrees
+end_platform
+
+end_time 11 seconds

@@ -1,0 +1,110 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 2 hours
+
+   script_variables
+      double sSMA = 6430000; // for deorbit burn
+   end_script_variables
+
+platform test-single-stage-rocket WSF_PLATFORM
+   icon shuttle
+   side blue
+
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 6800 km
+      eccentricity 0.0
+      inclination 30 deg
+
+      mission_sequence
+         debug
+         maneuver change_semi_major_axis
+            finite
+            debug
+            semi_major_axis 6430 km
+            execute_at periapsis
+         end_maneuver
+      end_mission_sequence
+
+      maneuvering rocket
+         // data for the space shuttle orbital maneuvering system
+         // see http://www.astronautix.com/o/ome.html
+         stage
+            specific_impulse    316.0  s     // Exhaust velocity / g0
+            thrust            12000.0  lbf   // two OMS pods at 6000 lbf each
+            empty_mass       100000.0  kg    // max landing weight of orbiter (worst case)
+            fuel_mass         21660.0  kg    // Monomethyl hydrazine + nitrogen tetroxide (oxidizer) x 2
+         end_stage
+     end_maneuvering
+
+   end_mover
+
+end_platform
+
+script_variables
+   bool sUpdated = false;
+end_script_variables
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(aManeuver.ManeuverType());
+   writeln(TIME_NOW, "; begin ", aManeuver.Type());
+   if (aManeuver.ManeuverType() == "CHANGE_SEMI_MAJOR_AXIS")
+   {
+#      writeln(aSM.AvailableDeltaV());
+#      writeln(aManeuver.Duration());
+   }
+end_script
+
+script void OrbitalManeuverUpdated(WsfPlatform        aPlatform,
+                                   WsfSpaceMover      aSM,
+                                   WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "CHANGE_SEMI_MAJOR_AXIS")
+   {
+      writeln(aSM.AvailableDeltaV());
+   }
+   sUpdated = true;
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; end ", aManeuver.ManeuverType());
+   if (!sUpdated)
+   {
+      writeln("-FAIL- (no maneuver update)");
+   }
+   double deltaSMA = Math.Fabs(aSM.SemiMajorAxis() - sSMA);
+   if (deltaSMA > 1.0)
+   {
+      writeln("-FAIL- (sma not matched)");
+   }
+end_script
+
+script void SimulationComplete()
+end_script
+
+#event_pipe
+#   file test_single_stage_rocket.aer
+#end_event_pipe
+#
+#event_output
+#   file test_single_stage_rocket.evt
+#   enable ORBITAL_MANEUVER_INITIATED
+#   enable ORBITAL_MANEUVER_UPDATED
+#   enable ORBITAL_MANEUVER_COMPLETED
+#end_event_output
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_UPDATED OrbitalManeuverUpdated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer

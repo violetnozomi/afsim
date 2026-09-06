@@ -1,0 +1,80 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests the gateway usage. By removing all protocols,
+//! no routing can occur. However, since a gateway is defined
+//! the message should be propagated using that interface.
+
+end_time 3 s
+
+script_variables
+   int num_messages = 0;
+end_script_variables
+
+router ROUTER_DEFAULT WSF_COMM_ROUTER
+   use_default_protocol false
+end_router
+
+comm comm1 WSF_COMM_TRANSCEIVER
+end_comm
+
+processor MESSAGE_PROC WSF_SCRIPT_PROCESSOR
+      on_message
+         script
+            writeln(PLATFORM.Name() + ", incoming message, from " + MESSAGE.Originator() + ", at time " + (string)TIME_NOW + " seconds");
+            num_messages = num_messages + 1;
+         end_script
+      end_on_message
+   end_processor
+
+platform_type TEST_PLAT WSF_PLATFORM
+   add comm test_Comm comm1
+      internal_link msg_proc
+   end_comm
+   add processor msg_proc MESSAGE_PROC
+   end_processor
+end_platform_type
+
+platform test1 TEST_PLAT
+   edit comm test_Comm
+      gateway test2 test_Comm
+   end_comm
+   add router default ROUTER_DEFAULT 
+      gateway test_Comm
+   end_router
+end_platform
+
+platform test2 TEST_PLAT
+end_platform
+
+execute at_time 1 s absolute
+   WsfMessage message1 = WsfMessage();
+   message1.SetSizeInBits(100);
+   message1.SetType("THIS IS A TEST");
+   WsfPlatform plat1 = WsfSimulation.FindPlatform("test1");
+   WsfPlatform plat2 = WsfSimulation.FindPlatform("test2");
+#   bool result1 = plat1.Comm("test_Comm").IsLocalConnectedTo(plat2.Comm("test_Comm").GetAddress());
+#   if(result1)
+#   {
+#      writeln("Perceived connection exists.");
+#   }
+#   else
+#   {
+#      writeln("Perceived connection does not exist.");
+#   }
+
+   plat1.Comm("test_Comm").SendMessage(message1, plat2.Comm("test_Comm"));
+end_execute
+
+execute at_time 3 s absolute
+   if(num_messages != 1)
+   {
+      writeln("-FAIL-");
+   }
+end_execute

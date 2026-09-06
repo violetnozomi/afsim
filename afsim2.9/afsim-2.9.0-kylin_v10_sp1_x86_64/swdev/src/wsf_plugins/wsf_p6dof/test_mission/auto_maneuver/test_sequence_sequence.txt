@@ -1,0 +1,122 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 300 s
+
+script_variables
+   bool skipOne = true;
+   int visits = 0;
+   bool allPassed = true;
+end_script_variables
+
+script bool TestSatisfy(double aAssignTime, WsfP6DOF_Mover aMover)
+   allPassed = ExpectDouble(MATH.NormalizeAngle0_360(aMover.Platform().Heading()), 180.0, 3.0, "Should be headed south") && allPassed;
+   visits += 1;
+   return !skipOne;
+end_script
+
+script double TestNextTime(double aAssignTime, WsfP6DOF_Mover aMover)
+   skipOne = false;
+   visits += 1;
+   return TIME_NOW + 10.0;
+end_script
+
+# This returns a 'ZigZag' maneuver
+script WsfManeuver ZigZag(bool aDebug)
+   WsfRollAngleManeuver zig = WsfRollAngleManeuver.Construct(60.0);
+   zig.SetExitConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(20.0));
+   zig.SetDebug(aDebug);
+   
+   WsfRollAngleManeuver zag = WsfRollAngleManeuver.Construct(-60.0);
+   zag.SetExitConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(20.0));
+   zag.SetDebug(aDebug);
+   
+   WsfRollAngleManeuver done = WsfRollAngleManeuver.Construct(0.0);
+   done.SetExitConstraint(WsfManeuverConstraint.AT_ROLL_ANGLE(0.0));
+   done.SetDebug(aDebug);
+   
+   WsfManeuverSequence sqn = WsfManeuverSequence.Construct();
+   sqn.Append(zig);
+   sqn.Append(zag);
+   sqn.Append(done);
+   
+   return sqn;
+end_script
+
+# This returns a 'Vertical 180' manuever. After executing this maneuver the
+# platform will be flying in roughly the opposite direction at a higher altitude.
+script WsfManeuver Vertical180(double aDebug)
+   WsfRollDeltaManeuver nospin = WsfRollDeltaManeuver.Construct(0.0);
+   nospin.SetEntryConstraint(WsfManeuverConstraint.SCRIPT("TestSatisfy", "TestNextTime"));
+   nospin.SetDebug(aDebug);
+   
+   WsfPitchGLoadManeuver mvr = WsfPitchGLoadManeuver.Construct(8.0);
+   mvr.SetExitConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(3.0));
+   mvr.SetDebug(aDebug);
+   
+   WsfPitchGLoadManeuver release = WsfPitchGLoadManeuver.Construct(0.0);
+   release.SetEntryConstraint(WsfManeuverConstraint.AT_FLIGHT_PATH_ANGLE(12.0));
+   release.SetDebug(aDebug);
+   
+   WsfRollAngleManeuver up = WsfRollAngleManeuver.Construct(0.0);
+   up.SetExitConstraint(WsfManeuverConstraint.AT_ROLL_ANGLE(0.0));
+   up.SetDebug(aDebug);
+   
+   WsfFlightPathAngleManeuver flat = WsfFlightPathAngleManeuver.Construct(0.0);
+   flat.SetExitConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(20.0));
+   flat.SetDebug(aDebug);
+   
+   WsfManeuverSequence sqn = WsfManeuverSequence.Construct();
+   sqn.Append(nospin);
+   sqn.Append(mvr);
+   sqn.Append(release);
+   sqn.Append(up);
+   sqn.Append(flat);
+   
+   return sqn;
+end_script
+
+platform TEST_AIRCRAFT FA-LGT
+   side blue
+   route
+      position   21.325n   158.000w  altitude   10000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   10000.0 ft   speed  450.0 kts
+   end_route
+   
+   execute at_time 10 sec absolute
+      WsfManeuverSequence sqn = WsfManeuverSequence.Construct();
+      sqn.Append(ZigZag(false));
+      sqn.Append(Vertical180(false));
+      sqn.Append(ZigZag(false));
+      
+      WsfP6DOF_Mover mov = (WsfP6DOF_Mover)PLATFORM.Mover();
+      mov.ExecuteManeuver(sqn);
+   end_execute
+   
+   execute at_time 150.0 s absolute
+      WsfP6DOF_Mover mov = (WsfP6DOF_Mover)PLATFORM.Mover();
+      allPassed = ExpectDouble(PLATFORM.Heading(), 0.0, 8.0, "TEST_AIRCRAFT should be flying basically north") && allPassed;
+      allPassed = ExpectInt(visits, 3, "There should have been three visits to global scripts") && allPassed;
+   end_execute
+   
+   execute at_time 160 s absolute
+      if (allPassed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }   
+   end_execute      
+   
+end_platform

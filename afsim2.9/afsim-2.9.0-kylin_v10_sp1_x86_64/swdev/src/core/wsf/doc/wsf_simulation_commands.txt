@@ -1,0 +1,138 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Core Applications
+^^^^^^^^^^^^^^^^^
+
+.. include:: baseline_execs.txt
+
+Simulation Runtime
+^^^^^^^^^^^^^^^^^^
+
+| :ref:`Simulation_Control_Commands` - Simulation runtime control commands.
+| :ref:`File_Commands` - Commands that effect file path and reading/writing files.
+| :ref:`Monte Carlo Commands <Monte_Carlo_Iteration>` - Running multiple WSF simulations for Monte Carlo iterations.
+
+* :command:`clock_rate` - Specify the ratio of simulation time to wall clock time for real-time simulations.
+* :command:`conditional_section` - Conditionally include or exclude inputs.
+* :command:`end_time` - Specify the end time of a simulation run.
+* :command:`generate_random_seeds` - Generate random seeds for a Monte Carlo iteration set.
+* :command:`initial_run_number` - Specify the initial run number of a Monte Carlo iteration set.
+* :command:`final_run_number` - Specify the final run number of a Monte Carlo iteration set.
+* :command:`frame_rate` - Define the time step of a frame-stepped simulation.
+* :command:`frame_time` - Define the time step of a frame-stepped simulation.
+* :command:`line_of_sight_manager` - Line-of-sight manager configuration.
+* :command:`multi_threading` or multi_thread - Define if multi-threading is active.
+* :command:`non-realtime` - Indicate the simulation is to run in non-real-time mode.
+* :command:`number_of_threads` - Define the number of threads.
+* :command:`platform_availability` - Define a platform's probability of existing in the simulation at runtime.
+* :command:`random_seed` - Specify the seed for the random number generator.
+* :command:`realtime` - Indicate the simulation is to run in real-time mode.
+* :command:`run_number_increment` - Specify the increment between runs of a Monte Carlo iteration set.
+* :command:`simulation_name` - Specify a name to identify the simulation within Warlock and Mystic.
+* :command:`start_date`, :command:`start_epoch`, :command:`start_time` - Define the base or reference time for the simulation.
+
+File, Input and Output
+^^^^^^^^^^^^^^^^^^^^^^
+
+| :doc:`wsf_user_input_format` - Command format, pre-processor, comments, etc.
+| :doc:`argumenttypes` - Primitive types, units, reference values, random values, etc.
+
+File and Input
+**************
+* :command:`classification_levels` - Defines the classification levels, and their respective colors, that can be used within a scenario.
+* :command:`classification` - Specifies the classification level, caveats, and trigraphs of the input files.
+* :command:`define_path_variable` - Define a variable that can be substituted into file names.
+* :command:`file_path` - Specify a path for include files.
+* :command:`include` and :command:`include_once` - Insert a file into the input stream.
+* :command:`log` - Write an entry to the log file.
+* :command:`log_file` - Open a log file.
+* :command:`reset_file_path` - Remove all entries from the 'file path'.
+* :command:`undefine_path_variable` - Undefine a 'path' variable.
+
+Output
+******
+
+* :command:`console_output` - Configure the console output contents and format.
+* :command:`csv_event_output` - Configure the 'Comma Separate Values (CSV)' event output logger.
+* :command:`draw` - Draw routes and route networks.
+* :command:`draw_file` - Specify output for :class:`WsfDraw`.
+* :command:`enumerate` - Enumerate (list) object types to a file.
+* :command:`event_output` - Configure the event output logger.
+* :command:`observer` - Capture results of a specific interaction between platforms at the simulation level.
+* :command:`event_pipe` - Configure the binary AFSIM event recording file.
+
+Terrain and Environment
+^^^^^^^^^^^^^^^^^^^^^^^
+
+* :doc:`atmosphere` - Modify the atmospheric characteristics (e.g., temperature, density) in the simulation.
+* :command:`global_environment` - Define the attributes of the global environment.
+* :command:`terrain` - Control the terrain management interface.
+
+Defining Systems, Subsystems, Models and Data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Defining Systems (Platforms)
+****************************
+
+* :command:`platform` and platform_type - Define platform types and instances.
+* :command:`osm_traffic` - Generate background vehicular traffic with an Open Street Maps (OSM) converted route.
+* :command:`road_traffic` - Generate background vehicular traffic.
+* :command:`sea_traffic` - Generate background ship platforms.
+* :command:`air_traffic` - Generate background air traffic.
+
+Defining Subsystems (comm, sensors, processors, etc.)
+*****************************************************
+
+* :command:`comm` - Define comm objects types and instances. (:ref:`Predefined_Comm_Types`)
+* :command:`processor` - Define processor types and instances. (:ref:`Predefined_Processor_Types`)
+* :command:`mover` - Define mover object types and instances. (:ref:`Predefined_Mover_Types`)
+* :command:`router` - Define communication router types and instances. (:ref:`Predefined_Router_Types`)
+* :command:`sensor` - Define sensor object types and instances. (:ref:`Predefined_Sensor_Types`)
+* :command:`track_manager` - Configure track maintenance and fusion for a platform's master track list or alternate track list.
+* :command:`visual_part` - Defines articulated parts not associated with a defined subsystem.
+
+Defining Models & Data
+**********************
+
+* :command:`aero` - Define the aerodynamic drag and lift properties of a platform that moves through air.
+* :command:`antenna_pattern` - Define an antenna gain pattern for a transmitter or receiver.
+* :command:`attenuation_model` - Define or reference an atmospheric attenuation model.
+* :command:`clutter_model` - Define or reference a clutter model.
+* :command:`error_model` - Define or reference a sensor error model.
+* :command:`filter` - Define a filter object for a :command:`sensor` or :command:`track_manager`. (:ref:`Predefined_Filter_Types`)
+* :command:`group` - Define a group that can contain platforms and/or platform parts.
+* :command:`fuel` - Define fuel object types and instances. (:ref:`Predefined_Fuel_Types`)
+* :command:`iff_mapping` - Define global IFF mappings.
+* :command:`medium` - Define a communication medium, used by various communication objects. (:ref:`Predefined_Medium_Types`)
+* :command:`message_table`  - Define a message table.
+* :command:`network` - Define a communication network. (:ref:`Predefined_Network_Types`)
+* :command:`noise_cloud` - Define a cloud layer for the attenuation of sensors and communications.
+* :command:`propagation_model` - Define or reference a propagation model.
+* :command:`protocol` - Define a comm protocol, for subsequent usage by a comm object. (:ref:`Predefined_Protocol_Types`)
+* :command:`radar_signature` - Define the radar signature for a platform.
+* :command:`route` - Define the movement path for a route mover.
+* :command:`route_network` - Define a network of routes.
+* :command:`router_protocol` - Define a routing protocol, for subsequent usage by a router object. (:ref:`Predefined_Router_Protocol_Types`)
+* :command:`track` - Define a 'pre-brief' track.
+* :command:`zone` and :command:`zone_set` - Define regions or a collection of regions.
+
+Scripting
+^^^^^^^^^
+Scripting Language - :doc:`Script Overview <script>`, :ref:`Script_Commands`, :ref:`Common_Script_Interface`, :doc:`Script Object Types <script_types>`
+
+* :command:`callback` - Define a callback that triggers a script.
+* :command:`execute` - Execute a script at specified time.
+* :command:`observer` - Capture results of a specific interaction between platforms at the simulation level.
+
+Interface
+^^^^^^^^^
+
+* :command:`dis_interface` - Distributed Interactive Simulation (DIS) configuration.
+* :command:`xio_interface` - Control the 'external I/O' interface.

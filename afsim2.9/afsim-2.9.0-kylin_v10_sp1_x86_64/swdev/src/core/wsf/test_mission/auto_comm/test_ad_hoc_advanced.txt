@@ -1,0 +1,318 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests advanced functionality of the ad_hoc / script protocol.
+// Since users are provided direct access to the network state object (graph)
+// they can manipulate it as seen fit during runtime. This tests the common
+// graph manipulation script methods to update the routing table when interfaces
+// move networks at runtime.
+//
+// Actions up to t=30.0 ensure the correct number of links/nodes are created/deleted
+// via both the sim network manager and the local router protocol graph.
+//
+// Events after t=30.0 ...
+
+script_variables
+   int localAdd = 0;
+   int managerAdd = 0;
+   int localRemove = 0;
+   int managerRemove = 0;
+   int localLinkAdd = 0;
+   int managerLinkAdd = 0;
+   int localLinkRemove = 0;
+   int managerLinkRemove = 0;
+   int messageReceived = 0;
+end_script_variables
+
+router_protocol AD_HOC WSF_COMM_ROUTER_PROTOCOL_AD_HOC
+   comm_added_delay_time constant 1 s
+   comm_removed_delay_time constant 1 s
+   connection_added_delay_time constant 1 s
+   connection_removed_delay_time constant 1 s
+     
+   script bool OnCommAdded(WsfAddress aAddedComm, WsfCommGraph aState, WsfCommRouter aRouter)
+      writeln("Adding comm: " + aAddedComm.GetAddress() + " at time: " + (string)TIME_NOW);
+         if(TIME_NOW > 30.0)
+         {
+            if(WsfComm.GetComm(aAddedComm).Platform().Name() == "adhoc1")
+            {
+               writeln("Canceling add.");
+               // We return false, but add this manually, to show the same can be accomplished in script.
+               // However, this does not push observer calls, as designed.
+               // This will enable message passage between the comms.
+               // (Comment out this code block to see the message passage fail)
+               aState.CreateNode(aAddedComm);
+               WsfNetwork curNetwork = WsfNetwork.GetNetwork(WsfComm.GetComm(aAddedComm).NetworkName());
+               Array<WsfAddress> networkAddresses = curNetwork.GetMembers();
+               foreach(WsfAddress address in networkAddresses)
+               {
+                  if(address.GetAddress() != aAddedComm.GetAddress())
+                  {
+                     if(aState.InsertEdge(aAddedComm, address))
+                     {
+                        writeln("Edge added between " + aAddedComm.GetAddress() + " and " + address.GetAddress());
+                     }
+                     if(aState.InsertEdge(address, aAddedComm))
+                     {
+                        writeln("Edge added between " + address.GetAddress() + " and " + aAddedComm.GetAddress());
+                     }
+                  }
+               }            
+               return false;
+            }
+         }
+      return true;
+   end_script
+   
+   script bool OnCommRemoved(WsfAddress aRemovedComm, WsfCommGraph aState, WsfCommRouter aRouter)
+      writeln("Removing comm: " + aRemovedComm.GetAddress() + " at time: " + (string)TIME_NOW);
+      
+      return true;
+   end_script
+   
+   script bool OnConnectionAdded(WsfAddress aSourceComm, WsfAddress aDestinationComm, WsfCommGraph aState, WsfCommRouter aRouter)
+      writeln("Adding connection: " + aSourceComm.GetAddress() + " to: " + aDestinationComm.GetAddress() + " at time: " + (string)TIME_NOW);
+      if(TIME_NOW > 30.0)
+      {
+         WsfAddress adhoc2address = WsfSimulation.FindPlatform("adhoc1").Comm("comm2").GetAddress();
+         if((aSourceComm.GetAddress() == adhoc2address.GetAddress()) || (aDestinationComm.GetAddress() == adhoc2address.GetAddress()))
+         {
+            writeln("Canceling add.");
+            return false;         
+         }
+      }
+      return true;
+   end_script
+   
+   script bool OnConnectionRemoved(WsfAddress aSourceComm, WsfAddress aDestinationComm, WsfCommGraph aState, WsfCommRouter aRouter)
+      writeln("Removing connection: " + aSourceComm.GetAddress() + " to: " + aDestinationComm.GetAddress() + " at time: " + (string)TIME_NOW);
+      
+      return true;
+   end_script
+   
+end_router_protocol
+
+network dynamic1 WSF_COMM_NETWORK_AD_HOC
+   update_rate 5 s
+end_network
+
+network dynamic2 WSF_COMM_NETWORK_AD_HOC
+   update_rate 5 s
+end_network
+
+network dynamic3 WSF_COMM_NETWORK_AD_HOC
+   update_rate 5 s
+end_network
+
+router DEFAULT WSF_COMM_ROUTER
+   add router_protocol ad_hoc AD_HOC
+   end_router_protocol
+   use_default_protocol false
+end_router
+
+comm TEST_COMM_DYNAMIC1 WSF_COMM_TRANSCEIVER
+   network_name dynamic1
+end_comm
+
+comm TEST_COMM_DYNAMIC2 WSF_COMM_TRANSCEIVER
+   network_name dynamic2
+end_comm
+
+platform_type AD_HOC_PLAT WSF_PLATFORM
+   add router default DEFAULT end_router
+   add comm comm1 TEST_COMM_DYNAMIC1 end_comm
+   add comm comm2 TEST_COMM_DYNAMIC2 end_comm
+end_platform_type
+
+platform_type TEST_PLAT_DYNAMIC1 WSF_PLATFORM
+   add comm comm1 TEST_COMM_DYNAMIC1 end_comm
+end_platform_type
+
+platform_type TEST_PLAT_DYNAMIC2 WSF_PLATFORM
+   add comm comm1 TEST_COMM_DYNAMIC2 end_comm
+end_platform_type
+
+platform adhoc1 AD_HOC_PLAT
+end_platform
+
+platform test1 TEST_PLAT_DYNAMIC1
+end_platform
+
+platform test2 TEST_PLAT_DYNAMIC1
+end_platform
+
+platform test3 TEST_PLAT_DYNAMIC2
+end_platform
+
+platform test4 TEST_PLAT_DYNAMIC2
+end_platform
+
+execute at_time 7 s absolute
+   // Move one of the ad_hoc interfaces to a different network by itself.
+   WsfComm adHocComm1 = WsfSimulation.FindPlatform("adhoc1").Comm("comm1");
+   WsfNetwork dynamic3 = WsfNetwork.GetNetwork("dynamic3");
+   
+   WsfNetwork.RemoveMember(adHocComm1.GetAddress());
+   dynamic3.AddMember(adHocComm1);
+end_execute
+
+execute at_time 12 s absolute
+   // Move the other ad_hoc interface to the same network as the first.
+   WsfComm adHocComm2 = WsfSimulation.FindPlatform("adhoc1").Comm("comm2");
+   WsfNetwork dynamic3 = WsfNetwork.GetNetwork("dynamic3");
+   
+   WsfNetwork.RemoveMember(adHocComm2.GetAddress());
+   dynamic3.AddMember(adHocComm2);
+end_execute
+
+execute at_time 21 s absolute
+   //! Move the first ad_hoc comm back to the second's original network
+   WsfComm adHocComm1 = WsfSimulation.FindPlatform("adhoc1").Comm("comm1");
+   WsfNetwork dynamic2 = WsfNetwork.GetNetwork("dynamic2");
+
+   WsfNetwork.RemoveMember(adHocComm1.GetAddress());
+   dynamic2.AddMember(adHocComm1);
+end_execute
+
+execute at_time 31 s absolute
+   //! Add the second ad-hoc comm into the second network with the first
+   //! ad hoc interface to allow testing of script calls/objects.
+   WsfComm adHocComm2 = WsfSimulation.FindPlatform("adhoc1").Comm("comm2");
+   WsfNetwork dynamic2 = WsfNetwork.GetNetwork("dynamic2");
+
+   WsfNetwork.RemoveMember(adHocComm2.GetAddress());
+   dynamic2.AddMember(adHocComm2);
+end_execute
+
+execute at_time 41 s absolute
+   WsfMessage message = {};
+   WsfComm adHocComm1 = WsfSimulation.FindPlatform("adhoc1").Comm("comm1");
+   adHocComm1.SendMessage(message, "adhoc1", "comm2");
+end_execute
+
+execute at_time 60 s absolute
+   //NOTE: We don't have as many local adds
+   //as the manager, as local state isn't reported
+   //by default at sim start, so the starting six
+   //comms don't get this observer call. This would apply
+   //to local links as well, but we create all links at runtime.
+   if(localAdd != 3)
+   {
+      writeln("FAIL localAdd");
+      writeln("-FAIL-");
+   }
+   if(managerAdd != 9)
+   {
+      writeln("FAIL managerAdd");
+      writeln("-FAIL-");
+   }
+   if(localRemove != 3)
+   {
+      writeln("FAIL localRemove");
+      writeln("-FAIL-");
+   }
+   if(managerRemove != 3)
+   {
+      writeln("FAIL managerRemove");
+      writeln("-FAIL-");
+   }
+   if(localLinkAdd != 18)
+   {
+      writeln("FAIL localLinkAdd");
+      writeln("-FAIL-");
+   }
+   if(managerLinkAdd != 18)
+   {
+      writeln("FAIL managerLinkAdd");
+      writeln("-FAIL-");
+   }
+   if(localLinkRemove != 10)
+   {
+      writeln("FAIL localLinkRemove");
+      writeln("-FAIL-");
+   }
+   if(managerLinkRemove != 10)
+   {
+      writeln("FAIL managerLinkRemove");
+      writeln("-FAIL-");
+   }
+   if(messageReceived != 1)
+   {
+      writeln("FAIL message reception");
+      writeln("-FAIL-");
+   }
+end_execute
+
+end_time 61 s
+
+observer
+   enable COMM_ADDED_TO_LOCAL LocalAdd
+   enable COMM_ADDED_TO_MANAGER ManagerAdd
+   enable COMM_REMOVED_FROM_LOCAL LocalRemove
+   enable COMM_REMOVED_FROM_MANAGER ManagerRemove
+   enable LINK_ADDED_TO_LOCAL LocalLinkAdd
+   enable LINK_ADDED_TO_MANAGER ManagerLinkAdd
+   enable LINK_REMOVED_FROM_LOCAL LocalLinkRemove
+   enable LINK_REMOVED_FROM_MANAGER ManagerLinkRemove
+   enable MESSAGE_RECEIVED MsgReceive
+end_observer
+
+script void LocalAdd(WsfCommRouter aRouter, string aProtocol, WsfAddress aAddress)
+   if(TIME_NOW > 30.0) return;
+   localAdd = localAdd + 1;
+   writeln("Router: " + aRouter.Name() + " running LocalAdd with address: " + aAddress.GetAddress());
+end_script
+
+script void ManagerAdd(WsfComm aComm)
+   if(TIME_NOW > 30.0) return;
+   managerAdd = managerAdd + 1;
+end_script
+
+script void LocalRemove(WsfCommRouter aRouter, string aProtocol, WsfAddress aAddress)
+   if(TIME_NOW > 30.0) return;
+   localRemove = localRemove + 1;
+   writeln("Router: " + aRouter.Name() + " running LocalRemove with address: " + aAddress.GetAddress());
+end_script
+
+script void ManagerRemove(WsfComm aComm)
+   if(TIME_NOW > 30.0) return;
+   managerRemove = managerRemove + 1;
+end_script
+
+script void LocalLinkAdd(WsfCommRouter aRouter, string aProtocol, WsfAddress aSourceAddress, WsfAddress aDestinationAddress)
+   if(TIME_NOW > 30.0) return;
+   localLinkAdd = localLinkAdd + 1;
+   writeln("Router: " + aRouter.Name() + " running LocalLinkAdd with source address: " + aSourceAddress.GetAddress() + " destination address: " + aDestinationAddress.GetAddress());
+end_script
+
+script void ManagerLinkAdd(WsfComm aSourceComm, WsfComm aDestinationComm)
+   if(TIME_NOW > 30.0) return;
+   managerLinkAdd = managerLinkAdd + 1;
+end_script
+
+script void LocalLinkRemove(WsfCommRouter aRouter, string aProtocol, WsfAddress aSourceAddress, WsfAddress aDestinationAddress)
+   if(TIME_NOW > 30.0) return;
+   localLinkRemove = localLinkRemove + 1;
+   writeln("Router: " + aRouter.Name() + " running LocalLinkRemove with source address: " + aSourceAddress.GetAddress() + " destination address: " + aDestinationAddress.GetAddress());
+end_script
+
+script void ManagerLinkRemove(WsfComm aSourceComm, WsfComm aDestinationComm)
+   if(TIME_NOW > 30.0) return;
+   managerLinkRemove = managerLinkRemove + 1;
+end_script
+
+script void MsgReceive(WsfComm aSender, WsfComm aReceiver, WsfMessage aMsg, WsfCommInteraction aResult)
+   messageReceived = messageReceived + 1;
+end_script
+
+#event_output
+#   enable all
+#   file ad_hoc.rep
+#end_event_output
+

@@ -1,0 +1,352 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../auto_script/test_functions.txt
+
+#script_listing on
+
+script_variables
+   bool pass = true;
+end_script_variables
+
+platform_type CAR WSF_PLATFORM
+   icon Car
+   mover WSF_ROAD_MOVER
+   end_mover
+   road_network   basilan_L2_only
+   speed 65 mph
+   off_road_speed 30 mph
+   linear_acceleration 4 m/s2
+   script_variables
+      int wpCount = 0;
+   end_script_variables
+   script bool LL_WithinTolerance(double aLat, double aLon, string aMsg)
+      extern bool pass;
+      extern bool WithinTolerance(double, double, double);
+      bool retValue = WithinTolerance(Latitude(), aLat, 0.001) && WithinTolerance(Longitude(), aLon, 0.001);
+      if (!retValue)
+      {
+         pass = false;
+         writeln("-FAIL- ", aMsg);
+      }
+      return WithinTolerance(Latitude(), aLat, 0.001) && WithinTolerance(Longitude(), aLon, 0.001);
+   end_script
+   script bool test_location(double aLat, double aLon, int aWpCount)
+      extern bool pass;
+      wpCount = wpCount + 1;
+      string msg = "waypoint " + (string)aWpCount;
+      bool retValue = LL_WithinTolerance(aLat, aLon, msg);
+      if (!retValue)
+      {
+         pass = false;
+         writeln("-FAIL- ", Name(), " waypoint ", aWpCount);
+      }
+      return retValue;
+   end_script
+   script void pass_checker(string aLat, string aLon, int aWpIndex)
+      extern bool pass;
+      pass = pass && test_location(MATH.StringToLat(aLat), MATH.StringToLon(aLon), aWpIndex) &&
+               (wpCount == aWpIndex);
+   end_script
+end_platform_type
+
+route ten_position_route_no_speed
+   navigation
+      position 06:32:22.360n 121:52:52.330e speed 45 mph
+         execute wp1_cb
+      position 06:30:30.020n 121:54:53.948e              // utilizes  mover/speed and mover/off_road_speed
+         execute wp2_cb
+       position 06:27:46.041n 121:55:18.832e #3rd pt to force
+         execute wp3_cb
+       position 06:26:34.161n 121:57:59.150e
+          execute wp4_cb
+       position 06:25:48.880n 121:58:32.192e              // utilizes  mover/speed and mover/off_road_speed
+       position 06:25:39.720n 122:00:28.043e  // overrides mover/speed and mover/off_road_speed
+       position 06:25:36.259n 122:00:35.458e
+       position 06:26:13.040n 122:01:58.597e
+       position 06:27:39.420n 122:02:47.212e
+       position 06:28:16.220n 122:02:24.690e
+   end_navigation
+end_route
+
+route ten_position_route_speed
+   navigation
+      position 06:32:22.360n 121:52:52.330e speed 45 mph
+         execute wp1_cb
+      position 06:30:30.020n 121:54:53.948e              // utilizes  mover/speed and mover/off_road_speed
+         execute wp2_cb
+      position 06:27:46.041n 121:55:18.832e #3rd pt to force
+         execute wp3_cb
+      position 06:26:34.161n 121:57:59.150e
+         execute wp4_cb
+      position 06:25:48.880n 121:58:32.192e              // utilizes  mover/speed and mover/off_road_speed
+      position 06:25:39.720n 122:00:28.043e  // overrides mover/speed and mover/off_road_speed
+      position 06:25:36.259n 122:00:35.458e
+      position 06:26:13.040n 122:01:58.597e
+      position 06:27:39.420n 122:02:47.212e
+      position 06:28:16.220n 122:02:24.690e
+   end_navigation
+end_route
+
+
+#insert path to your road network, followed by road network filename here...
+#with this example, the road network is isolated in a different file...
+#include roads/yourRoadNetwork.txt
+include ../road_networks/basilan_l2_example.txt
+
+#This car tests a platform that executes the GoToLocation function...
+platform car-1 WSF_PLATFORM
+   #set the road network name to the name of your road network...
+
+   add mover WSF_ROAD_MOVER
+      route
+        navigation
+            // This initial position is extremely important because your heading will be calculated from
+            // the direction you're already facing.
+            position 0n 0w
+               speed 10 mph
+         end_navigation
+      end_route
+
+      speed 10 mph
+      road_network   basilan_L2_only
+      consider_off_road_shortcut true
+   end_mover
+
+   off_road_speed 30 mph
+   linear_acceleration 4 m/s2
+
+
+   execute at_time 1 s absolute
+      PLATFORM.GoToLocation(0, 1);
+   end_execute
+   script void on_platform_deleted()
+      extern bool pass;
+      if (! (MATH.AngleIsBetween(Heading(), 85, 95)) )
+      {
+         pass = false;
+         writeln("-FAIL- Road mover [", PLATFORM.Name(), "] did not get a new heading. Heading ", Heading(), " expected ", 90);
+      }
+   end_script
+end_platform
+
+#This car tests a complex traversal within its main loop...
+platform car-2 CAR
+   start_position 06:33:00.620n 121:53:39.049e
+
+   #You must make sure that intermediate positions actually exist in road networks that are possible to reach!
+   route
+      navigation
+		  position 06:35:50.641n 121:53:24.108e
+			 execute wp1_cb
+		  position 06:35:58.941n 121:54:17.693e
+			 execute wp2_cb
+		  position 06:35:50.641n 121:53:24.108e
+			 execute wp3_cb
+		  position 06:36:10.080n 121:54:31.893e
+			 execute wp4_cb
+		  position 06:36:11.679n 121:54:29.394e
+			 execute wp5_cb
+		  position 06:35:50.641n 121:53:24.108e
+			 execute wp6_cb
+		  position 06:41:52.980n 121:59:34.429e
+			 execute wp7_cb
+      end_navigation
+   end_route
+
+   end_position 06:36:11.679n 121:54:29.394e
+
+   execute at_time 0.0001 s absolute
+      extern bool pass;
+      extern bool LL_WithinTolerance(double, double, string);
+      pass = LL_WithinTolerance(MATH.StringToLat("06:33:00.620n"), MATH.StringToLon("121:53:39.049e"), "starting waypoint");
+   end_execute
+   script void wp1_cb()
+      pass_checker("06:35:50.641n", "121:53:24.108e", 1);
+   end_script
+   script void wp2_cb()
+      pass_checker("06:35:58.941n", "121:54:17.693e", 2);
+   end_script
+   script void wp3_cb()
+      pass_checker("06:35:50.641n", "121:53:24.108e", 3);
+   end_script
+   script void wp4_cb()
+      pass_checker("06:36:10.080n", "121:54:31.893e", 4);
+   end_script
+   script void wp5_cb()
+      pass_checker("06:36:11.679n", "121:54:29.394e", 5);
+   end_script
+   script void wp6_cb()
+      pass_checker("06:35:50.641n", "121:53:24.108e", 6);
+   end_script
+   script void wp7_cb()
+      pass_checker("06:41:52.980n", "121:59:34.429e", 7);
+   end_script
+   update_interval 10 s
+#   on_update
+#      if(Speed() < 0.001)
+#      {
+#         writeln(TIME_NOW, " ", Name(), " zero speed");
+#      }
+#   end_on_update
+   script void on_platform_deleted()
+      extern bool pass;
+      extern bool LL_WithinTolerance(double, double, string);
+      bool finalPosPass = LL_WithinTolerance(MATH.StringToLat("06:36:11.679n"), MATH.StringToLon("121:54:29.394e"), "starting waypoint");
+      if (!finalPosPass)
+      {
+         pass = false;
+         writeln("-FAIL- ", Name(), " failed end position");
+      }
+
+      int wpCorrectCount = 7;
+
+      if (wpCount != wpCorrectCount)
+      {
+         pass = false;
+         writeln("-FAIL- ", Name(), " not all waypoints acheived, waypoint count ", wpCount);
+      }
+#      else if (! (pass && (wpCount == wpCorrectCount)) )
+#      {
+#         pass = false;
+#         writeln("-FAIL- ", Name(), " ???? waypoint count ", wpCount);
+#      }
+   end_script
+end_platform
+
+
+#This car tests a platform with only a route position (no start, end), and it should sit on the route position...
+platform car-3 CAR
+   route
+      navigation
+         position 06:35:58.941n 121:54:17.693e
+	 end_navigation
+   end_route
+
+   script void on_platform_deleted()
+   {
+      extern bool pass;
+      WsfWaypoint finalLocation = PLATFORM.LocationAsWaypoint();
+      //writeln("Finished at latitude: ", finalLocation.Latitude() );
+      //writeln("Finished at longitude: ", finalLocation.Longitude() );
+      if (! (  (finalLocation.Latitude() >= 6.59970) &&
+            (finalLocation.Latitude() <= 6.59972) &&
+            (finalLocation.Longitude() >= 121.904) &&
+            (finalLocation.Longitude() <= 121.906)) )
+      {
+         pass = false;
+         writeln("-FAIL- Road mover [", PLATFORM.Name(), "] did not end up in its correct destination.");
+      }
+   }
+   end_script
+end_platform
+
+
+
+#This car tests a platform with a single point route (it should just sit there)
+platform car-4 CAR
+   route
+      navigation
+         position 06:41:52.980n 121:59:34.429e
+      end_navigation
+   end_route
+
+   script void on_platform_deleted()
+   {
+      extern bool pass;
+      WsfWaypoint finalLocation = PLATFORM.LocationAsWaypoint();
+      //writeln("Finished at latitude: ", finalLocation.Latitude() );
+      //writeln("Finished at longitude: ", finalLocation.Longitude() );
+      if (! (  (finalLocation.Latitude() >= 6.69804) &&
+            (finalLocation.Latitude() <= 6.69806) &&
+            (finalLocation.Longitude() >= 121.992) &&
+            (finalLocation.Longitude() <= 121.994)) )
+      {
+         pass = false;
+         writeln("-FAIL- Road mover [", PLATFORM.Name(), "] did not end up in its correct destination.");
+      }
+   }
+   end_script
+end_platform
+
+platform_type car-ten-position-route CAR
+   script void wp1_cb()
+      pass_checker("06:32:22.360n", "121:52:52.330e", 1);
+   end_script
+   script void wp2_cb()
+      pass_checker("06:30:30.020n", "121:54:53.948e", 2);
+   end_script
+   script void wp3_cb()
+      pass_checker("06:27:46.041n", "121:55:18.832e", 3);
+   end_script
+   script void wp4_cb()
+      pass_checker("06:26:34.161n", "121:57:59.150e", 4);
+   end_script
+
+   script void on_platform_deleted()
+      extern bool pass;
+      int wpCorrectCount = 4;
+
+      if (wpCount != wpCorrectCount)
+      {
+         pass = false;
+         writeln("-FAIL- ", Name(), " not all waypoints acheived, waypoint count ", wpCount);
+      }
+#      else if (! (pass && (wpCount == wpCorrectCount)) )
+#      {
+#         pass = false;
+#         writeln("-FAIL- ", Name(), " ???? waypoint count ", wpCount);
+#      }
+   end_script
+end_platform_type
+
+#This car tests a complex traversal South, and has a start/end position, with intermediate positions...
+platform car-6 car-ten-position-route
+   ignore_off_road_path true
+   start_position 06:35:58.941n 121:54:17.693e
+   use_route ten_position_route_no_speed
+   end_position 06:28:26.400n 122:02:38.862e
+   execute at_time 0.0001 s absolute
+      extern bool pass;
+      extern bool LL_WithinTolerance(double, double, string);
+      pass = pass && LL_WithinTolerance(MATH.StringToLat("06:35:58.941n"), MATH.StringToLon("121:54:17.693e"), "starting waypoint");
+   end_execute
+end_platform
+
+#This car tests a platform with a series of route positions (no start, end), and it should traverse the route...
+platform car-7 car-ten-position-route
+   use_route ten_position_route_no_speed
+end_platform
+
+platform car-7a car-ten-position-route
+   use_route ten_position_route_speed
+end_platform
+
+#expect_input_error false
+
+
+# Valid input
+mover test_ground_mover_empty_route WSF_GROUND_MOVER
+   route
+   end_route
+end_mover
+
+# Valid input
+mover test_road_mover_empty_route WSF_ROAD_MOVER
+   route
+   end_route
+end_mover
+
+#expect_input_error true
+
+#event_pipe
+#   file test_road_mover_intermediate_positions.aer
+#end_event_pipe
+
+end_time 3000 secs

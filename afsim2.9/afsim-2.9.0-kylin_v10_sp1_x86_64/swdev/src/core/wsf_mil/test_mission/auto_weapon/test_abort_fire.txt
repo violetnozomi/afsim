@@ -1,0 +1,388 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the AbortFiringAt task manager function.
+#
+# Note: Even though we are using a task manager, we aren't using a state machine
+#       to detect and fire at targets. Scripts have been defined within the processor
+#       to perform firing and aborting using task manager functions. The scripts are
+#       invoke using the 'execute at_time'.
+
+weapon_effects SAM_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 100 m 0.7
+end_weapon_effects
+
+platform_type SAM WSF_PLATFORM
+   icon SA-10_Missile
+
+   weapon_effects SAM_LETHALITY
+
+   mover WSF_STRAIGHT_LINE_MOVER
+      update_interval 1.0 secs
+      average_speed 1500 kts
+   end_mover
+
+   processor seeker WSF_PERFECT_TRACKER
+      update_interval 1.0 sec
+   end_processor
+
+   processor fuze WSF_AIR_TARGET_FUSE
+      max_time_of_flight_to_detonate 300 secs
+   end_processor
+end_platform_type
+
+platform_type SAM_LAUNCHER WSF_PLATFORM
+   icon SA-10_LAUNCHER
+
+   comm datalink WSF_COMM_TRANSCEIVER
+      internal_link task_mgr
+   end_comm
+
+   processor task_mgr WSF_TASK_PROCESSOR
+
+   script void ProcessStatusMessage(WsfStatusMessage aMessage)
+      // The message is from another processor on this platform
+      if (aMessage.Originator() == PLATFORM.Name())
+      {
+         // A weapon fired from this platform
+         if (aMessage.Status() == "WEAPON_FIRED")
+         {
+
+            WsfPlatform weaponPlatform = aMessage.Platform();
+            if (weaponPlatform.IsValid())
+            {
+               WsfTrackId trackId = WsfTrackId(aMessage.RequestId());
+
+               // Get the track from the platform master track list
+               WsfLocalTrackList trackList = PLATFORM.MasterTrackList();
+               WsfTrack track = trackList.FindTrack(trackId);
+               if (track.IsValid())
+               {
+                  writeln("-PASS- Status Messsage Track ID ", trackId.ToString());
+               }
+               else
+               {
+                  writeln("-FAIL- Status Messsage Track ID ", trackId.ToString());
+               }
+            }
+         }
+      }
+   end_script
+
+      on_message
+
+         type WSF_STATUS_MESSAGE
+            script ProcessStatusMessage((WsfStatusMessage) MESSAGE); end_script
+
+      end_on_message
+
+      script void CheckActive(string aName, int aExpected)
+         WsfWeapon weapon = PLATFORM.Weapon("sam");
+         WsfTrack  track  = PLATFORM.MasterTrackList().Entry(0);
+         if (weapon.IsValid() &&
+             track.IsValid())
+         {
+            if (WeaponsActiveFor(track.TrackId()) == aExpected)
+            {
+               writeln("-PASS- CheckActive ", PLATFORM.Name(), " ", aName);
+            }
+            else
+            {
+               writeln("-FAIL- CheckActive ", PLATFORM.Name(), " ", aName,
+                       " ", WeaponsActiveFor(track.TrackId()), " expected=", aExpected);
+            }
+         }
+
+      end_script
+
+      script void CheckIdle(string aName)
+         // There should be no shooting tasks (sent or received)
+         int tasksXmtd    = TasksAssignedFor(WsfTrackId(), "");
+         int tasksXmtd2   = TasksAssignedTo(PLATFORM, WsfTrackId(), "");
+         int tasksRcvd    = TasksReceivedFor(WsfTrackId(), "");
+         int roundsActive = WeaponsActiveFor(WsfTrackId());
+         if ((tasksXmtd == 0) &&
+             (tasksXmtd2 == 0) &&
+             (tasksRcvd == 0) &&
+             (roundsActive == 0))
+         {
+            writeln("-PASS- ", PLATFORM.Name(), " CheckIdle ", aName);
+         }
+         else
+         {
+            writeln("-FAIL- ", PLATFORM.Name(), " CheckIdle ", aName,
+                    " TX=", tasksXmtd, " ", tasksXmtd2,
+                    " TR=", tasksRcvd, " RA=", roundsActive);
+         }
+      end_script
+
+      script void AbortFire()
+         WsfTrack  track  = PLATFORM.MasterTrackList().Entry(0);
+         if (track.IsValid())
+         {
+            writeln_d("T=", TIME_NOW, " AbortFire");
+            AbortFiringAt(track.TrackId());
+         }
+      end_script
+
+      script void Fire(int aQty)
+         WsfWeapon weapon = PLATFORM.Weapon("sam");
+         WsfTrack  track  = PLATFORM.MasterTrackList().Entry(0);
+         if (weapon.IsValid() &&
+             track.IsValid())
+         {
+            writeln("T=", TIME_NOW, " Firing: remaining=", weapon.QuantityRemaining(),
+                    " reloading=", weapon.IsReloading(),
+                    " requested=", aQty);
+            int salvoSize = aQty;
+            if (FireAt(track, "Shoot", weapon, salvoSize))
+            {
+               writeln("  Fired ", salvoSize, " rounds");
+            }
+            else
+            {
+               writeln("**** FAIL Fire failed");
+            }
+         }
+         else { writeln("no fire: ", weapon, ", ", track); }
+      end_script
+
+      script void RemoteFire(string aWeapon, string aComm, int aQty)
+         WsfTrack  track  = PLATFORM.MasterTrackList().Entry(0);
+         WsfPlatform assignee = PLATFORM.Subordinates().Entry(0);
+         if (track.IsValid() &&
+             assignee.IsValid())
+         {
+            writeln_d("T=", TIME_NOW, " Remote Firing ", aQty);
+            int salvoSize = aQty;
+            if (FireAt(track, "Shoot", aWeapon, salvoSize, assignee, aComm))
+            {
+               writeln_d("  Fired ", salvoSize, " rounds");
+            }
+            else
+            {
+               writeln("**** FAIL RemoteFire failed");
+            }
+         }
+         else
+         {
+            writeln("-FAIL- RemoteFire no target/subordinate");
+         }
+      end_script
+      
+      evaluation_interval DETECTED 30.0 secs
+      state DETECTED
+      end_state
+
+   end_processor
+
+   weapon sam WSF_EXPLICIT_WEAPON
+      launched_platform_type      SAM
+      launch_delta_v              20 0 0 m/s
+      tilt                        89.9 deg
+
+      quantity                    8
+      firing_delay                4 sec
+      salvo_interval              2 sec
+      deferred_launch_delay       0.2 sec
+
+      internal_link               task_mgr
+   end_weapon
+end_platform_type
+
+// ----------------------------------------------------------------------------
+
+platform_type FIGHTER WSF_PLATFORM
+   icon F-18E
+
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform fighter FIGHTER
+   side blue
+   indestructible
+   route
+      position 40n 88w altitude 40000 ft heading 270 deg speed 500 kts
+   end_route
+
+   execute at_time 599 seconds absolute
+      // Compute the probability of survival
+      double expectedHits = 3;    // 3 should have hit (1st aborted in flight)
+      double ssPk         = 0.7;  // single shot Pk
+      double expectedPs = 1.0;
+      for (int i = 0; i < expectedHits; i = i + 1) expectedPs = expectedPs * (1 - ssPk);
+
+      double damageFactor = PLATFORM.DamageFactor();
+      double actualPs = 1.0 - damageFactor;
+      if ((actualPs >= (0.99 * expectedPs)) && (actualPs <= 1.01 * expectedPs))
+      {
+         writeln("-PASS- Fighter Ps");
+      }
+      else
+      {
+         writeln("-FAIL- Fighter Ps actual=", actualPs, " expected=", expectedPs);
+      }
+   end_execute
+end_platform
+
+platform shooter-1 SAM_LAUNCHER
+   side red
+   position 40n 90w
+   commander SELF
+
+   comm datalink
+      network_name <local:master>
+   end_comm
+
+   processor task_mgr
+      // Fire three shots. These would normally occur at 6, 8 and 10 seconds
+      execute at_time   2 seconds absolute  Fire(3); CheckActive("F1", 3); end_execute
+
+      // Cancel all shots.
+      // The first shot will be inflight, and thus expended.
+      // The second shot will have been 'launched' but will be in a deferred launch state and thus not expended.
+      // The third shot will still be pending and thus not expended.
+      execute at_time   8.1 seconds absolute  AbortFire(); end_execute
+      execute at_time    9 seconds absolute  CheckActive("A1", 0); end_execute
+      execute at_time   10 seconds absolute  CheckIdle("I1"); end_execute
+
+      // Fire two shots. These would normally occur at 64 and 66 seconds.
+      execute at_time  60 seconds absolute  Fire(2); CheckActive("F2", 2); end_execute
+
+      // Cancel the shots while still pending. Thus, they will not be expended.
+      execute at_time  62 seconds absolute  AbortFire(); end_execute
+      execute at_time  63 seconds absolute  CheckActive("A2", 0); end_execute
+      execute at_time  64 seconds absolute  CheckIdle("I2"); end_execute
+
+      // Now fire two shots without any aborts.
+      execute at_time 120 seconds absolute  Fire(2); CheckActive("F3", 2);     end_execute
+
+      // Fire another shot within the firing delay window. This should fail, leaving
+      // the existing two shots active.
+      execute at_time 120.5 seconds absolute
+         writeln("***** WARNING: The WARNING message at T=121 is expected");
+      end_execute
+      execute at_time 121 seconds absolute  Fire(1); CheckActive("F4", 2); end_execute
+
+      // Let the two shots from 120 finish
+      execute at_time 299 seconds absolute  CheckIdle("I4"); end_execute
+
+      // Attempt to fire a shot using a remote launcher and a bad weapon name
+      execute at_time 299.5 seconds absolute
+         writeln("***** ERROR: The two ERROR messages at T=300 are expected");
+      end_execute
+      execute at_time 300 seconds absolute  RemoteFire("sam-x", "", 1); end_execute
+      execute at_time 302 seconds absolute  CheckActive("F5", 0);  end_execute
+      execute at_time 303 seconds absolute  CheckIdle("I5"); end_execute
+
+      // Attempt to fire a shot using a remote launcher and a bad comm name
+      execute at_time 304.5 seconds absolute
+         writeln("***** ERROR: The ERROR message at T=305 is expected");
+      end_execute
+      execute at_time 305 seconds absolute  RemoteFire("sam", "bad_comm", 1); end_execute    
+      
+      // Now fire a valid shot with a remote launcher.
+      execute at_time 310 seconds absolute  RemoteFire("sam", "", 1); end_execute
+      execute at_time 312 seconds absolute  CheckActive("F6", 1); end_execute
+      execute at_time 314 seconds absolute  AbortFire(); end_execute
+      execute at_time 315 seconds absolute  CheckActive("A6", 0); end_execute
+
+      // We should have one local shot left. Fire one extra to test internal salvo abort.
+      // The first round is fired and goes on, but we get an unsuccessful task completion.
+      // (The code originally failed to signal the completion of an internal abort).
+      // (This test must be done last...)
+      execute at_time 330 seconds absolute  Fire(2); CheckActive("F7", 2); end_execute
+      execute at_time 340 seconds absolute  CheckActive("F7", 1); end_execute
+
+      execute at_time 599 seconds absolute
+         WsfWeapon sam = PLATFORM.Weapon("sam");
+         if (sam.IsValid())
+         {
+            if (sam.TotalQuantityUsed() == 4)
+            {
+               writeln("-PASS- shooter-1 QuantityUsed");
+            }
+            else
+            {
+               writeln("-FAIL- shooter-1 QuantityUsed actual=", sam.TotalQuantityUsed(), " expected=4");
+            }
+         }
+         else
+         {
+            writeln("-FAIL- Cannot find SAM");
+         }
+      end_execute
+
+      execute at_time 599 seconds absolute  CheckIdle("Exit"); end_execute
+
+   end_processor
+
+   weapon sam
+      quantity 4
+   end_weapon
+
+   track
+      platform fighter
+   end_track
+end_platform
+
+platform shooter-2 SAM_LAUNCHER
+   side red
+   position 40.1n 90w
+   commander shooter-1
+
+   comm datalink
+      network_name <local:slave>
+   end_comm
+
+   processor task_mgr
+      execute at_time 599 seconds absolute  CheckIdle("Exit"); end_execute
+   end_processor
+
+   weapon sam
+      quantity 2
+   end_weapon
+end_platform
+
+platform bad_platform WSF_PLATFORM
+   add comm datalink WSF_COMM_TRANSCEIVER
+      internal_link task_mgr
+   end_comm
+
+   add processor task_mgr WSF_TASK_PROCESSOR
+   end_processor
+end_platform
+
+// ----------------------------------------------------------------------------
+/*
+event_pipe
+   file replay.aer
+end_event_pipe
+
+event_output
+   file replay.evt
+   disable all
+   //enable  PLATFORM_ADDED
+   //enable  PLATFORM_DELETED
+   //enable  TASK_ASSIGNED
+   //enable  TASK_CANCELED
+   //enable  TASK_COMPLETED
+   enable  WEAPON_FIRE_ABORTED
+   enable  WEAPON_FIRE_REQUESTED
+   enable  WEAPON_FIRED
+   enable  WEAPON_HIT
+   enable  WEAPON_MISSED
+   enable  WEAPON_TERMINATED
+   enable  WEAPON_RELOAD_STARTED
+   enable  WEAPON_RELOAD_ENDED
+end_event_output
+*/
+end_time 600 secs
+

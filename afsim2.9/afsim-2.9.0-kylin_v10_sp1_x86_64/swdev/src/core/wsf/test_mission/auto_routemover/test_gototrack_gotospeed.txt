@@ -1,0 +1,52 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test:
+//    stationary WsfRoadMover
+//    GoToTrack()
+//    GoToSpeed(0)
+//
+//    Speed = 0
+
+route_network test_network
+   route
+      position 0n 0w
+         node_id start
+      position 1n 0w
+         node_id end
+   end_route
+end_route_network
+platform test_plat WSF_PLATFORM
+   add mover WSF_ROAD_MOVER
+      update_interval 1 s
+      speed 1 m/s
+      road_network test_network
+      debug
+   end_mover
+   execute at_time 1 s absolute
+      writeln("Here");
+      WsfTrack track = WsfTrack();
+      track.SetLocationLLA(1, 1, 0);
+      track.SetVelocity(0.44704, 0, 0);
+      GoToTrack(track);
+      GoToSpeed(0);
+   end_execute
+   script void on_platform_deleted()
+      if (Speed() < 0.1)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- GoToSpeed failed");
+      }
+   end_script
+end_platform
+
+end_time 5 s

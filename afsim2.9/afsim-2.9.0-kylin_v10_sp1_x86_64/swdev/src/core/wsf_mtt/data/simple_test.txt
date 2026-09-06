@@ -1,0 +1,78 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2013 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+//default_fusion_strategy weighted_average
+//default_correlation_strategy perfect
+
+default_fusion_strategy mtt
+default_correlation_strategy mtt
+
+mtt_interface
+   reference_location 45:15:00.00n 13:00:00.00e
+end_mtt_interface
+
+include simple_types.txt
+include platforms_simple.txt
+
+platform_availability
+   name rbe-1           availability 1.0
+   name rbe-2           availability 1.0
+   name radar-commander availability 1.0
+   name hornet-1        availability 1.0
+   name hornet-2        availability 0.0
+   name hornet-3        availability 0.0
+   name hornet-4        availability 0.0
+end_platform_availability
+
+event_pipe
+  file simple_test.aer
+end_event_pipe
+
+event_output
+   file simple_test.evt
+#   print_track_in_message enabled
+   print_track_covariance enabled
+#   enable MESSAGE_TRANSMITTED
+#   enable MESSAGE_RECEIVED
+#   enable MESSAGE_QUEUED
+#   enable MESSAGE_DISCARDED
+   enable LOCAL_TRACK_CORRELATION
+   enable LOCAL_TRACK_DECORRELATION
+   enable LOCAL_TRACK_UPDATED
+   enable LOCAL_TRACK_INITIATED
+   enable LOCAL_TRACK_DROPPED
+#   enable PLATFORM_KILLED
+#   enable PLATFORM_DELETED
+#   enable SENSOR_DETECTION_EVENT
+#   enable SENSOR_MODE_ACTIVATED
+#   enable SENSOR_MODE_DEACTIVATED
+#   enable SENSOR_REQUEST_CANCELED
+#   enable SENSOR_REQUEST_INITIATED
+#   enable SENSOR_REQUEST_UPDATED
+#   enable SENSOR_TURNED_ON
+#   enable SENSOR_TURNED_OFF
+#   enable SENSOR_TRACK_INITIATED
+#   enable SENSOR_TRACK_UPDATED
+#   enable SENSOR_TRACK_DROPPED
+end_event_output
+
+//track_logger
+//  scale_factor 5.0
+//  show_sensor_tracks RBE
+//  show_sensor_tracks Command_Truck
+//end_track_logger
+
+//terrain
+//   float_grid_file D:\db\DEM05m\w112\1\n31\4
+//end_terrain
+
+random_seed 1234567
+
+end_time 30 min

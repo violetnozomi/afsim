@@ -1,0 +1,68 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+dis_interface
+   log_created_entities
+   exercise    1
+   site        25
+   application 1
+   multicast   224.2.25.54 192.168.10
+   port        3225
+   autostart
+   
+   entity_type SA-10C_LAUNCHER  1:1:222:28:4:2:0
+   entity_type SA-10C           2:1:222:1:22:0:0
+   entity_type F-18E            1:2:225:1:9:10:0
+
+#   simple_detonations off
+   simple_miss_reporting on
+
+#  If simple_detonations are enabled (the default), the weapon_effects will be
+#  overriden for received detonations UNLESS the following command is given.
+
+   simple_detonations_exclude platform_type SA-10C
+end_dis_interface
+
+event_output
+   file   replay.evt
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable PLATFORM_KILLED
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_DROPPED
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_TERMINATED
+end_event_output
+
+realtime
+
+end_time 45 secs        # should hit around 39/40 seconds.
+
+###############################################################################
+# The remainder of the file is only for testing with frame-stepped real-time.
+# Jobs must be started using 'run -rt <file>' or 'runall-rt'.
+
+dis_interface
+#  Enable multi-threading of the DIS interface for testing. This capability
+#  is not yet ready for prime-time.
+
+#   multi_threading on
+
+#  There is a loop in termination in the multi-threading DIS interface if
+#  autostart is not enabled. Uncomment to force the infinite loop.
+
+#   no_autostart
+end_dis_interface
+
+# If the following isn't done, the weapon fuse misses PCA in frame-stepped
+# mode. This needs to be evaluated.
+
+#frame_time 0.1 sec

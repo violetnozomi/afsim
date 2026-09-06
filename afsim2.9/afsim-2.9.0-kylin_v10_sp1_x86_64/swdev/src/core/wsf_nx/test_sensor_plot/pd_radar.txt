@@ -1,0 +1,73 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+antenna_pattern PD_RADAR_ANTENNA
+  alarm_pattern
+     file            patterns/radar2.ant
+     gain_adjustment 0.0 db
+     minimum_gain    -10 db
+end_antenna_pattern
+
+clutter_model PD_RADAR_CLUTTER alarm
+end_clutter_model
+
+sensor PD_RADAR WSF_RADAR_SENSOR
+
+   antenna_height                10.0 m
+
+   frame_time                    10.0 sec
+
+   scan_mode                     azimuth_and_elevation
+   azimuth_scan_limits           -180 deg 180 deg
+   elevation_scan_limits         -5 deg 88 deg
+
+   transmitter
+      antenna_pattern            PD_RADAR_ANTENNA
+      polarization               vertical
+      power                      100.0 kw
+      frequency                  4000 mhz
+      pulse_width                10 usec
+      pulse_repetition_frequency 10 khz
+      internal_loss              2 db
+   end_transmitter
+
+   receiver
+      bandwidth                  0.02 mhz
+      internal_loss              6 dB
+      antenna_ohmic_loss         0.0 db
+      noise_figure               3 db
+      receive_line_loss          2 db
+   end_receiver
+
+   clutter PD_RADAR_CLUTTER
+
+   signal_processor pulse_doppler
+      pd_num_filters             64
+      pd_num_filter_poles        5
+      pd_filter_bandwidth        1 156.25 hz
+      pd_filter_slr              60.0 db
+   end_signal_processor
+
+   # Swerling detector
+   swerling_case                 1
+   detector_law                  square
+   probability_of_false_alarm    1.0e-6
+   required_pd                   0.9
+   number_of_pulses_integrated   64
+
+   hits_to_establish_track       3 5   # 3 of last 5 scans to establish track
+   hits_to_maintain_track        1 3   # 1 of last 3 scans to maintain  track
+
+   reports_range
+   reports_bearing
+   reports_velocity
+   reports_range_rate
+   reports_signal_to_noise
+end_sensor

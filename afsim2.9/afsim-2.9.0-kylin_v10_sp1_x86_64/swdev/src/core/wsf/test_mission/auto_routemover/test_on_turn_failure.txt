@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test that the on_turn_failure commands work correctly
+
+#script_listing on
+platform_type plat WSF_PLATFORM
+   icon 737
+   add mover WSF_AIR_MOVER
+      maximum_radial_acceleration .4 g
+      at_end_of_path remove
+   end_mover
+
+   route
+      position 0n 0e speed 400 kts altitude 0 ft
+      position 0.1n 0e
+      position 0.1n 0.12e
+      position 0.2n 0.2e
+      position 0.0n 0.5e
+   end_route
+   on_initialize
+      WsfDraw d = WsfDraw();
+      d.SetColor(1,1,1);
+      d.BeginPolyline();
+      d.VertexRoute(Route());
+      d.End();
+      d.SetColor(1,0,1);
+      d.SetPointSize(5);
+      d.BeginPoints();
+      d.VertexRoute(Route());
+      d.End();
+   end_on_initialize
+end_platform_type
+
+platform p1 plat
+   on_turn_failure best_effort
+   script void on_platform_deleted()
+      if (MATH.Fabs(TIME_NOW - 844.512) > 5)
+      {
+         writeln("-FAIL- ", 1);
+      }
+   end_script
+end_platform
+
+platform p2 plat
+   on_turn_failure ignore_point
+   script void on_platform_deleted()
+      if (MATH.Fabs(TIME_NOW - 388.145) > 5)
+      {
+         writeln("-FAIL-", 2);
+      }
+   end_script
+end_platform
+
+platform p3 plat
+   on_turn_failure reverse_turn
+   script void on_platform_deleted()
+      if (MATH.Fabs(TIME_NOW - 734.0) > 5)
+      {
+         writeln("-FAIL-", 3);
+      }
+   end_script
+end_platform
+
+#event_pipe
+#   file replay.aer
+#end_event_pipe
+
+end_time 900 s

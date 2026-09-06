@@ -1,0 +1,226 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# -----------------------------------------------------------------------------
+# Test of passive sensor detecting a target tracking radar
+#
+# NOTE: The platforms are defined so all the interactions take place in the
+#       horizontal plane. The frame_time's of the sensors are set fairly small
+#       to detect where changes occurs.
+# -----------------------------------------------------------------------------
+
+script_variables
+   Array<bool> gInit = { false, false, false, false, false };
+   Array<bool> gDrop = { false, false, false, false, false };
+end_script_variables
+
+script void SimulationComplete()
+   for (int i = 0; i < 5; i = i + 1)
+   {
+      if (! gInit[i]) writeln("-FAIL- Failed to receive track init ", i);
+      if (! gDrop[i]) writeln("-FAIL- Failed to receive track drop ", i);
+   }
+end_script
+
+script bool TimeInRange(double aExpected)
+   return (MATH.Fabs(TIME_NOW - aExpected) <= 0.01);
+end_script
+
+script void SensorTrackInitiated(WsfPlatform aPlatform,
+                                 WsfSensor   aSensor,
+                                 WsfTrack    aTrack)
+
+   if ((aSensor.Type() != "PASSIVE_SENSOR") ||
+       (aPlatform.Name() != "aircraft-2")) return;
+
+   if      (TimeInRange(1027.0)) gInit[0] = true;
+   else if (TimeInRange(1042.5)) gInit[1] = true;
+   else if (TimeInRange(1059.5)) gInit[2] = true;
+   else if (TimeInRange(1104.5)) gInit[3] = true;
+   else if (TimeInRange(1126.0)) gInit[4] = true;
+   else
+   {
+      writeln("-FAIL- T=", TIME_NOW, " Unexpected track init");
+   }
+
+end_script
+
+script void SensorTrackDropped(WsfPlatform  aPlatform,
+                               WsfSensor    aSensor,
+                               WsfTrack     aTrack)
+   if ((aSensor.Type() != "PASSIVE_SENSOR") ||
+       (aPlatform.Name() != "aircraft-2")) return;
+
+   if      (TimeInRange(1035.5)) gDrop[0] = true;
+   else if (TimeInRange(1057.0)) gDrop[1] = true;
+   else if (TimeInRange(1102.0)) gDrop[2] = true;
+   else if (TimeInRange(1119.0)) gDrop[3] = true;
+   else if (TimeInRange(1134.5)) gDrop[4] = true;
+   else
+   {
+      writeln("-FAIL- T=", TIME_NOW, " Unexpected track init");
+   }
+end_script
+
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   if(aSensor.IsA_TypeOf("PASSIVE_SENSOR"))
+   {
+      # Check scripts for proper calling of a null target methods
+      if (aResult.TargetPlatformName() != "") writeln("-FAIL- Failed Target Name of ", aResult.TargetPlatformName(), " expected null");
+      if (aResult.TargetLocation().X() != 0.0) writeln("-FAIL- Failed Target Location X of ", aResult.TargetLocation().X(), " expected 0.0");
+      if (aResult.TargetLocation().Y() != 0.0) writeln("-FAIL- Failed Target Location Y of ", aResult.TargetLocation().Y(), " expected 0.0");
+      if (aResult.TargetLocation().Z() != 0.0) writeln("-FAIL- Failed Target Location Z of ", aResult.TargetLocation().Z(), " expected 0.0");
+
+   }
+end_script
+
+observer
+  enable SIMULATION_COMPLETE
+  enable SENSOR_DETECTION_ATTEMPT
+  enable SENSOR_TRACK_INITIATED
+  enable SENSOR_TRACK_DROPPED
+end_observer
+
+# -----------------------------------------------------------------------------
+
+antenna_pattern PASSIVE_SENSOR_ANTENNA
+   constant 5 db
+end_antenna_pattern
+
+sensor PASSIVE_SENSOR WSF_PASSIVE_SENSOR
+   frame_time                          0.5 sec
+   frequency_band                      1 ghz 18 ghz
+
+   receiver
+      antenna_pattern                  PASSIVE_SENSOR_ANTENNA
+      noise_figure                     5 absolute
+   end_receiver
+
+   detection_threshold                 12.8 db
+
+   reports_range
+   reports_bearing
+   reports_frequency
+end_sensor
+
+antenna_pattern TTR_ANTENNA
+   circular_pattern
+      beamwidth                        1 deg
+      peak_gain                        40 db
+      minimum_gain                     -10 db
+end_antenna_pattern
+
+sensor TTR WSF_RADAR_SENSOR
+   slew_mode                           azimuth_and_elevation
+   azimuth_slew_limits                 -180 deg 180 deg
+   elevation_slew_limits               -20 deg 90 deg
+
+   mode_template
+      antenna_height                   5 m
+
+      frame_time                       0.5 sec
+
+      transmitter
+         antenna_pattern               TTR_ANTENNA
+         frequency                     10 ghz
+         power                         50 kw
+      end_transmitter
+
+      receiver
+         noise_figure                  5 absolute
+      end_receiver
+
+      detection_threshold              12.8 db
+
+      reports_range
+      reports_bearing
+      reports_elevation
+      reports_velocity
+
+      maximum_request_count            1
+   end_mode_template
+
+   mode TRACK
+      track_quality                    1.0
+   end_mode
+end_sensor
+
+# -----------------------------------------------------------------------------
+
+radar_signature AIRCRAFT_RADAR_SIG
+   constant 1 m^2
+end_radar_signature
+
+platform_type AIRCRAFT WSF_PLATFORM
+   icon Wedge
+   radar_signature AIRCRAFT_RADAR_SIG
+
+   mover WSF_AIR_MOVER
+   end_mover
+
+   sensor passive_sensor PASSIVE_SENSOR
+      on
+      ignore_same_side
+   end_sensor
+end_platform_type
+
+platform_type TTR WSF_PLATFORM
+   icon Ground_Radar
+   sensor ttr TTR
+      ignore_same_side
+   end_sensor
+end_platform_type
+
+# -----------------------------------------------------------------------------
+
+platform aircraft-1 AIRCRAFT
+   side blue
+   route
+      position 1n 0e altitude 732 m heading 180 deg speed 0 kts
+   end_route
+end_platform
+
+platform aircraft-2 AIRCRAFT
+   side blue
+   route
+      position 0.5n 0.5e altitude 370 m heading 270 deg speed 100 kts
+      position 0.5n 0.0e altitude 187 m heading 180 deg
+      position 0.5n 0.5w altitude 370 m
+   end_route
+end_platform
+
+platform ttr TTR
+   side red
+   position 0n 0e heading 0 deg altitude 0 m
+
+   track
+      platform aircraft-1
+   end_track
+
+   execute at_time 0.001 sec relative
+      WsfTrack track = MasterTrackList().Entry(0);
+      Sensor("ttr").StartTracking(track, "TRACK");
+      Sensor("ttr").TurnOn();
+   end_execute
+
+end_platform
+/*
+event_output
+   file replay.evt
+   enable SENSOR_DETECTION_CHANGED
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_DROPPED
+end_event_output
+
+event_pipe
+   file replay.aer
+end_event_pipe
+*/
+end_time 20 min

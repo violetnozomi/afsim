@@ -1,0 +1,162 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform_type TARGET WSF_PLATFORM
+  indestructible
+  sensor perfect WSF_GEOMETRIC_SENSOR
+     on
+     reports_location
+     reports_velocity
+     reports_type
+     frame_time 1 s
+     internal_link tm
+  end_sensor
+  script_variables
+     Map<WsfTrackId, WsfBallisticPath> bpMap = {};
+  end_script_variables
+  processor tm WSF_TRACK_PROCESSOR
+     on_message type WSF_TRACK_MESSAGE
+        script
+           WsfTrack track = ((WsfTrackMessage)MESSAGE).Track();
+           WsfBallisticPath path;
+           if (!bpMap.Exists(track.TrackId()))
+           {
+              path = WsfBallisticPath();
+              bpMap[track.TrackId()] = path;
+           }
+           path = bpMap[track.TrackId()];
+           path.Update(track);
+        end_script
+     end_on_message
+  end_processor
+
+  execute at_time 10 s absolute
+     if (bpMap.Size() > 0)
+     {
+        WsfBallisticPath path = bpMap[bpMap.ElementKeyAtIndex(0)];
+        WsfGeoPoint ip = path.ImpactPoint();
+        //WsfDraw draw = {};
+        //path.Draw(draw);
+        double lon = ip.Longitude();
+        double lat = ip.Latitude();
+        writeln(lat, " ", lon);
+        if ((lon < .349) || (lon > .351)) writeln ("-FAIL-");
+        if ((lat < 51.47) || (lat > 51.48)) writeln ("-FAIL-");
+     }
+     else
+     {
+        writeln ("-FAIL-");
+     }
+  end_execute
+
+  side blue
+  icon Tower
+end_platform_type
+
+ballistic_types
+   use_fires_extrapolation false
+end_ballistic_types
+
+platform_type FIRES_LAUNCHER WSF_PLATFORM
+   side red
+   category HEL_IGNORE
+   icon mil_SS-Launcher-LR
+
+   script bool FireAtLocation(WsfGeoPoint aLocation, int aQuantity)
+      WsfTrack targetLoc = WsfTrack();
+      targetLoc.SetLocation(aLocation);
+      targetLoc.Initialize();
+
+      // We assume we are firing the first weapon in the list.
+      return PLATFORM.WeaponEntry(0).FireSalvo(targetLoc, aQuantity);
+   end_script
+
+end_platform_type
+
+launch_computer FIRES_60MM_MORTAR_LAUNCH_COMPUTER WSF_FIRES_LAUNCH_COMPUTER
+   fires_table FIRES_60MM_MORTAR
+      maximum_ordinate_values 2581.65 2581.3 2548.23 2510.96 2468.58 2419.26 2364.94 2300.47 2226.98 2129.38 2038.33 end_maximum_ordinate_values
+      range_values            1596.07 1868.87 2063.09 2272.4 2458.37 2675.11 2850.41 3075.58 3277.17 3359.59 3680.16 end_range_values
+      time_of_flight_values   46.21 46.21 45.56 45.56 44.66 44.66 43.51 43.51 42.76 40.81 40.81 end_time_of_flight_values
+   end_fires_table
+end_launch_computer
+
+weapon_effects FIRES_60MM_MORTAR_EFFECTS WSF_GRADUATED_LETHALITY
+  radius_and_pk  250.0 m 0.50
+  radius_and_pk   65.0 m 0.90
+  radius_and_pk   40.0 m 0.99
+  allow_incidental_damage
+end_weapon_effects
+
+weapon FIRES_60MM_MORTAR WSF_IMPLICIT_WEAPON
+   quantity 1000
+   salvo_interval 2.0 seconds
+   launch_computer
+      FIRES_60MM_MORTAR_LAUNCH_COMPUTER
+   end_launch_computer
+   weapon_effects FIRES_60MM_MORTAR_EFFECTS
+   launched_platform_type FIRES_60MM_MORTAR
+end_weapon
+
+platform_type FIRES_60MM_MORTAR WSF_PLATFORM
+   side red
+   category RAM
+   icon SA-10_Missile
+   mover WSF_FIRES_MOVER
+   end_mover
+   on_initialize2
+      # Make sure the spatial domain is properly defined Issue #90)
+      if (SpatialDomain() != "air")
+      {
+         writeln("-FAIL- Platform: ", Name(), "; unexpected spatial domain: ", SpatialDomain(), ", expected: air");
+      }
+   end_on_initialize2
+end_platform_type
+
+weapon FIRES_60MM_MORTAR_EXPLICIT WSF_EXPLICIT_WEAPON
+   quantity 1000
+   launch_computer
+      FIRES_60MM_MORTAR_LAUNCH_COMPUTER
+   end_launch_computer
+   salvo_interval 5.0 seconds
+   launched_platform_type FIRES_60MM_MORTAR
+   weapon_effects FIRES_60MM_MORTAR_EFFECTS
+end_weapon
+
+platform_type FIRES_60MM_MORTAR_EXPLICIT_LAUNCHER FIRES_LAUNCHER
+   weapon fires_60mm_mortar FIRES_60MM_MORTAR_EXPLICIT
+   end_weapon
+end_platform_type
+
+platform_type FIRES_60MM_MORTAR_IMPLICIT_LAUNCHER FIRES_LAUNCHER
+   weapon fires_60mm_mortar FIRES_60MM_MORTAR
+   end_weapon
+end_platform_type
+
+platform 60mm_mortar-1 FIRES_60MM_MORTAR_EXPLICIT_LAUNCHER
+   position 51:29:54.244n 00:20:17.971e
+   execute at_time 0.0001 s absolute
+      WsfTrack track = WsfSimulation.FindPlatform("target-1").MakeTrack();
+      WsfWeapon mortar = PLATFORM.Weapon("fires_60mm_mortar");
+      if (mortar.CanIntercept(track))
+      {
+         mortar.Fire(track);
+      }
+   end_execute
+end_platform
+
+platform target-1 TARGET
+  position 51:28:29.21n 00:20:56.94e
+end_platform
+
+//event_pipe
+//  file test_ballistic_path.aer
+//end_event_pipe
+
+end_time 10 minutes

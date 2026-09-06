@@ -1,0 +1,247 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+.. block:: _.route_mover
+
+.. command:: altitude_offset <length-value>
+
+   When set, this offset will offset the parent platform's location by the given amount from the current waypoint's
+   altitude.
+
+.. command:: at_end_of_path [extrapolate | stop | remove]
+
+   Specify the action to take when the mover reaches the end of its defined path.
+
+   * extrapolate: continue moving along at the last known heading, speed, and altitude.
+   * stop: stop moving, but leave the platform in the simulation.
+   * remove: remove the platform from the simulation.
+
+   **Default** Extrapolate
+
+.. command:: draw_route <boolean-value>
+
+   This command is the same as print_route_, except the route text is not printed, only drawn with
+   :class:`WsfDraw`.
+
+.. command:: on_turn_failure [best_effort | reverse_turn | ignore_point]
+
+   Defines the behavior of the mover when a point on a route cannot be reached exactly due to the turn radius.
+
+   best_effort:
+      Turns until the platform reaches the point of closest approach to the point.
+   ignore_point:
+      The mover operates effectively as if the point is not there.  Any script tied to this point will be
+      executed when the point is skipped.
+   reverse_turn:
+      The mover will turn the opposite direction, enabling it to reach the point exactly.
+
+   .. note::
+      This command has no effect if the mover is given routes that fit within the mover's constraints
+
+   .. note::
+      Also see turn_failure_threshold_.
+
+   **Default** best_effort
+
+.. command:: pathfinder <path-name>
+
+   The name of the pathfinder object to use.
+
+.. command:: print_route <boolean-value>
+
+   When enabled, the route is printed to the screen whenever it is modified.  Additionally, :class:`WsfDraw` is used to output
+   a visual of the route, which can be viewed with many visualization tools.
+
+.. command:: start_at <label-name>
+
+   The label identifying the waypoint in the route to use as the starting location.
+
+.. command:: start_time <random-time-reference>
+
+   Indicates the platform is to start moving at the time specified.  The current velocity is set to zero and once the
+   simulation time is reached, the platform starts moving at the speed specified in the first waypoint.  If an elapse time
+   is desired at a waypoint, use the subcommand :command:`route.pause_time`.
+
+.. command:: switch_on_approach
+
+   Switches to the next waypoint when approaching within one turn radius of the current target waypoint.
+
+.. command:: switch_on_passing
+
+   Switches to the next waypoint only when abreast of the current target waypoint.
+
+   .. note::
+      This is the default.
+
+
+.. command:: turn_failure_threshold <ratio-value>
+
+   Defines the threshold for which the on_turn_failure_ behavior is triggered, given as a ratio of the turn radius.
+   For example, a turn_failure_threshold of 0.01 and a turn radius of 1000 meters, on_turn_failure logic would be
+   triggered if the point is missed by more than 10 meters.
+
+   **Default** 0.01
+
+.. command:: use_route <route-name>
+
+   Supplies the name of the route to follow. The route is assumed to be a predefined absolute route.
+
+
+Waypoint Mover Commands
+=======================
+
+.. command:: angle_of_attack_table ... end_angle_of_attack_table
+
+    angle_of_attack_table
+      altitude_ *<altitude-value>*
+        speed_ *<speed-value>* angle_ *<angle-value>*
+        speed_ *<speed-value>* angle_ *<angle-value>*
+      altitude_ *<altitude-value>*
+        angle_ *<angle-value>*
+
+    end_angle_of_attack_table
+
+.. command:: altitude <altitude-value>
+
+   Specifies the altitude that the subsequent data is valid for.  The altitude blocks must be in increasing numerical
+   order.  Linear interpolation of the altitude blocks is used.
+
+.. command:: speed <speed-value>
+
+   Specifies the speed that the listed angle of attack is valid for.  The speed entries must be in increasing numerical
+   order.  The angle of attack will be computed using a linear interpolation of the speed data.
+
+.. command:: angle <angle-value>
+
+   The angle of attack.  The angle of attack entries must be in increasing numerical order.
+
+.. command:: bank_angle_limit <angle-value>
+
+   The roll angle limit. Value must be between 0 degrees to 85 degrees. Used to calculate the maximum radial acceleration.
+
+   **Default** 0
+
+.. command:: body_g_limit <acceleration-value>
+
+   The body g-limit. Value must be greater than the acceleration of earth's gravity.
+
+.. command:: heading_pursuit_gain <double-value>
+
+   The heading pursuit gain.
+
+   **Default** 5
+
+.. command:: maximum_climb_rate <speed-value>
+
+   Specifies the maximum climb rate and dive rate used when changing altitude.  Other climb rates specified by waypoints
+   or scripts are bounded by this value.
+
+.. note::
+      The actual climb rate of the mover will also be affected by 'maximum_flight_path_angle'
+
+
+.. command:: maximum_flight_path_angle <angle-value>
+
+   Specifies maximum flight path angle (angle of climb/dive). Value must be greater than or equal to 0.
+
+.. note::
+      The actual climb rate of the mover will also be affected by 'maximum_climb_rate'
+
+   **Default** 0
+
+.. command:: maximum_linear_acceleration <acceleration-value>
+
+   Specifies the maximum linear acceleration to use when acceleration is necessary.  This value is used if the waypoint
+   does not include a linear _acceleration specification.
+
+   **Default** 6 g's
+
+.. command:: maximum_radial_acceleration <acceleration-value>
+
+   Specifies the maximum radial acceleration to use when turning.  This value is used if the waypoint does not include a
+   radial_acceleration specification.
+
+   **Default** 6 g's
+
+   Note:
+      The radial acceleration is NOT the load factor for the aircraft.  For example, if one desires a maximum load
+      factor of n = 2 for a 2g turn, then the radial acceleration for a desired 2g turn limit would need to be set =
+      :math:`g * sqrt(n^2 -1)` = 1.732g.
+
+.. command:: maximum_altitude <altitude-value>
+
+   Maximum altitude constraint.
+
+.. command:: minimum_altitude <altitude-value>
+
+   Minimum altitude constraint.
+
+.. command:: maximum_speed <speed-value>
+
+   Maximum speed constraint. Value must be greater than 0.
+
+.. command:: minimum_speed <speed-value>
+
+   Minimum speed constraint. Value must be greater than or equal to 0.
+
+   **Default**  0.0
+
+.. command:: path_variance_radius <length-value>
+
+   This value will randomly vary the location of the waypoint within the radius given. A random bearing and distance are
+   chosen and applied to the next waypoint when calculating the path.
+
+.. command:: roll_rate_limit <angle-rate-value>
+
+   The roll rate limit. Value must be greater than 0.  Note:  When applied to a WSF_AIR_MOVER or other **waypoint mover**
+   types, the roll rate will not affect the platform's movement along a route. To affect route following behavior use
+   maximum_radial_acceleration_.
+
+.. command:: speed_variance_percent <percent-value>
+
+   This value will randomly vary the speed at each waypoint as the mover travels within +/- the pct given. Value must be
+   greater than 0.
+
+.. command:: turn_rate_limit <angle-rate-value>
+
+   The turn rate limit. Value must be greater than 0.
+
+.. command:: pitch_disable
+.. command:: no_pitch
+
+   Restricts the mover from pitching the platform.  This has no effect on kinematics.
+
+.. command:: on_road
+
+   Restricts the mover from rolling the platform.  This has no effect on kinematics.
+
+.. command:: off_road
+
+   Turns off the 'on_road' option.  This allows the platform to roll.
+
+.. command:: path_compute_timestep <time-value>
+
+   Waypoint movers precompute movement along paths.  This behavior forces turns to have a constant radius.  If
+   path_compute_timestep is specified as a positive value, the turn rate will update on that interval if any changes in
+   speed occur.
+
+   **Default** 0.0
+
+Note about maximum and default commands
+=======================================
+
+Movers have various commands that specify a maximum value such as maximum_linear_acceleration_.  These commands
+specify an overall limit to movement which will not be exceeded over the course of a simulation.  There are a few
+default commands, such as default_linear_acceleration.  These commands specify a rate to use unless otherwise specified
+in a route or script.  These parameters may be omitted, leaving the mover to use the maximum rates by default.  Rates
+may be modified during the simulation through routes, such as with the
+:command:`route.linear_acceleration` command, or through scripts, such as the
+:method:`GoToSpeed() <WsfPlatform.GoToSpeed>` method.  Rates remain the same until changed by another script or route.  Routes
+provide a mechanism to return to a default rate, such as using the ``linear_acceleration default`` command.

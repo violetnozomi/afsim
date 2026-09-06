@@ -1,0 +1,504 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 aslct7.f and akshn7.f
+// Replicates the missile fire 7,3,1,x alternative behavior
+
+include_once BrawlerScriptUtil.txt
+
+behavior weapon_decision_missile
+
+   script_debug_writes off
+   
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+    
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//    
+      // Flag used to enable/disable this alternative
+      // Takes the place of production rules
+      bool mAlternative7311Enabled = true;
+      
+      // Alternative ID
+      int ilevel = 7;
+      int kalt   = 3;
+      int icall  = 1;  // Weapon number, for missiles 1 - 6
+      int lcall  = 1;
+      
+      // Max/Min range for a SRM (meters)
+      double mMaxRange = 25000 * Math.M_PER_FT();
+      double mMinRange = 4000 * Math.M_PER_FT();
+      
+      // Maximum angle a shot can be taken at (degrees)
+      double mMaxFiringAngle = 15.0;
+      
+      // Percent range is reduced by for simple envelope
+      double mPercentRange = 0.2;
+      
+      // Maximum number of missiles on a target
+      int mTargetSaturation = 1; 
+      // Required track quality for a shot
+      double mRequiredTrackQuality = 0.8; 
+      
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      double grav   = 32.17405; // From pcon.fi
+      
+   end_script_variables
+
+   on_init
+
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   // Replicates the checks done in canfirm.f
+   // Return true if the missile can be fired
+   // Sets the string to the fail reason
+   script bool canfirm(WsfTrack target, string failMsg)
+      /*
+      cnfire = .false.
+      --MISSILE COMING OFF RAIL
+      if (lnchng) then
+         rsfail = 'MISL COMING OFF RAIL'
+         return
+      endif 
+      
+      --SWITCHOLOGY DELAYS
+      pswtch = (time .ge. timemf)
+      if (.not. pswtch)then
+         rsfail = 'SWITCHOLOGY'
+         return
+      endif
+
+      --CHECK IF TARGET IS IN ENVELOPE
+      --NOTE THAT SOME PPM... VARIABLES ARE RECALCULATED.
+      call mslenv_typ_mm(ppmiac,renv_typ)
+      call mslenv(iacid,xp(1,me),vp(1,me),ap(1,me),
+     1 alphap,xp(1,ppmiac),vp(1,ppmiac),ap(1,ppmiac),
+     2 ppmptr, rbep, rwep, ext_mle, .true., renv_typ, ppmrmn, ppmrmx,
+     3 ppmapt, ppmse, ppmaof, ppmenv, ppmtrk, ppmohr,l_config)
+      if (.not. ppmenv)then
+         rsfail = 'TGT NOT IN ENV'
+         return
+      endif
+      
+      --Does pilot beleive that target is within max range (R<Rmax1)?
+      pinrng = prmax2(ppmiac,ppmrmx,1.,0.2)
+      pbinrg = (pinrng .gt. pr2lim)
+      if (.not.pbinrg)then
+         rsfail = 'LOW PROB. TGT IN RNG'
+         return
+      endif
+      if(lnchma.eq.0)then
+         rsfail = 'FAIL ALL FIRE MODES'
+         return
+      endif
+      cnfire = .true.      
+      */
+      
+      // Not currently checking for another missile coming off the rail
+      
+      // Not currently checking for switchology delays
+      
+      // CHECK IF TARGET IS IN ENVELOPE
+      // Using a very simplified replacement of mslenv()
+      // that take a percentage of ange and a simple angle check
+      double range = PLATFORM.SlantRangeTo(target);
+      double absRelativeBearing = MATH.Fabs(PLATFORM.RelativeBearingTo(target));
+      if (range  < (mMinRange + mMinRange * mPercentRange) ||
+          range  > (mMaxRange - mMaxRange * mPercentRange) ||
+          absRelativeBearing >= mMaxFiringAngle )
+      {
+         failMsg = "TGT NOT IN ENV";
+         return false;
+      }
+      
+      // Does pilot beleive that target is within max range (R<Rmax1)?
+      // Using simplified version of prmax2
+      // and assuming short range missile with rmax = 25000 ft 
+      double drng = (mMaxRange - PLATFORM.SlantRangeTo(target));
+      if (drng < 0.0)
+      {
+         failMsg = "LOW PROB. TGT IN RNG";
+         return false;
+      }
+      
+      // Not currently checking launch modes
+      // lnchma set if fctest() passes checks
+      
+      return true;
+   end_script
+   
+   // Replicates the checks done in shldfrm.f
+   // Return true if the missile should be fired
+   // Sets the string to the fail reason if any
+   script bool shldfrm(WsfTrack target, string failMsg)
+      /*
+      C     --CHECK THAT PILOT BELIEVES RANGE IS OK FOR TARGETING
+      pinrng = prmax2(ppmiac,ppmrmx,ppm_rpeak,0.2)
+      pbinrg = pinrng.ge.pr2lim
+      call pdset('PROB_IN_RANGE',pbinrg)
+      call mslenv_typ_mm(ppmiac,renv_typ)
+C
+C     --CALCULATE tgleav
+C     --POSSIBLE PROJECTIONS
+C     --    ATTACKER                      TARGET
+C     --(1) CONSTANT VELOCITY XEUAN       CONSTANT VELOCITY vecinc
+C     --(2) CURRENT MANEUVER  XEUA        CURRENT MANEUVER  XEUT
+C     --(3) CURRENT MANEUVER  XEUA        CONSTANT VELOCITY vecinc
+C     --(4) CONSTANT VELOCITY XEUAN       CURRENT MANEUVER  XEUT
+C     --LOGIC IS AS FOLLOWS:
+C     --IF CASE (1) (neither maneuver) IS IN ENVELOPE THEN
+C     --   IF CASE (2) (both maneuver) IS OUT OF ENVELOPE
+C     --      IF CASE (3) (atkr maneuvers) IS IN ENVELOPE
+C     --         IF CASE(4) (tgt maneuvers) IS OUT OF ENVELOPE
+C     --            ASSERT: TARGET AT FAULT
+C
+C     CASE 1: CALCULATE INENVP_CC
+      if (ient.eq.sament) then
+         call xmit3(xp(1,me),xme)
+         call xmit3(vp(1,me),vme)
+         call xmit(9,rbep,rbeme)
+         call xmit(9,rwep,rweme)
+      else
+         call xmit3(xeuan,xme)
+         call xmit3(veuan,vme)
+         call xmit(9,rbeuan,rbeme)
+         call xmit(9,rweuan,rweme)
+      endif
+      call vecinc(xp(1,ppmiac),tproj3,vp(1,ppmiac),xtgt)
+      call xmit3(vp(1,ppmiac),vtgt)
+      call zero3(azero)
+      xtgt(3) = amin1(xtgt(3),-50.)
+      call mslenv(iacid,xme,vme,azero,alphap,xtgt,vtgt,azero,
+     1  misl(mslpp),rbeme,rweme,.false.,.true.,renv_typ,rmin_mm,
+     2  rmax_mm,aimp,se_mm,aof_mm,inenvp_cc,trkbl,ovrhoz,l_config)
+C     --"target leaving" CANNOT BE TRUE IF NOT IN ENVELOPE WHEN NEITHER
+C     --MANEUVERING
+      if(.not.inenvp_cc)then
+         tgleav = .false.
+         goto 200
+      endif
+C
+C     --CASE 2: CALCULATE INENVP_MM
+      if (ient.eq.sament) then
+C        --USE SAME AS CASE 1 SINCE I CAN'T MANEUVER
+         continue
+      else
+         call xmit3(xeua,xme)
+         call xmit3(veua,vme)
+         call xmit(9,rbeua,rbeme)
+         call xmit(9,rweua,rweme)
+      endif
+      call xmit3(xeut(1,ppmiac),xtgt)
+      call xmit3(veut(1,ppmiac),vtgt)
+      call mslenv(iacid,xme,vme,azero,alphap,xtgt,vtgt,azero,
+     1  misl(mslpp),rbeme,rweme,.false.,.true.,renv_typ,rmin,rmax,
+     2  aimp,se,aof,inenvp_mm,trkbl,ovrhoz,l_config)
+C     --"target leaving" CANNOT BE TRUE IF STILL IN ENV. WHEN BOTH MANEUVER
+      if(inenvp_mm)then
+         tgleav = .false.
+         goto 200
+      endif
+C
+C     --CASE 3: CALCULATE INENVP_MC
+      if (ient.eq.sament) then
+C        --USE SAME AS CASE 1 SINCE I CAN'T MANEUVER
+         continue
+      else
+         call xmit3(xeua,xme)
+         call xmit3(veua,vme)
+         call xmit(9,rbeua,rbeme)
+         call xmit(9,rweua,rweme)
+      endif
+      call vecinc(xp(1,ppmiac),tproj3,vp(1,ppmiac),xtgt)
+      call xmit3(vp(1,ppmiac),vtgt)
+      xtgt(3) = amin1(xtgt(3),-50.)
+      call mslenv(iacid,xme,vme,azero,alphap,xtgt,vtgt,azero,
+     1  misl(mslpp),rbeme,rweme,.false.,.true.,renv_typ,rmin,rmax,
+     2  aimp,se,aof,inenvp_mc,trkbl,ovrhoz,l_config)
+      if(.not.inenvp_mc)then
+         tgleav = .false.
+         goto 200
+      endif
+C
+C     --CASE 4: CALCULATE INENVP_CM
+      if (ient.eq.sament) then
+C        --USE SAME AS CASE 1 SINCE I CAN'T MANEUVER
+         continue
+      else
+         call xmit3(xeuan,xme)
+         call xmit3(veuan,vme)
+         call xmit(9,rbeuan,rbeme)
+         call xmit(9,rweuan,rweme)
+      endif
+      call xmit3(xeut(1,ppmiac),xtgt)
+      call xmit3(veut(1,ppmiac),vtgt)
+      call mslenv(iacid,xme,vme,azero,alphap,xtgt,vtgt,azero,
+     1  misl(mslpp),rbeme,rweme,.false.,.true.,renv_typ,rmin,rmax,aimp,
+     2  se,aof,inenvp_cm,trkbl,ovrhoz,l_config)
+      tgleav = .not.inenvp_cm
+C
+200   continue
+      call pdset('TGT_LEAVING_ENV',tgleav)
+C
+C     --Calculate current envelope level (WORSE)
+      elevnow= envlvl(rngnow(me,ppmiac),rdotme(ppmiac),ppmse,
+     1 ppmaof,ppmrmn,ppmrmx,ppm_rpeak,ppm_semax,aoffmx,
+     2 ppmtrk,ppmohr,'SHOOT ')
+C
+      if (ient.ne.sament) then
+         elevprj= envlvl(rng(ppmiac),rngr(ppmiac),se_mm,aof_mm,rmin_mm,
+     1    rmax_mm,ppm_rpeak,ppm_semax,aoffmx,trkbl,ovrhoz,'SHOOT ')
+         if(lprnt) write(ioutp,2000) rmin_mm,rmax_mm,
+     1    rng(ppmiac),aimp,se_mm,aof_mm,elevprj
+      else
+C        --rng, rngr NOT SET FOR SAM, USE rngun, rngrun
+         elevprj= envlvl(rngun(ppmiac),rngrun(ppmiac),se_mm,aof_mm,
+     1    rmin_mm,rmax_mm,ppm_rpeak,ppm_semax,aoffmx,trkbl,ovrhoz,
+     2    'SHOOT ')
+         if(lprnt) write(ioutp,2000) rmin_mm,rmax_mm,
+     1    rngun(ppmiac),aimp,se_mm,aof_mm,elevprj
+      endif
+C     --CHECK PROJECTION -- IS LEVEL DECREASING?
+      worse = (elevnow.ge.elevprj)
+      call pdset('SHOT_WORSENING',worse)
+10    continue
+C
+C     --Check if target is too near beam for successful semi-active
+C     -- missile shot
+      lbeam =  beamsht()
+      call pdset('SA_BEAM_SHOT',lbeam)
+C
+C     --If positive target ID required to fire, has ID been
+C     --established?
+      needid = (irel(ppmiac).eq.0) .and. (id_mode.ne.bvr_id_md)
+      call pdset('SURE_BAD_GUY',.not.needid)
+C
+C     --check for fratricide risk
+      call set_hldcod(mslpp,ppmiac,hldcode,pp_skrs,pp_undes,lfrshot)
+      lfrat = lbit(hldcode,2)
+      call pdset('FRAT_RISK',lfrat)
+C
+C     --CHECK IF FRIEND HAS A BETTER SHOT
+      lfrnd = lbit(hldcode,1)
+      call pdset('FRND_BETTER_SHOT',lfrnd)
+C
+C     --Is target already engaged with max number of missiles/target?
+      other_tgtd = 0
+      do 100 igg=1,ngg
+         iacf = listf(igg)
+         acidf = iacidt(iacf)
+         if (iacid .eq. acidf)goto 100
+C        --Don't count another's selection if you have a much better
+C        --shot, since he will wait for you to shoot
+         if (.not.lfrshot(iacf)) goto 100
+C        --Don't count another's selection if you have selected the
+C        --same target earlier!  RMK 9 Apr 92
+C        --(Cant use others_tgt(iacid) here since not set until akshn7)
+         if (others_tgt(acidf).eq.ppmiac)then
+C           --However, we do need to use others_tgt(iacid) here, since
+C           --we need to use others_msgtim(iacid), which is only correct
+C           --if others_tgt(iacid) .eq. ppmiac
+            if(others_tgt(iacid).eq.ppmiac) then
+C              --I have selected this tgt previously
+               if (others_msgtim(acidf).lt.others_msgtim(iacid)) then
+C                 --He selected this target earlier than I, so count him
+                  other_tgtd = other_tgtd + 1
+               endif
+            else
+C              --I just changed to this target, so if anybody else has
+C              --sent me a message selecting him, they must have gotten
+C              --there first
+               other_tgtd = other_tgtd + 1
+            endif
+         endif
+100   continue
+110   continue
+      satur = ((nmhutl(ppmiac)+other_tgtd).ge.mxtgt_ac(ppmjid))
+      call pdset('TARGET_SATURATED',satur)
+      skr_lock = .false.
+      do 300 iseek = 1, mx_skr
+         if (skr_acquired(iseek)) then
+            skr_lock = .true.
+            goto 305
+         endif
+300   continue
+305   continue
+      call pdset('SEEKER_LOCK',skr_lock)
+C
+C     --CHECK WEAPON QUALITY TRACK
+C     --no_trk indicates track not needed for this launch mode
+      no_trk = (lnchma .eq. ppsli) .or.
+     1         (lnchma .eq. ppslr) .or.
+     2         (lnchma .eq. pcguv) .or.
+     3         (lnchma .eq. pvtnhms)
+      if (.not.usewqt(iflite)) then
+C        --Flight does not require WQT
+         needwqt = .false.
+      elseif (no_trk) then
+C        --Using a luanch mode that is not cued from a track
+         needwqt = .false.
+      else
+         needwqt = .not.wpnqual
+      endif
+400   continue
+C
+C     --FIRING LOGIC:
+      lfire =
+     1 .not.(needid.or.satur.or.lfrat.or.lfrnd.or.lbeam.or.needwqt)
+     2 .and.(pbinrg.or.(worse.and..not.tgleav))
+      if(lfire)then
+         rsfail = ' '
+      else
+         if(needid)then
+            rsfail = 'NEED ID'
+         elseif(satur)then
+            rsfail = 'MXTGT_AC LIMIT'
+         elseif(lfrat)then
+            rsfail = 'FRATRICIDE RISK'
+         elseif(lfrnd)then
+            rsfail = 'FRND HAS BETTER SHOT'
+         elseif(lbeam)then
+            rsfail = 'TGT TOO NEAR BEAM'
+         elseif(.not.(pbinrg.or.(worse.and..not.tgleav)))then
+            rsfail = 'FAILED ENV LOGIC'
+         elseif (needwqt) then
+            rsfail = 'NO WEAPON QUAL TRK'
+         else
+            call nabort('SHLDFRM..unknown failure reason')
+         endif
+      endif
+      */
+      
+      // ONLY Checking target stauration and track quality for now
+      if (PLATFORM.WeaponsActiveFor(target.TrackId()) >= mTargetSaturation)
+      {
+         //lfire = true;
+         writeln_d("   ", PLATFORM.Name(), " shouldn't fire ", target.TargetName(), " saturated");
+         failMsg = "MXTGT_AC LIMIT";
+         return false;  
+      }
+      if (target.TrackQuality() < mRequiredTrackQuality)
+      {
+         failMsg = "NO WEAPON QUAL TRK";
+         return false;
+      } 
+     
+      return true;
+   end_script
+   
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition weapon_decision_missile, T=", TIME_NOW);
+      
+      ### Evaluate conditions that would prevent behavior alternative from running
+      
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      // aslct7.f line 123 - 132
+#      --CHECK IF TARGET SELECTED
+#      if (ppmiac .eq. 0 .and. .not.dewvmsl)then
+#         rsfail = 'NO TARGET SELECTED'
+#         goto 800
+#      endif
+#      --CHECK IF WEAPON SELECTED
+#      if (ppmptr .eq. 0)then
+#         rsfail = 'NO WEAPON SELECTED'
+#         goto 800
+#      endif
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         return Failure("no tasks");
+      }
+      // Assuming 1v1 and first and only task is the one we want
+      WsfTrack targetTrack = PLATFORM.MasterTrackList().FindTrack(tasks.Entry(0).LocalTrackId()); 
+      if(tasks.Count() <= 0 || targetTrack.IsNull() || !targetTrack.IsValid())
+      {
+         writeln_d("   ", PLATFORM.Name(), " no target selected at time: ", TIME_NOW);
+         return Failure("no target selected");
+      }
+      // Weapon selection done in selwpn.f (called from aslct2.f) 
+      // checks weapon inventory. Use a similar check here as a replacement
+      if (!PLATFORM.Weapon("srm").IsValid() || PLATFORM.Weapon("srm").QuantityRemaining() <= 0)
+      {
+         writeln_d("   ", PLATFORM.Name(), " no weapon selected at time: ", TIME_NOW);
+         return Failure("no weapon selected");
+      }
+
+      // aslct7() calls canfir(). 
+      // canfir.f checks production rules and GCI inhibit
+      // just doing a simple flag for now
+      if (!mAlternative7311Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+      
+      //canfir.f calls canfirm()
+      string msg = "";
+      if (!canfirm(targetTrack, msg))
+      {
+         writeln_d("   ", PLATFORM.Name(), " couldn't fire at time: ", TIME_NOW, " ", msg);
+         return Failure(msg);         
+      }
+      
+      // aslct7 line 199 - 205 
+      // if undamaged calls shldfr().
+      // if we are damaged skip checks and fire now
+      if (PLATFORM.DamageFactor() <= 0.0)
+      {
+         // shldfr.f just calls the specific weapon type
+         if (!shldfrm(targetTrack, msg))
+         {
+            writeln_d("   ", PLATFORM.Name(), " shouldn't fire at time: ", TIME_NOW, " ", msg);
+            return Failure(msg);            
+         }
+      }
+
+      // aslct7 creates and alternative to evaluate.
+      // The alternative has no projection and always 
+      // evaluates to 1, so skip that processing  
+ 
+      // All conditions pass, weapon can fire
+      return true;
+   end_precondition
+
+   execute
+      // Replicates akshn7.f
+      // We don't need to do all the bookeeping that BRAWLER
+      // does. Just launch the weapon.
+      
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      // Assuming 1v1 and first and only task is the one we want
+      WsfTrack targetTrack = PLATFORM.MasterTrackList().FindTrack(tasks.Entry(0).LocalTrackId()); 
+      
+      //Assuming weapon name, checked in precondition
+      WsfWeapon weapon = PLATFORM.Weapon("srm");
+      bool launched = weapon.FireSalvo(targetTrack, 1); // Always firing one for now
+      if (!launched)
+      {
+         writeln_d("   ", PLATFORM.Name(), " could NOT fire at track: ", targetTrack.TargetName(), " at time: ", TIME_NOW);
+      }
+   end_execute
+
+end_behavior
+

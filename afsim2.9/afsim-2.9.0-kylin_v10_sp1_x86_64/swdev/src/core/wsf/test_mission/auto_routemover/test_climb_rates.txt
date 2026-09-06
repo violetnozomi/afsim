@@ -1,0 +1,67 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Climb rate is determined in the following way:
+# 1. If defined in waypoint, use min(waypoint climb rate, max climb rate)
+# 2. Else If maximum is defined, use maximum
+# 3. Else compute a climb rate based on distance
+
+platform_type plat_type WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      update_interval 1.0 s
+   end_mover
+   route
+      position 0n 0e altitude 0 m heading 0 deg speed 100 m/s
+      offset 10000 0 m altitude 1000 m
+         climb_rate 70.7107 m/s
+      offset 10000 0 m altitude 0 m
+   end_route
+   script void CheckPitch(double pitch, string msg)
+      double pitchError = MATH.Fabs(pitch - Pitch());
+      if (pitchError > .02)
+      {
+         writeln("-FAIL- ", msg);
+         writeln("   good=", pitch, "\treal=", Pitch());
+      }
+   end_script
+end_platform_type
+
+platform compute_tester plat_type
+   execute at_time 5 sec absolute
+      CheckPitch(MATH.ATan(.1), "Computed path");
+   end_execute
+   execute at_time 1.85 min absolute
+      CheckPitch(-MATH.ATan(1), "resumed default climb rate");
+   end_execute
+end_platform
+
+platform max_tester plat_type
+   maximum_climb_rate 70.7107 m/s
+   execute at_time 5 sec absolute
+      CheckPitch(MATH.ATan(1), "maximum_climb_rate");
+      DeletePlatform();
+   end_execute
+end_platform
+
+platform wpt_tester plat_type
+   maximum_climb_rate 700 m/s
+   route
+      position 0n 0e altitude 0 m heading 0 deg speed 100 m/s
+         climb_rate 70.7107 m/s
+      offset 10000 0 m altitude 1000 m
+   end_route
+
+   execute at_time 5 sec absolute
+      CheckPitch(MATH.ATan(1), "waypoint climb_rate");
+      DeletePlatform();
+   end_execute
+end_platform
+
+end_time 2 min
+

@@ -1,0 +1,179 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jul 1 2020
+start_time 12:00:00.000
+end_time 10 min
+
+include_once utils.txt
+
+include_once platforms/grid_template_platform.txt
+include_once platforms/leo_sat.txt
+
+platform bystander LEO_SAT
+   edit mover
+      true_anomaly 1 deg
+   end_mover
+end_platform
+
+platform leo LEO_SAT
+end_platform
+
+platform ground_1 TEST_GRID_PLATFORM
+   position 0n 90w
+   altitude 1 m 
+end_platform
+
+platform ground_2 TEST_GRID_PLATFORM
+   position 0:10:00.000n 90w
+   altitude 1 m
+end_platform
+
+grid test_grid WSF_EXISTING_PLATFORM_GRID
+   platform ground_1 none
+   platform ground_2 none
+end_grid
+
+coverage cov WSF_SENSOR_COVERAGE
+   grid test_grid
+   assets
+      platform leo camera
+   end_assets
+   output_dir existinggrid
+   raw_data_file intervals.csv
+   moe sc WSF_SIMPLE_COVERAGE_MOE
+      output data
+      end_output
+      
+      output grid_stats
+      end_output
+   end_moe
+end_coverage
+
+script_variables
+   int gExpectedGridPointCount     = 2;
+   int gExpectedRawDataLineCount   = 2;
+   int gExpectedGridStatsLineCount = 1;
+   
+   bool gBystanderToGround1 = false;
+   bool gBystanderToGround2 = false;
+   bool gGround1ToBystander = false;
+   bool gGround2ToBystander = false;
+end_script_variables
+
+script void RawIntervalsTestAction(string aId,
+                                   string aGridDevice,
+                                   string aFreeAsset,
+                                   string aFreeDevice,
+                                   string aStartEpoch,
+                                   string aEndEpoch,
+                                   string aStartTime,
+                                   string aEndTime,
+                                   string aDuration)
+   ExpectString(aGridDevice, "none", "Grid asset device");
+   ExpectString(aFreeAsset, "leo", "Free asset name");
+   ExpectString(aFreeDevice, "camera", "Free asset device");
+end_script
+
+script void MOE_DataTestAction(string aLatitude,
+                               string aLongitude,
+                               string aAltitude,
+                               string aID,
+                               string aValue)
+   ExpectDouble((double)aValue, 1.0, 1.0e-6, "Simple coverage value");
+end_script
+
+script void GridStatsTestAction(string aMinValue,
+                                string aMaxValue,
+                                string aMeanValue,
+                                string aCount)
+   ExpectDouble((double)aMinValue, 1.0, 1.0e-10, "Min value grid stats");
+   ExpectDouble((double)aMaxValue, 1.0, 1.0e-10, "Max value grid stats");
+   ExpectDouble((double)aMeanValue, 1.0, 1.0e-6, "Mean value grid stats");
+   ExpectInt((int)aCount, gExpectedGridPointCount, "Count grid stats");
+end_script
+
+script void RunTests()
+   Path path = Path.GetWorkingDirectory();
+   path.Join("existinggrid");
+   
+   path.Join("intervals.csv");
+   CheckDataFile(path, "Raw data file", "RawIntervalsTestAction", gExpectedRawDataLineCount); 
+   path.Up();
+   
+   path.Join("cov_sc_data.csv");
+   CheckDataFile(path, "MOE data", "MOE_DataTestAction", gExpectedGridPointCount);
+   path.Up();
+   
+   path.Join("cov_sc_grid_stats.csv");
+   CheckDataFile(path, "MOE grid stats", "GridStatsTestAction", gExpectedGridStatsLineCount);
+   path.Up();
+   
+   if (!gBystanderToGround1 || !gBystanderToGround2)
+   {
+      writeln("-FAIL- Bystander failed to detect the ground sites");
+      gAllPassed = false;
+   }
+   if (!gGround1ToBystander || !gGround2ToBystander)
+   {
+      writeln("-FAIL- Ground sites failed to detect the bystander");
+      gAllPassed = false;
+   }
+   
+   FinalAssessment();
+   
+   RemoveCoverageOutputDir(path);
+end_script
+
+# Check also that interactions between non assets and assets are not filtered
+# as is expected for the WSF_EXISTING_PLATFORM_GRID
+script void CheckDetections(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+   if (aPlatform.Name() == "bystander")
+   {
+      WsfPlatform targetPlat = aTrack.Target();
+      if (targetPlat.IsValid())
+      {
+         if (targetPlat.Name() == "ground_1")
+         {
+            gBystanderToGround1 = true;
+         }
+         else if (targetPlat.Name() == "ground_2")
+         {
+            gBystanderToGround2 = true;
+         }
+      }
+   }
+   else if (aPlatform.Name() == "ground_1")
+   {
+      WsfPlatform targetPlat = aTrack.Target();
+      if (targetPlat.IsValid())
+      {
+         if (targetPlat.Name() == "bystander")
+         {
+            gGround1ToBystander = true;
+         }
+      }
+   }
+   else if (aPlatform.Name() == "ground_2")
+   {
+      WsfPlatform targetPlat = aTrack.Target();
+      if (targetPlat.IsValid())
+      {
+         if (targetPlat.Name() == "bystander")
+         {
+            gGround2ToBystander = true;
+         }
+      }
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE RunTests
+   enable SENSOR_TRACK_INITIATED CheckDetections
+end_observer

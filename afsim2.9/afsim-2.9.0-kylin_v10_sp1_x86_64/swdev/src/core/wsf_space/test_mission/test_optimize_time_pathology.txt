@@ -1,0 +1,77 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# The following rendezvous maneuver with time optimization was a pathological
+# case for an earlier implementation of the time optimization targeting routine.
+# The old optimization would fail to find a solution for this case, but the
+# new implementation does find a solution.
+# ****************************************************************************
+
+start_date jan 20 2021
+start_time 17:00:00.000
+end_time 6 hr
+
+include_once utils.txt
+
+platform test WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.0
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      inclination 15 deg
+      revolutions_per_day 12
+      mission_sequence
+         maneuver rendezvous
+            execute_at relative_time 2 hours
+            optimize_time
+            maximum_delta_v 1 km/s
+            maximum_time 4 hr
+            tolerance 1e-09
+            target
+               platform offset
+            end_target
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+platform offset WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.0
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      inclination 15 deg
+      revolutions_per_day 12.003333333333333333
+   end_mover
+end_platform
+
+script_variables
+   int gManeuverCount = 0;
+end_script_variables
+
+script void CountCompletion(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   ExpectString(aPlatform.Name(), "test", "The only platform that maneuvers should be 'test'");
+   if (aManeuver.ManeuverType() == "RENDEZVOUS")
+   {
+      gManeuverCount += 1;
+   }
+end_script
+
+script void FinalTests()
+   ExpectInt(gManeuverCount, 1, "'test' should have exactly one rendezvous maneuver");
+end_script
+
+execute at_time 0.01 s absolute
+   SetFinalTestMethodName("FinalTests");
+end_execute
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED CountCompletion
+end_observer

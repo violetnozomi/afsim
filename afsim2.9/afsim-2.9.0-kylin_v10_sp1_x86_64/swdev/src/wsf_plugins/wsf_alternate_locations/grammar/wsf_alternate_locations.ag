@@ -1,0 +1,48 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+(rule altloc_alt_head-command {
+   altitude <Length> <agl-or-msl>? 
+ | heading <Angle>
+})
+
+(rule altloc_optional-command {
+   <altloc_alt_head-command>
+ | weight <real>
+})
+
+(rule altloc_loc-command {
+   location <Latitude> <Longitude> <altloc_optional-command>*
+})
+
+(rule altlocs-command {
+   debug <Bool>
+ | reference (typeref platform)
+ | <altloc_loc-command>
+ | offset_lla <Latitude> <Longitude> <altloc_alt_head-command>*
+ | offset_ara <Angle> <Length> <altloc_alt_head-command>*
+})
+
+(struct Platform {  
+   alternate_locations <altlocs-command>* end_alternate_locations
+})
+
+(struct PlatformType {
+   alternate_locations <altlocs-command>* end_alternate_locations
+})
+
+(struct root {
+   alternate_locations_global_debug <Bool> 
+ | alternate_locations_global_draw <real>
+ | alternate_locations_use_global_draw <Bool>
+})
+
+(rule event_output-event-type {
+   ALTERNATE_LOCATIONS_INITIALIZED
+})

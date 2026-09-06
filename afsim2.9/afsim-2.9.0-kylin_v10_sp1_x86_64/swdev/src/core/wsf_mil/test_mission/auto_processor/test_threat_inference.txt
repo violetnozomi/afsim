@@ -1,0 +1,364 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+####################################################################################
+#
+# Some simple tests for a Threat Inference Engine (TIE) and the rules-based
+# classifier.  It has a single ownship, and two potential
+# threat/tracks.  After it has two tracks, it runs the TIE
+# and prints the results.
+#
+####################################################################################
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+//define_path_variable CASE tim_test_out
+//log_file output/$(CASE).log
+
+#event_pipe
+#   file test_threat_inference.aer
+#end_event_pipe
+
+////include_once FilterTestTypes.txt
+
+include_once tim_pk_tables_input.txt
+
+script_variables
+   bool mThreatInferenceTest1Pass = false;
+end_script_variables
+
+/** Invoke all the methods.
+**/
+script void Print(WsfThreatReport threatReport)
+
+   WsfTrackId trackId = threatReport.TrackId();
+   //int entityTypeId = threatReport.EntityTypeId();
+   //int weaponTypeId = threatReport.WeaponTypeId();
+   string entityType = threatReport.EntityType();
+   string weaponType = threatReport.WeaponType();
+   double probabilityEnityType = threatReport.ProbabilityEnityType();
+   double probabilityKillAtT0 = threatReport.ProbabilityKillAtT0();
+   double probabilityThreatAtT0 = threatReport.ProbabilityThreatAtT0();
+   double timeOfProbabilityThreatMax = threatReport.TimeOfProbabilityThreatMax();
+   double probabilityKillMax = threatReport.ProbabilityKillMax();
+   double probabilityThreatMax = threatReport.ProbabilityThreatMax();
+   double probabilityOfDetection = threatReport.ProbabilityOfDetection();
+   double probabilityWeaponType = threatReport.ProbabilityWeaponType();
+
+   writeln("");
+   writeln("ThreatReport fields:");
+   writeln("  TrackId                        = ", trackId);
+   //writeln("  EntityTypeId                   = ", entityTypeId);
+   //writeln("  WeaponTypeId                   = ", weaponTypeId);
+   writeln("  EntityType                     = ", entityType);
+   writeln("  WeaponType                     = ", weaponType);
+   writeln("  ProbabilityEnityType           = ", probabilityEnityType);
+   writeln("  ProbabilityKillAtT0            = ", probabilityKillAtT0);
+   writeln("  ProbabilityThreatAtT0          = ", probabilityThreatAtT0);
+   writeln("  TimeOfProbabilityThreatMax     = ", timeOfProbabilityThreatMax);
+   writeln("  ProbabilityKillMax             = ", probabilityKillMax);
+   writeln("  ProbabilityThreatMax           = ", probabilityThreatMax);
+   writeln("  ProbabilityOfDetection         = ", probabilityOfDetection);
+   writeln("  ProbabilityWeaponType          = ", probabilityWeaponType);
+
+end_script
+
+platform_type   OWNSHIP_PLAT_W_TIE    WSF_PLATFORM
+
+   mover WSF_AIR_MOVER
+      default_radial_acceleration 2.0 g
+   #   at_end_of_path remove
+   end_mover
+
+   processor track_proc WSF_TRACK_PROCESSOR
+      purge_interval 60 seconds
+   end_processor
+
+   sensor geo1 WSF_GEOMETRIC_SENSOR
+      on
+      frame_time 5 s
+      //minimum_range 0 km
+      //maximum_range 20 km
+
+      reports_location
+      reports_velocity
+      reports_iff
+
+      track_quality 1.0
+
+      internal_link track_proc
+   end_sensor
+
+   processor my_classifier WSF_TRACK_CLASSIFIER
+      debug
+      test
+      //! Set the mis-identification rules
+      classifier                    rules
+         identification_table
+             entity
+               type J10
+               pcid 0.8
+               misclass    J11 4    J02 1
+               end_misclass
+             end_entity
+             entity
+               type J11
+               pcid 0.9
+               misclass    J10 2    J02 1
+               end_misclass
+             end_entity
+             entity
+               type J12
+               pcid 1.0
+               misclass    J10 2    J02 2
+               end_misclass
+             end_entity
+         end_identification_table
+      end_classifier
+   end_processor
+
+   processor my_threat_processor WSF_WEAPON_THREAT_PROCESSOR
+
+      track_classifier      my_classifier
+
+      weapons_types_table
+
+         weapon_type
+            // These weapon types do NOT have to correspond to weapons in the
+            // scenario, they only need to be listed lower below.
+            type_name            W1
+            launch_pk            0.5
+            pk_spherical
+               range             8E6 m
+               pk_min            0.3
+               pk_max            0.8
+            end_pk_spherical
+         end_weapon_type
+
+         weapon_type
+            type_name            W2
+            launch_pk            0.5
+
+            pk_spherical
+               range             2015 m
+               pk_min            0.3
+               pk_max            0.8
+            end_pk_spherical
+
+         end_weapon_type
+
+         weapon_type
+            type_name            Wx
+            launch_pk            0.5
+
+            pk_table
+               table_name        TIM_PK_TABLE_W2
+            end_pk_table
+
+         end_weapon_type
+
+         weapon_type
+            type_name            W3
+            launch_pk            0.5
+
+            pk_table
+               table_name        TIM_PK_TABLE_W2
+            end_pk_table
+
+         end_weapon_type
+
+      end_weapons_types_table
+
+      weapons_load_table
+         entity_load
+            entity_type   J10
+            weapons       W1 0.9    W2 0.8
+            end_weapons
+         end_entity_load
+
+         entity_load
+            entity_type   J11
+            weapons       W2 0.7    W3 0.5
+            end_weapons
+         end_entity_load
+      end_weapons_load_table
+
+      pk_maximizer
+         type              pure_pursuit
+         step_distance     20 m
+         step_count        100
+      end_pk_maximizer
+
+   end_processor
+
+end_platform_type
+
+platform   ownship_platform  OWNSHIP_PLAT_W_TIE
+   side blue
+   commander SELF
+
+   icon weasel
+
+   heading 0 deg
+   route
+      //38.93391944, 90.42375833
+      position 38:56:02.11n 90:25:25.53w altitude 1000.00 ft speed 100 kts
+      position 38:56:58.79n 90:25:25.11w altitude 1000.00 ft
+   end_route
+
+   edit processor track_proc
+      internal_link   my_classifier
+      internal_link   my_threat_processor
+   end_processor
+
+   add processor  my_processor  WSF_SCRIPT_PROCESSOR
+
+         update_interval 1.0 seconds
+
+         script_variables
+            bool ranTest = false;
+         end_script_variables
+
+         on_initialize
+         end_on_initialize
+
+         on_update
+            if (ranTest) return;
+
+            //writeln(PLATFORM.Name(),
+            //       ":MyProcessor: TODO Query  threatEvaluator.  Time @",
+            //       TIME_NOW, "!");
+            WsfLocalTrackList MasterTrackList = PLATFORM.MasterTrackList();
+            //WsfTrackList MasterRawTrackList = PLATFORM.MasterRawTrackList();
+            //writeln(PLATFORM.Name(), " Local Track size = ", MasterTrackList.Count());
+            //writeln(PLATFORM.Name(), " Raw Track size = ", MasterRawTrackList.Count());
+
+            if (MasterTrackList.Count() < 2) return;
+
+            //WSF_WEAPON_THREAT_PROCESSOR
+            WsfWeaponThreatProcessor threatProcessor = (WsfWeaponThreatProcessor)PLATFORM.Processor("my_threat_processor");
+            if (threatProcessor.IsNull())
+            {
+               writeln("WARNING: No 'threatEvaluator' on platform!");
+               return;
+            }
+            else
+            {
+               writeln("@@ Successfully accessed 'threatEvaluator' !!!!");
+            }
+
+            writeln("@@ Invoking 'threatEvaluator' and sorting by 'ProbabilityKillAtT0'.  Num tracks = ", MasterTrackList.Count());
+
+            threatProcessor.QueryDurationSec(60.0);
+            int ReportCount;
+            ReportCount = threatProcessor.RunQuerySortProbabilityKillAtT0();
+            //ReportCount = threatProcessor.RunQuerySortProbabilityThreatAtT0();
+            //ReportCount = threatProcessor.RunQuerySortProbabilityKillMax();
+            //ReportCount = threatProcessor.RunQuerySortProbabilityThreatMax();
+            ////threatEvaluator.TrackQuery(-1);
+
+            for (int i = 0; i < threatProcessor.ReportCount(); i = i+1)
+            {
+               WsfThreatReport threatReport = threatProcessor.ThreatReport(i);
+               Print(threatReport);
+               WsfTrack threat = PLATFORM.MasterTrackList().Find(threatReport.TrackId());
+               if (threat.IsValid())
+               {
+                  writeln("  Truth target name              = ", threat.TargetName());
+               }
+            }
+            writeln("");
+
+            writeln("@@ Invoked 'threatEvaluator'.");
+            ranTest = true;
+            mThreatInferenceTest1Pass = true;
+      end_on_update
+   end_processor
+
+end_platform
+
+//--------------------------------------------------------
+//---- Threats
+//--------------------------------------------------------
+platform_type   J10     WSF_PLATFORM
+
+   icon weasel
+
+  #infrared_signature FIGHTER_INFRARED_SIG
+  #optical_signature  FIGHTER_OPTICAL_SIG
+  #radar_signature    FIGHTER_RADAR_SIG
+
+   mover WSF_AIR_MOVER
+      default_radial_acceleration 2.0 g
+#    at_end_of_path remove
+   end_mover
+
+end_platform_type
+
+platform_type   J11     WSF_PLATFORM
+
+  icon weasel
+
+  #infrared_signature FIGHTER_INFRARED_SIG
+  #optical_signature  FIGHTER_OPTICAL_SIG
+  #radar_signature    FIGHTER_RADAR_SIG
+
+  mover WSF_AIR_MOVER
+    default_radial_acceleration 2.0 g
+#    at_end_of_path remove
+  end_mover
+
+end_platform_type
+
+
+platform truth_J10 J10
+
+   side red
+   commander SELF
+
+   heading 0 deg
+   route
+     position 38:56:27.10n 90:25:12.04w altitude 1000.00 ft speed 100 kts
+     position 38:57:22.65n 90:25:11.16w altitude 1000.00 ft speed 100 kts
+   end_route
+
+end_platform
+
+/*
+*/
+platform truth_J11 J11
+
+   side red
+   commander SELF
+
+   heading 90 deg
+   route
+     position 38:56:26.16n 90:26:46.25w altitude 1000.00 ft speed 100 kts
+     position 38.9406N 90.4017W altitude 1000 ft speed 100 kts
+   end_route
+
+end_platform
+
+script void SimulationComplete()
+  if (mThreatInferenceTest1Pass)
+  {
+     writeln("-PASS-");
+  }
+  else
+  {
+     //writeln("-FAIL- attempts=", gAttempts, " failures=", gFailures);
+     writeln("-FAIL- ");
+  }
+end_script
+
+observer
+   //enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer

@@ -1,0 +1,133 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool disabledTrack1 = false;
+   bool disabledTrack2 = false;
+   bool enabledTrack1 = false;
+   bool enabledTrack2 = false;
+end_script_variables
+
+sensor GEO WSF_GEOMETRIC_SENSOR
+   mode_template
+     track_quality               1.0
+     frame_time                  1.0 sec
+   end_mode_template
+
+   mode Disabled end_mode
+
+   mode Enabled
+      enable_moon_los_block true
+   end_mode
+end_sensor
+
+platform sensor_plat WSF_PLATFORM
+   add sensor enabled GEO
+      on
+      initial_mode Enabled
+   end_sensor
+   add sensor disabled GEO
+      on
+      initial_mode Disabled
+   end_sensor
+end_platform
+
+platform moon_blocked WSF_PLATFORM
+   on_initialize2 
+      Vec3 sensorLoc = WsfSimulation.FindPlatform("sensor_plat").LocationECI();
+      PLATFORM.SetLocationECI(GetMoonEdge(sensorLoc, -.1));
+   end_on_initialize2
+end_platform
+
+platform moon_unblocked WSF_PLATFORM
+   on_initialize2 
+      Vec3 sensorLoc = WsfSimulation.FindPlatform("sensor_plat").LocationECI();
+      PLATFORM.SetLocationECI(GetMoonEdge(sensorLoc, .1));
+   end_on_initialize2
+end_platform
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+end_observer
+
+execute at_time 5 seconds absolute
+   extern bool enabledTrack1;
+   extern bool enabledTrack2;
+   extern bool disabledTrack1;
+   extern bool disabledTrack2;
+
+   if(enabledTrack1)
+   {
+      writeln("-FAIL- moon_blocked should be blocked by moon los blockage");
+   }
+   else if(!enabledTrack2)
+   {
+      writeln("-FAIL- moon_unblocked should not be blocked by moon los blockage");
+   }
+   else if(!disabledTrack1)
+   {
+      writeln("-FAIL- moon_blocked should not be blocked if there is no moon los blockage");
+   }
+   else if(!disabledTrack2)
+   {
+      writeln("-FAIL- moon_unblocked should not be blocked if there is no moon los blockage");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+
+# Verifies that detections occur at the right ranges
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   extern bool enabledTrack1;
+   extern bool enabledTrack2;
+   extern bool disabledTrack1;
+   extern bool disabledTrack2;
+
+   if (aResult.Detected())
+   {
+      if (aTarget.Name() == "moon_blocked" && aSensor.Name() == "enabled")
+      {
+         enabledTrack1 = true;
+      }
+      if (aTarget.Name() == "moon_unblocked" && aSensor.Name() == "enabled")
+      {
+         enabledTrack2 = true;
+      }
+      if (aTarget.Name() == "moon_blocked" && aSensor.Name() == "disabled")
+      {
+         disabledTrack1 = true;
+      }
+      if (aTarget.Name() == "moon_unblocked" && aSensor.Name() == "disabled")
+      {
+         disabledTrack2 = true;
+      }
+   }
+end_script
+
+// Find a suitable target location for a given lunar exclusion angle and platform location.
+script Vec3 GetMoonEdge(Vec3        aSourceLoc,
+                        double      aAngleOffset)
+   Vec3 moonLoc = Moon.LocationECI(WsfDateTime.CurrentTime());
+   Vec3 pm = Vec3.Subtract(moonLoc, aSourceLoc);
+   Vec3 perp = Vec3.Cross(aSourceLoc, moonLoc);
+   Vec3 targetVec = Vec3.Cross(perp, pm);
+   targetVec.Normalize();
+   Vec3 bodyVec = Vec3.Subtract(moonLoc, aSourceLoc);
+   double halfApparentSize = Math.ASin(Moon.MEAN_RADIUS() / bodyVec.Magnitude());
+   double targetVecLength = pm.Magnitude() * Math.Tan(aAngleOffset + halfApparentSize);
+   targetVec.Scale(targetVecLength);
+   Vec3 targetLoc = Vec3.Add(moonLoc, targetVec);
+   return targetLoc; 
+end_script
+
+end_time 10 seconds
+

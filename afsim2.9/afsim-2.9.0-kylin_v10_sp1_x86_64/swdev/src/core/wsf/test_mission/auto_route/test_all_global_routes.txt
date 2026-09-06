@@ -1,0 +1,46 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests that the WsfRoutes.GlobalRoutes() function returns an appropriate array of strings.
+
+include ../auto_script/test_functions.txt
+include ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 3;
+end_script_variables
+
+route A
+end_route
+
+route B
+end_route
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform a TEST_PLATFORM
+   route 
+   end_route
+end_platform
+
+platform b TEST_PLATFORM
+   use_route B
+end_platform
+
+on_initialize
+   Array<string> globalRoutes = WsfRoute.GlobalRoutes();
+   globalRoutes.Sort(true);
+
+   if (AssertEqualsMessage(2,   globalRoutes.Size(),  "Unexpected number of global routes")) { pass(); }
+   if (AssertEqualsMessage("A", globalRoutes.Front(), "Unexpected global route 1"))          { pass(); }
+   if (AssertEqualsMessage("B", globalRoutes.Back(),  "Unexpected global route 2"))          { pass(); }       
+end_on_initialize

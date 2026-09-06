@@ -1,0 +1,84 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform_type SPACE_SHUTTLE WSF_PLATFORM
+   icon Space_Shuttle
+
+   mover WSF_TSPI_MOVER
+      heading in degrees
+      pitch in degrees
+      roll in degrees
+      altitude in feet
+      speed in ft/s
+   end_mover
+
+end_platform_type
+
+platform discovery-tal SPACE_SHUTTLE // Transatlantic Abort Scenario
+   edit mover
+      TSPI_filename ./tspi/DATA_TAL.txt
+   end_mover
+end_platform
+
+platform discovery-rtls SPACE_SHUTTLE  // Return To Launch Site Scenario
+   edit mover
+      TSPI_filename ./tspi/DATA_RTLS.txt
+   end_mover
+end_platform
+
+platform discovery-ecal SPACE_SHUTTLE  // East Coast Abort Landing Scenario
+   edit mover
+      TSPI_filename ./tspi/DATA_ECAL.txt
+   end_mover
+end_platform
+
+platform discovery-nom SPACE_SHUTTLE  // NOMinal Ascent Scenario
+   edit mover
+      TSPI_filename ./tspi/DATA_NOM.txt
+   end_mover
+
+   execute at_time 79.76008 s absolute
+	  if (PLATFORM.Latitude() == 28.69666 && PLATFORM.Longitude() == -80.51110)
+	  {
+		writeln("-PASS-");
+	  }
+	  else
+	  {
+		writeln("-FAIL-");
+	  }
+   end_execute
+
+   execute at_time 92.88009 s absolute
+	  if (PLATFORM.Latitude() == 28.74950 && PLATFORM.Longitude() == -80.45565)
+	  {
+		writeln("-PASS-");
+	  }
+	  else
+	  {
+		writeln("-FAIL-");
+	  }
+   end_execute
+
+end_platform
+
+
+
+###############################################################################
+#               Define simulation control and information objects
+###############################################################################
+
+
+platform_availability
+   name discovery-rtls availability 1.0
+   name discovery-nom availability 1.0
+   name discovery-ecal availability 1.0
+   name discovery-tal availability 1.0
+end_platform_availability
+
+end_time 4000 sec

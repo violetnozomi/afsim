@@ -1,0 +1,39 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform p WSF_PLATFORM
+   icon 737
+   add mover WSF_AIR_MOVER
+      at_end_of_path remove
+      print_route on
+   end_mover
+   route
+      position 0n 0e
+         speed 400 kts
+         radial_acceleration 0.0001 g
+      position 0.1n 0e
+         radial_acceleration 0.001 g
+      position 0.2n 0e
+         radial_acceleration 0.01 g
+      position 0.3n 0e
+         radial_acceleration 0.1 g
+      position 0.3n 1e
+         radial_acceleration 1.0 g
+   end_route
+
+   script void on_platform_deleted()
+      if (MATH.Fabs(TIME_NOW - 889.923) > 5)
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+
+end_platform
+
+end_time 1 h

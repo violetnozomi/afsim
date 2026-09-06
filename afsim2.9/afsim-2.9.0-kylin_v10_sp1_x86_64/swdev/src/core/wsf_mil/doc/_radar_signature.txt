@@ -1,0 +1,72 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Bistatic Signature
+==================
+
+.. command:: bistatic_signature ... end_bistatic_signature
+   :block:
+
+   Defines a bistatic radar signature for a platform type. This signature is used for bistatic interactions (i.e. interactions involving a transmitter and receiver not colocated). This input block is defined within the radar_signature block and defines a separate table to be used for bistatic interactions RCS lookups.
+
+   .. note::
+      If a 'bistatic_signature' is defined then the bistatic signature will override the use_bisector_for_bistatic command.
+
+   .. note::
+      If a 'radar_signature' is not defined and a 'bistatic_signature' is then the bistatic signature will be used for monostatic interactions also with the same receive and transmit angles used for lookups.
+
+   .. parsed-literal::
+
+    ...
+       bistatic_signature
+          interpolate_transmitter_angles_ <boolean-value>
+          transmitter_angles_interpolation_type_ [ linear | logarithmic ]
+          state_ <state-name> | default
+             polarization_ [ horizontal | vertical | left_circular | right_circular | default ]
+                frequency_limit_ <frequency-value>
+                   azimuth_ <angle-value>
+                      elevation_ <angle-value>
+                         ... :ref:`Azimuth-elevation_Table_Definition` ...
+                      elevation_ ...
+                   azimuth_ ...
+                frequency_limit_ ...
+
+             polarization_ ...
+
+             azimuth_ <angle-value>
+                elevation_ <angle-value>
+                   plt_file_ <file-name> ...
+                elevation_ ...
+             azimuth_ <angle-value> ...
+
+          state_ ...
+       end_bistatic_signature
+    ...
+
+   .. command:: interpolate_transmitter_angles  <boolean-value>
+
+      Specifies whether or not to interpolate between the tables for the specified target->transmitter angles. If 'false' then the next lower azimuth/elevation angle table is used for the given target->transmitter azimuth/elevation pair.
+
+      **Default**  false
+
+   .. command:: transmitter_angles_interpolation_type <linear | logarithmic>
+
+      Specifies whether to use linear or logarithmic interpolation when interpolating target->transmitter angles.
+
+      **Default** linear
+
+   .. command:: azimuth
+
+      Specifies the **minimum** target->transmitter azimuth angle, between [-180.0, 180.0] degrees, for the entered table. Must specify at least two monotonically increasing angles with tables. Tables are a function of the target->receiver angles.
+
+   .. command:: elevation
+
+      Specifies the **minimum** target->transmitter elevation angle, between [-90.0, 90.0] degrees, for the entered table. Must specify at least two monotonically increasing angles. Tables are a function of the target->receiver azimuth/elevation angles.
+
+.. end::

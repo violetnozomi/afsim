@@ -1,0 +1,224 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2019 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jun 21 2019
+start_time 15:54:00
+end_time 1 hour
+
+platform_type FRAGMENT WSF_PLATFORM
+   icon wedge
+   mover WSF_SPACE_MOVER
+      oblate_earth enable
+   end_mover
+   
+   # Remove the debris shortly after generation to keep test fast.
+   execute at_time 30 s relative
+      WsfSimulation.DeletePlatform(PLATFORM.Name());
+   end_execute
+end_platform_type
+
+platform_type SATELLITE WSF_PLATFORM
+   icon satellite
+   mover WSF_SPACE_MOVER
+      raan 0 deg
+      revs_per_day 12.0
+      eccentricity 0.0
+      argument_of_periapsis 0 deg
+   end_mover
+end_platform_type
+
+platform exploder SATELLITE
+   edit mover
+      inclination 0 deg
+      true_anomaly 20 deg
+   end_mover
+end_platform
+
+platform cat_target SATELLITE
+   edit mover
+      inclination 0 deg
+      true_anomaly 350 deg
+   end_mover
+end_platform
+
+platform cat_impactor SATELLITE
+   edit mover
+      inclination 50 deg
+      true_anomaly 350 deg
+   end_mover
+end_platform
+
+platform noncat_target SATELLITE
+   edit mover
+      inclination 0 deg
+      true_anomaly 340 deg
+   end_mover
+end_platform
+
+platform noncat_impactor SATELLITE
+   edit mover
+      inclination 3 deg
+      true_anomaly 340 deg
+   end_mover
+end_platform
+
+# A number of utility methods for the tests here.
+script void RequireExists(string aPlatformName)
+   WsfPlatform platform = WsfSimulation.FindPlatform(aPlatformName);
+   if (!platform.IsValid())
+   {
+      writeln("-FAIL- Platform '", aPlatformName, "' does not exist at time ", TIME_NOW, " but is expected to exist.");
+   }
+end_script
+
+script void RequireNotExists(string aPlatformName)
+   WsfPlatform platform = WsfSimulation.FindPlatform(aPlatformName);
+   if (platform.IsValid())
+   {
+      writeln("-FAIL- Platform '", aPlatformName, "' exists at time ", TIME_NOW, " but is not expected to exist.");
+   }
+end_script
+
+script void RequireDoubleEqual(double aValue, double aExpected, double aTolerance, string aMessage)
+   if (MATH.Fabs(aValue - aExpected) > aTolerance)
+   {
+      writeln("-FAIL- Value ", aValue, " is not equal to ", aExpected, " (with tolerance of ", aTolerance, "). ", aMessage);
+   }
+end_script
+
+script void RequireBoolEqual(bool aValue, bool aExpected, string aMessage)
+   if (aValue != aExpected)
+   {
+      writeln("-FAIL- Value ", aValue, " is not equal to ", aExpected, ". ", aMessage);
+   }
+end_script
+
+script void RequireStringEqual(string aValue, string aExpected, string aMessage)
+   if (aValue != aExpected)
+   {
+      writeln("-FAIL- Value '", aValue, "' does not equal '", aExpected, "'. ", aMessage);
+   }
+end_script
+
+
+# explosion at 10 sec
+execute at_time 10 sec absolute
+   RequireExists("exploder");
+   
+   WsfNASA_BreakupModel model = WsfNASA_BreakupModel();
+   
+   // Test default values
+   RequireDoubleEqual(model.GetExplosionS_Factor(), 1.0, 1.0e-6, "(exploder) Explosion S factor.");
+   RequireDoubleEqual(model.GetLargeFragmentFraction(), 0.5, 1.0e-6, "(exploder) Large fragment fraction.");
+   RequireDoubleEqual(model.GetMinFragmentSize(), 0.1, 1.0e-6, "(exploder) Min fragment size.");
+   RequireBoolEqual(model.HasGeneratedDebris(), false, "(exploder) Has generated debris.");
+   RequireBoolEqual(model.IsModeledAsSpacecraft(), true, "(exploder) Is modeled as spacecraft.");
+   
+   // Set some parameters
+   
+   // This should give a warning because of the intentional typo.
+   model.SetFragmentPlatformType("FARGMENT");
+   RequireStringEqual(model.GetFragmentPlatformType(), "", "(exploder) bad set fragment");
+   
+   model.SetFragmentPlatformType("FRAGMENT");
+   model.SetDebrisName("expl_debris_");
+   model.SetModeledAsSpacecraft(false);
+   bool result = model.ModelExplosion("does_not_exist", 100.0, 1.0);
+   
+   RequireBoolEqual(result, false, "(exploder) test of bad platform name.");
+   RequireBoolEqual(model.HasGeneratedDebris(), false, "(exploder) No debris when given invalid name.");
+   
+   model.ModelExplosion("exploder", 100.0, 1.0);
+   RequireBoolEqual(model.HasGeneratedDebris(), true, "(exploder) has exploded");
+   RequireBoolEqual(model.GetFragmentCount() > 0, true, "(exploder) produced debris");
+   RequireDoubleEqual(model.GetExplosionMass(), 100.0, 1.0e-6, "(exploder) explosion mass");
+   RequireStringEqual(model.GetExplosionProgenitor(), "exploder", "(exploder) correct progenitor");
+end_execute
+
+execute at_time 12 sec absolute
+   RequireNotExists("exploder");
+   RequireExists("expl_debris_1");
+end_execute
+
+execute at_time 100 sec absolute
+   // This tests that the FRAGMENT platform type was used. FRAGMENT platforms will
+   // remove themselves 30 seconds after they are created.
+   RequireNotExists("expl_debris_1");
+end_execute
+
+# This will not work, the two are too far apart
+execute at_time 190 sec absolute
+   WsfNASA_BreakupModel model = WsfNASA_BreakupModel();
+   bool result = model.ModelCollision("cat_target", 100.0, 1.0, "cat_impactor", 100.0, 1.0);
+   RequireBoolEqual(result, false, "(catastrophic) Too far apart");
+end_execute
+
+# This will work, they are at their exact collision time.
+execute at_time 200 sec absolute
+   RequireExists("cat_impactor");
+   RequireExists("cat_target");
+   
+   WsfNASA_BreakupModel model = WsfNASA_BreakupModel();
+   model.SetMinFragmentSize(0.075);
+   model.SetFragmentPlatformType("FRAGMENT");
+   model.ModelCollision("cat_target", 100.0, 1.0, "cat_impactor", 80.0, 1.0);
+   RequireBoolEqual(model.HasGeneratedDebris(), true, "(catastrophic) has collided.");
+   RequireBoolEqual(model.GetFragmentCount() > 0, true, "(catastrophic) produced debris.");
+   RequireStringEqual(model.GetCollisionProgenitorOne(), "cat_impactor", "(catastrophic) correct impact progenitor");
+   RequireDoubleEqual(model.GetCollisionProgenitorOneMass(), 80.0, 1.0e-6, "(catastrophic) correct impact mass");
+   RequireStringEqual(model.GetCollisionProgenitorTwo(), "cat_target", "(catastrophic) correct target progenitor");
+   RequireDoubleEqual(model.GetCollisionProgenitorTwoMass(), 100.0, 1.0e-6, "(catastrophic) correct target mass");
+   RequireDoubleEqual(model.GetCollisionMass(), 180.0, 1.0e-6, "(catastrophic) correct collision mass");
+   
+   int count = model.GetFragmentCount();
+   double totalMass = 0.0;
+   for (int i = 0; i < count; i += 1)
+   {
+      WsfSatelliteBreakupFragment fragment = model.GetFragment(i);
+      totalMass += fragment.GetMass();
+      RequireBoolEqual(fragment.GetMass() > 0, true, "(fragment) Must have positive mass");
+      RequireBoolEqual(fragment.GetLength() > 0, true, "(fragment) Must have positive length scale");
+      RequireBoolEqual(fragment.GetAoverM() > 0, true, "(fragment) Must have positive A/M");
+   }
+   RequireDoubleEqual(totalMass, 180.0, 1.0e-6, "(catastrophic) fragment records sum to correct mass");
+end_execute
+
+execute at_time 200.01 sec absolute
+   RequireNotExists("cat_impactor");
+   RequireNotExists("cat_target");
+   RequireExists("cat_impactor_cat_target_debris1");
+end_execute
+
+# non-catastrophic collision should be at 400 sec
+execute at_time 400 sec absolute
+   RequireExists("noncat_impactor");
+   RequireExists("noncat_target");
+   
+   WsfNASA_BreakupModel model = WsfNASA_BreakupModel();
+   model.SetMinFragmentSize(0.05);
+   model.SetDebrisName("debris");
+   model.ModelCollision("noncat_target", 100.0, 1.0, "noncat_impactor", 10.0, 1.0);
+   RequireBoolEqual(model.HasGeneratedDebris(), true, "(non-catastrophic) has collided.");
+   RequireBoolEqual(model.GetFragmentCount() > 0, true, "(non-catastrophic) produced debris.");
+   RequireStringEqual(model.GetCollisionProgenitorOne(), "noncat_impactor", "(non-catastrophic) correct impact progenitor");
+   RequireDoubleEqual(model.GetCollisionProgenitorOneMass(), 10.0, 1.0e-6, "(non-catastrophic) correct impact mass");
+   RequireStringEqual(model.GetCollisionProgenitorTwo(), "noncat_target", "(non-catastrophic) correct target progenitor");
+   RequireDoubleEqual(model.GetCollisionProgenitorTwoMass(), 100.0, 1.0e-6, "(non-catastrophic) correct target mass");
+   // This collision is very mild, so the collision mass should be less than the impactor mass.
+   RequireBoolEqual(model.GetCollisionMass() < model.GetCollisionProgenitorOneMass(), true, "(non-catastrophic) collision mass");
+end_execute
+
+execute at_time 400.01 sec absolute
+   RequireNotExists("noncat_target");
+   RequireNotExists("noncat_impactor");
+   RequireExists("debris1");
+   RequireExists("noncat_target_cratered");
+end_execute

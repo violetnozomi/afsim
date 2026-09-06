@@ -1,0 +1,606 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test the SENSOR_FREQUENCY_CHANGED event using the WSF_OTH_RADAR_SENSOR:
+#  - This test was adapted from the electronic_warfare/agile_jamming.txt demo
+#  - Radar sensor with two modes, each mode having one beam with three possible frequency settings
+#  - Radar sensor is configured with mode- and frequency-agility to protect against EW attacks
+#  - Jammer that triggers the radar EW protection so that it changes frequency and mode
+#  - Event output that captures SENSOR_FREQUENCY_CHANGED and SIMULATION_STARTING events in a file
+#  - At the end of each run, the event file is parsed to verify expected contents
+#  - See parse_event_file script below for test case details
+#
+include_once ../auto_script/test_functions.txt
+
+test_feature wsf_mil
+
+end_time 120 sec
+
+script_variables
+   bool allTestsPassed = true;   // any failure turns it false
+   int sensorEventCount = 0;     // count of SENSOR_FREQUENCY_CHANGED events per run
+   Array<string> expectedFreqs = {"Frequency: 210 MHz", "Frequency: 220 MHz", "Frequency: 200 MHz",
+                                  "Frequency: 240 MHz", "Frequency: 250 MHz", "Frequency: 230 MHz",
+                                  "Frequency: 210 MHz", "Frequency: 220 MHz", "Frequency: 200 MHz", 
+                                  "Frequency: 240 MHz"};
+   string evtFile = "test_sensor_freq_changed_event_ew_evt.testout";
+end_script_variables
+
+event_output
+#   file STDOUT
+   file test_sensor_freq_changed_event_ew_evt.testout
+   flush_output true
+   enable SENSOR_FREQUENCY_CHANGED
+#   enable SENSOR_MODE_ACTIVATED
+#   enable SENSOR_MODE_DEACTIVATED
+   enable SIMULATION_STARTING
+#   enable SENSOR_TURNED_ON
+#   enable SENSOR_TURNED_OFF
+end_event_output
+
+# ****************************************************************************
+# Define the system types (movers, sensors, weapons, etc.)
+# ****************************************************************************
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+radar_signature WIDE_BODY_SIGNATURE
+   constant 100 m^2
+end_radar_signature
+
+# ****************************************************************************
+#                       Agile Jammer
+# ****************************************************************************
+
+antenna_pattern ESM_ANTENNA
+   constant 0 db
+end_antenna_pattern
+
+sensor ESM_SENSOR WSF_ESM_SENSOR
+   frame_time              4 sec
+
+   slew_mode               fixed
+
+   maximum_range           200 km
+
+   receiver
+      antenna_pattern      ESM_ANTENNA
+      detection_threshold  5 db
+      noise_power          -180 dbw
+      internal_loss        0 db
+   end_receiver
+
+   frequency_band          0.1 ghz  20 ghz
+
+   reports_location
+   reports_type
+   reports_frequency
+end_sensor
+
+antenna_pattern JAMMER_ANTENNA
+  circular_pattern
+     peak_gain             10 dB
+     beamwidth             10 deg
+  end_circular_pattern
+end_antenna_pattern
+
+electronic_warfare JAMMER_EA WSF_ELECTRONIC_ATTACK
+   technique noise_jamming WSF_EA_TECHNIQUE
+      #debug
+      mitigation_class_name noise_jamming
+      effect power_effect WSF_POWER_EFFECT
+         #debug
+      end_effect
+   end_technique
+end_electronic_warfare
+
+weapon JAMMER WSF_RF_JAMMER
+   transmitter
+      power           100 w
+      frequency_band  100 mhz 1000 mhz
+      antenna_pattern JAMMER_ANTENNA
+
+      electronic_attack JAMMER_EA
+         technique noise_jamming
+         end_technique
+      end_electronic_attack
+   end_transmitter
+end_weapon
+
+processor JAMMER_TASK_MGR WSF_TASK_PROCESSOR
+
+   #script_debug_writes on
+   #show_state_transitions
+   #show_task_messages
+
+   # Script to select a jammer and add a spot
+   script bool AddSpot()
+      bool startedJamming = false;
+      int signalCount = TRACK.SignalCount();
+      for (int signalIndex = 0; signalIndex  < signalCount; signalIndex = signalIndex  + 1)
+      {
+         writeln_d("signalIndex : ", signalIndex );
+         double freq = TRACK.SignalFrequency(signalIndex);
+         writeln_d(signalIndex, ":", freq);
+         for (int i=0; i < PLATFORM.WeaponCount(); i = i + 1)
+         {
+            WsfWeapon jammer = PLATFORM.WeaponEntry(i);
+            if (PLATFORM.WithinFieldOfView(TRACK, jammer.Name()) && jammer.CanJam(freq))
+            {
+               string jamStr = write_str("Jam", signalIndex);
+               if (StartJamming(TRACK, jamStr, jammer, freq, 2.e6, "noise_jamming"))
+               {
+                  writeln_d("T=", TIME_NOW, " ", PLATFORM.Name(), ":", jammer.Name(), " started jamming ",
+                            TRACK.TargetName(), ", task=", jamStr, " freq=", freq, " BW=2.e6");
+                  startedJamming = true;
+                  break;
+               }
+            }
+         }
+      }
+      return startedJamming;
+   end_script
+
+   # script to determine if platform can still jam emitter with current jammer
+   script bool HadToStopJamming()
+      bool stoppedJamming = false;
+      bool cancelledTasks = true;
+      WsfTaskList taskList = AssignedTaskList(TRACK.TrackId(),"");
+      foreach(WsfTask task in taskList)
+      {
+         if (task.ResourceIsJammer())
+         {
+            string reason = "UNKNOWN";
+            bool needToStopJamming = true;
+            if (PLATFORM.WithinFieldOfView(TRACK, task.ResourceName()))
+            {
+               int signalCount = TRACK.SignalCount();
+               for (int signalIndex = 0; signalIndex  < signalCount; signalIndex = signalIndex  + 1)
+               {
+                  if (task.ResourceFrequency() == TRACK.SignalFrequency(signalIndex))
+                  {
+                     needToStopJamming = false;
+                     break;
+                  }
+               }
+
+               if (needToStopJamming)
+               {
+                  reason = "frequency change";
+               }
+            }
+            else
+            {
+              reason = "FOV limits";
+            }
+
+            if (needToStopJamming)
+            {
+               writeln_d("T=", TIME_NOW, " ", PLATFORM.Name(), ":", task.ResourceName(), " stopped jamming ",
+                         TRACK.TargetName(), ", task=", task.TaskType()," freq=", task.ResourceFrequency(),
+                         " due to ", reason);
+               cancelledTasks = (cancelledTasks && CancelTask(task.TrackId(), task.TaskType()));
+               stoppedJamming = true;
+            }
+         }
+      }
+      return (stoppedJamming && cancelledTasks);
+   end_script
+
+   # -------------------------------------------------------------------------
+
+   evaluation_interval DETECTED 5.0 sec
+   state DETECTED
+      next_state CAN_JAM
+         return (TRACK.TimeSinceUpdated() < 10.0);
+      end_next_state
+   end_state
+
+   evaluation_interval CAN_JAM 5.0 sec
+   state CAN_JAM
+      next_state DETECTED
+         return (TRACK.TimeSinceUpdated() >= 10.0);
+      end_next_state
+
+      next_state IS_JAMMING
+         return AddSpot();
+      end_next_state
+   end_state
+
+   evaluation_interval IS_JAMMING 5.0 sec
+   state IS_JAMMING
+      next_state CAN_JAM
+         return HadToStopJamming();
+      end_next_state
+   end_state
+
+end_processor
+
+# ****************************************************************************
+#                     Early Warning Radar
+# ****************************************************************************
+
+antenna_pattern EW_RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain           35 dB
+     minimum_gain       -20 dB
+     azimuth_beamwidth   5 deg
+     elevation_beamwidth 45 deg
+end_antenna_pattern
+
+electronic_warfare EW_RADAR_EP WSF_ELECTRONIC_PROTECT
+   technique agility WSF_EP_TECHNIQUE
+      mitigated_technique_classes
+         noise_jamming
+      end_mitigated_technique_classes
+
+      effect agility_effect WSF_AGILITY_EFFECT
+         #debug
+         agility_type mode_changing
+            mode_name one
+            mode_name two
+         end_agility_type
+
+         agility_type frequency_changing
+         end_agility_type
+      end_effect
+   end_technique
+end_electronic_warfare
+
+#sensor EW_RADAR WSF_RADAR_SENSOR
+sensor EW_RADAR WSF_OTH_RADAR_SENSOR
+   #show_calibration_data
+   update_interval                    1.0 sec
+
+   mode_select_delay                 30.0 sec
+   initial_mode one
+
+   mode_template
+      frame_time                      10.0 sec
+
+      frequency_select_delay          10.0 sec
+
+      beam 1
+         one_m2_detect_range          100.0 nm
+         maximum_range                120 nm
+
+         antenna_height               6.0 m
+
+         scan_mode                    azimuth
+         azimuth_scan_limits         -180 deg 180 deg
+
+
+         transmitter
+            antenna_pattern            EW_RADAR_ANTENNA
+            beam_tilt                  10.0 deg
+            power                      1000.0 kw
+            pulse_width                25 usec
+            pulse_repetition_interval  1250 usec
+            internal_loss              2 db
+            frequency_list
+               frequency_id            1 200 mhz
+               frequency_id            2 210 mhz
+               frequency_id            3 220 mhz
+            end_frequency_list
+         end_transmitter
+
+         receiver
+            beam_tilt                  10.0 deg
+            bandwidth                  2.0 mhz
+            noise_power                -160 dBw  # will be calibrated for 1 m^2
+            internal_loss              7 dB
+
+            electronic_protect EW_RADAR_EP
+            end_electronic_protect
+         end_receiver
+
+         jamming_perception_threshold  3.0 dB
+
+         # Swerling detector
+         swerling_case                 1
+         probability_of_false_alarm    1.0e-6
+         number_of_pulses_integrated   32
+      end_beam
+
+      required_pd                   0.5
+
+      hits_to_establish_track       3 5   # 3 of last 5 scans to establish track
+      hits_to_maintain_track        1 3   # 1 of last 3 scans to maintain  track
+
+      reports_range
+      reports_bearing
+   end_mode_template
+
+   mode one
+   end_mode
+
+   mode two
+      beam 1
+         transmitter
+            frequency_list
+               frequency_id           1 230 mhz
+               frequency_id           2 240 mhz
+               frequency_id           3 250 mhz
+            end_frequency_list
+         end_transmitter
+      end_beam
+   end_mode
+
+end_sensor
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+
+platform_type JAMMER_PLATFORM WSF_PLATFORM
+   icon EA-6B
+   mover WSF_AIR_MOVER end_mover
+   radar_signature WIDE_BODY_SIGNATURE
+
+   weapon jammer JAMMER
+     pitch  -10 deg                  // Aim jammer slightly toward the ground
+   end_weapon
+
+   sensor esm ESM_SENSOR
+      on
+      internal_link track_manager
+      ignore_same_side
+   end_sensor
+
+   processor track_manager WSF_TRACK_PROCESSOR
+     purge_interval   20.0 sec
+   end_processor
+
+   processor task_mgr JAMMER_TASK_MGR
+   end_processor
+end_platform_type
+
+platform_type EW_RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+
+   mover WSF_GROUND_MOVER end_mover
+
+   sensor ew_radar EW_RADAR
+      on
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   processor track_manager WSF_TRACK_PROCESSOR
+   end_processor
+end_platform_type
+
+platform_type STRIKER_PLATFORM WSF_PLATFORM
+   icon F-18E
+   side blue
+   mover WSF_AIR_MOVER end_mover
+   radar_signature FIGHTER_RADAR_SIGNATURE
+end_platform_type
+
+# ****************************************************************************
+#                        Define the platform instances
+# ****************************************************************************
+
+platform jammer JAMMER_PLATFORM
+   side blue
+
+   route
+      position 37:00:00n 114:30:00w
+      altitude 35000 ft
+      speed      450 kts
+      heading    270 deg
+   end_route
+
+   weapon jammer
+   end_weapon
+end_platform
+
+platform ew-radar-site EW_RADAR_SITE
+   side red
+
+   route
+      position 37:00:00n 116:00:00w
+      altitude 0.0 ft agl
+      heading   90 deg
+    end_route
+
+   sensor ew_radar
+   end_sensor
+end_platform
+
+platform striker-1 STRIKER_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:54w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+end_platform
+
+platform striker-2 STRIKER_PLATFORM
+   side blue
+
+   route
+      position 36:27:30n 115:04:18w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+end_platform
+
+# Event file entries may consist of multiple lines, indicated by a trailing
+# backslash to show continuation.  This script reads a complete event entry
+# from the specified file and returns the entry as a string.
+script string read_event_entry(FileIO evFile)
+   string eventEntry = "";
+   while (!evFile.Eof())
+   {
+       eventEntry += evFile.Readln();
+       if (eventEntry.EndsWith("\\"))
+       {
+          eventEntry = eventEntry.Substring(0,-1);
+          continue; 
+       }
+       break; // no continuation, event entry is complete
+   }
+   return eventEntry;
+end_script
+
+# Parse the event file to verify expected contents:
+# - SIMULATION_STARTING event before any SENSOR_FREQUENCY_CHANGED events since the
+#   randomize_radar_frequencies setting is not enabled
+# - SENSOR_FREQUENCY_CHANGED events occur when triggered by electronic warfare config
+#
+# Sim runtime activity:
+# --> T=0, sensor initially 'on', initial_mode one selected, first frequency active (no event)
+# --> T=13.33, jammer triggers frequency change to second frequency of mode one (event)
+# --> T=23.33, jammer triggers frequency change to last frequency of mode one (event)
+# --> T=33.33, jammer triggers frequency change to first frequency of mode one (event)
+# --> T=33.33, jammer triggers mode change, selecting mode two, first frequency active (no event)
+# --> T=46.66, jammer triggers frequency change to second frequency of mode two (event)
+# --> T=56.66, jammer triggers frequency change to last frequency of mode two (event)
+# --> T=66.66, jammer triggers frequency change to first frequency of mode two (event)
+# --> T=66.66, jammer triggers mode change, selecting mode one, first frequency active (no event)
+# --> T=83.33, jammer triggers frequency change to second frequency of mode one (event)
+# --> T=93.33, jammer triggers frequency change to last frequency of mode one (event)
+# --> T=103.33, jammer triggers frequency change to first frequency of mode one (event)
+# --> T=103.33, jammer triggers mode change, selecting mode two, first frequency active (no event)
+# --> T=116.66, jammer triggers frequency change to second frequency of mode two (event)
+#
+script bool parse_event_file(string fileName, Array<string> freqStr)
+   FileIO evFile = FileIO();
+   bool ok = evFile.Open(fileName, "in");
+   AssertTrueMessage(ok, "failed to open event file");
+   if (ok)
+   {
+      bool simStart = false;
+      while (!evFile.Eof())
+      {
+         string eventEntry = read_event_entry(evFile);
+#         writeln("Event text: '", eventEntry, "'");  // uncomment for debugging
+
+         if (eventEntry.Contains("SIMULATION_STARTING"))
+         {
+            simStart = true;
+         }
+         else if (eventEntry.Contains("SENSOR_FREQUENCY_CHANGED"))
+         {
+            sensorEventCount += 1;
+
+            // Each event entry starts with a timestamp that is used to match up expected event contents
+            if (eventEntry.StartsWith("13.33"))
+            {  // expect mode one, 2nd freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: one'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: one"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[0] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[0]), errStr) && ok;
+            }
+            else if (eventEntry.StartsWith("23.33"))
+            {  // expect mode one, 3rd freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: one'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: one"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[1] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[1]), errStr) && ok;
+            }
+            else if (eventEntry.StartsWith("33.33"))
+            {  // expect mode one, 1st freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: one'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: one"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[2] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[2]), errStr) && ok;
+            }
+            else if (eventEntry.StartsWith("46.66"))
+            {  // expect mode two, 2nd freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: two'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: two"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[3] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[3]), errStr) && ok;
+            }
+            else if (eventEntry.StartsWith("56.66"))
+            {  // expect mode two, 3rd freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: two'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: two"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[4] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[4]), errStr) && ok;
+            }
+            else if (eventEntry.StartsWith("66.66"))
+            {  // expect mode two, 1st freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: two'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: two"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[5] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[5]), errStr) && ok;
+            }
+            else if (eventEntry.StartsWith("83.33"))
+            {  // expect mode one, 2nd freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: one'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: one"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[6] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[6]), errStr) && ok;
+            }
+            else if (eventEntry.StartsWith("93.33"))
+            {  // expect mode one, 3rd freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: one'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: one"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[7] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[7]), errStr) && ok;
+            }
+            else if (eventEntry.StartsWith("103.33"))
+            {  // expect mode one, 1st freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: one'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: one"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[8] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[8]), errStr) && ok;
+            }
+            else if (eventEntry.StartsWith("116.66"))
+            {  // expect mode two, 2nd freq
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report 'ew-radar-site Sensor: ew_radar Mode: two'";
+               ok = AssertTrueMessage(eventEntry.Contains("ew-radar-site Sensor: ew_radar Mode: two"), errStr) && ok;
+               errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[9] + "'";
+               ok = AssertTrueMessage(eventEntry.Contains(freqStr[9]), errStr) && ok;
+            }
+            else
+            {
+               writeln(TEST_FAIL_STATEMENT, " ", "Unexpected SENSOR_FREQUENCY_CHANGED event at T=", eventEntry.Substring(0,6));
+               ok = false;
+            }
+
+            // Verify that this freq changed event did not come during sim initialization
+            if (!simStart)
+            {
+               writeln(TEST_FAIL_STATEMENT, " ", "SENSOR_FREQUENCY_CHANGED event occurred before SIMULATION_STARTING event");
+               ok = false;
+            }
+         }
+      }
+      evFile.Close();
+   }
+   return ok;
+end_script
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Parse event files to check for expected content
+script void SimulationComplete()
+
+   writeln("+++ Validate event output +++");
+   allTestsPassed = parse_event_file(evtFile, expectedFreqs) && allTestsPassed;
+   allTestsPassed = AssertEqualsMessage(10, sensorEventCount, "Wrong number of SENSOR_FREQUENCY_CHANGED events") && allTestsPassed;
+
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

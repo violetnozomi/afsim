@@ -1,0 +1,200 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jan 20 2021
+start_time 17:00:00.000
+end_time 6 hr
+
+include_once utils.txt
+
+platform_type TEST_SAT WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.0
+      raan 0 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 0.0 deg
+      inclination 15 deg
+      revolutions_per_day 12
+   end_mover
+end_platform_type
+
+# This platform serves as the initial state of all of the platforms in the test,
+# and a basis for comparison for the other maneuvering platforms.
+platform nominal TEST_SAT
+end_platform
+
+# This platform tests an input maneuver with a fixed transfer time.
+platform test_input_fixed TEST_SAT
+   edit mover
+      mission_sequence
+         maneuver drift
+            drift_rate 0.05 deg/hr
+            delta_time 1 hr
+            tolerance 1.0e-9
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# This platform tests an input maneuver with delta-v optimization
+platform test_input_dv TEST_SAT
+   edit mover
+      mission_sequence
+         maneuver drift
+            drift_rate 0.01 deg/hr
+            optimize_delta_v
+            maximum_delta_time 2 hr
+            maximum_delta_v 1 km/s
+            tolerance 1.0e-9
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# This platform tests an input maneuver with delta-t optimization
+platform test_input_dt TEST_SAT
+   edit mover
+      mission_sequence
+         maneuver drift
+            drift_rate 0.1 deg/hr
+            optimize_time
+            maximum_delta_time 1 hr
+            maximum_delta_v 1 km/s
+            tolerance 1.0e-9
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# This platform tests an input maneuver with cost optimization
+platform test_input_cost TEST_SAT
+   edit mover
+      mission_sequence
+         maneuver drift
+            drift_rate 0.1 deg/hr
+            optimize_cost blended 1.0 1.0 0.0
+            maximum_delta_time 1 hr
+            maximum_delta_v 1 km/s
+            tolerance 1.0e-9
+         end_maneuver
+      end_mission_sequence
+  end_mover
+end_platform
+
+# This platform tests a scripted maneuver with fixed transfer time.
+platform test_script_fixed TEST_SAT
+   execute at_time 10 min absolute
+      WsfDriftManeuver mvr = WsfDriftManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(300.0), 1800.0, 0.5 / 3600.0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      mover.ExecuteManeuver(mvr);
+   end_execute
+end_platform
+
+# This platform tests a scripted maneuver with delta-v optimization.
+platform test_script_dv TEST_SAT
+   execute at_time 20 min absolute
+      WsfDriftManeuver mvr = WsfDriftManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(300.0),
+                                                        WsfOrbitalManeuver.LEAST_DELTA_V(),
+                                                        7200.0,
+                                                        1000.0,
+                                                        0.2 / 3600.0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      mover.ExecuteManeuver(mvr);
+   end_execute
+end_platform
+
+# This platform tests a scripted maneuver with delta-t optimization.
+platform test_script_dt TEST_SAT
+   execute at_time 10 min absolute
+      WsfDriftManeuver mvr = WsfDriftManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(30.0),
+                                                        WsfOrbitalManeuver.EARLIEST_TIME(),
+                                                        1800.0,
+                                                        1000.0,
+                                                        0.2 / 3600.0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      mover.ExecuteManeuver(mvr);
+   end_execute
+end_platform
+
+# This platform tests a scripted maneuver with delta-t optimization.
+platform test_script_cost TEST_SAT
+   execute at_time 10 min absolute
+      WsfDriftManeuver mvr = WsfDriftManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(30.0),
+                                                        WsfOrbitalBlendedCost.Construct(1.0, 1.0, 0.0),
+                                                        1800.0,
+                                                        1000.0,
+                                                        0.2 / 3600.0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      mover.ExecuteManeuver(mvr);
+   end_execute
+end_platform
+
+script_variables
+   double              gTestPeriod   = 60.0;
+   Map<string, double> gInitialTimes = {};
+   Map<string, double> gDriftRates   = {};
+end_script_variables
+
+script void PerformMeasurement(string aPlatformName)
+   if (gInitialTimes.Exists(aPlatformName))
+   {
+      WsfPlatform plat = WsfSimulation.FindPlatform(aPlatformName);
+      WsfPlatform nom = WsfSimulation.FindPlatform("nominal");
+
+      // Compute measured angle
+      Vec3 posPlat = plat.LocationECI();
+      Vec3 posNom = nom.LocationECI();
+      double ctheta = Vec3.Dot(posPlat, posNom) / (posPlat.Magnitude() * posNom.Magnitude());
+      double theta = Math.ACos(ctheta);
+
+      // Compute expected angle
+      double dt = TIME_NOW - gInitialTimes.Get(aPlatformName);
+      double w = gDriftRates.Get(aPlatformName);
+      double expected = w * dt;
+
+      string message = "Platform '" + aPlatformName + "' does not match the expected angular separation at time " + Format.Fixed(TIME_NOW, 2);
+      ExpectDouble(Math.Fabs(theta - expected) / Math.Fabs(expected), 0.0, 3.0e-3, message);
+
+      // Schedule next measurement gTestPeriod in the future
+      Array<Object> args = {aPlatformName};
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gTestPeriod, "PerformMeasurement", args);
+   }
+   else
+   {
+      gAnyFailure = true;
+      writeln("Platform '", aPlatformName, "' did not have a drift maneuver initiation time");
+   }
+end_script
+
+script void RecordInitialData(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   // Save the time and drift rate for any platform that initiates a drift maneuver. These values are used
+   // when performing the test in PerformMeasurement, above.
+   if (aManeuver.ManeuverType() == "DRIFT")
+   {
+      gInitialTimes[aPlatform.Name()] = TIME_NOW;
+
+      WsfDriftManeuver mvr = (WsfDriftManeuver)aManeuver;
+      gDriftRates[aPlatform.Name()] = mvr.DriftRate();
+   }
+end_script
+
+script void StartMeasurementSequence(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   // Once the drift maneuver completes, schedule the first measurement.
+   if (aManeuver.ManeuverType() == "DRIFT")
+   {
+      writeln("Beginning measurement sequence for '", aPlatform.Name(), "' at time ", TIME_NOW);
+      Array<Object> args = {aPlatform.Name()};
+      WsfSimulation.ExecuteAtTime(TIME_NOW + gTestPeriod, "PerformMeasurement", args);
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED RecordInitialData
+   enable ORBITAL_MANEUVER_COMPLETED StartMeasurementSequence
+end_observer

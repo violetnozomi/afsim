@@ -1,0 +1,73 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests sending messages over command chains using SendMessageToCommander and
+# sending with an external_link
+platform sender WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+   end_mover
+   add sensor sensor1 WSF_GEOMETRIC_SENSOR
+      on
+      frame_time 1.0 s
+      reports_location
+      processor link
+   end_sensor
+   add processor link WSF_LINKED_PROCESSOR
+      external_link command_chain test_chain commander via com1
+   end_processor
+   execute at_time 30 sec absolute
+      Comm("com1").SendMessageToCommander("test_chain", WsfControlMessage());
+   end_execute
+   add comm com1 WSF_COMM_TRANSCEIVER
+   end_comm
+   command_chain test_chain receiver
+   commander platform_not_here
+   position 0n 0.01e altitude 100 m
+end_platform
+
+platform receiver WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+   end_mover
+   add comm com1 WSF_COMM_TRANSCEIVER
+      processor scripted
+   end_comm
+   add processor scripted WSF_SCRIPT_PROCESSOR
+      script_variables
+         bool gotTrackMsg = false;
+         bool gotControlMsg = false;
+      end_script_variables
+      on_message
+         type WSF_TRACK_MESSAGE
+            script
+               gotTrackMsg = true;
+            end_script
+         type WSF_CONTROL_MESSAGE
+            script
+               gotControlMsg = true;
+            end_script
+      end_on_message
+      execute at_time 55 s absolute
+         if (!gotTrackMsg)
+         {
+            writeln("-FAIL- linked processor failed to send message");
+         }
+         if (!gotControlMsg)
+         {
+            writeln("-FAIL- SendMessageToCommander failed to send message");
+         }
+         if (gotTrackMsg && gotControlMsg)
+         {
+            writeln("-PASS-");
+         }
+      end_execute
+   end_processor
+   position 0n 0e altitude 100 m
+end_platform
+
+end_time 1 min

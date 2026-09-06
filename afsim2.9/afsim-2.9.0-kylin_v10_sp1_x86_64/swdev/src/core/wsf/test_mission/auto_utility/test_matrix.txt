@@ -1,0 +1,445 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool gAllPass = true;
+   bool gTestPerformed = false;
+end_script_variables
+
+script void ExpectBool(bool aObserved, bool aExpected, string aMessage)
+   gTestPerformed = true;
+   if (aObserved != aExpected)
+   {
+      gAllPass = false;
+      writeln("Observed value, ", aObserved, ", does not match expectation, ", aExpected, ". ", aMessage);
+   }
+end_script
+
+script void ExpectInt(int aObserved, int aExpected, string aMessage)
+   gTestPerformed = true;
+   if (aObserved != aExpected)
+   {
+      gAllPass = false;
+      writeln("Observed value, ", aObserved, ", does not match expectation, ", aExpected, ". ", aMessage);
+   }
+end_script
+
+script void ExpectDouble(double aObserved, double aExpected, double aTolerance, string aMessage)
+   gTestPerformed = true;
+   if (Math.Fabs(aObserved - aExpected) > aTolerance)
+   {
+      gAllPass = false;
+      writeln("Observed value, ", aObserved, ", does not match expectation, ", aExpected, " (to a tolerance of ", aTolerance, "). ", aMessage);
+   }
+end_script
+
+script void CheckMatrixSize(Matrix aMatrix, int aRows, int aCols, string aCase)
+   ExpectInt(aMatrix.Rows(), aRows, aCase + " row count");
+   ExpectInt(aMatrix.Columns(), aCols, aCase + " column count");
+   if (aRows == 1)
+   {
+      ExpectBool(aMatrix.IsRow(), true, aCase + " is a row matrix");
+   }
+   if (aCols == 1)
+   {
+      ExpectBool(aMatrix.IsColumn(), true, aCase + " is a column matrix");
+   }
+end_script
+
+script void TestConstruction()
+   Matrix a = Matrix.Construct(3, 4);
+   CheckMatrixSize(a, 3, 4, "a");
+   for (int i = 0; i < 3; i += 1)
+   {
+      for (int j = 0; j < 4; j += 1)
+      {
+         ExpectDouble(a.Get(i, j), 0.0, 1.0e-12, "a values");
+      }
+   }
+   
+   Matrix b = Matrix.Construct(4, 5, 13.0);
+   CheckMatrixSize(b, 4, 5, "b");
+   for (int i = 0; i < 3; i += 1)
+   {
+      for (int j = 0; j < 4; j += 1)
+      {
+         ExpectDouble(b.Get(i, j), 13.0, 1.0e-12, "b values");
+      }
+   }
+   
+   Matrix c = Matrix.Identity(6);
+   CheckMatrixSize(c, 6, 6, "c");
+   for (int i = 0; i < 3; i += 1)
+   {
+      for (int j = 0; j < 4; j += 1)
+      {
+         if (i == j)
+         {
+            ExpectDouble(c.Get(i, j), 1.0, 1.0e-12, "a values");
+         }
+         else
+         {
+            ExpectDouble(c.Get(i, j), 0.0, 1.0e-12, "a values");
+         }
+      }
+   }
+end_script
+
+script void TestSubmatrixOperations()
+   Matrix a = Matrix.Identity(3);
+   CheckMatrixSize(a, 3, 3, "a submatrix ops");
+   ExpectDouble(a.Trace(), 3.0, 1.0e-12, "Trace");
+   Matrix b = Matrix.Identity(2);
+   CheckMatrixSize(b, 2, 2, "b submatrix ops");
+   Matrix c1 = Matrix.Construct(3, 1);
+   CheckMatrixSize(c1, 3, 1, "c1 submatrix ops");
+   c1.Set(0, 0, 1.0);
+   Matrix c2 = Matrix.Construct(3, 1);
+   CheckMatrixSize(c2, 3, 1, "c2 submatrix ops");
+   c2.Set(1, 0, 1.0);
+   Matrix c3 = Matrix.Construct(3, 1);
+   CheckMatrixSize(c3, 3, 1, "c3 submatrix ops");
+   c3.Set(2, 0, 1.0);
+   Matrix r1 = Matrix.Construct(1, 3);
+   CheckMatrixSize(r1, 1, 3, "r1 submatrix ops");
+   r1.Set(0, 0, 1.0);
+   Matrix r2 = Matrix.Construct(1, 3);
+   CheckMatrixSize(r2, 1, 3, "r2 submatrix ops");
+   r2.Set(0, 1, 1.0);
+   Matrix r3 = Matrix.Construct(1, 3);
+   CheckMatrixSize(r3, 1, 3, "r3 submatrix ops");
+   r3.Set(0, 2, 1.0);
+  
+   # Test Row operation
+   ExpectBool(a.Row(0) == r1, true, "Row operation");
+   ExpectBool(a.Row(1) == r2, true, "Row operation");
+   ExpectBool(a.Row(2) == r3, true, "Row operation");
+   
+   # Test Column operation
+   ExpectBool(a.Column(0) == c1, true, "Column operation");
+   ExpectBool(a.Column(1) == c2, true, "Column operation");
+   ExpectBool(a.Column(2) == c3, true, "Column operation");
+   
+   # Test submatrix operation
+   ExpectBool(a.Submatrix(0, 2, 0, 2) == b, true, "Top corner submatrix");
+   ExpectBool(a.Submatrix(1, 3, 1, 3) == b, true, "Bottom corner submatrix");
+   ExpectBool(a.Submatrix(0, 3, 0, 3) == a, true, "Full submatrix");
+   
+   # Test SetRow operation
+   a.SetRow(0, r2);
+   a.SetRow(1, r3);
+   a.SetRow(2, r1);
+   ExpectBool(a.Column(0) == c3, true, "Column 1 after setting rows");
+   ExpectBool(a.Column(1) == c1, true, "Column 2 after setting rows");
+   ExpectBool(a.Column(2) == c2, true, "Column 3 after setting rows");
+   ExpectBool(a.Submatrix(0, 2, 1, 3) == b, true, "Top right corner after setting rows");
+   
+   # Test SetColumn
+   a.SetColumn(0, c2);
+   a.SetColumn(1, c3);
+   a.SetColumn(2, c1);
+   ExpectBool(a.Row(0) == r3, true, "Row 1 after setting columns");
+   ExpectBool(a.Row(1) == r1, true, "Row 2 after setting columns");
+   ExpectBool(a.Row(2) == r2, true, "Row 3 after setting columns");
+   ExpectBool(a.Submatrix(1, 3, 0, 2) == b, true, "Bottom left corner after setting columns");
+   
+   # set submatrix
+   Matrix d = Matrix.Identity(3);
+   d.SetSubmatrix(0, 1, b);
+   d.SetSubmatrix(1, 0, b);
+   for (int i = 0; i < 3; i += 1)
+   {
+      for (int j = 0; j < 3; j += 1)
+      {
+         if (i + j == 2)
+         {
+            ExpectDouble(d.Get(i, j), 0.0, 1.0e-12, "d zeros");
+         }
+         else
+         {
+            ExpectDouble(d.Get(i, j), 1.0, 1.0e-12, "d ones");
+         }
+      }
+   }
+end_script
+
+script void TestDiagonal()
+   // First test a square matrix
+   Matrix d = Matrix.Construct(4, 1, 1.0);
+   Matrix id = Matrix.Identity(4);
+   
+   ExpectBool(id.Diagonal() == d, true, "Diagonal for square matrix");
+   
+   Matrix d2 = Matrix.Construct(4, 1, 2.0);
+   id.SetDiagonal(d2);
+   
+   ExpectBool(Matrix.Identity(4).Scale(2.0) == id, true, "SetDiagonal for square matrix");
+   
+   // T is m x n with m > n
+   Matrix T = Matrix.Construct(5, 3);
+   T.Set(0, 0, 1.0);
+   T.Set(1, 1, 2.0);
+   T.Set(2, 2, 3.0);
+   
+   // L is m x n with m M< n
+   Matrix L = T.Transpose();
+   
+   Matrix tDiag = T.Diagonal();
+   CheckMatrixSize(tDiag, 3, 1, "T diag size");
+   ExpectDouble(tDiag.Get(0, 0), 1.0, 1.0e-12, "T diag 0th component");
+   ExpectDouble(tDiag.Get(1, 0), 2.0, 1.0e-12, "T diag 1st component");
+   ExpectDouble(tDiag.Get(2, 0), 3.0, 1.0e-12, "T diag 2nd component");
+   
+   Matrix lDiag = L.Diagonal();
+   CheckMatrixSize(lDiag, 3, 1, "L diag size");
+   ExpectDouble(lDiag.Get(0, 0), 1.0, 1.0e-12, "L diag 0th component");
+   ExpectDouble(lDiag.Get(1, 0), 2.0, 1.0e-12, "L diag 1st component");
+   ExpectDouble(lDiag.Get(2, 0), 3.0, 1.0e-12, "L diag 2nd component");
+   
+   Matrix d3 = Matrix.Construct(3, 1);
+   d3.Set(0, 0, 10.0);
+   d3.Set(1, 0, 20.0);
+   d3.Set(2, 0, 30.0);
+   
+   T.SetDiagonal(d3);
+   L.SetDiagonal(d3);
+   
+   ExpectDouble(T.Get(0, 0), 10.0, 1.0e-12, "T set diag 0th component");
+   ExpectDouble(T.Get(1, 1), 20.0, 1.0e-12, "T set diag 1st component");
+   ExpectDouble(T.Get(2, 2), 30.0, 1.0e-12, "T set diag 2nd component");
+   
+   ExpectDouble(L.Get(0, 0), 10.0, 1.0e-12, "L set diag 0th component");
+   ExpectDouble(L.Get(1, 1), 20.0, 1.0e-12, "L set diag 1st component");
+   ExpectDouble(L.Get(2, 2), 30.0, 1.0e-12, "L set diag 2nd component");
+end_script
+
+script void CheckCommutator(Matrix aA, Matrix aB, Matrix aC, string aMessage)
+   Matrix termOne = aA.Multiply(aB);
+   Matrix termTwo = aB.Multiply(aA);
+   Matrix diff = termOne.Subtract(termTwo);
+   ExpectBool(diff == aC, true, aMessage + " multiplication test");
+end_script
+
+script void TestMultiply()
+   // This set of tests reproduces the commutation relations for one representation of the
+   // SO(3) Lie algebra. (See https://en.wikipedia.org/wiki/3D_rotation_group)
+   Matrix Lx = Matrix.Construct(3, 3);
+   Lx.Set(1, 2, -1.0);
+   Lx.Set(2, 1, 1.0);
+   Matrix Ly = Matrix.Construct(3, 3);
+   Ly.Set(0, 2, 1.0);
+   Ly.Set(2, 0, -1.0);
+   Matrix Lz = Matrix.Construct(3, 3);
+   Lz.Set(0, 1, -1.0);
+   Lz.Set(1, 0, 1.0);
+   
+   CheckCommutator(Lx, Ly, Lz, "[Lx, Ly]");
+   CheckCommutator(Lz, Lx, Ly, "[Lz, Lx]");
+   CheckCommutator(Ly, Lz, Lx, "[Ly, Lz]");
+end_script
+
+script void TestOrthogonalMatrix()
+   Matrix U = Matrix.Construct(3, 3);
+   U.Set(1, 2, -1.0);
+   U.Set(2, 1, 1.0);
+   U.Set(0, 0, 1.0);
+   
+   Matrix Ut = U.Transpose();
+   
+   Matrix UUt = U.Multiply(Ut);
+   Matrix UtU = Ut.Multiply(U);
+   
+   ExpectBool(UUt == Matrix.Identity(3), true, "transpose product");
+   ExpectBool(UtU == Matrix.Identity(3), true, "transpose product opposite order");
+   
+   Matrix Uinv = U.Inverse();
+   Matrix Utinv = Ut.Inverse();
+   
+   ExpectBool(Uinv == Ut, true, "inverse is transpose");
+   ExpectBool(Utinv == U, true, "inverse of transpose is self");
+end_script
+
+script void TestAddAndScale()
+   Matrix one = Matrix.Construct(3, 4, 1.0);
+   Matrix two = Matrix.Construct(3, 4, 2.0);
+   
+   Matrix onePlusOne = one.Add(one);
+   Matrix twoTimesOne = one.Scale(2.0);
+   Matrix negativeTwo = two.Scale(-1.0);
+   Matrix negativeOne = one.Add(negativeTwo);
+   
+   ExpectBool(onePlusOne == two, true, "Addition");
+   ExpectBool(twoTimesOne == two, true, "Scale");
+   ExpectBool(negativeOne == Matrix.Construct(3, 4, -1.0), true, "Negative one");
+end_script
+
+script void TestPositiveDefinite()
+   // Example taken from https://en.wikipedia.org/wiki/Definite_matrix
+   Matrix M = Matrix.Identity(3).Scale(2.0);
+   M.Set(0, 1, -1.0);
+   M.Set(1, 0, -1.0);
+   M.Set(1, 2, -1.0);
+   M.Set(2, 1, -1.0);
+   
+   ExpectBool(M.IsPositiveDefinite(), true, "IsPositiveDefinite test");
+   
+   Matrix B = Matrix.Construct(2, 2, 1.0);
+   B.Set(1, 0, -1.0);
+   ExpectBool(B.IsPositiveDefinite(), false, "IsPositiveDefinite false test");
+end_script
+
+script void TestPseudoInverse()
+   // Examples taken from https://en.wikipedia.org/wiki/Moore%E2%80%93Penrose_inverse
+   Matrix A = Matrix.Construct(3, 2);
+   A.Set(0, 0, 1.0);
+   A.Set(1, 1, 1.0);
+   A.Set(2, 1, 1.0);
+   
+   Matrix piA = A.PseudoInverse();
+   CheckMatrixSize(piA, 2, 3, "piA");
+   
+   Matrix expected = Matrix.Construct(2, 3);
+   expected.Set(0, 0, 1.0);
+   expected.Set(1, 1, 0.5);
+   expected.Set(1, 2, 0.5);
+   
+   ExpectBool(piA == expected, true, "Correct pseudo-inverse");
+   
+   ExpectBool(A.Multiply(piA).Multiply(A) == A, true, "property 1");
+   ExpectBool(piA.Multiply(A).Multiply(piA) == piA, true, "property 2");
+   
+   Matrix piAA = piA.Multiply(A);
+   Matrix ApiA = A.Multiply(piA);
+   
+   ExpectBool(piAA.Transpose() == piAA, true, "property 3");
+   ExpectBool(ApiA.Transpose() == ApiA, true, "property 4");
+end_script
+
+script void TestCholesky()
+   // Example taken from https://en.wikipedia.org/wiki/Cholesky_decomposition
+   Matrix C = Matrix.Construct(3, 3);
+   C.Set(0, 0,   4.0);
+   C.Set(0, 1,  12.0);
+   C.Set(0, 2, -16.0);
+   C.Set(1, 0,  12.0);
+   C.Set(1, 1,  37.0);
+   C.Set(1, 2, -43.0);
+   C.Set(2, 0, -16.0);
+   C.Set(2, 1, -43.0);
+   C.Set(2, 2,  98.0);
+   ExpectBool(C == C.Transpose(), true, "C is symmetric");
+   ExpectBool(C.IsPositiveDefinite(), true, "C is positive definite");
+   
+   Matrix L = C.CholeskyDecomposition();
+   ExpectBool(L.Multiply(L.Transpose()) == C, true, "L is Cholesky decomposition");
+end_script
+
+script void TestSVD()
+   // Example taken from https://en.wikipedia.org/wiki/Singular_value_decomposition
+   Matrix M = Matrix.Construct(4, 5);
+   M.Set(0, 0, 1.0);
+   M.Set(0, 4, 2.0);
+   M.Set(1, 2, 3.0);
+   M.Set(3, 1, 2.0);
+   
+   Array<Object> results = M.SingularValueDecomposition();
+   int err = (int)results[0];
+   ExpectInt(err, 0, "SVD err indicator");
+   Matrix S = (Matrix)results[1];
+   CheckMatrixSize(S, 5, 1, "SVD S size");
+   Matrix U = (Matrix)results[2];
+   CheckMatrixSize(U, 4, 5, "SVD U size");
+   Matrix V = (Matrix)results[3];
+   CheckMatrixSize(V, 5, 5, "SVD V size");
+   
+   Matrix sigma = Matrix.Construct(5, 5);
+   sigma.SetDiagonal(S);
+   Matrix computedM = U.Multiply(sigma).Multiply(V.Transpose());
+   ExpectBool(computedM == M, true, "Recover M from SVD");
+   
+   ExpectBool(V.Transpose().Multiply(V) == Matrix.Identity(5), true, "V is orthogonal");
+   ExpectBool(V.Multiply(V.Transpose()) == Matrix.Identity(5), true, "V is orthogonal");
+   ExpectBool(U.Multiply(U.Transpose()) == Matrix.Identity(4), true, "U orthogonal");
+end_script
+
+script void TestEigensystem()
+   // Example taken from https://en.wikipedia.org/wiki/Eigenvalues_and_eigenvectors
+   Matrix A = Matrix.Construct(3, 3);
+   A.Set(0, 0, 2.0);
+   A.Set(1, 1, 3.0);
+   A.Set(1, 2, 4.0);
+   A.Set(2, 1, 4.0);
+   A.Set(2, 2, 9.0);
+   
+   Array<Matrix> results = A.Eigensystem();
+   Matrix eigv = results[0];
+   Matrix vecs = results[1];
+   
+   // Eigenvector for lambda = 1.0
+   Matrix e1 = Matrix.Construct(3, 1);
+   e1.Set(1, 0, -2.0 / Math.Sqrt(5.0));
+   e1.Set(2, 0, 1.0 / Math.Sqrt(5.0));
+   
+   // Eigenvector for lambda = 2.0
+   Matrix e2 = Matrix.Construct(3, 1);
+   e2.Set(0, 0, 1.0);
+   
+   // Eigenvector for lambda = 11.0
+   Matrix e3 = Matrix.Construct(3, 1);
+   e3.Set(1, 0, 1.0 / Math.Sqrt(5.0));
+   e3.Set(2, 0, 2.0  / Math.Sqrt(5.0));
+   
+   ExpectDouble(eigv.Get(0, 0), 1.0, 1.0e-12, "eigval 1");
+   ExpectBool(vecs.Column(0) == e1, true, "eigvec 1");
+   
+   ExpectDouble(eigv.Get(1, 0), 2.0, 1.0e-12, "eigval 2");
+   ExpectBool(vecs.Column(1) == e2, true, "eigvec 2");
+   
+   ExpectDouble(eigv.Get(2, 0), 11.0, 1.0e-12, "eigval 3");
+   ExpectBool(vecs.Column(2) == e3, true, "eigvec 3");
+end_script
+
+execute at_time 1 s absolute
+   TestConstruction();
+   TestSubmatrixOperations();
+   TestDiagonal();
+   TestMultiply();
+   TestOrthogonalMatrix();
+   TestAddAndScale();
+   TestPositiveDefinite();
+   TestPseudoInverse();
+   TestCholesky();
+   TestSVD();
+   TestEigensystem();
+end_execute
+
+# Include the tests of the failure modes of the operations
+include_once matrix_op_failure_modes.txt
+
+script void FinalAssessment()
+   if (gAllPass)
+   {
+      if (gTestPerformed)
+      {
+         writeln("-PASS- All tests passed.");
+      }
+      else
+      {
+         writeln("-FAIL- No tests were performed.");
+      }
+   }
+   else
+   {
+      writeln("-FAIL- At least one test failed.");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE FinalAssessment
+end_observer

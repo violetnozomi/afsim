@@ -1,0 +1,16 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.3.1) (Issue #1181)** Fixed an issue with :command:`weapon` reload functionality where weapons in the reload inventory could be lost if :command:`weapon.maximum_quantity` was specified, and the :command:`weapon.reload_increment` is greater than the difference of the reload_threshold and maximum_quantity.
+* **(2.3.1) (Issue #1182)** Corrected a crash when restarting simulations with :command:`false_target` jamming effects.
+* **(Issue #761)** Fixed an issue in the solar background noise calculation of the :model:`WSF_LADAR_SENSOR`.  This source of noise had been smaller by a factor of 3 if a :command:`WSF_LADAR_SENSOR.background_temperature` was specified, or zero if a :command:`WSF_LADAR_SENSOR.background_irradiance` was provided.
+* **(ELSZ #35)** Fixed an issue in the :model:`WSF_SAR_SENSOR` when :command:`WSF_SAR_SENSOR.operating_mode` is spot, where targets that were out of range were being added to detection chances that shouldn't have been.
+* **(ELSZ #54)** Fixed issue that prevented :ref:`antenna_commands` within a :model:`WSF_LADAR_SENSOR` block from being accepted as valid input.
+* **(ELSZ #58)** Use of the commands :command:`WSF_SPHERICAL_LETHALITY.use_pk_table` and :command:`weapon_effects.use_intercept_pk` within :model:`WSF_GRADUATED_LETHALITY` will now generate an input error instead of failing silently.
+* **(ELSZ #69)** Fixed issue with inlining launch computer tables in the :model:`WSF_AIR_TO_AIR_LAUNCH_COMPUTER` where all launch computers would end up with the same table.

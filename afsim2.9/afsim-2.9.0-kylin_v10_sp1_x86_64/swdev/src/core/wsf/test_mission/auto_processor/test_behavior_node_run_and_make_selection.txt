@@ -1,0 +1,109 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2018 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   int totalRepeatNum = 0;
+   int expectedRepeatNum = 10; # expectedRepeatNum = run_selection repeated x make_selection count
+   int totalForNum = 0;
+   int expectedForNum = 10; # expectedRepeatNum = run_selection for x make_selection count
+end_script_variables
+
+behavior first
+	precondition
+		return 1;
+	end_precondition
+   execute
+      totalRepeatNum+=1;
+#      writeln("FIRST");
+   end_execute
+end_behavior
+
+behavior second
+	precondition
+		return 2;
+	end_precondition
+   execute
+      totalRepeatNum+=1;
+#      writeln("SECOND");
+   end_execute
+end_behavior
+
+behavior third
+	precondition
+		return 1;
+	end_precondition
+   execute
+      totalForNum+=1;
+#      writeln("THIRD");
+   end_execute
+end_behavior
+
+behavior fourth
+	precondition
+		return 2;
+	end_precondition
+   execute
+      totalForNum+=1;
+#      writeln("FOURTH");
+   end_execute
+end_behavior
+
+platform plat WSF_PLATFORM
+   add processor proc WSF_MESSAGE_PROCESSOR
+      update_interval 1 sec
+      behavior_tree
+         weighted_random
+            run_selection repeat 2
+            make_selection count 5
+
+            behavior_node first
+            behavior_node second
+         end_weighted_random
+         weighted_random
+            run_selection for 5 sec
+            make_selection count 2
+
+            behavior_node third
+            behavior_node fourth
+         end_weighted_random
+      end_behavior_tree
+   end_processor
+end_platform
+
+#execute time must be >= both expectedRepeatNum and expectedForNum
+execute at_time 10 sec absolute
+   if (totalRepeatNum != expectedRepeatNum || totalForNum != expectedForNum)
+   {
+      if (totalRepeatNum < expectedRepeatNum)
+      {
+         writeln("-FAIL- Not enough selections made in repeat selection. Expected: ", expectedRepeatNum, " Actual: ", totalRepeatNum);
+      }
+      else if (totalRepeatNum > expectedRepeatNum)
+      {
+         writeln("-FAIL- Too many selections made in repeat selection. Expected: ", expectedRepeatNum, " Actual: ", totalRepeatNum);
+      }
+
+      if (totalForNum < expectedForNum)
+      {
+         writeln("-FAIL- Not enough selections made in for selection. Expected: ", expectedForNum, " Actual: ", totalForNum);
+      }
+      else if (totalForNum > expectedForNum)
+      {
+         writeln("-FAIL- Too many selections made in for selection. Expected: ", expectedForNum, " Actual: ", totalForNum);
+      }
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+end_time 15 sec

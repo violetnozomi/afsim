@@ -1,0 +1,73 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../scripts/utils.txt
+
+script_variables
+   double cRANGE = 100.0;
+   double cBEARING = 35.0;
+   double cSTACK = 5.0;
+   double cWELDED = false;
+   
+   double cAHEAD = 13.0;
+   double cRIGHT = 250.0;
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 s absolute
+   # Construct RBS
+   WsfFormationOffset rbsOffset = WsfFormationOffset.Construct(cRANGE, cBEARING, cSTACK, cWELDED);   
+   allPassed = ExpectDouble(rbsOffset.GetRange(), cRANGE, 1.0e-10, "RBS range mismatch") && allPassed;
+   allPassed = ExpectDouble(rbsOffset.GetRelativeBearing(), cBEARING, 1.0e-10, "RBS rel. bearing mismatch") && allPassed;
+   allPassed = ExpectDouble(rbsOffset.GetStack(), cSTACK, 1.0e-10, "RBS stack mismatch") && allPassed;
+   allPassed = ExpectBool(rbsOffset.IsWelded(), cWELDED, "RBS welded-wing mismatch") && allPassed;
+   
+   rbsOffset.SetAhead(cAHEAD);
+   allPassed = ExpectDouble(rbsOffset.GetAhead(), cAHEAD, 1.0e-10, "RBS ahead mismatch") && allPassed;
+   rbsOffset.SetRight(cRIGHT);
+   allPassed = ExpectDouble(rbsOffset.GetRight(), cRIGHT, 1.0e-10, "RBS right mismatch") && allPassed;
+   rbsOffset.SetWelded(!cWELDED);
+   allPassed = ExpectBool(rbsOffset.IsWelded(), !cWELDED, "RBS welded reset mismatch") && allPassed;
+   
+   # Construct ARS
+   WsfFormationOffset arsOffset = WsfFormationOffset.Construct(Vec3.Construct(cRIGHT, cAHEAD, cSTACK), cWELDED);
+   allPassed = ExpectDouble(arsOffset.GetAhead(), cAHEAD, 1.0e-10, "ARS ahead mismatch") && allPassed;
+   allPassed = ExpectDouble(arsOffset.GetRight(), cRIGHT, 1.0e-10, "ARS right mismatch") && allPassed;
+   allPassed = ExpectDouble(arsOffset.GetStack(), cSTACK, 1.0e-10, "ARS stack mismatch") && allPassed;
+   allPassed = ExpectBool(arsOffset.IsWelded(), cWELDED, "ARS welded-wing mismatch") && allPassed;
+   
+   arsOffset.SetRangeAndBearing(cRANGE, cBEARING);
+   arsOffset.SetWelded(!cWELDED);
+   allPassed = ExpectDouble(arsOffset.GetRange(), cRANGE, 1.0e-10, "ARS range mismatch") && allPassed;
+   allPassed = ExpectDouble(arsOffset.GetRelativeBearing(), cBEARING, 1.0e-10, "ARS rel. bearing mismatch") && allPassed;
+   allPassed = ExpectBool(arsOffset.IsWelded(), !cWELDED, "ARS welded reset mismatch") && allPassed;
+   
+   # Test addition and subtraction
+   WsfFormationOffset lhs = WsfFormationOffset.Construct(1.0, 30.0, 0.0, false);
+   WsfFormationOffset rhs = WsfFormationOffset.Construct(1.0, -30.0, 0.0, false);
+   WsfFormationOffset sum = WsfFormationOffset.Add(lhs, rhs);
+   WsfFormationOffset diff = WsfFormationOffset.Subtract(lhs, rhs);
+   
+   allPassed = ExpectDouble(sum.GetRange(), MATH.Sqrt(3.0), 1.0e-10, "SUM range") && allPassed;
+   allPassed = ExpectDouble(sum.GetRelativeBearing(), 0.0, 1.0e-10, "SUM bearing") && allPassed;
+   
+   allPassed = ExpectDouble(diff.GetRange(), 1.0, 1.0e-10, "DIFF range") && allPassed;
+   allPassed = ExpectDouble(diff.GetRelativeBearing(), 90.0, 1.0e-10, "DIFF bearing") && allPassed;
+end_execute
+
+execute at_time 2 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   } 
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

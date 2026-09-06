@@ -1,0 +1,281 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void PrintTrackLists(WsfPlatform aPlatform,
+                            string      aIndent,
+                            string      aSuffix)
+
+   writeln(aIndent, "Local Track List", aSuffix);
+   foreach (WsfLocalTrack t in aPlatform.MasterTrackList())
+   {
+      writeln(aIndent, "  ", t.TrackId());
+   }
+
+   # Check internal consistency in WsfLocalTrackList methods
+   WsfLocalTrackList mtl = aPlatform.MasterTrackList();
+   if (mtl.Count() != mtl.Size())                          # These a synonyms
+   {
+      writeln("-FAIL-", aPlatform.Name(), " INCONSISTENCY in WsfLocalTrackList methods; Count()=", mtl.Count(), " Size()=", mtl.Size());
+   }
+   if ((mtl.Empty() && (mtl.Size() != 0)) ||               # Make sure Size and Empty agree
+       ((!mtl.Empty()) && (mtl.Size() == 0)))
+   {
+      writeln("-FAIL-", aPlatform.Name(), " INCONSISTENCY in WsfLocalTrackList methods; Empty()=", mtl.Empty(), " .Size()=", mtl.Size());
+   }
+
+   writeln(aIndent, "Raw Track List", aSuffix);
+   foreach (WsfTrack t in aPlatform.TrackManager().RawTrackList())
+   {
+      writeln(aIndent, "  ", t.TrackId());
+   }
+
+   # Check internal consistency in WsfTrackList methods
+   WsfTrackList rtl = aPlatform.TrackManager().RawTrackList();
+   if (rtl.Count() != rtl.Size())                          # These a synonyms
+   {
+      writeln("-FAIL-", aPlatform.Name(), " INCONSISTENCY in WsfTrackList methods; Count()=", rtl.Count(), " Size()=", rtl.Size());
+   }
+   if ((rtl.Empty() && (rtl.Size() != 0)) ||               # Make sure Size and Empty agree
+       ((!rtl.Empty()) && (rtl.Size() == 0)))
+   {
+      writeln("-FAIL-", aPlatform.Name(), " INCONSISTENCY in WsfTrackList methods; Empty()=", rtl.Empty(), " .Size()=", rtl.Size());
+   }
+
+   writeln(aIndent, "Current Target Track: ", aPlatform.CurrentTarget());
+end_script
+
+//
+platform_type SENSOR_AIRCRAFT WSF_PLATFORM
+
+   icon Wedge
+
+   mover WSF_AIR_MOVER end_mover
+
+   comm aircraft-net WSF_COMM_TRANSCEIVER
+      internal_link data_mgr
+   end_comm
+
+   sensor gs WSF_GEOMETRIC_SENSOR
+      on
+      frame_time         1.0 sec
+      maximum_range      10 nm
+      ignore_same_side
+      reports_location
+      internal_link      data_mgr
+   end_sensor
+
+end_platform_type
+
+
+platform_type TEST_AIRCRAFT_1 SENSOR_AIRCRAFT
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+
+      script_variables
+         bool mDone = false;
+         int  mLocalTrackEntry1 = 0;
+         int  mLocalTrackEntry2 = 1;
+         string mTestString = "not-specified ";
+      end_script_variables
+
+      // --- * --- * ---
+      script void ProcessTrackMessage(WsfTrackMessage aMessage)
+         extern void PrintTrackLists(WsfPlatform, string, string);
+         if ((!mDone) && (aMessage.Track().OriginatorName() == PLATFORM.Name()))
+         {
+            writeln("T=", TIME_NOW, " ", PLATFORM.Name(), " (TF1) Message track ID:",
+                    " ", aMessage.Track().TrackId());
+            PrintTrackLists(PLATFORM, "  "," (Before)");
+            WsfLocalTrack myLocalTrack = PLATFORM.MasterTrackList().Entry(mLocalTrackEntry2);
+            if (myLocalTrack.IsValid())
+            {
+               WsfTrackId newTrackID = PLATFORM.SetCurrentTarget(aMessage.Track());
+               if (newTrackID == myLocalTrack.TrackId())
+               {
+                  writeln("-PASS- T=", TIME_NOW, " ", PLATFORM.Name(), " Sensor track",
+                          " ", myLocalTrack.TrackId());
+               }
+               else
+               {
+                  writeln("-FAIL- T=", TIME_NOW, " ", PLATFORM.Name(), " Mismatch",
+                          " ", aMessage.Track().TrackId(),
+                          " ", newTrackID);
+               }
+            }
+            else
+            {
+               writeln("-FAIL- T=", TIME_NOW, " ", PLATFORM.Name(), " Invalid");
+            }
+            PrintTrackLists(PLATFORM, "  ", " (After)");
+            mDone = true;
+         }
+      end_script
+
+      on_message
+
+         type WSF_TRACK_MESSAGE
+            script ProcessTrackMessage((WsfTrackMessage) MESSAGE); end_script
+
+      end_on_message
+
+      execute at_time 10 sec absolute
+         extern void PrintTrackLists(WsfPlatform, string, string);
+         WsfLocalTrack myLocalTrack = PLATFORM.MasterTrackList().Entry(mLocalTrackEntry1);
+         if (myLocalTrack.IsValid())
+         {
+            writeln("T=", TIME_NOW, " ", PLATFORM.Name(), " (TF1) Timed");
+            PrintTrackLists(PLATFORM, "  ", " (Before)");
+            WsfTrackId newTrackID = PLATFORM.SetCurrentTarget(myLocalTrack);
+            if (newTrackID == myLocalTrack.TrackId())
+            {
+               writeln("-PASS- T=", TIME_NOW, " ", PLATFORM.Name(), " ", mTestString,
+                       " ", myLocalTrack.TrackId());
+            }
+            else
+            {
+               writeln("-FAIL- T=", TIME_NOW, " ", PLATFORM.Name(), " Mismatch",
+                       " ", myLocalTrack.TrackId(),
+                       " ", newTrackID);
+            }
+            PrintTrackLists(PLATFORM, "  ", " (After)");
+         }
+         else
+         {
+            writeln("-FAIL- T=", TIME_NOW, " ", PLATFORM.Name(), " Invalid");
+         }
+      end_execute
+
+   end_processor
+
+end_platform_type
+
+platform_type TEST_AIRCRAFT_2 SENSOR_AIRCRAFT
+
+   processor data_mgr WSF_SCRIPT_PROCESSOR
+
+      script_variables
+         bool mDone = false;
+         int  mLocalTrackEntry = 0;
+      end_script_variables
+
+      // --- * --- * ---
+      script void ProcessTrackMessage(WsfTrackMessage aMessage)
+         extern void PrintTrackLists(WsfPlatform, string, string);
+         if ((!mDone) && (aMessage.Track().OriginatorName() == PLATFORM.Name()))
+         {
+            writeln("T=", TIME_NOW, " ", PLATFORM.Name(), " (TF2) Message track ID:",
+                    " ", aMessage.Track().TrackId());
+            PrintTrackLists(PLATFORM, "  ", " (Before)");
+            WsfTrackId myCurrentTrackID = PLATFORM.CurrentTarget();
+            WsfTrackId newTrackID = PLATFORM.SetCurrentTarget(aMessage.Track());
+            if (myCurrentTrackID.IsNull() && (!newTrackID.IsNull()))
+            {
+               writeln("-PASS- T=", TIME_NOW, " ", PLATFORM.Name(), " Sensor track only ");
+            }
+            else
+            {
+               writeln("-FAIL- T=", TIME_NOW, " ", PLATFORM.Name(), " Invalid");
+            }
+            PrintTrackLists(PLATFORM, "  ", " (After)");
+            mDone = true;
+         }
+      end_script
+
+      on_message
+
+         type WSF_TRACK_MESSAGE
+            script ProcessTrackMessage((WsfTrackMessage) MESSAGE); end_script
+
+      end_on_message
+
+   end_processor
+
+end_platform_type
+
+# ****************************************************************************
+#                        Define the platform instances
+# ****************************************************************************
+
+platform platform-1 WSF_PLATFORM
+   side green
+   position 35:30n 118:00w altitude 0 ft msl heading 90 deg
+end_platform
+
+platform blue-1 TEST_AIRCRAFT_1
+   side blue
+   route
+      label start
+      position 35:00n 118:00w altitude 10000 ft msl speed 500 m/s
+      position 36:00n 118:00w
+      goto start
+   end_route
+   edit processor data_mgr
+      script_variables
+         mTestString = "Predefined ";
+      end_script_variables
+   end_processor
+   track
+      platform platform-1
+   end_track
+end_platform
+
+platform platform-2 TEST_AIRCRAFT_1
+   side blue
+   commander blue-cmdr
+   route
+      label start
+      position 35:00n 118:00w altitude 10000 ft msl speed 500 m/s
+      position 36:00n 118:00w
+      goto start
+   end_route
+   edit processor data_mgr
+      script_variables
+         mLocalTrackEntry1 = 0;
+         mLocalTrackEntry2 = 0;
+         mTestString = "External ";
+      end_script_variables
+   end_processor
+
+end_platform
+
+platform blue-3 TEST_AIRCRAFT_2
+   side blue
+   route
+      label start
+      position 35:00n 118:00w altitude 10000 ft msl speed 500 m/s
+      position 36:00n 118:00w
+      goto start
+   end_route
+
+end_platform
+
+platform blue-cmdr WSF_PLATFORM
+   side blue
+   commander SELF
+   position 35:00n 118:10w altitude 10000 ft msl
+
+   add comm aircraft-net WSF_COMM_TRANSCEIVER
+   end_comm
+
+   add sensor gs WSF_GEOMETRIC_SENSOR
+      on
+      frame_time         1.0 sec
+      reports_location
+      ignore_same_side
+      internal_link      data_mgr
+   end_sensor
+
+   add processor data_mgr WSF_TRACK_PROCESSOR
+    report_to subordinates via aircraft-net
+   end_processor
+
+end_platform
+
+end_time 500 secs
+

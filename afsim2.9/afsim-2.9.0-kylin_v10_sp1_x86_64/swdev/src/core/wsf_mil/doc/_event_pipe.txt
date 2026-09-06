@@ -1,0 +1,172 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Weapon and Task Commands
+========================
+
+Additional weapon related <group-name>:
+
+ **disable <group-name>**
+
+ **enable <group-name>**
+
+  Specifies the names of the event groups to be included or excluded in the file.  These commands are typically specified multiple times to select the events of interest.  The commands are processed in order of appearance with each successive command selecting or deselecting events as appropriate.
+
+  The groups are listed below with the events associated with them.
+
+  BASE_DATA
+
+  * MsgWeaponFired_
+  * MsgWeaponTerminated_
+  * MsgWeaponModeChange_
+
+  TASK (use_preset_ full)
+
+  * MsgTaskUpdate_
+  * MsgQuantumTaskerUpdate_
+
+Weapon Messages
+===============
+
+MsgWeaponTerminated
+~~~~~~~~~~~~~~~~~~~
+
+* double simTime
+* bool geometryResultValid
+* `GeometryResult`_ geometryResult
+* bool firingPlatformIndexValid
+* unsigned int firingPlatformIndex
+* bool targetPlatformIndexValid
+* unsigned int targetPlatformIndex
+* bool intendedTargetNameValid
+* string intendedTargetName
+* bool weaponPlatformIndexValid
+* unsigned int weaponPlatformIndex
+* bool extendedResultValid
+* string extendedResult
+* bool missDistanceValid
+* float missDistance
+
+MsgWeaponFired
+~~~~~~~~~~~~~~
+
+* double simTime
+* bool firingPlatformIndexValid
+* unsigned int firingPlatformIndex
+* bool targetPlatformIndexValid
+* unsigned int targetPlatformIndex
+* bool intendedTargetNameValid
+* string intendedTargetName
+* bool weaponPlatformIndexValid
+* unsigned int weaponPlatformIndex
+* bool targetTrackIdValid
+* `Track_Id`_ targetTrackId
+
+MsgWeaponModeChange
+~~~~~~~~~~~~~~~~~~~
+
+* double simTime
+* unsigned int platformIndex
+* string weaponName
+* string modeName
+* bool active
+
+MsgWeaponModeDefinition
+~~~~~~~~~~~~~~~~~~~~~~~
+
+* double simTime
+* unsigned int platformIndex
+* string weaponName
+* string modeName
+* list<`BeamDefinition`_> beamList
+
+MsgTaskUpdate
+~~~~~~~~~~~~~
+
+* double simTime
+* `MsgTaskUpdate_State`_ state
+* int taskId
+* `Track_Id`_ trackId
+* bool taskTypeValid
+* string taskType
+* bool assignerPlatformValid
+* unsigned int assignerPlatform
+* bool assignerProcessorValid
+* string assignerProcessor
+* bool assigneePlatformValid
+* unsigned int assigneePlatform
+* bool assigneeProcessorValid
+* string assigneeProcessor
+* double assignTime
+* bool statusValid
+* string status
+* bool subStatusValid
+* string subStatus
+* bool targetIndexValid
+* int targetIndex
+
+MsgQuantumTaskerUpdate
+~~~~~~~~~~~~~~~~~~~~~~
+
+* double simTime
+* int column
+* int row
+* float value
+* string taskName
+* string assetName
+* string resourceName
+* bool winner
+
+MsgJammingRequestInitiated
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* double simTime
+* unsigned int srcPlatform
+* string weaponName
+* float frequency
+* float bandwidth
+* string technique
+* unsigned int target
+
+MsgJammingRequestCancelled
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* double simTime
+* unsigned int srcPlatform
+* string weaponName
+* float frequency
+* float bandwidth
+* string technique
+* unsigned int target
+
+MsgJammingRequestUpdated
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+* double simTime
+* unsigned int srcPlatform
+* string weaponName
+* float frequency
+* float bandwidth
+* string technique
+* unsigned int target
+
+Weapon and Task Enumerations
+============================
+
+Weapon PartType
+~~~~~~~~~~~~~~~
+
+* weapon
+
+MsgTaskUpdate_State
+~~~~~~~~~~~~~~~~~~~
+
+* assigned
+* completed
+* cancelled

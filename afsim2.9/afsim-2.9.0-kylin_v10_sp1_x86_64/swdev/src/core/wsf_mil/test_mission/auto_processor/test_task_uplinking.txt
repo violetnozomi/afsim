@@ -1,0 +1,135 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that the auto_weapon_uplink command works
+# for either no track source, or a specific sensor track source.
+
+script_variables
+   Map<string, string> sources = {};
+   bool                gotBadTrack = false;
+end_script_variables
+
+comm WPN_COM WSF_COMM_TRANSCEIVER
+   network_name msl-net
+end_comm
+
+platform_type MISSILE_TYPE WSF_PLATFORM
+   comm com-1 WPN_COM
+      internal_link tester
+   end_comm
+   
+   processor tester WSF_SCRIPT_PROCESSOR
+   debug
+      on_message
+         type WSF_TRACK_MESSAGE
+            script
+               extern Map<string, string> sources;
+               WsfTrackMessage msg = (WsfTrackMessage)MESSAGE;
+               if (msg.Track().TargetName() != "target") {
+                  gotBadTrack = true;
+               }               
+               sources[PLATFORM.Name()] = msg.Track().SensorName();
+            end_script
+      end_on_message
+   end_processor
+   
+   mover WSF_STRAIGHT_LINE_MOVER
+      maximum_lateral_acceleration 13 g
+      average_speed 1000 kts
+   end_mover
+end_platform_type
+
+platform_type LAUNCHER WSF_PLATFORM
+   side blue
+   add weapon wpn-1 WSF_EXPLICIT_WEAPON
+   debug
+      quantity 10
+      launched_platform_type MISSILE_TYPE
+      weapon_effects WSF_SPHERICAL_LETHALITY
+   end_weapon
+   
+   add processor task-proc WSF_TASK_PROCESSOR
+   debug
+      auto_weapon_uplink on
+      execute at_time 3 s relative
+         WsfLocalTrackList tracks = PLATFORM.MasterTrackList();
+         foreach (WsfLocalTrack t in tracks) {
+            if (t.TargetName() == "target") {
+               FireAt(t, "FIRE", PLATFORM.Weapon("wpn-1"), 1);
+               return;
+            }
+         }
+         writeln("-FAIL- Can't find track for target");
+      end_execute
+   end_processor
+   
+   add comm com-1 WPN_COM
+   end_comm
+   
+   add sensor sen-1 WSF_GEOMETRIC_SENSOR
+      on
+      reports_location
+      reports_velocity
+      frame_time 1 s
+      internal_link track-proc
+   end_sensor
+   
+   add processor track-proc WSF_TRACK_PROCESSOR
+      on
+   end_processor
+
+   position 0n 0e
+end_platform_type
+
+platform launcher1 LAUNCHER
+end_platform
+
+platform launcher2 LAUNCHER
+   edit processor task-proc
+      uplink_source sen-1
+   end_processor
+end_platform
+
+platform target WSF_PLATFORM
+   side red
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 0n 0e altitude 3 km
+         speed 300 kts heading 0 deg
+   end_route
+end_platform
+
+platform target2 WSF_PLATFORM
+   side red
+   
+   add mover WSF_AIR_MOVER
+   end_mover
+   
+   route
+      position 0n 0e altitude 3 km
+         speed 300 kts heading 0 deg
+   end_route
+end_platform
+
+execute at_time 1 min absolute
+   extern Map<string, string> sources;
+   if (!gotBadTrack && sources == { "launcher1_wpn-1_1" : "", "launcher2_wpn-1_1" : "sen-1" })
+   {
+      writeln("--PASS--");
+   }
+   else
+   {
+      writeln("-FAIL-");
+      writeln(sources);
+   }
+end_execute
+
+end_time 1.5 min
+

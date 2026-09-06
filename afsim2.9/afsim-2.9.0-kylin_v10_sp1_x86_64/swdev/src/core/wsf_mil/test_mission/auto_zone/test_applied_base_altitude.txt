@@ -1,0 +1,224 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+################################################################################
+#                   Zone Attenuation Air-to-Ground Demo
+#
+# This script demonstrates the zone based attenuation functionality in an
+# air-to-ground environment. An F-18 is on a bombing run through the Samawah
+# region of Iraq. The F-18's task is to acquire track on any tanks along its
+# flight path and drop a single 1000lb GBU on them. This input file uses the
+# zone_set command to load an ESRI shape file, which contains the buildings 
+# in the Samawah region. The sensors on board the F-18 (radar and eyeball) 
+# are configured to use the attenuation values (sensor_modifier) specified
+# in the zone_set to attenuate their signal. To disable the attenuation caused
+# by the zone_set, simply comment out the zone_set. 
+################################################################################
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+script_variables
+   bool blockedAircraftReceivedTrack = false;
+   bool seeThroughAircraftReceivedTrack = false;
+end_script_variables
+
+#################################################################################
+#                           Define the sensor types
+#################################################################################
+sensor GENERIC_EYEBALL WSF_GEOMETRIC_SENSOR 
+   update_interval 0.1 sec
+   azimuth_field_of_view -180.0 degrees 180.0 degrees
+   elevation_field_of_view -90.0 degrees 90.0 degrees
+   minimum_range 0 km
+   maximum_range 20 km
+   
+   on
+   frame_time              0.5 sec
+   reports_location
+   reports_velocity
+   reports_iff
+   track_quality 1.0
+end_sensor 
+
+
+################################################################################
+# Define the platform type for the notional F-18.
+platform_type FIGHTER_AIRCRAFT WSF_PLATFORM
+
+   icon F-18
+   mover WSF_AIR_MOVER
+   end_mover
+
+   sensor eyeball GENERIC_EYEBALL
+     on
+     processor attack-proc
+     ignore_same_side
+   end_sensor
+
+   processor track-proc WSF_TRACK_PROCESSOR
+      purge_interval 0.1 sec
+      update_interval 0.1 sec
+   end_processor
+
+   processor attack-proc WSF_SCRIPT_PROCESSOR
+
+      update_interval 0.1 sec
+      
+      script_variables
+        Map<string, bool> mTargetMap = Map<string, bool>();
+        WsfDraw mRadarDraw = WsfDraw();
+        WsfDraw mEyeballDraw = WsfDraw();
+      end_script_variables
+
+   end_processor
+
+end_platform_type
+
+platform_type FULL_BLOCKED_FIGHTER FIGHTER_AIRCRAFT
+   edit sensor eyeball
+      on
+      modifier_category F-18-eyeball-modifier
+   end_sensor
+
+   edit processor attack-proc
+      on_message
+         type WSF_TRACK_MESSAGE
+         script
+            extern bool blockedAircraftReceivedTrack;
+            
+            WsfTrack track = ((WsfTrackMessage)MESSAGE).Track();
+            if (track.IsValid())
+            {
+
+               mEyeballDraw.SetDuration(0.2);
+               mEyeballDraw.SetColor(0, 0, 1);
+               
+               mEyeballDraw.SetLineSize(0.5);
+               mEyeballDraw.BeginLines();
+               mEyeballDraw.Vertex(PLATFORM);
+               mEyeballDraw.Vertex(track.CurrentLocation());
+               mEyeballDraw.End();
+               
+               blockedAircraftReceivedTrack = true;
+            }
+         end_script
+
+      end_on_message
+   end_processor
+end_platform_type
+
+platform_type FULL_VIEW_FIGHTER FIGHTER_AIRCRAFT
+   edit sensor eyeball
+      on
+      modifier_category F-18-eyeball-modifier-full
+   end_sensor
+
+
+   edit processor attack-proc
+      on_message
+         type WSF_TRACK_MESSAGE
+         script
+            extern bool seeThroughAircraftReceivedTrack;
+         
+            WsfTrack track = ((WsfTrackMessage)MESSAGE).Track();
+            if (track.IsValid())
+            {
+               
+               mEyeballDraw.SetDuration(0.2);
+               mEyeballDraw.SetColor(0, 1, 0);
+               
+               mEyeballDraw.SetLineSize(0.5);
+               mEyeballDraw.BeginLines();
+               mEyeballDraw.Vertex(PLATFORM);
+               mEyeballDraw.Vertex(track.CurrentLocation());
+               mEyeballDraw.End();
+               
+               seeThroughAircraftReceivedTrack = true;
+            }
+         end_script
+
+      end_on_message
+   end_processor
+end_platform_type
+
+################################################################################
+# And now the scenario
+
+zone_set samawah_region
+   attenuation_parameters
+      file ./../shapefiles/simple_buildings/buildingOne
+      use_dted
+
+      constant_height 200 feet
+      
+      base_altitude_parameter ""
+      constant_base_altitude 1000 feet msl #msl or agl is optional # t2
+      
+      projection geodetic
+
+      sensor_modifier F-18-eyeball-modifier 1 #sensor blocked completely when los through zones
+      sensor_modifier F-18-eyeball-modifier-full 0.0 #sensor has full see-through of zones
+   end_attenuation_parameters
+end_zone_set
+
+
+platform aircraft_sensor_blinded FULL_BLOCKED_FIGHTER
+   side blue
+   icon F-18
+   commander self
+
+   position 31:17:38.0n 45:13:59.9e altitude 1030.00 ft msl #t 2
+   #speed 0 kts #t2
+
+   heading 359 deg
+
+end_platform
+
+platform aircraft_sensor_can_see FULL_VIEW_FIGHTER
+   side blue
+   icon F-18
+   commander self
+
+   position 31:17:38.0n 45:13:57.9e altitude 1030.00 ft msl #t 2
+
+   #speed 0 kts #t2
+
+   heading 359 deg
+end_platform
+
+platform target_1 FIGHTER_AIRCRAFT
+   icon F-18
+   side red
+   commander self
+
+   position 31:20:38.0n 45:14:02.9e altitude 1030.00 ft msl #t 2
+
+   #speed 0 kts #t2
+
+   heading 359 deg
+end_platform
+
+execute at_time 1 minute relative
+   extern bool seeThroughAircraftReceivedTrack;
+   extern bool blockedAircraftReceivedTrack;
+   
+   if (seeThroughAircraftReceivedTrack && !blockedAircraftReceivedTrack)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+
+end_time 2 min
+

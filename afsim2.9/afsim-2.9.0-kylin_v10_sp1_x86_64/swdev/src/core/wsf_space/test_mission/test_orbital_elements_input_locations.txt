@@ -1,0 +1,133 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Note that the 18079.67708333 is the 2018 vernal equinox, March 20 16:15 UT
+start_epoch 18080.0
+end_time 10 sec
+initial_run_number 1
+final_run_number 1
+run_number_increment 1
+  
+
+platform_type RSO WSF_PLATFORM 
+   icon satellite
+   side green
+   
+   execute at_time 1 s absolute
+      WsfGeoPoint loc = PLATFORM.Location();
+      double lat = loc.Latitude();
+      double lon = loc.Longitude();
+      double alt = loc.Altitude();
+      //writeln(PLATFORM.Name(), ": ", lat, ":", lon, ":", alt);
+      
+      // The following are fairly large tolerances to accommodate the norad mover OE averaging.
+      // Pass unless we are a long distance from the reference.
+      if (MATH.Fabs(0.0 - lat) > 0.005)
+      {
+         writeln("-FAIL- 1");
+      }
+      if (MATH.Fabs(-156.3319 - lon) > 0.01)
+      {
+         writeln("-FAIL- 2");
+      }
+      if (MATH.Fabs(35786000.0 - alt) > 5000.0)
+      {
+         writeln("-FAIL- 3");
+      }
+      
+   end_execute
+   
+end_platform_type
+
+platform rso_norad RSO
+   icon satellite
+   side green
+  
+   add mover WSF_NORAD_SPACE_MOVER
+      orbit
+1 99000U 18001A   18079.67708333  .00000000  00000-0  00000-0 0  9990
+2 99000   0.0000 265.5666 0000000   0.0000   0.0000  1.00271000    18
+      end_orbit
+   end_mover
+end_platform
+
+platform rso_reference RSO
+   icon satellite
+   side green
+
+  add mover WSF_SPACE_MOVER
+     position 0n 156.3319w altitude 35786 km heading 90 degrees
+  end_mover
+end_platform
+
+platform rso_oes0 RSO
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 42164245.93 m
+      eccentricity  0.0
+      inclination  0.0 deg
+      raan 20 deg
+      argument_of_periapsis 2.13016875 deg
+      mean_anomaly 0.0 deg
+   end_mover
+end_platform
+
+platform rso_oes1 RSO
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 42164245.93 m
+      eccentricity  0.0
+      inclination  0.01 deg
+      raan 20 deg
+      argument_of_periapsis 2.13016875 deg
+      mean_anomaly 0.0 deg
+   end_mover
+end_platform
+
+platform rso_oes2 RSO
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 42164245.93 m
+      eccentricity  0.0001
+      inclination  0.0 deg
+      raan 20 deg
+      argument_of_periapsis 2.13016875 deg
+      mean_anomaly 0.0 deg
+   end_mover
+end_platform
+
+platform rso_oes3 RSO
+   add mover WSF_NORAD_SPACE_MOVER
+      semi_major_axis 42164245.93 m
+      eccentricity  0.0
+      inclination  0.0 deg
+      raan 20 deg
+      argument_of_periapsis 2.13016875 deg
+      mean_anomaly 0.0 deg
+   end_mover
+end_platform
+
+platform rso_oes4 RSO
+   add mover WSF_NORAD_SPACE_MOVER
+      semi_major_axis 42164245.93 m
+      eccentricity  0.0
+      inclination  0.01 deg
+      raan 20 deg
+      argument_of_periapsis 2.13016875 deg
+      mean_anomaly 0.0 deg
+   end_mover
+end_platform
+
+platform rso_oes5 RSO
+   add mover WSF_NORAD_SPACE_MOVER
+      semi_major_axis 42164245.93 m
+      eccentricity  0.0001
+      inclination  0.0 deg
+      raan 20 deg
+      argument_of_periapsis 2.13016875 deg
+      mean_anomaly 0.0 deg
+   end_mover
+end_platform

@@ -1,0 +1,164 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+
+.. parsed-literal::
+
+   uci_component <type> |SENSOR|
+
+      sensor <string-value>
+      mode_uuid ...
+      default_mode_uuid ...
+
+      Part Commands ...
+
+      :command:`uci_component` Commands ...
+         
+   end_uci_component
+
+Overview
+========
+
+|SENSOR| is the corresponding UCI component to |MODEL|. Linking an |SENSOR| component to an |MODEL| allows the sensor to send UCI messages.
+
+Commands
+========
+
+.. command:: sensor <string-value>
+
+   The name of the sensor to link to.
+
+.. command:: mode_uuid <mode-name> <uuid-value>
+
+   Sets the capability (mode) UUID to the given value. This command is equivalent to the "capability_uuid" command.
+
+   .. note:: The UUID should be in the format '########-####-####-####-############', where # is an uppercase alphanumeric value [A-Z0-9].
+
+.. command:: default_mode_uuid <uuid-value>
+
+   Sets the mode at index 0 to the given UUID value.
+
+   .. note:: The UUID should be in the format '########-####-####-####-############', where # is an uppercase alphanumeric value [A-Z0-9].
+
+.. include:: ./uci_part_commands.txt
+
+Message Types
+=============
+
+All message types are able to be sent via script methods.
+
+Activity
+^^^^^^^^
+
+|ACTIVITY| will be sent on the following events:
+
+   - When a |COMMAND_MESSAGE| is received and accepted
+   - When a |COMMAND| is completed
+   - On sensor turned on/off
+   - On sensor mode de/activated
+   - On update interval
+
+Capability
+^^^^^^^^^^
+
+|CAPABILITY| will be sent on the following events:
+
+   - On update interval
+
+CapabilityStatus
+^^^^^^^^^^^^^^^^
+
+|CAPABILITY_STATUS| will be sent on the following events:
+
+   - When a |SETTINGS_COMMAND| is received and accepted
+   - On sensor turned on/off
+   - On sensor mode de/activated
+   - On update interval
+
+Command
+^^^^^^^
+
+|COMMAND_MESSAGE| will be sent on the following events:
+
+   - Script only
+
+CommandStatus
+^^^^^^^^^^^^^
+
+|COMMAND_STATUS| will be sent on the following events:
+
+   - When a |COMMAND_MESSAGE| is received and handled (one per command in message)
+   - When a |SETTINGS_COMMAND| is received and handled
+
+   .. note:: Not yet implemented in script
+
+ControlRequest
+^^^^^^^^^^^^^^
+
+:class:`UCI_ControlRequestMessage` will be sent on the following events:
+
+   - Script only
+
+ControlRequestStatus
+^^^^^^^^^^^^^^^^^^^^
+
+:class:`UCI_ControlRequestStatusMessage` will be sent on the following events:
+
+   - When a ControlRequestMessage is received and handled (one per controlee in message)
+
+ControlStatus
+^^^^^^^^^^^^^
+
+:class:`UCI_ControlStatusMessage` will be sent on the following events:
+
+   - When a ControlRequestMessage is received and handled (one per controlee in message)
+   - On update interval
+
+Entity
+^^^^^^
+
+:class:`UCI_EntityMessage` will be sent on the following events:
+
+   - On sensor track initiated
+   - On sensor track updated
+
+SettingsCommand
+^^^^^^^^^^^^^^^
+
+|SETTINGS_COMMAND| will be sent on the following events:
+
+   - Script only
+
+SettingsCommandStatus
+^^^^^^^^^^^^^^^^^^^^^
+
+|SETTINGS_COMMAND_STATUS| will be sent on the following events:
+
+   - When a |SETTINGS_COMMAND| is received and handled
+
+   .. note:: Not yet implemented in script
+
+SubsystemStatus
+^^^^^^^^^^^^^^^
+
+:class:`UCI_SubsystemStatusMessage` will be sent on the following events:
+
+   - On sensor turned on/off
+   - On update interval
+
+SystemStatus
+^^^^^^^^^^^^
+
+:class:`UCI_SystemStatusMessage` will be sent on the following events:
+
+   - On sensor turned on/off
+   - On update interval
+
+   .. note:: Not yet implemented in script

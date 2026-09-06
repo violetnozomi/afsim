@@ -1,0 +1,155 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test the script methods for the Router object
+
+comm INTERFACE WSF_COMM_TRANSCEIVER
+end_comm
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   add router default WSF_COMM_ROUTER
+   end_router
+   add router other WSF_COMM_ROUTER
+   end_router
+   add comm comm1 INTERFACE
+   end_comm
+   add comm comm2 INTERFACE
+   end_comm
+   add comm comm3 INTERFACE
+      router_name other
+   end_comm
+end_platform_type
+
+platform test TEST_PLATFORM
+end_platform
+
+execute at_time 0.5 s absolute
+   WsfPlatform platform = WsfSimulation.FindPlatform("test");
+   WsfCommRouter router = platform.Router("default");
+   if(router.IsNull())
+   {
+      writeln("Null router object");
+      writeln("-FAIL-");
+   }
+   
+   if(router.Platform() != platform)
+   {
+      writeln("Bad router parent check");
+      writeln("-FAIL-");
+   }
+   
+   if(router.Name() != "default")
+   {
+      writeln("Bad router name");
+      writeln("-FAIL-");
+   }
+   
+   bool result = router.CanBeMadeNonOperational();
+   if(!result)
+   {
+      writeln("Bad operational value");
+      writeln("-FAIL-");
+   }
+   
+   result = router.CanBeTurnedOff();
+   if(!result)
+   {
+      writeln("Bad turn on/off value");
+      writeln("-FAIL-");
+   }
+   
+   if(router.HasGateway())
+   {
+      writeln("Bad gateway existence check");
+      writeln("-FAIL-");  
+   }
+     
+   WsfAddress address = router.GetGateway();
+   if(!address.IsNull())
+   {
+      writeln("Bad gateway null check");
+      writeln("-FAIL-");      
+   }
+   
+   WsfComm comm1 = platform.Comm("comm1");
+   WsfComm comm2 = platform.Comm("comm2");
+   
+   router.SetGateway(comm1.GetAddress());
+   if(comm1.GetAddress().GetAddress() != router.GetGateway().GetAddress())
+   {
+      writeln("Bad gateway set check");
+      writeln("-FAIL-");  
+   }
+   
+   if(!router.HasGateway())
+   {
+      writeln("Bad second gateway existence check");
+      writeln("-FAIL-");  
+   }
+   
+   int hopLimit = router.GetHopLimit();
+   if(hopLimit != 64)
+   {
+      writeln("Bad hop limit get check");
+      writeln("-FAIL-");  
+   }
+   
+   router.SetHopLimit(10);
+   hopLimit = router.GetHopLimit();
+   if(hopLimit != 10)
+   {
+      writeln("Bad hop limit set check");
+      writeln("-FAIL-");  
+   }
+   
+   Array<WsfAddress> interfaces = router.GetInterfaces();
+   if(interfaces.Size() != 2)
+   {
+      writeln("Bad interfaces num check");
+      writeln("-FAIL-");  
+   }
+   
+   foreach(WsfAddress interfaceAddress in interfaces)
+   {
+      if(!((interfaceAddress.GetAddress() == comm1.GetAddress().GetAddress()) ||
+          (interfaceAddress.GetAddress() == comm2.GetAddress().GetAddress())))
+         {
+            writeln("Bad interfaces address check");
+            writeln("-FAIL-");  
+         }
+   }
+   
+   WsfComm comm3 = platform.Comm("comm3");
+   WsfCommRouter otherRouter = platform.Router("other");
+   if(otherRouter.GetInterfaces().Size() != 1)
+   {
+      writeln("Bad other router interfaces num");
+      writeln("-FAIL-"); 
+   }
+   
+   
+   platform.Router("other").RemoveInterface(comm3.GetAddress());
+   if(otherRouter.GetInterfaces().Size() != 0)
+   {
+      writeln("Bad interface removal");
+      writeln("-FAIL-"); 
+   }
+   
+   
+   router.AddInterface(comm3.GetAddress());
+   interfaces = router.GetInterfaces();
+   if(interfaces.Size() != 3)
+   {
+      writeln("Bad second interfaces num check");
+      writeln("-FAIL-");  
+   }
+   
+end_execute
+
+end_time 1 s

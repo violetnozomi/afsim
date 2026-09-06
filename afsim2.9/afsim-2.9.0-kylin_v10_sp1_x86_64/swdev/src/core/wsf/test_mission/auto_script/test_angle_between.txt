@@ -1,0 +1,40 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test AngleIsBetween for angles spanning 360 and 0
+//
+
+script bool testAngle(double angle, double minAngle, double maxAngle)
+   bool pass = MATH.AngleIsBetween(angle, minAngle, maxAngle);
+   if (!pass)
+   {
+      writeln("-FAIL- ", minAngle, " - ", angle, " - ", maxAngle);
+   }
+   return pass;
+end_script
+on_initialize
+   bool pass = true;
+   pass = testAngle(0, -1, 1) && pass;
+   pass = testAngle(0, -1, 361) && pass;
+   pass = testAngle(0, 359, 1) && pass;
+   pass = testAngle(0, 359, 361) && pass;
+   pass = testAngle(360, -1, 1) && pass;
+   pass = testAngle(360, -1, 361) && pass;
+   pass = testAngle(360, 359, 1) && pass;
+   pass = testAngle(360, 359, 361) && pass;
+   pass = testAngle(180, 179, 181) && pass;
+   pass = testAngle(180, 175, 185) && pass;
+   pass = testAngle(-180, 179, 181) && pass;
+   pass = testAngle(180, -181, -179) && pass;
+   pass = testAngle(-180, -181, -179) && pass;
+   if (pass)
+   {
+      writeln("-PASS-");
+   }
+end_on_initialize

@@ -1,0 +1,13 @@
+############### ComponentToReplace
+(struct root
+   (var ObjectMap/MultiresolutionComponentToReplace multiresolutionComponentToReplaceType)
+
+   (rule multiresolution-component_to_replace-type {
+      multiresolution_component_to_replace <string> <string> (new (type multiresolutionComponentToReplaceType $1) (type multiresolutionComponentToReplaceType $2) :backup (type multiresolutionComponentToReplaceType WSF_MULTIRESOLUTION_COMPONENT_TO_REPLACE) ) [apply($$)]
+         <TypeCommand>*
+      end_multiresolution_component_to_replace 
+    | (error { multiresolution_component_to_replace <ignore>* end_multiresolution_component_to_replace } )
+   })
+{
+   <multiresolution-component_to_replace-type>
+})

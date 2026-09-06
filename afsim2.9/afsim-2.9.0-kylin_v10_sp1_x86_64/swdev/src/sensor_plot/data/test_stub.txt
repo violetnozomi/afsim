@@ -1,0 +1,91 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+##############################################################################
+#                          Test the 'stub' interface
+##############################################################################
+# First define the commands for which stubs are desired. For this case stubs
+# will be built for the CSIMS and JAAM missile models.
+##############################################################################
+
+##### Define stub commands and types for CSIMS
+
+ignore_block csims_interface
+
+mover WSF_CSIMS_MOVER WSF_DUMMY_MOVER end_mover
+weapon_effects WSF_CSIMS_EFFECTS WSF_DUMMY_WEAPON_EFFECTS end_weapon_effects
+
+platform_type WSF_CSIMS_PLATFORM WSF_PLATFORM
+   mover WSF_CSIMS_MOVER end_mover
+end_platform_type
+
+mover WSF_HARM_MOVER WSF_DUMMY_MOVER end_mover
+processor WSF_HARM_GUIDANCE WSF_DUMMY_PROCESSOR end_processor
+
+##### Define stub commands and types for JAAM
+
+ignore_block jaam_interface
+
+mover WSF_JAAM_MOVER WSF_DUMMY_MOVER end_mover
+weapon_effects WSF_JAAM_EFFECTS WSF_DUMMY_WEAPON_EFFECTS end_weapon_effects
+
+platform_type WSF_JAAM_PLATFORM WSF_PLATFORM
+   mover WSF_JAAM_MOVER end_mover
+end_platform_type
+
+##############################################################################
+#                  This is what would occur in user scenarios
+##############################################################################
+# First try to use the commands that have been defined as stubs....
+##############################################################################
+
+##### CSIMS
+
+csims_interface
+   blah
+end_csims_interface
+
+platform_type TEST_CSIMS_PLATFORM WSF_PLATFORM
+   mover WSF_CSIMS_MOVER
+      blah blah blah...
+   end_mover
+end_platform_type
+
+platform_type TEST_HARM_PLATFORM WSF_PLATFORM
+   mover WSF_HARM_MOVER
+      blah
+   end_mover
+end_platform_type
+
+weapon_effects TEST_CSIMS_EFFECTS WSF_CSIMS_EFFECTS
+   blah
+end_weapon_effects
+
+##### JAAM
+
+jaam_interface
+   blah blah
+end_jaam_interface
+
+platform_type TEST_JAAM_PLATFORM WSF_JAAM_PLATFORM
+   blah
+end_platform_type
+
+weapon_effects TEST_JAAM_EFFECTS WSF_JAAM_EFFECTS
+   blah
+end_weapon_effects
+
+##############################################################################
+# Now include the real scenario...
+##############################################################################
+
+include hp-sedit.txt
+

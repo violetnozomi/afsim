@@ -1,0 +1,238 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Jamming buddy test.
+#
+#       radar shall create, drop and recreate track due to jammer alignment
+#       angle with striker.
+#
+# Note: The values are not representative of any jammer or radar. They are set
+#       simply to make for simple hand calculations
+#
+# -----------------------------------------------------------------------------
+
+include ../auto_script/test_functions.txt
+
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+  constant 10 m^2
+end_radar_signature
+
+radar_signature TRANSPORT_RADAR_SIGNATURE
+  constant 100 m^2
+end_radar_signature
+
+antenna_pattern DEMO_JAMMER_ANTENNA
+  circular_pattern
+     peak_gain 10 dB
+     beamwidth 10 deg
+  end_circular_pattern
+end_antenna_pattern
+
+weapon DEMO_JAMMER_1 WSF_RF_JAMMER
+    maximum_number_of_spots 2
+  transmitter
+    power 100 w
+    frequency 900 mhz
+    bandwidth 1 mhz
+    antenna_pattern DEMO_JAMMER_ANTENNA
+   end_transmitter
+end_weapon
+
+antenna_pattern EW_RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain 35 dB
+     minimum_gain -20 dB
+     azimuth_beamwidth   10 deg
+     elevation_beamwidth 45 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+sensor EW_RADAR_1 WSF_RADAR_SENSOR
+
+  frame_time                1  sec
+
+  location                  0.0 0.0 -30 m
+
+  scan_mode                 azimuth
+  azimuth_scan_limits       -180 deg 180 deg
+
+  elevation_field_of_view  -2.5 deg 42.5 deg
+
+  minimum_range             0 nm
+  maximum_range           400 km  # really 225 km
+
+  transmitter
+     power                        750 kw
+     frequency                    900 mhz
+     bandwidth                    0.1 mhz          # Added
+     antenna_pattern              EW_RADAR_ANTENNA
+     antenna_tilt                 10 deg
+  end_transmitter
+
+  receiver
+     antenna_pattern              EW_RADAR_ANTENNA
+     antenna_tilt                  10 deg
+     frequency                    900 mhz
+     bandwidth                      1 mhz
+  end_receiver
+
+  one_m2_detect_range       225 km
+
+  azimuth_error_sigma   0.001 deg
+  elevation_error_sigma 0.001 deg
+  range_error_sigma     7.0 m
+
+  filter WSF_ALPHA_BETA_FILTER
+    alpha 0.4
+    beta  0.1
+  end_filter
+
+  hits_to_establish_track   3 5
+  hits_to_maintain_track    1 4
+
+  reports_location
+  reports_velocity
+  reports_signal_to_noise
+  reports_range
+  reports_bearing
+  reports_elevation
+
+end_sensor
+
+platform_type JAMMER_PLATFORM WSF_PLATFORM
+
+  icon EA-6B
+  mover WSF_AIR_MOVER end_mover
+  radar_signature TRANSPORT_RADAR_SIGNATURE
+
+  weapon jammer-1 DEMO_JAMMER_1
+  end_weapon
+
+  processor track_manager WSF_TRACK_PROCESSOR
+  end_processor
+
+end_platform_type
+
+platform_type EW_RADAR_SITE_1 WSF_PLATFORM
+
+  icon Ground_Radar
+  mover WSF_GROUND_MOVER end_mover
+
+  sensor radar-1 EW_RADAR_1
+     processor track_proc
+  end_sensor
+
+  processor track_proc WSF_TRACK_PROCESSOR
+    processor track_checker
+  end_processor
+
+  processor track_checker WSF_SCRIPT_PROCESSOR
+    script_variables
+       bool pass = true;
+       int trackCount = 0;
+       int trackDropCount = 0;
+    end_script_variables
+
+    on_message
+      type WSF_TRACK_NOTIFY_MESSAGE
+         script
+            #
+            # Monitoring track creation and drops
+            # track updates are ignored
+            #
+            extern bool AssertEqualsMessage(int, int, string);
+            WsfTrackNotifyMessage msg = (WsfTrackNotifyMessage)MESSAGE;
+            int changedReason = msg.ChangedReason();
+            if (changedReason == 1)
+            {
+               # Track created
+               trackCount = trackCount + 1;
+               if (trackCount == 1)
+               {
+                  pass = AssertEqualsMessage(2.001, TIME_NOW, "first track initiation at wrong time")  && pass;
+               }
+               else if (trackCount == 2)
+               {
+                  pass = AssertEqualsMessage(144.001, TIME_NOW, "second track initiated at wrong time") && pass;
+               }
+            }
+            else if(changedReason == 3)
+            {
+               # track dropped
+               trackDropCount = trackDropCount + 1;
+               if (trackDropCount == 1)
+               {
+                  pass = AssertEqualsMessage(25.001, TIME_NOW, "first track dropped at wrong time")  && pass;
+               }
+            }
+         end_script
+    end_on_message
+
+    script void on_platform_deleted()
+       extern void writePass(bool);
+       extern bool AssertEqualsMessage(int, int, string);
+       pass = AssertEqualsMessage(2, trackCount, "incorrect track created count") && pass;
+       pass = AssertEqualsMessage(1, trackDropCount, "incorrect track dropped count") && pass;
+       writePass(pass);
+    end_script
+  end_processor
+
+  script void on_platform_deleted()
+    Processor("track_checker").ExecuteScript("on_platform_deleted");
+  end_script
+end_platform_type
+
+platform_type STRIKER_PLATFORM WSF_PLATFORM
+  icon F-18E
+  side blue
+  mover WSF_AIR_MOVER end_mover
+  radar_signature FIGHTER_RADAR_SIGNATURE
+end_platform_type
+
+platform jammer JAMMER_PLATFORM
+  side green
+  route
+    position 36:20n 114:45w
+    altitude 35000 ft
+    speed 450 kts
+    heading 0 deg
+  end_route
+
+  weapon jammer-1
+    on
+  end_weapon
+end_platform
+
+platform ew-radar-site-1 EW_RADAR_SITE_1
+  side red
+  route
+    position 37:10:00n 115:53:24w
+    altitude 100 ft
+    heading 90 deg
+  end_route
+  sensor radar-1
+    on
+    ignore_side green
+  end_sensor
+end_platform
+
+platform striker STRIKER_PLATFORM
+  route
+    position 36:27:30n 115:04:18w
+    altitude 35000 ft
+    speed 450 kts
+    heading 0 deg
+  end_route
+
+  side blue
+
+end_platform
+
+end_time 150 sec

@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+####################################################################################################
+# A simple definition of an SDB for use with the automated tests.
+####################################################################################################
+
+# Use a script variable references for launched_platform_type and weapon_effects
+# just to test the capability.
+
+script_variables
+   string SDB_PLATFORM_TYPE = "SDB";
+   string SDB_WEAPON_EFFECTS = "SDB_LETHALITY";
+end_script_variables
+
+aero SDB_AERO WSF_AERO
+  cd_zero_subsonic    0.150
+  cd_zero_supersonic  0.220
+  mach_begin_cd_rise  0.850
+  mach_end_cd_rise    1.150
+  mach_max_supersonic 2.000
+  reference_area      0.028 m2 # 19cm body dia
+  cl_max              7.000    # unknown
+  aspect_ratio       20.000    # unknown
+  oswalds_factor      0.950    # unknown
+end_aero
+
+weapon_effects SDB_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 50.0 m 0.7
+end_weapon_effects
+
+platform_type SDB WSF_PLATFORM
+   icon JDAM
+   weapon_effects /variable SDB_WEAPON_EFFECTS
+
+   mover WSF_GUIDED_MOVER
+      aero SDB_AERO
+      mass 250.0 lbm
+   end_mover
+
+   processor guidance WSF_GUIDANCE_COMPUTER
+      # Simple example. No GPS update or uplink.
+      guide_to_truth                   true
+
+      proportional_navigation_gain     4.0
+      g_bias                           1.0
+      maximum_commanded_g              5.0 g
+   end_processor
+
+   processor fuse WSF_GROUND_TARGET_FUSE
+   end_processor
+
+end_platform_type
+
+weapon SDB WSF_EXPLICIT_WEAPON
+   launched_platform_type    /variable SDB_PLATFORM_TYPE
+   salvo_interval            5 secs
+end_weapon

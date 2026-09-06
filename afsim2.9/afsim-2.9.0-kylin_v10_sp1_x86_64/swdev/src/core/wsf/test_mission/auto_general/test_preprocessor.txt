@@ -1,0 +1,70 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# verify that a file can be multiply-included
+# and that the file is preprocessed only once
+include preprocess_multi_include.txt
+# we do not expect 'invalid' to be substituted here
+$define SECOND_INCLUDE_VAR  invalid
+include preprocess_multi_include.txt
+
+$define TESTING
+$define SIDE blue
+$define FIVE 5
+$define count-indirect count
+$define count $<count-indirect>$
+$define zero 0
+$define WHOLE_PLATFORM \
+   platform A WSF_PLATFORM \
+      script_variables \
+         int $<count:ERROR?>$ = $<zero:ERROR?>$; \
+      end_script_variables \
+      execute at_time $<ONE:1>$ s absolute \
+         count += 1; if (count != 1) writeln("-FAIL- count!=1"); \
+         if (MATH.Fabs(TIME_NOW - 1)>.1) writeln("-FAIL- T!=1"); \
+      end_execute \
+      execute at_time $<FIVE>$ s absolute \
+         count += 2; if (count != 3) writeln("-FAIL- count!=3"); \
+         if (MATH.Fabs(TIME_NOW - 5)>.1) writeln("-FAIL- T!=5"); \
+      end_execute \
+   end_platform
+
+$define MYSCRIPT \
+   execute at_time 1 s \
+      absolute writeln("-PASS- script in variable"); \
+   end_execute
+
+
+
+platform B WSF_PLATFORM
+   execute at_time 6 s absolute
+      if (WsfSimulation.FindPlatform("A") == null) {
+         writeln("-FAIL- No platform A");
+      }
+   end_execute
+   $<MYSCRIPT:
+      execute at_time 1 s absolute
+         writeln("-FAIL- This script should not be executing");
+      end_execute
+   >$
+   execute at_time 2 s absolute
+      if ($<FIVE:1>$ != 5) {
+         writeln("-FAIL- 5==5");
+      }
+   end_execute
+end_platform
+
+
+$<WHOLE_PLATFORM>$
+
+# empty define is allowed
+# should separate tokens
+$define EMPTY_DEFINE
+end_time$<EMPTY_DEFINE>$10 s
+

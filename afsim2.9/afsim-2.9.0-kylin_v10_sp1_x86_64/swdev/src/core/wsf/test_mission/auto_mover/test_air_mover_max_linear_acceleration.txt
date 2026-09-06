@@ -1,0 +1,141 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool mPassed = true;
+   bool mDebug = false;
+end_script_variables
+
+#event_pipe
+#   file test_air_mover_max_linear_acceleration.aer
+#end_event_pipe
+
+platform_type 737_sw_aircraft WSF_PLATFORM
+   mover WSF_AIR_MOVER
+   end_mover
+
+   processor processor_data WSF_SCRIPT_PROCESSOR
+      update_interval 1.0 sec
+   end_processor
+end_platform_type
+
+platform 737_1 737_sw_aircraft
+   edit mover
+      maximum_linear_acceleration 9.80665 m/s^2 #1g
+      route
+         position 34:10:18.42n 103:57:32.41w altitude 30000.00 ft heading 0 deg speed 300 m/s
+         position 34:42:22.06n 103:57:32.41w altitude 30000.00 ft heading 0 deg speed 1000 m/s
+      end_route
+   end_mover
+
+   edit processor processor_data
+      script_variables
+         double mSpeed = 0;
+         double mPreviousSpeed = -1;
+         double mAcceleration = 0;
+         double mPrecisionBuffer = 0.01;
+         # should not surpass this value
+         double mLinearAccelerationLimit = 9.80665; #m/s^2, equivalent to 1g
+         # should surpass this value
+         double mHalfOfLinearAccelerationLimit = 4.903325; #m/s^2, equivalent to 0.5g
+         bool mFailsMinAccelerationTest = false;
+         bool mFailsMaxAccelerationTest = false;
+      end_script_variables
+
+      script void SetAcceleration()
+         extern double mAcceleration;
+         extern double mSpeed;
+         extern double mPreviousSpeed;
+         mAcceleration = mSpeed - mPreviousSpeed;
+      end_script
+
+      script void IsAccelerationViolatingLimits()
+         extern bool mFailsMaxAccelerationTest;
+         extern double mAcceleration;
+         extern double mLinearAccelerationLimit;
+         extern double mPrecisionBuffer;
+         mFailsMaxAccelerationTest = (mAcceleration > (mLinearAccelerationLimit + mPrecisionBuffer));
+      end_script
+
+      script void Report()
+         extern bool mPassed;
+         extern bool mFailsMaxAccelerationTest;
+         extern bool mFailsMinAccelerationTest;
+         extern bool mDebug;
+         extern double mPreviousSpeed;
+         extern double mSpeed;
+         extern double mLinearAccelerationLimit;
+         if (mFailsMaxAccelerationTest == true)
+         {
+            writeln("-FAIL- : test_air_mover_max_linear_acceleration.txt, because linear acceleration surpassed limit");
+            if (mDebug == true)
+            {
+               writeln("TIME: ", TIME_NOW);
+               writeln("Previous speed: ", mPreviousSpeed);
+               writeln("Current speed: ", mSpeed);
+               writeln("Current acceleration: ", mAcceleration);
+               writeln("Current acceleration limit: ", mLinearAccelerationLimit);
+            }
+            WsfSimulation.Terminate();
+         }
+         else if (mFailsMinAccelerationTest == true)
+         {
+            writeln("-FAIL- : test_air_mover_max_linear_acceleration.txt, because linear acceleration is not at least half of limit");
+            mPassed = false;
+            WsfSimulation.Terminate();
+         }
+      end_script
+
+      script void SetCurrentSpeed()
+         extern double mSpeed;
+         mSpeed = PLATFORM.Speed();
+      end_script
+
+      script void HandleInitialPreviousSpeed()
+         extern double mPreviousSpeed;
+         extern double mSpeed;
+         if (mPreviousSpeed == -1)
+         {
+            mPreviousSpeed = mSpeed;
+         }
+      end_script
+
+      script void UpdatePreviousSpeed()
+         extern double mPreviousSpeed;
+         extern double mSpeed;
+         mPreviousSpeed = mSpeed;
+      end_script
+
+      script void CheckForMinimumLinearAcceleration()
+         extern double mAcceleration;
+         extern double mHalfOfLinearAccelerationLimit;
+         extern bool mFailsMinAccelerationTest;
+         if (mAcceleration < mHalfOfLinearAccelerationLimit)
+         {
+            mFailsMinAccelerationTest = true;
+         }
+      end_script
+
+      on_update
+         SetCurrentSpeed();
+         HandleInitialPreviousSpeed();
+         SetAcceleration();
+         IsAccelerationViolatingLimits();
+         if ((TIME_NOW > 5.0) && (PLATFORM.Speed() < 900.0)) // m/s
+         {
+            # Then we are continuing to accelerate
+            CheckForMinimumLinearAcceleration();
+         }
+         Report();
+         UpdatePreviousSpeed();
+      end_on_update
+   end_processor
+end_platform
+
+end_time 700 sec

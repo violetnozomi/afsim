@@ -1,0 +1,150 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+weapon_effects effect WSF_SPHERICAL_LETHALITY
+    minimum_radius 0 m 
+    maximum_radius 1 m
+    minimum_damage 0
+    maximum_damage 0.01
+end_weapon_effects
+platform_type DUMMY WSF_PLATFORM
+end_platform_type
+
+# Test detonating a weapon with cyber
+platform test_platform WSF_PLATFORM
+    initial_damage_factor 0.99
+    add weapon test_weapon WSF_EXPLICIT_WEAPON
+        launched_platform_type DUMMY
+        weapon_effects effect
+        quantity 1
+    end_weapon
+end_platform
+
+# Test detonating all the ammo in a weapon with cyber
+platform test_platform2 WSF_PLATFORM
+    initial_damage_factor 0.98
+    add weapon test_weapon WSF_EXPLICIT_WEAPON
+        launched_platform_type DUMMY
+        weapon_effects effect
+        quantity 2
+    end_weapon
+end_platform
+
+# Test detonating all the weapons on a platform with cyber
+platform test_platform3 WSF_PLATFORM
+    initial_damage_factor 0.98
+    add weapon test_weapon WSF_EXPLICIT_WEAPON
+        launched_platform_type DUMMY
+        weapon_effects effect
+        quantity 1
+    end_weapon
+
+    add weapon test_weapon2 WSF_EXPLICIT_WEAPON
+        launched_platform_type DUMMY
+        weapon_effects effect
+        quantity 1
+    end_weapon
+end_platform
+
+# Control case for the above tests
+platform test_platform4 WSF_PLATFORM
+    initial_damage_factor 0.98
+    add weapon test_weapon WSF_EXPLICIT_WEAPON
+        launched_platform_type DUMMY
+        weapon_effects effect
+        quantity 1
+    end_weapon
+end_platform
+
+cyber_effect TEST_EFFECT WSF_CYBER_DETONATE_EFFECT
+    weapon_type WSF_EXPLICIT_WEAPON
+end_cyber_effect
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+   effect TEST_EFFECT
+   probability_of_scan_detection 0
+   probability_of_attack_success 1
+   probability_of_status_report 0.0
+   probability_of_attack_detection 0.0
+   probability_of_future_immunity 0.0
+   
+   attack_success_draw_frequency once_per_simulation
+   status_report_draw_frequency once_per_simulation
+   attack_detection_draw_frequency once_per_target
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 0 s
+   delivery_delay_time 0 s
+end_cyber_attack
+
+platform attacker WSF_PLATFORM
+    execute at_time 1 s absolute
+        WsfPlatform tgt = WsfSimulation.FindPlatform("test_platform");
+        bool success = PLATFORM.CyberAttack(tgt, "TEST_ATTACK");
+
+        if(!success) {
+            writeln("Failed to perform cyber attack on test_platform");
+            writeln("-FAIL-");
+        }
+
+        tgt = WsfSimulation.FindPlatform("test_platform2");
+        success = PLATFORM.CyberAttack(tgt, "TEST_ATTACK");
+
+        if(!success) {
+            writeln("Failed to perform cyber attack on test_platform2");
+            writeln("-FAIL-");
+        }
+
+        tgt = WsfSimulation.FindPlatform("test_platform3");
+        success = PLATFORM.CyberAttack(tgt, "TEST_ATTACK");
+
+        if(!success) {
+            writeln("Failed to perform cyber attack on test_platform3");
+            writeln("-FAIL-");
+        }
+
+        tgt = WsfSimulation.FindPlatform("test_platform4");
+        success = PLATFORM.CyberAttack(tgt, "TEST_ATTACK");
+
+        if(!success) {
+            writeln("Failed to perform cyber attack on test_platform4");
+            writeln("-FAIL-");
+        }
+    end_execute
+    execute at_time 2 s absolute
+        WsfPlatform tgt = WsfSimulation.FindPlatform("test_platform");
+        if(tgt.IsValid()) 
+        {
+            writeln("Failed to destroy target test_platform");
+            writeln("-FAIL-");
+        }
+
+        tgt = WsfSimulation.FindPlatform("test_platform2");
+        if(tgt.IsValid()) 
+        {
+            writeln("Failed to destroy target test_platform2");
+            writeln("-FAIL-");
+        }
+
+        tgt = WsfSimulation.FindPlatform("test_platform3");
+        if(tgt.IsValid()) 
+        {
+            writeln("Failed to destroy target test_platform3");
+            writeln("-FAIL-");
+        }
+
+        tgt = WsfSimulation.FindPlatform("test_platform4");
+        if(!tgt.IsValid()) 
+        {
+            writeln("Attack destroyed target test_platform4 when it shouldn't have");
+            writeln("-FAIL-");
+        }
+    end_execute
+end_platform

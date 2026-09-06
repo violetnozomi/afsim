@@ -1,0 +1,136 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+random_seed_time 
+
+cyber_effect MITM_EFFECT_EXFILTRATE WSF_CYBER_MAN_IN_THE_MIDDLE_EFFECT
+   platform_type TEST_PLATFORM
+      all
+      
+      exfiltrate true
+      script WsfCyberMitmMessage OnSend(WsfMessage aMessage)
+         if(aMessage.AuxDataExists("EXFILTRATION_MESSAGE")) 
+         {
+            writeln("Exfiltration messages should not be affected by MITM delays or drops");
+            writeln("-FAIL-");
+         }
+         return WsfCyberMitmMessage.Construct(aMessage, 0, false);
+      end_script
+      
+      script WsfCyberMitmMessage OnReceive(WsfMessage aMessage)
+         if(aMessage.AuxDataExists("EXFILTRATION_MESSAGE")) 
+         {
+            writeln("Exfiltration messages should not be affected by MITM delays or drops");
+            writeln("-FAIL-");
+         }
+         return WsfCyberMitmMessage.Construct(aMessage, 0, false);
+      end_script
+   end_platform_type
+   
+end_cyber_effect
+
+script_variables
+   bool seen1 = false;
+   bool seen2 = false;
+   int seen3 = 0;
+end_script_variables
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+   effect MITM_EFFECT_EXFILTRATE
+end_cyber_attack
+
+network main WSF_COMM_NETWORK_GENERIC
+    comm_link_list 
+       link target1 comm1 attack1 comm1 
+       link target2 comm1 target1 comm1
+       link target1 comm1 target2 comm1 
+    end_comm_link_list
+end_network
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+  
+   comm comm1 WSF_COMM_TRANSCEIVER
+      on
+      network_name main
+   end_comm
+   
+end_platform_type
+
+platform attack1 TEST_PLATFORM
+   side red
+   execute at_time 8 s absolute
+      PLATFORM.CyberAttack(WsfSimulation.FindPlatform("target1"), "TEST_ATTACK");
+   end_execute
+   
+   execute at_time 13 s absolute
+      PLATFORM.CyberAttack(WsfSimulation.FindPlatform("target2"), "TEST_ATTACK");
+   end_execute
+ 
+   edit comm comm1
+      on
+      internal_link proc
+   end_comm
+ 
+   add processor proc WSF_MESSAGE_PROCESSOR
+      on_message 
+         default 
+         script 
+            if (MESSAGE.Type() == "SECRET_MESSAGE") 
+            {
+               seen1 = true;
+            }
+            else if (MESSAGE.Type() == "SECRET_MESSAGE_RESPONSE") 
+            {
+               seen2 = true;
+            }
+            else if (MESSAGE.Type() == "SECRET_MESSAGE2") 
+            {
+               seen3 += 1;
+            }
+         end_script
+      end_on_message
+   end_processor
+end_platform
+
+platform target1 TEST_PLATFORM
+   side blue
+   
+   execute at_time 10 s absolute
+      # This message gets exfiltrated directly
+      WsfMessage hello = WsfMessage();
+      hello.SetType("SECRET_MESSAGE");
+      PLATFORM.Comm("comm1").SendMessage(hello, "target2", "comm1");
+   end_execute
+end_platform
+
+platform target2 TEST_PLATFORM
+   side blue
+   execute at_time 12 s absolute
+      # This message will be exfiltrated by target1 on receipt
+      WsfMessage hello = WsfMessage();
+      hello.SetType("SECRET_MESSAGE_RESPONSE");
+      PLATFORM.Comm("comm1").SendMessage(hello, "target1", "comm1");
+   end_execute
+   
+   execute at_time 14 s absolute
+      # This message will be exfiltrated by us, and then shouldn't be repeatedly exfiltrated by target1
+      WsfMessage hello = WsfMessage();
+      hello.SetType("SECRET_MESSAGE2");
+      PLATFORM.Comm("comm1").SendMessage(hello, "target1", "comm1");
+   end_execute
+end_platform
+
+execute at_time 30 s absolute   
+   assert(seen1);
+   assert(seen2);
+   assert(seen3 == 1);
+end_execute
+
+end_time 1 min

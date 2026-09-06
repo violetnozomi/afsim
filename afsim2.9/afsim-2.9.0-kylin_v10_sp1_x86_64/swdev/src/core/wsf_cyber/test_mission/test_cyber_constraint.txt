@@ -1,0 +1,118 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// Copyright 2021 Radiance Technologies. All rights reserved.
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+# Test Constraint Feature (9.9.21)
+
+platform_type CONSTRAINT_TEST_PLATFORM WSF_PLATFORM   
+   cyber_constraint WSF_CYBER_CONSTRAINT
+   end_cyber_constraint
+   
+   processor IsVulnerable WSF_SCRIPT_PROCESSOR
+      script bool IsVulnerable()
+         return IsVulnerable();
+      end_script
+   end_processor
+end_platform_type
+
+cyber_attack CYBER_ATTACK WSF_CYBER_ATTACK
+   probability_of_attack_success 1.0
+   probability_of_future_immunity 0.5
+   probability_of_attack_detection 1.0
+   resources_required 1.5
+end_cyber_attack
+
+cyber_attack CYBER_ATTACK2 WSF_CYBER_ATTACK
+   probability_of_attack_success 1.0
+   probability_of_future_immunity 0.5
+   probability_of_attack_detection 1.0
+   resources_required 5.0
+end_cyber_attack
+
+cyber_attack CYBER_ATTACK3 WSF_CYBER_ATTACK
+   probability_of_attack_success 1.0
+   probability_of_future_immunity 0.5
+   probability_of_attack_detection 1.0
+   resources_required 1.5
+end_cyber_attack
+
+platform_type ATTACK_PLATFORM WSF_PLATFORM
+   add cyber_constraint WSF_CYBER_CONSTRAINT 
+      resources 3.0
+   end_cyber_constraint
+end_platform_type
+
+platform TARGET_PLATFORM CONSTRAINT_TEST_PLATFORM 
+end_platform
+
+platform ATTACKING_PLATFORM1 ATTACK_PLATFORM
+   execute at_time 1.0 sec absolute
+      # Before attack is initiated:
+      # 1) Attack status should return false
+      # 2) Current Resources should equal total Resources
+      WsfPlatform plat = WsfSimulation.FindPlatform("TARGET_PLATFORM");
+         assert(PLATFORM.CyberAttackStatus(plat, "CYBER_ATTACK") == 0);
+         assert(PLATFORM.Constraint().CurrentResources() == PLATFORM.Constraint().TotalResources());
+      
+      # After attack is initiated:
+      # 1) Attack status should return true
+      # 2) CurrentResources == (TotalResources - ResourcesOfAttack) //In this case ResourcesOfAttack == 1.5
+      # 3) TotalResources should be unchanged //In this case TotalResources == 3
+      PLATFORM.CyberAttack(plat, "CYBER_ATTACK");
+         assert(PLATFORM.CyberAttackStatus(plat, "CYBER_ATTACK") == 1);
+         assert(PLATFORM.Constraint().CurrentResources() == (PLATFORM.Constraint().TotalResources() - 1.5));
+         assert(PLATFORM.Constraint().TotalResources() == 3);
+   end_execute
+end_platform
+
+platform ATTACKING_PLATFORM2 ATTACK_PLATFORM
+   execute at_time 1.0 sec absolute
+      # Before attack is initiated:
+      # 1) All attack statuses should return false
+      # 2) Current Resources should equal total Resources
+      WsfPlatform plat = WsfSimulation.FindPlatform("TARGET_PLATFORM");
+         assert(PLATFORM.CyberAttackStatus(plat, "CYBER_ATTACK") == 0);
+         assert(PLATFORM.CyberAttackStatus(plat, "CYBER_ATTACK3") == 0);
+         assert(PLATFORM.Constraint().CurrentResources() == PLATFORM.Constraint().TotalResources());
+      
+      # After attack is initiated:
+      # 1) All attack statuses should return true
+      # 2) CurrentResources == (TotalResources - ResourcesOfAttack1 - ResourceOfAttack2) //In this case ResourcesOfAttack1 == ResourcesOfAttack2 == 1.5
+      # 3) TotalResources should be unchanged //In this case TotalResources == 3
+      PLATFORM.CyberAttack(plat, "CYBER_ATTACK");
+      PLATFORM.CyberAttack(plat, "CYBER_ATTACK3");
+         assert(PLATFORM.CyberAttackStatus(plat, "CYBER_ATTACK") == 1);
+         assert(PLATFORM.CyberAttackStatus(plat, "CYBER_ATTACK3") == 1);
+         assert(PLATFORM.Constraint().CurrentResources() == 0);
+         assert(PLATFORM.Constraint().TotalResources() == 3);
+   end_execute
+end_platform
+
+platform ATTACKING_PLATFORM3 ATTACK_PLATFORM
+   execute at_time 2.0 sec absolute
+      # Before attack is initiated:
+      # 1) Attack status should return false
+      # 2) Current Resources should equal total Resources
+      WsfPlatform plat = WsfSimulation.FindPlatform("TARGET_PLATFORM");
+         assert(PLATFORM.CyberAttackStatus(plat, "CYBER_ATTACK2") == 0);
+         assert(PLATFORM.Constraint().CurrentResources() == PLATFORM.Constraint().TotalResources());
+
+      # After attack is initiated:
+      # 1) Attack status should return false (ResourceOfAttack > TotalResources) //In this case ResourcesOfAttack == 5
+      # 2) CurrentResources == (TotalResources - ResourcesOfSuccessfullAttack) //In this case ResourcesOfSuccessfulAttack == 0
+      # 3) TotalResources should be unchanged //In this case TotalResources == 3
+      PLATFORM.CyberAttack(plat, "CYBER_ATTACK2");
+         assert(PLATFORM.CyberAttackStatus(plat, "CYBER_ATTACK2") == -1);
+         assert(PLATFORM.Constraint().CurrentResources() == (PLATFORM.Constraint().TotalResources() - 0));
+         assert(PLATFORM.Constraint().TotalResources() == 3);
+   end_execute
+end_platform
+
+end_time 3 sec

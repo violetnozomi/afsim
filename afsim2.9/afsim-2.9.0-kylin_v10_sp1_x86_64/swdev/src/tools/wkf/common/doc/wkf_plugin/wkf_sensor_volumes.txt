@@ -1,0 +1,56 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+|SENSOR_VOLUMES|
+----------------
+
+Sensor volumes can be shown on the Map Display to visualize geometric information (Field-of-view shape, range, direction) for sensors and jammers.
+
+.. image:: ../images/wkf_sensor_volumes.png
+
+Visualized volumes will be occluded by the Earth's sphere, but not smaller features, like mountains, buildings, or platforms.  These occlusions are implemented as a visual affect to prevent beams from passing through the Earth; they should not be used to predict component performance.
+
+.. note:: Volumes will not draw beyond 600,000 km.
+
+Platform Options
+================
+
+Volumes are enabled/disabled from the platform options. They may be controlled at an individual sensor/jammer level.
+
+Preferences
+===========
+
+.. image:: ../images/wkf_sensor_volumes_prefs.png
+
+The **Volume Type** will change what kind of volume is shown, these are:
+
+* **Slew Limits**: Draw a volume that is defined by the :command:`slew limits<_.articulated_part.azimuth_slew_limits>` of the articulated parts.
+* **Cue Limits**: Draw a volume that is defined by the :command:`cue limits<sensor_mode.azimuth_cue_limits>` of the component.
+* **Scan Limits**: Draw a volume that is defined by the :command:`scan limits<_.antenna_commands.azimuth_scan_limits>` of the components' antenna.
+* **Field-of-view**: Draw a volume that is defined by the :command:`field-of-view<_.antenna_commands.field_of_view>` of the components' antenna.
+* **Beam Width**: Draw a volume that is defined by the :command:`scan limits<_.antenna_commands.azimuth_scan_limits>` and beam-width of the component.
+* **Calculated**: Draw a volume that is calculated to show a combined volume of the above types.
+
+There are the following controls for each configured sensor/jammer mode:
+
+* **Faces**: This control will enable and color the volumes' surfaces.
+
+.. image:: ../images/wkf_sensor_volumes_faces.png
+
+* **Edges**: This control will enable and color the volumes' edges.
+
+.. image:: ../images/wkf_sensor_volumes_edges.png
+
+* **Proj.**: This control will enable and color the volumes' projections.
+
+.. image:: ../images/wkf_sensor_volumes_projs.png
+
+A user can define a new mode color scheme by clicking "Add" and entering the name of the desired mode.
+
+Sensor Volumes for unset sensor modes will be displayed with the default mode colors.

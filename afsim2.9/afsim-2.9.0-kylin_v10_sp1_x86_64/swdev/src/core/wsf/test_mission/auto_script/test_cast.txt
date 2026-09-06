@@ -1,0 +1,32 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test Casting of scripting built in data types
+//
+
+include_once test_functions.txt
+
+on_initialize
+   bool pass = true;
+   string testString;
+
+   double testDouble = 0.54321;
+   testString = (string)testDouble;
+   pass = pass && AssertEqualsMessage("0.54321", testString, "double->string");
+
+   int testInt = 2;
+   testString = (string)testInt;
+   pass = pass && AssertEqualsMessage("2", testString, "int->string");
+   double dblVal = 123.123;
+
+   pass = pass && AssertEqualsMessage((string)(int)(dblVal + 123), "246", "int->string");
+   pass = pass && AssertEqualsMessage((string)(dblVal + 123), "246.123", "int->string");
+
+   writePass(pass);
+end_on_initialize

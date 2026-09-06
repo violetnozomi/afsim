@@ -1,0 +1,39 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test platform 'category' changes
+
+include_once ../auto_script/test_functions.txt
+
+platform p1 WSF_PLATFORM
+   category my_category
+
+   script_variables
+      bool mPass = false;
+   end_script_variables
+   
+   execute at_time 1 s absolute
+      mPass = (PLATFORM.CategoryMemberOf("my_category") && !PLATFORM.CategoryMemberOf("new_category"));
+   end_execute    
+   
+   execute at_time 2 s absolute
+      PLATFORM.AddCategory("new_category");
+   end_execute
+ 
+   execute at_time 3 s absolute      
+      mPass = mPass && PLATFORM.CategoryMemberOf("my_category") && PLATFORM.CategoryMemberOf("new_category");
+           
+      if (mPass) { writeln(TEST_PASS_STATEMENT); }
+      else       { writeln(TEST_FAIL_STATEMENT); }
+
+   end_execute 
+ 
+end_platform
+
+end_time 5 s

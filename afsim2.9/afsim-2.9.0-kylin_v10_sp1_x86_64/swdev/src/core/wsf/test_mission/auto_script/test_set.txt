@@ -1,0 +1,111 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+
+#script_listing on
+
+script Array MapIteratorCompare(MapIterator aIter, string aExpectedKey, Object aExpectedData)
+   Array retValue = Array();
+   retValue.PushBack(assertEquals((string)aIter.Key(), aExpectedKey));
+   retValue.PushBack(assertEquals(aExpectedData, aIter.Data()));
+   return retValue;
+end_script
+
+on_initialize
+   Set<int> set1 = { 1, 2, 3 };
+
+   bool pass = true;
+
+   pass = AssertTrueMessage((set1.Size() == 3), "Invalid number of set elements")
+          && pass;
+
+   pass = AssertTrueMessage(! set1.Empty(), "Set should not be empty")
+          && pass;
+
+   pass = AssertFalseMessage(set1.Exists(WsfTrack()), "Set.Exists incorrectly returns true")
+          && pass;
+
+   set1.Erase(2);
+   pass = AssertFalseMessage(set1.Exists(2), "Set.Exists incorrectly returns true")
+          && pass;
+
+   set1.Insert(2);
+   pass = AssertTrueMessage(set1.Exists(2), "Set.Exists incorrectly returns true")
+          && pass;
+
+   Set<int> set2 = { 3, 4, 5, 6 };
+
+   // Test union, difference, and intersection.
+   Set<int> union = set1.Union(set2);
+   Set<int> difference = set1.Difference(set2);
+   Set<int> intersection = set1.Intersection(set2);
+
+   pass = AssertTrueMessage((union.Size() == 6) && union.Exists(1) && union.Exists(2) && union.Exists(3)
+          && union.Exists(4) && union.Exists(5) && union.Exists(6), "Set.Union generated an invalid result")
+          && pass;
+   writeln(union);
+
+   pass = AssertTrueMessage((difference.Size() == 2) && difference.Exists(1)
+          && difference.Exists(2), "Set.Difference generated an invalid result")
+          && pass;
+   writeln(difference);
+
+   pass = AssertTrueMessage((intersection.Size() == 1) && intersection.Exists(3),
+          "Set.Intersection generated an invalid result")
+          && pass;
+   writeln(intersection);
+
+   // Test foreach.
+   bool foreachPass = true;
+   int count = 1;
+   foreach (int val in set1)
+   {
+      if (val != count)
+      {
+         foreachPass = false;
+      }
+      count = count + 1;
+   }
+
+   pass = AssertTrueMessage(foreachPass, "foreach with set container failed to iterate correctly")
+          && pass;
+
+   Set<string> set3 = { "string1", "string2", "string3" };
+   pass = AssertTrueMessage((set3.Size() == 3), "Invalid number of set elements")
+          && pass;
+
+   pass = AssertTrueMessage(! set3.Empty(), "Set should not be empty")
+          && pass;
+
+   pass = AssertFalseMessage(set3.Exists(WsfTrack()), "Set.Exists incorrectly returns true")
+          && pass;
+
+   set3.Erase("string2");
+   pass = AssertFalseMessage(set3.Exists("string2"), "Set.Exists incorrectly returns true")
+          && pass;
+
+   set3.Insert("string2");
+   pass = AssertTrueMessage(set3.Exists("string2"), "Set.Exists incorrectly returns true")
+          && pass;
+
+   # Verify we can use null
+   Set<Object> nullTester = {};
+   nullTester.Insert(null);
+   nullTester.Insert(null);  # should only insert one null
+   pass = AssertTrueMessage(nullTester.Size() == 1, "Set.Size() fails with null");
+   pass = AssertTrueMessage(nullTester.Exists(null), "Set.Exists fails using null");
+   nullTester.Erase(null);
+   pass = AssertFalseMessage(nullTester.Exists(null), "Set.Exists fails using null");
+
+   if (pass)
+   {
+      writeln("Pass");
+   }
+end_on_initialize

@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+antenna_pattern MAR_ANTENNA
+   genap_pattern
+      peak_gain 9 db
+      aperture_shape circular
+      azimuth_distribution cosine
+      azimuth_beamwidth 1 deg
+      azimuth_exponent 1
+      elevation_distribution cosine
+      elevation_beamwidth 1 deg
+      elevation_exponent 1
+      minimum_gain -10.0 db
+end_antenna_pattern
+
+sensor MAR WSF_RADAR_SENSOR
+   on
+   update_interval                  .01 s
+   frame_time                       .01 s
+   hits_to_establish_track          1 32
+   hits_to_maintain_track           1 32
+   track_quality                    1.0
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_location
+   reports_velocity
+   reports_type
+   ignore_same_side
+   ignore_domain land
+   ignore_domain space
+   ignore_domain subsurface
+   ignore_domain surface
+   scan_mode azimuth_and_elevation
+
+   selection_mode single
+
+   transmitter
+      antenna_pattern   MAR_ANTENNA
+      power             5 kw
+      frequency         3 ghz
+      internal_loss     2 db
+      electronic_beam_steering azimuth_and_elevation
+      electronic_beam_steering_limit 90 deg
+      antenna_height 1 m
+   end_transmitter
+
+   receiver
+      antenna_pattern    MAR_ANTENNA
+      bandwidth          500.0 khz
+      noise_power        -100 dBw
+      internal_loss      7 db
+      electronic_beam_steering azimuth_and_elevation
+      electronic_beam_steering_limit 90 deg
+      antenna_height 1 m
+   end_receiver
+end_sensor

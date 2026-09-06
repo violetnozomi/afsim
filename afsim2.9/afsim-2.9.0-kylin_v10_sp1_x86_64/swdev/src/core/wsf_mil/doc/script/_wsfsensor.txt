@@ -1,0 +1,106 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+Military Specific
+=================
+
+Electronic Warfare Methods
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+   :model:`WSF_TASK_PROCESSOR` (:class:`WsfTaskManager`) also has a StartTracking method. When using a task manager, you should use its StartTracking and StopTracking methods to control sensor operations as it provides additional capabilities.
+
+.. note::
+
+   :model:`WSF_TASK_PROCESSOR` (:class:`WsfTaskManager`) also has a StopTracking method. When using a task manager,you should use its StartTracking and StopTracking methods to control sensor operations as it is provides additional capabilities.
+
+
+
+.. method:: bool JammingPerceived(string aMode)
+.. method:: bool JammingPerceived()
+
+   Returns true if the sensor (operator) perceives jamming as defined by the
+   :command:`jamming_perception_threshold <WSF_RADAR_SENSOR.jamming_perception_threshold>` and
+   :command:`jamming_perception_timeout <WSF_RADAR_SENSOR.jamming_perception_timeout>`.
+
+   .. note::
+
+      This method is only valid for sensors deriving from type :model:`WSF_RADAR_SENSOR`.
+
+
+.. method:: bool ContinuousJammingPerceived(string aMode)
+.. method:: bool ContinuousJammingPerceived()
+
+   Returns true if the sensor (operator) perceives continuous (i.e., noise) type jamming as defined by the
+   :command:`jamming_perception_threshold <WSF_RADAR_SENSOR.jamming_perception_threshold>` and
+   :command:`jamming_perception_timeout <WSF_RADAR_SENSOR.jamming_perception_timeout>`.
+
+   .. note::
+
+      This method is only valid for sensors deriving from type :model:`WSF_RADAR_SENSOR`.
+
+
+.. method:: bool PulseJammingPerceived(string aMode)
+.. method:: bool PulseJammingPerceived()
+
+   Returns true if the sensor (operator) perceives pulse type jamming as defined by the
+   :command:`jamming_perception_threshold <WSF_RADAR_SENSOR.jamming_perception_threshold>` and
+   :command:`jamming_perception_timeout <WSF_RADAR_SENSOR.jamming_perception_timeout>`.
+
+   .. note::
+
+      This method is only valid for sensors deriving from type :model:`WSF_RADAR_SENSOR`.
+
+
+.. method:: bool IsEP_TechniqueActive(string aTechniqueName, string aMode)
+            bool IsEP_TechniqueActive(string aTechniqueName)
+
+   Is the technique with supplied name currently in use (i.e., turned on) for the specified mode if included?  Returns
+   true if it is in use and false otherwise.
+
+   .. note::
+
+      If no mode is specified current mode is assumed.
+
+   .. note::
+
+      The EP technique active check will be for all beams on the specified/current mode. If any of the beams
+      are active true will be returned.
+
+
+.. method:: bool SelectEP_Technique(string aTechniqueName, string aMode)
+            bool SelectEP_Technique(string aTechniqueName)
+
+   Selects the technique with supplied name to use (i.e., turns on) on the specified mode, if included.  Returns true if
+   successful and false otherwise.
+
+   .. note::
+
+      If no mode is specified current mode is assumed.
+
+   .. note::
+
+      The EP technique will be selected for all beams on the specified/current mode.
+
+
+.. method:: bool DeselectEP_Technique(string aTechniqueName, string aMode)
+            bool DeselectEP_Technique(string aTechniqueName)
+
+   Deselects the technique with supplied name to use (i.e., turns on) on the specified mode, if included.  Returns true if
+   successful.
+
+   .. note::
+
+      If no mode is specified current mode is assumed.
+
+   .. note::
+
+      The EP technique will be deselected for all beams on the specified/current mode.

@@ -1,0 +1,25 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform test_platform WSF_PLATFORM
+
+   execute at_time 0.0001 s absolute
+      WsfOrbitalManeuverSequence sequence = WsfOrbitalManeuverSequence.Construct();
+      sequence.AddManeuver(WsfTangentManeuver.Construct(WsfOrbitalEventCondition.NONE(), 0.3));
+      sequence.AddManeuver(WsfCompoundManeuver.Construct());
+      sequence.AddManeuver(WsfChangeEccentricity.Construct(WsfOrbitalEventCondition.AT_PERIAPSIS(), 0.2));
+      sequence.AddManeuver(WsfCircularize.Construct(WsfOrbitalEventCondition.AT_ASCENDING_RADIUS(50000000.0)));
+      sequence.AddManeuver(WsfChangeInclination.Construct(WsfOrbitalEventCondition.AT_ASCENDING_NODE(), 20));
+      sequence.AddManeuver(WsfChangeRAAN.Construct(WsfOrbitalEventCondition.AT_NORTHERN_INTERSECTION(), 0.0));
+      sequence.AddManeuver(WsfNormalManeuver.Construct(WsfOrbitalEventCondition.NONE(), 0.3));
+      sequence.AddManeuver(WsfHohmannTransfer.Construct(WsfOrbitalEventCondition.AT_APOAPSIS(), 10000.0));
+      sequence.AddManeuver(WsfChangeRAAN_Inclination.Construct(WsfOrbitalEventCondition.AT_NORTHERN_INTERSECTION(), 0.0, 0.0));
+      sequence.AddManeuver(WsfChangeSemiMajorAxis.Construct(WsfOrbitalEventCondition.AT_APOAPSIS(), 20000.0));
+   end_execute
+end_platform

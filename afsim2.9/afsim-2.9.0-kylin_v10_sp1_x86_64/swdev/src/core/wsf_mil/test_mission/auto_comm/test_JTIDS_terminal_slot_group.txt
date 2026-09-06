@@ -1,0 +1,214 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of JTIDS slot group delivery failures
+# Two platform is the slot group will be able to receive
+# and two platforms are too far away.
+define_path_variable  CASE test_jtids_terminal_slot_group
+
+
+script_variables
+   int numMsgsRcvd = 0;
+   int expectedRcvd = 2;
+   int numMsgsFailed = 0;
+   int expectedFailed = 2;
+end_script_variables
+
+//-----------------------------------------------------------------
+// Comm Devices
+//-----------------------------------------------------------------
+
+comm RADIO WSF_JTIDS_TERMINAL
+#   debug 
+   command_chain surveillance slot_group_surveillance     
+   slot_group slot_group_surveillance
+      npg 7
+   end_slot_group 
+end_comm
+
+//-----------------------------------------------------------------
+// BLUE Platforms
+//-----------------------------------------------------------------
+platform_type SURVEILLANCE-TYPE WSF_PLATFORM
+
+   // Define the nodes's communication device
+   comm radio RADIO
+      //debug
+   end_comm
+   
+   processor track-proc WSF_TRACK_PROCESSOR
+   end_processor
+
+   // Add sensor that will transmit messages
+   sensor my-sensor WSF_GEOMETRIC_SENSOR
+      on
+      internal_link track-proc
+      frame_time 5 sec
+      reports_range
+      ignore_same_side
+   end_sensor
+
+   // Define the mover
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform blue-surveillance SURVEILLANCE-TYPE
+   icon AWACS
+   side blue
+
+   command_chain surveillance SELF
+
+   // Set up route (all other aircraft will be offset from this route)
+   route
+      position 25:00:00n 54:00:00e altitude 20000 ft speed 400 kts
+      position 32:00:00n 54:00:00e altitude 20000 ft speed 400 kts
+   end_route
+   
+   execute at_time 1 sec absolute
+      PLATFORM.Comm("radio").SendMessageToSubordinates("surveillance", WsfMessage());
+   end_execute
+end_platform
+
+// --- Define BLUE Fighter type
+platform_type BLUE-FIGHTER WSF_PLATFORM
+   icon F-18E
+   side blue
+
+   commander blue-surveillance
+   command_chain surveillance blue-surveillance
+
+   // Define the node's communication device
+   comm radio RADIO
+      //debug
+   end_comm
+
+end_platform_type
+
+platform blue-fighter-1 BLUE-FIGHTER
+   // --- Add Offset Mover
+   add mover WSF_OFFSET_MOVER
+      update_interval 1.5 sec
+      update_time_tolerance .25 sec
+      attachment_type rigid
+      reference_platform blue-surveillance
+      offset_from_reference -450 m -301 nm 0 m  
+      orphan_action extrapolate
+   end_mover
+end_platform
+
+platform blue-fighter-2 BLUE-FIGHTER
+   // --- Add Offset Mover
+   add mover WSF_OFFSET_MOVER
+      update_interval 1.5 sec
+      update_time_tolerance .25 sec
+      attachment_type rigid
+      reference_platform blue-surveillance
+      offset_from_reference -450 m 950 m 0 m
+      orphan_action extrapolate
+   end_mover  
+end_platform
+
+platform blue-fighter-3 BLUE-FIGHTER
+   // --- Add Offset Mover
+   add mover WSF_OFFSET_MOVER
+      update_interval 1.5 sec
+      update_time_tolerance .25 sec
+      attachment_type rigid
+      reference_platform blue-surveillance
+      offset_from_reference -450 m -301 nm 0 m
+      orphan_action extrapolate
+   end_mover  
+end_platform
+
+platform blue-fighter-4 BLUE-FIGHTER
+   // --- Add Offset Mover
+   add mover WSF_OFFSET_MOVER
+      update_interval 1.5 sec
+      update_time_tolerance .25 sec
+      attachment_type rigid
+      reference_platform blue-surveillance
+      offset_from_reference -450 m -950 m 0 m
+      orphan_action extrapolate
+   end_mover  
+end_platform
+
+//-----------------------------------------------------------------
+// RED Platforms
+//-----------------------------------------------------------------
+platform red-jammer WSF_PLATFORM
+   icon EA-6B
+   side red
+
+   // --- Add Offset Mover
+   add mover WSF_OFFSET_MOVER
+      update_interval 1.5 sec
+      update_time_tolerance .25 sec
+      attachment_type rigid
+      reference_platform blue-surveillance
+      offset_from_reference -3200 m -1000 m 0 m    // about 2 mi back
+      orphan_action extrapolate
+   end_mover
+
+end_platform
+
+//-----------------------------------------------------------------
+
+end_time 8 sec
+
+execute at_time 8 seconds absolute
+   if (numMsgsRcvd != expectedRcvd)
+   {
+      writeln("-FAIL- Received messages ", numMsgsRcvd, ", expected ", expectedRcvd);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+   
+   if (numMsgsFailed != expectedFailed)
+   {
+      writeln("-FAIL- Failed messages ", numMsgsFailed, ", expected ", expectedFailed);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }  
+    
+end_execute
+
+script void MessageDeliveryAttempt(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult) 
+   writeln_d("T=", TIME_NOW, " Message Delivery Attempt for Comm: ", aRcvr.Name(), " on ", aRcvr.Platform().Name());   
+   if (aRcvr.Platform().Name().StartsWith("blue-fighter") && aResult.Failed())
+   {
+      if (aResult.FailedStatus() == "Rcvr_Range_Limits_Exceeded")
+      {
+         numMsgsFailed = numMsgsFailed + 1;
+      }
+   }   
+end_script
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   writeln_d("T=", TIME_NOW, " Message Received for Comm:", aRcvr.Name(), " on ", aRcvr.Platform().Name());
+   if (aRcvr.Platform().Name().StartsWith("blue-fighter"))
+   {
+      numMsgsRcvd = numMsgsRcvd + 1;
+   }
+end_script
+
+observer
+   enable MESSAGE_DELIVERY_ATTEMPT 
+   enable MESSAGE_RECEIVED
+end_observer
+
+#event_output
+#   file STDOUT
+#   enable MESSAGE_DELIVERY_ATTEMPT
+#   enable MESSAGE_RECEIVED
+#end_event_output

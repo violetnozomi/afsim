@@ -1,0 +1,188 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+# COMM ROUTER TEST
+###############################################################################
+#
+# Test case: Route message through 2 intermediate platforms,
+#            using comm routing, to a final destination platform.
+#            Adapted from "three_network_perfect_comm_demo.txt"
+#
+# 4 co-located platforms, 3 networks
+#
+# A.1 sends a message to C.1, routed through A.2, B.1, and C.1
+#
+# Networks:
+# A(A.1, A.2) B(B.1) C(C.1)
+#
+# Network Topology:
+# A ----> B -----> C
+#
+# Routers in interfaces:
+# @R1(A.2), @R2(B.1), @R3(C.1)
+#
+# Note:
+# @R1 and A.2 are on the same platform.
+# @R2 and B.1 are on the same platform.
+# @R3 and C.1 are on the same platform.
+# We expect that the routing will succeed for A.1 -> C.2
+###############################################################################
+
+//! UPDATE!!!!
+//! This test has been modified with the updates to the comm framework.
+//! Previously, the use of WSF_COMM_ROUTER was required for transmitting
+//! messages to various networks. This is deprecated, and all comms objects
+//! now contain routing functionality inherently. In regards to this test,
+//! there are several implications.
+//! A. The network_address commands are no longer supported, as the addressing
+//!   is already provided by network membership, and the address automatically
+//!   being provided by the Network Manager to the lowest available IPV4 address.
+//! B. Link protocols are currently not supported. (They were non-functional, anyway)
+//! C. The network_link command is deprecated. Previously, we connected networks. We
+//!   now connect individual comm devices, with assumed connectivity with all comms on
+//!   the same network. Thus, to connect a comm device of one network to a comm device
+//!   of another network, all that is required is use of the "link" command to specify
+//!   the specific comm (platform-name, comm-name) to supply a link to.
+//! D. Due to the way the previous comms were implemented, routers (and this test) required
+//!   two comms on the platform to use the router correctly, and assumed no time delay
+//!   when receiving on one and sending out on another. This is not required with the new
+//!   comm framework, and although the two comms on a single platform could simply be linked,
+//!   each would count as a hop and add two additional "hops" in this test, causing a seemingly
+//!   late message arrival at destination. With the new comms, only one comm is required on each
+//!   platform, and the additional comms are removed to ensure the same number of comms devices
+//!   are being hopped through since routers do not treat separate comm devices as linked in any way
+//!   when contained on the same platform. This will result in different output from the previous
+//!   test, but with the same results. This behavior is more robust and realistic than the
+//!   previous use case.
+//! E. As a further illustration of D above, this was the ACTUAL previous passage of comm messages.
+//!   [1-A] -> [2-A] -> [2-AB] -> [1-B] -> [1-BC] -> [1-C]
+//!   The WSF_COMM_ROUTER ignored the actual passages between [2-A] -> [2-AB] and [1-B] -> [1-BC].
+//!   The new comm framework doesn't ignore any links, but needs to preserve test timing. The
+//!   comm devices [2-A] and [1-B] are not necessary, and have been removed, resulting in the
+//!   following:
+//!   [1-A] -> [2-AB] -> [1-BC] -> [1-C]
+
+platform host-1-A WSF_PLATFORM
+   icon 737
+   side green
+   position 40n 115w
+  #position 42n 113.1w
+   // Define the nodes's communication device
+   add comm comm-device-1-A WSF_COMM_TRANSCEIVER
+      debug
+      network_name     A
+
+      #This link connects this comm on network A to the comm residing on
+      #network B on the other platform. Additional comm devices are not
+      #needed, and have been removed (see notes above).
+      link host-2-A comm-device-2-AB
+
+      transfer_rate 1 mbit/s
+   end_comm
+
+   // The script gets a comm device from the parent platform,
+   // creates a message and sends it to host-1-C
+   // In this test, the message is sent without knowing ahead of time
+   // what actual interface will receive them.
+   execute at_time 1 sec absolute
+      WsfControlMessage msg = WsfControlMessage();
+      msg.SetSizeInBits(1000000);   //one megabit
+      PLATFORM.Comm("comm-device-1-A").SendMessage(msg, "host-1-C", "comm-device-1-C");
+   end_execute
+
+end_platform
+
+
+platform host-2-A WSF_PLATFORM
+   icon 737
+   side blue
+   position 40n 115w
+
+   add comm comm-device-2-AB WSF_COMM_TRANSCEIVER
+      debug
+      network_name     B
+      link host-1-B comm-device-1-BC
+      transfer_rate 1 mbit/s
+   end_comm
+
+end_platform
+
+
+platform host-1-B WSF_PLATFORM
+   icon 737
+   side green
+   position 40n 115w
+  #position 44n 113w
+  
+  add router default WSF_COMM_ROUTER
+     gateway comm-device-1-BC
+  end_router
+
+   add comm comm-device-1-BC WSF_COMM_TRANSCEIVER
+      debug
+      network_name     C
+      transfer_rate 1 mbit/s
+   end_comm
+end_platform
+
+platform host-1-C WSF_PLATFORM
+   icon 737
+   side green
+   position 40n 115w
+  #position 42n 113w
+
+   add comm comm-device-1-C WSF_COMM_TRANSCEIVER
+      debug
+      network_name     C
+      transfer_rate 1 mbit/s
+      internal_link script-proc
+   end_comm
+
+   add processor script-proc WSF_SCRIPT_PROCESSOR
+      script void on_message()
+         if (MESSAGE.Type() == "WSF_CONTROL_MESSAGE")
+         {
+            WsfControlMessage msg = (WsfControlMessage)MESSAGE;
+            if (msg.Originator() == "host-1-A")
+            {
+               //check timing, exactly 1 second each hop
+               double AllowedErrorSeconds = 0.000001; //1 micro-second
+               if ((TIME_NOW >= (4.0-AllowedErrorSeconds)) &&
+                   (TIME_NOW <= (4.0+AllowedErrorSeconds))    )
+               {
+                  writeln("SUCCESS: message received and at the right time!");
+                  writeln("-PASS-");
+               }
+               else
+               {
+                  writeln("ERROR: message received but not at the right time!");
+                  writeln("-FAIL-");
+               }
+               WsfSimulation.Terminate();
+            }
+         }
+      end_script
+   end_processor
+end_platform
+
+end_time 10 sec
+
+execute at_time 9.9 seconds absolute
+   //should not have reached this script,
+   //the message should have been received by host-2-C
+   //and the sim should have been terminated
+   writeln("ERROR: message never received!");
+   writeln("-FAIL-");
+end_execute
+
+#event_output
+#   file replay.evt
+#   enable all
+#end_event_output

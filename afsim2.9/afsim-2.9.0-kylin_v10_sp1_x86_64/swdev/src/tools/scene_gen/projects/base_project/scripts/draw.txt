@@ -1,0 +1,25 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2022 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void Draw()
+   WsfWeapon tempWeapon = PLATFORM.Weapon(weaponName);
+   if(tempWeapon.IsValid() && tempWeapon.AuxDataExists(LARmeters))
+   {
+      WsfDraw draw = WsfDraw();
+      double range = tempWeapon.AuxDataDouble(LARmeters);
+      draw.SetDuration(3.0);
+      draw.SetColor(0,1,0);
+      draw.SetEllipseMode("line");
+      draw.BeginCircle(0.0, range);
+      draw.Vertex(PLATFORM);
+      draw.End();
+   }
+end_script

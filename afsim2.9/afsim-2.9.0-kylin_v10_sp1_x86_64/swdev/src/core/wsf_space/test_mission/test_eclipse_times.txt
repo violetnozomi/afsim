@@ -1,0 +1,126 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of WsfSpaceMover.EclipseTimes method.
+#
+# Iterate along an orbit and at periodic intervals invoke the WsfSpaceMover.EclipseTimes method
+# and check to see if the results are reasonable.
+#
+# This assumes that WsfSpaceMover.EclipsedState is consistent (it is simpler)
+
+end_time 900000 sec
+
+platform_type ORBIT_TESTER WSF_PLATFORM
+   mover WSF_SPACE_MOVER
+      update_interval 1.0 sec
+   end_mover
+   
+   script_variables
+      int mTestCount = 0;
+      int mFailCount = 0;
+   end_script_variables
+   
+   script void on_platform_deleted()
+      if (WsfSimulation.PlatformCount() == 1) WsfSimulation.Terminate();
+   end_script
+   
+   script void ShowResultsAndTerminate()
+      if (mFailCount > 0)
+      {
+         writeln("-FAIL- T=", TIME_NOW, ": ", Name(), ", ", mFailCount, " of ", mTestCount, " tests failed");
+      }
+      else
+      {
+         writeln("-PASS- T=", TIME_NOW, ": ", Name(), ", ", mTestCount, " tests passed");
+      }
+      WsfSimulation.DeletePlatform(Name());
+   end_script
+
+   script void CheckEclipseTimes()
+      # Only go for one entire orbit, then show the results and delete the platform.
+      
+      WsfSpaceMover m = (WsfSpaceMover) Mover();
+      double period = 360.0 / m.MeanMotion();
+      if (TimeSinceCreation() > period)
+      {
+         ShowResultsAndTerminate();
+         return;
+      }
+      
+      mTestCount = mTestCount + 1;
+      string message = "";
+      int eclipsedState = m.EclipsedState();
+      Array<double> eclipseTimes = m.EclipseTimes();
+      if (eclipseTimes.Size() < 2)
+      {
+         # THIS DOESN'T WORK WITH 'GEO'
+         if (period < 800000.0)
+         {
+            message = "EclipseTimes did not return any values";
+         }
+      }
+      else
+      {
+         if ((MATH.Fabs(eclipseTimes[1] - eclipseTimes[0]) > period + 1.0) ||
+             (eclipseTimes[0] < TIME_NOW) || 
+             (eclipseTimes[1] < TIME_NOW))
+         {
+            message = "invalid eclipse times";
+         }
+         else if (eclipsedState == 0 && eclipseTimes[1] <= eclipseTimes[0])   # If not eclipsed, and an eclipse exit is happening next
+         {
+            message = "entry should be before exit";
+         }
+         else if (eclipsedState == 1 &&
+                  Math.Fabs(eclipseTimes[0] - TIME_NOW) > 20 &&
+                  Math.Fabs(eclipseTimes[1] - TIME_NOW) > 20 &&
+                  Math.Fabs(eclipseTimes[0] - TIME_NOW - period) > 20 &&
+                  Math.Fabs(eclipseTimes[1] - TIME_NOW - period) > 20)        # If penumbral, current time should be close to an entry/exit time
+         {
+            message = "Penumbral state is not close enough to entry or exit";
+         }
+         else if (eclipsedState == 2 && eclipseTimes[0] <= eclipseTimes[1])   # If eclipsed, and an eclipse entry is happening next
+         {
+            message = "exit should be before entry";
+         }
+      }
+      if (message != "")
+      {
+         mFailCount = mFailCount + 1;
+         write("-FAIL- T=", TIME_NOW, ": ", Name(), " LLA=", Location(), ", EclipseState=", eclipsedState);
+         if (!eclipseTimes.Empty())
+         {
+            write(" EntryTime=", eclipseTimes[0], " ExitTime=", eclipseTimes[1]);
+         }
+         writeln(": ", message);
+      }
+   end_script
+
+   on_update
+      CheckEclipseTimes();
+   end_on_update
+end_platform_type
+
+platform leo-1 ORBIT_TESTER
+   mover
+      position 0n 0w altitude 450 km heading 60 deg
+   end_mover
+end_platform
+
+platform leo-2 ORBIT_TESTER
+   mover
+      position 0n 90w altitude 450 km heading 60 deg
+   end_mover
+end_platform
+
+# Simple way to turn off platforms - uncomment as needed to exclude platforms.
+platform_availability
+   #name leo-1 availability 0.0
+   #name leo-2 availability 0.0
+end_platform_availability

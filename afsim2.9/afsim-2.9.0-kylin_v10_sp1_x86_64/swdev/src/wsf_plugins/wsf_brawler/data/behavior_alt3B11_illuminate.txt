@@ -1,0 +1,184 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt3b.f
+// Replicates the illuminate 3,B,1,1 alternative behavior
+// GENERATES ILLUMINATION MANEUVER
+//
+
+behavior alt3B11_illuminate
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+      WsfLocalTrack             targetTrack;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3B11Enabled = true;
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 11;
+      int icall  = 1;
+      int lcall  = 1;
+
+      double mMaxSustainedG = 2.0;
+
+      double mLongRange = 5.0 * Math.M_PER_NM();
+
+      Vec3 dir0;
+      double gmx = 1.0;
+      double spd0;
+
+      // ALSO NEED:
+      // randomization to simulate imperfect decision making, valsig, read from MIND file, typically ~0.01
+      // Production rule bias, used in scoring of alternative
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt3B11_illuminate, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler tasker!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      ### check if alternative should even be considered?
+
+      if (!mAlternative3B11Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         return Failure("no weapon (target) tasks!");
+      }
+      WsfTask targetTask = tasks.Entry(0);
+      targetTrack = PLATFORM.MasterTrackList().Find(targetTask.LocalTrackId());
+      if (!targetTrack.IsValid())
+      {
+         return Failure("no target track!");
+      }
+
+
+      ## alt3b.f : lines 84 - 127
+
+#      if(!lillum)
+#      {
+#         return Failure("lillum == false");
+#      }
+      #
+      dir0 = Vec3.Construct(0,0,0);
+      #if(nbvr == 0) call nabort('ALT3B...NBVR=0')
+
+#     #LBM - only fly against targetTrack, not all things
+#      do 50 ibvr=1,nbvr
+#         if (jtgbvr(ibvr).lt.0) call nabort('ALT3B...JTGBVR IS ZERO')
+#         if (jtgbvr(ibvr).eq.0) goto 50
+#         iac = mmindt(jtgbvr(ibvr))
+#         if (iac.eq.0) goto 50
+
+      #call vdir(xp(1,me),xp(1,iac),dx)
+      Vec3 dx = RelativePositionNED(PLATFORM.Location(), targetTrack.CurrentLocation());
+      dx.Normalize();
+      Vec3 vp = PLATFORM.VelocityNED();
+      Vec3 dir0i = vorth(vp,dx);
+
+      #call veclin(0.5/xmag(dir0i),dir0i,root3*0.5,dx,dir0i)
+
+      //missile phases:
+      //pinfr=1, psema=2, pactr=3, pcomg=4, pguns=5, phor=6, p_act_ir_1=7, p_inertial=8, pnewg=9
+
+      int kndbvr;   //TODO? = pcomg if command guided launch
+      int psema = 2;    //semi active
+      int pcomg = 4;    //command guided
+      if (kndbvr == psema)
+      {
+         # SEMI-ACTIVE MISSILE, GIVE FULL WEIGHT
+
+         #call vsum(dir0,dir0i,dir0);
+
+      }
+      else if (kndbvr == pcomg)
+      {
+         # ACTIVE RADAR MISSILE, PRESUMABLY PRE-ACQUISITION
+         # GIVE 50% WEIGHT TO ITS ILLUM VECTOR
+
+         #call vecinc(dir0,0.5,dir0i,dir0)
+
+      }
+      else
+      {
+         #call nabort('ALT3B...unknown/illegal kndbvr')
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " unknown/illegal kndbvr");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+
+      # If BVR target is not to be considered in high detail do not
+      # illuminate
+      if (dir0.Magnitude() == 0.0)
+      {
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " dir0 == zero");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+
+      #call unitv(dir0,dir0)
+      int iactn = 4;
+      gmx = 2.0;
+      double bvrmch = 1.0;   //TODO - find for real
+      double fmachp = 1.0;   //TODO - find for real
+      spd0 = PLATFORM.Speed() * MATH.Max(1.0,bvrmch/fmachp);   #spd0 in meter/seconds units here
+      int spdmod = 1;   //(desspd = 1, thrttl = 2, desacc = 3)
+
+      ### Evaluate [Projected] Maneuver Alternative
+      double score = BRAWLER.EvaluateVectorWithSpeed(dir0, gmx, spd0, ilevel, kalt, icall, lcall);
+      return score;
+
+   end_precondition
+
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.FlyVectorWithSpeed(dir0, gmx, spd0);
+   end_execute
+
+end_behavior
+

@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# New file created by AFSIM Wizard
+// Test case documented in Meeus' Astronomical Algorithms v.2, p.342-343
+// Note that the test case result will not be exactly the same because a 
+// slightly different curvefit was used for the moon mean anomaly to process the
+// example, than eq. 47.4 in Meeus (see p.144).
+start_date apr 12 1992
+start_time 00:00:00
+
+test_date_time 
+
+execute at_time 0.00001 s absolute
+
+   Calendar cal = WsfDateTime.CurrentTime();
+   Array<double> ra_dec = Moon.LocationRA_Dec(cal);
+   double ra = ra_dec[0];
+   double dec = ra_dec[1];
+   if ((ra <= 134.69) || (ra >= 134.70))
+   {
+      writeln("-FAIL-");
+   }
+   if ((dec <= 13.76) || (dec >= 13.77)) 
+   {
+      writeln("-FAIL-");
+   }
+   Vec3 vel = Moon.VelocityECI(cal);
+   
+   // Test using DE405 lunar ephemeris
+   cal.SetDate(2019, 2, 20);
+   cal.SetTime(12, 28, 22);
+   
+   // phase is 192.2133 deg.
+   // We use a simple algorithm, so check accuracy within 1 degree:
+   double phase = Moon.Phase(cal);
+   if ((phase < 191.2) || (phase > 193.2))
+   {
+      writeln("-FAIL-");
+   }
+   
+   // Illumination is nearly full (98%)
+   double illumination = Moon.Illumination(cal);
+   if ((illumination < 0.98) || (illumination > 0.99))
+   {
+      writeln("-FAIL-");
+   }
+   
+   // Speed is as follows:
+   double expectedSpeed = 3957.48 / 3600.0 * 1000; // km/hr * hr/s * m/km
+   double speed = Moon.VelocityECI(cal).Magnitude();
+      
+   if ((speed <= 1099.2) || (speed > 1099.4))
+   {
+      writeln("-FAIL-");
+   }
+   
+end_execute

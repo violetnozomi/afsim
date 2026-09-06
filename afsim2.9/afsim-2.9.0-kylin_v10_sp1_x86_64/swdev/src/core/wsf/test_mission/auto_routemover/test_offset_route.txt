@@ -1,0 +1,53 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests passing offset routes to the mover.
+# The route should be interpreted using the current state
+include ../auto_script/test_functions.txt
+include ../auto_script/test_pass.txt
+
+script_variables
+  PassTestCount = 2;
+end_script_variables
+
+route rel_route
+   offset 1000 0 m switch_on_approach
+   offset 0 1000 m switch_on_approach
+   offset -1000 0 m switch_on_approach
+   offset 0 -1000 m switch_on_approach
+      execute OnEndOfRoute
+end_route
+
+platform plat WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      update_interval .5 s
+   end_mover
+   heading 45 deg
+   route
+      offset 0 0 m  speed 30 m/s
+      offset 1000 0 m switch_on_approach
+      offset 0 1000 m switch_on_approach
+      offset -1000 0 m switch_on_approach
+      offset 0 -1000 m switch_on_approach
+         execute OnEndOfRoute
+   end_route
+   script void OnEndOfRoute()
+      FollowRoute("rel_route");
+   end_script
+#   script_listing on
+   execute at_time 297 s absolute
+      writeln(Latitude(), " ", Longitude());
+      double latval = -.00623236;
+      if (AssertWithinToleranceMessage(latval, Latitude(), 0.0001, "Latitude outside of tolerance"))   { pass(); }
+      if (AssertWithinToleranceMessage(latval, Longitude(), 0.0001, "Longitude outside of tolerance")) { pass(); }
+   end_execute
+end_platform
+
+end_time 298 s
+

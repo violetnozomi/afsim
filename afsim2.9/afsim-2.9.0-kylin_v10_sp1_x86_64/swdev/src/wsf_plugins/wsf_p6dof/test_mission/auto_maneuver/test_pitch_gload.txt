@@ -1,0 +1,78 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 600 s
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+platform TEST_AIRCRAFT FA-LGT
+   side blue
+   
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   script_variables
+      bool keepChecking = true;
+   end_script_variables
+   
+   execute at_time 10 sec absolute
+      WsfRollDeltaManeuver nospin = WsfRollDeltaManeuver.Construct(0.0);
+   
+      WsfPitchGLoadManeuver mvr = WsfPitchGLoadManeuver.Construct(8.0);
+      mvr.SetEntryConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(3.0));
+      mvr.SetExitConstraint(WsfManeuverConstraint.AT_RELATIVE_TIME(3.0));
+      
+      allPassed = ExpectDouble(mvr.GetG_Load(), 8.0, 1.0e-4, "G-load should be 8.0") && allPassed;
+      
+      WsfPitchGLoadManeuver release = WsfPitchGLoadManeuver.Construct(0.0);
+      release.SetEntryConstraint(WsfManeuverConstraint.AT_PITCH_ANGLE(3.0));
+      
+      WsfRollAngleManeuver up = WsfRollAngleManeuver.Construct(0.0);
+      up.SetExitConstraint(WsfManeuverConstraint.AT_ROLL_ANGLE(0.0));
+      
+      WsfFlightPathAngleManeuver flat = WsfFlightPathAngleManeuver.Construct(0.0);
+      
+      WsfManeuverSequence sqn = WsfManeuverSequence.Construct();
+      sqn.Append(nospin);
+      sqn.Append(mvr);
+      sqn.Append(release);
+      sqn.Append(up);
+      sqn.Append(flat);
+      
+      WsfP6DOF_Mover mov = (WsfP6DOF_Mover)PLATFORM.Mover();
+      mov.SetPitchGLoadMax(8.0);
+      mov.ExecuteManeuverSequence(sqn);
+   end_execute
+   
+   execute at_time 12 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Y(), 0.00, 3.0, "Pitch should be small") && allPassed;
+   end_execute
+   
+   execute at_time 300 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().X(), 0, 3.0, "Heading should be small") && allPassed;
+   end_execute
+end_platform
+
+execute at_time 400 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }   
+end_execute  

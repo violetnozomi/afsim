@@ -1,0 +1,99 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool mPassed = true;
+   bool mDebug = false;
+end_script_variables
+
+#event_pipe
+#  file test_air_mover_roll_rate_limit.aer
+#end_event_pipe
+
+platform 737_sw_aircraft WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      roll_rate_limit 2 deg/s
+      route
+         position 34:10:18.42n 103:57:32.41w altitude 30000.00 ft heading 0 deg speed 300 m/s
+         position 34:22:22.06n 103:57:32.41w altitude 30000.00 ft heading 0 deg
+         position 34:10:18.42n 103:57:32.41w altitude 30000.00 ft heading 180 deg
+      end_route
+   end_mover
+
+   add processor processor_data WSF_SCRIPT_PROCESSOR
+      update_interval 1.0 sec
+
+      script_variables
+         double mPreviousRoleValue = -1;
+         bool mCommandToSetRollReceived = false;
+         double mRoleRateLimit = 2.1; #note, the behavior is precise to the level of one tenth.  There are also adjustments when going to 180 degrees.
+      end_script_variables
+
+      script void CheckPlatformRoll(WsfPlatform aPlatform)
+         extern bool mDebug;
+         extern double mPreviousRoleValue;
+         extern double mRoleRateLimit;
+         extern bool mPassed;
+         double roll = aPlatform.Roll();
+         double differenceFromPreviousRollValue = 0;
+         if (mPreviousRoleValue == -1)
+         {
+            mPreviousRoleValue = roll;
+         }
+         if (roll < 0)
+         {
+            if (mPreviousRoleValue >= 0)
+            {
+               double differenceOne = 0 - roll;
+               double differenceTwo = mPreviousRoleValue;
+               differenceFromPreviousRollValue = differenceOne + differenceTwo;
+            }
+            else
+            {
+               differenceFromPreviousRollValue = mPreviousRoleValue - roll;
+            }
+         }
+         else if (roll > 0)
+         {
+            if (mPreviousRoleValue < 0)
+            {
+               double differenceOne = roll;
+               double differenceTwo = 0 - mPreviousRoleValue;
+               differenceFromPreviousRollValue = differenceOne + differenceTwo;
+            }
+            else
+            {
+               differenceFromPreviousRollValue = roll - mPreviousRoleValue;
+            }
+         }
+
+         if (differenceFromPreviousRollValue > mRoleRateLimit)
+         {
+            writeln("-FAIL- : test_air_mover_roll_rate_limit.txt, because roll rate surpassed limit");
+            mPassed = false;
+            if (mDebug)
+            {
+               writeln("Difference from previous value = ", differenceFromPreviousRollValue);
+            }
+         }
+
+         mPreviousRoleValue = roll;
+         if (mDebug)
+         {
+            writeln("The platform\'s roll is: ", aPlatform.Roll());
+         }
+      end_script
+
+      on_update
+         CheckPlatformRoll(PLATFORM);
+      end_on_update
+   end_processor
+end_platform
+
+end_time 700 sec

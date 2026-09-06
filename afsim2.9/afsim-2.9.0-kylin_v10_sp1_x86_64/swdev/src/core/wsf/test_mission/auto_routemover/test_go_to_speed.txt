@@ -1,0 +1,43 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test GoToSpeed(0)
+//    GroundMover with initial speed should go to 0
+//
+
+platform plat WSF_PLATFORM
+   add mover WSF_GROUND_MOVER
+      route
+         position 31n 110w speed 50 mph
+         position 31n 111w speed 50 mph
+      end_route
+   end_mover
+   execute at_time 10 s absolute
+      PLATFORM.GoToSpeed(0);
+   end_execute
+   add processor proc WSF_SCRIPT_PROCESSOR
+      update_interval 1 s
+      on_update
+         writeln(TIME_NOW, " Speed: ", PLATFORM.Speed());
+      end_on_update
+   end_processor
+   script void on_platform_deleted()
+      if (Speed() > 0.01)
+      {
+         writeln("-FAIL- GoToSpeed(0)");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+   end_script
+end_platform
+
+end_time 20 s
+

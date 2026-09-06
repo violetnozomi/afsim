@@ -1,0 +1,148 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+antenna_pattern LR_SAM_TTR_RADAR_ANTENNA
+  sine_pattern
+    peak_gain            35 dB
+    minimum_gain         -10.0 db
+    azimuth_beamwidth    1 deg
+    elevation_beamwidth  1 deg
+  end_sine_pattern
+end_antenna_pattern
+
+sensor LR_SAM_TTR_RADAR_SENSOR WSF_RADAR_SENSOR
+
+   selection_mode                 multiple
+   initial_mode                   AZ
+   
+   slew_mode                      azimuth_and_elevation
+   azimuth_slew_limits            -180 deg 180 deg
+   elevation_slew_limits          0.0 deg 80.0 deg
+
+   mode_template
+      
+      one_m2_detect_range            110.0 nm
+      maximum_range                  110.0 nm
+      antenna_height                 4.0 m
+
+      transmitter
+         antenna_pattern             LR_SAM_TTR_RADAR_ANTENNA
+         power                       1000.0 kw
+         frequency                   9510 mhz
+         internal_loss               2 db
+      end_transmitter
+
+      receiver
+         antenna_pattern             LR_SAM_TTR_RADAR_ANTENNA
+         bandwidth                   500.0 khz
+         noise_power                 -160 dBw 
+         internal_loss               7 dB
+      end_receiver
+
+      probability_of_false_alarm     1.0e-6
+      required_pd                    0.5
+      swerling_case                  1
+
+      reports_range
+      reports_bearing
+      reports_elevation
+      reports_velocity
+      frame_time 1 s
+   end_mode_template
+
+   mode AZ
+      cue_mode azimuth
+   end_mode
+
+   mode EL
+      cue_mode elevation      
+   end_mode
+
+   mode AZEL
+      cue_mode both   
+   end_mode
+   
+end_sensor
+
+sensor LR_SAM_TTR_RADAR_SENSOR_NO_MULTI_SELECT LR_SAM_TTR_RADAR_SENSOR
+   selection_mode single
+end_sensor
+
+platform_type TTR WSF_PLATFORM
+   side red
+   position 28:50:50.05n 81:51:10.88w
+
+   script void TestCue(double aCueAz, double aCueEl)
+      static double sTOL = 1.0e-4;
+      WsfSensor ttr = PLATFORM.Sensor("lr_sam_ttr_radar_sensor");
+      writeln("Mode:", ttr.CurrentMode());
+      if ((ttr.CurrentCuedAzimuth() < aCueAz - sTOL) || (ttr.CurrentCuedAzimuth() > aCueAz + sTOL))
+      {
+         writeln ("-FAIL-(", ttr.CurrentMode(), ", az )", ttr.CurrentCuedAzimuth());
+      }            
+      if ((ttr.CurrentCuedElevation() < aCueEl - sTOL) || (ttr.CurrentCuedElevation() > aCueEl + sTOL))
+      {
+         writeln ("-FAIL-(", ttr.CurrentMode(), ", el )", ttr.CurrentCuedElevation());
+      }            
+   end_script
+   
+   script void CueSensorTo(double aAz, double aEl)
+      WsfSensor ttr = PLATFORM.Sensor("lr_sam_ttr_radar_sensor");
+      ttr.CueToAzEl(aAz, aEl);
+   end_script
+   
+   script void SelectMode(string aMode)
+      WsfSensor ttr = PLATFORM.Sensor("lr_sam_ttr_radar_sensor");
+      ttr.SelectMode(aMode);
+   end_script
+   
+   execute at_time 5 s absolute
+      CueSensorTo(50, 40);
+   end_execute
+   
+   execute at_time 7 s absolute
+      TestCue(50.0, 0.0); // Can't cue in El
+   end_execute
+   
+   execute at_time 10 s absolute 
+      SelectMode("AZEL");
+      CueSensorTo(10.0, 80.0);
+   end_execute
+   
+   execute at_time 20 s absolute
+      TestCue(10.0, 80.0); // Can cue in both az and el
+   end_execute
+   
+   execute at_time 30 s absolute 
+      SelectMode("EL");
+      CueSensorTo(30.0, 10.0);
+   end_execute
+   
+   execute at_time 40 s absolute
+      TestCue(0.0, 10.0); // Cant cue in Az
+   end_execute
+
+end_platform_type
+
+platform ttr_multi_select WSF_PLATFORM
+   add sensor lr_sam_ttr_radar_sensor LR_SAM_TTR_RADAR_SENSOR
+     on
+   end_sensor
+end_platform
+
+platform ttr_no_multi_select WSF_PLATFORM
+   add sensor lr_sam_ttr_radar_sensor LR_SAM_TTR_RADAR_SENSOR_NO_MULTI_SELECT
+     on
+   end_sensor
+end_platform
+
+end_time 30 min
+
+

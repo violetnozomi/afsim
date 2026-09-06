@@ -1,0 +1,39 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+EXCHANGE_NEGOTIATED
+-------------------
+
+This event denotes that two interested platforms have shared interactions via the EXCHANGE_QUERIED events,
+and have discerned that they will initiate planned transfer of a commodity or service, beginning now, but
+ending some time in the future.  This event will likely happen twice, when each side of the transaction
+discerns the transaction is to begin.  The planned final transaction amounts may vary if the exchange is
+terminated early.
+NOTE:  This is a low-level event that occurs between platforms who have negotiated and exchange.
+End-users will likely be more interested in :ref:`docs/event/exchange_events:EXCHANGE_COMPLETED` at the culmination of an exchange.
+
+event_output Signature:
+
+.. parsed-literal::
+
+   <time> <negotiation-type> <sender> to <listener> N=<serial-request-id> ID=<identifier> DESIRED=<amount> OFFERED=<amount> NEGOTIATED=<amount> DESIRED_RATE=<rate> OFFERED_RATE=<rate> NEGOTIATED_RATE=<rate> STATUS=<result>
+
+Signature Elements:
+
+======================================== ========================================
+Fields                                   Description
+======================================== ========================================
+<time>                                   The current simulation time
+<negotiation-type>                       The event name, which is either EXCHANGE_REQUEST_NEGOTIATED or EXCHANGE_RESPONSE_NEGOTIATED
+<sender>                                 Name of platform recognizing that the negotiation is complete
+<listener>                               Name of platform that is the perceived other side of the transaction
+<identifier>                             Name of the commodity or service exchanged
+<amount>                                 Amount of the commodity or service exchanged(units are implementation-defined)
+<rate>                                   Rate at which the commodity or service was exchanged (units are implementation-defined; zero denotes instantaneously)
+======================================== ========================================

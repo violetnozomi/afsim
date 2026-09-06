@@ -1,0 +1,199 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+thread_count 5
+
+file_path ..
+
+include lrsam.txt
+include lrsam_ttr.txt
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+   constant 1.0 m^2
+end_radar_signature
+
+platform_type LAUNCHER_TYPE WSF_PLATFORM
+   side red
+   icon SA-10_Launcher
+
+   comm comm WSF_COMM_TRANSCEIVER
+      internal_link operator
+   end_comm
+
+   processor operator WSF_TASK_PROCESSOR
+   end_processor
+
+   weapon lrsam LRSAM
+     quantity 1
+   end_weapon
+
+end_platform_type
+
+platform_type TRACKER_TYPE WSF_PLATFORM
+   side red
+   icon Flap_Lid
+
+   comm comm WSF_COMM_TRANSCEIVER
+      internal_link operator
+   end_comm
+
+   #track
+   #   platform target
+   #end_track
+
+   sensor find WSF_GEOMETRIC_SENSOR
+      ignore_same_side
+      frame_time 10 sec
+      reports_location
+      on
+      track_quality 0.5
+      internal_link tracker
+   end_sensor
+
+   sensor ttr LRSAM_TTR
+      on
+      internal_link tracker
+   end_sensor
+
+   processor tracker WSF_TRACK_PROCESSOR
+   end_processor
+
+   processor operator WSF_TASK_PROCESSOR
+      show_state_transitions
+
+      evaluation_interval DETECTED 0.5 sec
+      state DETECTED
+         next_state TRY_TO_ACQUIRE
+            return StartTracking(TRACK, "DUMMY", PLATFORM.Sensor("ttr"), "SEARCH");
+         end_next_state
+      end_state
+
+      evaluation_interval TRY_TO_ACQUIRE 0.5 sec
+      state TRY_TO_ACQUIRE
+         next_state TRY_TO_TRACK
+            bool status = false;
+            if (TRACK.TrackQuality() > 0.65)
+            {
+               status = StartTracking(TRACK, "DUMMY", PLATFORM.Sensor("ttr"), "ACQUIRE");
+            }
+            return status;
+         end_next_state
+      end_state
+
+      evaluation_interval TRY_TO_TRACK 0.5 sec
+      state TRY_TO_TRACK
+         next_state TRY_TO_FIRE
+            bool status = false;
+            if (TRACK.TrackQuality() > 0.85)
+            {
+               status = StartTracking(TRACK, "DUMMY", PLATFORM.Sensor("ttr"), "TRACK");
+            }
+            return status;
+         end_next_state
+      end_state
+
+      evaluation_interval TRY_TO_FIRE 0.5 sec
+      state TRY_TO_FIRE
+         next_state FIRED
+            bool status = false;
+            if (TRACK.TrackQuality() > 0.95)
+            {
+               WsfPlatform launcher = WsfSimulation.FindPlatform("launcher");
+               status = FireAt(TRACK, "DUMMY", "lrsam", 1, launcher);
+            }
+            return status;
+         end_next_state
+      end_state
+
+      evaluation_interval FIRED 0.1 sec
+      state FIRED
+         next_state FIRED
+            return true;
+         end_next_state
+      end_state
+   end_processor
+
+end_platform_type
+
+platform_type TARGET_TYPE WSF_PLATFORM
+   side blue
+   icon F-18E
+   radar_signature FIGHTER_RADAR_SIGNATURE
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+random_seed 1
+
+frame_time 0.01 sec
+end_time 100 secs
+
+# Redefine the default output_rate table
+output_rate default
+   time     0.0 secs period  1.0 sec
+   time   500.0 secs period 10.0 sec
+   time   800.0 secs period 50.0 sec
+   time   950.0 secs
+end_output_rate
+
+
+run
+   #record_file_base_name grid
+
+   target_grid
+      down_range  from -100 km to 100 km by 100 km
+      cross_range from  -20 km to  20 km by  40 km
+      altitude    from  30 kft to 30 kft by 10 kft
+      speed 262 kts
+
+      #down_range  from 100 km to 100 km by 100 km
+      #cross_range from  20 km to  20 km by 40 km
+   end_target_grid
+
+   output
+      file fort.6.lis
+      phase all
+
+      items
+         variable time format "%.2f"
+         variable target_x units km format " %7.3f"
+         variable target_y units km format " %7.3f"
+         variable target_z units m
+      end_items
+   end_output
+
+   output
+      file fort.7.lis
+      phase flying
+      items
+         variable weapon_flight_time format "%.2f"
+         variable target_x units km format " %7.3f"
+         variable target_y units km format " %7.3f"
+         variable target_z units m format " %7.1f"
+         variable weapon_x units km format " %7.3f"
+         variable weapon_y units km format " %7.3f"
+         variable weapon_z units m format " %7.1f"
+         variable weapon_to_target_range units m format " %7.1f"
+      end_items
+   end_output
+
+   output
+     file fort.6.lis
+     event_output true
+     summary_output true
+   end_output
+
+end_run
+
+/*
+event_output
+  file replay.evt
+  enable all
+end_event_output
+*/
+

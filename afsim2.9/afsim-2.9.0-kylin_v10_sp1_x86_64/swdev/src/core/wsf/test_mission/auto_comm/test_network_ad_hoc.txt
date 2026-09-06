@@ -1,0 +1,154 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This tests the basic functionality of the ad_hoc network type.
+// Three platforms belong to this network. Because two of these
+// platforms are at ground level, they cannot communicate/create linkage
+// between each other (test1 and test5) due to being masked by the horizon.
+// A third platform, test2, is at 20,000 ft and within radio range, s.t.
+// it can communicate with both test1 and test5, and act as a relay to pass
+// the test message between test1 and test5.
+//
+// The relay platform is moved to ground level, and a message transmission
+// is attempted again before the regularly scheduled network state update.
+// This results in an attempted transmission (without reception).
+//
+// The transmission is tried again, but after the network state is updated.
+// This time, the message is not attempted at all, and the message send
+// fails due to not having a valid route.
+
+script_variables
+   int numMessagesReceived = 0;
+   int numMessagesAttempted = 0;
+   int numRouterFailure = 0;
+end_script_variables
+
+observer
+   enable MESSAGE_DELIVERY_ATTEMPT Attempt
+   enable MESSAGE_FAILED_ROUTING FailRouting
+end_observer
+
+script void Attempt(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   numMessagesAttempted = numMessagesAttempted + 1;
+end_script
+
+script void FailRouting(WsfComm aXmtr, WsfPlatform aRcvrPlat, WsfMessage aMsg)
+   numRouterFailure = numRouterFailure + 1;
+end_script
+
+comm TEST_COMM WSF_RADIO_TRANSCEIVER
+   transmitter
+      frequency 50.5 mhz
+      power 75 watts
+   end_transmitter
+   receiver
+      frequency 50.5 mhz
+   end_receiver
+end_comm
+
+processor MESSAGE_PROC WSF_SCRIPT_PROCESSOR
+   on_message
+      script
+         writeln("MESSAGE RECEIVED ON: " + PLATFORM.Name());
+         numMessagesReceived = numMessagesReceived + 1;
+      end_script
+   end_on_message
+end_processor
+
+network network_ad_hoc WSF_COMM_NETWORK_AD_HOC
+   update_rate constant 5.0 s
+   comm_list
+      member test1 comm1
+      member test2 comm1
+      member test5 comm1   
+   end_comm_list
+end_network
+
+platform_type TEST_PLAT WSF_PLATFORM
+   add comm comm1 TEST_COMM
+      internal_link proc1
+   end_comm
+   add processor proc1 MESSAGE_PROC
+   end_processor
+end_platform_type
+
+
+// NOTE:
+// We leave test1 and test5 on the ground on purpose s.t.
+// test1 and test5 cannot communicate with each other.
+platform test1 TEST_PLAT
+position 00:00:01.11s 00:00:00.39w
+//altitude 20000 ft
+end_platform
+
+platform test2 TEST_PLAT
+position 00:00:29.59n 00:00:00.25w
+altitude 20000 ft
+add mover WSF_AIR_MOVER
+   maximum_climb_rate 20000 ft/s
+   maximum_flight_path_angle 90 deg
+end_mover
+end_platform
+
+platform test5 TEST_PLAT
+position 00:00:02.10n 00:00:57.42w
+//altitude 20000 ft
+end_platform
+
+execute at_time 21.0 s absolute
+   WsfMessage testMessage = WsfMessage();
+   testMessage.SetType("TEST_MESSAGE");
+
+   WsfPlatform sendPlat = WsfSimulation.FindPlatform("test1");
+   WsfPlatform receivePlat = WsfSimulation.FindPlatform("test5");
+   sendPlat.Comm("comm1").SendMessage(testMessage, receivePlat.Comm("comm1"));
+end_execute
+
+execute at_time 23.0 s absolute
+   WsfPlatform relayPlat = WsfSimulation.FindPlatform("test2");
+   WsfGeoPoint loc = relayPlat.Location();
+   loc.SetAltitudeHAE(0);
+   relayPlat.SetLocation(loc);
+end_execute
+
+execute at_time 24.0 s absolute  
+   WsfMessage testMessage = WsfMessage();
+   testMessage.SetType("TEST_MESSAGE");
+
+   WsfPlatform sendPlat = WsfSimulation.FindPlatform("test1");
+   WsfPlatform receivePlat = WsfSimulation.FindPlatform("test5");
+   sendPlat.Comm("comm1").SendMessage(testMessage, receivePlat.Comm("comm1"));
+end_execute
+
+execute at_time 26.0 s absolute  
+   WsfMessage testMessage = WsfMessage();
+   testMessage.SetType("TEST_MESSAGE");
+
+   WsfPlatform sendPlat = WsfSimulation.FindPlatform("test1");
+   WsfPlatform receivePlat = WsfSimulation.FindPlatform("test5");
+   sendPlat.Comm("comm1").SendMessage(testMessage, receivePlat.Comm("comm1"));
+end_execute
+
+execute at_time 100.0 s absolute
+   if(numMessagesReceived == 1 && numMessagesAttempted == 3 && numRouterFailure == 1)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+end_time 27.0 s
+
+#event_output
+#   enable all
+#   file output.evt
+#end_event_output

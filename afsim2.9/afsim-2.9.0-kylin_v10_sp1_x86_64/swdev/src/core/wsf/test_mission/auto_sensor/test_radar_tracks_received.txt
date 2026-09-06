@@ -1,0 +1,72 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Radar test.
+#
+#       radar shall tracks.
+#
+# -----------------------------------------------------------------------------
+
+include ../auto_script/test_functions.txt
+
+radar_signature AIRCRAFT_RADAR_SIG
+   constant 1 m^2
+end_radar_signature
+
+platform aircraft WSF_PLATFORM
+   side blue
+   icon Wedge
+   radar_signature AIRCRAFT_RADAR_SIG
+
+   add mover WSF_AIR_MOVER
+   end_mover
+
+   route
+     position 00:40n 0e altitude 30000 ft heading 180 deg speed 100 kts
+   end_route
+end_platform
+
+platform radar WSF_PLATFORM
+   side red
+   position 0n 0e altitude 1 m agl
+   icon Ground_Radar
+   add sensor radar WSF_RADAR_SENSOR
+      on
+      ignore_same_side
+      frame_time 5 sec
+      antenna_height 10 m
+      scan_mode azimuth_and_elevation
+      transmitter
+         # No antenna pattern - assume unitary gain.
+         power             90 dbw
+         frequency         300 mhz                  # wavelength = 1m
+      end_transmitter
+      receiver
+         bandwidth         100 khz
+         noise_power       -150 dbw
+      end_receiver
+      detection_threshold  10 db
+      reports_range
+      reports_bearing
+      processor track_mgr
+   end_sensor
+   script_variables
+      int trackMsgCount = 0;
+   end_script_variables
+   add processor track_mgr WSF_TRACK_PROCESSOR
+   end_processor
+   script void on_platform_deleted()
+      extern void writePass(bool);
+      extern bool AssertEqualsMessage(int, int, string);
+      bool pass = AssertEqualsMessage(MasterTrackList().Count(), 1, "radar got no track");
+      writePass(pass);
+   end_script
+end_platform
+
+end_time 30 s

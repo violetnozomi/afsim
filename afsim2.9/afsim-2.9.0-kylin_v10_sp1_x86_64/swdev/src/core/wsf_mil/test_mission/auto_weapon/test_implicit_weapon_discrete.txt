@@ -1,0 +1,112 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test discrete-fire implicit weapon
+# Verify hit/miss counts and damage (corrected by AFSIM-206)
+#
+include_once ../auto_script/test_functions.txt
+
+test_feature wsf_mil
+
+random_seed 1314
+
+end_time 5 min
+
+script_variables
+    int hit_count = 0;
+    int miss_count = 0;
+    double target_damage = 0.0;
+end_script_variables
+
+platform air1 AIRPLANE
+    side blue
+    position 18:21:56.26n 65:52:02.52w altitude 30 kft heading 270 deg
+end_platform
+
+platform air2 AIRPLANE
+    side red
+    position 18:23:21.49n 66:17:06.97w altitude 30 kft heading 90 deg
+    delete sensor perfect
+    delete processor tracker
+   
+    script void on_damage_received()
+        target_damage = DamageFactor();
+    end_script
+end_platform
+
+platform_type AIRPLANE WSF_PLATFORM
+    icon F-18
+    sensor perfect WSF_GEOMETRIC_SENSOR
+        on
+        internal_link tracker
+        frame_time 10 sec
+        maximum_range 100 nmi
+        reports_location
+    end_sensor
+    processor tracker WSF_TRACK_PROCESSOR
+        on
+        script_variables
+            int numShots = 0, maxShots = 1;
+        end_script_variables
+        on_message
+            script
+                if (MESSAGE.Type() == "WSF_TRACK_MESSAGE") {
+                    WsfTrackMessage trackMsg = (WsfTrackMessage) MESSAGE;
+                    if (numShots < maxShots) {
+                        numShots += 1;
+                        bool ok = PLATFORM.Weapon("imp").FireSalvo(trackMsg.Track(), 1);
+                        AssertTrueMessage(ok, "FireSalvo failed");
+                    }
+                }
+            end_script
+        end_on_message
+    end_processor
+    weapon imp WSF_IMPLICIT_WEAPON
+        weapon_effects test
+        launch_computer WSF_SCRIPT_LAUNCH_COMPUTER
+            script void compute_intercept(WsfTrack aTrack, double aLaunchDelay)
+                WsfGeoPoint interceptPt = WsfGeoPoint.Construct("18:22:52.17n 66:16:32.39w");
+                interceptPt.SetAltitudeHAE(30000*.3048);
+                SetInterceptPoint(interceptPt);
+                SetInterceptTime(TIME_NOW + 10);
+                SetLaunchTime(TIME_NOW + 1);
+                SetTimeOfFlight(10 - 1);
+            end_script
+        end_launch_computer
+    end_weapon
+end_platform_type
+
+weapon_effects test WSF_GRADUATED_LETHALITY
+    radius_and_pk 1.0 m 0.7 // looks like we only need 1
+end_weapon_effects
+
+observer
+    enable WEAPON_HIT
+    enable WEAPON_MISSED
+    enable SIMULATION_COMPLETE
+end_observer
+
+// WEAPON_HIT observer:  Count weapon hits
+script void WeaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+    hit_count += 1;
+end_script
+
+// WEAPON_MISS observer:  Count weapon misses
+script void WeaponMissed(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+    miss_count += 1;
+end_script
+
+// SIMULATION_COMPLETE observer:  Expect 1 hit, 0 misses and 1.0 damage
+script void SimulationComplete()
+    bool success_hit = AssertEqualsMessage(1, hit_count, "weapon hit count incorrect");
+    bool success_miss = AssertEqualsMessage(0, miss_count, "weapon miss count incorrect");
+    bool success_damage = AssertDoubleEqualsMessage(1.0, target_damage, "target damage incorrect");
+    writePass(success_hit && success_miss && success_damage);
+end_script

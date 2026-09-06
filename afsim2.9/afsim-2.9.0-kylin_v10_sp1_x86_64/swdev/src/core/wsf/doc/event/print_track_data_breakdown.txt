@@ -1,0 +1,93 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. This is designed to be included into the (csv_)event_output documentation.
+
+.. note::
+   **Track** refers to the **perceived** target.
+   **Truth** refers to the **actual** target.
+
+track-data
+**********
+
+.. table::
+   :align: left
+
+   ================================================================================ ================================================================================ ================================================================================
+   Condition                                                                        Field                                                                            Description
+   ================================================================================ ================================================================================ ================================================================================
+   none                                                                             <flag\ :sub:`type`\ >                                                            One of:
+
+                                                                                                                                                                     * 'F' (filtered sensor)
+                                                                                                                                                                     * 'M' (unfiltered sensor)
+                                                                                                                                                                     * 'I' (predefined or pre-briefed)
+                                                                                                                                                                     * 'P' (processed)
+                                                                                                                                                                     * 'S' (static image)
+                                                                                                                                                                     * 'V' (pseudo sensor)
+                                                                                                                                                                     * 'U' (other or unknown)
+
+   If the track is a "candidate" track                                              <flag\ :sub:`candidate`\ >                                                       'C'
+   If the track is a false target track                                             <flag\ :sub:`false target`\ >                                                    'F'
+   If the track location is valid                                                   <flag\ :sub:`LV`\ >                                                              'L'
+   If the track is 3D                                                               <flag\ :sub:`3D`\ >                                                              '3'
+   If the track range is valid                                                      <flag\ :sub:`RV`\ >                                                              'R'
+   If the track bearing is valid                                                    <flag\ :sub:`BV`\ >                                                              'B'
+   If the track elevation is valid                                                  <flag\ :sub:`EV`\ >                                                              'E'
+
+   If the target platform exists {
+   If the the track location is valid OR the track range AND elevation is valid     <\|\ r\ \|\ :sub:`perceived - actual`\ >                                         .. note::
+                                                                                                                                                                        The distance is in the NED reference frame.
+   }
+   If the track velocity is valid {                                                 <\|\ v\ \|\ :sub:`perceived`\ >
+
+                                                                                    <hdg\ :sub:`perceived`\ >
+
+   If the truth exists {                                                            <\|\ v\ \|\ :sub:`actual`\ >
+
+                                                                                    <hdg\ :sub:`actual`\ >
+   } }
+   If the track location, range, bearing, OR elevation is valid {
+   If the track range OR location is valid                                          <range\ :sub:`perceived`\ >
+   If the track bearing OR location is valid                                        <brg\ :sub:`perceived`\ >
+   If the track elevation OR location is valid                                      <hdg\ :sub:`perceived`\ >
+   If the truth range OR location is valid                                          <range\ :sub:`actual`\ >
+   If the truth bearing OR location is valid                                        <brg\ :sub:`actual`\ >
+   If the truth elevation OR location is valid                                      <el\ :sub:`actual`\ >
+   If the track is an unfiltered sensor AND has measurement error {
+   If the range error is non-zero                                                   <SE\ :sub:`range`\ >                                                             The standard error in the range measurement
+   If the bearing error is non-zero                                                 <SE\ :sub:`brg`\ >                                                               The standard error in the bearing measurement
+   If the elevation error is non-zero                                               <SE\ :sub:`el`\ >                                                                The standard error in the elevation measurement
+   } }
+   If the type IDs are valid AND there are more than one type ID {
+   For every type ID {                                                              <type\ :sub:`id`\ >
+
+                                                                                    <type\ :sub:`quality`\ >
+   } }
+   Else (there is only one type ID) {
+   If the type ID is valid                                                          <type\ :sub:`id`\ >
+   }
+   If the side ID is valid                                                          <side\ :sub:`id`\ >
+   If the signal-to-noise is valid                                                  <S/N\ :sub:`log`\ >
+   If the pixel count is valid                                                      <pixel-count>                                                                    The pixel count from the image that created the track
+
+                                                                                                                                                                     .. note::
+                                                                                                                                                                        This will be zero if not from an image
+
+   If the frequency is valid {                                                      <signal-count>
+   For every signal {                                                               <f\ :sub:`lower`\ >                                                              The lower bound of the frequency interval
+
+                                                                                    <f\ :sub:`upper`\ >                                                              The upper bound of the frequency interval
+   } }
+   If the track has auxiliary data                                                  <aux-data>
+   If specified to print track covariance {
+   If the measurement covariance is valid                                           <covariance\ :sub:`M`\ >                                                         The measurement covariance of the track
+   If the state covariance is valid                                                 <covariance\ :sub:`S`\ >                                                         The state covariance of the track
+   }
+   If specified to print the track residual covariance                              <covariance\ :sub:`R`\ >                                                         The residual covariance of the track
+   ================================================================================ ================================================================================ ================================================================================

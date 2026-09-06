@@ -1,0 +1,252 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+Settings {
+   message_id_or: 1
+}
+
+Enum {
+   id: MilPartType
+     Value { id: weapon            value: 4 }
+}
+
+Struct {
+   id: MsgWeaponTerminated
+   message: 1
+   base: MsgBase
+   Enum {
+      id: GeometryResult
+      Value { id: in_progress                     value: 0 }       //!< Engagement not yet complete.
+      Value { id: dud                             value: 1 }       //!< No lethal effect due to no detonation (failed to Arm, etc.).
+      Value { id: target_impact                   value: 2 }       //!< Direct impact upon a target.
+      Value { id: far_away_in_air                 value: 3 }       //!< Air burst detonated far from any target.
+      Value { id: far_away_above_ground           value: 4 }       //!< Above ground proximity burst not near any target.
+      Value { id: far_away_ground_impact          value: 5 }       //!< Ground impact not near any target.    
+      Value { id: target_proximity_air_burst      value: 6 }       //!< Detonation was near a target, either in-air, or altitude unknown.
+      Value { id: target_proximity_above_ground   value: 7 }       //!< Above ground proximity burst near a target.
+      Value { id: target_proximity_ground_impact  value: 8 }       //!< Impacted ground near a target.
+      Value { id: part_disabled_or_destroyed      value: 9 }       //!< Temporary Lethal Effect on an attached platform part.
+   }
+   Field { id: geometryResult          type: GeometryResult option: 0 }
+   Field { id: firingPlatformIndex     type: index    option: 1 }
+   Field { id: targetPlatformIndex     type: index    option: 2 }
+   Field { id: intendedTargetName      type: string   option: 3 }
+   Field { id: weaponPlatformIndex     type: index    option: 4 }
+   Field { id: extendedResult          type: string   option: 5 }
+   Field { id: missDistance            type: float    option: 6 }
+   Field { id: interceptPk             type: float    option: 7 }
+   Field { id: pkDrawn                 type: float    option: 8 }
+}
+
+Struct {
+   id: MsgWeaponFired
+   message: 2
+   base: MsgBase
+   Field { id: firingPlatformIndex     type: index    option: 1 }
+   Field { id: targetPlatformIndex     type: index    option: 2 }
+   Field { id: intendedTargetName      type: string   option: 3 }
+   Field { id: weaponPlatformIndex     type: index    option: 4 }
+   Field { id: targetTrackId           type: Track.Id option: 5 }
+}
+
+Struct {
+   id: MsgWeaponModeChange
+   message: 3
+   base: MsgBase
+   Field { id: platformIndex  type: index }
+   Field { id: weaponName     type: string }
+   Field { id: modeName       type: string }
+   Field { id: activate       type: bool     bit: 0 }
+}
+
+
+Struct {
+   id: MsgWeaponQuantityChange
+   message: 10
+   base: MsgBase
+   Field { id: platformIndex  type: index }
+   Field { id: weaponName     type: string } 
+   Field { id: weaponQuantity type: double } 
+}   
+
+Struct {
+   Enum {
+      id: State
+      Value { id: assigned       value: 0 }
+      Value { id: completed      value: 1 }
+      Value { id: canceled       value: 2 }
+   }
+   id: MsgTaskUpdate
+   base: MsgBase
+   message: 4
+   // state is an enumeration:
+   //    0 - assigned
+   //    1 - completed
+   //    2 - canceled
+   Field { id: state              type: State                  }
+   Field { id: taskId             type: int                    }
+   Field { id: trackId            type: Track.Id               }
+   Field { id: taskType           type: string     option: 0   }
+   Field { id: assignerPlatform   type: index      option: 1   }
+   Field { id: assignerProcessor  type: string     option: 2   }
+   Field { id: assigneePlatform   type: index      option: 3   }
+   Field { id: assigneeProcessor  type: string     option: 4   }
+   Field { id: assignTime         type: time                   }
+   Field { id: status             type: string     option: 5   }
+   Field { id: subStatus          type: string     option: 6   }
+   Field { id: targetIndex        type: index      option: 7   }
+}
+
+Struct {
+   id: MsgQuantumTaskerUpdate
+   message: 5
+   base: MsgBase
+   Field { id: column        type: int     option: 1 }
+   Field { id: row           type: int     option: 2 }
+   Field { id: value         type: float   option: 3 }
+   Field { id: taskName      type: string  option: 4 }
+   Field { id: assetName     type: string  option: 5 }
+   Field { id: resourceName  type: string  option: 6 }
+   Field { id: taskWinner    type: bool    bit: 0 option: 7 }
+}
+
+// This is consolidated with sensors into the MsgEmitterModeDefinition
+// Struct {
+//   id: MsgWeaponModeDefinition
+//   message: 6
+//   base: MsgBase
+//   Field { id: ownerIndex     type: index }
+//   Field { id: weaponName     type: string }
+//   Field { id: modeName       type: string }
+//   Field { id: slewMode       type: AngleMode }
+//   Field { id: slewLimit      type: AngleLimit }
+//   Field { id: cueLimit       type: AngleLimit }
+//   Field { id: beamList       type: BeamList }
+//}
+
+Struct {
+   id: EW_Interaction
+   Struct {
+      id: RelativeData
+      Field { id: range             type: float }
+      Field { id: trueAzimuth       type: float }
+      Field { id: trueElevation     type: float }
+      Field { id: apparentAzimuth   type: float }
+      Field { id: apparentElevation type: float }
+   }
+   Struct {
+      id: BeamData
+      Field { id: azimuth           type: float }
+      Field { id: elevation         type: float }
+      Field { id: gain              type: float }
+   }
+   Struct {
+      id: Status
+      Field { id: rcvrRangeLimits      type: bool           bit: 0  option: 1 }
+      Field { id: rcvrAltitudeLimits   type: bool           bit: 2  option: 3 }
+      Field { id: rcvrAngleLimits      type: bool           bit: 4  option: 5 }
+      Field { id: rcvrHorizonMasking   type: bool           bit: 6  option: 7 }
+      Field { id: rcvrTerrainMasking   type: bool           bit: 8  option: 9 }
+      Field { id: xmtrRangeLimits      type: bool           bit: 10 option: 11 }
+      Field { id: xmtrAltitudeLimits   type: bool           bit: 12 option: 13 }
+      Field { id: xmtrAngleLimits      type: bool           bit: 14 option: 15 }
+      Field { id: xmtrHorizonMasking   type: bool           bit: 16 option: 17 }
+      Field { id: xmtrTerrainMasking   type: bool           bit: 18 option: 19 }
+      Field { id: signalLevel          type: bool           bit: 20 option: 21 }
+   }
+
+   Field { id: status               type: Status }
+
+   Field { id: xmtrWCS              type: Vec3d          option: 0 }
+   Field { id: rcvrWCS              type: Vec3d          option: 1 }
+   Field { id: targetWCS            type: Vec3d          option: 2 }
+
+   // Valid on when interacting with a rcvr
+   Field { id: rcvrToTarget         type: RelativeData   option: 3 }
+   Field { id: targetToRcvr         type: RelativeData   option: 4 }
+
+   // Valid only when a interacting with a xmtr
+   Field { id: xmtrToTarget         type: RelativeData   option: 5 }
+   Field { id: targetToXmtr         type: RelativeData   option: 6 }
+
+   // for one-way transmitter-receiver interactions only:
+   Field { id: xmtrToRcvr           type: RelativeData   option: 7 }
+   Field { id: rcvrToXmtr           type: RelativeData   option: 8 }
+
+   Field { id: rcvrBeam             type: BeamData       option: 9 }
+   Field { id: xmtrBeam             type: BeamData       option: 10 }
+
+   // Masking factor: 1 if not set
+   Field { id: maskingFactor        type: float          option: 11  default: 1 }
+   // Signature: 0 if not used or computed
+   Field { id: infraredSignature          type: float    option: 12 }
+   Field { id: infraredSignatureAzimuth   type: float    option: 13 }
+   Field { id: infraredSignatureElevation type: float    option: 14 }
+
+   Field { id: radarSignature             type: float    option: 15 }
+   Field { id: radarSignatureAzimuth      type: float    option: 16 }
+   Field { id: radarSignatureElevation    type: float    option: 17 }
+
+   Field { id: opticalSignature             type: float    option: 18 }
+   Field { id: opticalSignatureAzimuth      type: float    option: 19 }
+   Field { id: opticalSignatureElevation    type: float    option: 20 }
+
+   Field { id: opticalReflectivity          type: float    option: 21 }
+   Field { id: transmittedPower             type: float    option: 22 }
+   Field { id: powerDensityAtTarget         type: float    option: 23 }
+   Field { id: receivedPower                type: float    option: 24 }
+   Field { id: rcvrNoisePower               type: float    option: 25 }
+   Field { id: clutterPower                 type: float    option: 26 }
+   Field { id: interferencePower            type: float    option: 27 }
+   Field { id: noiseJammerPower             type: float    option: 28 }
+   Field { id: pulseJammerPower             type: float    option: 29 }
+   Field { id: coherentJammerPower          type: float    option: 30 }
+   Field { id: signalToNoise                type: float    option: 31 }
+   Field { id: propagationFactor            type: float    option: 32 }
+   Field { id: absorbtionFactor             type: float    option: 33 }
+   Field { id: detectionThreshold           type: float    option: 34 }
+   Field { id: pixelCount                   type: float    option: 35 }
+   Field { id: zoneAttenuationFactor        type: float    option: 36 }
+}
+
+Struct {
+   id: MsgJammingRequestInitiated
+   message: 7
+   base: MsgBase
+   Field { id: srcPlatform    type: index }
+   Field { id: weaponName     type: string }
+   Field { id: frequency      type: float }
+   Field { id: bandwidth      type: float }
+   Field { id: technique      type: string }
+   Field { id: target         type: index }
+}
+
+Struct {
+   id: MsgJammingRequestCanceled
+   message: 8
+   base: MsgBase
+   Field { id: srcPlatform    type: index }
+   Field { id: weaponName     type: string }
+   Field { id: frequency      type: float }
+   Field { id: bandwidth      type: float }
+   Field { id: technique      type: string }
+   Field { id: target         type: index }
+}
+
+Struct {
+   id: MsgJammingRequestUpdated
+   message: 9
+   base: MsgBase
+   Field { id: srcPlatform    type: index }
+   Field { id: weaponName     type: string }
+   Field { id: frequency      type: float }
+   Field { id: bandwidth      type: float }
+   Field { id: technique      type: string }
+   Field { id: target         type: index }
+}

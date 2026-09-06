@@ -1,0 +1,94 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+	bool targetOneTracked = false;
+	bool targetTwoTracked = false;
+end_script_variables
+
+sensor GEO_1 WSF_GEOMETRIC_SENSOR
+   mode_template
+      frame_time 1 s
+      reports_location
+      check_terrain_masking false
+   end_mode_template
+   mode short_range
+      azimuth_field_of_view -10 deg 10 deg
+   end_mode
+end_sensor
+
+platform atc_system WSF_PLATFORM
+   position 0:0:0n 0e
+	altitude 20 feet
+   heading 0 deg
+   add sensor geo-1 GEO_1
+      on
+      #debug
+      initial_mode short_range
+   end_sensor
+end_platform
+
+platform_type TEST WSF_PLATFORM
+
+end_platform_type
+
+platform test_target_1 TEST
+   position 1:0:1n 0e
+   altitude 20 feet
+end_platform
+
+platform test_target_2 TEST
+   position 1:0:1n 1e
+   altitude 20 feet
+end_platform
+
+# Verifies that detections occur at the right ranges
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+	extern bool targetOneTracked;
+	extern bool targetTwoTracked;
+
+   #writeln("Sensor detection attempted.");
+   #writeln("Platform: ", aPlatform.Name());
+   #writeln("Sensor: ", aSensor.Platform().Name());
+   #writeln("Target: ", aTarget.Name());
+   if (aResult.Detected())
+   {
+      if ((!targetOneTracked) && (aTarget.Name() == "test_target_1"))
+      {
+         targetOneTracked = true;
+         writeln("target one tracked");
+      }
+      if ((!targetTwoTracked) && (aTarget.Name() == "test_target_2"))
+      {
+         targetTwoTracked = true;
+         writeln("target two tracked");
+      }
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+end_observer
+
+execute at_time 5 seconds absolute
+	extern bool targetOneTracked;
+	extern bool targetTwoTracked;
+
+   writeln("Testing at time: ", TIME_NOW);
+	if (targetOneTracked && (!targetTwoTracked))
+	{
+		writeln("-PASS-");
+	}
+	else
+	{
+		writeln("-FAIL-");
+	}
+end_execute
+
+end_time 10 seconds

@@ -1,0 +1,259 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the basic operation of the WSF_EOIR_SENSOR and WSF_IRST_SENSOR detection
+# methods.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+# Indicate that the sensors 'required_pd' (default of 0.5) is to be criteria for detection
+# instead of the random Pd drawn by the simulation. We aren't testing randomness here...
+
+use_constant_required_pd true
+
+# An attenuation model that is the same as the old embedded model in WSF_EOIR_SENSOR and
+# WSF_IRST_SENSOR
+
+attenuation_model MWIR_ATTENUATION WSF_OPTICAL_ATTENUATION
+   atmospheric_attenuation     6.7e-5 per m
+end_attenuation_model
+
+sensor EOIR_SENSOR WSF_EOIR_SENSOR
+   slew_mode                      both
+
+   mode_template
+      frame_time                  1.0 sec
+      pixel_count                 640 480
+      azimuth_field_of_view       -0.25 deg 0.25 deg
+      elevation_field_of_view     -0.20 deg 0.20 deg
+      reports_location
+   end_mode_template
+
+   // The visual mode is not used in this test. It exists simply to make sure it parses correctly.
+   mode VISUAL
+      band                        visual
+      atmospheric_attenuation 0.02 per km
+      #path_radiance              TODO
+      detection_threshold         3.0
+   end_mode
+
+   // Infrared mode using an the old embedded attenuation model
+   mode INFRARED1
+      band                        medium                   # 3-5um
+      atmospheric_attenuation     6.7e-5 per m
+      background_radiance         8.5e-5 w/cm^2/sr
+      noise_equivalent_irradiance 9.0e-13 w/cm2
+      detection_threshold         3.0
+   end_mode
+
+   // Infrared mode using an the explicit attenuation model that is the same as the old embedded model
+   mode INFRARED2
+      band                        medium                   # 3-5um
+      attenuation_model           MWIR_ATTENUATION
+      background_radiance         8.5e-5 w/cm^2/sr
+      noise_equivalent_irradiance 9.0e-13 w/cm2
+      detection_threshold         3.0
+   end_mode
+end_sensor
+
+sensor IRST_SENSOR WSF_IRST_SENSOR
+   slew_mode                      both
+
+   mode_template
+      frame_time                  1.0 sec
+      azimuth_field_of_view       -0.25 deg 0.25 deg
+      elevation_field_of_view     -0.20 deg 0.20 deg
+      reports_location
+   end_mode_template
+
+   // Infrared mode using an the old embedded attenuation model
+   mode INFRARED1
+      band                        medium                   # 3-5um
+      atmospheric_attenuation     6.7e-5 per m
+      background_radiance         8.5e-5 w/cm^2/sr
+      noise_equivalent_irradiance 9.0e-13 w/cm2
+      detection_threshold         3.0
+   end_mode
+
+   // Infrared mode using an the explicit attenuation model that is the same as the old embedded model
+   mode INFRARED2
+      band                        medium                   # 3-5um
+      attenuation_model           MWIR_ATTENUATION
+      background_radiance         8.5e-5 w/cm^2/sr
+      noise_equivalent_irradiance 9.0e-13 w/cm2
+      detection_threshold         3.0
+   end_mode
+end_sensor
+
+
+###############################################################################
+
+infrared_signature TARGET_INFRARED_SIG
+   constant 10 w/sr
+end_infrared_signature
+
+optical_signature TARGET_OPTICAL_SIG
+   constant 20 m^2
+end_optical_signature
+
+inherent_contrast TARGET_CONTRAST
+   constant 10.0
+end_inherent_contrast
+
+platform_type TARGET WSF_PLATFORM
+    icon                     Truck
+    optical_signature        TARGET_OPTICAL_SIG
+    infrared_signature       TARGET_INFRARED_SIG
+    inherent_contrast        TARGET_CONTRAST
+end_platform_type
+
+###############################################################################
+# The sensor is looking broadside at the target...
+
+platform ground_target TARGET
+   side red
+   position 0n 0.041133e altitude 0 m heading 180 deg  # 11 km slant range
+end_platform
+
+###############################################################################
+
+platform isr WSF_PLATFORM
+   icon MMA
+   side blue
+
+   add sensor eoir EOIR_SENSOR
+   end_sensor
+
+   add sensor irst IRST_SENSOR
+   end_sensor
+
+   position 0n 0e altitude 10000 m heading 90 deg
+
+   script_variables
+      string mCurrentSensor;
+   end_script_variables
+
+   // Cue a sensor, activate a mode and turn it on.
+   // Also schedules the event to turn if off in 0.1 sec.
+
+   script void CueAndTurnOn(string aSensor, string aMode, string aTarget)
+      WsfPlatform p = WsfSimulation.FindPlatform(aTarget);
+      WsfSensor s = Sensor(aSensor);
+      s.CueToPoint(p.Location());
+      s.SelectMode(aMode);
+      s.TurnOn();
+      mCurrentSensor = aSensor;
+      ExecuteAtTime(TIME_NOW + 0.1, "TurnOff");
+   end_script
+
+   // Turn off the sensor turned on by CueAndTurnOn
+   script void TurnOff()
+      WsfSensor s = Sensor(mCurrentSensor);
+      s.TurnOff();
+   end_script
+
+   execute at_time  1 sec absolute  CueAndTurnOn("eoir", "INFRARED1", "ground_target"); end_execute
+   execute at_time  2 sec absolute  CueAndTurnOn("irst", "INFRARED1", "ground_target"); end_execute
+   execute at_time  3 sec absolute  CueAndTurnOn("eoir", "INFRARED2", "ground_target"); end_execute
+   execute at_time  4 sec absolute  CueAndTurnOn("irst", "INFRARED2", "ground_target"); end_execute
+
+end_platform
+
+###############################################################################
+
+script_variables
+   bool gPassed = true;
+   int  gReceivedAttempts = 0;
+   int gEXPECTED_ATTEMPTS = 4;
+end_script_variables
+
+script void CheckWithinTolerance(string aVariableName,
+                                 double aExpected,
+                                 double aReceived,
+                                 double aTolerance)
+   writeln_d("Testing ", aVariableName, ", Expected: ", aExpected, ", Received: ", aReceived);
+   if (MATH.Fabs(aExpected - aReceived) > aTolerance)
+   {
+      gPassed = false;
+      writeln("-FAIL- ", aVariableName, ", Expected: ", aExpected, ", Received: ", aReceived);
+   }
+end_script
+
+
+script void CheckDetection(WsfSensor            aSensor,
+                           WsfSensorInteraction aResult,
+                           double               aExpectedAbsorption,
+                           double               aExpectedSignalToNoise,
+                           double               aExpectedPd,
+                           double               aExpectedPixelCount)
+   writeln("T=", TIME_NOW, " ", aSensor.Name(),".", aResult.ModeName(),
+           " -> ", aResult.TargetPlatform().Name(),
+           "; R=", aResult.RcvrToTargetRange(), " m",
+           " OPTsig=", aResult.OpticalSignature(), " m^2",
+           " IRsig=", aResult.InfraredSignature(), " w/sr");
+   writeln("  ",
+           " Background=", aResult.BackgroundRadiantIntensity(), " w/sr",
+           " Contrast=", aResult.ContrastRadiantIntensity(), " w/sr",
+           " tau=", MATH.DB_ToLinear(aResult.AbsorptionFactor()),
+           " S/N=", MATH.DB_ToLinear(aResult.SignalToNoise()),
+           " Pd=", aResult.Pd(),
+           " PixelCount=", aResult.PixelCount());
+
+  gReceivedAttempts = gReceivedAttempts + 1;
+  CheckWithinTolerance("Absorption Factor", aExpectedAbsorption, MATH.DB_ToLinear(aResult.AbsorptionFactor()), 0.002);
+  CheckWithinTolerance("Signal To Noise", aExpectedSignalToNoise, MATH.DB_ToLinear(aResult.SignalToNoise()), 0.002);
+  CheckWithinTolerance("Pd", aExpectedPd, aResult.Pd(), 0.002);
+  if (aResult.PixelCount() > 0.0)
+  {
+     CheckWithinTolerance("Pixel Count", aExpectedPixelCount, aResult.PixelCount(), 0.1);
+  }
+end_script
+
+script void SensorDetectionAttempt(WsfPlatform          aPlatform,
+                                   WsfSensor            aSensor,
+                                   WsfPlatform          aTarget,
+                                   WsfSensorInteraction aResult)
+
+   string sensorName = aSensor.Name() + "." + aResult.ModeName();
+   string targetName = aTarget.Name();
+   if (((sensorName == "eoir.INFRARED1") && (targetName == "ground_target")) ||
+       ((sensorName == "irst.INFRARED1") && (targetName == "ground_target")) ||
+       ((sensorName == "eoir.INFRARED2") && (targetName == "ground_target")) ||
+       ((sensorName == "irst.INFRARED2") && (targetName == "ground_target")))
+   {
+      CheckDetection(aSensor, aResult, 0.631558, 4.05963, 0.855352, 833.458);
+   }
+
+end_script
+
+script void SimulationComplete()
+
+   if (gReceivedAttempts != gEXPECTED_ATTEMPTS)
+   {
+      writeln("-FAIL- Incorrect number of detection attempts processed, expected: ", gEXPECTED_ATTEMPTS,
+              " received: ", gReceivedAttempts);
+      gPassed = false;
+   }
+   string passFail = "-PASS-";
+   if (! gPassed) passFail = "-FAIL-";
+   writeln(passFail);
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SIMULATION_COMPLETE
+end_observer
+
+event_output
+   # file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+end_time 10 sec

@@ -1,0 +1,52 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _Spacemover_Orientation_Methods:
+
+Orientation Methods
+===================
+
+.. method:: bool SetOrientation(WsfSpaceOrientation aOrientationType)
+
+   Change the platform's orientation to one of the supported :class:`orientation types<WsfSpaceOrientation>`.  If the orientation cannot be set (for example, specifying :method:`WsfSpaceOrientation.ENTITY_WITH_NADIR_CONSTRAINT` with an invalid platform argument, *false* is returned).
+
+.. method:: void SetOrientation(WsfGeoPoint aPoint)
+
+   Change the platform's orientation to point at the specified :class:`WsfGeoPoint`.  The platform's :emphasis:`z` axis will point at the :class:`geopoint <WsfGeoPoint>`, while the x axis will be constrained to the plane defined by the :class:`geopoint <WsfGeoPoint>` and the nadir.
+
+.. method:: void SetOrientation(Quaternion aOrientation)
+
+   Change the platform's orientation using a quaternion instead of Euler angles.  The quaternion must represent the desired :ref:`ECI<ECI>` to :ref:`ECS<ECS>` coordinate transformation.
+
+.. method:: void SetOrientation(double aYaw, double aPitch, double aRoll, Vec3 aX_AxisOrientationECI, Vec3 aZ_AxisConstraintECI)
+
+   Align the :ref:`PCS<PCS>` direction specified by the provided Euler angles (aYaw and aPitch) with the given :ref:`ECI<ECI>` orientation vector (aX_AxisOrientation).  Constrain the :ref:`PCS<PCS>` z axis to be in the plane of the orientation vector and the given :ref:`ECI<ECI>` constraint vector (aZ_AxisConstraintECI).
+
+.. method:: void SetOrientation(WsfArticulatedPart aPart, Vec3 aX_AxisOrientationECI, Vec3 aZ_AxisConstraintECI)
+
+   Align the :ref:`PCS<PCS>` direction specified by the provided :class:`WsfArticulatedPart` with the given :ref:`ECI<ECI>` orientation vector (aX_AxisOrientation).  Constrain the :ref:`PCS<PCS>` z axis to be in the plane of the orientation vector and the given :ref:`ECI<ECI>` constraint vector (aZ_AxisConstraintECI).
+
+Deprecated Orientation Methods
+******************************
+
+.. method:: bool SetOrientation(string aOrientationType)
+
+   Change the platform's orientation to one of the supported :command:`orientation types<attitude_controller.orientation>`:
+
+      * **nadir_with_eci_velocity_constraint**
+      * **solar_with_nadir_constraint**
+      * **nadir_with_solar_constraint**
+      * **nadir_with_ecef_velocity_constraint**
+      * **eci_velocity_with_nadir_constraint**
+      * **eci_velocity_with_solar_constraint**
+      * **none**
+
+   .. note::
+      If one of these is not specified, the method will return *false*.
+

@@ -1,0 +1,197 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt38.f
+// Replicates the blah blah 3,8,4,1 alternative behavior
+// blah blah
+//alt3841_aim_missile_typ4
+
+//LBM - NOTE: using typ4 because it uses maneuver type 4 (instead of type 9)
+//            according to notes in BRAWLER, this is the replacement for typ1
+//            especially for certain sims because of stability problems
+
+behavior alt3841_aim_missile_typ4
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+      WsfLocalTrack             targetTrack;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3841Enabled = true;
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 8;
+      int icall  = 4;
+      int lcall  = 1;
+
+      double mMaxSustainedG = 2.0;
+
+      double mLongRange = 5.0 * Math.M_PER_NM();
+
+      Vec3 dir0;
+      double gmx = 1.0;
+      double spd0 = 3.0;
+
+      // ALSO NEED:
+      // randomization to simulate imperfect decision making, valsig, read from MIND file, typically ~0.01
+      // Production rule bias, used in scoring of alternative
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt33841_aim_missile_typ4, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      ### check if alternative should even be considered?
+
+      if (!mAlternative3841Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         return Failure("no weapon (target) tasks!");
+      }
+      WsfTask targetTask = tasks.Entry(0);
+      targetTrack = PLATFORM.MasterTrackList().Find(targetTask.LocalTrackId());
+      if (!targetTrack.IsValid())
+      {
+         return Failure("no target track!");
+      }
+
+      bool alt_ctrl = false;   //see ali38()
+      bool msl_loft = false;   //see line 147 (no productions rules right now)
+
+      ## alt38.f : lines 136 - 150
+      #if (noaim) go to 980
+      #if (mslpp .ge. nummis+1) then
+      if (!HaveWeapon(PLATFORM))
+      {
+         # SKIP ALT_CTRL DETERMINATION IF SELECTED WEAPON IS A GUN
+         alt_ctrl = false;
+         msl_loft = false;
+         //go to 900
+      }
+      else
+      {
+         #call gmisld(ppmptr,1)   #TODO
+         # Call special handler to see if desire missile loft
+         #call pcode(23)          #TODO
+         # Loft missile if ready and pr_loft is set
+         #msl_loft = (ready && pr_loft);   #TODO
+      }
+
+      ## alt38.f : lines 227 - 253
+      # generate aim_missile_typ4 unless alt_ctrl = T.
+      if (alt_ctrl)
+      {
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " alt_ctrl is true, do not do aim_missile_typ4 behavior");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+      # generate aim_missile_typ1 if pointing in direction of aimpoint
+      #LBM - not doing vectored flight right now
+#      if (valfpp > 0.0)
+#      {
+#         double theta = sepa(dxeuan(1,ppmiac),vecfpp);
+#         if (theta > 0.8*zeta_lim)
+#         {
+#            return Failure("not pointing in right direction, do not do aim_missile_typ4 behavior");
+#         }
+#      }
+
+      #LBM - not a manned sim, dont even check, right now
+      #if (simltr != mansim) goto 900
+      # This is a replacement for icall=1 maneuver, for manned simulators
+      # Use a type 4 maneuver to avoid stability problems with type
+      # 9 maneuver at WSSC:
+      int iactn = 4;
+      Vec3 ppmapt;   //calculated from mlsenv() -> envgeo() -> aimpt()
+
+      WsfWaypoint aimptWP = WsfWaypoint();
+      double weaponSpeedFtSec = 3349.35;   //(mach 3) ft/sec
+      double intTime = PLATFORM.InterceptLocation3D(targetTrack, aimptWP, weaponSpeedFtSec, 5.0);
+      if (intTime < 0)
+      {
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " missile intercept not possible!");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+      #call vdir(xp(1,me),ppmapt,desdir);
+      Vec3 desdir = RelativePositionNED(PLATFORM.Location(), aimptWP.Location());
+      desdir.Normalize();
+      double spddes = PLATFORM.Speed()*MATH.FT_PER_M();   //from ali38() -> slow_aim is never set, so use current speed
+      #call des1v1(desdir,spddes,dir0,spd0,lngtrn,semin,sewid);
+      spd0 = spddes;   //from des1v1 (direct copy, duh)
+      dir0 = desdir;   //from des1v1 (direct copy, duh)
+      int spdmod = 1;   //(desspd = 1, thrttl = 2, desacc = 3)
+      if ((PLATFORM.Speed()*MATH.FT_PER_M()) <= spd0+100.0)
+      {
+         double gmxsut = BRAWLER.MaxSustainedGs();
+         double gmxsu = BRAWLER.MaxTacticalGs();
+         double wt = ramp(spd0-100.0, PLATFORM.Speed()*MATH.FT_PER_M(), spd0+100.0);
+         gmx = wt*MATH.Max(2.0,MATH.Max(gmxsut,gmxsu)) + (1.0-wt)*MATH.Min(gmxsut,gmxsu);
+         gmx = MATH.Max(gmx,2.0);
+      }
+      else
+      {
+         gmx = BRAWLER.MaxAvailableGs();    #gmxin
+      }
+      spd0 *= MATH.M_PER_FT();
+
+
+      ### Evaluate [Projected] Maneuver Alternative
+      double score = BRAWLER.EvaluateVectorWithSpeed(dir0, gmx, spd0, ilevel, kalt, icall, lcall);
+      return score;
+
+   end_precondition
+
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.FlyVectorWithSpeed(dir0, gmx, spd0);
+   end_execute
+
+end_behavior
+

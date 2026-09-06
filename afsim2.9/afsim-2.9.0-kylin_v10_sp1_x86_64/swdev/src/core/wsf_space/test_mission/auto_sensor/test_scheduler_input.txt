@@ -1,0 +1,114 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# A test of the old and new input formats for sensor schedulers.
+
+sensor SENSOR WSF_GEOMETRIC_SENSOR 
+   slew_mode azimuth_and_elevation // this must be set
+   frame_time 1 s
+   update_interval 0.1 s
+   azimuth_field_of_view -5 deg 5 deg
+   elevation_field_of_view -5 deg 5 deg
+   azimuth_slew_rate 36 deg/s
+   elevation_slew_rate 36 deg/s
+   cue_mode azimuth_and_elevation
+   
+   reports_location
+   
+end_sensor
+
+platform_type DSP WSF_PLATFORM 
+   icon satellite
+
+   sensor sector-scan-new-input SENSOR
+      // new input format
+      scheduler sector_scan
+         sector
+            type azimuth
+            elevation -85 deg
+            start_azimuth -3 radians
+            end_azimuth 2 radians
+         end_sector
+         sector
+            type azimuth
+            elevation -80 deg
+            start_azimuth 2 radians
+            end_azimuth 3 radians
+         end_sector
+      end_scheduler      
+   end_sensor
+
+   // Note: the following should generate an error; uncomment to test manually.
+#   sensor sector-scan-old-input SENSOR
+#      // new input format
+#      scheduler sector_scan
+#         sector
+#            type azimuth
+#            elevation -85 deg
+#            start_azimuth -3 radians
+#            end_azimuth 2 radians
+#         end_sector
+#         sector
+#            type azimuth
+#            elevation -80 deg
+#            start_azimuth 2 radians
+#            end_azimuth 3 radians
+#         end_sector
+#      # should have block terminator for new input
+#   end_sensor
+
+   sensor old-input SENSOR
+      scheduler default 
+      debug_scheduler
+   end_sensor
+
+   sensor new-input SENSOR
+      // new input format
+      scheduler default
+         debug_scheduler
+      end_scheduler      
+   end_sensor
+
+   sensor old-input-ps SENSOR
+      scheduler physical_scan 
+      debug_scheduler
+   end_sensor
+
+   sensor new-input-ps SENSOR
+      // new input format
+      scheduler physical_scan
+         debug_scheduler
+      end_scheduler      
+   end_sensor
+
+   mover WSF_SPACE_MOVER
+      attitude_controller instant
+         orientation nadir_with_solar_constraint
+      end_attitude_controller
+   end_mover
+   
+end_platform_type
+
+platform dsp-1 DSP 
+   edit mover
+      position 0n 120e altitude 35786 km heading 90 deg
+   end_mover
+end_platform
+
+platform target1 WSF_PLATFORM
+   side red
+   icon wedge
+   position 10n 130e   
+end_platform
+
+// event_pipe
+   // file dsp_scan_test.aer
+// end_event_pipe
+
+end_time 1 sec

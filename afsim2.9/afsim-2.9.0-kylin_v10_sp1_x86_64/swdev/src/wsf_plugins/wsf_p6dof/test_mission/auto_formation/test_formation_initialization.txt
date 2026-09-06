@@ -1,0 +1,88 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once default_formation.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 2 min
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+script bool TestSeparation(string aPlatformNameOne, string aPlatformNameTwo, double aSeparation)
+   bool retval = false;
+   WsfPlatform platformOne = WsfSimulation.FindPlatform(aPlatformNameOne);
+   WsfPlatform platformTwo = WsfSimulation.FindPlatform(aPlatformNameTwo);
+   if (platformOne.IsValid() && platformTwo.IsValid())
+   {
+      Vec3 locOne = platformOne.LocationECI();
+      Vec3 locTwo = platformTwo.LocationECI();
+      double sep = Vec3.Subtract(locOne, locTwo).Magnitude(); 
+      if (sep < aSeparation)
+      {
+         retval = true;
+      }
+   }
+   else if (!platformOne.IsValid())
+   {
+      writeln("-FAIL- No such platform: ", aPlatformNameOne);
+   }
+   else if (!platformTwo.IsValid())
+   {
+      writeln("-FAIL- No such platform: ", aPlatformNameTwo);
+   }
+   return retval;
+end_script
+
+execute at_time 20 s absolute
+   if (!TestSeparation("alpha", "bravo", 31.0))
+   {
+      writeln("-FAIL-");
+      allPassed = false;
+   }
+   if (!TestSeparation("charlie", "delta", 31.0))
+   {
+      writeln("-FAIL-");
+      allPassed = false;
+   }
+   if (!TestSeparation("alpha", "charlie", 301.0))
+   {
+      writeln("-FAIL-");
+      allPassed = false;
+   }
+   
+   if (!TestSeparation("echo", "foxtrot", 31.0))
+   {
+      writeln("-FAIL-");
+      allPassed = false;
+   }
+   if (!TestSeparation("golf", "hotel", 31.0))
+   {
+      writeln("-FAIL-");
+      allPassed = false;
+   }
+   if (TestSeparation("echo", "golf", 301.0))
+   {
+      writeln("-FAIL-");
+      allPassed = false;
+   }
+end_execute
+
+execute at_time 30 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   } 
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

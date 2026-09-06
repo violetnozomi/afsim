@@ -1,0 +1,101 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# this test verifies basic usage of Method and Signal
+include_once test_pass.txt
+#script_listing on
+script_variables
+   PassTestCount = 7;
+end_script_variables
+
+script int a_method(int aArg)
+   return 3 + aArg;
+end_script
+
+platform p WSF_PLATFORM
+   add processor test_proc WSF_SCRIPT_PROCESSOR
+   end_processor
+   execute at_time .02 s absolute
+      extern void pass();
+      // This should call the application method "Name"
+      Method m = Method.Create(WsfSimulation.FindPlatform("p2"), "Name");
+      if ("p2" == (string)m.Call())
+         pass();
+   end_execute
+   execute at_time .01 s absolute
+      extern void pass();
+      Method m1 = Method.Create(WsfSimulation.FindPlatform("p2"), "a_method");
+      Method m2 = Method.Create(Processor("my_proc"), "a_method");
+      Method m3 = Method.Create("a_method");
+      if (11 == (int)m1.Call({10}))
+         pass();
+      if (22 == (int)m2.Call({20}))
+         pass();
+      if (33 == (int)m3.Call({30}))
+         pass();
+      Signal sig = Signal();
+      sig.Connect(m1);
+      sig.Connect(m2);
+      sig.Connect(m3);
+      # Verify we can copy signals
+      Signal sigCopy = Signal(sig);
+      # and that the copy isn't affected by this:
+      sig.DisconnectAll();
+      if (sigCopy.Call({0}) == {1,2,3})
+         pass();
+      else
+      {
+         writeln("-FAIL- 1,2,3");
+         writeln(sigCopy);
+         writeln(sigCopy.Call({0}));
+      }
+
+      # Test that argument binding works for each method type
+      m1 = m1.Bind(0, 5);
+      m2 = m2.Bind(0, 6);
+      m3 = m3.Bind(0, 7);
+      Signal sig2 = Signal();
+      foreach (Method m in {m1,m2,m3})
+      {
+         sig2.Connect(m);
+      }
+      if (sig2.Call() == {6,8,10})
+         pass();
+      else writeln("-FAIL- 6,8,10");
+
+      # Try partial argument binding
+      Method combineStr = Method.Create(PLATFORM, "combine_strings");
+      Method multibind1 = combineStr.Bind(0,"A");
+      Method multibind2 = combineStr.Bind(1,"B");
+      Method multibind3 = combineStr.Bind(0,"A").Bind(1,"B");
+      if (  (multibind1.Call({"B"}) == multibind2.Call({"A"}))
+         && (multibind1.Call({"B"}) == multibind3.Call())
+         && (multibind3.Call() == "AB"))
+      {
+         pass();
+      }
+      else writeln("-FAIL- multibind");
+   end_execute
+   script string combine_strings(string a, string b)
+      return a + b;
+   end_script
+   add processor my_proc WSF_SCRIPT_PROCESSOR
+      script int a_method(int aArg)
+         return 2 + aArg;
+      end_script
+   end_processor
+end_platform
+
+platform p2 WSF_PLATFORM
+   script int a_method(int aArg)
+      return 1 + aArg;
+   end_script
+end_platform
+
+

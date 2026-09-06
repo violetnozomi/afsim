@@ -1,0 +1,134 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# A test of the old and new input formats for correlation and fusion methods
+default_correlation_method  perfect
+
+platform_type test1 WSF_PLATFORM
+   track_manager
+      // new block format
+      correlation_method perfect
+      end_correlation_method
+   end_track_manager
+end_platform_type
+
+platform_type test2 WSF_PLATFORM
+   track_manager
+      // new block format with inputs
+      correlation_method nearest_neighbor
+         tracking_sigma 1.0
+         turning_sigma 1.0
+         coast_time  3.0 sec
+      end_correlation_method
+      fusion_method replacement
+      end_fusion_method
+
+      retain_raw_tracks #standard TM input
+   end_track_manager
+end_platform_type
+
+#platform_type test3 WSF_PLATFORM
+#   track_manager
+#      // deprecated old method (will cause grammar errors; uncomment to test manually)
+#      correlation_method nearest_neighbor
+#      // Note that there can be no parameters following; otherwise an error occurs.
+#      // no end block
+#      retain_raw_tracks #standard TM input
+#      fusion_method default
+#      retain_raw_tracks #standard TM input
+#   end_track_manager
+#end_platform_type
+
+platform_type test4 WSF_PLATFORM
+   track_manager
+      correlation_method truth
+         maximum_correlation_distance 1000 m
+         ignore_same_side false
+         ignore_track_target true
+      end_correlation_method
+      fusion_method weighted_average
+      end_fusion_method
+   end_track_manager
+end_platform_type
+
+conditional_section
+   conditionals
+      feature_present mtt
+   end_conditionals
+         platform_type test5 WSF_PLATFORM
+            track_manager
+               tracker_type mtt
+
+               track_drop_times
+                  embryonic_track                30.0 s
+                  candidate_track                30.0 s
+                  active_track                   60.0 s
+                  vertical_channel_active_track  60.0 s
+                  report_delay_for_active_track   0.0 s
+               end_track_drop_times
+
+               process_model_one_sigma_errors_candidate_track
+                  x_dir_accel                                        9.0 m/s2
+                  y_dir_accel                                        9.0 m/s2
+               end_process_model_one_sigma_errors_candidate_track
+
+               process_model_one_sigma_errors_and_parameters_active_track
+                  x_dir_accel_straight_flight_model                0.09 m/s2
+                  y_dir_accel_straight_flight_model                0.09 m/s2
+                  x_dir_accel_turning_flight_model                 8.0 m/s2
+                  y_dir_accel_turning_flight_model                 8.0 m/s2
+                  vertical_velocity                                6.25 m/s
+                  decorrelation_time_vert_velocity                 20.0   s
+               end_process_model_one_sigma_errors_and_parameters_active_track
+
+               one_sigma_state_error_thresholds
+                  velocity_limit_to_promote_embryonic_track        700.0 m/s
+                  velocity_error_to_promote_embryonic_track        150.0 m/s
+                  position_error_to_promote_candidate_track        500.0 m
+                  velocity_error_to_promote_candidate_track         40.0 m/s
+                  position_error_to_promote_vertical_channel       500.0 m
+                  velocity_error_to_promote_vertical_channel        40.0 m/s
+               end_one_sigma_state_error_thresholds
+
+               state_error_covariance_matrix_condition_number_thresholds
+                  promote_track_in_horizontal_channel              2.0e+4
+                  promote_track_in_vertical_channel                1.0e+10
+               end_state_error_covariance_matrix_condition_number_thresholds
+
+               state_variance_limit_active_track
+                  max_std_dev_straight_flight_model              800.0 m
+                  max_std_dev_turning_flight_model               800.0 m
+                  min_std_dev_straight_flight_model              400.0 m
+                  min_std_dev_turning_flight_model               400.0 m
+               end_state_variance_limit_active_track
+
+               mode_transition_probability_matrix
+                  straight_to_straight_flight                    0.70
+                  straight_to_turning_flight                     0.30
+                  turning_to_turning_flight                      0.30
+                  turning_to_straight_flight                     0.70
+               end_mode_transition_probability_matrix
+
+               probability_of_falsely_rejecting_correlation
+                  measurement_to_track                           1.0e-20
+                  track_to_track                                 1.0e-20
+               end_probability_of_falsely_rejecting_correlation
+
+               consecutive_single_source_hits_to_promote_track   0
+
+               track_correlation_cylinder
+                  cylinder_height                                2000 m
+                  cylinder_diameter                              2000 m
+               end_track_correlation_cylinder
+
+               mttc_track_fusion                                 all_sources
+            end_tracker_type
+            end_track_manager
+         end_platform_type
+end_conditional_section

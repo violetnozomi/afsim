@@ -1,0 +1,95 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 24 hours
+
+script_variables
+   double sInc1 = 10;
+   double sInc2 = 20;
+   double sTol = 0.0001;
+   int sNumCompleted = 0;
+end_script_variables
+
+platform test-inclination WSF_PLATFORM
+   icon satellite
+   side blue
+   add mover WSF_NORAD_SPACE_MOVER
+      eccentricity 0.0
+      inclination 50 deg
+      raan 0 deg
+      true_anomaly 0 deg
+      argument_of_periapsis 0 deg
+      revs_per_day 6
+      
+      maneuvering simple
+         maximum_acceleration 20 m/s2
+      end_maneuvering
+
+      mission_sequence
+         maneuver change_inclination
+            inclination 10 deg
+            execute_at descending_node
+         end_maneuver
+      end_mission_sequence
+   end_mover
+
+   execute at_time 13 hr absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      WsfOrbitalManeuver inclinationManeuver = WsfChangeInclination.Construct(WsfOrbitalEventCondition.AT_ASCENDING_NODE(), sInc2);
+      bool result = mover.ExecuteManeuver(inclinationManeuver);
+      if (result){
+         writeln("Change inclination: true");
+      } else {
+         writeln("Change inclination: false");
+      }
+   end_execute
+
+end_platform
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; begin ", aManeuver.ManeuverType());
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 60.0, "; end ", aManeuver.ManeuverType());
+   writeln(aSM.Inclination());
+   double newEcc = aSM.Inclination();
+   if (sNumCompleted == 0)
+   {
+      if ((newEcc < (sInc1 - sTol)) || (newEcc > (sInc1 + sTol)))
+      {
+         writeln("-FAIL-");
+      }
+   }
+   else if (sNumCompleted == 2)
+   {
+      if ((newEcc < (sInc2 - sTol)) || (newEcc > (sInc2 + sTol)))
+      {
+         writeln("-FAIL-");
+      }
+   }
+   sNumCompleted += 1;
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 2)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer

@@ -1,0 +1,94 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 3 min
+
+platform twobody WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      revolutions_per_day 12
+      inclination 20 deg
+      eccentricity 0.0
+      true_anomaly 0 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+   end_mover
+end_platform
+
+platform integrator WSF_PLATFORM
+   empty_mass 100 kg
+
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      revolutions_per_day 12
+      inclination 20 deg
+      eccentricity 0.0
+      true_anomaly 0 deg
+      raan 0 deg
+      argument_of_periapsis 0 deg
+
+      integrator prince_dormand_45
+         tolerance 1.0e-11
+      end_integrator
+
+      dynamics
+         term earth_monopole
+         end_term
+      end_dynamics
+   end_mover
+end_platform
+
+script bool TestDifferenceComponents(Vec3 aVector, string aCase)
+   double diffTolerance = 5.0e-6;
+   bool retval = true;
+
+   if (MATH.Fabs(aVector.X()) > diffTolerance)
+   {
+      writeln(aCase, " difference X component is too large: ", MATH.Fabs(aVector.X()));
+      retval = false;
+   }
+   if (MATH.Fabs(aVector.Y()) > diffTolerance)
+   {
+      writeln(aCase, " difference Y component is too large: ", MATH.Fabs(aVector.Y()));
+      retval = false;
+   }
+   if (MATH.Fabs(aVector.Z()) > diffTolerance)
+   {
+      writeln(aCase, " difference Z component is too large: ", MATH.Fabs(aVector.Z()));
+      retval = false;
+   }
+
+   return retval;
+end_script
+
+script void TestInitialStates()
+   WsfPlatform integrator = WsfSimulation.FindPlatform("integrator");
+   Vec3 integratorLoc = integrator.LocationECI();
+   Vec3 integratorVel = integrator.VelocityECI();
+
+   WsfPlatform twobody = WsfSimulation.FindPlatform("twobody");
+   Vec3 twobodyLoc = twobody.LocationECI();
+   Vec3 twobodyVel = twobody.VelocityECI();
+
+   Vec3 locDiff = Vec3.Subtract(integratorLoc, twobodyLoc);
+   Vec3 velDiff = Vec3.Subtract(integratorVel, twobodyVel);
+
+   bool results = TestDifferenceComponents(locDiff, "Location");
+   results = TestDifferenceComponents(velDiff, "Velocity") && results;
+   if (!results)
+   {
+      writeln("-FAIL-");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SIMULATION_STARTING TestInitialStates
+end_observer

@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#############################################################################
+#             A generic IRST (InfrRed Search and Track) sensor
+#
+#                           ***** NOTICE *****
+#
+#  This definition is not intended to be representive of the real system. Some
+#  undefined characteristics of the system have been provided so the achieved
+#  performance matches the values defined in the noted references.
+#
+#  Reference: none
+#                             UNCLASSIFIED
+#############################################################################
+#
+#  SNIPPET: example of how this sensor could be included in a simulation
+#
+# include_once generic_irst.txt
+#
+# ... simulation setup & initialization commands
+#
+#	platform_type MISSILE_PLATFORM WSF_PLATFORM
+#	  icon missile
+#	  mover WSF_AIR_MOVER
+#	    ... mover commands
+#	  end_mover
+#	end_platform_type
+#
+#	platform sensor_test MISSILE_PLATFORM
+#	  side        blue
+#	  heading     0.0 deg
+#	  route
+#	    position 35:00n 118:15w altitude 20000 ft heading 90 deg
+#	      speed 1200 kts
+#	    extrapolate
+#	  end_route
+#
+#	  add sensor irst_sensor GENERIC_IRST
+#	    on              # initialize sensor as 'on'
+#	    debug           # print debug info about sensor operation
+#	  end_sensor
+#	end_platform
+#
+#############################################################################
+
+sensor GENERIC_IRST WSF_IRST_SENSOR
+
+   #-- Platform Part Commands
+   off                         # default
+   no_debug                    # default
+
+   #-- Articulated Part Commands
+   #   Slew mode and limits, yaw, pitch, & roll info goes here
+
+   #-- Antenna Commands
+   azimuth_field_of_view   -45 deg 45 deg
+   elevation_field_of_view -45 deg 45 deg
+
+   #-- Detection Scheduling Commands
+   frame_time              0.5 seconds
+   maximum_range           50 nm
+
+   #-- IRST Sensor Mode Commands
+
+   # atmospheric_attenuation is a very simple-minded approach to modeling
+   #   propagation.  It can also be thought of as the 'rate_of_extinction'.
+   #   This should include the effects of scattering and absorbance.
+   #
+   # In reality the propagation would have to consider the wavelength of
+   #   the spectral content, the scattering and absorbsion coefficients as a
+   #   function of altitude and wavelength as well as environmental effects
+   #   such as dust, humidity, etc.
+   atmospheric_attenuation   0.05 per km
+
+   # Background_radiance is a very simple-minded approach to modeling
+   #   the background radiance.  In reality it is a function of many
+   #   variables time of day (and hence, sun position), temperature, and many
+   #   other environmental effects.
+   background_radiance       500 microwatts/cm^2/sr
+
+   # Set operating band of the sensor as one of following:
+   #     short       1 -  3 microns
+   #     medium      3 -  5 microns
+   #     long        8 - 12 microns
+   #     very_long  15 - 30 microns
+   band                      medium
+
+   # Noise Equivalent Irradiance (NEI) is the receiver noise.
+   #    The ratio of computed 'signal' and this value must exceed the value of
+   #    'detection_threshold' for a detection to be declared.
+   noise_equivalent_irradiance  1.0E-12 w/cm^2
+
+   # detection_threshold is the signal/noise required for detection.
+   detection_threshold         3.0
+
+   #-- Track Formation Commands
+   azimuth_error_sigma         0.001 deg
+   elevation_error_sigma       0.001 deg
+   range_error_sigma           7.0 m
+   hits_to_establish_track     3 5  #-- 3 of last 5 scans to establish track
+   hits_to_maintain_track      1 4  #-- 1 of last 4 scans to maintain  track
+
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_location
+   reports_signal_to_noise
+   reports_velocity
+end_sensor
+

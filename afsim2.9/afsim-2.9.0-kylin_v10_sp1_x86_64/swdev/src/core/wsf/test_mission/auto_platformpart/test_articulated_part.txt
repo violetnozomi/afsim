@@ -1,0 +1,211 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test Articulated Part input commands
+//
+// As Articulated Part itself is not instantiable we find that
+// GeometricSensor inherits Articulated Part input commands and thus is used
+// here as a surrogate to test Articulated input commands
+
+include ../auto_script/test_functions.txt
+include ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 45;
+end_script_variables
+
+sensor TEST_SENSOR WSF_GEOMETRIC_SENSOR
+   // Required input for sensor
+   reports_location
+   update_interval 1 s
+   frame_time 1 s
+   on
+
+   // Articulated Part inputs
+   location 0 0 0 m
+   pitch 90 degrees
+   pitch -90 degrees
+   roll 180 degrees
+   roll -180 degrees
+   yaw 180 degrees
+   yaw -180 degrees
+   tilt 90 degrees
+   tilt -90 degrees
+   azimuth_slew_limits -180 degrees 180 degrees
+   elevation_slew_limits -90 degrees 90 degrees
+
+   // Enumerated list of slew_modes
+   slew_mode fixed
+   slew_mode azimuth
+   slew_mode elevation
+   slew_mode both
+   slew_mode azimuth_and_elevation // equivalent to 'both'
+
+end_sensor
+
+sensor TEST_TIME_SLEW_SENSOR TEST_SENSOR
+  azimuth_slew_limits   -45 degrees 45 degrees
+  elevation_slew_limits -45 degrees 45 degrees
+  azimuth_slew_rate       1 deg/s
+  elevation_slew_rate     1 deg/s
+end_sensor
+
+sensor TEST_TIME_SLEW_FULL_CIRCLE_SENSOR TEST_SENSOR  
+  azimuth_field_of_view -180 degrees 180 degrees
+  azimuth_slew_rate        1 deg/s
+  elevation_slew_rate      1 deg/s
+end_sensor
+
+sensor TEST_TIME_SLEW_RESTRICTED_SENSOR TEST_SENSOR
+  azimuth_slew_limits  -175 degrees 175 degrees
+  elevation_slew_limits -45 degrees  45 degrees
+  azimuth_slew_rate       1 deg/s
+  elevation_slew_rate     1 deg/s
+end_sensor
+
+sensor TEST_CUE_SENSOR TEST_SENSOR
+   pitch 0 deg
+   roll  0 deg
+   yaw   0 deg
+   tilt  0 deg
+   azimuth_slew_limits   -5 degrees 5 degrees
+   elevation_slew_limits -5 degrees 5 degrees
+   azimuth_cue_limits    -5 degrees 5 degrees
+   elevation_cue_limits  -5 degrees 5 degrees
+   maximum_range 100 nm
+end_sensor
+
+#script_listing on
+platform plat WSF_PLATFORM
+
+   add sensor test_part TEST_SENSOR end_sensor
+   
+   add sensor test_cue_part TEST_CUE_SENSOR end_sensor  
+   
+   add sensor test_time_slew_restricted TEST_TIME_SLEW_RESTRICTED_SENSOR end_sensor
+   
+   add sensor test_time_slew_part TEST_TIME_SLEW_SENSOR end_sensor  
+   
+   add sensor test_time_slew_part_full_circle TEST_TIME_SLEW_FULL_CIRCLE_SENSOR end_sensor  
+   
+   script void VerifyData(double aX,     double aY,     double aZ,
+                          double aDX,    double aDY,    double aDZ,
+                          double aPitch, double aRoll,  double aYaw,
+                          string aMessage)
+      aMessage = aMessage + " ";
+      WsfSensor sensor = PLATFORM.Sensor("test_part");
+      if (AssertEqualsMessage(aX,     sensor.X(),     aMessage + "X"))     { pass(); }
+      if (AssertEqualsMessage(aY,     sensor.Y(),     aMessage + "Y"))     { pass(); }
+      if (AssertEqualsMessage(aZ,     sensor.Z(),     aMessage + "Z"))     { pass(); }
+      if (AssertEqualsMessage(aDX,    sensor.DX(),    aMessage + "DX"))    { pass(); }
+      if (AssertEqualsMessage(aDY,    sensor.DY(),    aMessage + "DY"))    { pass(); }
+      if (AssertEqualsMessage(aDZ,    sensor.DZ(),    aMessage + "DZ"))    { pass(); }
+      if (AssertEqualsMessage(aPitch, sensor.Pitch(), aMessage + "Pitch")) { pass(); }
+      if (AssertEqualsMessage(aRoll,  sensor.Roll(),  aMessage + "Roll"))  { pass(); }
+      if (AssertEqualsMessage(aYaw,   sensor.Yaw(),   aMessage + "Yaw"))   { pass(); }
+   end_script
+   on_initialize
+      VerifyData(0, 0, 0,
+                 0, 0, 0,
+                 -90, -180, -180,
+                 "Initialize");
+      WsfSensor sensor = PLATFORM.Sensor("test_part");
+      sensor.SetXYZ(1, 2, 3);
+      sensor.SetDXYZ(1, 2, 3);
+      sensor.SetPitch(45);
+      sensor.SetRoll(45);
+      sensor.SetYaw(45);
+      VerifyData(1, 2, 3,
+                 1, 2, 3,
+                 45, 45, 45,
+                 "Set");
+   end_on_initialize
+
+   execute at_time 1 s absolute
+      VerifyData(2, 4, 6,
+                 1, 2, 3,
+                 45, 45, 45,
+                 "Moving1");
+   end_execute
+   execute at_time 2 s absolute
+      VerifyData(3, 6, 9,
+                 1, 2, 3,
+                 45, 45, 45,
+                 "Moving2");
+   end_execute
+
+   script void VerifyCueTo(WsfGeoPoint aGeoPoint, bool aResult)
+      WsfSensor sensor = PLATFORM.Sensor("test_cue_part");
+      if (AssertEqualsMessage(aResult, sensor.CueToPoint(aGeoPoint), "Unexpected result of CueToPoint")) { pass(); }
+   end_script
+   
+   script void VerifyTimeToSlew(double aExpectedTime, double aAzimuth, double aElevation, string aSensorName)
+      WsfSensor sensor = PLATFORM.Sensor(aSensorName);
+      double timeToSlew = sensor.TimeToCueToAzEl(aAzimuth, aElevation);
+      if (AssertEqualsMessage(aExpectedTime, timeToSlew, "Unexpected result of TimeToCueToAzEl")) { pass(); }
+   end_script
+   
+   execute at_time 3 s absolute
+      WsfGeoPoint aPt = WsfGeoPoint.Construct("01:00:00.000n 00:00:00.000e");
+      aPt.SetAltitudeAGL(5000);
+      VerifyCueTo(aPt, true);
+   end_execute
+
+   execute at_time 4 s absolute
+      WsfGeoPoint aPt = WsfGeoPoint.Construct("01:00:00.000n 00:05:00.000e");
+      aPt.SetAltitudeAGL(5000);
+      VerifyCueTo(aPt, true);
+   end_execute
+
+   execute at_time 5 s absolute
+      WsfGeoPoint aPt = WsfGeoPoint.Construct("00:00:00.000s 01:00:00.000e");
+      aPt.SetAltitudeAGL(5000);
+      VerifyCueTo(aPt, false);
+   end_execute
+   
+   execute at_time 6 s absolute
+      VerifyTimeToSlew( 45,   45,  45, "test_time_slew_part");
+      VerifyTimeToSlew( 45,  -45, -45, "test_time_slew_part");
+      VerifyTimeToSlew( -1,    0,  90, "test_time_slew_part");
+      VerifyTimeToSlew(  1,    1,   0, "test_time_slew_part");
+      VerifyTimeToSlew(179, -179,   0, "test_time_slew_part_full_circle");
+      VerifyTimeToSlew( -1,  179,   0, "test_time_slew_restricted");
+   end_execute
+   
+// TODO: Further understanding required for the remaining functions
+//       sensor.EnableArticulationUpdates();
+//       WsfSensor sensor = PLATFORM.Sensor("test_part");
+//       Expecting x,y,z relative movement to stop
+//       sensor.DisableArticulationUpdates();
+//    end_execute
+//    execute at_time 4 s absolute
+//       VerifyData(2, 4, 6,
+//                  1, 2, 3,
+//                  45, 45, 45,
+//                  "Disabled");
+//       WsfSensor sensor = PLATFORM.Sensor("test_part");
+//       sensor.CueToLLA(1, 1, 1);
+//    end_execute
+//    execute at_time 5 s absolute
+//       VerifyData(2, 4, 6,
+//                  1, 2, 3,
+//                  45, 45, 45,
+//                  "CueToLLA");
+//       WsfSensor sensor = PLATFORM.Sensor("test_part");
+//       sensor.CueToWCS(1, 1, 1);
+//    end_execute
+//       sensor.CueToWCS(1, 1, 1);
+//       sensor.CueToPoint(geopoint);
+//       sensor.CueToTrack(track);
+//       sensor.CueToAbsoluetAzEl(1, 1);
+//       sensor.CueToRelativeAzEl(1, 1);
+//       sensor.CueToAzEl(1, 1);  // equivalent to CueToRelativeAzEl
+//       sensor.ClearCueing();
+//    end_execute
+end_platform

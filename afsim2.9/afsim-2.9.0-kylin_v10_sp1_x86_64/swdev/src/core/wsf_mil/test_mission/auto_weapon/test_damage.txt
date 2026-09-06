@@ -1,0 +1,86 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+####################################################################################################
+# Very simple test of on_damage_received.
+####################################################################################################
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once bomber.txt
+
+# --------------------------------------------------------------------------------------------------
+
+radar_signature PICKUP_TRUCK_RADAR_SIG
+   constant 10 m^2
+end_radar_signature
+
+platform_type PICKUP_TRUCK WSF_PLATFORM
+   icon Pickup_Truck
+
+   radar_signature PICKUP_TRUCK_RADAR_SIG
+
+   mover WSF_GROUND_MOVER
+   end_mover
+
+   indestructible
+
+   script void on_damage_received()
+      writeln("T=", TIME_NOW, " ", Name(), " received damage, new factor=", DamageFactor());
+      Pause(1.0E+30);
+   end_script
+      
+end_platform_type
+
+# --------------------------------------------------------------------------------------------------
+
+platform bomber BOMBER
+   side blue
+   route
+      position 40.25n 89w altitude 30000 ft heading 270 deg speed 400 kts
+   end_route
+end_platform
+
+platform truck PICKUP_TRUCK
+   side red
+   route
+      position 40n 90w heading 90 deg speed 30 kts
+   end_route
+end_platform
+/*
+event_output
+   file replay.evt
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable WEAPON_TERMINATED
+   enable PLATFORM_BROKEN
+   enable LOCAL_TRACK_INITIATED
+   enable LOCAL_TRACK_DROPPED
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_DROPPED
+end_event_output
+*/
+execute at_time 3599.0 sec absolute
+   # Make sure the target still exists, has damage and is not moving.
+   WsfPlatform target = WsfSimulation.FindPlatform("truck");
+   if (! target.IsValid()) writeln("-FAIL- Target does not exist");
+   if (target.IsValid())
+   {
+      if (target.DamageFactor() == 0.0) writeln("-FAIL- Target has not been damaged");
+      if (target.Speed() > 0.0) writeln("-FAIL- Target is still moving");
+   }
+end_execute
+/*
+event_pipe
+   file replay.aer
+end_event_pipe
+*/
+end_time 1 hr

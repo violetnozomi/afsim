@@ -1,0 +1,36 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test PlatformPart turn off in type definition
+// edited to on in instance
+//
+
+platform_type test_plat WSF_PLATFORM
+   processor test_part1 WSF_SCRIPT_PROCESSOR
+      off
+   end_processor
+end_platform_type
+#script_listing on
+platform test_plat1 test_plat
+   edit processor test_part1
+      on
+   end_processor
+   script void on_platform_deleted()
+      if (Processor("test_part1").IsTurnedOn())
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+end_platform
+
+end_time 1 s

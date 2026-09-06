@@ -1,0 +1,92 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This is a very simple test to make sure the default table selection logic in WsfOpticalAttenuation
+# is selecting a table. This isn't a comprehensive test, but it will fail if it can't find the
+# default table for the wavelength/band in question.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+attenuation_model EOIR_ATTENUATION optical
+end_attenuation_model
+
+sensor EOIR_BASE WSF_EOIR_SENSOR
+   attenuation_model           EOIR_ATTENUATION
+   background_radiance         8.5e-5 w/cm^2/sr
+   noise_equivalent_irradiance 9.0e-13 w/cm2
+   detection_threshold         3.0
+
+   frame_time                  1.0 sec
+   pixel_count                 640 480
+   azimuth_field_of_view       -0.25 deg 0.25 deg
+   elevation_field_of_view     -0.20 deg 0.20 deg
+   reports_location
+end_sensor
+
+attenuation_model LADAR_ATTENUATION optical
+end_attenuation_model
+
+sensor LADAR_BASE WSF_LADAR_SENSOR
+   frame_time 10 sec
+   
+   transmitter
+      # Can't use 'nm' for units because that is nautical miles
+      wavelength                       999 nanometers
+      power                            2 w
+      pulse_repetition_frequency       100 hz
+      pulse_width                      2.5 ns
+      aperture_diameter                7.5 mm
+      optics_transmission_factor       1.0
+      beam_divergence_angle            0.001 deg
+      attenuation_model                LADAR_ATTENUATION
+   end_transmitter
+   
+   receiver
+      aperture_diameter                20 cm
+      optics_transmission_factor       1.0
+   end_receiver
+   
+   detection_threshold                 1.0
+
+   reports_location
+   on
+   ignore_same_side
+end_sensor
+
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   sensor mwir EOIR_BASE
+      band medium
+   end_sensor
+   sensor lwir EOIR_BASE
+      band long
+   end_sensor
+   sensor laser_1000nm LADAR_BASE
+     transmitter
+         wavelength 1000 nanometers
+      end_transmitter
+   end_sensor
+   sensor laser_1064nm LADAR_BASE
+      transmitter
+         wavelength 1064 nanometers
+      end_transmitter
+   end_sensor
+   sensor laser_1550nm LADAR_BASE
+      transmitter
+         wavelength 1550 nanometers
+      end_transmitter
+   end_sensor
+end_platform_type
+
+platform p1 TEST_PLATFORM
+   position 40n 90w altitude 1000 m
+end_platform
+
+end_time 1 sec

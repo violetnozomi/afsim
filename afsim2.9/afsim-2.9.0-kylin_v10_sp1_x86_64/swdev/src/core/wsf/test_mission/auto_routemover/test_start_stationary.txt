@@ -1,0 +1,36 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test to insure RoadMover allows an initial position
+//      and still accepts FollowRoute(default, closest)
+//
+// TODO: Convert to GroundMover with a position
+//       Remove functionality from RoadMover
+//
+
+end_time 30 s
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_ROAD_MOVER
+      // Here To Satisfy Init
+      road_network EmptyIsOk
+      off_road_speed 15 mph
+      speed 60 mph
+   end_mover
+   position 10n 0w heading 0.0 deg
+
+   execute at_time 10 s absolute
+      PLATFORM.FollowRoute("DEFAULT_ROUTE", "CLOSEST_POINT");
+   end_execute
+
+   execute at_time 20 s absolute
+      writeln("-PASS-");
+   end_execute
+end_platform
+

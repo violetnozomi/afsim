@@ -1,0 +1,167 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the various script methods of WsfGuidedMover
+
+include setup_test_gm.txt
+
+script void CheckWithinTolerance(string aName,
+                                 double aActualValue,
+                                 double aExpectedValue,
+                                 double aTolerance)
+   extern int gPassCount;
+   if (Math.Fabs(aActualValue - aExpectedValue) <= aTolerance)
+   {
+      writeln("-PASS- ", aName, " ACTUAL=", aActualValue);
+      gPassCount = gPassCount + 1;
+   }
+   else
+   {
+      writeln("-FAIL- ", aName, " EXPECTED=", aExpectedValue, ", ACTUAL=", aActualValue);
+   }
+end_script
+
+###############################################################################
+
+mover SSM_MOVER SSM_MOVER_BASE
+   show_status
+   # Allow thrust vectoring to get some lateral thrust.
+   stage 1
+     thrust_vectoring_angle_limit 2 deg
+   end_stage
+end_mover
+
+###############################################################################
+
+processor SSM_GUIDANCE SSM_GUIDANCE_BASE
+   show_status
+   # Supply the required ASCENT phase definition
+   phase ASCENT
+      guidance_delay 2000.0 sec
+   end_phase
+end_processor
+
+###############################################################################
+
+platform_type SSM SSM_BASE
+   mover SSM_MOVER
+   end_mover
+  
+   processor guidance SSM_GUIDANCE
+   end_processor
+
+   script_variables
+      Atmosphere mAtmosphere = Atmosphere.Construct("default");
+      double cSTAGE_1_AREA         = 1.539;
+      double cSTAGE_1_ASPECT       = 2.0;
+      double cSTAGE_1_CLMAX        = 4.5;
+      double cSTAGE_1_CD0_SUBSONIC = 0.1;
+   end_script_variables
+   
+   script double DynamicPressure()
+      double alt = PLATFORM.Altitude();
+      double density = mAtmosphere.Density(alt);
+      double speed = PLATFORM.Speed();
+      return 0.5 * density * speed * speed;
+   end_script
+   
+   script double Estimate_Cd(double aCl)
+      # Assumes the speed is well below the transition region
+      double K = 1.0 / (Math.PI() * cSTAGE_1_ASPECT * 0.95);
+      return cSTAGE_1_CD0_SUBSONIC + (K * aCl * aCl);
+   end_script
+   
+   # This is during the LIFTOFF phase (before pitch over).
+   # The values of most return values are known (by hand or easily calculated)
+   
+   execute at_time 5 sec relative
+      WsfGuidedMover gm = (WsfGuidedMover) PLATFORM.Mover();
+      double dragForce = gm.DragForce();
+      double latAeroForce = gm.LateralAerodynamicForce();
+      double maxLatAeroForce = gm.MaximumLateralAerodynamicForce();
+      double axialThrustForce = gm.AxialThrustForce();
+      double lateralThrustForce = gm.LateralThrustForce();
+      double totalThrustForce = gm.TotalThrustForce();
+      double gravityAccel = gm.GravitationalAcceleration();
+      double gravityForce = gm.GravitationalForce();
+      double dynamicPressure = gm.DynamicPressure();
+      
+      writeln("\n***** T=", TIME_NOW, " TOF=", TIME_NOW - PLATFORM.CreationTime());
+      
+      double totalThrustForceEx = 250554.0;
+      double lateralThrustForceEx = 0.0;
+      double axialThrustForceEx = totalThrustForceEx;
+      CheckWithinTolerance("AxialThrustForce()", axialThrustForce, axialThrustForceEx, 1.0);
+      CheckWithinTolerance("LateralThrustForce()", lateralThrustForce, lateralThrustForceEx, 1.0);
+      CheckWithinTolerance("TotalThrustForce()", totalThrustForce, totalThrustForceEx, 1.0);
+      CheckWithinTolerance("GravitationalAcceleration()", gravityAccel, 9.82, 0.01);
+      CheckWithinTolerance("GravitationalForce()", gravityForce, gravityAccel * TotalMass(), 1.0);
+      CheckWithinTolerance("DynamicPressure()", dynamicPressure, DynamicPressure(), 1.0);
+      
+      # Estimate the maximum lateral aerodynamic force...
+      double maxLatAeroForceCalc = cSTAGE_1_CLMAX * dynamicPressure * cSTAGE_1_AREA;
+      CheckWithinTolerance("MaximumLateralAerodynamicForce", maxLatAeroForce, maxLatAeroForceCalc, 0.01 * maxLatAeroForce);
+      # Estimate the current drag.
+      double cl = 0.0;
+      double cd = Estimate_Cd(cl);
+      double dragForceCalc = cd * dynamicPressure * cSTAGE_1_AREA;
+      CheckWithinTolerance("DragForce()", dragForce, dragForceCalc, 0.01 * dragForce);
+   end_execute
+   
+   # This is after the PITCH_OVER phase starts, but before ASCENT.
+   # Lateral thrust vectoring will be used to help the pitch over.
+   execute at_time 10 sec relative
+      WsfGuidedMover gm = (WsfGuidedMover) PLATFORM.Mover();
+      double dragForce = gm.DragForce();
+      double latAeroForce = gm.LateralAerodynamicForce();
+      double maxLatAeroForce = gm.MaximumLateralAerodynamicForce();
+      double axialThrustForce = gm.AxialThrustForce();
+      double lateralThrustForce = gm.LateralThrustForce();
+      double totalThrustForce = gm.TotalThrustForce();
+      double gravityAccel = gm.GravitationalAcceleration();
+      double gravityForce = gm.GravitationalForce();
+      double dynamicPressure = gm.DynamicPressure();
+      
+      writeln("\n***** T=", TIME_NOW, " TOF=", TIME_NOW - PLATFORM.CreationTime());
+      
+      double totalThrustForceEx = 250554.0;
+      double lateralThrustForceEx = totalThrustForceEx * Math.Sin(2.0);
+      double axialThrustForceEx = Math.Sqrt(totalThrustForceEx * totalThrustForceEx
+                                            - lateralThrustForceEx * lateralThrustForceEx);
+      CheckWithinTolerance("AxialThrustForce()", axialThrustForce, axialThrustForceEx, 1.0);
+      CheckWithinTolerance("LateralThrustForce()", lateralThrustForce, lateralThrustForceEx, 1.0);
+      CheckWithinTolerance("TotalThrustForce()", totalThrustForce, totalThrustForceEx, 1.0);
+      CheckWithinTolerance("GravitationalAcceleration()", gravityAccel, 9.82, 0.01);
+      CheckWithinTolerance("GravitationalForce()", gravityForce, gravityAccel * TotalMass(), 1.0);   
+      CheckWithinTolerance("DynamicPressure()", dynamicPressure, DynamicPressure(), 1.0);
+      
+      # Estimate the maximum lateral aerodynamic force...
+      double maxLatAeroForceCalc = cSTAGE_1_CLMAX * dynamicPressure * cSTAGE_1_AREA;
+      CheckWithinTolerance("MaximumLateralAerodynamicForce", maxLatAeroForce, maxLatAeroForceCalc, 0.01 * maxLatAeroForce);
+      # Estimate the current drag.
+      double cl = cSTAGE_1_CLMAX;
+      double cd = Estimate_Cd(cl);
+      double dragForceCalc = cd * dynamicPressure * cSTAGE_1_AREA;
+      CheckWithinTolerance("DragForce()", dragForce, dragForceCalc, 0.01 * dragForce);
+   end_execute
+   
+end_platform_type
+
+###############################################################################
+
+platform launcher SSM_LAUNCHER
+   execute at_time  1 sec relative Launch(); end_execute
+end_platform
+
+on_initialize
+   gExpectedPassCount = 16; # Defined expected pass count in 'setup_test_gm.txt'
+end_on_initialize
+
+# We don't need to let it go to the end of flight... just until the necessary checks have been complete...
+end_time 11.1 sec

@@ -1,0 +1,125 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+script void ScenarioAnalyzerDependenciesCore()
+   string d1 = "wsf_scenario_analyzer";
+   string d2 = "wsf_mil";
+end_script
+
+// Comm checks
+
+script void Comm_devices_must_have_internal_links()
+   ScenarioAnalyzer.CheckCommInternallyLinked();
+end_script
+
+
+// Command chain checks
+
+script void Platforms_in_command_chains_must_have_comm_devices()
+   ScenarioAnalyzer.CheckPlatformInCommandChainHasComm();
+end_script
+
+script void Declared_command_chains_should_have_structure()
+   ScenarioAnalyzer.CheckDeclaredCommandChainHasStructure();
+end_script
+
+script void Declared_commander_should_be_in_that_command_chain()
+   ScenarioAnalyzer.CheckCommanderInDeclaredCommandChain();
+end_script
+
+script void Scenarios_with_many_platforms_should_have_a_command_chain()
+   ScenarioAnalyzer.CheckLargeScenarioHasCommandChain();
+end_script
+
+
+// Location checks
+
+script void Platforms_should_have_meaningful_locations_defined()
+   ScenarioAnalyzer.CheckPlatformHasMeaningfulLocation();
+end_script
+
+// Sensor checks
+script void Sensors_must_be_internally_linked()
+   ScenarioAnalyzer.CheckSensorInternallyLinked();
+end_script
+
+script void Sensor_platforms_should_have_at_least_one_sensor_turned_on()
+   ScenarioAnalyzer.CheckSensorOn();
+end_script
+
+script void Sensors_should_be_linked_to_track_processor()
+    ScenarioAnalyzer.CheckSensorInternallyLinkedToTrackProcessor();
+end_script
+
+
+// Signature checks
+
+script void All_signatures_should_be_detectable_by_an_enemy_sensor()
+   ScenarioAnalyzer.CheckSignaturesDetectableByEnemySensor();
+end_script
+
+script void Platforms_should_have_signatures_required_by_sensors_in_scenario()
+   ScenarioAnalyzer.CheckPlatformHasRequiredSignatures();
+end_script
+
+
+// Script processor checks
+
+script void Script_processors_must_have_update_interval_defined()
+   ScenarioAnalyzer.CheckScriptProcessorHasUpdateInterval();
+end_script
+
+
+// Track processor checks
+
+script void Track_processor_purging_intervals_must_be_long_enough_to_establish_tracks()
+   ScenarioAnalyzer.CheckPurgeIntervalLongEnoughToEstablishTrack();
+end_script
+
+script void Track_processor_purging_intervals_must_be_long_enough_to_maintain_tracks()
+   ScenarioAnalyzer.CheckPurgeIntervalLongEnoughToMaintainTrack();
+end_script
+
+script void Track_processors_should_have_purge_interval_defined()
+  ScenarioAnalyzer.CheckTrackProcessorHasPurgeInterval();
+end_script
+
+script void Track_processors_should_not_circularly_report_fused_tracks()
+   ScenarioAnalyzer.CheckTrackProcessorsDontReportFusedTracksToEachOther();
+end_script
+
+
+// Speed/mover checks
+script void User_configured_speeds_should_be_within_mover_capabilities()
+   ScenarioAnalyzer.CheckUserConfiguredSpeedsWithinMoverCapabilities();
+end_script
+
+
+// Weapons checks
+script void Deployed_weapons_should_have_quantity_greater_than_zero()
+   ScenarioAnalyzer.CheckWeaponsNonzeroQuantity();
+end_script
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

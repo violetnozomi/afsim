@@ -1,0 +1,191 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2017 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   Vec3 velPreIntercept  = {};
+   Vec3 velPostIntercept = {};
+   double deltaVIntercept;
+      
+   double computedDeltaV;
+   double computedTransferTime;
+end_script_variables
+
+platform target WSF_PLATFORM
+   icon satellite
+   side red
+   
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.0
+      inclination 10.0 deg
+      raan 0.0 deg
+      semi_major_axis 19113 km
+      true_anomaly 207.110181 deg
+      argument_of_periapsis 0.0 deg
+   end_mover
+end_platform
+
+platform_type CHASER WSF_PLATFORM
+   icon satellite
+   side blue
+   
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.0
+      inclination 10.0 deg
+      raan 0.0 deg
+      semi_major_axis 12742 km
+      true_anomaly 0.0 deg
+      argument_of_periapsis 0.0 deg      
+   end_mover
+   
+   script void OrbitalManeuverInitiated()
+      velPreIntercept = PLATFORM.VelocityECI();
+   end_script
+   
+   script void OrbitalManeuverCompleted()   
+      velPostIntercept = PLATFORM.VelocityECI();
+      Vec3 diff = Vec3.Subtract(velPostIntercept, velPreIntercept);
+      deltaVIntercept = diff.Magnitude();
+   end_script
+   
+end_platform_type
+
+platform chaser-init CHASER
+   
+   edit mover      
+      mission_sequence
+         maneuver intercept
+            execute_at orbit 1 relative_time 0.0 s
+            maximum_time 6.0 hours
+            maximum_delta_v 5.0 km/sec
+            optimize_delta_v
+            target
+               platform target
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   
+end_platform
+
+platform chaser-min-delta-v CHASER
+   
+   script void ComputeAndExecute()
+      
+      WsfTrack trk = WsfSimulation.FindPlatform("target").MakeTrack();
+      PLATFORM.TrackManager().AddTrackReport(trk);
+      WsfLocalTrack ltrk = PLATFORM.MasterTrackList().TrackEntry(0);
+      WsfSpaceMover mov = (WsfSpaceMover)PLATFORM.Mover();
+
+      Array<double> noresults = mov.ComputeIntercept(ltrk, 6.0 * 3600.0, 50.0, true);
+      if (noresults.Size() != 0)
+      {
+         writeln("-FAIL- Solution should not be found");
+      }
+
+      Array<double> results = mov.ComputeIntercept(ltrk, 6.0 * 3600.0, 5000.0, true);
+      if (results.Size() != 2)
+      {
+         writeln("-FAIL- Solution not found");
+      }
+      computedTransferTime = results[0];
+      computedDeltaV = results[1];
+      writeln("Computed result: ", computedDeltaV);
+      WsfTargetPoint targetPoint = WsfTargetPoint.ConstructFromTrack(ltrk.TrackId());
+      WsfInterceptManeuver intercept 
+         = WsfInterceptManeuver.Construct(WsfOrbitalEventCondition.NONE(), targetPoint,
+                                           WsfInterceptManeuver.LEAST_DELTA_V(), 6.0 * 3600.0, 5000.0);
+      mov.ExecuteManeuver(intercept);
+   end_script
+      
+end_platform
+
+platform chaser-fixed-transfer-time CHASER
+
+   script void ComputeAndExecute()
+
+      WsfTrack trk = WsfSimulation.FindPlatform("target").MakeTrack();
+      PLATFORM.TrackManager().AddTrackReport(trk);
+      WsfLocalTrack ltrk = PLATFORM.MasterTrackList().TrackEntry(0);
+      WsfSpaceMover mov = (WsfSpaceMover)PLATFORM.Mover();
+
+      Array<double> results = mov.ComputeIntercept(ltrk, computedTransferTime);
+      if (results.Size() != 2)
+      {
+         writeln("-FAIL- Solution not found");
+      }
+      WsfTargetPoint targetPoint = WsfTargetPoint.ConstructFromTrack(ltrk.TrackId());
+      WsfInterceptManeuver intercept
+         = WsfInterceptManeuver.Construct(WsfOrbitalEventCondition.NONE(), targetPoint, computedTransferTime);
+      mov.ExecuteManeuver(intercept);
+   end_script
+
+end_platform
+
+script void CheckStatus(WsfPlatform aPlatform)
+   Vec3 targLoc = WsfSimulation.FindPlatform("target").LocationECI();
+   Vec3 cLoc = aPlatform.LocationECI();
+   Vec3 diffT = Vec3.Subtract(targLoc, cLoc);  // input
+   if (diffT.Magnitude() / targLoc.Magnitude() > 5.0e-5)
+   {
+      writeln(TIME_NOW, " -FAIL- 1 ", aPlatform.Name(), ", ", diffT.Magnitude());
+   }
+   else
+   {
+      writeln("-PASS- ", aPlatform.Name(), ", ", diffT.Magnitude());
+   }
+   
+   double diffDV = computedDeltaV - deltaVIntercept;
+   if (diffDV / computedDeltaV > 1.0e-5)
+   {
+      writeln("-FAIL- 3 ", diffDV, " ", computedDeltaV, " ", deltaVIntercept);
+   }
+end_script
+   
+
+start_date mar 18 2017
+end_time 8 hour
+
+script void OrbitalManeuverInitiated(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if ((aPlatform.Name() == "chaser-init") && (aManeuver.Type() == "INTERCEPT"))
+   {
+      WsfSimulation.FindPlatform("chaser-init").ExecuteScript("OrbitalManeuverInitiated");
+
+      # This calling order should be maintained so that comparison variables can be properly populated before use.
+      WsfSimulation.FindPlatform("chaser-min-delta-v").ExecuteScript(        "OrbitalManeuverInitiated");
+      WsfSimulation.FindPlatform("chaser-min-delta-v").ExecuteScript(        "ComputeAndExecute");
+      WsfSimulation.FindPlatform("chaser-fixed-transfer-time").ExecuteScript("OrbitalManeuverInitiated");
+      WsfSimulation.FindPlatform("chaser-fixed-transfer-time").ExecuteScript("ComputeAndExecute");
+   }
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if ((aPlatform.Name() == "chaser-init") && (aManeuver.Type() == "TARGET"))
+   {
+      WsfSimulation.FindPlatform("chaser-init").ExecuteScript("OrbitalManeuverCompleted");
+   }
+   if ((aPlatform.Name() == "chaser-min-delta-v") && (aManeuver.Type() == "TARGET"))
+   {
+      WsfSimulation.FindPlatform("chaser-min-delta-v").ExecuteScript("OrbitalManeuverCompleted");
+   }
+   if ((aPlatform.Name() == "chaser-fixed-transfer-time") && (aManeuver.Type() == "TARGET"))
+   {
+      WsfSimulation.FindPlatform("chaser-min-delta-v").ExecuteScript("OrbitalManeuverCompleted");
+   }   
+   if ((aManeuver.Type() == "INTERCEPT") || (aManeuver.Type() == "RENDEZVOUS"))
+   {
+      CheckStatus(aPlatform);
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED
+   enable ORBITAL_MANEUVER_COMPLETED
+end_observer

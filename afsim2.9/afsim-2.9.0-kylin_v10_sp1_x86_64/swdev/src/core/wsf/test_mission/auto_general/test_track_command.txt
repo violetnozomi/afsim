@@ -1,0 +1,51 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#   test track input block within a platform
+#
+# Note: MasterTrackList is not populated at on_initialize thus the use of execute.
+#
+
+include_once ../auto_script/test_functions.txt
+
+#script_listing on
+platform test WSF_PLATFORM
+   track
+      position 1n 2e
+         # (range, bearing) and position are mutually exclusive
+//       range 10 km
+//       bearing 25 deg
+      altitude 1 m agl
+      elevation 3 deg
+      speed 15 knots
+      heading 345 deg
+      type target
+      side other
+      spatial_domain land
+      platform target_1
+      frequency 5 mhz
+   end_track
+   execute at_time 1 s absolute
+      extern bool AssertEqualsMessage(Object, Object, string);
+//       extern bool AssertEqualsMessage(int, int, string);
+//       extern bool AssertEqualsMessage(double, double, string);
+      extern bool AssertTrueMessage(bool, string);
+      extern void writePass(bool);
+      bool pass = true;
+      pass = AssertEqualsMessage(1, PLATFORM.MasterTrackList().Count(), "Track Count") && pass;
+      if (pass)
+      {
+         WsfTrack track = PLATFORM.MasterTrackList().Entry(0);
+         pass = AssertTrueMessage(track.FrequencyValid(), "Frequency Valid") && pass;
+         pass = pass && AssertEqualsMessage(track.Frequency(), 5.e6, "Frequency Value");    # Short-circuit reversed so that Frequency will be tested if Valid was false
+         pass = AssertTrueMessage(track.IsPredefined(), "IsPredefined");
+      }
+      writePass(pass);
+   end_execute
+end_platform

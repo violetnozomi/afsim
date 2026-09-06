@@ -1,0 +1,49 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Ensure the start_time command is working correctly
+platform_type plat_type WSF_PLATFORM
+   side red
+   icon 737
+   mover WSF_AIR_MOVER
+   start_time 7 s
+   end_mover
+   route
+      position 0n 0e altitude 100 km speed 100 m/s
+      position 1n 0e altitude 100 km speed 100 m/s
+      position 0n 1e altitude 100 km speed 100 m/s
+      extrapolate
+   end_route
+   execute at_time 5 sec absolute
+      if (0 != Speed())
+      {
+         writeln("-FAIL- Did not start paused");
+      }
+   end_execute
+   execute at_time 8 sec absolute
+      writeln(Speed());
+      if (100 != Speed())
+      {
+         writeln("-FAIL- Did resume correctly");
+      }
+   end_execute
+   # Ensure the mover doesn't resume by heading toward the third waypoint
+   execute at_time 18 sec absolute
+      if (0 != Heading())
+      {
+         writeln("-FAIL- Resumed to wrong waypoint");
+      }
+   end_execute
+end_platform_type
+
+platform tester plat_type
+end_platform
+
+end_time 20 sec
+

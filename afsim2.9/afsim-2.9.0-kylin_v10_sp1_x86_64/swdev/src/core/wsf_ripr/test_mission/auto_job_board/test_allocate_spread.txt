@@ -1,0 +1,204 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test allocating jobs using spread method
+//
+
+test_feature ripr
+
+script_interface
+//   debug
+  listing off
+  debug_writes off
+end_script_interface
+
+platform_type ripr_plat WSF_PLATFORM
+
+   processor ripr-thinker WSF_RIPR_PROCESSOR
+//      debug
+   end_processor
+
+end_platform_type
+
+platform commander1 ripr_plat
+
+   edit processor ripr-thinker
+
+      execute at_time 5 s absolute
+         writeln_d ("Start creating jobs");
+         WsfRIPRJob temp;
+
+         for (int i = 0; i < 4; i=i+1)
+         {
+            temp = temp.Create (PROCESSOR,
+                                "job",
+                                "job",
+                                1,
+                                1);
+            temp.SetData("job", i);
+            AddJob(temp);
+         }
+         writeln_d ("End   creating jobs");
+      end_execute
+      
+      execute at_time 8 sec absolute
+         int jobToRemove = 3;
+         writeln_d ("Removing job at index ", jobToRemove);
+         WsfRIPRJob temp = PROCESSOR.GetJobByData("job", jobToRemove);
+         PROCESSOR.RemoveJob(temp);
+      end_execute
+
+      script void on_platform_deleted()
+      end_script
+
+   end_processor
+
+end_platform
+
+platform_type ripr_sub ripr_plat
+
+   edit processor ripr-thinker
+      script_variables
+         int my_num;
+         WsfRIPRJob my_job;
+      end_script_variables
+
+      execute at_time 10 s absolute
+         writeln_d ("Start bidding jobs, sub", my_num);
+         WsfRIPRJob temp;
+
+         if (!(GetRIPRCommanderProcessor().IsValid()))
+         {
+            writeln("-FAIL- sub", my_num, " has invalid RIPR commander");
+            return;
+         }
+         else
+         {
+            writeln("-PASS- sub", my_num, " has valid RIPR commander");
+         }
+
+         for (int i = 0; i < 3; i=i+1)
+         {
+            temp = GetRIPRCommanderProcessor().GetJobByData("job", i);
+            if (!(temp.IsValid()))
+            {
+               writeln("-FAIL- sub", my_num, " could not get job ", i);
+               continue;
+            }
+
+            if (my_num == i)
+            {
+               temp.BidJob (PROCESSOR, 0, 100 - my_num);
+            }
+            else
+            {
+               temp.BidJob (PROCESSOR, 0, 50 - my_num);
+            }
+         }
+         writeln_d ("End   bidding jobs, sub", my_num);
+      end_execute
+
+      execute at_time 15 s absolute
+         writeln_d ("Start getting job");
+         my_job = GetRIPRCommanderProcessor().GetJobFor(TIME_NOW, PROCESSOR);
+         writeln_d ("End   getting job");
+      end_execute
+
+      execute at_time 19 s absolute
+         # NOTE: This block was previously on_platform_deleted()
+         # You can't do that. This uses the my_job which pulls info
+         # off the commander. If the comander is created first (like 
+         # this test) it will be deleted first causing an error
+         writeln_d ("Summary for sub", my_num);
+         if (!(my_job.IsValid()))
+         {
+            if (my_num < 3)
+            {
+               writeln("-FAIL- sub", my_num, " has invalid job");
+            }
+            else
+            {
+               writeln("-PASS- sub", my_num, " has no job");
+            }
+         }
+         else
+         {
+            if (my_num > 3)
+            {
+               writeln("-FAIL- sub", my_num, " has a job");
+            }
+            else
+            {
+               Map<string, Object>tempData = my_job.GetData();
+               int x = (int)tempData["job"];
+
+               if (x != my_num)
+               {
+                  writeln("-FAIL- sub", my_num, " has job: ", x);
+               }
+               else
+               {
+                  writeln("-PASS- sub", my_num, " has job: ", x);
+               }
+            }
+         }
+         writeln_d ("End summary for sub", my_num);
+      end_execute
+
+   end_processor
+
+end_platform_type
+
+platform sub0 ripr_sub
+   commander commander1
+   edit processor ripr-thinker
+      on_initialize
+         my_num = 0;
+      end_on_initialize
+   end_processor
+end_platform
+
+platform sub1 ripr_sub
+   commander commander1
+   edit processor ripr-thinker
+      on_initialize
+         my_num = 1;
+      end_on_initialize
+   end_processor
+end_platform
+
+platform sub2 ripr_sub
+   commander commander1
+   edit processor ripr-thinker
+      on_initialize
+         my_num = 2;
+      end_on_initialize
+   end_processor
+end_platform
+
+platform sub3 ripr_sub
+   commander commander1
+   edit processor ripr-thinker
+      on_initialize
+         my_num = 3;
+      end_on_initialize
+   end_processor
+end_platform
+
+platform sub4 ripr_sub
+   commander commander1
+   edit processor ripr-thinker
+      on_initialize
+         my_num = 4;
+      end_on_initialize
+   end_processor
+end_platform
+
+end_time 20 s
+

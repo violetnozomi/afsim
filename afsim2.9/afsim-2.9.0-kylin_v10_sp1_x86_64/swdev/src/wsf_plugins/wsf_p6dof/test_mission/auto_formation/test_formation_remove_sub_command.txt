@@ -1,0 +1,95 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once default_formation.txt
+include_once ../scripts/utils.txt
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 11 min
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 min absolute
+   // Check that the initial state is what I expect
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   allPassed = ExpectBool(yankeeBeta.IsValid(), true, "yankee.beta should exist") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.IsRoot(), false, "yankee.beta is not a root") && allPassed;
+   allPassed = ExpectBool(yankeeBeta.IsLeaf(), false, "yankee.beta is not a leaf") && allPassed;
+end_execute
+
+execute at_time 2 min absolute
+   WsfFormationRemoveSubCommand cmd = WsfFormationRemoveSubCommand.Construct("beta");
+   WsfFormation target = WsfFormationManager.GetFormation("yankee");
+   target.ExecuteCommand(cmd, WsfFormationCommandConstraint.AT_TIME(125.0));
+   
+   WsfFormationRemoveSubCommand cmd2 = WsfFormationRemoveSubCommand.Construct("beta");
+   WsfFormation target2 = WsfFormationManager.GetFormation("zulu");
+   target2.ExecuteCommand(cmd2, WsfFormationCommandConstraint.AT_TIME(300.0));
+end_execute
+
+execute at_time 3 min absolute
+   WsfFormation yankeeBeta = WsfFormationManager.GetFormation("yankee.beta");
+   allPassed = ExpectBool(yankeeBeta.IsValid(), false, "yankee.beta should not exist") && allPassed;
+   
+   WsfFormation beta = WsfFormationManager.GetFormation("beta");
+   allPassed = ExpectBool(beta.IsValid(), true, "beta should exist") && allPassed;
+   allPassed = ExpectBool(beta.IsRoot(), true, "beta should be a root") && allPassed;
+   allPassed = ExpectBool(beta.IsAttached(), false, "beta should be detached") && allPassed;
+   
+   WsfFormationRemoveSubCommand cmd = WsfFormationRemoveSubCommand.Construct("alpha");
+   WsfFormation target = WsfFormationManager.GetFormation("yankee");
+   target.ExecuteCommand(cmd);
+end_execute
+
+execute at_time 4 min absolute
+   WsfPlatform alpha = WsfSimulation.FindPlatform("alpha");
+   WsfP6DOF_Mover mover = (WsfP6DOF_Mover)alpha.Mover();
+   double cMPS_PER_KNOT = 0.514444;
+   mover.SetAutopilotSpeedKTAS(alpha.Speed() * 0.95 / cMPS_PER_KNOT);
+   mover.SetAutopilotFlightPathAngle(0.0);
+end_execute
+
+execute at_time 5 min absolute
+   WsfFormationRemoveSubCommand cmd = WsfFormationRemoveSubCommand.Construct("alpha.two");
+   WsfFormation zulu = WsfFormationManager.GetFormation("zulu");
+   zulu.ExecuteCommand(cmd);
+end_execute
+
+execute at_time 6 min absolute
+   WsfFormation two = WsfFormationManager.GetFormation("two");
+   allPassed = ExpectBool(two.IsValid(), true, "two should now be top level") && allPassed;
+   
+   WsfFormation nope = WsfFormationManager.GetFormation("zulu.alpha.two");
+   allPassed = ExpectBool(nope.IsValid(), false, "zulu.alpha.two should no longer exist") && allPassed;
+end_execute
+
+execute at_time 10 min absolute
+   WsfFormation zuluBeta = WsfFormationManager.GetFormation("zulu.beta");
+   allPassed = ExpectBool(zuluBeta.IsValid(), true, "zulu.beta should still exist") && allPassed;
+   
+   // Now test that charlie is far away from alice
+   WsfPlatform alpha = WsfSimulation.FindPlatform("alpha");
+   WsfPlatform charlie = WsfSimulation.FindPlatform("charlie");
+   double sep = Vec3.Subtract(alpha.LocationECI(), charlie.LocationECI()).Magnitude();
+   allPassed = ExpectBool(sep > 301.0, true, "'charlie' should be more than 300 m from 'alpha'") && allPassed;
+end_execute
+
+execute at_time 11 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   } 
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }    
+end_execute

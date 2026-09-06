@@ -1,0 +1,181 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This tests the extra task command given a scenario with one asset and four tasks.
+
+define_path_variable CASE test_quantum_tasker_processor_extra_tasks
+
+include_once behavior_debug_quantum_tasker.txt
+
+script_debug_writes off
+
+#network lets_talk WSF_COMM_NETWORK_MESH_LEGACY end_network 
+
+script void TestQuantumTasker(WsfQuantumTaskerProcessor aProcessor)  
+   Array<WsfQuantumTask> tasks = aProcessor.TasksConsidered();
+   Array<WsfAssetPerception> assets = aProcessor.AssetsConsidered();
+   
+   writeln_d("T=", TIME_NOW, " on_update: test_quantum_tasker;",
+             " tasks (", tasks.Size(), ") assets (", assets.Size(), ")");      
+   
+   if (tasks.Empty() && assets.Empty())
+   {
+      return;
+   }
+   
+   // Tasks can have more that one asset assigned; 
+   // however, they cannot have the same asset assigned more than once. 
+   for(int i = 0; i < tasks.Size(); i += 1)
+   {
+      WsfQuantumTask qt = tasks.Get(i);
+      Array<WsfAssetPerception> assignees = aProcessor.AssetAssigneesFor(qt);
+      if (assignees.Size() > 1)
+      {
+         string assigneeName = assignees[0].Name();
+         int assigneeIndex = assignees[0].Index();
+         for (int j = 1; j < assignees.Size(); j += 1)
+         {
+            if (assigneeIndex == assignees[j].Index())
+            {
+               writeln("-FAIL- Duplicate assignments for ", assigneeName, ":", assigneeIndex);
+            }
+            assigneeIndex = assignees[j].Index();
+         }
+      } 
+   }   
+end_script
+
+platform_type TEST_PLATFORM_TYPE WSF_PLATFORM
+
+   comm radio WSF_COMM_TRANSCEIVER
+      network_name lets_talk 
+      internal_link task_mgr
+      internal_link perception
+   end_comm
+   
+   processor perception WSF_PERCEPTION_PROCESSOR
+      asset_perception truth subordinates
+      report_interval 1 s
+      report_to commander via radio      
+   end_processor
+   
+   processor task_mgr WSF_QUANTUM_TASKER_PROCESSOR 
+      update_interval 1 s                      
+   end_processor
+ 
+end_platform_type
+
+# Two targets for two tasks
+platform tgt1 WSF_PLATFORM side red end_platform
+platform tgt2 WSF_PLATFORM side red end_platform
+platform tgt3 WSF_PLATFORM side red end_platform
+platform tgt4 WSF_PLATFORM side red end_platform
+
+# Commander with one subordinate to task
+platform cmdr TEST_PLATFORM_TYPE
+   side blue
+   commander SELF
+   track platform tgt1 end_track 
+   track platform tgt2 end_track 
+   track platform tgt3 end_track
+   track platform tgt4 end_track   
+   edit processor task_mgr        
+      on_update
+         writeln_d("\nT=", TIME_NOW, " *** QT update ***");
+         TestQuantumTasker((WsfQuantumTaskerProcessor)PROCESSOR);
+      end_on_update
+                     
+      # Custom generator
+      script Array<WsfQuantumTask> g1 (Array<WsfLocalTrack> TRACKS, Array<WsfAssetPerception> ASSETS)
+         Array<WsfQuantumTask> tasks =  Array<WsfQuantumTask>();      
+         for (int i = 0; i < TRACKS.Size(); i = i + 1)
+         {
+            WsfLocalTrack lt = TRACKS.Get(i);
+            WsfQuantumTask task = WsfQuantumTask.Construct(1.0, "TEST_TASK", lt);
+            tasks.PushBack(task);
+            writeln_d("T=", TIME_NOW, " Generating: ", lt.TargetName(), " by ", PLATFORM.Name());
+         }
+         return tasks;
+      end_script 
+      # Custom evaluator - all get same value for this test
+      script double e1 (WsfQuantumTask TASK, WsfAssetPerception ASSET)
+         writeln_d("T=", TIME_NOW, " Evaluating:"); 
+         writeln_d("  ", TASK.ToString());
+         writeln_d("  ", ASSET.ToString());
+         return 1.0;
+      end_script       
+      # Custom allocator
+      script Map<WsfAssetPerception, WsfQuantumTask> a1 (Array<Array<double>> MATRIX, Array<WsfAssetPerception> ASSETS, Array<WsfQuantumTask> TASKS)
+         Map<WsfAssetPerception, WsfQuantumTask> assignments = Map<WsfAssetPerception, WsfQuantumTask>();
+         writeln_d("T=", TIME_NOW, " Allocating: tasks (", TASKS.Size(), ") assets (", ASSETS.Size(), ")");         
+         // This allocator follows the simple allocator that created one assignment
+         // Create another assignement here
+         assignments[ASSETS.Get(0)] = TASKS.Get(0);
+         writeln_d("Assignments: \n  ", assignments);
+         return assignments;
+      end_script                         
+                     
+#      reallocation_strategy static
+#      reallocation_strategy dynamic
+#      reallocation_strategy response
+      reallocation_strategy event            
+       
+      generator custom g1            // Used to explicitly perform simple generic task generation
+      evaluator custom e1   
+      allocator simple               // Creates one assignment
+      allocator custom a1            // Creates another assignment
+      allocator_extra_tasks simple   // Performs the rest 
+      
+      behavior_tree 
+         behavior_node debug_quantum_tasker
+      end_behavior_tree                          
+   end_processor   
+     
+end_platform
+
+platform sub TEST_PLATFORM_TYPE
+   side blue
+   commander cmdr  
+end_platform
+
+end_time 2 s
+
+script_variables
+   Map< string, string > gTaskAssetMap = Map< string, string >();
+end_script_variables
+
+script void SimulationComplete()
+    // For this test expect four tasks assigned
+    if (gTaskAssetMap.Size() != 4) writeln("-FAIL- Expected four task assignments");
+end_script
+
+script void TaskAssigned(WsfTask aTask, WsfTrack aTrack)
+   string taskStr = aTask.ToString();
+   Array<string> fields = taskStr.Split(",");
+   Array<string> idKeyValueStr = fields[0].Split("=");
+   string id = idKeyValueStr[1];
+   
+   if (gTaskAssetMap.Exists(id, aTask.AssigneeName()))
+   {
+      // Task/Asset pair is already in the map
+      writeln("-FAIL- Duplicate tasks assigned");
+   }
+   
+   gTaskAssetMap.Set(id, aTask.AssigneeName());
+   writeln_d("T=", TIME_NOW, " TASK_ASSIGNED ", aTask); 
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+   enable TASK_ASSIGNED
+end_observer
+
+#event_output
+#   file STDOUT
+#   enable TASK_ASSIGNED   
+#end_event_output

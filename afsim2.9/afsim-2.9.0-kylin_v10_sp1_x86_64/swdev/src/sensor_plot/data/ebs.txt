@@ -1,0 +1,51 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+# A simple radar that performs a physical rotation scan in azimuth and and
+# electronic scan in elevation.
+
+antenna_pattern MY_RADAR_ANTENNA
+   circular_pattern
+      peak_gain       40.0 db
+      beamwidth        1.0 deg
+end_antenna_pattern
+
+sensor MY_RADAR WSF_RADAR_SENSOR
+   frame_time                     10 sec
+
+   antenna_height                 3 m
+   antenna_tilt                   10 deg
+
+   scan_mode                      azimuth_and_elevation
+   azimuth_scan_limits            -180 deg 180 deg
+   elevation_scan_limits          0 deg 70 deg   # Relative to the UN-TILTED antenna!
+
+   electronic_beam_steering       elevation
+
+   transmitter
+      antenna_pattern             MY_RADAR_ANTENNA
+      power                       250 kw
+      frequency                   3 ghz
+   end_transmitter
+
+   receiver
+      antenna_pattern             MY_RADAR_ANTENNA
+   end_receiver
+
+   one_m2_detect_range            200 km
+   integration_gain               10.0 dB
+   detection_threshold            12.8 dB
+
+   reports_range
+   reports_bearing
+   reports_elevation
+end_sensor

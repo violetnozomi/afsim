@@ -1,0 +1,288 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+// A test of the various types of initialization of the WsfSpaceMover, and one that
+// verifies inertial propagation.
+
+csv_event_output
+   file STDOUT
+   enable all
+end_csv_event_output
+
+platform_type  TWO_BODY WSF_PLATFORM
+
+  side blue
+
+  icon Satellite
+  add mover WSF_SPACE_MOVER
+  end_mover
+
+end_platform_type
+
+platform_type  J2_PERTURBATION WSF_PLATFORM
+
+  side blue
+
+  icon Satellite
+  add mover WSF_SPACE_MOVER
+     oblate_earth enabled
+  end_mover
+
+end_platform_type
+
+start_epoch 14361.0
+
+platform test_orbital_elements J2_PERTURBATION
+   edit mover
+      epoch 14360.11457244
+      revs_per_day 12.63229349
+      inclination 51.9967 deg
+      eccentricity 0.0004456
+      raan 204.6836 deg
+      argument_of_periapsis 88.1846 deg
+      mean_anomaly 61.6550 deg
+   end_mover
+
+   execute at_time 0.0001 s absolute
+      double lat = PLATFORM.Latitude();
+      double lon = PLATFORM.Longitude();
+      double alt = PLATFORM.Altitude();
+      if ((lat < -29.69) || (lat > -29.67)    ||
+          (lon < -47.14) || (lon > -47.12)  ||
+          (alt < 1416000) || (alt > 1418000))
+      {
+         writeln("-FAIL- 1, ", PLATFORM.Location());
+      }
+   end_execute
+
+end_platform
+
+platform test_TLE J2_PERTURBATION
+
+  orbit
+  TEST-2
+1 25163U 98008B   14360.11457244 -.00000055  00000-0  26828-3 0   142
+2 25163  51.9967 204.6836 0004456  88.1846  61.6550 12.63229349778207
+  end_orbit
+
+   execute at_time 0.0001 s absolute
+      double lat = PLATFORM.Latitude();
+      double lon = PLATFORM.Longitude();
+      double alt = PLATFORM.Altitude();
+      if ((lat < -29.69) || (lat > -29.67)    ||
+          (lon < -47.14) || (lon > -47.12)  ||
+          (alt < 1416000) || (alt > 1418000))
+      {
+         writeln("-FAIL- 2");
+      }
+   end_execute
+
+end_platform
+
+platform test_pos_vel J2_PERTURBATION
+   edit mover
+       initial_state_eci 7800 km 0 km 0 km
+                         0 km/s 6.791490678 km/s 0 km/s
+   end_mover
+   execute at_time 0.0001 s absolute
+      Vec3 locECI = PLATFORM.LocationECI();
+      Vec3 velECI = PLATFORM.VelocityECI();
+      Vec3 refLocECI = Vec3.Construct(7800000, 0.0, 0.0);
+      Vec3 refVelECI = Vec3.Construct(0.0, 6791.490678, 0.0);
+      for (int i=0; i<3; i=i+1)
+      {
+         if (Math.Fabs(locECI.Get(i) - refLocECI.Get(i)) > 1.0)
+         {
+            writeln("-FAIL- 3");
+         }
+      }
+      for (int i=0; i<3; i=i+1)
+      {
+         if (Math.Fabs(velECI.Get(i) - refVelECI.Get(i)) > 1.0)
+         {
+            writeln("-FAIL- 4");
+         }
+      }
+
+   end_execute
+end_platform
+
+platform test_initial_loc J2_PERTURBATION
+   edit mover
+       position 40n 90w altitude 830 km heading 50 deg
+   end_mover
+
+   execute at_time 1.0e-12 s absolute
+      double lat = PLATFORM.Latitude();
+      double lon = PLATFORM.Longitude();
+      double alt = PLATFORM.Altitude();
+      double heading = PLATFORM.Heading();
+      if ((lat > 40.01) || (lat < 39.99)    ||
+          (lon < -90.01) || (lon > -89.99)  ||
+          (alt < 829000) || (alt > 831000))
+      {
+         writeln("-FAIL- 5");
+      }
+      if ((heading < 49.9) || (heading > 51.1))
+      {
+         writeln("-FAIL- 6");
+      }
+   end_execute
+   
+end_platform
+
+// This platform should initially be in the location of test_initial_loc but will be 
+// in an elliptical orbit.
+platform test_initial_lla_vel J2_PERTURBATION
+   edit mover
+      initial_state_lla 40n 90w 830 km 4782.89 m/s 5296.39 m/s -500.0 m/s
+   end_mover
+   execute at_time 1.0e-13 s absolute
+      double lat = PLATFORM.Latitude();
+      double lon = PLATFORM.Longitude();
+      double alt = PLATFORM.Altitude();
+      double heading = PLATFORM.Heading();
+      if ((lat > 40.01) || (lat < 39.99)    ||
+          (lon < -90.01) || (lon > -89.99)  ||
+          (alt < 829000) || (alt > 831000))
+      {
+         writeln("-FAIL- 7");
+      }
+      if ((heading < 49.9) || (heading > 51.1))
+      {
+         writeln("-FAIL- 8");
+      }
+      // test for velocity
+      Vec3 velNED = PLATFORM.VelocityNED();
+      if (MATH.Fabs(velNED[0] - 4782.89) > 0.001)
+      {
+         writeln("-FAIL- 9");
+      }
+      if (MATH.Fabs(velNED[1] - 5296.39) > 0.001)
+      {
+         writeln("-FAIL- 9");
+      }
+      if (MATH.Fabs(velNED[2] - -500.0) > 0.001)
+      {
+         writeln("-FAIL- 9");
+      }
+   end_execute
+end_platform
+
+platform test_long_period_orbit TWO_BODY
+   semi_major_axis 10000 km
+   inclination 46 deg
+   #show_status
+   add processor check_loc_vel WSF_SCRIPT_PROCESSOR
+      script_variables
+         Vec3 refLoc = {};
+         Vec3 refVel = {};
+         double updateInterval = 0.0;
+         int orbitNum = 0;
+      end_script_variables
+      on_initialize2
+         WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+         updateInterval = 360.0 / sm.MeanMotion();
+         SetUpdateInterval(updateInterval);
+      end_on_initialize2
+      on_update
+         WsfSpaceMover sm = (WsfSpaceMover)(PLATFORM.Mover());
+         double time =  orbitNum * updateInterval;
+         double timeNow = TIME_NOW;
+         orbitNum = orbitNum + 1;
+         Vec3 loc = PLATFORM.LocationECI();
+         double delX = refLoc[0] - loc[0];
+         Vec3 diff = {};
+         diff.Subtract(loc, refLoc);
+         if (diff.Magnitude() > 0.0)
+         {
+            writeln("-FAIL- 10");
+         }
+      end_on_update
+
+   end_processor
+
+end_platform
+
+// geo test case
+platform test_initial_lla TWO_BODY 
+   mover 
+      initial_state_lla 0n 0w 35000 km 0 m/s 350 m/s 0 m/s 
+   end_mover
+   execute at_time 1.0e-13 s absolute
+      double lat = PLATFORM.Latitude();
+      double lon = PLATFORM.Longitude();
+      double alt = PLATFORM.Altitude();
+      double heading = PLATFORM.Heading();
+      if ((lat < -0.01) || (lat > 0.01)    ||
+          (lon < -0.01) || (lon > 0.01)  ||
+          (alt < 34999000) || (alt > 35001000))
+      {
+         writeln("-FAIL- 11");
+      }
+      if ((heading > 90.1) || (heading < 89.9))
+      {
+         writeln("-FAIL- 12");
+      }
+      // test for velocity
+      Vec3 velNED = PLATFORM.VelocityNED();
+      if (MATH.Fabs(velNED[0] - 0) > 0.001)
+      {
+         writeln("-FAIL- 13");
+      }
+      if (MATH.Fabs(velNED[1] - 350) > 0.001)
+      {
+         writeln("-FAIL- 13");
+      }
+      if (MATH.Fabs(velNED[2] - -0.0) > 0.001)
+      {
+         writeln("-FAIL- 13");
+      }
+   end_execute
+end_platform
+
+platform_type TEST_PERIODICITY TWO_BODY
+   script_variables 
+      Vec3 location = {};
+   end_script_variables
+   
+   script void CompareLoc()
+      Vec3 newLoc = PLATFORM.LocationECI();
+      Vec3 diff = Vec3.Subtract(location, newLoc);
+      if (diff.Magnitude() > 1.0e-6)
+      {
+         writeln("-FAIL-");
+      }      
+   end_script   
+   
+   on_initialize2
+      location = PLATFORM.LocationECI();
+      double period = 360.0 / ((WsfSpaceMover)(PLATFORM.Mover())).MeanMotion();
+      PLATFORM.ExecuteAtTime(period, "CompareLoc");      
+   end_on_initialize2
+end_platform_type
+   
+platform test_periodicity_1 TEST_PERIODICITY 
+   mover
+      // GEO
+      revolutions_per_day 1.0
+      inclination 0.0 deg
+   end_mover
+end_platform
+
+platform test_periodicity_2 TEST_PERIODICITY 
+   mover
+      // LEO
+      revolutions_per_day 15.0
+      inclination 30.0 deg
+   end_mover
+end_platform
+
+end_time 1.1 days

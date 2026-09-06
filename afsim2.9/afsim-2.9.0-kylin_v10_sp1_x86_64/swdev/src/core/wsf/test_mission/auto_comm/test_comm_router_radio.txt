@@ -1,0 +1,228 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+# COMM ROUTER TEST
+###############################################################################
+#
+# Test case: Route message through 2 intermediate platforms,
+#            using comm routing, to a final destination platform.
+#            Adapted from "test_comm_router_perfect.txt"
+#            Uses two different radio comm types, with varying frequencies
+#
+# similar to "test_comm_router_perfect.txt" except with radio transceivers
+#
+# A.1 sends a message to C.2, routed through A.2, B.1, and C.1
+#
+# Networks:
+# A(A.1, A.2) B(B.1) C(C.1)
+#
+# Network Topology:
+# A ----> B -----> C
+#
+# Routers in interfaces:
+# @R1(A.2), @R2(B.1), @R3(C.1)
+#
+# Note:
+# @R1 and A.2 are on the same platform.
+# @R2 and B.1 are on the same platform.
+# @R3 and C.1 are on the same platform.
+# We expect that the routing will succeed for A.1 -> C.2
+###############################################################################
+
+//! NOTE!!!!
+//! This test has been updated for use with the new comms framework.
+//! Most of the update notes for "test_comm_router_perfect.txt" are valid
+//! for this test as well. However, this test uses radio based comms, so that
+//! the addition comms devices have to be left in place in order for the
+//! comms to be able to have correct EM interactions to allow communications.
+//! Therefore, this test has been modified to use the router automated linkage, which
+//! links comms on the same router to allow otherwise non-compatible comms
+//! (in this case, different networks) to talk to each other, allowing a
+//! transmission path to the destination. However, the previously used
+//! WSF_ROUTER_PROCESSOR introduced NO time delays in hopping between linked
+//! comm devices. To account for this, the two hops that previously were not
+//! being accounted for (2 seconds) are added to the previous expected
+//! receipt time (4 seconds) to account for the expected arrival time of the
+//! message at 6 seconds.
+
+antenna_pattern RADIO_ANTENNA
+  uniform_pattern
+    peak_gain            26 dB
+    azimuth_beamwidth   360 degrees
+    elevation_beamwidth 180 degrees
+  end_uniform_pattern
+end_antenna_pattern
+
+comm RADIO_COMM_1 WSF_RADIO_TRANSCEIVER
+   queue_type         priority
+   queue_limit        99
+   transmitter
+      antenna_pattern  RADIO_ANTENNA
+      frequency        1 ghz
+      power           10 w
+      internal_loss    3 db
+   end_transmitter
+   receiver
+      antenna_pattern   RADIO_ANTENNA
+      bandwidth              0.1 ghz
+      frequency              1.0 ghz
+      internal_loss          7   db
+      noise_power         -130   dbm
+      detection_threshold    3   db
+   end_receiver
+end_comm
+
+comm RADIO_COMM_2 WSF_RADIO_TRANSCEIVER
+   queue_type         priority
+   queue_limit        99
+   transmitter
+      antenna_pattern  RADIO_ANTENNA
+      frequency        2 ghz
+      power           10 w
+      internal_loss    3 db
+   end_transmitter
+   receiver
+      antenna_pattern   RADIO_ANTENNA
+      bandwidth              0.1 ghz
+      frequency              2.0 ghz
+      internal_loss          7   db
+      noise_power         -130   dbm
+      detection_threshold    3   db
+   end_receiver
+end_comm
+
+platform host-1-A WSF_PLATFORM
+   icon 737
+   side green
+   position 40n 115w
+  #position 42n 113.1w
+   // Define the nodes's communication device
+   add comm comm-device-1-A RADIO_COMM_1
+      debug
+      network_name     A
+      transfer_rate 1 mbit/s
+   end_comm
+   add router default WSF_COMM_ROUTER
+      automated_interface_linking true
+   end_router
+   // The script gets a comm device from the parent platform,
+   // creates a message and sends it to host-2-C
+   // In this test, the message is sent without knowing ahead of time
+   // what actual interface will receive them.
+   execute at_time 1 sec absolute
+      // Get a reference to our comm interface.
+      WsfComm comm = PLATFORM.Comm("comm-device-1-A");
+      if (comm.IsValid())
+      {
+         WsfControlMessage msg = WsfControlMessage();
+         msg.SetSizeInBits(1000000);   //one megabit
+         comm.SendMessage(msg, "host-1-C", "comm-device-1-C");
+      }
+   end_execute
+end_platform
+
+
+platform host-2-A WSF_PLATFORM
+   icon 737
+   side blue
+   position 40n 115w
+
+   // Define the node's communication device.
+   add comm comm-device-2-A RADIO_COMM_1
+      debug           // Tells the device to output debug information to the screen.
+      network_name     A       // The subnet name that this interface belongs to.
+      transfer_rate 1 mbit/s // The link's bandwidth.
+   end_comm
+
+   add comm comm-device-2-AA RADIO_COMM_1
+      debug
+      network_name     B
+      transfer_rate 1 mbit/s
+   end_comm
+   add router default WSF_COMM_ROUTER
+      automated_interface_linking true
+   end_router
+end_platform
+
+platform host-1-B WSF_PLATFORM
+   icon 737
+   side green
+   position 40n 115w
+  #position 44n 113w
+   add comm comm-device-1-B RADIO_COMM_1
+      debug
+      network_name     B
+      transfer_rate 1 mbit/s
+   end_comm
+   add comm comm-device-1-BB RADIO_COMM_2
+      debug
+      network_name     C
+      transfer_rate 1 mbit/s
+   end_comm
+   add router default WSF_COMM_ROUTER
+      automated_interface_linking true
+   end_router
+end_platform
+
+platform host-1-C WSF_PLATFORM
+   icon 737
+   side green
+   position 40n 115w
+  #position 42n 113w
+   add comm comm-device-1-C RADIO_COMM_2
+      debug
+      network_name     C
+      transfer_rate 1 mbit/s
+      internal_link script-proc
+   end_comm
+   add router default WSF_COMM_ROUTER
+      automated_interface_linking true
+   end_router
+   add processor script-proc WSF_SCRIPT_PROCESSOR
+      script void on_message()
+         if (MESSAGE.Type() == "WSF_CONTROL_MESSAGE")
+         {
+            WsfControlMessage msg = (WsfControlMessage)MESSAGE;
+            if (msg.Originator() == "host-1-A")
+            {
+               //check timing, exactly 1 second each hop
+               double AllowedErrorSeconds = 0.000001; //1 micro-second
+               if ((TIME_NOW >= (6.0-AllowedErrorSeconds)) &&
+                   (TIME_NOW <= (6.0+AllowedErrorSeconds))    )
+               {
+                  writeln("SUCCESS: message received and at the right time!");
+                  writeln("-PASS-");
+               }
+               else
+               {
+                  writeln("ERROR: message received but not at the right time!");
+                  writeln("-FAIL-");
+               }
+               WsfSimulation.Terminate();
+            }
+         }
+      end_script
+   end_processor
+end_platform
+
+end_time 10 sec
+
+execute at_time 9 seconds relative
+   //should not have reached this script,
+   //the message should have been received by host-2-C
+   //and the sim should have been terminated
+   writeln("ERROR: message never received!");
+   writeln("-FAIL-");
+end_execute
+
+#event_output
+#   file replay.evt
+#   enable all
+#end_event_output

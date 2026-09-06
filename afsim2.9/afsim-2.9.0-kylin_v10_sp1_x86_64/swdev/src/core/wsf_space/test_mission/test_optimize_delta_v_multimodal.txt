@@ -1,0 +1,80 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This test is derived from an example for which the older optimization
+# technique did not yield the correct minimum. Depending on input parameters to
+# ComputeRendezvous, there was either no solution detected, or a solution that
+# is not the global minimum (over the allowed range).
+# ****************************************************************************
+
+start_date Mar 17 2020
+start_time 00:10:00
+end_time 90000 s
+
+include_once utils.txt
+
+platform_type SIMPLE_SAT WSF_PLATFORM
+   mover WSF_INTEGRATING_SPACE_MOVER
+      integrator prince_dormand_78
+         error_criterion         L_2
+         max_step_size           6000.0
+         max_adjustment_attempts 250
+         tolerance               1.0e-11
+      end_integrator
+      dynamics
+         term earth_monopole end_term
+      end_dynamics
+   end_mover
+
+end_platform_type
+
+platform interceptingSat SIMPLE_SAT
+   fuel_mass    1 kg
+   payload_mass 1 kg
+
+   edit mover
+      initial_state
+         position -7786.06183202608 km -1447.12436108506 km -1552.14129877216 km
+         velocity -1.54223863314117 km/s -7.92988390618388 km/s -5.63174224145808 km/s
+         epoch_date_time mar 17 2020 00:10:00
+      end_initial_state
+   end_mover
+   
+   execute at_time 1 day absolute
+      WsfTrack targetSatTruthTrack = WsfSimulation.FindPlatform("targetSat").MakeTrack();
+      WsfPlatform aManeuveringSat = PLATFORM;
+      bool interceptExecuted = false;
+      WsfSpaceMover mover = (WsfSpaceMover)aManeuveringSat.Mover();
+      Array<double> results = mover.ComputeRendezvous(targetSatTruthTrack,
+                                                      307 * 3600.0,
+                                                      2150.0,
+                                                      true);
+      ExpectInt(results.Size(), 2, "Compute Rendezvous should find a solution");
+      if (results.Size() == 2)
+      {
+         // These expected values were obtained by brute force use of the non-optimizing
+         // ComputeRendezvous method.
+         ExpectDouble(results[0], 933308.0, 1.0, "Time to complete rendezvous should match");
+         ExpectDouble(results[1], 2125.0, 1.0, "Minimum delta-v of rendezvous should match");
+      }
+   end_execute
+end_platform
+
+platform targetSat SIMPLE_SAT
+   fuel_mass 1 kg
+   payload_mass 1 kg
+
+   edit mover
+      semi_major_axis       126492 km
+      eccentricity          0
+      inclination           0.5 deg
+      argument_of_periapsis 0 deg
+      raan                  0 deg
+      true_anomaly          119 deg
+   end_mover
+end_platform

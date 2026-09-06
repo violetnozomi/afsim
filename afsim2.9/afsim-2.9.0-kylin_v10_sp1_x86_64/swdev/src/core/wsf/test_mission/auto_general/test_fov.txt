@@ -1,0 +1,159 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+// Test FOV clone, equivalence, and casting
+
+script
+   void InsertPointInArray(Array<Array<double>> aPoints, double aAz, double aEl)
+      Array<double> point = {};
+      point.PushBack(aAz);
+      point.PushBack(aEl);
+      aPoints.PushBack(point);
+end_script 
+
+include ../auto_script/test_functions.txt
+
+script_variables
+   bool gPass = true;
+   double cTOL = 1.0E-8;    
+end_script_variables
+
+script void Fail(string aMessage)
+   writeln("-FAIL- ", aMessage);
+   gPass = false;
+end_script
+
+script void TestUpcast(WsfFieldOfView aFOV)
+   if (!aFOV.IsValid())
+   {
+      Fail("Bad upcast");
+   }
+end_script
+
+script
+   void TestFOV()
+
+   // Rectangular
+   WsfRectangularFieldOfView rfov = WsfRectangularFieldOfView.Construct(-10.0, 10.0, -5.0, 5.0);
+   WsfRectangularFieldOfView rfov2 = WsfRectangularFieldOfView.Construct(-1.0, 1.0, -5.0, 5.0);
+   WsfRectangularFieldOfView rClone = WsfRectangularFieldOfView(rfov);
+   if (rClone != rfov)
+   {
+      Fail("rectangular FOVs should be equivalent");
+   }
+   if (rfov2 == rClone)
+   {
+      Fail("rectangular FOVs should not be equivalent");
+   }
+   gPass =  AssertWithinToleranceMessage(-10, rfov.AzimuthFieldOfView()[0], cTOL, "Unexpected az value in rectangular FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage( 10, rfov.AzimuthFieldOfView()[1], cTOL, "Unexpected az value in rectangular FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage( -5, rfov.ElevationFieldOfView()[0], cTOL, "Unexpected el value in rectangular FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage(  5, rfov.ElevationFieldOfView()[1], cTOL, "Unexpected el value in rectangular FOV") && gPass;
+
+   // Equatorial
+   WsfEquatorialFieldOfView efov = WsfEquatorialFieldOfView.Construct(-10.0, 10.0, -5.0, 5.0);
+   WsfEquatorialFieldOfView efov2 = WsfEquatorialFieldOfView.Construct(-1.0, 1.0, -5.0, 5.0);
+   WsfEquatorialFieldOfView eClone = WsfEquatorialFieldOfView(efov);
+   if (eClone != efov)
+   {
+      Fail("equatorial FOVs should be equivalent");
+   }
+   if (efov2 == eClone)
+   {
+      Fail("equatorial FOVs should not be equivalent");
+   }
+   gPass =  AssertWithinToleranceMessage(-10, efov.EquatorialFieldOfView()[0], cTOL, "Unexpected equatorial value in equatorial FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage( 10, efov.EquatorialFieldOfView()[1], cTOL, "Unexpected equatorial value in equatorial FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage( -5, efov.PolarFieldOfView()[0], cTOL, "Unexpected polar value in polar FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage(  5, efov.PolarFieldOfView()[1], cTOL, "Unexpected polar value in polar FOV") && gPass;
+
+   // Circular
+   WsfCircularFieldOfView cfov = WsfCircularFieldOfView.Construct(10.0);
+   WsfCircularFieldOfView cfov2 = WsfCircularFieldOfView.Construct(1.0);
+   WsfCircularFieldOfView cClone = WsfCircularFieldOfView(cfov);
+   if (cClone != cfov)
+   {
+      Fail("circular FOVs should be equivalent");
+   }
+   if (cfov2 == cClone)
+   {
+      Fail("circular FOVs should not be equivalent");
+   }
+   gPass =  AssertWithinToleranceMessage(10.0, cfov.HalfAngle(), cTOL, "Unexpected polar value in circular FOV") && gPass;
+
+   // Polygonal
+   Array<Array<double>> polygonalPoints = {};
+   InsertPointInArray(polygonalPoints, -10, -11);
+   InsertPointInArray(polygonalPoints, -12, 13);
+   InsertPointInArray(polygonalPoints, 14, 15);
+   WsfPolygonalFieldOfView pfov = WsfPolygonalFieldOfView.Construct(polygonalPoints);
+   WsfPolygonalFieldOfView pClone = WsfPolygonalFieldOfView(pfov);
+   InsertPointInArray(polygonalPoints, 10, -10);
+   WsfPolygonalFieldOfView pfov2 = WsfPolygonalFieldOfView.Construct(polygonalPoints);
+   InsertPointInArray(polygonalPoints, 1000, -10000);
+   WsfPolygonalFieldOfView pfov3 = WsfPolygonalFieldOfView.Construct(polygonalPoints);
+   if (pClone != pfov)
+   {
+      Fail("polygonal FOVs should be equivalent");
+   }
+   if (pfov2 == pClone)
+   {
+      Fail("polygonal FOVs should not be equivalent");
+   }
+   
+   Array<Array<double>> points = pfov.AzElPoints();
+   gPass =  AssertWithinToleranceMessage(-10, points[0][0], cTOL, "Unexpected polygonal point value in polygonal FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage(-11, points[0][1], cTOL, "Unexpected polygonal point value in polygonal FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage(-12, points[1][0], cTOL, "Unexpected polygonal point value in polygonal FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage( 13, points[1][1], cTOL, "Unexpected polygonal point value in polygonal FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage( 14, points[2][0], cTOL, "Unexpected polygonal point value in polygonal FOV") && gPass;
+   gPass =  AssertWithinToleranceMessage( 15, points[2][1], cTOL, "Unexpected polygonal point value in polygonal FOV") && gPass;
+
+   // casting
+   TestUpcast(rfov);
+   TestUpcast(cfov);
+   TestUpcast(efov);
+   TestUpcast(pfov);
+         
+   WsfRectangularFieldOfView rDowncast = (WsfRectangularFieldOfView)(WsfFieldOfView)rfov;
+   if (!rDowncast.IsValid())
+   {
+      Fail("bad downcast (rfov)");
+   }
+   WsfEquatorialFieldOfView eDowncast = (WsfEquatorialFieldOfView)(WsfFieldOfView)efov;
+   if (!eDowncast.IsValid())
+   {
+      Fail("bad downcast (efov)");
+   }
+   WsfCircularFieldOfView cDowncast = (WsfCircularFieldOfView)(WsfFieldOfView)cfov;
+   if (!cDowncast.IsValid())
+   {
+      Fail("bad downcast (cfov)");
+   }
+   WsfPolygonalFieldOfView pDowncast = (WsfPolygonalFieldOfView)(WsfFieldOfView)pfov;
+   if (!pDowncast.IsValid())
+   {
+      Fail("bad downcast (pfov)");
+   }
+    
+end_script
+
+execute at_time 1.0 s absolute
+   TestFOV(); 
+end_execute
+
+observer 
+   enable SIMULATION_COMPLETE
+end_observer
+
+script void SimulationComplete()
+   if (gPass)
+   {
+      writeln("-PASS-");
+   }
+end_script

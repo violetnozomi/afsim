@@ -1,0 +1,39 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the "->" operator (from the 'Script Right Arrow Operator' example)
+
+platform myplatform1 WSF_PLATFORM
+   script_variables
+      double x = 2.2;
+      WsfGeoPoint p = WsfGeoPoint.Construct("0n 0e");
+   end_script_variables
+   script void a_method(int param1)
+      writeln("Called a_method ", param1);
+   end_script
+end_platform
+
+platform myplatform2 WSF_PLATFORM
+   execute at_time 1 s absolute
+
+   # Access existing variables on myplatform1
+
+   WsfPlatform myplatform1 = WsfSimulation.FindPlatform("myplatform1");
+   writeln("X = ", myplatform1->x);
+   writeln("p = ", myplatform1->p);
+
+   # Add new variables
+   myplatform1->y = 3.3;
+   PLATFORM->z = 4.4;
+
+   # Call a method
+   myplatform1->a_method(5);
+
+   end_execute
+end_platform

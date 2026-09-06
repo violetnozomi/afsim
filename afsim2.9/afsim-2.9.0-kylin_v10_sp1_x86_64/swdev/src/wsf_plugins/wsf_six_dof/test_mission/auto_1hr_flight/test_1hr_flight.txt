@@ -1,0 +1,487 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This is a test of a SixDOF mover over a 1 hour flight
+# --------------------------------------------------------------------------------------------------
+
+include_once ../platforms/fa-lgt.txt
+
+script double GetTotalFuelRemaining(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      return p6dofMover.GetTotalFuelRemaining();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return 0.0;
+   }
+end_script
+
+end_time 3600 sec
+
+script double GetTotalFuelFlowRate(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      return p6dofMover.GetTotalFuelFlowRate();
+   }
+   return 0.0;
+end_script
+
+script bool CheckStateData(WsfPlatform aPlatform,
+                           double targetAlt_ft,
+                           double targetSpeed_KTAS,
+                           double targetHeading_deg,
+                           double targetRoll_deg)
+                           
+   double alt_ft = aPlatform.Altitude()*MATH.FT_PER_M();
+   double speed_KTAS = aPlatform.Speed()*MATH.NMPH_PER_MPS();
+   double heading_deg = aPlatform.Heading();
+   double roll_deg = aPlatform.Roll();
+
+   double deltaAlt_ft = MATH.Fabs(alt_ft-targetAlt_ft);
+   double deltaSpeed_KTAS = MATH.Fabs(speed_KTAS-targetSpeed_KTAS);
+   double deltaHeading_deg = MATH.Fabs(heading_deg-targetHeading_deg);
+   double deltaRoll_deg = MATH.Fabs(roll_deg-targetRoll_deg);
+   
+   if(deltaHeading_deg > 180.0)
+   {
+      deltaHeading_deg -= 360.0;
+   }
+   else if(deltaHeading_deg < -180.0)
+   {
+      deltaHeading_deg += 360.0;
+   }
+
+   if(deltaRoll_deg > 180.0)
+   {
+      deltaRoll_deg -= 360.0;
+   }
+   else if(deltaRoll_deg < -180.0)
+   {
+      deltaRoll_deg += 360.0;
+   }
+   
+   double debugMultiplier = 1.0; // Set to -1 for testing
+   
+   // Altitude should be within 20 feet
+   double toleranceAlt_ft = debugMultiplier * 20.0;
+
+   // Speed should be within 1%. Thus, at 450 KTAS, this is 4.5 knots.
+   double toleranceSpeed_KTAS = debugMultiplier * targetSpeed_KTAS*0.01;
+
+   // Heading should be within 2 deg
+   double toleranceHeading_deg = debugMultiplier * 2.0;
+
+   // Pitch should be within 2 deg
+   double tolerancePitch_deg = debugMultiplier * 2.0;
+   
+   // Roll should be within 2 deg
+   double toleranceRoll_deg = debugMultiplier * 2.0;
+   
+   bool passed = true;
+
+   // Uncomment this line when debugging to add a space line
+   //writeln("-FAIL-");
+   
+   if( deltaAlt_ft > toleranceAlt_ft )
+   {
+      passed  = false;
+      writeln("-FAIL- ", aPlatform.Name(), " altitude = ", alt_ft, " ft is not within tolerance of (", toleranceAlt_ft, ") from the target of ", targetAlt_ft, " ft at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaSpeed_KTAS > toleranceSpeed_KTAS )
+   {
+      passed  = false;
+      writeln("-FAIL- ", aPlatform.Name(), " speed = ", speed_KTAS, " KTAS is not within tolerance of (", toleranceSpeed_KTAS, ") from the target of ", targetSpeed_KTAS, " KTAS at time = ", TIME_NOW, " sec");
+   }
+
+   if( deltaHeading_deg > toleranceHeading_deg )
+   {
+      passed  = false;
+      writeln("-FAIL- ", aPlatform.Name(), " heading = ", heading_deg, " deg is not within tolerance of (", toleranceHeading_deg, ") from the target of ", targetHeading_deg, " deg at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaRoll_deg > toleranceRoll_deg )
+   {
+      passed  = false;
+      writeln("-FAIL- ", aPlatform.Name(), " roll = ", roll_deg, " deg is not within tolerance of (", toleranceRoll_deg, ") from the target of ", targetRoll_deg, " deg at time = ", TIME_NOW, " sec");
+   }
+   
+   if(debugMultiplier < 0.0)
+   {
+      writeln(" ");
+   }
+   
+   return passed;
+
+end_script
+
+# --------------------------------------------------------------------------------------------------
+
+platform RB_AIRCRAFT FA-LGT_RB6
+   side  dark_blue
+
+   script_variables
+      bool passed = true;
+   end_script_variables
+
+   route
+      position   21.325n   158.000w   altitude 2000.0 ft   speed 400.0 kts
+      position   21.325n   157.000w   altitude 2000.0 ft   speed 400.0 kts
+   end_route
+   
+   // Ensure the gear are up at start
+   landing_gear_down false
+   
+   // Start with throttle set to full (MIL)
+   throttle_full true
+
+   
+   execute at_time 120 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        2000.0,   // targetAlt_ft
+                                        400.0,    // targetSpeed_KTAS
+                                        90.0,     // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 0
+   execute at_time 121 sec absolute 
+      PLATFORM.TurnToHeading(0);
+   end_execute
+
+   execute at_time 300 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        2000.0,   // targetAlt_ft
+                                        400.0,    // targetSpeed_KTAS
+                                        0.0,      // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 270 and climb to 10,000 ft
+   execute at_time 301 sec absolute 
+      PLATFORM.TurnToHeading(270);
+      double alt_m = 10000 * MATH.M_PER_FT(); 
+      PLATFORM.GoToAltitude(alt_m);
+   end_execute
+
+   execute at_time 600 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        10000.0,  // targetAlt_ft
+                                        400.0,    // targetSpeed_KTAS
+                                        -90.0,    // targetHeading_deg
+                                        0.0);    // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 180 and increase speed to 500 knots
+   execute at_time 601 sec absolute 
+      PLATFORM.TurnToHeading(180);
+      double spd_mps = 500 * MATH.MPS_PER_NMPH(); 
+      PLATFORM.GoToSpeed(spd_mps);
+   end_execute
+
+   execute at_time 900 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        10000.0,  // targetAlt_ft
+                                        500.0,    // targetSpeed_KTAS
+                                        -180.0,   // targetHeading_deg
+                                        0.00);    // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 90 and climb to 30,000 feet
+   execute at_time 901 sec absolute 
+      PLATFORM.TurnToHeading(90);
+      double alt_m = 30000 * MATH.M_PER_FT(); 
+      PLATFORM.GoToAltitude(alt_m);
+   end_execute
+
+   execute at_time 1200 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        30000.0,  // targetAlt_ft
+                                        500.0,    // targetSpeed_KTAS
+                                        90.0,     // targetHeading_deg
+                                        0.0);   // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 0 and slow to 450 knots
+   execute at_time 1201 sec absolute 
+      PLATFORM.TurnToHeading(0);
+      double spd_mps = 450 * MATH.MPS_PER_NMPH(); 
+      PLATFORM.GoToSpeed(spd_mps);
+   end_execute
+
+   execute at_time 1500 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        30000.0,  // targetAlt_ft
+                                        450.0,    // targetSpeed_KTAS
+                                        0.0,      // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 270 and increase speed to 700 knots
+   execute at_time 1501 sec absolute 
+      PLATFORM.TurnToHeading(270);
+      double spd_mps = 700 * MATH.MPS_PER_NMPH(); 
+      PLATFORM.GoToSpeed(spd_mps);
+   end_execute
+
+   execute at_time 1700 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        30000.0,  // targetAlt_ft
+                                        700.0,    // targetSpeed_KTAS
+                                        -90.0,    // targetHeading_deg
+                                        0.0);    // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 180 and slow to 450 knots
+   execute at_time 1701 sec absolute 
+      PLATFORM.TurnToHeading(180);
+      double spd_mps = 450 * MATH.MPS_PER_NMPH(); 
+      PLATFORM.GoToSpeed(spd_mps);
+   end_execute
+   
+   // Turn to Heading of 90
+   execute at_time 2000 sec absolute 
+      PLATFORM.TurnToHeading(90);
+   end_execute
+   
+   // Turn to Heading of 0
+   execute at_time 2300 sec absolute 
+      PLATFORM.TurnToHeading(0);
+   end_execute
+   
+   // Turn to Heading of 270
+   execute at_time 2600 sec absolute 
+      PLATFORM.TurnToHeading(270);
+   end_execute
+   
+   // Turn to Heading of 180
+   execute at_time 2900 sec absolute 
+      PLATFORM.TurnToHeading(180);
+   end_execute
+
+   // Turn to Heading of 90
+   execute at_time 3100 sec absolute 
+      PLATFORM.TurnToHeading(90);
+   end_execute
+   
+   // Final check
+   execute at_time 3590 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        30000.0,  // targetAlt_ft
+                                        450.0,    // targetSpeed_KTAS
+                                        90.0,     // targetHeading_deg
+                                        0.0);   // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   script void on_platform_deleted()
+
+      if(passed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+           
+   end_script   
+   
+end_platform
+
+# --------------------------------------------------------------------------------------------------
+
+platform PM_AIRCRAFT FA-LGT_PM6
+   side  light_blue
+
+   script_variables
+      bool passed = true;
+   end_script_variables
+
+   route
+      position   21.325n   158.000w   altitude 2000.0 ft   speed 400.0 kts
+      position   21.325n   157.000w   altitude 2000.0 ft   speed 400.0 kts
+   end_route
+   
+   // Start with throttle set to full (MIL)
+   throttle_full true
+   
+   execute at_time 120 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        2000.0,   // targetAlt_ft
+                                        400.0,    // targetSpeed_KTAS
+                                        90.0,     // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 0
+   execute at_time 121 sec absolute 
+      PLATFORM.TurnToHeading(0);
+   end_execute
+
+   execute at_time 300 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        2000.0,   // targetAlt_ft
+                                        400.0,    // targetSpeed_KTAS
+                                        0.0,      // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 270 and climb to 10,000 ft
+   execute at_time 301 sec absolute 
+      PLATFORM.TurnToHeading(270);
+      double alt_m = 10000 * MATH.M_PER_FT(); 
+      PLATFORM.GoToAltitude(alt_m);
+   end_execute
+
+   execute at_time 600 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        10000.0,  // targetAlt_ft
+                                        400.0,    // targetSpeed_KTAS
+                                        -90.0,    // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 180 and increase speed to 500 knots
+   execute at_time 601 sec absolute 
+      PLATFORM.TurnToHeading(180);
+      double spd_mps = 500 * MATH.MPS_PER_NMPH(); 
+      PLATFORM.GoToSpeed(spd_mps);
+   end_execute
+
+   execute at_time 900 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        10000.0,  // targetAlt_ft
+                                        500.0,    // targetSpeed_KTAS
+                                        -180.0,   // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 90 and climb to 30,000 feet
+   execute at_time 901 sec absolute 
+      PLATFORM.TurnToHeading(90);
+      double alt_m = 30000 * MATH.M_PER_FT(); 
+      PLATFORM.GoToAltitude(alt_m);
+   end_execute
+
+   execute at_time 1200 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        30000.0,  // targetAlt_ft
+                                        500.0,    // targetSpeed_KTAS
+                                        90.0,     // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 0 and slow to 450 knots
+   execute at_time 1201 sec absolute 
+      PLATFORM.TurnToHeading(0);
+      double spd_mps = 450 * MATH.MPS_PER_NMPH(); 
+      PLATFORM.GoToSpeed(spd_mps);
+   end_execute
+
+   execute at_time 1500 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        30000.0,  // targetAlt_ft
+                                        450.0,    // targetSpeed_KTAS
+                                        0.0,      // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 270 and increase speed to 700 knots
+   execute at_time 1501 sec absolute 
+      PLATFORM.TurnToHeading(270);
+      double spd_mps = 700 * MATH.MPS_PER_NMPH(); 
+      PLATFORM.GoToSpeed(spd_mps);
+   end_execute
+
+   execute at_time 1700 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        30000.0, // targetAlt_ft
+                                        700.0,   // targetSpeed_KTAS
+                                        -90.0,   // targetHeading_deg
+                                        0.0);    // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Turn to Heading of 180 and slow to 450 knots
+   execute at_time 1701 sec absolute 
+      PLATFORM.TurnToHeading(180);
+      double spd_mps = 450 * MATH.MPS_PER_NMPH(); 
+      PLATFORM.GoToSpeed(spd_mps);
+   end_execute
+   
+   // Turn to Heading of 90
+   execute at_time 2000 sec absolute 
+      PLATFORM.TurnToHeading(90);
+   end_execute
+   
+   // Turn to Heading of 0
+   execute at_time 2300 sec absolute 
+      PLATFORM.TurnToHeading(0);
+   end_execute
+   
+   // Turn to Heading of 270
+   execute at_time 2600 sec absolute 
+      PLATFORM.TurnToHeading(270);
+   end_execute
+   
+   // Turn to Heading of 180
+   execute at_time 2900 sec absolute 
+      PLATFORM.TurnToHeading(180);
+   end_execute
+
+   // Turn to Heading of 90
+   execute at_time 3100 sec absolute 
+      PLATFORM.TurnToHeading(90);
+   end_execute
+   
+   // Final check
+   execute at_time 3590 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        30000.0,  // targetAlt_ft
+                                        450.0,    // targetSpeed_KTAS
+                                        90.0,     // targetHeading_deg
+                                        0.0);     // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   script void on_platform_deleted()
+
+      if(passed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+           
+   end_script   
+   
+end_platform

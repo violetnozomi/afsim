@@ -1,0 +1,409 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2019 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Automated test for satellite orientation
+# swap axes cases
+platform_type SATELLITE WSF_PLATFORM
+   mover WSF_SPACE_MOVER 
+   end_mover
+   side blue
+   icon satellite
+end_platform_type
+
+script void CheckNadir(WsfPlatform aPlatform)
+   Vec3 ecsUp = Vec3.Construct(1.0, 0.0, 0.0); // x-axis
+   Vec3 wcsUp = aPlatform.ConvertECSToWCS(ecsUp);
+   Vec3 unitVecWCS = aPlatform.LocationWCS();
+   unitVecWCS.Normalize();
+   double dot = Vec3.Dot(wcsUp, unitVecWCS);
+   if (dot < 0.99)
+   {
+      writeln(aPlatform.Name(), " -FAIL- 1");
+   }
+end_script
+
+script void CheckECI_VelocityConstraint(WsfPlatform aPlatform)
+   Vec3 velECI = aPlatform.VelocityECI();
+   Vec3 r1 = aPlatform.LocationECI();
+   Vec3 r2 = Vec3.Add(r1,velECI);
+   Vec3 r2WCS = aPlatform.ConvertECIToWCS(r2);
+   Vec3 r2ECS = aPlatform.ConvertWCSToECS(r2WCS);
+   Vec3 ecsY = Vec3.Construct(0.0, 1.0, 0.0);
+   if (Vec3.Dot(ecsY, r2ECS) > 0.01)
+   {
+      writeln(aPlatform.Name(), " -FAIL- 2");
+   }
+end_script
+
+script void CheckWCS_VelocityConstraint(WsfPlatform aPlatform)
+   Vec3 velWCS = aPlatform.VelocityWCS();
+   Vec3 r1 = aPlatform.LocationWCS();
+   Vec3 r2 = Vec3.Add(r1,velWCS);
+   Vec3 r2ECS = aPlatform.ConvertWCSToECS(r2);
+   r2ECS.Normalize();
+   Vec3 ecsY = Vec3.Construct(0.0, 1.0, 0.0);
+   if (Vec3.Dot(ecsY, r2ECS) > 0.01)
+   {
+      writeln(aPlatform.Name(), " -FAIL- 3");
+   }
+end_script
+
+script void CheckSolarConstraint(WsfPlatform aPlatform)
+   Vec3 ecsY = Vec3.Construct(0.0, 1.0, 0.0);
+   Vec3 sunLocECI = Sun.LocationECI(WsfDateTime.CurrentTime());
+   Vec3 sunLocWCS = aPlatform.ConvertECIToWCS(sunLocECI);
+   Vec3 sunVecECS = aPlatform.ConvertWCSToECS(sunLocWCS);
+   sunVecECS.Normalize();
+   if (Vec3.Dot(ecsY, sunVecECS) > 0.01)
+   {
+      writeln(aPlatform.Name(), " -FAIL- 4");
+   }
+end_script
+
+script void CheckNadirConstraint(WsfPlatform aPlatform)
+   Vec3 ecsY = Vec3.Construct(0.0, 1.0, 0.0);
+   Vec3 locWCS = aPlatform.LocationWCS();
+   Vec3 sunVecECS = aPlatform.ConvertWCSToECS(locWCS);
+   sunVecECS.Normalize();
+   if (Vec3.Dot(ecsY, sunVecECS) > 0.01)
+   {
+      writeln(aPlatform.Name(), " -FAIL- 5");
+   }
+end_script
+
+script void CheckOrbitPlaneConstraint(WsfPlatform aPlatform)
+   Vec3 ecsY = Vec3.Construct(0.0, 1.0, 0.0);
+   Vec3 ecsZ = Vec3.Construct(0.0, 0.0, 1000.0);
+   Vec3 locECI = aPlatform.LocationECI();
+   Vec3 eciZ = aPlatform.ConvertECSToWCS(ecsZ);
+   eciZ = aPlatform.ConvertWCSToECI(eciZ);
+   eciZ = Vec3.Subtract(eciZ, locECI);
+   eciZ.Normalize();
+   locECI.Normalize();
+   Vec3 velECI = aPlatform.VelocityECI();
+   velECI.Normalize();
+   Vec3 temp = Vec3.Cross(velECI, eciZ);
+   Vec3 rxvxp = Vec3.Cross(locECI, temp); 
+   //writeln(rxvxp);
+   if (Vec3.Dot(ecsY, rxvxp) > 0.01)
+   {
+      writeln(aPlatform.Name(), " -FAIL- 8");
+   }
+end_script
+
+script void CheckSolarOrientation(WsfPlatform aPlatform)
+   Vec3 ecsZ = Vec3.Construct(1.0, 0.0, 0.0);
+   Vec3 sunVecECI = Sun.LocationECI(WsfDateTime.CurrentTime());
+   Vec3 sunVecWCS = aPlatform.ConvertECIToWCS(sunVecECI);
+   Vec3 sunVecECS = aPlatform.ConvertWCSToECS(sunVecWCS);
+   sunVecECS.Normalize();
+   if (Vec3.Dot(ecsZ, sunVecECS) < 0.99)
+   {
+      writeln(aPlatform.Name(), ": -FAIL- 4: ", Vec3.Dot(ecsZ, sunVecECS));
+   }
+end_script
+
+script void CheckECIVelocityOrientation(WsfPlatform aPlatform)
+   Vec3 ecs0 = Vec3.Construct(0.0, 0.0, 0.0);
+   Vec3 wcs0 = aPlatform.ConvertECSToWCS(ecs0);
+   
+   Vec3 ecsZ = Vec3.Construct(0.0, 0.0, 1.0);
+   Vec3 wcsZ = Vec3.Subtract(aPlatform.ConvertECSToWCS(ecsZ), wcs0);
+   
+   Vec3 wcsV = aPlatform.VelocityWCS();
+   wcsV.Normalize();
+   
+   double vdotz = Vec3.Dot(wcsZ, wcsV);
+
+   if (vdotz < 0.99)
+   {
+      writeln(aPlatform.Name(), " -FAIL- 6 ", vdotz);
+   }  
+end_script
+
+script void CheckRSO_Orientation(WsfPlatform aPlatform, 
+                                 WsfPlatform aTarget)
+   Vec3 ecsZ = Vec3.Construct(0.0, 0.0, 1.0);
+   Vec3 tLocWCS = aTarget.LocationWCS();
+   Vec3 tVecECS = aPlatform.ConvertWCSToECS(tLocWCS);
+   tVecECS.Normalize();   
+   double vdotx = Vec3.Dot(ecsZ, tVecECS);
+   if (vdotx < 0.99)
+   {
+      writeln(aPlatform.Name(), " -FAIL- 7");
+   }
+end_script
+
+script void CheckPointOrientation(WsfPlatform aPlatform, 
+                                  WsfGeoPoint aPoint)
+   Vec3 ecsZ = Vec3.Construct(0.0, 0.0, 1.0);
+   Vec3 tLocWCS = aPoint.LocationWCS();
+   Vec3 tVecECS = aPlatform.ConvertWCSToECS(tLocWCS);
+   tVecECS.Normalize();   
+   double vdotx = Vec3.Dot(ecsZ, tVecECS);
+   if (vdotx < 0.99)
+   {
+      writeln(aPlatform.Name(), " -FAIL- 9");
+   }
+end_script
+
+platform sat-nadir_eci_velocity SATELLITE
+   edit mover
+      position 40n 90w altitude 800 km heading 60 degrees
+      attitude_controller instant
+         orientation nadir_with_eci_velocity_constraint
+         swap_axes
+      end_attitude_controller
+      
+   end_mover
+
+   execute at_interval_of 1 minute
+      CheckNadir(PLATFORM);
+      CheckECI_VelocityConstraint(PLATFORM);
+   end_execute
+
+end_platform
+
+platform sat-nadir_eci_velocity_(default) SATELLITE
+
+   edit mover
+      position 40n 90w altitude 800 km heading 60 degrees
+      attitude_controller instant
+         swap_axes 
+      end_attitude_controller
+   end_mover
+
+   execute at_interval_of 1 minute
+      CheckNadir(PLATFORM);
+      CheckECI_VelocityConstraint(PLATFORM);
+   end_execute
+
+end_platform
+
+platform sat-nadir_ecef_velocity SATELLITE
+   edit mover
+      position 40.1n 90.1w altitude 800 km heading 59.9 degrees
+      //position 0n 0w altitude 800 km heading 0 degrees
+      update_interval 10 sec
+
+      attitude_controller instant
+         orientation nadir_with_ecef_velocity_constraint
+         swap_axes
+      end_attitude_controller
+   end_mover
+
+   execute at_interval_of 1 minute
+      CheckNadir(PLATFORM);
+      CheckWCS_VelocityConstraint(PLATFORM);
+   end_execute
+end_platform
+
+platform sat-nadir_solar SATELLITE
+   edit mover
+      attitude_controller instant
+         orientation nadir_with_solar_constraint
+         swap_axes
+      end_attitude_controller
+      position 40.2n 90.2w altitude 800 km heading 59.8 degrees
+
+   end_mover
+
+   execute at_interval_of 1 minute
+      CheckNadir(PLATFORM);
+      CheckSolarConstraint(PLATFORM);
+   end_execute
+end_platform
+
+platform sat-solar_nadir SATELLITE
+   edit mover
+      position 40.3n 90.3w altitude 800 km heading 59.7 degrees
+
+      attitude_controller instant
+         orientation solar_with_nadir_constraint
+         swap_axes
+      end_attitude_controller
+   end_mover
+
+   execute at_interval_of 1 minute
+      CheckSolarOrientation(PLATFORM);
+      CheckNadirConstraint(PLATFORM);
+   end_execute
+end_platform
+
+platform sat-eci_velocity_solar_constraint SATELLITE
+   edit mover
+      position 40.4n 90.4w altitude 800 km heading 59.6 degrees
+      
+      attitude_controller instant
+         orientation eci_velocity_with_solar_constraint
+         swap_axes
+      end_attitude_controller
+   end_mover
+   
+   execute at_interval_of 1 minute
+      CheckECIVelocityOrientation(PLATFORM);
+      CheckSolarConstraint(PLATFORM);
+   end_execute
+end_platform
+
+platform sat-eci_velocity_nadir_constraint SATELLITE
+   edit mover
+      position 40.5n 90.5w altitude 800 km heading 59.5 degrees
+      
+      attitude_controller instant
+         orientation eci_velocity_with_nadir_constraint
+         swap_axes
+      end_attitude_controller
+   end_mover
+   
+   execute at_interval_of 1 minute
+      CheckECIVelocityOrientation(PLATFORM);
+      CheckNadirConstraint(PLATFORM);
+   end_execute
+end_platform
+
+platform rso SATELLITE
+   side red
+   edit mover
+      position 40n 90w altitude 600 km heading 60 deg
+   end_mover 
+end_platform
+
+platform rso_point_solar_constraint SATELLITE
+   side green
+   edit mover
+      attitude_controller instant
+         orientation entity_with_solar_constraint rso
+         swap_axes
+      end_attitude_controller
+      position 40.001n 90w altitude 600 km heading 59.99 deg
+   end_mover    execute at_interval_of 1.0 min
+      WsfPlatform rso = WsfSimulation.FindPlatform("rso");
+      CheckRSO_Orientation(PLATFORM, rso);
+      CheckSolarConstraint(PLATFORM);
+   end_execute   
+
+end_platform
+
+platform rso_point_nadir_constraint SATELLITE
+   side yellow
+   edit mover
+      attitude_controller instant
+         orientation entity_with_nadir_constraint rso
+         swap_axes
+      end_attitude_controller
+      position 40.001n 90w altitude 600 km heading 59.98 deg
+   end_mover    execute at_interval_of 1.0 min
+      CheckRSO_Orientation(PLATFORM, WsfSimulation.FindPlatform("rso"));
+      CheckNadirConstraint(PLATFORM);
+   end_execute   
+
+end_platform
+platform rso_orbit_plane_constraint SATELLITE
+   side white
+   edit mover
+      attitude_controller instant
+         orientation entity_with_orbit_plane_constraint rso
+         swap_axes
+      end_attitude_controller
+      position 40.001n 90w altitude 600 km heading 59.98 deg
+   end_mover 
+   execute at_interval_of 1.0 min
+      WsfPlatform rso = WsfSimulation.FindPlatform("rso");
+      CheckRSO_Orientation(PLATFORM, rso);
+      CheckOrbitPlaneConstraint(PLATFORM);
+   end_execute   
+end_platform
+
+platform entity_orbit_plane_constraint SATELLITE
+   side white
+   edit mover
+      attitude_controller instant
+         orientation entity_with_orbit_plane_constraint rso
+         swap_axes
+      end_attitude_controller
+      position 40.001n 90w altitude 600 km heading 59.98 deg
+   end_mover 
+   execute at_interval_of 1.0 min
+      WsfPlatform rso = WsfSimulation.FindPlatform("rso");
+      CheckPointOrientation(PLATFORM, rso.Location());
+      CheckOrbitPlaneConstraint(PLATFORM);
+   end_execute      
+end_platform
+
+platform point_orbit_plane_constraint SATELLITE
+   side gray
+   edit mover
+      attitude_controller instant
+         orientation point_with_orbit_plane_constraint point
+         swap_axes
+      end_attitude_controller
+      position 40.001n 90w altitude 600 km heading 59.98 deg
+   end_mover
+   geo_point point 35n 80w 50 m
+   execute at_interval_of 1.0 min
+      CheckPointOrientation(PLATFORM, PLATFORM.GeoPoint("point"));
+      CheckOrbitPlaneConstraint(PLATFORM);
+   end_execute   
+end_platform
+
+platform_type SCRIPT_SAT SATELLITE
+   processor test-proc WSF_SCRIPT_PROCESSOR
+      update_interval 10 s
+      on_update
+         WsfPlatform p = WsfSimulation.FindPlatform(PLATFORM.AuxDataString("prototype"));
+         Vec3 op = p.OrientationWCS();
+         Vec3 o = PLATFORM.OrientationWCS();
+         Vec3 diff = Vec3.Subtract(o, op);
+         if (diff.Magnitude() > 0.01)
+         {
+            writeln(PLATFORM.Name(), " -FAIL- 10 ");
+         }
+      end_on_update 
+   end_processor 
+end_platform_type
+
+script void ScriptTest(WsfPlatform aPrototype, WsfSpaceOrientation aOrientation)   
+   WsfPlatform test = WsfSimulation.CreatePlatform("SCRIPT_SAT");
+   test.SetAuxData("prototype", aPrototype.Name());
+   WsfSpaceMover sm = (WsfSpaceMover)(test.Mover());
+   Vec3 loc = aPrototype.LocationECI();
+   Vec3 vel = aPrototype.VelocityECI();
+   sm.SetOrbit(loc, vel);
+   aOrientation.SwapAxes();
+   sm.SetOrientation(aOrientation);
+   WsfSimulation.AddPlatform(test, aPrototype.Name() + "_Script");   
+end_script
+
+execute at_time 1.0e-12 s absolute
+   ScriptTest(WsfSimulation.FindPlatform("rso_point_solar_constraint"), 
+              WsfSpaceOrientation.ENTITY_WITH_SOLAR_CONSTRAINT(WsfSimulation.FindPlatform("rso")));
+   ScriptTest(WsfSimulation.FindPlatform("rso_point_nadir_constraint"), 
+              WsfSpaceOrientation.ENTITY_WITH_NADIR_CONSTRAINT(WsfSimulation.FindPlatform("rso")));
+   ScriptTest(WsfSimulation.FindPlatform("entity_orbit_plane_constraint"), 
+              WsfSpaceOrientation.ENTITY_WITH_ORBIT_PLANE_CONSTRAINT(WsfSimulation.FindPlatform("rso")));
+   ScriptTest(WsfSimulation.FindPlatform("point_orbit_plane_constraint"), 
+              WsfSpaceOrientation.POINT_WITH_ORBIT_PLANE_CONSTRAINT(
+                 WsfSimulation.FindPlatform("point_orbit_plane_constraint").GeoPoint("point")));
+   ScriptTest(WsfSimulation.FindPlatform("sat-eci_velocity_nadir_constraint"), 
+              WsfSpaceOrientation.ECI_VELOCITY_WITH_NADIR_CONSTRAINT());
+   ScriptTest(WsfSimulation.FindPlatform("sat-eci_velocity_solar_constraint"), 
+              WsfSpaceOrientation.ECI_VELOCITY_WITH_SOLAR_CONSTRAINT());
+   ScriptTest(WsfSimulation.FindPlatform("sat-nadir_ecef_velocity"), 
+              WsfSpaceOrientation.NADIR_WITH_ECEF_VELOCITY_CONSTRAINT());
+   ScriptTest(WsfSimulation.FindPlatform("sat-nadir_eci_velocity"), 
+              WsfSpaceOrientation.NADIR_WITH_ECI_VELOCITY_CONSTRAINT());
+   ScriptTest(WsfSimulation.FindPlatform("sat-nadir_solar"), 
+              WsfSpaceOrientation.NADIR_WITH_SOLAR_CONSTRAINT());
+   ScriptTest(WsfSimulation.FindPlatform("sat-solar_nadir"), 
+              WsfSpaceOrientation.SOLAR_WITH_NADIR_CONSTRAINT());
+end_execute
+
+end_time 10 minutes

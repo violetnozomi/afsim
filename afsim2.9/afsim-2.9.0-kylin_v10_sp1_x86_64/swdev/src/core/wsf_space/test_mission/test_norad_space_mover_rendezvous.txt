@@ -1,0 +1,187 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   double sTol = 10.0;
+   int sNumCompleted = 0;
+end_script_variables
+
+platform target WSF_PLATFORM
+   icon satellite
+   side red
+   add mover WSF_SPACE_MOVER
+
+      semi_major_axis 20000 km
+      eccentricity 0.2
+      inclination  2 deg
+      mean_anomaly 2 deg
+   end_mover
+end_platform
+
+platform chaser-input WSF_PLATFORM
+   icon satellite
+   side blue
+
+   add mover WSF_NORAD_SPACE_MOVER
+
+      semi_major_axis 20000 km
+      eccentricity 0.2
+      inclination  0 deg
+      mean_anomaly 1 deg
+
+      maneuvering simple
+      end_maneuvering
+
+      mission_sequence
+         maneuver rendezvous
+            target
+               platform target
+            end_target
+            optimize_time
+            maximum_time 2000.0 s
+            maximum_delta_v 2000.0 m/s
+            execute_at relative_time 310 s
+         end_maneuver
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform chaser-script WSF_PLATFORM
+   icon satellite
+   side blue
+
+   script void Intercept(WsfLocalTrack aLt)
+      WsfOrbitalManeuverSequence sequence = WsfOrbitalManeuverSequence.Construct();
+      WsfRendezvousManeuver m = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(300.0),
+                                                                WsfTargetPoint.ConstructFromTrack(aLt.TrackId()),
+                                                                WsfOrbitalManeuver.EARLIEST_TIME(),
+                                                                2000.0,
+                                                                2000.0);
+
+      if (!m.IsValid()) writeln("**Invalid.");
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      if (mover.ExecuteManeuver(m))
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+
+   execute at_time 10 s absolute
+      WsfTrack track = WsfSimulation.FindPlatform("target").MakeTrack();
+      PLATFORM.TrackManager().AddTrackReport(track);
+      WsfLocalTrack lt = PLATFORM.MasterTrackList().Entry(0);
+      Intercept(lt);
+   end_execute
+
+   add mover WSF_NORAD_SPACE_MOVER
+      semi_major_axis 20000 km
+      eccentricity 0.2
+      inclination  0 deg
+      mean_anomaly 1 deg
+   end_mover
+end_platform
+
+// Test the case of equatorial orbit rendezvous
+// Specifically this is used to test for valid equatorial solution in 
+// the publish algorithm of UtOrbitalElements. 
+platform chaser-equatorial WSF_PLATFORM 
+   icon satellite
+   side blue
+   
+   add mover WSF_NORAD_SPACE_MOVER
+      eccentricity 0.0
+      inclination 0.0 deg
+      raan 0.0 deg
+      semi_major_axis 5278 mi
+      true_anomaly 0.0 deg
+      argument_of_periapsis 0.0 deg      
+      
+      attitude_controller instant
+         orientation nadir_with_eci_velocity_constraint
+      end_attitude_controller
+   end_mover
+   
+   maneuvering simple
+   end_maneuvering
+   
+   mission_sequence
+      maneuver rendezvous
+         debug
+         maximum_time 3.00 hours
+         optimize_delta_v
+         target
+            platform target
+         end_target
+      end_maneuver
+   end_mission_sequence
+   
+end_platform
+
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; begin ", aManeuver.ManeuverType());
+end_script
+
+script void CheckIntercept(WsfPlatform aPlatform)
+   Vec3 loc1 = aPlatform.LocationECI();
+   Vec3 loc2 = WsfSimulation.FindPlatform("target").LocationECI();
+   Vec3 deltaDistance = Vec3.Subtract(loc2, loc1);
+   double ddist = deltaDistance.Magnitude();
+   Vec3 vel1 = aPlatform.VelocityECI();
+   Vec3 vel2 = WsfSimulation.FindPlatform("target").VelocityECI();
+   if (ddist > sTol)
+   {
+      writeln("-FAIL- distance too large: ", ddist);
+   }
+   Vec3 deltaVel = Vec3.Subtract(vel2, vel1);
+   double dvelMag = deltaVel.Magnitude();
+   if (dvelMag > 10.0)
+   {
+      writeln("-FAIL- speed too large: ", dvelMag);
+   }
+end_script
+
+execute at_time 756.10596 s absolute
+   CheckIntercept(WsfSimulation.FindPlatform("chaser-script"));
+   CheckIntercept(WsfSimulation.FindPlatform("chaser-input"));
+end_execute
+
+execute at_time 10800 s absolute
+   CheckIntercept(WsfSimulation.FindPlatform("chaser-equatorial"));
+end_execute
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; end ", aManeuver.ManeuverType());
+   sNumCompleted += 1;
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 9)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer
+
+start_date jun 24 2016
+start_time 12:00:00
+end_time 20000 s

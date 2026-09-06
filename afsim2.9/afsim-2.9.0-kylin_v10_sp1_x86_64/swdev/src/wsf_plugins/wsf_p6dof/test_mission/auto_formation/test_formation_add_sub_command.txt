@@ -1,0 +1,177 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../scripts/utils.txt
+
+include_once ../platforms/fa-lgt.txt
+
+platform_type SIMPLE FA-LGT
+   side blue
+   icon f-18
+   update_interval 0.01 sec
+   
+   follow_vertical_track
+end_platform_type
+
+platform alpha SIMPLE
+   route
+      position 40:00:00.000n 90:00:00.000w
+      altitude 6000 meters
+      heading 90 deg
+      speed 500 kts
+   end_route
+end_platform
+
+platform bravo SIMPLE
+   route
+      position 00:00:00.000n 10:00:00.000w
+      altitude 5000 meters
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform charlie SIMPLE
+   route
+      position 00:00:00.000n 20:00:00.000w
+      altitude 3000 m
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+platform delta SIMPLE
+   route
+      position 00:00:00.000n 30:00:00.000w
+      altitude 7000 meters
+      heading 0 degrees
+      speed 500 kts
+   end_route
+end_platform
+
+formation yankee
+   lead section alpha
+      lead unit one
+         member_platform alpha
+      end_unit
+      
+      unit two
+         offset 30 m -100 deg 5 m fixed_altitude
+         member_platform bravo
+      end_unit
+      
+      detached
+   end_section
+end_formation
+
+formation beta
+   lead unit one
+      member_platform charlie
+   end_unit
+   
+   unit two
+      offset 30 m 100 deg 5 m fixed_altitude
+      member_platform delta
+   end_unit
+end_formation
+
+start_date jun 1 2018
+start_time 12:00:00.000
+end_time 9 min
+
+script_variables
+   WsfFormationOffset offset;
+   bool allPassed = true;
+end_script_variables
+
+execute at_time 1 min absolute
+   allPassed = ExpectInt(WsfFormationManager.GetTopLevelFormations().Size(), 2, "Should have two top level formations") && allPassed;
+   WsfFormation beta = WsfFormationManager.GetFormation("beta");
+   allPassed = ExpectBool(beta.IsValid(), true, "beta should exist") && allPassed;
+   allPassed = ExpectBool(beta.GetParentFormation().IsValid(), false, "beta should have no parent") && allPassed;
+   allPassed = ExpectBool(beta.IsRoot(), true, "beta should be a root") && allPassed;
+   
+   // then create the command to put them together at 5 minute
+   offset = WsfFormationOffset.Construct(1000.0, 0.0, 25.0, false);
+   WsfFormationAddSubCommand cmd = WsfFormationAddSubCommand.Construct("beta", offset);
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   allPassed = ExpectBool(yankee.IsValid(), true, "yankee should exist") && allPassed;
+   yankee.ExecuteCommand(cmd, WsfFormationCommandConstraint.AT_TIME(300.0));
+end_execute
+
+execute at_time 3 min absolute
+   WsfFormation beta = WsfFormationManager.GetFormation("beta");
+   allPassed = ExpectBool(beta.IsValid(), true, "beta should exist") && allPassed;
+   allPassed = ExpectBool(beta.IsRoot(), true, "beta should be top-level") && allPassed;
+   
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   allPassed = ExpectBool(yankee.IsValid(), true, "yankee should exist") && allPassed;
+   allPassed = ExpectBool(yankee.GetSubFormation("beta").IsValid(), false, "yankee should not have beta as a subformation") && allPassed; 
+end_execute
+
+execute at_time 6 min absolute
+   allPassed = ExpectBool(WsfFormationManager.GetFormation("beta").IsValid(), false, "beta should not exist") && allPassed;
+   allPassed = ExpectBool(WsfFormationManager.GetFormation("yankee.beta").IsValid(), true, "yankee.beta should exist") && allPassed;
+   
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   allPassed = ExpectBool(yankee.IsValid(), true, "yankee should exist") && allPassed;
+   
+   WsfFormation beta = yankee.GetSubFormation("beta");
+   allPassed = ExpectBool(beta.IsValid(), true, "yankee should have beta as a subformation") && allPassed;
+   allPassed = ExpectString(beta.GetParentFormation().GetQualifiedName(),
+                "yankee",
+                "yankee.beta should have yankee as a parent") && allPassed;
+   WsfFormationOffset betaOffset = beta.GetOffset();
+   allPassed = ExpectDouble(betaOffset.GetAhead(), offset.GetAhead(), 1.0e-10, "Ahead should match") && allPassed;
+   allPassed = ExpectDouble(betaOffset.GetRight(), offset.GetRight(), 1.0e-10, "Right should match") && allPassed;
+   allPassed = ExpectDouble(betaOffset.GetStack(), offset.GetStack(), 1.0e-10, "Stack should match") && allPassed;
+   
+   // Now remove yankee.alpha.one
+   WsfFormationRemoveSubCommand cmd = WsfFormationRemoveSubCommand.Construct("alpha.two");
+   yankee.ExecuteCommand(cmd);
+end_execute
+
+execute at_time 7 min absolute
+   WsfFormation yankeeAlphaTwo = WsfFormationManager.GetFormation("yankee.alpha.two");
+   allPassed = ExpectBool(yankeeAlphaTwo.IsValid(), false, "yankee.alpha.two should not exist") && allPassed;
+   
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   allPassed = ExpectBool(yankee.IsValid(), true, "yankee should exist") && allPassed;
+   
+   WsfFormation two = WsfFormationManager.GetFormation("two");
+   allPassed = ExpectBool(two.IsValid(), true, "two should exist") && allPassed;
+   
+   // then add yankee.alpha.one
+   WsfFormationAddSubCommand cmd = WsfFormationAddSubCommand.Construct("two", "alpha",
+                                                                       WsfFormationOffset.Construct(30, -100.0, 5.0, false));
+   yankee.ExecuteCommand(cmd);
+end_execute
+
+execute at_time 8 min absolute
+   WsfFormation yankeeAlphaTwo = WsfFormationManager.GetFormation("yankee.alpha.two");
+   allPassed = ExpectBool(yankeeAlphaTwo.IsValid(), true, "yankee.alpha.two should exist") && allPassed;
+   allPassed = ExpectBool(yankeeAlphaTwo.IsAttached(), false, "yankee.alpha.two should not be attached") && allPassed;
+   
+   WsfFormation yankee = WsfFormationManager.GetFormation("yankee");
+   allPassed = ExpectBool(yankee.IsValid(), true, "yankee should exist") && allPassed;
+   
+   WsfFormation two = WsfFormationManager.GetFormation("two");
+   allPassed = ExpectBool(two.IsValid(), false, "two should not exist") && allPassed;
+end_execute
+
+execute at_time 9 min absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }   
+end_execute

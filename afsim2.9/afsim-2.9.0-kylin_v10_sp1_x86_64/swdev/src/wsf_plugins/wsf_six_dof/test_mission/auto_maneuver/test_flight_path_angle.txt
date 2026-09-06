@@ -1,0 +1,68 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 600 s
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+platform TEST_AIRCRAFT FA-LGT_RB6
+   side blue
+
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   execute at_time 10 sec absolute
+      WsfSixDOF_FlightPathAngleManeuver mvr = WsfSixDOF_FlightPathAngleManeuver.Construct(3.0);
+      mvr.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(10.0));
+      mvr.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_ALTITUDE(22000 * Math.M_PER_FT()));
+      
+      allPassed = ExpectDouble(mvr.GetFlightPathAngle(), 3.0, 1.0e-4, "Flight path angle should be 3.0") && allPassed;
+      
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      mov.ExecuteManeuver(mvr);
+      
+      WsfSixDOF_FlightPathAngleManeuver level = WsfSixDOF_FlightPathAngleManeuver.Construct(0.0);
+      WsfSixDOF_ManeuverSequence sqn = mov.GetManeuverSequence();
+      sqn.Append(level);
+   end_execute
+   
+   execute at_time 19.0 sec absolute
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      allPassed = ExpectDouble(mov.GetFlightPathAngle(), 0.0, 0.1, "Flight should be level") && allPassed;
+   end_execute
+   
+   execute at_time 50.0 sec absolute
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      allPassed = ExpectDouble(mov.GetFlightPathAngle(), 3.0, 0.1, "Flight should be 3 deg up") && allPassed;
+   end_execute
+   
+   execute at_time 400.0 sec absolute
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      allPassed = ExpectDouble(mov.GetFlightPathAngle(), 0.0, 0.1, "Flight should be level") && allPassed;
+   end_execute
+   
+end_platform
+
+execute at_time 500 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }   
+end_execute   

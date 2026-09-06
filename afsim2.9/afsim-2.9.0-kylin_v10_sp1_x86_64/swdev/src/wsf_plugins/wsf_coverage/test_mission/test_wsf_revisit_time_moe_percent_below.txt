@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date jul 1 2020
+start_time 12:00:00.000
+end_time 2 hr
+
+random_seed 279984046
+
+include_once utils.txt
+
+include_once platforms/grid_template_platform.txt
+include_once scenarios/revisit_free_assets.txt
+
+grid test_grid WSF_LAT_LON_GRID
+   altitude 1 m msl
+   latitude_span 0.5s 0.5n
+   longitude_span 0.5w 0.5e
+   latitude_spacing 1 deg
+   longitude_spacing 1 deg
+   origin 0n 0w
+   asset TEST_GRID_PLATFORM none
+end_grid
+
+coverage test_coverage WSF_SENSOR_COVERAGE
+   grid test_grid 
+   assets
+      platform_type LEO_SAT camera
+   end_assets
+   output_dir revisittimepctbel
+   raw_data_file intervals.csv
+   moe rt WSF_REVISIT_TIME_MOE
+      subtype percent_below 90
+   
+      output data
+      end_output
+   end_moe
+end_coverage
+
+script_variables
+   int gExpectedGridPointCount = 1;
+   int gExpectedRawDataLineCount = 16;
+   
+   double gExpectedValue = 787.083333;
+end_script_variables
+
+include actions/revisit_time_raw_intervals_test_action.txt
+include actions/revisit_time_data_test_action.txt
+
+script void RunTests()
+   Path path = Path.GetWorkingDirectory();
+   path.Join("revisittimepctbel");
+   
+   path.Join("intervals.csv");
+   CheckDataFile(path, "Raw data file", "RawIntervalsTestAction", gExpectedRawDataLineCount); 
+   path.Up();
+   
+   path.Join("test_coverage_rt_data.csv");
+   CheckDataFile(path, "MOE data", "MOE_DataTestAction", gExpectedGridPointCount);
+   path.Up();
+   
+   FinalAssessment();
+   
+   RemoveCoverageOutputDir(path);
+end_script
+
+observer
+   enable SIMULATION_COMPLETE RunTests
+end_observer

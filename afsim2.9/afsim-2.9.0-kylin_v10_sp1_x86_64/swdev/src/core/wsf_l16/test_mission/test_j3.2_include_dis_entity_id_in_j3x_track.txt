@@ -1,0 +1,264 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test: CR8731: Add truth track DIS Entity Id to JTIDS J3.X surveillance tracks.
+
+# Require the wsf_mil & link-16 interface
+test_feature wsf_mil
+test_feature link-16
+
+script_variables
+   int numMsgsRcvd = 0;
+   int expectedRcvd = 2;
+   int numMsgsRcvd_platform2 = 0;
+   int expectedRcvd_platform2 = 1;
+   int numMsgsRcvd_platform3 = 0;
+   int expectedRcvd_platform3 = 1;
+end_script_variables
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   numMsgsRcvd = numMsgsRcvd + 1;
+   writeln("Message received by ", aRcvr.Platform().Name());
+end_script
+
+script void MessageTransmitted(WsfComm aComm, WsfMessage aMsg)
+   writeln("Message transmitted.");
+end_script
+
+observer
+   enable MESSAGE_RECEIVED
+   enable MESSAGE_TRANSMITTED 
+end_observer
+
+link16_interface
+   include_dis_entity_id_in_j3x_tracks true
+end_link16_interface
+
+platform my_platform WSF_PLATFORM
+   icon ucav
+   side blue
+   add mover WSF_AIR_MOVER   
+      route
+         position 43.21n 84.29w altitude 30000 feet agl heading 270 deg speed 450 knots
+      end_route   
+   end_mover
+   
+   add processor my_jtids_message_processor WSF_LINK16_COMPUTER
+
+      message_processor my_script_listener SCRIPTED
+         command_chain SCRIPTED_A
+              
+         script void SendJThreeTwoMessage()
+            WsfTadilJ3_2I msg = WsfTadilJ3_2I();
+            msg.IsExerciseTrackUnit(false);
+            msg.IsSourcePPLI(false);
+            msg.IsForceTell(false);
+            msg.IsEmergencyStatus(false);
+            msg.IsSpecialProcessingRequired(false);
+            msg.IsSimulated(false);
+            msg.TrackStrength(9);
+            
+            WsfTadilJ3_2E1 ext1 = msg.AddExtension1();
+            ext1.DisSite(9);
+            ext1.DisApplication(8);
+            ext1.DisEntityId(7);
+            
+            JPROCESSOR.SendJMessage(msg);
+         end_script
+         
+         execute at_time 7 seconds relative
+            SendJThreeTwoMessage();
+         end_execute
+         
+      end_message_processor
+      
+      comm my_jtids_comm #link the l16 computer to the comm system
+      
+   end_processor
+   
+   add comm my_jtids_comm WSF_JTIDS_TERMINAL
+      on      
+      slot_group slot_group_A
+         network 1
+      end_slot_group
+      
+      command_chain SCRIPTED_A slot_group_A
+   end_comm
+   
+   add sensor my_jtids_sensor WSF_GEOMETRIC_SENSOR
+      on
+      frame_time 1 second
+      
+      minimum_altitude 10 feet
+      maximum_altitude 40000 feet
+      antenna_height 10 feet
+      minimum_range 10 feet
+      maximum_range 300 miles
+      azimuth_field_of_view -45 degrees 45 degrees
+      elevation_field_of_view -20 degrees 45 degrees
+      electronic_beam_steering both
+      scan_mode both
+      azimuth_scan_limits -45 degrees 45 degrees
+      elevation_scan_limits -20 degrees 45 degrees
+      hits_to_establish_track 1 3
+      hits_to_maintain_track 1 1
+      
+      internal_link my_jtids_message_processor # forward all tracks to the link 16 computer
+      internal_link track_processor
+      
+      reports_range
+      reports_location
+   end_sensor 
+   
+   add processor track_processor WSF_TRACK_PROCESSOR
+      master_track_processor
+      internal_link my_jtids_message_processor # forward all tracks to the link 16 computer
+   end_processor
+   
+   track_manager
+   end_track_manager
+   
+   command_chain SCRIPTED_A SELF
+end_platform
+
+# Target aircraft
+platform air_target WSF_PLATFORM
+   icon ucav
+   side red
+   add mover WSF_AIR_MOVER
+   end_mover
+   spatial_domain air
+
+   route
+      position 43.21n 84.39w altitude 30500 feet agl heading 270 deg speed 450 knots
+   end_route
+end_platform
+
+# Receiving aircraft
+platform my_2_platform WSF_PLATFORM
+   icon ucav
+   side blue
+   add mover WSF_AIR_MOVER
+      route
+         position 43.15n 84.29w altitude 30000 feet agl heading 270 deg speed 450 knots
+      end_route      
+   end_mover
+   
+   add processor my_jtids_message_processor WSF_LINK16_COMPUTER
+      
+      message_processor my_script_listener SCRIPTED
+         command_chain SCRIPTED_A
+         send_interval 5 seconds
+         
+         script void on_message_3_2(WsfTadilJ3_2I msg)            
+            WsfTadilJ3_2E1 ext1 = msg.FindExtension1();
+            int site = ext1.DisSite();
+            int application = ext1.DisApplication();
+            int id = ext1.DisEntityId();            
+            
+            if ((site == 9) && (application == 8) && (id == 7))
+            {
+               writeln("T=", TIME_NOW, " ", PLATFORM.Name(), " received J3.2 surveillance air track message w/ DisEntityId extension word.");
+               numMsgsRcvd_platform2 = numMsgsRcvd_platform2 + 1;
+            }
+         end_script
+      end_message_processor 
+      
+      comm my_jtids_comm #link the l16 computer to the comm system
+   end_processor
+
+   add comm my_jtids_comm WSF_JTIDS_TERMINAL
+      
+      internal_link my_jtids_message_processor
+      
+      slot_group slot_group_A
+         network 1
+      end_slot_group
+      
+      command_chain SCRIPTED_A slot_group_A   
+   end_comm
+
+   command_chain SCRIPTED_A my_platform
+end_platform
+
+platform my_3_platform WSF_PLATFORM
+   icon ucav
+   side blue
+   add mover WSF_AIR_MOVER
+      route
+         position 43.15n 84.29w altitude 30000 feet agl heading 270 deg speed 450 knots
+      end_route      
+   end_mover
+   
+   add processor my_jtids_message_processor WSF_LINK16_COMPUTER
+      
+      message_processor my_script_listener SCRIPTED
+         command_chain SCRIPTED_A
+         send_interval 5 seconds
+         
+         script void on_message_3_2(WsfTadilJ3_2I msg)                
+            WsfTadilJ3_2E1 ext1 = msg.FindExtension1();
+            int site = ext1.DisSite();
+            int application = ext1.DisApplication();
+            int id = ext1.DisEntityId();            
+            
+            if ((site == 9) && (application == 8) && (id == 7))
+            {
+               writeln("T=", TIME_NOW, " ", PLATFORM.Name(), " received J3.2 surveillance air track message w/ DisEntityId extension word.");
+               numMsgsRcvd_platform3 = numMsgsRcvd_platform3 + 1;
+            }
+         end_script
+      end_message_processor 
+      
+      comm my_jtids_comm #link the l16 computer to the comm system
+   end_processor
+
+   add comm my_jtids_comm WSF_JTIDS_TERMINAL
+      
+      internal_link my_jtids_message_processor
+      
+      slot_group slot_group_A
+         network 1
+      end_slot_group
+      
+      command_chain SCRIPTED_A slot_group_A   
+   end_comm
+
+   command_chain SCRIPTED_A my_platform
+end_platform
+
+
+execute at_time 29 seconds absolute
+   if (numMsgsRcvd != expectedRcvd)
+   {
+      writeln("-FAIL-");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+   if (numMsgsRcvd_platform2 != expectedRcvd_platform2)
+   {
+      writeln("-FAIL- my_2_platform: expected ", expectedRcvd_platform2, "; received ", numMsgsRcvd_platform2);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+   if (numMsgsRcvd_platform3 != expectedRcvd_platform3)
+   {
+      writeln("-FAIL- my_3_platform: expected ", expectedRcvd_platform2, "; received ", numMsgsRcvd_platform2);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }       
+end_execute
+
+end_time 30 seconds

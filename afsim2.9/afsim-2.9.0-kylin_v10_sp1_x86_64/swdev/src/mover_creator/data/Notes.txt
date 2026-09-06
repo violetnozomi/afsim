@@ -1,0 +1,242 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2018 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+##########################################################################################################################################
+
+Reference data from Wikipedia (values are rounded):
+
+	T-37B Tweet
+		MTOW .........................  6,550 lbs
+		Empty Wgt ....................  4,050 lbs
+
+	    Teledyne CAE J69 Engine ......    358 lbs
+
+	T-38A Talon
+		MTOW ......................... 12,100 lbs
+		Empty ........................  7,200 lbs
+
+	    GE J85 Engine ................    421 lbs (396 to 421 lbs)
+
+	F-16C Block 50
+		MTOW ......................... 42,300 lbs
+		Empty ........................ 18,900 lbs
+
+	    GE F110 Engine ...............  4,200 lbs (3,920 to 4,400 lbs)
+
+##########################################################################################################################################
+
+Reference data from Lavretsky, Eugene, "Aircraft Pitch and Roll Dynamics", May 2005
+http://www.cds.caltech.edu/archive/help/uploads/wiki/files/136/Aircraft_Pitch_Roll_Dynamics.pdf
+Reference states that data came from Stevens, B.L., Lewis F.L., Aircraft Control and Simulation, John Wiley &Sons, Inc., 1992
+
+	F-16 Data
+
+		Weight ............. 20,500 lbs
+		Ixx ................  9,496 slug-ft^2
+		Iyy ................ 55,814 slug-ft^2
+		Izz ................ 63,100 slug-ft^2
+		Span ...............     30 ft
+		Wing Area ..........    300 ft^2
+
+		Surface		Position Limits		Rate Limits			Time Constant
+		==========	=================	=================	================
+		Elevator	  +/-25.0 deg		+/-60 deg/sec		0.0495 sec lag
+		Ailerons	  +/-21.5 deg		+/-80 deg/sec		0.0495 sec lag
+		Rudder		  +/-30.0 deg		+/-120 deg/sec		0.0495 sec lag
+
+	If the inertia numbers above were linearly extrapolated down to a weight of 18,900 lbs, we'd have:
+
+		Ixx ................  8,755 slug-ft^2
+		Iyy ................ 51,458 slug-ft^2
+		Izz ................ 58,175 slug-ft^2
+
+##########################################################################################################################################
+
+Reference data from Torenbeek, Egbert, "Synthesis of Subsonic Airplane Design", Delft University Press, 1982:
+
+	T-37 Tweet
+
+		STRUCTURE                      1,982 lbs     (49% of Empty Wgt)
+			Wing .....................   531 lbs       (13% of Empty Wgt, 27% of structure)
+			Tail Group ...............   128 lbs       ( 3% of Empty Wgt,  6% of structure)
+			Fuselage .................   839 lbs       (21% of Empty Wgt, 42% of structure)
+			Landing Gear .............   330 lbs       ( 8% of Empty Wgt, 17% of structure)
+			Control Surfaces .........   154 lbs       ( 4% of Empty Wgt,  8% of structure)
+
+		PROPULSION                     1,196 lbs     (30% of Empty Wgt)
+			Engines (2, 358 ea) ......   716 lbs
+			Engine Installation ......    35 lbs
+			Fuel System ..............   224 lbs
+			Other Items ..............   221 lbs
+
+		SYSTEMS                          796 lbs     (20% of Empty Wgt)
+			Nav Instruments ..........   132 lbs
+			Hydraulics ...............    56 lbs
+			Electrical ...............   194 lbs
+			Electronics ..............    86 lbs
+			Furnishings ..............   256 lbs
+			Air Cond & Anti Ice ......    69 lbs
+			Misc .....................     3 lbs
+
+	T-38 Talon
+
+		PROPULSION                      1,630 lbs     (23% of Empty Wgt)
+			Engines (2, 421 ea) ......    842 lbs
+			Engine Installation ......    196 lbs
+			Fuel System ..............    285 lbs
+			Other Items ..............    307 lbs
+
+		SYSTEMS                         1,533 lbs     (21% of Empty Wgt)
+			Nav Instruments ..........    211 lbs
+			Hydraulics ...............    154 lbs
+			Electrical ...............    296 lbs
+			Electronics ..............    246 lbs
+			Furnishings ..............    460 lbs
+			Air Cond & Anti Ice ......    142 lbs
+			Misc .....................     24 lbs
+
+
+##########################################################################################################################################
+
+Assumptions/Derived Data:
+
+	T-38 Talon
+
+		STRUCTURE                       4,037 lbs     (56% of Empty Wgt)
+			Wing .....................  1,211 lbs       (17% of Empty Wgt, 30% of structure)
+			Tail Group ...............    283 lbs       ( 4% of Empty Wgt,  7% of structure)
+			Fuselage .................  1,534 lbs       (21% of Empty Wgt, 38% of structure)
+			Landing Gear .............    686 lbs       (10% of Empty Wgt, 17% of structure)
+			Control Surfaces .........    323 lbs       ( 4% of Empty Wgt,  8% of structure)
+
+		    Note: Structural weight is based on propulsion and systems being 3,163 lbs and 44% of empty weight.
+
+	F-16 Falcon/Viper
+
+		Note: Many estimates use F-16/T-38 relative weight factor of 2.625 which is then modified by
+		      an assumed 25% weight reduction due to more advanced technology than the T-38.
+			  This results in 1.97, which was rounded up to 2. Thus, a 2x mulitplier is used between
+			  many T-38 items and F-16 items.
+
+		PROPULSION                      5,220 lbs     (28% of Empty Wgt, based on assumptions below)
+			GE F110 Engine ...........  4,200 lbs     (22% of Empty Wgt, based on Wikipedia data)
+			Engine Installation ......    420 lbs     (*Assumes 10% of engine weight)
+			Fuel System ..............    300 lbs     (*Rounded T-38 value to nearest 50 lbs)
+			Other Items ..............    300 lbs     (*Rounded T-38 value to nearest 50 lbs)
+
+			Note:  These numbers indicate typical values that engine installation is 10% of engine weight
+			       and fuel/other is about 14% of engine weight.
+
+		SYSTEMS                         4,347 lbs     (*Assumed 23% of empty weight)
+			Nav Instruments ..........    250 lbs     (*Rounded up T-38 value to nearest 50 lbs)
+			Hydraulics ...............    350 lbs     (*Based on T-38/F-16 wgt-factor and rounded up to nearest 50 lbs)
+			Electrical ...............    600 lbs     (*Based on T-38/F-16 wgt-factor and rounded up to nearest 50 lbs)
+			Electronics ..............    500 lbs     (*Based on T-38/F-16 wgt-factor and rounded up to nearest 50 lbs)
+			Furnishings ..............    345 lbs     (*Based on single crewmember, instead of two, but with a 1.5x factor)
+			Air Cond & Anti Ice ......    300 lbs     (*Based on T-38/F-16 wgt-factor and rounded up to nearest 50 lbs)
+			Misc .....................     50 lbs     (*Based on T-38/F-16 wgt-factor and rounded up to nearest 50 lbs)
+			Mission Avionics .........  1,952 lbs     (*Based on remainder of system weight)
+
+			Note:  The first assumption was that the systems weight would be 23% of the empty weight (as compared with
+			       20% for the T-37 and 21% for the T-39). The "mission avionics" includes radar and other sensors,
+				   weapon system integration, and additional mission/combat related electronics.
+
+		STRUCTURE                       9,333 lbs     (49% of Empty Wgt, based on assumptions below)
+			Wing .....................  2,800 lbs       (15% of Empty Wgt, assumes 30% of structure)
+			Tail Group ...............    747 lbs       ( 4% of Empty Wgt, assumes  8% of structure)
+			Fuselage .................  3,547 lbs       (19% of Empty Wgt, assumes 38% of structure)
+			Landing Gear .............  1,587 lbs       ( 8% of Empty Wgt, assumes 17% of structure)
+			Control Surfaces .........    653 lbs       ( 3% of Empty Wgt, assumes  7% of structure)
+
+			Note:  Given the propulsion and systems weights (which total 9,567 lbs), the structural weight is 9,333 lbs.
+
+##########################################################################################################################################
+
+	MoverCreator does not break down weights for control surfaces. We will assume that half of the "Control Surfaces"
+	weight will be applied to the wing weight and the remainder will be applied to all aero surfaces. In addition, the
+	"Tail Group" will include all non-wing aero surfaces. This results in the following break downs:
+
+	T-37 Tweet
+
+		MTOW ...............................................  6,550 lbs
+		Empty Wgt ..........................................  4,050 lbs
+
+		STRUCTURE                                             1,982 lbs  (49% of Empty Wgt)
+			Wing ............................................   608 lbs    (15% of Empty Wgt, 31% of structure)
+			Aero Surfaces ...................................   205 lbs    ( 5% of Empty Wgt, 10% of structure)
+			Fuselage ........................................   839 lbs    (21% of Empty Wgt, 42% of structure)
+			Landing Gear ....................................   330 lbs    ( 8% of Empty Wgt, 17% of structure)
+
+		PROPULSION                                            1,196 lbs  (30% of Empty Wgt)
+			Engines (2, 358 ea) .............................   716 lbs    (18% of Empty Wgt)
+			Engine Installation .............................    35 lbs
+			Fuel Systems ....................................   445 lbs
+
+		SYSTEMS                                                 796 lbs  (20% of Empty Wgt)
+			Nav Instruments .................................   132 lbs
+			Hydraulics ......................................    56 lbs
+			Electrical ......................................   194 lbs
+			Electronics .....................................    86 lbs
+			Furnishings .....................................   256 lbs
+			Misc ............................................    72 lbs
+
+	T-38 Talon
+
+		MTOW ............................................... 12,100 lbs
+		Empty Wgt ..........................................  7,200 lbs
+
+		STRUCTURE                                             4,037 lbs  (56% of Empty Wgt)
+			Wing ............................................ 1,373 lbs    (19% of Empty Wgt, 34% of structure)
+			Aero Surfaces ...................................   444 lbs    ( 6% of Empty Wgt, 11% of structure)
+			Fuselage ........................................ 1,534 lbs    (21% of Empty Wgt, 38% of structure)
+			Landing Gear ....................................   686 lbs    (10% of Empty Wgt, 17% of structure)
+
+		PROPULSION                                            1,630 lbs  (23% of Empty Wgt)
+			Engines (2, 421 ea) ............................    842 lbs    (12% of Empty Wgt)
+			Engine Installation ............................    196 lbs
+			Fuel Systems ....................................   592 lbs
+
+		SYSTEMS                                               1,533 lbs  (21% of Empty Wgt)
+			Nav Instruments ................................    211 lbs
+			Hydraulics .....................................    154 lbs
+			Electrical .....................................    296 lbs
+			Electronics ....................................    246 lbs
+			Furnishings ....................................    460 lbs
+			Misc ...........................................    166 lbs
+
+	F-16 Viper
+
+		MTOW ............................................... 42,300 lbs
+		Empty Wgt .......................................... 18,900 lbs
+
+
+		PROPULSION                                            5,220 lbs  (28% of Empty Wgt)
+			GE F110 Engine .................................  4,200 lbs    (22% of Empty Wgt)
+			Engine Installation ............................    420 lbs
+			Fuel Systems ....................................   600 lbs
+
+		SYSTEMS                                               4,347 lbs  (23% of Empty Wgt)
+			Nav Instruments ................................    250 lbs
+			Hydraulics .....................................    350 lbs
+			Electrical .....................................    600 lbs
+			Electronics ....................................    500 lbs
+			Furnishings ....................................    345 lbs
+			Misc ...........................................    350 lbs
+			Mission Avionics ...............................  1,952 lbs
+
+
+		STRUCTURE                                             9,333 lbs  (49% of Empty Wgt)
+			Wing ............................................ 3,127 lbs    (17% of Empty Wgt, 34% of structure)
+			Aero Surfaces ................................... 1,073 lbs    ( 6% of Empty Wgt, 11% of structure)
+			Fuselage ........................................ 3,547 lbs    (19% of Empty Wgt, 38% of structure)
+			Landing Gear .................................... 1,587 lbs    ( 8% of Empty Wgt, 17% of structure)
+
+##########################################################################################################################################

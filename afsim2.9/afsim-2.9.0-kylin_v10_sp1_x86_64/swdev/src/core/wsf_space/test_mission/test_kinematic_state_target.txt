@@ -1,0 +1,217 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This scenario tests kinematic state targeting for the target-class maneuvers.
+# This will compare the state at the expected time for both intercept (match
+# position only) and rendezvous (match both position and velocity). This will
+# be tested both on the input side, and the script side.
+# ****************************************************************************
+
+include_once utils.txt
+
+platform_type TEST WSF_PLATFORM
+   # The initial kinematic state for these elements is roughly the following:
+   # r = (1.05602709e+07 -7.33938012e+03 -3.18877917e+03) m 
+   # v = (4.56168108e+00 5.03271007e+03 3.52378822e+03) m/s
+   # We are going to use these rotated 90 degrees around the z axis as a target
+   # state:
+   # r = (+7.33938012e+03 1.05602709e+07 -3.18877917e+03) m 
+   # v = (-5.03271007e+03 4.56168108e+00 3.52378822e+03) m/s
+   # If the epoch of the simulation (or the orbital elements) is changed, these
+   # values will need to be updated.
+
+   empty_mass 1 kg
+
+   mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0
+      revs_per_day 8
+      inclination 35 deg
+
+      integrator prince_dormand_78
+         error_criterion L_infinity
+      end_integrator
+
+      dynamics
+         term earth_monopole
+         end_term
+      end_dynamics
+   end_mover
+end_platform_type
+
+script_variables
+   Vec3 gTargetPosition = Vec3.Construct(7.33938012e+03, 1.05602709e+07, -3.18877917e+03);
+   Vec3 gTargetVelocity = Vec3.Construct(-5.03271007e+03, 4.56168108e+00, 3.52378822e+03);
+end_script_variables
+
+platform intercept-input TEST
+   edit mover
+      mission_sequence
+         maneuver intercept
+            execute_at relative_time 1 s
+            maximum_delta_v 10 km/s
+            maximum_delta_time 4 hr
+            optimize_time 
+            target
+               eci_position 7.33938012e+03 1.05602709e+07 -3.18877917e+03 m
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   
+   script_variables
+      bool pInterceptFinished = false;
+   end_script_variables
+end_platform
+
+platform intercept-script TEST
+   script_variables
+      bool pInterceptFinished = false;
+   end_script_variables
+   
+   execute at_time 10 s absolute
+      WsfTargetPoint point = WsfTargetPoint.ConstructFromKinematicState(gTargetPosition);
+      ExpectBool(point.HasKinematicStateTarget(), true, "intercept-script: Should have kinematic state target");
+      Vec3 setupPos = point.KinematicStateTargetPosition();
+      Vec3 setupVel = point.KinematicStateTargetVelocity();
+      ExpectDouble(setupPos.Get(0), gTargetPosition.Get(0), 1.0e-12, "intercept-script: X position of target should match setup");
+      ExpectDouble(setupPos.Get(1), gTargetPosition.Get(1), 1.0e-12, "intercept-script: Y position of target should match setup");
+      ExpectDouble(setupPos.Get(2), gTargetPosition.Get(2), 1.0e-12, "intercept-script: Z position of target should match setup");
+      ExpectDouble(setupVel.Get(0), 0.0, 1.0e-12, "intercept-script: X velocity of target should match setup");
+      ExpectDouble(setupVel.Get(1), 0.0, 1.0e-12, "intercept-script: Y velocity of target should match setup");
+      ExpectDouble(setupVel.Get(2), 0.0, 1.0e-12, "intercept-script: Z velocity of target should match setup");
+      
+      WsfInterceptManeuver mvr = WsfInterceptManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0),
+                                                                point,
+                                                                WsfInterceptManeuver.EARLIEST_TIME(),
+                                                                4.0 * 3600.0,
+                                                                10000.0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      ExpectBool(mover.ExecuteManeuver(mvr), true, "intercept-script: Maneuver should execute");
+   end_execute
+end_platform
+
+platform rendezvous-input TEST
+   edit mover
+      mission_sequence 
+         maneuver rendezvous
+            execute_at relative_time 1 s
+            maximum_delta_v 50 km/s
+            maximum_delta_time 4 hr
+            optimize_delta_v 
+            target
+               eci_state 7.33938012e+03 1.05602709e+07 -3.18877917e+03 m
+                         -5.03271007e+03 4.56168108e+00 3.52378822e+03 m/s
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover
+   
+   script_variables
+      bool pRendezvousFinished = false;
+   end_script_variables
+end_platform
+
+platform rendezvous-script TEST
+   script_variables
+      bool pRendezvousFinished = false;
+   end_script_variables
+   
+   execute at_time 10 s absolute
+      WsfTargetPoint point = WsfTargetPoint.ConstructFromKinematicState(gTargetPosition, gTargetVelocity);
+      ExpectBool(point.HasKinematicStateTarget(), true, "intercept-script: Should have kinematic state target");
+      Vec3 setupPos = point.KinematicStateTargetPosition();
+      Vec3 setupVel = point.KinematicStateTargetVelocity();
+      ExpectDouble(setupPos.Get(0), gTargetPosition.Get(0), 1.0e-12, "rendezvous-script: X position of target should match setup");
+      ExpectDouble(setupPos.Get(1), gTargetPosition.Get(1), 1.0e-12, "rendezvous-script: Y position of target should match setup");
+      ExpectDouble(setupPos.Get(2), gTargetPosition.Get(2), 1.0e-12, "rendezvous-script: Z position of target should match setup");
+      ExpectDouble(setupVel.Get(0), gTargetVelocity.Get(0), 1.0e-12, "rendezvous-script: X velocity of target should match setup");
+      ExpectDouble(setupVel.Get(1), gTargetVelocity.Get(1), 1.0e-12, "rendezvous-script: Y velocity of target should match setup");
+      ExpectDouble(setupVel.Get(2), gTargetVelocity.Get(2), 1.0e-12, "rendezvous-script: Z velocity of target should match setup");
+      
+      WsfRendezvousManeuver mvr = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0),
+                                                                  point,
+                                                                  3600.0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      ExpectBool(mover.ExecuteManeuver(mvr), true, "intercept-script: Maneuver should execute");
+   end_execute
+end_platform
+
+end_time 4 hr
+
+script void Setup()
+   SetFinalTestMethodName("FinalTests");
+end_script
+
+script void ManeuverComplete(WsfPlatform aPlatform, WsfSpaceMover aMover, WsfOrbitalManeuver aManeuver)
+   if (aPlatform.Name() == "intercept-input")
+   {
+      if (aManeuver.ManeuverType() == "INTERCEPT")
+      {
+         aPlatform->pInterceptFinished = true;
+         Vec3 pos = aPlatform.LocationECI();
+         ExpectDouble(Math.Fabs(pos.Get(0) - gTargetPosition.Get(0)) / gTargetPosition.Get(0), 0.0, 1.0e-4, "X position should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(pos.Get(1) - gTargetPosition.Get(1)) / gTargetPosition.Get(1), 0.0, 1.0e-4, "Y position should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(pos.Get(2) - gTargetPosition.Get(2)) / gTargetPosition.Get(2), 0.0, 1.0e-4, "Z position should match target at end of maneuver");
+      }
+   }
+   else if (aPlatform.Name() == "intercept-script")
+   {
+      if (aManeuver.ManeuverType() == "INTERCEPT")
+      {
+         aPlatform->pInterceptFinished = true;
+         Vec3 pos = aPlatform.LocationECI();
+         ExpectDouble(Math.Fabs(pos.Get(0) - gTargetPosition.Get(0)) / gTargetPosition.Get(0), 0.0, 1.0e-4, "X position should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(pos.Get(1) - gTargetPosition.Get(1)) / gTargetPosition.Get(1), 0.0, 1.0e-4, "Y position should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(pos.Get(2) - gTargetPosition.Get(2)) / gTargetPosition.Get(2), 0.0, 1.0e-4, "Z position should match target at end of maneuver");
+      }
+   }
+   else if (aPlatform.Name() == "rendezvous-input")
+   {
+      if (aManeuver.ManeuverType() == "RENDEZVOUS")
+      {
+         aPlatform->pRendezvousFinished = true;
+         Vec3 pos = aPlatform.LocationECI();
+         Vec3 vel = aPlatform.VelocityECI();
+         ExpectDouble(Math.Fabs(pos.Get(0) - gTargetPosition.Get(0)) / gTargetPosition.Get(0), 0.0, 1.0e-4, "X position should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(pos.Get(1) - gTargetPosition.Get(1)) / gTargetPosition.Get(1), 0.0, 1.0e-4, "Y position should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(pos.Get(2) - gTargetPosition.Get(2)) / gTargetPosition.Get(2), 0.0, 1.0e-4, "Z position should match target at end of maneuver");
+         
+         ExpectDouble(Math.Fabs(vel.Get(0) - gTargetVelocity.Get(0)) / gTargetVelocity.Get(0), 0.0, 1.0e-4, "X velocity should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(vel.Get(1) - gTargetVelocity.Get(1)) / gTargetVelocity.Get(1), 0.0, 1.0e-4, "Y velocity should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(vel.Get(2) - gTargetVelocity.Get(2)) / gTargetVelocity.Get(2), 0.0, 1.0e-4, "Z velocity should match target at end of maneuver");
+      }
+   }
+   else if (aPlatform.Name() == "rendezvous-script")
+   {
+      if (aManeuver.ManeuverType() == "RENDEZVOUS")
+      {
+         aPlatform->pRendezvousFinished = true;
+         Vec3 pos = aPlatform.LocationECI();
+         Vec3 vel = aPlatform.VelocityECI();
+         ExpectDouble(Math.Fabs(pos.Get(0) - gTargetPosition.Get(0)) / gTargetPosition.Get(0), 0.0, 1.0e-4, "X position should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(pos.Get(1) - gTargetPosition.Get(1)) / gTargetPosition.Get(1), 0.0, 1.0e-4, "Y position should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(pos.Get(2) - gTargetPosition.Get(2)) / gTargetPosition.Get(2), 0.0, 1.0e-4, "Z position should match target at end of maneuver");
+         
+         ExpectDouble(Math.Fabs(vel.Get(0) - gTargetVelocity.Get(0)) / gTargetVelocity.Get(0), 0.0, 1.0e-4, "X velocity should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(vel.Get(1) - gTargetVelocity.Get(1)) / gTargetVelocity.Get(1), 0.0, 1.0e-4, "Y velocity should match target at end of maneuver");
+         ExpectDouble(Math.Fabs(vel.Get(2) - gTargetVelocity.Get(2)) / gTargetVelocity.Get(2), 0.0, 1.0e-4, "Z velocity should match target at end of maneuver");
+      }
+   }
+end_script
+
+script void FinalTests()
+   ExpectBool(WsfSimulation.FindPlatform("intercept-input")->pInterceptFinished, true, "Input intercept should have finished");
+   ExpectBool(WsfSimulation.FindPlatform("intercept-script")->pInterceptFinished, true, "Scripted intercept should have finished");
+   ExpectBool(WsfSimulation.FindPlatform("rendezvous-input")->pRendezvousFinished, true, "Input rendezvous should have finished");
+   ExpectBool(WsfSimulation.FindPlatform("rendezvous-script")->pRendezvousFinished, true, "Script rendezvous should have finished");
+end_script
+
+observer
+   enable SIMULATION_STARTING Setup
+   enable ORBITAL_MANEUVER_COMPLETED ManeuverComplete
+end_observer

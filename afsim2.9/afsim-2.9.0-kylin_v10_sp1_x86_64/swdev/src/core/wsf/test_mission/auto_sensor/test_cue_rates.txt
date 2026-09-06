@@ -1,0 +1,222 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+include ../auto_script/test_functions.txt
+
+sensor RADAR WSF_GEOMETRIC_SENSOR
+   on
+   ignore_same_side
+
+   slew_mode                           azimuth_and_elevation
+
+   mode_template
+      frame_time                       1 sec
+
+      cue_mode                         azimuth_and_elevation
+
+      azimuth_field_of_view            -10 deg 10 deg
+      elevation_field_of_view          -10 deg 10 deg
+
+      reports_location
+   end_mode_template
+
+   mode WITH_RATE
+      azimuth_cue_rate                 2 deg/sec
+      elevation_cue_rate               2 deg/sec
+   end_mode
+
+   mode WITHOUT_RATE
+   end_mode
+
+end_sensor
+
+platform_type SENSOR_HOST WSF_PLATFORM
+   icon 737
+   side blue
+
+   mover WSF_AIR_MOVER
+   end_mover
+
+   sensor radar RADAR
+   end_sensor
+
+   script_variables
+      WsfSensor s = Sensor("radar");
+      double    mStartTime;
+      double    mTargetAz;
+      double    mTargetEl;
+   end_script_variables
+
+   script void TestCueActive()
+      if (! s.IsSlewing())
+      {
+          writeln("-FAIL- T=", TIME_NOW, " ", Name(), " slewing not active when it should be active");
+      }
+      double currentAz = s.CurrentCuedAzimuth();
+      double currentEl = s.CurrentCuedElevation();
+      writeln_d("T=", TIME_NOW, " ", Name(), " cue active; now at az=", currentAz, " el=", currentEl);
+   end_script
+
+   script void TestCueComplete()
+      writeln_d("***** TestCueComplete");
+      if (s.IsSlewing())
+      {
+         writeln("-FAIL- T=", TIME_NOW, " ", Name(), " slewing is active when it should not be active");
+      }
+      double currentAz = s.CurrentCuedAzimuth();
+      double currentEl = s.CurrentCuedElevation();
+      double deltaAz = MATH.Fabs(mTargetAz - currentAz);
+      if (deltaAz > 180.0) deltaAz = 360.0 - deltaAz;
+      double deltaEl = MATH.Fabs(mTargetEl - currentEl);
+      if ((deltaAz > 0.001) ||
+          (deltaEl > 0.001))
+      {
+         writeln("-FAIL- T=", TIME_NOW, " ", Name(),
+                 " final position error; az=", currentAz, " el=", currentEl,
+                 "; expected az=", mTargetAz, " el=", mTargetEl);
+      }
+      writeln("T=", TIME_NOW, " ", Name(), " cue test complete; now at az=", currentAz, " el=", currentEl);
+   end_script
+
+   script void StartCueTest(double aTargetAz,
+                            double aTargetEl,
+                            double aTimeToComplete)
+      double timeToCue = s.TimeToCueToAzEl(aTargetAz, aTargetEl);
+      if (timeToCue > -1)
+      { 
+          AssertWithinToleranceMessage(aTimeToComplete, timeToCue, 0.0001, "TimeToCueToAzEl");
+      }                      
+                                  
+      mStartTime = TIME_NOW;
+      mTargetAz  = MATH.NormalizeAngleMinus180_180(aTargetAz);
+      mTargetEl  = MATH.Limit(aTargetEl, 90.0);
+      s.CueToRelativeAzEl(mTargetAz, mTargetEl);
+
+      if (aTimeToComplete > 0.0)
+      {
+         ExecuteAtTime(TIME_NOW + 0.01, "TestCueActive");
+         ExecuteAtTime(TIME_NOW + aTimeToComplete - 0.01, "TestCueActive");
+      }
+      ExecuteAtTime(TIME_NOW + aTimeToComplete + 0.01, "TestCueComplete");
+
+      double currentAz = s.CurrentCuedAzimuth();
+      double currentEl = s.CurrentCuedElevation();
+      writeln("T=", TIME_NOW, " ", Name(), " Start cue to az=", mTargetAz, " el=", mTargetEl,
+              "; expected completion at T=", mStartTime + aTimeToComplete,
+              "; now at az=", currentAz, " el=", currentEl);
+   end_script
+end_platform_type
+
+platform wrap_sensor SENSOR_HOST
+   sensor radar
+      on
+   end_sensor
+
+   route
+      position 38n 90w altitude 30000 ft heading 0 deg speed 150 kts
+   end_route
+
+   execute at_time   20 sec relative   StartCueTest(30, -10, 15); end_execute
+   execute at_time   40 sec relative   StartCueTest(0, 0, 15);  end_execute
+   execute at_time   60 sec relative   StartCueTest(-30, -10, 15);  end_execute
+   execute at_time   80 sec relative   StartCueTest(30, 10, 30); end_execute
+   execute at_time  120 sec relative   StartCueTest(30, -10, 10); end_execute
+   execute at_time  140 sec relative   StartCueTest(-30, 10, 30); end_execute
+
+   // Test 'wrap-around'
+
+   execute at_time  180 sec relative   StartCueTest(-170, 10, 70); end_execute
+   execute at_time  260 sec relative   StartCueTest(170, 10, 10); end_execute
+   execute at_time  280 sec relative   StartCueTest(-170, 10, 10); end_execute
+   execute at_time  300 sec relative   StartCueTest(170, 10, 10); end_execute
+
+   // Test stopping angle of +/- 180.
+   execute at_time  320 sec relative   StartCueTest(178, 0, 5); end_execute
+
+   execute at_time  400 sec relative   StartCueTest(180, 0, 1); end_execute
+   #execute at_time  410 sec relative   StartCueTest(-178, 0, 1); end_execute
+   execute at_time  410 sec relative   StartCueTest(182, 0, 1); end_execute
+   execute at_time  420 sec relative   StartCueTest(-180, 0, 1); end_execute
+   execute at_time  430 sec relative   StartCueTest(178, 0, 1); end_execute
+   execute at_time  440 sec relative   StartCueTest(-180, 0, 1); end_execute
+   execute at_time  450 sec relative   StartCueTest(-178, 0, 1); end_execute
+   execute at_time  460 sec relative   StartCueTest(180, 0, 1); end_execute
+
+end_platform
+
+platform nowrap_sensor SENSOR_HOST
+   sensor radar
+      on
+      azimuth_slew_limits -179.999 deg 179.999 deg
+   end_sensor
+
+   route
+      position 42n 90w altitude 30000 ft heading 180 deg speed 150 kts
+   end_route
+
+   // Make sure we don't wrap around...
+
+   execute at_time  20 sec relative StartCueTest(170, 0, 85); end_execute
+   execute at_time 120 sec relative StartCueTest(-170, 0, 170); end_execute
+   execute at_time 300 sec relative StartCueTest(170, 0, 170); end_execute
+end_platform
+
+platform norate_sensor SENSOR_HOST
+
+   route
+      position 42n 90w altitude 30000 ft heading 180 deg speed 150 kts
+   end_route
+
+   sensor radar
+      initial_mode WITHOUT_RATE
+   end_sensor
+
+   execute at_time   1 sec relative   StartCueTest(30, -10, 0); end_execute
+   execute at_time   2 sec relative   StartCueTest(0, 0, 0);  end_execute
+   execute at_time   3 sec relative   StartCueTest(-30, -10, 0);  end_execute
+   execute at_time   4 sec relative   StartCueTest(30, 10, 0); end_execute
+   execute at_time   5 sec relative   StartCueTest(30, -10, 0); end_execute
+   execute at_time   6 sec relative   StartCueTest(-30, 10, 0); end_execute
+
+   // Test 'wrap-around'
+
+   execute at_time   7 sec relative   StartCueTest(-170, 10, 0); end_execute
+   execute at_time   8 sec relative   StartCueTest(170, 10, 0); end_execute
+   execute at_time   9 sec relative   StartCueTest(-170, 10, 0); end_execute
+   execute at_time  10 sec relative   StartCueTest(170, 10, 0); end_execute
+
+   // Test stopping angle of +/- 180.
+   execute at_time  11 sec relative   StartCueTest(178, 0, 0); end_execute
+
+   execute at_time  12 sec relative   StartCueTest(180, 0, 0); end_execute
+   execute at_time  13 sec relative   StartCueTest(-178, 0, 0); end_execute
+   execute at_time  14 sec relative   StartCueTest(-180, 0, 0); end_execute
+   execute at_time  15 sec relative   StartCueTest(178, 0, 0); end_execute
+   execute at_time  16 sec relative   StartCueTest(-180, 0, 0); end_execute
+   execute at_time  17 sec relative   StartCueTest(-178, 0, 0); end_execute
+   execute at_time  18 sec relative   StartCueTest(180, 0, 0); end_execute
+end_platform
+
+
+platform target WSF_PLATFORM
+   icon Pickup_Truck
+   side red
+
+   add mover WSF_GROUND_MOVER
+   end_mover
+
+   position 40n 90w
+end_platform
+/*
+event_pipe
+   file replay.aer
+end_event_pipe
+*/
+end_time 600 sec

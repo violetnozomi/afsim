@@ -1,0 +1,1388 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+==============================================================================
+Release Notes for CME v6.3.4.3 - 27 July 2015
+------------------------------------------------
+
+Corrections
+        * Corrected a bug in the DIS monitor that could cause a crash while
+          playing a scenario in certain situations.
+        
+        * Corrected a bug that was preventing ground clamping from working.
+        
+        * Remove the ground clamping low-pass filtering, as it was unnecessary
+          in most reasonable situations. 
+          
+        * Fixed a bug that causes non-interpolated sensor beams to point in
+          the wrong direction.
+          
+	* Corrected a bug which caused tracelines to become unalterably
+	  transparent under certain conditions.
+	  
+        * Corrected a bug which causes entities' trace-lines' first color
+          change to be blended rather that sharp. 
+
+==============================================================================
+Release Notes for CME v6.3.4r2 - 6 May 2015
+------------------------------------------------
+
+Corrections
+        * Eliminated a memory leak from the DIS loading process.
+        
+        * Fixed a bug that causes DIS replay files to load incorrectly on occasion.
+        
+        * Reduced the memory cost of trace lines.
+        
+        * Fixed a bug that incorrectly placed the second way-point in a route.
+        
+        * Fixed a bug that would prevent cloning under certain circumstances.
+
+==============================================================================
+Release Notes for CME v6.3.4 - 1 April 2015
+------------------------------------------------
+
+General
+	* The GRIT analysis tool is now a part of CME. GRIT opens event files from
+	  AFNES which contain information about behavior tree structure and state.
+	  It allows users to view the state of the behavior tree at any point during
+	  the simulation.
+	  
+	* VESPA and Sigview are no longer dependent on the AFNES libraries.  AFNES
+	  signature reading is now handled through a plug-in.
+	
+	* Updated the CURL 3rd-party-library to 7.39
+	
+	* Updated the libgeotiff 3rd-party-library to 1.4.0
+	
+	* Updated the tiff 3rd-party-library to 4.0.3 
+
+Corrections
+	* Corrected problems that caused WsfDraw icons to display incorrectly.
+	
+	* Fixed how camera distance to ground is calculated while tethered. This
+	  will improve performance while tethered and viewing the grid lines.
+	  
+	* Fixed a problem that caused 2D-plots not to work for interval tables
+	  in SigView. 
+	
+Enhancements
+	* Added line-width controls for azimuth/elevation zones.
+	* Updated the AFNES input and output to accept switch_on_approach and
+	  switch_on_passing commands. These are equivalent to the turn-short and 
+	  turn-long options on the panel.
+	  
+	* Added DIS data spreadsheet views.
+	
+	* Added the DIS monitor.
+	
+	* Added an option to the file->save as menu to save the displayed DIS simulation
+	  to a new replay file. This will capture all displayed PDUs. 
+    
+    
+==============================================================================
+Release Notes for CME v6.3.3r2 - 11 November 2014
+------------------------------------------------
+
+Corrections
+        * Fixed a bug that causes WsfDraw icons to be invisible. 
+
+==============================================================================
+Release Notes for CME v6.3.3r1 - October 2014
+------------------------------------------------
+
+Corrections
+        * Recompiled so that CME applications will run on Windows XP.
+    	
+        * Renamed 'elev' to Grnd Lev (Ground Level) on the platform and waypoint panels.
+    	
+        * Fixed the waypoint panel to correctly display ground level when enabled.
+    	
+        * Fixed a bug that incorrectly converted values loaded from AFNES files when shown in Sigview.
+    	
+        * Fixed a bug that occasionally caused osgEarth databases to disappear.
+    	
+        * Corrected an issue where a disabled platform's timeline would continue indefinitely in Timeview.
+        
+        *Fixed a bug that was causing terrain contours to show at the incorrect locations. 
+
+==============================================================================
+Release Notes for CME v6.3.3 - 15 August 2014
+------------------------------------------------
+
+General
+
+    * MAJOR UPDATE: VESPA for linux is now built on RedHat 6.  RedHat 5 is no longer
+      supported.
+      
+    * The dis_enum.txt file has been replaced with dis_enumerations.txt file.
+      The file format has been modified to be more maintainable.
+
+Corrections
+	* Fixed a bug that was adding blank lines to the recent list (or reordering the
+	  recent list) when the user canceled out of the DIS-open dialog.
+	  
+	* Fixed a bug that caused range rings to project incorrectly when built on a
+	  flat-map. 
+	  
+	* Fixed a bug that prevented Milstd icons from loading when a site-directory
+	  model_def.dat file is present. 
+	  
+	* Fixed a bug that caused Milstd icons be very small. 
+	
+	* Fixed a bug that caused some Timeview plug-in report data not to print to
+	  screen. 
+	  
+	* Fixed a bug that caused models containing internal translations to be drawn
+	  incorrectly. 
+	  
+	* Added an 'ignore all' option to the file-reload pop-up dialog. This will
+	  correct the behavior in situations where the user is running against a
+	  replay-file while it is building. 
+	  
+	* Corrected a bug where non-textured 3D-models would show transparent.
+	
+	* Fixed a bug that causes plotview to crash when running multi-capture. 
+	
+	* Fixed a bug where range-rings were not loaded when opening an AFNES file. 
+	
+	* Fixed a bug that would cause a crash when hovering over a line-of-sight
+	  visualization. 
+	  
+	* Fixed a bug that caused the targeted platforms names not to show up in the
+	  emitter panel's track/jam list.
+	  
+	* Improved how plotview handles masking and value limits. 
+	  
+Enhancements
+	* Added mouse controls to plotview. Left mouse-button-drag pans the view, and
+	  mouse wheel zooms. 
+	  
+	* Added command-line options to load replay files and scenario files without
+	  -ct or -afnes respectively. This will allow windows dragging to the icon,
+	  and association of file-types. 
+	  
+	* Added a higher fidelity earth-limb model. 
+	
+	* Changed the half-angle threshold where sensor volumes change from
+	  ellipse-cones to frustums from 45 degrees to 67.5 degrees. 
+	  
+	* Changed the background color on modelview to provide better contrast with the
+	  occasional white model. 
+	  
+	* Added the WsfDraw timer object. 
+	
+	* Improved the precision of written radial-acceleration values converted from
+	  turn-radius to support routes with a large turn-radius. 
+	  
+	* Added support for the SetData pdu's date and time datums. These will ensure
+	  the correct position of the heavenly bodies for properly configured scenarios. 
+	
+	* Updated sigview with smooth lines for 2D plots, locator planes, and grids. 
+	
+	* Updated sigview with centered radial axis labels. 
+	
+	* Updated sigview with shaders to speed up operations on opacity and clipping
+	  angles. 
+	  
+	* Updated sigview with shaders to enhance the appearance of shape with edge
+	  detection highlighting. 
+	  
+	* Added time to the on-screen scenario statistics. This mode of this display is
+	  toggled with the T key. 
+	  
+	* Added support for non-realtime live simulations. 
+	
+	* Added North/South/East/West orientations to plotview. North orientation has a
+	  positive down-range up, and positive cross-range to the right. 
+	  
+	* Added a square-range check-box to the statistics dialog. When checked the
+	  statistics will calculate based on a Chebyshev-distance as opposed to a
+	  Euclidean-distance. 
+	  
+	* Added header / footer controls to the VESPA options menu.
+
+
+==============================================================================
+Release Notes for CME v6.3.2 - 2 February 2014
+------------------------------------------------
+
+Corrections
+        * Fixed a bug where the preference file's window size would be ignored if the window was maximized in the prior session. 
+        * Fixed a bug where preference file's camera options would be ignored. 
+        * Fixed a bug that prevented text changes to an AFNES type from applying to the entity unless 'enter' was pressed. 
+        * Fixed a bug that causes a crash when closing the entity options window within a second of a text field change. 
+        * Fixed a bug that causes unexpected behavior when clicking the view button on the entity interaction options. 
+        * Fixed a bug that causes a crash when a comment bubble is the very first element hovered over. 
+        * Fixed a bug that could possibly cause a routed player to never reach the end of their route if given a start time. 
+        * Fixed a bug where deleting an entity would not update the displayed time range. 
+        * Fixed a bug where transitioning from a live DIS connection to a scenario file would not properly reset the time-slider. 
+        * Fixed a bug that prevented copying of a position from a DIS entity to an AFNES entity. 
+        * Fixed a bug that prevented AFNES entity options dialogs from being displayed when a DIS scenario is loaded. 
+        * Changed red, blue, green, yellow, and purple team colors to the MIL-STD-2525C values. Added the standard light and dark variants. 
+        * Modified star brightness and colors to be more accurate. 
+        * Fixed WsfDraw displays over Equirectangular maps. 
+        * Fixed a bug that allowed speed in AFNES files to be output in mach.
+        * (CR #10298) - Corrected the user interface to close the entity options window on hitting enter rather than activating the inherit all button. 
+        * (CR #10304) - Fixed a bug that prevented labels from showing properly when using an equarectangular projected map. 
+Enhancements
+        * Linux CME is now built 64-bit on Red Hat 5 machines. 32-bit linux will no longer be supported. 
+        * PERFORMANCE IMPROVEMENTS: VESPA will now load scenarios and replays much faster. Replays with large numbers of entities may see up to a 30x improvment. 
+        * PERFORMANCE IMPROVEMENTS: VESPA will run more smoothly with large numbers of entities. Scenarios with large numbers of entities will see the greatest improvments. 
+        * (CR #10389) - PERFORMANCE IMPROVEMENTS: VESPA will run much better on Linux in scenarios with a moderate to large number of entities. 
+        * PERFORMANCE IMPROVEMENTS: The entity options in VESPA should be more responsive. 
+        * VESPA will now notify the user when the loaded file changes due to external influences, and provide an option to reload or ignore. This works with both replay files and scenario files. 
+        * VESPA will not reset the camera location when reloading a scenario. 
+        * Save comment log will now save all comments (simulation and user generated). Load comment log continues to only load user generated comments. 
+        * Global entity options may now be torn-off of the view menu. 
+        * Scaled icons now size to true-scale size when the scaled size is smaller than the true-scale size. This should enable users to tether to objects without needing to switch to true-scale. 
+        * Changed the player panels' "team" label to read "side" to be more consistent with AFNES terminology. 
+        * Modified the WsfDraw overlay to draw items on receipt of the PDU when ignoring PDU time stamps. 
+        * Living earth inset maps are available again. 
+        * Added command line argument -disableShaders to disable shaders.  This is useful for remote desktop.
+        * (CR #7765) - Added menu options to load recent AFNES files and DIS connections. 
+        * (CR #10326) - Updated the inline documentation in site_geodata.dat to include visual databases and vector data. 
+        * (CR #10506) - Modified the models to be lit from above (geographically) when not using the ephemeris lighting. 
+
+==============================================================================
+Release Notes for CME v6.3.1 - 17 June 2013
+------------------------------------------------
+
+Corrections
+	* (CR #10025) Improved memory usage when displaying DIS data. 
+	* (CR #10136) Fixed a performance problem when editing text in the entity options. 
+	* (CR #10153) Fixed a bug where DIS state symbols would be inappropriately sized when a preference file is loaded before a replay file. 
+	* (CR #10155) Fixed a bug in which global entity options widgets would not reflect the state of the application. 
+	* (CR #10156) Fixed a bug in the model shaders that resulted in washed out models when using AMD GPUs. 
+	* (CR #10161) Fixed a bug that would cause the terrain contour dialog to lose manual limits and increments on subsequent uses. 
+	* (CR #10170) Fixed a bug that would cause the loading progress bar to fill past the 100% mark. 
+	* (CR #10171) Fixed a bug that caused the time slider to reset to 0 when closed. 
+	* (CR #10172) Fixed a bug that caused VESPA to ignore the window position in preference file 
+	* (CR #10173) Fixed a bug that caused the camera to not move when loading files from command line. 
+	* (CR #10174) Fixed a bug that prevented the time slider state to not be saved in the preference file. 
+	* (CR #10175) Fixed a bug where the player overlay disregards preference file settings. 
+	* (CR #10176) Fixed a bug which could cause an AFNES player to be cloned multiple times from a single clone action. 
+	* (CR #10195) Re-added the etc directory to support older applications and Suppressor work. 
+	* (CR #10241) Fixed the choose table dialog in sigview. 
+	* (CR #10242) Fixed a plotview bug where occasionally engagement data will mask out by default. 
+	* (CR #10266) Fixed a bug which would add duplicate player names to the find player dialog. 
+	* (CR #10267) Fixed a bug where the find player circle would not disappear when closing the dialog with the top-right-corner X. 
+	* (CR #10270) Fixed a crash that would occur on the detonation of a munition fired from a non-existant entity. 
+	* (CR #10291) Fixed a bug that caused zones to write out with the incorrect height, and AFNES point commands to be incorrect. 
+	* Fixed a bug that caused the preference load window position to be offset from the preference save window position. 
+	* Fixed size problem with rotation dialog 
+	* Fixed crash caused by closing VESPA with uncleared clipboard data 
+	* Fixed the color button in sigview. 
+	* Changed the sigview file-browser to use the OS determined dialog (with favorites) rather than the Qt one. 
+	* Set the default opacity in sigview to be fully opaque. 
+	* Fixed the statistics overlay to behave according to the help menu by toggling each data item with the key press rather than just showing or hiding everything. You can now use the L, U, I, or E keys to properly toggle each data item. 
+	* Correct an issue that caused faster-than-realtime live simulation to receive incorrect timestamps. This change removes the network latency auto-correction from the previous versions. 
+Enhancements
+	* (CR #10097) Added hotkey 'U' to toggle between MGRS and Lat/Lon for the cursor position. 
+	* Added hotkey save states. 
+	* (CR #10154) Added .map as an option for loading analysis maps in VESPA. 
+	* (CR #10269) Modified the hover-script to not show when hovering over comment bubbles. 
+	* Mouse wheel zooms to cursor instead of center 
+	* Added play rate manipulation over DIS 
+	* Added comment bubble duration 
+	* Added comment bubble duration by simulation time or clock time 
+	* Added support for Stop/Freeze PDU 
+	* Added support for Start/Resume PDU 
+	* Moved the global entity options to the view \ global entity options sub-menu. 
+	* Added the ability to copy the LLA (Ctrl+L) or the MGRS (Ctrl+U) coordinates to the clipboard so it can be pasted to a text file. 
+
+==============================================================================
+Release Notes for CME v6.3.0 - 25 October 2012
+------------------------------------------------
+
+General
+
+    * MAJOR UPDATE: VESPA is now running with a Qt-based graphic user-interface in place of the previous FLTK. This requires a completely new installation of CME. Please do not install CME 6.3.0 into your existing CME directory.
+    * NOTE: If you encounter a white earth terrain (i.e., the texture is missing) upon loading VESPA, it is likely that you'll have to upgrade your graphics card drivers. We've had several users that have upgraded to Windows 7 and have run across this problem. We've also encountered this problem on Windows XP. 
+
+Corrections
+
+    * (CR 7121) Fixed a bug where timeview display entities by their old names after being renamed. Fixed the incorrectly defined MESSAGE_RECEIVED event.
+    * (CR 8201) Same as CR 9066.
+    * (CR 8554) Fixed a bug where VESPA's documentation couldn't be launched if VESPA was sitting in a path that had spaces in it.
+    * (CR 8734) Fixed a bug which caused user moved waypoints to translate erratically when the longitudinal distance was great.
+    * (CR 9066) Add colorname.xml to the configuration directory stack (i.e., root, site, home, home/cme_data, run, run/cme_data). Same as CR 8201.
+    * (CR 9328) Fixed a bug which causes VESPA to crash when running over a virtual machine.
+    * (CR 9331) Fixed a bug with how VESPA handles multi-beam sensors. It was only displaying the first beam and ignoring the rest.
+    * (CR 9337) Same as CR 9340.
+    * (CR 9340) Fixed a bug so that a players heading changes with the location of the first waypoint. Same as CR 9337.
+    * (CR 9383) Fixed a bug where a player with a route would jump to a latitude of 0 and longitude of 0 when the time slider was present and the player was cloned or manually repositioned.
+    * (CR 9430) Fixed a bug where the visibility of attached zones and range rings wasn't handled correctly when a preference file was loaded before the scenario file.
+    * (CR 9440) Fixed a bug where setting an initial preference file with a project type specified (i.e. Orthographic) would cause a crash.
+    * (CR 9451) Fixed a bug where VESPA would output incorrect syntax after loading an absolute zone that is attached to a platform. It was outputting both relative and absolute positions the next time the scenario file was saved. Now, it will only output the relative values.
+    * (CR 9458) Fixed a bug with the 'Use Terrain for AGL Altitudes' menu option. It wasn't propagating the change to the entities.
+    * (CR 9465) Fixed a bug with editing an AFNES route_network, where a change to a waypoint wasn't maintained.
+    * (CR 9466) Fixed a bug with elliptical and circular zones where if a negative value was entered for the end or start angles VESPA would crash. Also fixed the bug where the shapes were drawn wrong if the wedge size was less that 15 degrees.
+    * (CR 9467) Fixed a bug where the location of the creation_time command in an AFNES file would cause a pause time in addition to the creation time.
+    * (CR 9470) Fixed a bug where the beam_parameters.txt file wasn't being used for sensor range.
+    * (CR 9483) Fixed a bug where Sigview's Recent Prefs menu (under the File menu) wasn't actually loading the preference files that were listed.
+    * (CR 9582) Added the ability to rotate a selection about a user defined center.
+    * (CR 9594) Fixed a bug which caused export shape-file names to get corrupted if they did not end with ".shp"
+    * (CR 9652) Improved zone load-time performance.
+    * (CR 9653) Fixed a bug which caused latitude-longitude grid to disappear when viewing flat maps at certain locations.
+    * (CR 9654) Fixed a bug which prevented databases from receiving the ephemeris systems lighting effects.
+    * Fixed a bug that prevented stale and stale-culled entities from ever recovering from those states.
+    * Symbol size in the entity options may now be set back to one.
+    * Corrected problems that prevented most plotview screen-capture features from working. 
+
+Enhancements
+
+    * (CR 8201 and 9066) VESPA will now search user directories, site directories and supplied resource directories for the colormap.xml file. Added russia as an alias for red.
+    * (CR 8973) Added the ability to display an interaction history. This feature was available in CME v6.2.0, but wasn't documented.
+    * (CR 9377) Added the ability to display labels on Sigview's 2D plots for both the scale and radial axes.
+    * (CR 9433) Added the ability to suppress selection indications. This is activated by pressing ctrl-shift-s. Suppression also occurs while tethered to a platform, or when taking a decomposited screen-shot.
+    * (CR 9435) Added the ability to take decomposited screen shots. After pressing F8 VESPA will output three PNG images. The first will be the background image (terrain), the second will be the icons (platforms), and the third will be other scene objects (attachments and overlays).
+    * (CR 9655) Made the yellow team icons more like American mustard and less like Dijon mustard.
+    * (CR 9656) Added Tools->Screen Capture.
+    * (CR 9656) Added Tools->Set Screen Capture Directory to set the destination directory for screen captures.
+    * (CR 9658) Added support for sensor plot's multi-dimensional horizontal maps.
+    * (CR 9658) Added File->Export Replay to AFNES which will capture the displayed replay scenario and create a snapshot AFNES file of the entities, including attachments at the displayed time.
+    * (CR 9658) Added File->Import Attachments which will merge an AFNES file into the active scenario in such a way so that existing entities that share a name with imported entities will inherit the imported entities attachments.
+    * (CR 10092) Converted Sigview to QT. This allows for new options, such as docking controls and some saved preferences (dock positions, sampling rates, and plot-type.)
+    * (CR 10093) Added the ability to load an AFNES inline_table in Sigview. Sigview will load the first occurring inline_table in the provided file.
+    * Added the ability to zoom in and out using the mouse wheel.
+    * Changed the center camera hotkey to 'Home' instead of 'Spacebar' and added a menu shortcut.
+    * Waypoints can now be placed easier. Select any waypoint, then use Alt+click to create new waypoints.
+    * Added keyboard Shortcuts to time slider. <Spacebar> to toggle Play/Pause. '<' to play backward. '>' to play forward
+    * Using the copy/paste buttons from any latitude-longitude position will copy to and from the clipboard in a AFNES-route format rather than the old SEDIT format.
+    * The second waypoint will now extrapolate its default position using the platform's heading, rather than appearing north of the first.
+    * Allow entities to change their teams using the entity-state PDU.
+    * Timeview will now properly display DIS-comment PDUs.
+    * Plotview has been updated to better support non-probabilistic plots.
+    * Plotview now draws grid-lines over engagement plot points.
+    * Plotview can now load plots from the command line using any of the following: -plot1, -plot2, -engage1, -engage2
+    * Sigview can now load some AFNES files. It will find and display the first inline_table in a file. 
+
+Known Issues
+
+    * On Linux the map sometimes becomes visually corrupted with black patches. We believe this to be a driver issue and are working to track it down. If you log out of your session and log back in the corruption goes away. 
+
+==============================================================================
+Release Notes for CME v6.2.0 - 25 October 2011
+------------------------------------------------
+
+General
+
+    * NOTE: If you encounter a white earth terrain (i.e. the texture are missing) upon loading VESPA, it is likely that you'll have to upgrade your graphics card drivers. We've had several users that have upgraded to Windows 7 and have run across this problem. We've also encountered this problem on Windows XP.
+    * NOTE: If VESPA fails to run when you launch it and the command line displays an 'execve' error (on Windows only), you'll need to install the C++ 2005 SP1 redistributable package. We've included it with this CME release in the CME/bin.v6.0.0/redist folder. 
+
+Corrections
+
+    * (CR 5660) (CR 7590) (CR 8834) (CR 8839) Fixed a bug in the chart drawing code that would cause various other scene elements to display poorly over NIMA charts.
+    * (CR 7685) Fixed a bug with the goto option on routes. If you were to add a goto command to a waypoint and then set a speed, the resulting AFNES file would place the speed after the goto, which is invalid syntax for AFNES.
+    * (CR 8547) The sensor coverage color chooser now initializes with the current color.
+    * (CR 8575) Fixed a bug where curvature on waypoints would be lost when saving to the AFNES format.
+    * (CR 8621) Correct a bug where sigview would display the improper initial directory for file selection.
+    * (CR 8748) Fixed a bug where player position at scenario time would not update when a waypoint was moved.
+    * (CR 8750) Fixed a bug where after using the DIS to Scenario feature, the file type was a .rep, when it should be a .txt.
+    * (CR 8751) Fixed a bug where the suggested filename when exporting zones to a shape file after loading a replay file was bogus.
+    * (CR 8799) Fixed a bug where the psi and phi were shown swapped in the entity's DIS tab.
+    * (CR 8800) Fixed a bug where the selection indication transparency would conflict with texture-based transparencies.
+    * (CR 8849) When the altitude format is changed, this will now be reflected in the post process player's panel data.
+    * (CR 8853) Zones will now properly maintain their base height and height when exported to shape files.
+    * (CR 8917) Corrected a bug where VESPA would output data in less precise format than desired.
+    * (CR 8919) Updated the VESPA readme files.
+    * (CR 8923) Fixed a bug that prevented the loading of raw .dis files.
+    * (CR 8924) Fixed a bug where the latitude and longitude fields on the Line of Sight tool were not editable. Also, the latitude and longitude unit format wasn't being applied.
+    * (CR 8929) Correct a bug where the clamp to terrain option was set, added players could still appear underground.
+    * (CR 8931) Fixed a crash that could occur when a player was deleted while the find-player dialog was opened.
+    * (CR 8980) Fixed a bug where if a post-process scenario was open and pre-process scenario elements were added, it wasn't possible to save them to scenario file.
+    * (CR 8996) Fixed a crash that would occur when range-rings were displayed while no map is selected.
+    * (CR 8998) Correct a bug where the time-slider would stick at 50% sim-time.
+    * (CR 9011) Fixed a bug where analysis maps would turn white after a scenario merge.
+    * (CR 9012) Fixed a bug where sometimes zones that were attached to players would not be written out to file.
+    * (CR 9013) Fixed a bug where sometimes an attached zone or range-ring that was deleted would still show up after saving out to file.
+    * (CR 9014) Fixed a bug regarding how zones are output in the SEDIT format.
+    * (CR 9015) Fixed a bug where user comments in a scenario may become doubly commented after translation to another format.
+    * (CR 9016) Fixed a bug where after a user deletes a route from a player, the first waypoint of the route could still appear in the written file.
+    * (CR 9064) Fixed a bug where the global symbol size slider wasn't updating the associated text box and vice versa.
+    * (CR 9087) Fixed a bug with polygonal zones and equi-rectangular projected databases. Previously when loading an equi-rectangular projected database, polygonal zones wouldn't immediately adjust...it required an edit to the zone first. This has been fixed.
+    * (CR 9094) Fixed a bug with how creation_time was being output. If set from the Player Panel via 'Start Time' it would output as hr:min:sec, which AFNES can't read. It now outputs in seconds.
+    * (CR 9116) Added type precedence to the multi-select browser.
+    * (CR 9158) Fixed a bug which improperly put an angular unit on heading of entities converted from SEDIT to AFNES.
+    * (CR 9187) Fixed a bug where the find-player browser would cause a crash when changing scenarios.
+    * (CR 9189) Entities will no longer interpolate or extrapolate while labeled inactive by DIS.
+    * (CR 9260) Fixed a bug where route segments between two waypoints that are separated by a difference in altitude that required a climb rate larger than either the beginning or ending speed would cause a visual disconnect.
+    * (CR 9264) (CR 8894) A bug was fixed where sometimes trace lines would turn magenta after a platform survived an engagement even though they are tracked and should be yellow.
+    * (CR 9269) Fixed a bug where showing sensor frustums on certain platforms would cause a crash. 
+
+Enhancements
+
+    * (CR 7379) Added support for the creation_time command in AFNES platforms. It it accessible on the Player Panel in the 'Start Time' field.
+    * (CR 8746) Added a select-all and deselect-all button to the terrain masking tool.
+    * (CR 8850) Added a toggle button to analysis-player panels to show altitude in AGL or MSL.
+    * (CR 8930) Added a mast height to the source player in the terrain masking tool.
+    * (CR 8972) Added visual marker to the center of the range ring.
+    * (CR 8975) Added the slant-range / great-circle-range toggle hot keys to the on-screen help display.
+    * (CR 9053) Modified the simulation analysis player panel to display the names of the players in the Trk/Jam list on the Emitter tab.
+    * (CR 9065) Added documentation for the AFNES type system in VESPA.
+    * (CR 9086) When zones are initially loaded from a file, their points are no longer shown by default; you must first select the zone. This was done for performance reasons.
+    * (CR 9090) Added a select all zone-points button to the zone-point panel.
+    * (CR 9095) Added the ability to rotate a scenario using box selection.
+    * (CR 9108) After dragging a player, its latitude and longitude values would round off based on the zoom level (on the Player Panel) when released (i.e. user releases mouse button 1). This has been changed so that the zoom level no longer affects the precision.
+    * (CR 9029) (CR 9154) Added the ability to draw ellipsoids and spheres via the WsfDraw interface. The ellipsoids can be drawn in filled mode or unfilled mode (with latitudinal and longitudinal lines), and can be oriented with heading, pitch, and roll.
+    * (CR 9197) Added the ability to load time varying analysis maps. The format for the analysis maps was changed to an XML format. The old format is still supported.
+    * (CR 9237) (CR 8858) Users can now define additional content directories (similar to the cme\site diretory) with the command line argument '-sitepath directory'.
+    * (CR 9238) Selection is now indicated by a glow on objects rather than an adjustment to transparency.
+    * (CR 9239) Replaced the old performance monitor (ctrl-shift-f) with a new one (F10) which displays more information.
+    * (CR 9240) Added a 3D area screen capture (F9).
+    * (CR 9241) Added additional configurable information when hovering over entities.
+    * (CR 9242) Added ability to load, save, and modify AFNES route networks.
+    * (CR 9257) Added displays for circumference and area on the elliptical, circular and polygonal zone panels.
+    * (CR 9261) Visibility of the entity-count/LLA overlay will now be saved to the preference file.
+    * (CR 9270) Added the ability to display interaction lines for jamming attempts (this is AFNES specific).
+    * (CR 9276) Added text box widgets to the scripting system. Added DIS PDUs to the scripting system.
+    * (CR 9280) Preference files now save the location of the time-slider. 
+
+Known Issues
+
+    * On Linux the map sometimes becomes visually corrupted with black patches. We believe this to be a driver issue and are working to track it down. If you log out of your session and log back in the corruption goes away.
+    * Sometimes when copying a route, the first waypoint will jump to the database's origin (we haven't been able to reproduce this yet). 
+
+==============================================================================
+Release Notes for CME v6.0.1 Patch - 23 February 2011
+------------------------------------------------
+
+General:
+
+* This patch fixes one major bug (see CR 8755) and several usability features. Not mentioned in the release notes of CME v6.0.0 is this version of CME requires Linux Redhat5 / FC6 or newer. Redhat 4 / FC2 are no longer supported.
+
+Corrections:
+
+* (CR 8721) Fixed a bug where the DIS to Scenario loader would write altitude in nautical miles instead of meters.
+* (CR 8729) Fixed a bug where shapes drawn with WsfDraw commands weren't being anchored to the specified platform vertex (i.e. Vertex(WsfPlatform) wasn't working as expected).
+* (CR 8745) Fixed a bug with DIS to Scenario where sometimes a large negative speed value would occur.
+* (CR 8755) Fixed a bug where VESPA would crash when an entity was selected during a live DIS exercise. This only occured for entities coming from certain simulation environments.
+* (CR 8759) Fixed a bug on Linux with the ImageMap feature where jpeg files wouldn't load correctly. They would appear as a white texture.
+* (CR 8764) Fixed a bug where if you enabled the elevation using the 'e' key and then shut VESPA down, it would crash.
+
+Enhancements:
+
+* (CR 8722) Added the ability in VESPA to load binary DIS logs. These differ from our CME replay files in that they don't contain any non-standard DIS information. To load a binary DIS log, simply follow the same procedure you would to load a replay file.
+* (CR 8740) Modified the DIS to Scenario reader to handle non-CME replay files (i.e. raw binary DIS logs).
+* (CR 8745) Modified the DIS to Scenario reader to generate platform_type commands which include the icon command. This allows the user to create a laydown file without the icon command, which they may want to set in their platform type.
+* (CR 8757) The cursor display and player count was difficult to read against certain backgrounds, so a white background has been added to improve contrast.
+
+Known Issues:
+
+* Shutting down while using charts will cause a crash of the application.
+* Inactive timers do not seem to be properly propagated through the options system for very large scenarios.
+* Sensor projections, sensor history, and az-el zone projections show holes when viewed at some angles.
+* The limit point icon generated from the terrain contour does not screen scale properly.
+* Terrain masks, analysis maps, and image maps may initialize below the visual terrain database.
+* The lock option on the DIS tab of analysis mode entities does not update the current state on the entity panel.
+* The track-jam receiver button has bad text.
+* Articulations don't behave correctly when adjusting the elevation angle.
+* While displaying charts, the text associated with the measuring tool does not display
+
+==============================================================================
+Release Notes for CME v6.0.0 - 13 January 2011
+------------------------------------------------
+
+VESPA
+-----
+
+This release of VESPA uses a completely reworked code base and includes many new features. Below is a list of the major new features:
+
+General:
+
+* NOTE If you encounter a white earth terrain (i.e. the texture are missing) upon loading VESPA, it is likely that you'll have to upgrade your graphics card drivers. We've had several users that have upgraded to Windows 7 and have run across this problem. We've also encountered this problem on Windows XP.
+* NOTE If VESPA fails to run when you launch it and the command line displays an 'execve' error (on Windows only), you'll need to install the C++ 2005 SP1 redistributable package. We've included it with this CME release in the CME/bin.v6.0.0/redist folder.
+
+Corrections:
+
+* (CR 6410) Fixed a bug where we were marking entities as dead if we received a detonate PDU. Now we check the damage bits (bit 3 and 4) for a value of 3 (destroyed).
+* (CR 6414) Fixed a bug where global entity options wouldn't apply globally if the current filter wasn't global.
+* (CR 6415) Fixed a bug where the true scale entity option wasn't propagating to new entities.
+* (CR 6691) Fixed a bug where hiding the entity's icon wouldn't improve the frame-rate.
+* (CR 7185) Fixed a bug where a layer would be created when loading a shape file, even if the shape failed to load.
+* (CR 7309) Fixed a bug where changing the current time unit format while display comment bubbles would cause a crash.
+* (CR 7310) Added a time stamp to each comment in the comment log window.
+* (CR 7376) Fixed a bug where the play rate on the TimeSlider wasn't populated until the user manipulated the TimeSlider.
+* (CR 7377) Changed the preference file browser to use the current directory as the default directory, unless otherwise specified using the Set Default Preference Directory....
+* (CR 7378) Removed the preview panel from the preference file and replay loading file browsers.
+* (CR 7508) Timeview's waterfall plot wasn't sorting by time when the entity_filter command was specified.
+* (CR 7541) Fixed a bug where the sensor coverage tool didn't work on Linux.
+* (CR 7546) Fixed a bug where VESPA wasn't looking for the beam_parameters.txt file in the user's run directory.
+* (CR 7589) Fixed a bug where adjusting the intensity of NIMA charts from the Map Options would cause a crash.
+* (CR 7591) Extended the capability of the measure tool to display either great-circle distance or line of sight range.
+* (CR 7669) Fixed a bug where the latitude and longitude input fields would maintain the precision the user entered, instead of using the format specified in the options.
+* (CR 7764) Fixed a bug where the map intensity and saturation weren't being applied immediately after loading a preference file.
+
+Enhancements
+
+* Reworked codebase that utilizes the VESPA Toolkit.
+* Integrated OsgEarth, which provides the ability to dynamically generate visual databases from local and remotely hosted datasets.
+* AFNES and SEdit scenarios are now represented internally using an XML intermediary language. This means...
+  * You can load or create an AFNES scenario and convert it to SEdit and vice versa.
+  * New scenario formats can more easily be added and only need to be concerned with translating to our XML intermediary language.
+  * Once a scenario format is translated to our XML intermediary language it can be automatically converted any other type (i.e. AFNES, SEdit, etc.)
+* Both AFNES and SEdit file formats can be merged in with a replay file / network connection. The previous version only supported SEdit.
+* The great-circle ruler has been modified to support both great-circle and cross-range modes.
+* An atmospheric haze pixel shader has been added to all curved earth databases, which gives a nice sense of depth.
+* The preference system has been modified to read and write XML.
+* (CR 6387) WsfDraw now supports layers. Layers can be global or scoped to an entity.
+  * If they are global their visibility can be toggled via the 'Map Options' -> 'Layers' tab.
+  * If they are entity scoped their visibility can be toggled via the 'Entity Options' -> 'WsfDraw' checkbox.
+  * See the latest AFNES WsfDraw documentation for how to create layers.
+* (CR 5671) A first cut at equirectangular projected databases has been added.
+  * Many features wont draw correctly in this mode, but entity position, orientation, range-rings, and trace-lines will.
+  * Three equirectangular databases have been provided (Living Earth (Equirectangular), Bald Earth (Equirectangular), Blue Marble (Equirectangular).
+* Wing ribbons are now drawn as actual ribbons instead of two separate lines. The ribbons are also color coded based on the vehicles speed and orientation.
+* Altitude poles are now drawn as a vertical ribbon (or wall) with tick marks representing at regular intervals. These intervals are based on the unit type selected (i.e. feet are in 1000's feet, kilometers are in kilometers, etc.)
+* Modified range-rings to support a base altitude, so that they can be floated. They can also be attached to a player.
+* Modified zones to support extrusion and offsets. Which basically means you can give a zone a base altitude and height.
+* The analysis map feature has been significantly reworked...
+  * sensor_plot.exe has been modified to handle the creation of analysis maps.
+  * Their color rules (i.e. PD should be blue if between 0.6 and 0.8, etc.) can more easily be created/edited.
+  * They can now be offset vertically from VESPA's terrain databases to avoid clipping.
+  * They can now be draped onto 3D terrain.
+* Added the ability to load standard image formats (jpg, bmp, etc) and drape them onto the terrain (Image Maps).
+* Added the ability to load and save a scenario from a replay file (DIS to Scenario).
+* Modified the way team names and colors are managed.
+* The terrain masking tool has been upgraded to use the new analysis maps. This means one a terrain mask is generated, it can use all of the features available to analysis maps (i.e. terrain draping, offseting, etc.).
+* (CR 7491) Removed the preview panel from VESPA's filechooser.
+* (CR 7186) Improved the global symbol-size control (Symbol Size Dialog).
+* Added Ellipse capability to WsfDraw.
+* Added alpha value to SetColor method in WsfDraw allowing WsfDraw lines and shapes to appear translucent. 
+
+Known Issues:
+
+* Shutting down while using charts will cause a crash of the application.
+* Inactive timers do not seem to be properly propagated through the options system for very large scenarios.
+* Sensor projections, sensor history, and az-el zone projections show holes when viewed at some angles.
+* The limit point icon generated from the terrain contour does not screen scale properly.
+* Terrain masks, analysis maps, and image maps may initialize below the visual terrain database.
+* The lock option on the DIS tab of analysis mode entities does not update the current state on the entity panel.
+* The track-jam receiver button has bad text.
+* Articulations don't behave correctly when adjusting the elevation angle.
+* While displaying charts, the text associated with the measuring tool does not display
+
+
+==============================================================================
+Release Notes for CME v5.3.2 - 07 January 2010
+------------------------------------------------
+VESPA
+-----
+
+* CR7183 - Fixed a bug on Linux where VESPA would hang on shutdown if a large replay file had been loaded.
+         - Another symptom of this bug was that Timeview would not open from VESPA if a large replay file had been loaded.
+
+
+==============================================================================
+Release Notes for CME v5.3.1 - 14 December 2009
+------------------------------------------------
+VESPA
+-----
+
+* CR7146 - Drastically improved VESPA's memory usage when loading a replay file.
+
+==============================================================================
+Release Notes for CME v5.3.0 - 17 November 2009
+------------------------------------------------
+general
+-------
+* Added a plotting capability to Timeview that includes several plot types like detection and tracking waterfalls, track sandpiles, relative geometry, speed, altitude, etc. New plots can be created through a plugin interface.
+* CR6358 - Created a model library of detailed 3D models that is available as a separate download on BRASS.
+* CR6706 - Improved Sigview
+         -   made the default signature type "Threat Assessment" as both AFNES and Salram use this type.
+         -   ability to change the highlighted ring from "0" to any value.
+         -   ability to change the angle on the radials from 10deg to any value.
+         -   ability to save the user preferences to a preference file.
+         -   ability to select multiple RCS files in a directory, and load them all simultaneously.
+* cR6372 - Added plotview to the CME release.
+
+VESPA
+-----
+
+Features:
+
+* CR6339 - Migrated to OSG 2.8.1
+* CR6406 - Added new country borders. We finally have a unified Germany.
+* CR6416 - Added the clone option to the popup menu.
+* CR6418 - Added logic to utilize less CPU time when connected to a live DIS network and not PDUs are present.
+* CR6419 - Added the ability to add attachments to post process players.
+* CR6425 - Added the ability to output the 'label' and 'goto' commands when saving to the AFNES format.
+* CR6429 - Created a 3D library of 1000+ high resolution models. This library will be available as a separate download.
+* CR6717 - Added the ability to copy and past lat/lon/alt values.
+* CR6766 - Changed AFNES to be the default scenario type.
+* CR6795 - Added RCS scaling using the radar range equation.
+         - Added support for az/el zones in AFNES scenario files.
+         - Added support for projecting az/el zones onto the terrain.
+* CR7028 - Added the ability to load, extrude, and offset to an altitude ESRI shape files.
+* CR7062 - Added hotkeys for the entity options, map options, and sky and time of day dialogs (CTRL-E, CTRL-M, CTRL-T).
+* CR7065 - Added a menu option 'Reset Camera' (or CTRL-R) under the view menu that recenters the camera's yaw, pitch.
+* CR7070 - Replaced the preference file chooser with the standard VESPA file chooser.
+* CR7071 - Modified VESPA's file choosers to use the path from the last opened file.
+* CR7075 - Ephemeris feature exaggeration is now off by default.
+
+Bug Fixes:
+* CR6341 - Fixed a bug where VESPA wouldn't load an AFNES file with a .txt file.
+* CR6395 - Fixed a bug where the heading command didn't orient the player until the time slider was brought up.
+* CR6408 - Fixed a bug where the measure dialog's units were not being propagated correctly if the dialog was visible.
+* CR6409 - Fixed a bug where the measure dialog's default units where not the same as VESPA's default length units (i.e. nautical miles).
+* CR6417 - Fixed a bug where the loiter time units were invalid when written in AFNES format.
+* CR6420 - Fixed a bug where the maximum time wasn't being recalculated when a player was removed from the scenario.
+* CR6436 - Fixed a bug where the progress bar was clipping the file path.
+* CR6437 - Fixed a bug with WsfDraw colors on Linux. All colors were showing up as black.
+* CR6460 - Fixed a bug where the 'Reset DIS Connection' option under the file menu would cause new entities to not be selectable.
+* CR6526 - Fixed a bug where VESPA would fail to load a replay file if there was any whitespace in the path.
+* CR6534 - Fixed a bug where VESPA's performance would suffer when creating AFNES scenarios as opposed to SEDIT scenarios.
+* CR6545 - Fixed a bug where the "Find Player" dialog wasn't centering the camera correctly.
+* CR6555 - Fixed a bug where comment bubble picking doesn't work in certain situations.
+* CR6573 - Fixed a bug where "Find Player" crashed VESPA.
+* CR6577 - Fixed a bug where VESPA would crash if a LOS (line-of-sight) was visible and replay file was loaded.
+* CR6637 - Fixed a bug where VESPA would crash if a model didn't exist, but was mapped in the model_map.dat file.
+* CR6638 - Fixed a bug where shared zones would ignore the line_width and hide_points commands.
+* CR6641 - Fixed a bug where the final entry in the model_map.dat file was not being read.
+* CR6645 - Fixed a bug where the dis_map.dat file wasn't being read correctly. The first one found would overwrite all of the other mappings.
+* CR6689 - Fixed a bug where the great circle ruler was incorrectly showing closing velocity and ETA when the endpoints were close.
+* CR6692 - Fixed a bug where the time units weren't being propagated to comment bubbles and the time slider.
+* CR6703 - Fixed a bug where the waypoint panel didn't update when the waypoint was selected and moved.
+* CR6712 - Fixed a bug where the line style of a circle zone wasn't working.
+* CR6718 - Fixed a bug where the route branch would cause a crash under certain conditions.
+* CR6722 - Fixed a bug where the units on a player's heading were not being output when saving to an AFNES file.
+* CR6734 - Fixed a bug where the automatic camera centering wasn't working under certain conditions when loading a replay file.
+* CR6740 - Fixed a bug where a sensor with more than one beam was only drawing one of them.
+* CR6745 - Fixed a bug where WsfDraw would cause VESPA to crash (when connected to a live network) if a draw command was issued that involved an entity whose entity state PDU had not yet been received.
+* CR6788 - Fixed a bug where the camera would incorrectly center when entities were not at ground level.
+* CR6791 - Fixed a bug where VESPA would write out a platform's type even if the platform was read in edit mode (i.e. platform my-plat ... end_platform (no type was specified))
+* CR6830 - Fixed a bug where some file paths with spaces, would not cause a failure.
+* CR6879 - Fixed a bug where points specified via the WsfDraw interface if they were 2 pixels or less.
+* CR7076 - Fixed a bug where certain 3D zone files would be rendered with missing geometry.
+
+
+==============================================================================
+Release Notes for CME v5.2.0 - 02 March 2009
+---------------------------------------------
+general
+-------
+
+VESPA
+-----
+
+Features:
+* Significantly improved the performance of the replay and scenarioloaders.
+* Added a progress bar for replay loading.
+* Supports the WsfDraw interface where users can issue draw commands from AFNES script (see AFNES documentation for more details)
+* Added map option to import ESRI shape files.
+* Added sky and time of day features to preference files.
+* CR5804 - Added offsets.  Offsets may be defined in the model_def.dat file.  The first defined offset will be used as the location where interaction lines will be sent or recieved. Offsets are also used as the tether location on an object and can be cycled with the 'c' key.
+* CR5805 - Range rings are now maintained in AFNES scenarios as comments.
+* CR5829 - Implemented conic sensor volumes.  If the azimuth and elevation sweeps are both below 45 degrees, the sensor volume will be displayed as a ellipse-cone.
+* CR5872 - With AFNES scenarios, if the icon command isn't specified, the platform's type is used to do the icon lookup.
+* CR5881 - Improved the AFNES run panel by streamlining its layout and adding an edit button that will launch a text editor with the scenario main file.
+* CR5920 - Firefox is now used if available when the html documentation is opened via the help menu.
+* CR5949 - Added a 'clear default' button to the DIS connection panel that allows the user to clear the current default connection type.
+* CR6028 - Range rings can now be attached to players.
+* CR6033 - VESPA's framrate is now pegged to 60hHz to avoid hogging the CPU.
+* CR6331 - Added the ability to center and zoom the camera by double clicking the space bar. This will center and zoom on the entire scenario or the current selection list.
+* CR6332 - Added a screen overlay that is accessible via the 'h' key that lists all keyboard and mouse commands.
+* CR6333 - Reorganized the menu bar's menus (i.e. File, Edit, View, etc.).
+
+Bug Fixes:
+* CR5809 - Fixed a bug where the undo operation with zones wasn't working as expected.
+* CR5824 - Fixed a bug where pause on the TimeSlider wouldn't work if the end time was the same as the simulation time.
+* CR5842 - Fixed a bug where labels weren't being shown when 'show labels' was selected.
+* CR5867 - Fixed a bug with elliptical zones where the line style and orientation commands were being ignored. 
+* CR5875 - Fixed a bug with sensor frustums where they would change color when a replay file was reloaded.
+* CR5876 - Fixed a bug where waypoints weren't being scaled properly.
+* CR5890 - Fixed a bug where the stoplight metric tool would crash if only 1 column of data was specified.
+* CR5905 - Fixed a bug where range rings weren't being drawn correctly when selected.
+* CR5915 - Fixed a bug with our model renderer where certain models would be drawn as wireframes (e.g. missiles).
+* CR5918 - Fixed a bug with the line-of-sight tool where it would crash it was deleted while the panel was active.
+* CR5935 - Fixed a bug with patterns where their units would change from what they were read in as when saving.
+* CR5947 - Fixed a bug with dialog titles, many still referenced SEDIT.
+* CR5951 - Fixed a bug where the camera defined in a preference file was being ignored when loaded along side a replay file.
+* CR5957 - Fixed a bug where loading a preference file from the command line would not position the camera.
+* CR5963 - Fixed a bug where altitude was being written out with invalid units (i.e. nautical miles).
+* CR5966 - Fixed a bug where using undo after a waypoint was moved would cause a crash.
+* CR5987 - Fixed a bug where the AFNES type loader was failing because a simulation object didn't exist.
+* CR5989 - Fixed a bug where non-mapped AFNES teams would cause a crash (i.e. teams not mapped in the CmeTeamFile.dat).
+* CR6017 - Fixed a bug where the terrain-profile tool would crash if a waypoint's attributes where modified.
+* CR6034 - Fixed a bug where zone points were being appended to the end of the zone, instead of being inserted after the selected point.
+* CR6039 - Fixed a bug where a sensor frustum would appear before it was actually turned on.
+* CR6341 - Fixed a bug where AFNES files without a .txt extension wouldn't load.
+* CR6049 - Fixed a bug where the 'route end_route' block would persist even if the route was deleted from a player.
+* CR6078 - Fixed a bug where the interaction lines would reverse direction depending on the current camera projection (i.e. perspective vs. orthographic).
+* CR6102 - Fixed a bug where the camera projection (i.e. perspective vs. orthographic) setting was being ignored when a preference file was loaded.
+* CR6232 - Fixed a bug where loading a replay file while another is in the process of loading would cause a crash.
+
+==============================================================================
+Release Notes for CME v5.1.0 - 22 September 2008
+------------------------------------------------
+general
+-------
+
+VESPA
+-----
+
+Features:
+* Added an AFNES runtime interface that allows users to run the currently loaded AFNES scenario through and external AFNES application and view the results immediately in VESPA.
+* Added a stoplight metric tool that allows users to load a set of metric data (i.e. name/value pairs) that are associated with a given DIS source. The metrics can then be visualized in a geographic context within VESPA.
+* Added the ability to load database overlays such as roads, country borders, etc. from a data file and access them via the map options dialog.
+* Added the ability to exaggerate to the size of space features (i.e. the moon and sun). By default the size is exaggerated and this can be disabled through the time of day dialog.
+* Added the ability to load 3D azimuth/elevation zones from the entity attachments dialog.
+* Added an analytic map capability, accessible from the map options layers tab that generates a 2D texture from a value field file. The 2D texture conforms the WGS84 ellipsoid and is useful for displaying data such as sensor coverage.
+* Added spectral highlighting to 3D models when shaders are available.
+* Added sensor coverage capability. Accessible from the tools menu.
+* Reworked attached zones to allow them to be added, removed, and modified from within VESPA. When creating a zone, if a single player is selected the zone will be attached to that player. Attached zones can be added and removed from the entity attachments dialog, which is available in the associated entity's pop-up menu.
+* All scenario files are now backed-up automatically when they are first opened. You will notice a file generated in the same directory that the scenario file sits in with a '~' appended to it. Subsequent  openings of the same scenario file will produce or overwrite a second version of the back-up with a '~2' appended to it.
+* Added a hotkey that brings up the DIS connection panel (Alt-d). 
+* Upgraded to FLTK-1.1.9
+* CR5562 - When a group of entities is selected and moved, their spacing is now maintained as a distance offset instead of a latitude/longitude.
+* CR5565 - When adding a pattern to a route the exit point is now connected to the next waypoint in the route if one exists.
+* CR5693 - Adjusted the stale time indicator (the little 'z') to come on after 15 seconds instead of 10 seconds.
+* CR5721 - Added a link to the BRASS change request system under VESPA's help menu.
+* CR5761 - Modified VESPA to ignore PDU time stamps by default. There is a checkbox on the DIS connection GUI where this can be changed.
+
+Bug Fixes:
+* Fixed a bug where DTED terrain elevation wasn't being used when the 'Use Terrain for AGL Altitudes'.
+* Fixed a bug where the earth database would page-out (jump to lower resolution) randomly.
+* Fixed a bug where the preference file didn't store several options under the 'Options' dropdown menu on the toolbar
+* CR5661 - Fixed a bug where the pattern center point would remain visible when hidden
+* CR5563 - Fixed a bug where absolute zones would disappear when hiding an entity.
+* CR5564 - Fixed a bug where a single '#' on a line in an AFNES file would cause the line following the '#' to jump up.
+* CR5566 - Fixed a bug where VESPA would hang on Linux FC6 when shutting down if a replay file or live DIS connection had been created.
+* CR5569 - Added visualizations for weapon delivery and sensor image.
+* CR5572 - Fixed a bug where relative (to entities) zones weren't hidden when an entity was hidden.
+* CR5573 - Fixed a bug where multi-selecting entities and deleting them would cause a crash (with binaries built with vs2005).
+* CR5574 - Fixed a bug where range rings would write '@@range_ring' to the scenario file.
+* CR5575 - Fixed a bug where AFNES circular zones were not be output correctly.
+* CR5576 - Fixed a bug with reading the AIRPORT_CONFIG command in VWC scenarios.
+* CR5577 - Fixed a bug with the scenario translation tool (zones weren't translating at all).
+* CR5578 - Fixed a bug with the '-connectTo' command line argument, which would cause VESPA to hang if another DIS source was loaded once in the GUI.
+* CR5580 - Fixed a bug with lasers where the screen flare wouldn't go away if the time slider was advanced faster than realtime.
+* CR5681 - Fixed a bug where vector data (lat/lon grids, country boundaries, etc.) weren't being clipped properly when tethered to an entity.
+* CR5690 - Fixed a bug where terrain masking wouldn't work in analyze mode (i.e. post-processing mode).
+* CR5697 - Fixed a bug where a bad VWC waypoint command with a missing position command would cause VESPA to hang.
+* CR5698 - Fixed several bugs with VESPA's DIS reader that was causing entities to 'jump' because of invalid time values. By default time PDU time stamps are ignored.
+* CR5716 - AFNES scenarios no longer write out position and altitude commands unless they are read in or a non-zero value is specified.
+* CR5727 - Fixed a bug where VESPA was extrapolating angular velocities incorrectly.
+* CR5745 - Fixed a bug where zones relative to LLA positions would lose their name when written to a scenario file.
+* CR5789 - Removed the constraint that heading and position need a route to be written out for AFNES scenarios.
+* CR5820 - Fixed a dual monitor menu bug by upgrading to FLTK-1.1.9.
+* CR5825 - Fixed a bug with how VESPA calculates the PRF limited sensor range. There was a conversion error that caused the sensor frustum to draw out to a range further than the PRF limited value.
+
+Known Bugs:
+* For a list of 'open' change requests, check out our BRASS website at https://brass.web.boeing.com/bugs/?func=browse&group_id=177&set=open
+
+==============================================================================
+Release Notes for CME v5.0.2 - 18 June 2008
+-------------------------------------------
+general
+-------
+
+VESPA
+-----
+
+Features:
+
+* Upgraded to OpenSceneGraph v2.4. This will allow users to load models and databases generated with newer version of osgdem or VirtualPlaneBuilder.
+* Added the START_AT_AIRPORT <airport_name> and START_AT_GATE <gate#> waypoint actions per the VWC's request.
+* Removed the TAKE_OFF_FLY_TO_LON, TAKE_OFF_FLY_TO_LAT, and TAKE_OFF_FLY_TO_ALT waypoint actions per the VWC's request.
+
+Bug Fixes:
+
+* Fixed a bug with the time-at-point feature on waypoints. Previously a minimum and maximum velocity were enforced, this is no longer the case.
+* Fixed a bug with the -connectTo (-ct) command line argument. It now reports if the syntax used is valid.
+* Fixed a bug with fonts on Linux.
+* Fixed a bug in AFNES mode where the 'callback' command if inside of a 'platform' command would cause a read error.
+
+Known Bugs:
+
+* The weapon delivery and sensor image markers aren't currently drawing.
+
+==============================================================================
+Release Notes for CME v5.0.1 - 09 June 2008
+-------------------------------------------
+general
+-------
+
+VESPA
+-----
+
+Features:
+
+* Zones in AFNES format are now read, written and displayed.
+* The afnes_types.txt file can now be placed in a series of locations (current dir, home/cme_data, or site).
+* The timeview.txt (for the VESPA embedded timeview) file can now be placed in a series of locations (current dir, home/cme_data, or site).
+* Added start_time to player level as well as route level
+* Updated VTAB to use new AGL commands.
+* Updated Terrapage loader to utilize LOD.
+* Added the needed data files for timeview.
+* The LOS tool can be repositioned by dragging its origin.
+
+Bug Fixes:
+
+* VESPA no longer prompts the user to save their scenario if the scenario hasn't been modified.
+* The line-of-sight tool is now selectable and can be positioned using the yellow circle.
+* Fixed an issue that occured when a platform's side or icon were inherited from a parent platform type.
+  The icon and side are now only written to the scenario file if they are changed from the inherited type.
+* Time format bug when reading AFNES files is corrected.
+* Fixed a bug where the FindPlayer dialog center on button would jump VESPA to (0,0) in post process mode.
+* Fixed a bug where range rings were being clipped prematurely.
+* Fixed a bug where range ring and zone origins would move without moving the actual range ring or zone when modified via the GUI.
+* Charts are now available again.
+
+Known Bugs:
+
+* The weapon delivery and sensor image markers aren't currently drawing.
+
+==============================================================================
+Release Notes for CME v5.0.0 - 14 May 2008
+-------------------------------------------
+general
+-------
+
+VESPA
+-----
+
+Features:
+
+* Updgraded graphics to utilize OpenSceneGraph v1.2:
+   * Supports 3D paged terrain databases generated using osgdem.
+   * Supports many industry standard model formats (.ive, .flt, .3ds, etc. 
+     (see the OpenSceneGraph v1.2 documentation for a complete list)).
+* Added an entity centered camera.
+* Added a center on first entity when a replay file is loaded.
+* Added an analyst notes (comment bubbles) capability.
+* Added textured strobes to the interaction lines.
+* Added an ephemeris model with the sun, moon, stars, atmosphere, and lighting.
+* Added icon sets where models can be swapped at runtime between 2D icons, detailed 3D models,
+  or Mil-Std-2525 symbols.
+* Added Mil-Std-2525 symbols.
+* Added model switch support that can be mapped to the DIS appearance mask. This is  
+  useful for showing different model states that the simulation can control (e.g. a
+  missile launcher erecting its launcher in preparation to fire a weapon).
+* Added model articulation support. This is useful for animating pieces of a model
+  (e.g. a bomber opening its bomb bay doors).
+* Added particle effects for realistic contrails and explosions.
+* Added a measuring tool that measures great circle distance, heading, relative velocity,
+  and ETA between two entities, two stationary points, or an entity and a stationary point.
+* Added a map scale that floats in the bottom left of the screen (View->Map Options->Overlays->Map Scale or 's' hotkey).
+* Added a compass that floats in the top right of the screen (View->Map Options->Overlays->Compass or 'd' hotkey).
+* Added a hot key 'b' to quickly enable and disable comment bubbles.
+* Added a loiter time to waypoints where players will pause (loiter) at a waypoint for a given period of time.
+
+Bug Fixes:
+
+Known Bugs:
+
+* LOS isn't selectable.
+
+
+==============================================================================
+Release Notes for CME v4.4
+--------------------------
+general
+-------
+* Fixed a bug that occurred when broadcasting on a windows machine with
+  two network cards.
+* Fixed a bug that wouldn't allow two applications to talk on the same
+  machine.
+
+Suppressor
+----------
+* The incorrect heading for NON-MOVING entities was getting sent to external
+  interface (DIS or replay file). This is a VERY OLD bug (at least 6 years
+  and probably more), so if you haven't seen it before now it probably wasn't
+  that important.
+
+* Suppressor 5.5 will no longer be included in the distribution files.
+
+==============================================================================
+Release Notes for CME v4.3
+---------------------------
+general
+-------
+
+* Upgrade to FLTK v1.1.7.
+
+Clouseau
+-----
+* Fixed a bug that would give an error when trying to load a pref
+  file after one had already been loaded. 
+* Improved support for Timeview synchronization, including highlighting,
+  and filtering icons by Timeview selections.
+* Added support for multiple stealth viewer clients, and sensor views in the
+  stealth viewer.
+* Fixed some of the text fields that were not showing up in the entity data
+  windows, and also made the text fields in the window resizing.
+
+Eventview
+-----
+* Fixed a bug that caused Eventview to crash when running real time.
+
+Sedit
+-----
+* Added the new VWC wayfile format.
+* Fixed an error with loading a file where a player has a waypoint
+  then a pattern then a waypoint in the same location as the first
+  waypoint.
+* Changed the Import/Export->VWC Menus to include old format and 
+  new format. 
+* Added 'Actions' button to the Waypoint panel.
+* Added actions and final actions to waypoints. They are used
+  for the new VWC wayfile format.
+* Fixed a bug with naming a zone in the GUI. It now checks if the name
+  has white space and replaces it with an underscore.
+* Added a dotted line in the GUI from a waypoint to a 'target' when the 
+  'Action' weapon_delivery or sensor_image are choosen.
+* When an 'Action' of 'Weapon Delivery' or 'Sensor Image' of 'Jam' are 
+  choosen the user can shft-left click to choose a target or target point. 
+
+Timeview
+-----
+* Added collecting of data over DIS or CME replay files.
+* Added three party events.
+* Added filtering methods to automatically populate the selection based on
+  event types, current selections, or event time.
+* Allow vertical scrolling by dragging the mouse over the draw surface.
+* Improved synchronization with clouseau.
+* Added team colors to the main entity lines.
+
+==============================================================================
+Release Notes for CME v4.22
+---------------------------
+
+Sedit
+-----
+* Fixed a performance bug to do with terrain loading.
+
+==============================================================================
+Release Notes for CME v4.21
+---------------------------
+
+general
+-------
+
+* The introduction of time synchronization with between clouseau and timeview
+  that was introduced in version 4.10 caused the programs to pause for several
+  seconds during initialization. This is annoying when not using this feature.
+  The programs will now check for time synchronization only if the environment
+  variable UMP_ARBITER is defined.
+
+clouseau
+--------
+
+* See the item in the 'general' section about clouseau/timeview.
+* Added -usePlaybackTimeout command line argument. 
+* Added a 'Terrain Collisions' feature. 
+* Added several items to the 'Body Data Monitor' overlay (altitude AGL, heading/range to marked body, and speed in knots). 
+* Added elevation to the 'Cursor Latitude Longitude Monitor' overlay. 
+* Added a time field to the 'Kill Window's Hit List'. 
+* Added a PRF and pulse width field to the emission PDU data, under the 'Data' tab located in the 'Player Options' GUI. 
+* Fixed a bug that was preventing preference file from being saved under certain cases. 
+* Fixed the permissions on the Clouseau documentation. 
+* Fixed a bug where Clouseau wasn't looking for cme data in the run directory. 
+* Fixed a bug where multiple entries for the same entity would appear when right-clicking on a group of entities. 
+
+
+Sedit
+-----
+
+* When the line-of-sight dialog is opened while multiple entities are
+  selected target options will be disabled, and when the go button is pressed
+  line-of-sight will be drawn for all selected entities sequentially.
+* Added a scenario level form accessable under the Edit menu via
+  Edit Scenario Data. The form definition file must be called 'scenario.sff'
+  and be placed in the site directory.
+* Added a ctrl-c short cut for cloning players.
+* Added the ability to import/export vwc format files. This is under
+  the File menu.
+* Added a Common Data Window, accessable Edit->Edit Common Data. The window
+  shows all the players in the scenario. Data associated with the players is
+  also displayed and can be modified via the window. Check the help pages for
+  more information.
+* Added elevation to the waypoint panel, measure window, and to the
+  cursor position display at the top of the main window when zoomed in.
+* Added window position/size information to the preferences.
+* Added the option to change distance units in the measure window.
+* Users can draw sensor coverage maps from an option in the menu bar, or
+  pop-up menu from box-selections.  The map is a composite terrain masking
+  coverage for a network of sensors.  Visible elevations can be designated
+  with a single contour, or with user defined color mappings.  Only objects
+  that are selected when the coverage mapping dialog is opened will be
+  available as sensors positions.
+
+Suppressor
+----------
+
+* The default version is 6.0-106.
+
+* Version 5.5-103 is also available.
+
+Timeview
+--------
+
+* When an event is selected, the event time will be displayed in the event
+  output area.
+
+* See the item in the 'general' section about clouseau/timeview.
+
+==============================================================================
+
+Release Notes for CME v4.10
+---------------------------
+
+General
+-------
+* Fixed a bug that caused sedit and iwars to lockup if the globe
+  was moved such that the poles were in the middle of the screen.
+  Clamp metersPerDegreeLon in MapGrid::GenerateLabs to prevent the error.
+
+* Changed FLTK to version 1.1.6
+
+text2cme
+--------
+
+* Corrected a bug introduced during the Windows port at version 3.53 that
+  prevented the program from producing any output.  It basically read and
+  ignored the entire input file.
+
+Clouseau
+--------
+
+* Added 'Terrain Contour' and 'Line Of Sight' to the Windows option of the 
+  menu bar. Terrain Contour is the same as in Scenario Editor.
+  Line Of Sight is between 2 entities.
+
+* Fixed bug with the Kill Window, where hits/misses/kills were not showing up
+  in the tally table.
+
+* Added a time field to the hits table.
+
+* Fixed bug with saving preference files on Windows.
+
+* Fixed bug with Clouseau not looking in the correct location for the cme_data
+  directory.
+
+* Added logic to synchronize Timeview with Clouseau.
+
+* Fixed bug with overlay input file system (zones).  The overlay system created errors
+  when road nodes were present.
+
+* Fixed an extrapolation bug, where rotations about the z-axis were messed up.
+
+* Added PRF and Pulse width to the body's PDU data window.
+
+Sigview
+-------
+
+* When changing to a 3-D plot style now checks if az or el were locked
+  and if one or both were locked resets their value back to default 
+  min/max.
+
+Sedit
+-----
+
+* Fixed a bug with forms: if more than one widget on the same window
+  were associated with the same .sff file they shared a form. Now if this
+  happens each widget has is associated with its own form. Also fixed
+  a bug when reading a .sed file with multiple layers of form data.
+
+* Deactivated 'New Branch' and 'New Pattern' when a route is a Suppressor.
+  Suppressor does not understand branches.
+
+Suppressor
+----------
+
+* The default version is 6.0-088.
+
+* Version 5.5-103 is also available.
+
+Timeview
+--------
+
+* Added logic to synchronize Timeview with Clouseau.
+
+==============================================================================
+
+
+Release Notes for CME v4.01
+---------------------------
+
+General
+-------
+
+* Added a 'Stats' tab to the Terrain Contour popup. It shows the min, max,
+  mean, and standard deviation of the terrain elevations within the selected
+  region.
+
+Clouseau
+--------
+* Fixed a bug where preference files were not backwards compatible.
+
+Scenario Editor
+---------------
+
+* Added 'Area' and 'Length' to Zone and Zone Point Panels. The area is an
+  approximation due to the curvature of the earth. The bigger the zone the
+  less accurate the area.
+
+* A zone is now considered for the determining of the bounding box when a
+  .sed file is read.
+
+Suppressor
+----------
+
+* The default version is 6.0-068.
+
+* Version 5.5-103 is also available.
+
+
+==============================================================================
+Release Notes for CME v4.00
+---------------------------
+
+General
+-------
+
+* Suppressor is no longer included in the standard unclassified distributions.
+  (It is still included in the classified distributions).  If you require
+  the unclassified Suppressor you can download that component from the BRASS
+  CME project and load it IN ADDITION TO the normal CME distribution.
+
+Clouseau
+--------
+* Added the ability for users to create graphical overlays.
+
+* Added a cursor latitude and longitude monitor to the main Clouseau window.
+
+* Added a bearing and range monitor to the main Clouseau window.
+
+* Added the ability to turn DIS errors off via the suppressErrors command line
+  argument.
+
+* Added communications to Clouseau's interaction system.
+
+* Added the Kill Window.
+
+* The Sensor FOV capability was expanded and documented.
+
+* The Global Map Options dialog initializes itself properly based on a
+  preference file.
+
+* Fixed a TimeMonitor bug where the digits would appear in the incorrect column.
+
+* Fixed a map loading bug where the map would switch back to Turkey when an
+  option was selected in the MapOptions dialog.  This occured if a map was
+  loaded via a preference file.
+
+* Map autoloading based on the first received body, now ignores bodies above
+  100km (such as satellites).
+
+
+Scenario Editor
+---------------
+
+* Added 'Select Entity' to the 'Edit' and 'Popup' menus that allows all parts 
+  of an entity to be selected making easier to move for example a player and
+  its entire route. 
+
+* Re-implemented the total distance/time field on the waypoint panel.
+
+* Fixed a problem with players drifting between waypoints.
+
+* Relative zones are no longer always drawn as filled.  They will be drawn
+  filled only if the zone is supposed to be filled.
+
+* The Zone panel will deactivate the input items for shared zones that cannot
+  be modified (for example, color)
+
+Suppressor
+----------
+
+* The default version is 6.0-068.
+
+* Version 5.5-103 is also available.
+
+* Modified 6.0 to not create a CME sensor from a Suppressor sensor if the
+  Suppressor sensor had improper LINKAGES.  Suppressor was crashing, but
+  now the code will issue a warning diagnositic indicating database is
+  probably not configured correctly.
+
+==============================================================================
+Release Notes for CME v3.53
+---------------------------
+
+General
+-------
+
+* All graphical programs will now display a 'license agreement' screen the
+  first time a new version of the program is used.  The user must accept the
+  agreement in order to continue execution.
+
+* Updated programs to use version 6.03.404 of UMP.  This version sets the
+  Time-To-Live (TTL) value to 32 to allow multicasting in routed networks.
+
+* CME_MODEL_MAP and CME_MDOEL_DEF were removed. The Clouseau and Sedit 
+  documentation reflect this.
+
+* CME_REL_BASE and CME_REL_SUFFIX don't need to be set by the user anymore.
+
+* Applications should no longer crash given an error in the replay file.
+
+* CME_BROWSER was added so that the default browser can be set by the user.
+
+clouseau
+--------
+
+* Corrected a problem in the Windows version where it would occasionally
+  lock-up when moving windows around.
+
+* Added a "hot" data window (see Clouseau documentation under Data Overlays).
+
+* Upon receipt of the first entity the appropriate map is loaded unless
+  one has been previously selected.
+
+* Fixed problem with opening a non-existent preference file.
+
+* After a body times out a new entity can reuse that body's entity id.
+
+sedit
+-----
+
+* Added the ability to create polygonal zones via the graphical interface.
+
+* White space (blanks, tabs, etc.)  in player names will be converted to
+  an underscore to prevent problems when trying to read the resulting
+  scenario file (the input file reader accepts only a single 'word' as
+  a player name).
+
+sedit_supsr
+-----------
+
+* The 'to_sedit' option was modified to abort if the output file already
+  exists.  Users were accidentally overwriting the last input file if they
+  forgot to supply an output file.  The user will now be responsible for
+  deleting the output file prior to running sedit_supsr.
+
+suppressor
+----------
+
+* The default version is 5.5-103.
+
+* Version 6.0-053 is also available.
+
+* Suppressor would stop responding to external stimuli in a DIS exercise
+  if there were no events left.  This would occur in long-running real-time
+  simulations where all the forces from one side would leave the simulation
+  and then return at a later time. (Fixed in both 5.5 and 6.0)
+
+* The detect/track state of an object by a sensor was not accounting for 
+  coast time. (Fixed in both 5.5 and 6.0)
+
+==============================================================================
+Release Notes for CME v3.52 
+---------------------------
+
+General
+-------
+
+* Corrected a culling problem in the map tile selector.  If culling needed
+  to be performed it sometimes only picked tiles towards the bottom of the
+  screen, even when looking straight down.  It will now pick the tiles
+  closest to the center of interest.
+
+* When initializing the geodata library the search order will now be
+
+    <current-dir>/geodata.txt  (or geodata.dat)
+    <home-dir>/geodata.txt     (or geodata.dat)
+    <cme-dir>/site/geodata.txt (or geodata.dat)
+    <cme-dir>/maps/geodata.txt (or geodata.dat)
+
+  Formerly the home directory was not searched.
+
+  Also, the default extension for the 'geodata' file has been changed from
+  '.dat' to '.txt'.  The library will first look for a '.txt' file and only
+  use the corresponding '.dat' if the '.txt' file cannot be found.  This
+  makes it easier for Windows users to use Notepad.
+
+clouseau
+--------
+
+* Icons now change size as the user zooms in and out.
+* Fixed an OpenGL error in the Mirage model.
+
+sedit
+-----
+
+* The 'Filter' has been replaced with 'Entity Options' which allows
+  more precise control of display options.  The options are heirarchical
+  and can be set at the global, team, group or player level.  By default
+  options are inherited from higher levels.
+
+* More teams (i.e.: colors) have been added.
+
+* The line width of a route can be changed (via the 'Entity Options').
+
+* Multiple patterns in a route are now supported.
+
+* When an error is detected in the input file, the approximate line and
+  column number of the line containing the error will be written to the
+  output file.
+
+* The current file name will now be displayed in the title bar.
+
+* Version 3.51 introduced a problem with the proper display of players when
+  they reached the end of their route (They were always being 'warped' back
+  to their starting location).  The proper operation has been restored.
+
+eventview
+---------
+
+* Change the color of the time 'grid' so it is more visible.
+
+modelview
+---------
+
+sigview
+-------
+
+* Added some ability to edit and write signatures in 'Threat Assessment' 
+  format.
+
+suppressor
+----------
+
+* The default release is 5.5-103.
+
+* Correct a problem where the field of view limits in the DIS Electromagnetic
+  Emissions PDU were half the required size if the default limits were used
+  (i.e.: If SNR-ANGULAR-LIMITS or SCAN-PATTERN-LIMITS were not specified in
+  the TDB)
+
+* Corrected a problem in the DIS interface where Fire and Detonate PDUs
+  were not getting sent for externally fired weapons that were transferred
+  to Suppressor via the DIS Transfer Control mechanism.
+
+* Version 6.0-042 is also available on this release.
+
+surveyor
+--------
+
+* +VB, +VE, +MB, +ME messages are written to standard output to denote the
+  begin/end of a visible or mask segment.
+
+* Added the 'maximum_roll_angle:' command to specify the maximum roll angle
+  (in degrees) at which the sensor is still operational.  The default is
+  90 (which means it isn't roll constrained).
+
+vcdgen
+------
+
+* Modified search algorith to prevent problems near the beam edges if the
+  sensor system definition used clutter or operational probability of
+  detection.

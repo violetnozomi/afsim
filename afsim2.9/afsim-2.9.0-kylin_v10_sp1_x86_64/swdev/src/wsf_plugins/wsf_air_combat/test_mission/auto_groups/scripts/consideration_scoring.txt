@@ -1,0 +1,20 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script double BogieBanditConsiderationScoring(WsfLocalTrack aTarget)
+   double dist = aTarget.SlantRangeTo(PLATFORM) * 0.001; // distance in km
+   return 1.0 - (dist / 100.0);
+end_script
+
+script double UnfocusedGroupConsiderationScoring(WsfSA_Group aGroup)
+   WsfGeoPoint here = PLATFORM.Location();
+   WsfGeoPoint there = WsfGeoPoint.Construct(aGroup.Lat(), aGroup.Lon(), aGroup.Altitude());
+   double dist = here.SlantRangeTo(there) * 0.001; // distance in km
+   return 1.0 - (dist / 100.0);
+end_script

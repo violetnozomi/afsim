@@ -1,0 +1,552 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+file_path ./
+
+
+processor GUN_BATTERY_TACTICS WSF_TASK_PROCESSOR
+   update_interval .5 sec
+
+   script_variables           # These variables are overwritten by the platform.
+      string SENSOR_NAME               = "";
+      string SENSOR_TRACK_MODE         = "TRACK"; # could be "default" if using a modeless sensor
+      string SENSOR_ACQUIRE_MODE       = "ACQUIRE";  # if used...
+      string WEAPON_NAME               = ""; # Supplied by the gun platform
+      double REQUIRED_TRACK_QUALITY    = .95; # Must have a high quality track
+      int SALVO_SIZE                   = 1;  # Overwritten by platform using this processor
+      double LAUNCH_DELAY              = 0;
+      double MAX_RANGE                 = 0; # MUST BE SUPPLIED BY LAUNCHING PLATFORM!!!
+      # the following are used internally and should not be modified by the user
+      string mTrackTaskStr      = "Track";
+      string mShootTaskStr      = "Shoot";
+   end_script_variables
+
+   # returns true if weapon is still active for given track
+   script bool FiringNow()
+      return (WeaponsActiveFor(TRACK.TrackId()) > 0);
+   end_script
+
+   # return true if intercept results are known
+   # (i.e. weapons have terminated for this TRACK)
+   script bool InterceptResultsKnown()
+      return (TimeSinceWeaponLastTerminatedFor(TRACK.TrackId()) > 0.0);
+   end_script
+
+   # return true if TRACK is inside the intercept envelope
+   script bool InInterceptEnvelopeOf(WsfWeapon aWeapon)
+      bool CanIntercept = 0;
+      if((PLATFORM.GroundRangeTo(TRACK) > MAX_RANGE) || !aWeapon.IsValid() || !aWeapon.LaunchComputer().IsValid())
+      {
+         return CanIntercept;
+      }
+      WsfLaunchComputer computer = aWeapon.LaunchComputer();
+      #writeln(TIME_NOW, " Launch Computer Name is = ", computer );
+      #writeln(TIME_NOW, " computer.Intercept point is ", computer.InterceptPoint());
+      CanIntercept = computer.CanIntercept(TRACK, LAUNCH_DELAY) &&
+                     computer.InterceptPointIsValid();
+      if( ! computer.InterceptPointIsValid())
+      {
+         writeln_d("ERROR - ", aWeapon.Name(), " does not have a valid intercept point!!!");
+      }
+      writeln_d(TIME_NOW, "CanIntercept = ",   CanIntercept);
+      return CanIntercept;
+   end_script
+
+   # returns true if acq_radar is tracking
+   script bool HasAcquired()
+      return (TRACK.TrackQuality() > 0.75);
+   end_script
+
+   # returns true if any TTR is tracking (external sensor not defined)
+   script bool TrackingNow()
+      if (!TRACK.IsValid())
+      {
+         return false;
+      }
+
+      if (SENSOR_NAME == "")
+      {
+         return (TRACK.TrackQuality() > REQUIRED_TRACK_QUALITY);
+      }
+      else
+      {
+         return (TRACK.TrackQuality() > 0.95);
+      }
+   end_script
+
+   # select a weapon and launch it
+   # the selected weapon must be available, have sufficient rounds and not busy
+   script bool LaunchWeapon()
+      WsfWeapon   weapon;
+      weapon = PLATFORM.Weapon(WEAPON_NAME);
+      bool canInterceptNow = false;
+      if (weapon.IsTurnedOn() &&  (weapon.QuantityRemaining() >= SALVO_SIZE))
+      {
+         canInterceptNow = InInterceptEnvelopeOf(weapon);
+      }
+      bool launched = false;
+      if (canInterceptNow)
+      {
+            canInterceptNow = InInterceptEnvelopeOf(weapon);
+            weapon.CueToTarget(TRACK);
+            launched = FireAt(TRACK, mShootTaskStr, weapon, SALVO_SIZE);
+
+         if (launched)
+         {
+            writeln_d("*** T=", TIME_NOW, " ", PLATFORM.Name(), " ",
+                      TRACK.TargetName(), " R=", PLATFORM.SlantRangeTo(TRACK),
+                      " FIRE!!!!");
+         }
+      }
+      return launched;
+   end_script
+
+   # returns true if the TRACK has been assigned or the system has
+   # local engage authority
+   script bool IsEngageable()
+      return (((PLATFORM == PLATFORM.Commander()) ||
+               (TasksReceivedFor(TRACK.TrackId()) > 0) ||
+               (OperatingLevelFor("ENGAGE") > 0))) ;
+   end_script
+
+   # determine the number of available weapons
+   script int WeaponsAvailable()
+      int quantity = 0;
+      WsfWeapon weapon = PLATFORM.Weapon(WEAPON_NAME);
+      if (weapon.IsTurnedOn())
+      {
+         quantity = weapon.QuantityRemaining();
+      }
+      return quantity;
+   end_script
+
+   # begin tracking the current target
+
+
+# ------------------------------------------------------------------
+# START OF THE STATE MACHINE
+   evaluation_interval DETECTED 0.5 sec
+   state DETECTED
+      next_state DETECTED
+         if (TRACK.IFF_Friend())
+         {
+            # cancel any tasks assigned against this track
+            CancelTask(TRACK.TrackId());
+            return true;
+         }
+         return false;
+      end_next_state
+
+      next_state ENGAGEABLE
+         return (TRACK.BelievedAlive() &&
+                 (! TRACK.IFF_Friend()) &&
+                 IsEngageable());
+      end_next_state
+   end_state
+
+   evaluation_interval ENGAGEABLE 2.0 sec
+   state ENGAGEABLE
+      next_state DETECTED
+         return (TRACK.BelievedDead() || TRACK.IFF_Friend() || (! IsEngageable()));
+      end_next_state
+
+      next_state ENGAGE
+
+         # wait until tracking target
+         if (SENSOR_NAME == "")
+         {
+            writeln_d(TIME_NOW, " In intercept of the gun = ", InInterceptEnvelopeOf(PLATFORM.Weapon(WEAPON_NAME)));
+            return (TRACK.BelievedAlive() &&
+                    InInterceptEnvelopeOf(PLATFORM.Weapon(WEAPON_NAME)) &&
+                    (TRACK.TrackQuality() > REQUIRED_TRACK_QUALITY));
+         }
+         else
+         {
+            return (TrackingNow() && InInterceptEnvelopeOf(PLATFORM.Weapon(WEAPON_NAME)) &&
+                    ((TasksAssignedFor(TRACK.TrackId(), mTrackTaskStr) > 0) ||
+                    (PLATFORM.Commander() == PLATFORM)));
+         }
+      end_next_state
+   end_state
+
+   evaluation_interval ENGAGE 0.01 sec
+   state ENGAGE
+      next_state ENGAGEABLE
+         return (TRACK.BelievedDead() || ! TrackingNow());
+      end_next_state
+
+      next_state FIRING
+         bool launched = false;
+
+         if (TRACK.BelievedAlive() &&
+             TrackingNow() &&
+            # ! FiringNow() &&
+             InInterceptEnvelopeOf(PLATFORM.Weapon(WEAPON_NAME)))
+         {
+            launched = LaunchWeapon();
+         }
+         return launched;
+      end_next_state
+   end_state
+
+   evaluation_interval FIRING .01 sec
+   state FIRING
+      next_state ENGAGE
+         if (TRACK.BelievedDead() ||
+             ! InInterceptEnvelopeOf(PLATFORM.Weapon(WEAPON_NAME)) ||
+             #(! FiringNow() &&
+             (TasksAssignedFor(TRACK.TrackId(), mShootTaskStr) < 1) ||
+             (WeaponsAvailable() < 1) ||
+             ! TrackingNow())
+         {
+            CancelTask(TRACK.TrackId());
+            return true;
+         }
+         return false;
+      end_next_state
+   end_state
+
+end_processor
+
+# Finally we get to write out the weapon...
+weapon_effects BULLET_LETHALITY WSF_ENGAGE_LAUNCH_PK_TABLE_LETHALITY
+   pk_tables_path engage_pk_tables
+   default_pk 0.5
+end_weapon_effects
+
+weapon BULLET WSF_IMPLICIT_WEAPON
+    launch_computer            BULLET_LAUNCH_COMPUTER   end_launch_computer
+    weapon_effects             BULLET_LETHALITY
+    slew_mode                  azimuth_and_elevation
+    azimuth_slew_limits        -180 deg 180 deg
+    elevation_slew_limits      -10 deg  85 deg
+    quantity                   1200
+    firing_delay               0 secs
+    firing_interval            0.006 sec
+    salvo_interval             0.006 sec
+    automatic_target_cueing    true
+    cue_to_predicted_intercept true
+end_weapon
+
+launch_computer BULLET_LAUNCH_COMPUTER WSF_SCRIPT_LAUNCH_COMPUTER
+   script void compute_intercept(WsfTrack aTrack, double aLaunchDelay)
+      # get ground range to target to compute tti which computes bullet drop too...
+      double weaponSpeed = 0;
+      if(PLATFORM.SlantRangeTo(aTrack)       >  2000 )   return;
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 0 ) { weaponSpeed = 1021 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 10.21 )   { weaponSpeed = 1020.6 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 20.4057 ) { weaponSpeed = 1020.15 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 30.5927 ) { weaponSpeed = 1019.71 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 40.7706 ) { weaponSpeed = 1019.26 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 50.9396 ) { weaponSpeed = 1018.82 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 61.0997 ) { weaponSpeed = 1018.37 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 71.251 )  { weaponSpeed = 1017.93 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 81.3934 ) { weaponSpeed = 1017.48 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 91.527 )  { weaponSpeed = 1017.04 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 101.652 ) { weaponSpeed = 1016.6 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 111.768 ) { weaponSpeed = 1016.16 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 121.875 ) { weaponSpeed = 1015.71 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 131.973 ) { weaponSpeed = 1015.27 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 142.062 ) { weaponSpeed = 1014.83 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 152.143 ) { weaponSpeed = 1014.39 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 162.214 ) { weaponSpeed = 1013.95 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 172.277 ) { weaponSpeed = 1013.51 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 182.332 ) { weaponSpeed = 1013.07 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 192.377 ) { weaponSpeed = 1012.63 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 202.414 ) { weaponSpeed = 1012.2 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 212.441 ) { weaponSpeed = 1011.76 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 222.461 ) { weaponSpeed = 1011.32 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 232.471 ) { weaponSpeed = 1010.88 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 242.473 ) { weaponSpeed = 1010.45 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 252.466 ) { weaponSpeed = 1010.01 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 262.45 )  { weaponSpeed = 1009.58 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 272.425 ) { weaponSpeed = 1009.14 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 282.392 ) { weaponSpeed = 1008.71 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 292.35 )  { weaponSpeed = 1008.27 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 302.3 )   { weaponSpeed = 1007.84 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 312.24 )  { weaponSpeed = 1007.41 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 322.172 ) { weaponSpeed = 1006.97 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 332.096 ) { weaponSpeed = 1006.54 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 342.011 ) { weaponSpeed = 1006.11 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 351.917 ) { weaponSpeed = 1005.68 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 361.814 ) { weaponSpeed = 1005.25 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 371.703 ) { weaponSpeed = 1004.82 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 381.584 ) { weaponSpeed = 1004.39 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 391.455 ) { weaponSpeed = 1003.96 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 401.319 ) { weaponSpeed = 1003.53 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 411.173 ) { weaponSpeed = 1003.1 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 421.019 ) { weaponSpeed = 1002.67 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 430.857 ) { weaponSpeed = 1002.24 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 440.685 ) { weaponSpeed = 1001.82 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 450.506 ) { weaponSpeed = 1001.39 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 460.318 ) { weaponSpeed = 1000.96 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 470.121 ) { weaponSpeed = 1000.54 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 479.916 ) { weaponSpeed = 1000.11 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 489.702 ) { weaponSpeed = 999.685 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 499.479 ) { weaponSpeed = 999.26 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 509.249 ) { weaponSpeed = 998.836 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 519.009 ) { weaponSpeed = 998.412 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 528.762 ) { weaponSpeed = 997.989 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 538.505 ) { weaponSpeed = 997.566 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 548.241 ) { weaponSpeed = 997.143 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 557.968 ) { weaponSpeed = 996.721 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 567.686 ) { weaponSpeed = 996.3 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 577.396 ) { weaponSpeed = 995.878 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 587.098 ) { weaponSpeed = 995.458 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 596.791 ) { weaponSpeed = 995.037 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 606.476 ) { weaponSpeed = 994.617 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 616.152 ) { weaponSpeed = 994.198 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 625.82 )  { weaponSpeed = 993.779 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 635.48 )  { weaponSpeed = 993.361 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 645.131 ) { weaponSpeed = 992.943 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 654.774 ) { weaponSpeed = 992.525 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 664.408 ) { weaponSpeed = 992.108 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 674.035 ) { weaponSpeed = 991.691 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 683.652 ) { weaponSpeed = 991.275 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 693.262 ) { weaponSpeed = 990.859 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 702.863 ) { weaponSpeed = 990.443 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 712.456 ) { weaponSpeed = 990.028 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 722.041 ) { weaponSpeed = 989.614 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 731.617 ) { weaponSpeed = 989.2 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 741.185 ) { weaponSpeed = 988.786 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 750.745 ) { weaponSpeed = 988.373 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 760.296 ) { weaponSpeed = 987.96 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 769.839 ) { weaponSpeed = 987.548 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 779.374 ) { weaponSpeed = 987.136 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 788.901 ) { weaponSpeed = 986.725 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 798.42 )  { weaponSpeed = 986.314 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 807.93 )  { weaponSpeed = 985.903 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 817.432 ) { weaponSpeed = 985.493 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 826.926 ) { weaponSpeed = 985.083 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 836.412 ) { weaponSpeed = 984.674 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 845.889 ) { weaponSpeed = 984.265 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 855.358 ) { weaponSpeed = 983.857 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 864.82 )  { weaponSpeed = 983.449 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 874.273 ) { weaponSpeed = 983.041 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 883.717 ) { weaponSpeed = 982.634 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 893.154 ) { weaponSpeed = 982.228 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 902.583 ) { weaponSpeed = 981.822 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 912.003 ) { weaponSpeed = 981.416 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 921.415 ) { weaponSpeed = 981.011 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 930.82 )  { weaponSpeed = 980.606 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 940.216 ) { weaponSpeed = 980.201 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 949.604 ) { weaponSpeed = 979.798 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 958.984 ) { weaponSpeed = 979.394 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 968.356 ) { weaponSpeed = 978.991 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 977.719 ) { weaponSpeed = 978.588 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 987.07 )  { weaponSpeed = 978.146 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 996.418 ) { weaponSpeed = 977.744 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1005.76 ) { weaponSpeed = 977.343 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1015.09 ) { weaponSpeed = 976.942 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1024.41 ) { weaponSpeed = 976.542 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1033.73 ) { weaponSpeed = 976.142 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1043.04 ) { weaponSpeed = 975.742 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1052.34 ) { weaponSpeed = 975.343 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1061.63 ) { weaponSpeed = 974.944 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1070.91 ) { weaponSpeed = 974.546 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1080.19 ) { weaponSpeed = 974.148 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1089.45 ) { weaponSpeed = 973.751 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1098.71 ) { weaponSpeed = 973.354 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1107.97 ) { weaponSpeed = 972.957 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1117.21 ) { weaponSpeed = 972.561 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1126.45 ) { weaponSpeed = 972.166 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1135.67 ) { weaponSpeed = 971.77 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1144.89 ) { weaponSpeed = 971.376 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1154.11 ) { weaponSpeed = 970.981 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1163.31 ) { weaponSpeed = 970.587 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1172.51 ) { weaponSpeed = 970.194 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1181.7 )  { weaponSpeed = 969.801 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1190.88 ) { weaponSpeed = 969.408 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1200.05 ) { weaponSpeed = 969.016 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1209.21 ) { weaponSpeed = 968.624 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1218.37 ) { weaponSpeed = 968.233 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1227.52 ) { weaponSpeed = 967.842 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1236.66 ) { weaponSpeed = 967.452 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1245.8 )  { weaponSpeed = 967.062 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1254.92 ) { weaponSpeed = 966.672 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1264.04 ) { weaponSpeed = 966.283 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1273.15 ) { weaponSpeed = 965.894 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1282.25 ) { weaponSpeed = 965.506 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1291.35 ) { weaponSpeed = 965.118 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1300.43 ) { weaponSpeed = 964.731 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1309.51 ) { weaponSpeed = 964.344 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1318.58 ) { weaponSpeed = 963.957 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1327.65 ) { weaponSpeed = 963.571 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1336.7 )  { weaponSpeed = 963.185 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1345.75 ) { weaponSpeed = 962.8 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1354.79 ) { weaponSpeed = 962.415 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1363.83 ) { weaponSpeed = 962.031 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1372.85 ) { weaponSpeed = 961.647 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1381.87 ) { weaponSpeed = 961.263 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1390.88 ) { weaponSpeed = 960.88 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1399.88 ) { weaponSpeed = 960.497 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1408.87 ) { weaponSpeed = 960.115 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1417.86 ) { weaponSpeed = 959.733 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1426.84 ) { weaponSpeed = 959.351 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1435.81 ) { weaponSpeed = 958.97 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1444.78 ) { weaponSpeed = 958.59 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1453.73 ) { weaponSpeed = 958.21 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1462.68 ) { weaponSpeed = 957.83 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1471.62 ) { weaponSpeed = 957.451 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1480.56 ) { weaponSpeed = 957.072 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1489.48 ) { weaponSpeed = 956.693 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1498.4 )  { weaponSpeed = 956.315 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1507.31 ) { weaponSpeed = 955.937 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1516.21 ) { weaponSpeed = 955.56 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1525.11 ) { weaponSpeed = 955.183 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1534 )    { weaponSpeed = 954.807 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1542.88 ) { weaponSpeed = 954.431 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1551.75 ) { weaponSpeed = 954.056 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1560.62 ) { weaponSpeed = 953.68 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1569.47 ) { weaponSpeed = 953.306 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1578.32 ) { weaponSpeed = 952.931 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1587.17 ) { weaponSpeed = 952.558 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1596 )    { weaponSpeed = 952.184 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1604.83 ) { weaponSpeed = 951.811 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1613.65 ) { weaponSpeed = 951.439 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1622.46 ) { weaponSpeed = 951.066 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1631.27 ) { weaponSpeed = 950.695 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1640.07 ) { weaponSpeed = 950.323 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1648.86 ) { weaponSpeed = 949.952 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1657.64 ) { weaponSpeed = 949.582 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1666.42 ) { weaponSpeed = 949.212 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1675.19 ) { weaponSpeed = 948.842 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1683.95 ) { weaponSpeed = 948.473 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1692.7 )  { weaponSpeed = 948.104 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1701.45 ) { weaponSpeed = 947.736 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1710.19 ) { weaponSpeed = 947.368 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1718.92 ) { weaponSpeed = 947 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1727.64 ) { weaponSpeed = 946.633 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1736.36 ) { weaponSpeed = 946.266 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1745.07 ) { weaponSpeed = 945.9 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1753.77 ) { weaponSpeed = 945.534 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1762.46 ) { weaponSpeed = 945.168 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1771.15 ) { weaponSpeed = 944.803 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1779.83 ) { weaponSpeed = 944.439 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1788.5 )  { weaponSpeed = 944.074 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1797.17 ) { weaponSpeed = 943.71 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1805.83 ) { weaponSpeed = 943.347 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1814.48 ) { weaponSpeed = 942.984 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1823.12 ) { weaponSpeed = 942.621 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1831.76 ) { weaponSpeed = 942.259 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1840.39 ) { weaponSpeed = 941.897 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1849.01 ) { weaponSpeed = 941.536 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1857.63 ) { weaponSpeed = 941.175 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1866.23 ) { weaponSpeed = 940.814 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1874.83 ) { weaponSpeed = 940.454 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1883.43 ) { weaponSpeed = 940.094 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1892.01 ) { weaponSpeed = 939.735 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1900.59 ) { weaponSpeed = 939.376 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1909.16 ) { weaponSpeed = 939.018 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1917.73 ) { weaponSpeed = 938.659 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1926.28 ) { weaponSpeed = 938.302 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1934.83 ) { weaponSpeed = 937.944 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1943.38 ) { weaponSpeed = 937.588 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1951.91 ) { weaponSpeed = 937.231 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1960.44 ) { weaponSpeed = 936.875 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1968.96 ) { weaponSpeed = 936.519 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1977.47 ) { weaponSpeed = 936.164 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1985.98 ) { weaponSpeed = 935.809 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 1994.48 ) { weaponSpeed = 935.455 ;}
+      else if(PLATFORM.SlantRangeTo(aTrack)       < 2002.97 ) { weaponSpeed = 935.101 ;}
+
+      WsfWaypoint intercept = WsfWaypoint();
+      double tti = PLATFORM.InterceptLocation3D(aTrack, intercept, weaponSpeed, aLaunchDelay);
+      if (tti > 0.0)
+      {
+         double az = PLATFORM.RelativeAzimuthOf(intercept.Location());
+         double el = PLATFORM.RelativeElevationOf(intercept.Location());
+         if (az < WEAPON.SlewMaximumAzimuth() && az > WEAPON.SlewMinimumAzimuth() &&
+             el < WEAPON.SlewMaximumElevation() && el > WEAPON.SlewMinimumElevation())
+         {
+            double BulletDrop = 0.5 * Earth.ACCEL_OF_GRAVITY() * tti * tti;
+            intercept.SetAltitude(intercept.Altitude()+BulletDrop, false);
+            WsfGeoPoint interceptPoint = WsfGeoPoint.Construct(intercept.Latitude(), intercept.Longitude(), intercept.Altitude());
+            SetInterceptPoint(interceptPoint);
+            SetInterceptTime(TIME_NOW + tti);
+            SetLaunchTime(TIME_NOW + aLaunchDelay);
+            SetTimeOfFlight(tti - aLaunchDelay);
+         }
+      }
+   end_script
+end_launch_computer
+
+# ----------- Platform descriptions -----------------
+platform_type AIR_TARGET WSF_PLATFORM
+   icon f-18
+   #indestructible
+   height 8 ft
+   length 40 ft
+   width 25 ft
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+
+platform_type GUN_BATTERY WSF_PLATFORM
+  icon  aaa
+  commander SELF
+
+  weapon gun BULLET
+    quantity 1000
+  end_weapon
+
+  processor gun_task_processor GUN_BATTERY_TACTICS
+    script_variables
+      SENSOR_NAME               = "test_sensor";
+      SENSOR_TRACK_MODE         = "default";
+      WEAPON_NAME               = "gun";
+      SALVO_SIZE                = 83; // >12 will seg fault
+      MAX_RANGE                 = 2000; # dont even try to shoot farther
+    end_script_variables
+  end_processor
+
+  processor track_mgr WSF_TRACK_PROCESSOR
+    internal_link gun
+    purge_interval       60 sec
+  end_processor
+
+  sensor test_sensor WSF_GEOMETRIC_SENSOR
+     processor track_mgr
+     #update_interval 1 sec
+     on
+     azimuth_field_of_view  -180 deg 180 deg
+     elevation_field_of_view -0 deg 85 deg
+     minimum_range  50 meters
+     maximum_range 4000 meters
+     frame_time .1 secs
+     ignore_same_side
+
+     azimuth_error_sigma .1 mil
+     elevation_error_sigma .1 mil
+
+     reports_location
+     reports_velocity
+     hits_to_establish_track 3 5
+     hits_to_maintain_track 1 5
+     track_quality 1.0
+   end_sensor
+end_platform_type
+
+# ----------- Platform instances -----------------
+platform air_target1 AIR_TARGET
+   side red
+   position 29:13:58.94n 80:57:43.76w
+   altitude 3280.84 ft msl
+   route
+      position 29:13:58.94n 80:57:43.76w altitude 1000 m msl speed 200 m/s
+      position 29:13:57.900n 81:55:34.073w
+   end_route
+   heading 5 deg
+end_platform
+
+platform gun_battery GUN_BATTERY
+   side blue
+   position 29:13:44.543n 81:00:58.377w
+end_platform

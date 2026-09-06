@@ -1,0 +1,17 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* Updated documentation of :class:`WsfPlatform` script methods for setting location, velocity, and orientation to caution usage of these methods on uninitialized platforms created via script. (:issue:`AFSIM-190`)
+* Deprecated the :command:`platform.precession_nutation_update_interval` command, to be replaced by :command:`platform.nutation_update_interval`. (:issue:`AFSIM-1354`)
+* Deprecated the :method:`WsfEventPipe.Record` script method that takes time as an argument.  Use the new Record script that does not have a time argument.  Setting a time other than TIME_NOW would cause issues in Mystic. (:issue:`AFSIM-1421`) 
+* Deprecated WSF_TRACK_MANAGER processor as an alias for :model:`WSF_TRACK_PROCESSOR`. (:issue:`AFSIM-1253`)
+* The :class:`WsfPlatform` script class now has a well-defined ordering, so that insertion of :class:`WsfPlatform` objects into sorted containers (i.e. :class:`Map<Map\<T1,T2\>>` and :class:`Set<Set\<T\>>`) is now deterministic and will not affect simulation repeatability. (:issue:`AFSIM-1871`)
+* Removed platform state data from :command:`event_output` and :command:`csv_event_output` for platforms that have not been initialized. (:issue:`AFSIM-1878`)
+* Updated documentation to notify users of future changes to implicit usage of the default :command:`platform.command_chain`. (issue:`AFSIM-2135`)
+* Deprecated the :command:`route.transform_route` command and replaced with two new commands, :command:`route.insert_route` and :command:`route.insert_offset_route`. (:issue:`AFSIM-2082`)

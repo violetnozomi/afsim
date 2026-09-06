@@ -1,0 +1,139 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+################################################################################
+# Test attenuation, clutter and propagation inputs.
+################################################################################
+
+test_feature non_exportable
+
+include ../auto_script/test_functions.txt
+
+sensor RADAR_BASE WSF_RADAR_SENSOR
+   frame_time                          1 sec
+   transmitter
+      power                            100 kw
+      frequency                        1.2 ghz
+
+      attenuation                      earce
+
+      # Same as not specifying a model, but we'll test it
+      propagation_model                none
+
+      # Also test with the optional block terminator after 'none'
+      propagation_model                none end_propagation_model
+   end_transmitter
+
+   receiver
+   end_receiver
+
+   # Same as not specifying a model, but we'll test it
+   clutter_model                       none
+
+   # Also test with the optional block terminator after 'none'
+   clutter_model                       none end_clutter_model
+
+   reports_range
+   reports_bearing
+end_sensor
+
+################################################################################
+
+sensor RADAR1 RADAR_BASE
+end_sensor
+
+################################################################################
+
+sensor RADAR2 RADAR_BASE
+   transmitter
+      attenuation                      blake
+      propagation_model                fast_multipath
+      end_propagation_model
+   end_transmitter
+
+   receiver
+   end_receiver
+
+   clutter_model                       surface_clutter
+   end_clutter_model
+
+   reports_range
+   reports_bearing
+end_sensor
+
+################################################################################
+
+clutter_model RADAR3_CLUTTER surface_clutter
+end_clutter_model
+
+propagation_model RADAR3_PROPAGATION fast_multipath
+end_propagation_model
+
+sensor RADAR3 RADAR_BASE
+   transmitter
+      attenuation_model                itu   end_attenuation_model
+      propagation_model                RADAR3_PROPAGATION
+   end_transmitter
+
+   receiver
+   end_receiver
+
+   clutter_model                       RADAR3_CLUTTER
+end_sensor
+
+################################################################################
+
+attenuation_model RADAR4_ATTENUATION blake
+end_attenuation_model
+
+clutter_model RADAR4_CLUTTER surface_clutter
+end_clutter_model
+
+propagation_model RADAR4_PROPAGATION fast_multipath
+end_propagation_model
+
+sensor RADAR4 RADAR_BASE
+   transmitter
+      attenuation_model                RADAR4_ATTENUATION
+      propagation_model                RADAR4_PROPAGATION
+   end_transmitter
+
+   receiver
+   end_receiver
+
+   clutter_model                       RADAR4_CLUTTER
+end_sensor
+
+clutter_model RADAR4_CLUTTER none
+end_clutter_model
+
+propagation_model RADAR4_PROPAGATION none
+end_propagation_model
+
+################################################################################
+
+global_environment
+   cloud_altitude_limits     10000 ft 30000 ft
+   cloud_water_density       0.10 g/m^3
+   rain_altitude_limit       10000 ft
+   rain_rate                 5 mm/hr
+end_global_environment
+
+platform radar_site WSF_PLATFORM
+   side red
+   icon Ground_Radar
+
+   add sensor radar1 RADAR1 on end_sensor
+   add sensor radar2 RADAR2 on end_sensor
+   add sensor radar3 RADAR3 on end_sensor
+   add sensor radar4 RADAR4 on end_sensor
+end_platform
+
+end_time 1 sec
+

@@ -1,0 +1,122 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 60 s
+
+script_variables
+   int numPassed = 0;
+   int expectedPassNum = 14;
+   double tolerance = MATH.Pow(10, -6); // 1E-4 % tolerance
+   double gravity = 32.17405; // Brawler uses this exact value internally
+end_script_variables
+
+script void pass()
+   numPassed += 1;
+end_script
+
+script bool CheckValueEqual(double aValue, 
+                            double aTargetValue, 
+                            double aTolerance, 
+                            string aAttributeName, 
+                            string aValueUnits, 
+                            string aTime)
+                       
+   double delta = MATH.Fabs(aValue - aTargetValue);
+   bool passed = true;
+   if (delta >= aTolerance)
+   {
+      writeln("-FAIL- ", aAttributeName, " = ", aValue, " ", aValueUnits, " is not within tolerance of (", aTolerance, ") from the target of ", aTargetValue, " ", aValueUnits, " at time = ", aTime);
+      passed = false;
+   }
+   return passed;
+   
+end_script
+
+script bool CheckValueGreater(double aValue, 
+                              double aTargetValue, 
+                              string aAttributeName, 
+                              string aValueUnits, 
+                              string aTime)
+                       
+   double delta = MATH.Fabs(aValue - aTargetValue);
+   bool passed = true;
+   if (aValue <= aTargetValue)
+   {
+      writeln("-FAIL- ", aAttributeName, " = ", aValue, " ", aValueUnits, " is not within greater than the target of ", aTargetValue, " ", aValueUnits, " at time = ", aTime);
+      passed = false;
+   }
+   return passed;
+   
+end_script
+
+
+platform_type BRAWLER_PLATFORM WSF_PLATFORM
+   
+   mover WSF_BRAWLER_MOVER
+      aero_file ../data/ACFT_BD.FXW
+   end_mover
+   
+   processor thinker WSF_BRAWLER_PROCESSOR 
+      mind_file ../data/MIND.txt
+   end_processor
+   
+   processor threat WSF_THREAT_PROCESSOR 
+   end_processor
+   
+end_platform_type
+
+platform brawler_platform BRAWLER_PLATFORM 
+
+   script void CheckAllValues(string aTime)
+      WsfBrawlerProcessor processor = (WsfBrawlerProcessor)Processor("thinker");
+      
+      // Check to make sure that the platform's masses got initialized with something.
+      // Masses not greater than 0.0 is an indication of the platforms mass not being set properly.
+      // Also, the tolerance is multiplied by the platform's mass, so we should verify that it's not zero.
+      if (CheckValueGreater(PLATFORM.FuelMass(), 0.0, "PlatformFuelMass", "kg", aTime)) pass();
+      if (CheckValueGreater(PLATFORM.EmptyMass(), 0.0, "PlatformEmptyMass", "kg", aTime)) pass();
+      if (CheckValueGreater(PLATFORM.TotalMass(), 0.0, "PlatformTotalMass", "kg", aTime)) pass();
+   
+      // The platform's masses should be the same as the mover's masses. 
+      if (CheckValueEqual(processor.FuelWeight() - PLATFORM.FuelMass(), 0.0, tolerance * PLATFORM.FuelMass(), "FuelMassDifference", "kg", aTime)) pass();
+      if (CheckValueEqual(processor.EmptyWeight() - PLATFORM.EmptyMass(), 0.0, tolerance * PLATFORM.EmptyMass(), "EmptyMassDifference", "kg", aTime)) pass();
+      if (CheckValueEqual(processor.Weight() - PLATFORM.TotalMass(), 0.0, tolerance * PLATFORM.TotalMass(), "TotalMassDifference", "kg", aTime)) pass();
+      
+      if (CheckValueEqual(processor.FuelWeight() + processor.EmptyWeight(), processor.Weight(), tolerance * PLATFORM.TotalMass(), "Weight", "kg", aTime)) pass();
+   end_script
+
+   on_initialize2 
+      CheckAllValues("on_initialize2");
+   end_on_initialize2
+   
+   execute at_time 50 s absolute
+      CheckAllValues(write_str(TIME_NOW)); 
+   end_execute
+   
+end_platform
+
+script void check_all_pass()
+   int failCount = expectedPassNum - numPassed;
+   if (failCount > 0)
+   {
+      writeln("-FAIL- ", failCount, " tests didn`t pass");
+   }
+   else if (failCount < 0)
+   {
+      writeln("-FAIL- More tests passed than expected: ", -failCount);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+execute at_time 60 sec absolute
+   check_all_pass();
+end_execute

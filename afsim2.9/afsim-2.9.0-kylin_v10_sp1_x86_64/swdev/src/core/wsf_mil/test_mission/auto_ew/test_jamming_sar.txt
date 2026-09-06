@@ -1,0 +1,150 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the electronic attack WSF_POWER_EFFECT on a SAR sensor
+define_path_variable CASE test_sar_jamming
+
+include_once ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 8;   // 8 out of 22 detection attempts will be jammed
+end_script_variables
+
+// Target
+platform tgt WSF_PLATFORM
+   side red
+   position 1.01n 1e altitude 1 ft 
+end_platform
+
+
+// Jammer
+electronic_warfare JAMMER_EA_POWER WSF_ELECTRONIC_ATTACK
+   technique pulse_jamming WSF_EA_TECHNIQUE
+      effect pulse_effect WSF_POWER_EFFECT
+#         debug
+         jamming_power_gain 15 dB
+       end_effect
+    end_technique
+ end_electronic_warfare
+
+platform jammer WSF_PLATFORM
+   icon weasel
+   side red
+   position 1.01n 1e altitude 10 kft heading 90 deg
+   
+   add sensor esm WSF_ESM_SENSOR
+      on      
+      frame_time             1 sec
+      frequency_band    0.1 ghz  20 ghz
+      reports_location
+      reports_type
+      reports_frequency      
+      ignore_same_side      
+      internal_link jammer
+   end_sensor
+
+   // Start with jammer off; turn on
+   execute at_time 4.1 s absolute
+      PLATFORM.Weapon("jammer").TurnOn();
+   end_execute
+   
+   // Turn back off
+   execute at_time 8.1 s absolute
+      PLATFORM.Weapon("jammer").TurnOff();
+   end_execute
+
+   add weapon jammer WSF_RF_JAMMER
+#      on     
+      maximum_spots_per_beam 10
+      beam_power_distribution constant
+      spot_power_distribution constant   
+      transmitter
+         power 2 kw 
+         frequency_band 5 ghz 12.5 ghz 
+         bandwidth 20 khz   
+         electronic_attack JAMMER_EA_POWER
+            technique  pulse_jamming
+#               debug   
+               default_on
+            end_technique
+         end_electronic_attack                        
+      end_transmitter 
+      repeater
+         operating_mode auto
+         frequency_following true 
+      end_repeater    
+   end_weapon
+
+end_platform
+
+// SAR platform
+platform sar WSF_PLATFORM
+   icon UCAV
+   side blue
+   position 1n 1e altitude 10 kft  
+      
+   add sensor sar WSF_SAR_SENSOR
+      on
+#      debug
+#      show_status
+      pitch     -10 deg
+      operating_mode strip       
+      dwell_time                 2 sec
+
+      transmitter
+         power                   10 kw
+         frequency               6 ghz    
+      end_transmitter
+ 
+      reports_location
+      ignore_same_side      
+      internal_link image_proc
+   end_sensor
+
+  add processor image_proc WSF_IMAGE_PROCESSOR
+     internal_link data_mgr
+  end_processor
+
+  add processor data_mgr WSF_TRACK_PROCESSOR
+     purge_interval 5 s
+  end_processor
+
+end_platform
+
+end_time 10 s
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, 
+                                   WsfPlatform aTarget, WsfSensorInteraction aResult)
+   if ((aPlatform.Name() == "sar") && !aResult.Detected())
+   {
+      pass();
+   }                                   
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT   
+end_observer
+
+#event_pipe
+#   file $(CASE).aer
+#end_event_pipe
+
+#event_output
+#   file $(CASE).evt
+#   enable IMAGE_CREATED
+#   enable JAMMING_ATTEMPT
+#   enable SENSOR_TURNED_ON
+#   enable SENSOR_TURNED_OFF   
+#   enable SENSOR_DETECTION_ATTEMPT
+#   enable SENSOR_TRACK_INITIATED
+#   enable SENSOR_TRACK_DROPPED
+#   enable SENSOR_TRACK_UPDATED
+#   enable LOCAL_TRACK_INITIATED
+#   enable LOCAL_TRACK_DROPPED
+#end_event_output

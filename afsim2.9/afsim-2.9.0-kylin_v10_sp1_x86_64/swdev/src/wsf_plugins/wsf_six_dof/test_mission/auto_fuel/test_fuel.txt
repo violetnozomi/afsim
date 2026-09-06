@@ -1,0 +1,201 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This is a test to confirm the P6DOF mover fuel consumption
+# --------------------------------------------------------------------------------------------------
+
+# test_feature wsf_p6dof
+end_time 5 min
+
+# --------------------------------------------------------------------------------------------------
+
+include_once ../platforms/fa-lgt.txt
+
+script double GetTotalFuelRemaining_lbs(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      return p6dofMover.GetTotalFuelRemaining() * Math.LB_PER_KG();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return 0.0;
+   }
+end_script
+
+# --------------------------------------------------------------------------------------------------
+
+platform RB_AIRCRAFT FA-LGT_RB6
+   side  blue
+  
+   route
+      position   21.000n  158.000w  altitude 2000.0 ft  speed 450.0 kts
+      position   21.000n  157.000w  altitude 2000.0 ft  speed 450.0 kts
+   end_route
+     
+   script void on_platform_deleted()
+      bool passed = true;
+      
+      double fuelRemaining_lbs = GetTotalFuelRemaining_lbs(PLATFORM);
+      double lat = Latitude();
+      double lon = Longitude();
+      double alt_ft = Altitude() * MATH.FT_PER_M();
+      
+      // Expected results:
+      double targetFuel_lbs   = 6507.94;
+      double targetLatitude   = 21.0006;
+      double targetLongitude  = -157.333;
+      double targetAlt_ft     = 2000.66;
+
+      double deltaFuel_lbs = MATH.Fabs(fuelRemaining_lbs-targetFuel_lbs);
+      double deltaLat = MATH.Fabs(lat-targetLatitude);
+      double deltaLon = MATH.Fabs(lon-targetLongitude);
+      double deltaAlt_ft = MATH.Fabs(alt_ft-targetAlt_ft);
+      
+      double debugMultiplier = 1.0; // Set to -1 for testing
+      
+      // Fuel quantity should be within 1% or 10 gallons (about 60 lbs),
+      // whichever is higher.
+      double toleranceFuelRemaining_lbs = debugMultiplier * targetFuel_lbs*0.01;
+      if(toleranceFuelRemaining_lbs < 60.0)
+      {
+         toleranceFuelRemaining_lbs = 60.0;
+      }
+      
+      // For lat/lon, the desired tolerance is 500 feet. Since a nautical mile
+      // is approx 0.016667 deg, 500 feet is roughly 0.00137 deg.
+      double toleranceLat = debugMultiplier * 0.00137;
+      double toleranceLon = debugMultiplier * 0.00137;
+      
+      // Altitude should be within 20 feet
+      double toleranceAlt_ft = debugMultiplier * 20.0;
+
+      if( deltaFuel_lbs > toleranceFuelRemaining_lbs )
+      {
+         passed = false;
+         writeln("-FAIL- Fuel Qty = ", fuelRemaining_lbs, " lbs is not within tolerance of (", toleranceFuelRemaining_lbs, ") from the target of ", targetFuel_lbs, " lbs at time = ", TIME_NOW, " sec");
+      }
+
+      if( deltaLat > toleranceLat )
+      {
+         passed = false;
+         writeln("-FAIL- Latitude = ", lat, " deg is not within tolerance of (", toleranceLat, ") from the target of ", targetLatitude, " deg at time = ", TIME_NOW, " sec");
+      }
+
+      if( deltaLon > toleranceLon )
+      {
+         passed = false;
+         writeln("-FAIL- Longitude = ", lon, " deg is not within tolerance of (", toleranceLon, ") from the target of ", targetLongitude, " deg at time = ", TIME_NOW, " sec");
+      }
+
+      if( deltaAlt_ft > toleranceAlt_ft )
+      {
+         passed = false;
+         writeln("-FAIL- Altitude = ", alt_ft, " ft is not within tolerance of (", toleranceAlt_ft, ") from the target of ", targetAlt_ft, " ft at time = ", TIME_NOW, " sec");
+      }
+      
+      if(passed)
+      {
+         writeln("-PASS-");
+      }     
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+
+   end_script   
+   
+end_platform
+
+# --------------------------------------------------------------------------------------------------
+
+platform PM_AIRCRAFT FA-LGT_PM6
+   side  blue
+  
+   route
+      position   21.000n  158.000w  altitude 2000.0 ft  speed 450.0 kts
+      position   21.000n  157.000w  altitude 2000.0 ft  speed 450.0 kts
+   end_route
+     
+   script void on_platform_deleted()
+      bool passed = true;
+      
+      double fuelRemaining_lbs = GetTotalFuelRemaining_lbs(PLATFORM);
+      double lat = Latitude();
+      double lon = Longitude();
+      double alt_ft = Altitude() * MATH.FT_PER_M();
+      
+      // Expected results:
+      double targetFuel_lbs   = 6507.94;
+      double targetLatitude   = 21.0006;
+      double targetLongitude  = -157.333;
+      double targetAlt_ft     = 2000.66;
+
+      double deltaFuel_lbs = MATH.Fabs(fuelRemaining_lbs-targetFuel_lbs);
+      double deltaLat = MATH.Fabs(lat-targetLatitude);
+      double deltaLon = MATH.Fabs(lon-targetLongitude);
+      double deltaAlt_ft = MATH.Fabs(alt_ft-targetAlt_ft);
+      
+      double debugMultiplier = 1.0; // Set to -1 for testing
+      
+      // Fuel quantity should be within 1% or 10 gallons (about 60 lbs),
+      // whichever is higher.
+      double toleranceFuelRemaining_lbs = debugMultiplier * targetFuel_lbs*0.01;
+      if(toleranceFuelRemaining_lbs < 60.0)
+      {
+         toleranceFuelRemaining_lbs = 60.0;
+      }
+      
+      // For lat/lon, the desired tolerance is 500 feet. Since a nautical mile
+      // is approx 0.016667 deg, 500 feet is roughly 0.00137 deg.
+      double toleranceLat = debugMultiplier * 0.00137;
+      double toleranceLon = debugMultiplier * 0.00137;
+      
+      // Altitude should be within 20 feet
+      double toleranceAlt_ft = debugMultiplier * 20.0;
+
+      if( deltaFuel_lbs > toleranceFuelRemaining_lbs )
+      {
+         passed = false;
+         writeln("-FAIL- Fuel Qty = ", fuelRemaining_lbs, " lbs is not within tolerance of (", toleranceFuelRemaining_lbs, ") from the target of ", targetFuel_lbs, " lbs at time = ", TIME_NOW, " sec");
+      }
+
+      if( deltaLat > toleranceLat )
+      {
+         passed = false;
+         writeln("-FAIL- Latitude = ", lat, " deg is not within tolerance of (", toleranceLat, ") from the target of ", targetLatitude, " deg at time = ", TIME_NOW, " sec");
+      }
+
+      if( deltaLon > toleranceLon )
+      {
+         passed = false;
+         writeln("-FAIL- Longitude = ", lon, " deg is not within tolerance of (", toleranceLon, ") from the target of ", targetLongitude, " deg at time = ", TIME_NOW, " sec");
+      }
+
+      if( deltaAlt_ft > toleranceAlt_ft )
+      {
+         passed = false;
+         writeln("-FAIL- Altitude = ", alt_ft, " ft is not within tolerance of (", toleranceAlt_ft, ") from the target of ", targetAlt_ft, " ft at time = ", TIME_NOW, " sec");
+      }
+      
+      if(passed)
+      {
+         writeln("-PASS-");
+      }     
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+
+   end_script   
+   
+end_platform

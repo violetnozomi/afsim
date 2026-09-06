@@ -1,0 +1,39 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform plat WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      maximum_linear_acceleration 1 g
+   end_mover
+   route
+      # Make sure the mover starts moving from 0 speed
+      position 0n 0e speed 0 m/s
+      position 0.1n 0e speed 100 m/s
+      # The mover should not make it to this point
+      position 0.2n 0e speed 0 m/s
+   end_route
+   execute at_interval_of 10 s
+      writeln(TIME_NOW, ", ",Speed());
+      writeln(Latitude(), " ", Longitude());
+   end_execute
+   script void on_platform_deleted()
+      double latError = Latitude() - .104619;
+      if (latError > .01)
+      {
+         writeln("-FAIL- Zero speeds not handled correctly");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+   end_script
+end_platform
+
+end_time 10 min
+

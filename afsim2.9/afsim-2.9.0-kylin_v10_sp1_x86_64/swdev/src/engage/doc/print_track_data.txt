@@ -1,0 +1,64 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. |BR| raw:: html
+
+    <BR/>
+
+.. |SP| raw:: html
+
+   <SP>
+   
+.. |PRINT_TRACK_DATA| replace:: 
+
+   Start_Time: <time> Update_Time: <update time> Quality: <track quality> Domain: <spatial domain>
+   {Type: False | Type: Real} Target_Truth: Name: <platform name> Type: <type> Side: <side>
+   Originator: LLA: <lat> <lon> <alt> m
+   Track: LLA: <lat> <lon> <alt> m Flags: {"L" | "3" | "R" | "B" | "E"}
+   {blank if invalid platform pointer | Truth: LLA: <lat> <lon> <alt> m}
+   Difference: <location delta> m |BR|
+   **If Velocity is Valid:**
+   |SP|  Track: Vel: <velocity> m/s |BR|
+   **If Location is Valid**
+   |SP|  Hdg: <heading> deg |BR|
+   **If Platform is Valid**
+   |SP|  Truth: Vel: <velocity> m/s Hdg: <heading> deg |BR|
+   **If Location, Range, Bearing, or Elevation are Valid:**
+   |SP| *Track Data*
+   |SP|   Track: Range: <range> m Bearing: <bearing> deg Elevation: <elevation> deg
+   |SP| *Truth Data - If Platform is Valid:*
+   |SP|   Truth:
+   |SP|   *If Range or Location are Valid:*
+   |SP|     Range: <range> m
+   |SP|   *If Bearing or Location are Valid:*
+   |SP|     Bearing: <bearing> deg
+   |SP|   *If Elevation or Location are Valid:*
+   |SP|     Elevation <elevation> deg
+   |SP| *Measurement Errors for Unfiltered Sensor Reports - If Errors Occurred:*
+   |SP|   Measurement_Error_Sigma:
+   |SP|    *If there was a Range Error:*
+   |SP|      Range: <range error> m
+   |SP|    *If there was a Bearing Error:*
+   |SP|      Bearing: <bearing error> deg
+   |SP|    *If there was an Elevation Error:*
+   |SP|      Elevation: <elevation error> deg |BR|
+   **If Signal To Noise is Valid:**
+   |SP|  Signal-To-Noise: <signal to noise> dB |BR|
+   **If Frequency is Valid:**
+   |SP|  Frequency: <frequency> <frequency units> |BR|
+   **If Track Types (vector) is Valid:**
+   |SP|  Type_IDs: [ <type id1> (<probability1>) <type id2> (<probability2>) ... <type idn> (<probabilityn>) ] |BR|
+   **Else If Track Type is Valid:**
+   |SP|  Type_ID: <type id> |BR|
+   **If Side is Valid:**
+   |SP|  Side_ID: <side id> |BR|
+   **If Auxillary Data Exists:**
+   |SP| Aux Data:
+   |SP|   *For Each Attribute:*
+   |SP|    ( <attribute name> : {"CONTAINER" | <attribute> | "UNKNOWN_TYPE"} )

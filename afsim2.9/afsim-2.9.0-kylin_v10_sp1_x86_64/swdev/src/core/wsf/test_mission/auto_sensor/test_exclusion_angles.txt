@@ -1,0 +1,182 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool solarTrack1 = false;
+   bool solarTrack2 = false;
+   bool lunarTrack3 = false;
+   bool lunarTrack4 = false;
+end_script_variables
+
+sensor GEO WSF_GEOMETRIC_SENSOR
+   mode_template
+     track_quality               1.0
+     frame_time                  1.0 sec
+     solar_exclusion_angle       10 deg
+   end_mode_template
+
+   # No changes to mode template, to specify solar exclusion
+   mode solarMode end_mode
+
+   # Changes mode to disable solar and enable lunar exclusion
+   mode lunarMode
+      solar_exclusion_angle  0 deg
+      lunar_exclusion_angle 10 deg
+   end_mode
+end_sensor
+
+platform sensor_plat WSF_PLATFORM
+   add sensor solar GEO
+      on
+      initial_mode solarMode
+   end_sensor
+   add sensor lunar GEO
+      on
+      initial_mode lunarMode
+   end_sensor
+end_platform
+
+script double AngleFromBody(WsfPlatform aSource, WsfPlatform aPlatform, Vec3 aBodyLocation)
+   Vec3 locTargetECI = aPlatform.LocationECI();
+   Vec3 locSourceECI = aSource.LocationECI();
+   Vec3 targetVecECI = Vec3.Subtract(locTargetECI, locSourceECI); 
+   Vec3 bodyVecECI = Vec3.Subtract(aBodyLocation, locSourceECI);
+   targetVecECI.Normalize();
+   bodyVecECI.Normalize();
+   double angle = Math.ACos(Vec3.Dot(targetVecECI, bodyVecECI));
+   return angle;
+end_script
+
+platform_type TARGET WSF_PLATFORM
+   execute at_time 1.0e-99 s absolute
+      writeln(PLATFORM.Name(), " angle from sun is ", 
+              AngleFromBody(WsfSimulation.FindPlatform("sensor_plat"), 
+              PLATFORM, Sun.LocationECI(WsfDateTime.CurrentTime())), " deg.");
+      writeln(PLATFORM.Name(), " angle from moon is ", 
+              AngleFromBody(WsfSimulation.FindPlatform("sensor_plat"), 
+              PLATFORM, Moon.LocationECI(WsfDateTime.CurrentTime())), " deg.");
+   end_execute 
+end_platform_type
+
+platform sun_blocked TARGET
+   on_initialize2 
+      Vec3 sensorLoc = WsfSimulation.FindPlatform("sensor_plat").LocationECI();
+      Vec3 sunLoc = Sun.LocationECI(WsfDateTime.CurrentTime());
+      PLATFORM.SetLocationECI(ComputeTargetLocation(sensorLoc, sunLoc, 9.9, Sun.MEAN_RADIUS()));
+   end_on_initialize2
+end_platform
+
+platform sun_unblocked TARGET
+   on_initialize2 
+      Vec3 sensorLoc = WsfSimulation.FindPlatform("sensor_plat").LocationECI();
+      Vec3 sunLoc = Sun.LocationECI(WsfDateTime.CurrentTime());
+      PLATFORM.SetLocationECI(ComputeTargetLocation(sensorLoc, sunLoc, 10.1, Sun.MEAN_RADIUS()));
+   end_on_initialize2
+end_platform
+
+platform moon_blocked TARGET
+   on_initialize2 
+      Vec3 sensorLoc = WsfSimulation.FindPlatform("sensor_plat").LocationECI();
+      Vec3 moonLoc = Moon.LocationECI(WsfDateTime.CurrentTime());
+      PLATFORM.SetLocationECI(ComputeTargetLocation(sensorLoc, moonLoc, 9.9, Moon.MEAN_RADIUS()));
+   end_on_initialize2
+end_platform
+
+platform moon_unblocked TARGET
+   on_initialize2 
+      Vec3 sensorLoc = WsfSimulation.FindPlatform("sensor_plat").LocationECI();
+      Vec3 moonLoc = Moon.LocationECI(WsfDateTime.CurrentTime());
+      PLATFORM.SetLocationECI(ComputeTargetLocation(sensorLoc, moonLoc, 10.1, Moon.MEAN_RADIUS()));
+   end_on_initialize2
+end_platform
+
+# Verifies that detections occur at the right ranges
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   extern bool solarTrack1;
+   extern bool solarTrack2;
+   extern bool lunarTrack3;
+   extern bool lunarTrack4;
+
+   if (aResult.Detected())
+   {
+      if (aTarget.Name() == "sun_blocked" && aSensor.Name() == "solar")
+      {
+         solarTrack1 = true;
+      }
+      if (aTarget.Name() == "sun_unblocked" && aSensor.Name() == "solar")
+      {
+         solarTrack2 = true;
+      }
+      if (aTarget.Name() == "moon_blocked" && aSensor.Name() == "lunar")
+      {
+         lunarTrack3 = true;
+      }
+      if (aTarget.Name() == "moon_unblocked" && aSensor.Name() == "lunar")
+      {
+         lunarTrack4 = true;
+      }
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+end_observer
+
+execute at_time 5 seconds absolute
+   extern bool solarTrack1;
+   extern bool solarTrack2;
+   extern bool lunarTrack3;
+   extern bool lunarTrack4;
+   if(solarTrack1)
+   {
+      writeln("-FAIL- Target 1 should be blocked by solar exclusion");
+   }
+   else if(!solarTrack2)
+   {
+      writeln("-FAIL- Target 2 should not be blocked by solar exclusion");
+   }
+   else if(lunarTrack3)
+   {
+      writeln("-FAIL- Target 3 should be blocked by lunar exclusion");
+   }
+   else if(!lunarTrack4)
+   {
+      writeln("-FAIL- Target 4 should not be blocked by lunar exclusion");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+// Find a suitable target location for a given lunar exclusion angle and platform location.
+script Vec3 ComputeTargetLocation(Vec3        aSourceLoc,
+                                  Vec3        aExclusionBodyLoc,
+                                  double      aAngleDeg,
+                                  double      aRadius)
+   Vec3 m = Vec3(aExclusionBodyLoc);
+   Vec3 p = Vec3(aSourceLoc);
+   Vec3 pm = Vec3.Subtract(m, p);
+   Vec3 perp = Vec3.Cross(p, m);
+   Vec3 targetVec = Vec3.Cross(perp, pm);
+   targetVec.Normalize();
+   Vec3 bodyVec = Vec3.Subtract(aExclusionBodyLoc, aSourceLoc);
+   double halfApparentSize = Math.ASin(aRadius / bodyVec.Magnitude());
+   double targetVecLength = pm.Magnitude() * Math.Tan(aAngleDeg + halfApparentSize);
+   targetVec.Scale(targetVecLength);
+   Vec3 targetLoc = Vec3.Add(aExclusionBodyLoc, targetVec);
+   Vec3 pt = Vec3.Subtract(targetLoc, p);
+   pt.Normalize();
+   pm.Normalize();
+   writeln("angle: ", Math.ACos(Vec3.Dot(pt, pm)));  
+   return targetLoc; 
+end_script
+
+end_time 10 seconds
+

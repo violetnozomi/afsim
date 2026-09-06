@@ -1,0 +1,99 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt32.f and captrn.f
+// Replicates the route maneuver 3,2,1,1 and cap turn 3,2,2,1 alternative behavior
+// This behavior will just fly the WSF platform route
+
+behavior alt3211_route_maneuver
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3211Enabled = true;
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 2;
+      int icall  = 1;
+      int lcall  = 1;
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt3411_straight_flight, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3211Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() > 0)
+      {
+         // Fail if we should be pursuing a weapon task
+         return Failure("pursuing WEAPON task");
+      }
+
+      WsfRoute route = PLATFORM.Route();
+      if (!route.IsValid() || route.Size() < 2)
+      {
+         // Fail if we do not have a valid route
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " invalid route");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+
+      // Otherwise return a high score for this alternative
+      // so it is picked and we just follow our route
+      double score = 10.0;
+      return score;
+
+   end_precondition
+
+   execute
+      PLATFORM.ReturnToRoute();
+   end_execute
+
+end_behavior
+

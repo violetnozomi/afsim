@@ -1,0 +1,80 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# test of callbacks for orbit_determination_initiated and orbit_determination_updated
+
+script_variables
+   bool sECLIPSE_EXIT_UPDATED = false;
+   bool sECLIPSE_ENTRY_UPDATED = true;
+end_script_variables
+
+script void OrbitDeterminationInitiated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack)
+   if (aPlatform.IsValid() && aLocalTrack.IsValid())
+   {
+      sECLIPSE_EXIT_UPDATED = true;
+   }
+end_script
+
+script void EclipseEntry(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover)
+   if (aPlatform.IsValid() && aSpaceMover.IsValid())
+   {
+      sECLIPSE_ENTRY_UPDATED = true;
+   }
+end_script
+
+script void EclipseExit(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover)
+   if (aPlatform.IsValid() && aSpaceMover.IsValid())
+   {
+      sECLIPSE_EXIT_UPDATED = true;
+   }
+end_script
+
+script void SimulationComplete()
+   if (sECLIPSE_EXIT_UPDATED && sECLIPSE_ENTRY_UPDATED)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_script
+
+platform leo-1 WSF_PLATFORM
+   add mover WSF_SPACE_MOVER 
+      position 0n 0w altitude 450 km heading 60 deg
+   end_mover
+end_platform
+
+platform leo-2 WSF_PLATFORM
+   add mover WSF_SPACE_MOVER 
+      position 0n 90w altitude 450 km heading 60 deg
+   end_mover
+end_platform
+
+observer
+   enable ECLIPSE_ENTRY EclipseEntry
+   enable ECLIPSE_EXIT EclipseExit
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+#event_output
+#   file ./test_eclipse_observer.evt
+#   enable ECLIPSE_ENTRY
+#   enable ECLIPSE_EXIT
+#end_event_output
+#
+#csv_event_output
+#   file ./test_eclipse_observer.csv
+#   enable ECLIPSE_ENTRY
+#   enable ECLIPSE_EXIT
+#end_csv_event_output
+
+start_epoch 16242.5
+end_time 20000 seconds

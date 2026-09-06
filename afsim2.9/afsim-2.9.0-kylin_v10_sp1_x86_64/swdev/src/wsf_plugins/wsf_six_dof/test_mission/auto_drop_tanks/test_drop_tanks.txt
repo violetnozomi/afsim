@@ -1,0 +1,231 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This is a test to confirm proper operation of drop tanks
+# --------------------------------------------------------------------------------------------------
+
+# test_feature wsf_p6dof
+end_time 720 sec
+
+# --------------------------------------------------------------------------------------------------
+
+include_once ../platforms/fa-lgt_external-tanks.txt
+
+script_variables
+   bool passed = true;
+   bool debugFlag = false;
+end_script_variables
+
+script double GetTotalFuelRemaining_lbs(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      return p6dofMover.GetTotalFuelRemaining() * Math.LB_PER_KG();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return 0.0;
+   }
+end_script
+
+script bool CheckStateData(WsfPlatform aPlatform,
+                           double      targetMainQty_lbs,
+                           double      targetLeftQty_lbs,
+                           double      targetRightQty_lbs)
+                           
+   double fuelMain_lbs  = 0.0;
+   double fuelLeft_lbs  = 0.0;
+   double fuelRight_lbs = 0.0;
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      
+      fuelMain_lbs  = p6dofMover.GetFuelInTank("MainFuelTank") * Math.LB_PER_KG();
+      fuelLeft_lbs  = p6dofMover.GetFuelInTank("TankLft.MainFuelTank") * Math.LB_PER_KG();
+      fuelRight_lbs = p6dofMover.GetFuelInTank("TankRgt.MainFuelTank") * Math.LB_PER_KG();   }
+
+   double deltaMain_lbs  = MATH.Fabs(fuelMain_lbs-targetMainQty_lbs);
+   double deltaLeft_lbs  = MATH.Fabs(fuelLeft_lbs-targetLeftQty_lbs);
+   double deltaRight_lbs = MATH.Fabs(fuelRight_lbs-targetRightQty_lbs);
+   
+   double debugMultiplier = 1.0; // Set to -1 for testing
+         
+   // Fuel quantity should be within 10 gallons (about 60 lbs)
+   double toleranceFuel_lbs = debugMultiplier * 60.0;
+   
+   bool passed = true;
+   
+   // Uncomment the following line during debugging to add a blank line
+   //writeln(" ");
+   
+   if( deltaMain_lbs > toleranceFuel_lbs )
+   {
+      passed  = false;
+      writeln("-FAIL- Main Tank = ", fuelMain_lbs, " lbs is not within tolerance of (", toleranceFuel_lbs, ") from the target of ", targetMainQty_lbs, " lbs at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaLeft_lbs > toleranceFuel_lbs )
+   {
+      passed  = false;
+      writeln("-FAIL- Left Tank = ", fuelLeft_lbs, " lbs is not within tolerance of (", toleranceFuel_lbs, ") from the target of ", targetLeftQty_lbs, " lbs at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaRight_lbs > toleranceFuel_lbs )
+   {
+      passed  = false;
+      writeln("-FAIL- Right Tank = ", fuelRight_lbs, " lbs is not within tolerance of (", toleranceFuel_lbs, ") from the target of ", targetRightQty_lbs, " lbs at time = ", TIME_NOW, " sec");
+   }
+   
+   if(debugMultiplier < 0.0)
+   {
+      writeln(" ");
+   }
+   
+   return passed;
+
+end_script
+
+script void ActivateSequencer(WsfPlatform aPlatform, string aSequencerName)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_SIX_DOF_MOVER"))
+   {
+      WsfSixDOF_Mover p6dofMover = (WsfSixDOF_Mover)mover;
+      p6dofMover.ActivateSequencer(aSequencerName);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script  
+
+# --------------------------------------------------------------------------------------------------
+
+platform RB_AIRCRAFT FA-LGT-EXTERNAL-TANKS_RB6
+   side  blue
+  
+   route 
+      position 21:17:45n 158:10:00w  altitude 12000.0 ft  speed 500.0 kts
+      position 21:17:45n 157:10:00w  altitude 12000.0 ft  speed 500.0 kts
+      position 21:17:45n 156:10:00w  altitude 12000.0 ft  speed 500.0 kts
+   end_route
+   
+   execute at_time 180.0 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        7000.0,   // targetMain_lbs
+                                        2244.63,   // targetLeft_lbs
+                                        2244.63);  // targetRight_lbs
+
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   # ...........................................................................   
+   # Drop the external tanks
+   execute at_time 360.0 sec absolute
+      if(debugFlag)
+      {
+         writeln("Drop external tanks at time=", TIME_NOW, " sec");
+      }
+      ActivateSequencer(PLATFORM, "DropExternalTanks");
+   end_execute
+
+   execute at_time 361.0 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        6998.43,  // targetMain_lbs
+                                        0.0,     // targetLeft_lbs
+                                        0.0);    // targetRight_lbs
+
+      if(!checkPassed) { passed = false; }
+   end_execute
+   
+       
+   script void on_platform_deleted()
+      
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        6454.68, // targetMain_lbs
+                                        0.0,    // targetLeft_lbs
+                                        0.0);   // targetRight_lbs
+      if(!checkPassed) { passed = false; }
+
+      if(passed)
+      {
+         writeln("-PASS-");
+      }     
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+
+   end_script   
+   
+end_platform
+
+# --------------------------------------------------------------------------------------------------
+
+platform PM_AIRCRAFT FA-LGT-EXTERNAL-TANKS_PM6
+   side  blue
+  
+   route 
+      position 21:17:45n 158:10:00w  altitude 12000.0 ft  speed 500.0 kts
+      position 21:17:45n 157:10:00w  altitude 12000.0 ft  speed 500.0 kts
+      position 21:17:45n 156:10:00w  altitude 12000.0 ft  speed 500.0 kts
+   end_route
+   
+   execute at_time 180.0 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        7000.0,   // targetMain_lbs
+                                        2244.63,   // targetLeft_lbs
+                                        2244.63);  // targetRight_lbs
+
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   # ...........................................................................   
+   # Drop the external tanks
+   execute at_time 360.0 sec absolute
+      if(debugFlag)
+      {
+         writeln("Drop external tanks at time=", TIME_NOW, " sec");
+      }
+      ActivateSequencer(PLATFORM, "DropExternalTanks");
+   end_execute
+
+   execute at_time 361.0 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        6998.43,  // targetMain_lbs
+                                        0.0,     // targetLeft_lbs
+                                        0.0);    // targetRight_lbs
+
+      if(!checkPassed) { passed = false; }
+   end_execute
+   
+       
+   script void on_platform_deleted()
+      
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        6454.68, // targetMain_lbs
+                                        0.0,    // targetLeft_lbs
+                                        0.0);   // targetRight_lbs
+      if(!checkPassed) { passed = false; }
+
+      if(passed)
+      {
+         writeln("-PASS-");
+      }     
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+
+   end_script   
+   
+end_platform

@@ -1,0 +1,40 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once utils.txt
+
+end_time 2 s
+
+script_variables   
+   double gRelativeError = 1.0e-4;
+end_script_variables
+
+execute at_time 1 s absolute
+   WsfJacchiaRobertsAtmosphere atmo = WsfJacchiaRobertsAtmosphere.Construct(130, 160, 5.0);
+   
+   ExpectString(atmo.ModelType(), "WSF_JACCHIA_ROBERTS_ATMOSPHERE", "Model type");
+   ExpectDouble(atmo.SolarFlux(), 130.0, 1.0e-6, "Solar flux");
+   ExpectDouble(atmo.AverageSolarFlux(), 160.0, 1.0e-6, "Average solar flux");
+   ExpectDouble(atmo.GeomagneticIndex(), 5.0, 1.0e-6, "Geomagnetic index");
+end_execute
+
+execute at_time 1.1 s absolute
+   WsfJacchiaRobertsAtmosphere atmo = WsfJacchiaRobertsAtmosphere.Construct(0, 160, 5.0);
+   ExpectBool(atmo.IsValid(), false, "Should not have been constructed; solar flux");
+end_execute
+
+execute at_time 1.1 s absolute
+   WsfJacchiaRobertsAtmosphere atmo = WsfJacchiaRobertsAtmosphere.Construct(150, 0, 5.0);
+   ExpectBool(atmo.IsValid(), false, "Should not have been constructed; average solar flux");
+end_execute
+
+execute at_time 1.1 s absolute
+   WsfJacchiaRobertsAtmosphere atmo = WsfJacchiaRobertsAtmosphere.Construct(150, 160, 10.0);
+   ExpectBool(atmo.IsValid(), false, "Should not have been constructed; geomagnetic index");
+end_execute

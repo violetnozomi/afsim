@@ -1,0 +1,354 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests the base functionality of the WsfEM_Rcvr object.
+script_variables
+   // Default polarization table values. See documentation.
+   Array<Array<double>> polTable = { {1.0, 0.0, 0.5, 0.5, 0.5, 0.5, 1.0},
+                                     {0.0, 1.0, 0.5, 0.5, 0.5, 0.5, 1.0},
+                                     {0.5, 0.5, 1.0, 0.0, 0.5, 0.5, 1.0},
+                                     {0.5, 0.5, 0.0, 1.0, 0.5, 0.5, 1.0},
+                                     {0.5, 0.5, 0.5, 0.5, 1.0, 0.0, 1.0},
+                                     {0.5, 0.5, 0.5, 0.5, 0.0, 1.0, 1.0},
+                                     {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0} };
+   Array<string> polStrings = { "horizontal", "vertical", "slant_45", "slant_135", "left_circular", "right_circular", "default" };
+   int POL_TYPES = 7;
+end_script_variables
+
+antenna_pattern RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain           35 dB
+     minimum_gain       -20 dB
+     azimuth_beamwidth   5 deg
+     elevation_beamwidth 45 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+sensor TEST_RADAR WSF_RADAR_SENSOR
+   // These values are generated solely for testing and
+   // are not based on any analog
+   frame_time 5.0 sec
+   reports_side
+
+   transmitter
+      duty_cycle 0.5
+      frequency             2.0 ghz
+      alternate_frequency 1 2.1 ghz
+      alternate_frequency 2 2.2 ghz
+      antenna_pattern_table
+         polarization default
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+      end_antenna_pattern_table
+      powers
+         frequency 2.0 ghz 75000 watts
+         frequency 2.1 ghz 70000 watts
+         frequency 2.2 ghz 55000 watts
+      end_powers
+      pulse_width 50 usec
+      pulse_repetition_frequencies
+         prf 1 500 hz
+         prf 2 350 hz
+      end_pulse_repetition_frequencies
+      internal_loss              2 db
+      pulse_compression_ratio    13 absolute
+   end_transmitter
+     
+   receiver
+      detection_threshold 1.55 db
+      frequency 2.0 ghz
+      beam_tilt 1.2 deg
+      bandwidth 20000 hz
+      instantaneous_bandwidth 10000 hz
+      internal_loss 1.1 db
+      noise_figure 2.2 db
+      noise_power 500 w
+      antenna_ohmic_loss 0.22 db
+      receive_line_loss 1.06 db
+      antenna_pattern_table
+         polarization default
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+         polarization horizontal
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+         polarization vertical
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+      end_antenna_pattern_table
+   end_receiver
+end_sensor
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   sensor sensor TEST_RADAR
+   end_sensor
+end_platform_type
+
+platform_type TEST_PLATFORM_OTHER WSF_PLATFORM
+   sensor sensor TEST_RADAR
+      transmitter
+         frequency 1.0 ghz
+      end_transmitter
+      receiver
+         antenna_pattern_table
+            polarization default
+               frequency 2.0 ghz RADAR_ANTENNA
+         end_antenna_pattern_table
+      end_receiver
+   end_sensor
+end_platform_type
+
+platform test_radar TEST_PLATFORM
+end_platform
+
+platform test_radar_other TEST_PLATFORM_OTHER
+end_platform
+
+script bool FloatEqual(double aVal1, double aVal2)
+   if((aVal1 > (aVal2 - 1.0E-10)) && (aVal1 < (aVal2 + 1.0E-10)))
+   {
+      return true;
+   }
+   return false;
+end_script
+
+script void TestRcvrBasic(string testName, WsfEM_Rcvr rcvr, WsfEM_Xmtr xmtr, WsfEM_Xmtr xmtrInvalid, double freq, double bandwidth)
+   rcvr.Deactivate();   // Just called here for basic script test.
+   rcvr.Activate();     // Just called here for basic script test.
+   
+   double bandwithRatio = rcvr.BandwidthEffect(freq, bandwidth);
+   double bandwithRatioOther = rcvr.BandwidthEffect((freq - (0.5 * bandwidth)), bandwidth);
+   bool interaction = rcvr.CanInteractWith(xmtr);
+   bool interactionOther = rcvr.CanInteractWith(xmtrInvalid);
+   
+   if(!FloatEqual(bandwithRatio, 1.0))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Bandwidth test full fail");
+   }
+   
+   if(!FloatEqual(bandwithRatioOther, 0.5))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Bandwidth test half fail");
+   }
+     
+   if(!interaction)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Valid xmtr interaction fail");
+   }
+   
+   if(interactionOther)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Invalid xmtr interaction fail");
+   }
+end_script
+
+// Assumes default (non-explicit) polarization table usage EXCEPT for "default"
+script void TestRcvrPolarization(string testName, WsfEM_Rcvr rcvr)
+
+   for(int i = 0; i < POL_TYPES; i = i + 1)
+   {
+      rcvr.SetPolarization(polStrings[i]);
+      for(int j = 0; j < POL_TYPES; j = j + 1)
+      {
+         double ratio = rcvr.PolarizationEffect(polStrings[j]);
+         if(!FloatEqual(ratio, polTable[i][j]))
+         {
+            writeln("-FAIL-");
+            writeln("Test: " + testName);
+            writeln("Fail polarization values test, receiver pol: " + polStrings[i] + " receiving polarization type: " + polStrings[j]);
+         }
+      }
+   }
+   
+   rcvr.SetPolarization("default");  
+   // Modify values for receiving polarization type "horizontal"
+   rcvr.SetPolarizationEffect("horizontal", (1.0/3.0));
+   for(int i = 0; i < POL_TYPES - 1; i = i + 1) // "POL_TYPES - 1" -> Skip the last type, "default", since it is explicitly defined
+   {
+      rcvr.SetPolarization(polStrings[i]);
+      double ratio = rcvr.PolarizationEffect("horizontal");
+      if(!FloatEqual(ratio, (1.0/3.0)))
+      {
+         writeln("-FAIL-");
+         writeln("Test: " + testName);
+         writeln("Fail polarization values test, receiver pol: " + polStrings[i] + " receiving polarization type: horizontal");
+      }
+   }   
+end_script
+
+script void TestRcvrMutators(string testName, WsfEM_Rcvr rcvr, double detectionThreshold, double instantBandwidth, 
+                             double noisePower, double noiseFigure, double antennaLoss, double lineLoss)
+
+   rcvr.SetDetectionThreshold(1.2345);
+   if(!FloatEqual(rcvr.DetectionThreshold(), 1.2345))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Set detection threshold fail");
+   }
+   rcvr.SetDetectionThreshold(detectionThreshold);
+   
+   rcvr.SetInstantaneousBandwidth(123.0);
+   if(!FloatEqual(rcvr.InstantaneousBandwidth(), 123.0))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Set Instantaneous Bandwidth fail");
+   }
+   rcvr.SetInstantaneousBandwidth(instantBandwidth);
+   
+   rcvr.SetNoisePower(12.0);
+   if(!FloatEqual(rcvr.NoisePower(), 12.0))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Set Noise Power fail");
+   }
+   rcvr.SetNoisePower(noisePower);
+   
+   rcvr.SetNoiseFigure(1.432);
+   if(!FloatEqual(rcvr.NoiseFigure(), 1.432))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Set Noise Figure fail");
+   }
+   rcvr.SetNoiseFigure(noiseFigure);
+   
+   rcvr.SetNoiseMultiplier(0.26);
+   if(!FloatEqual(rcvr.NoiseMultiplier(), 0.26))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Set Noise Multiplier fail");
+   }
+   rcvr.SetNoiseMultiplier(1.0);
+   
+   rcvr.SetAntennaOhmicLoss(1.678);
+   if(!FloatEqual(rcvr.AntennaOhmicLoss(), 1.678))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Set Antenna Loss fail");
+   }
+   rcvr.SetAntennaOhmicLoss(antennaLoss);
+   
+   rcvr.SetReceiveLineLoss(1.987);
+   if(!FloatEqual(rcvr.ReceiveLineLoss(), 1.987))
+   if(rcvr.ReceiveLineLoss() != 1.987)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Set Line Loss fail");
+   }
+   rcvr.SetReceiveLineLoss(lineLoss);
+end_script
+
+script void TestRcvrParameters(string testName, WsfEM_Rcvr rcvr, double detectionThreshold, string function, double instantBandwidth, 
+                               double noisePower, double noiseFigure, double antennaLoss, double lineLoss)
+
+   double detectionThresholdVar = rcvr.DetectionThreshold();
+   string functionVar = rcvr.Function();
+   double instantBandwidthVar = rcvr.InstantaneousBandwidth();
+   double noisePowerVar = rcvr.NoisePower();
+   double noiseFigureVar = rcvr.NoiseFigure();
+   double noiseMultiplierVar = rcvr.NoiseMultiplier();
+   double antennaLossVar = rcvr.AntennaOhmicLoss();
+   double lineLossVar = rcvr.ReceiveLineLoss();
+   
+   if(!FloatEqual(detectionThresholdVar, detectionThreshold))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Detection threshold fail");
+   }
+   
+   if(functionVar != function)
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Function fail");
+   }
+   
+   if(!FloatEqual(instantBandwidthVar, instantBandwidth))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Instantaneous bandwidth fail");
+   }
+   
+   // noise power was used/passed as watts, not dBW, so convert it
+   if(!FloatEqual(noisePowerVar, Math.LinearToDB(noisePower)))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Noise power fail");
+   }
+   
+   if(!FloatEqual(noiseFigureVar, noiseFigure))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Noise figure fail");
+   }
+   
+   //! Always 0.0 for base implementation
+   if(!FloatEqual(noiseMultiplierVar, 0.0))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Noise multiplier fail");
+   }
+   
+   if(!FloatEqual(antennaLossVar, antennaLoss))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Antenna loss fail");
+   }
+   
+   if(!FloatEqual(lineLossVar, lineLoss))
+   {
+      writeln("-FAIL-");
+      writeln("Test: " + testName);
+      writeln("Line loss fail");
+   }
+   
+   TestRcvrMutators("rcvr_mutators", rcvr, detectionThreshold, instantBandwidth, noisePower, noiseFigure, antennaLoss, lineLoss);
+end_script
+
+execute at_time 1 s absolute
+   WsfPlatform platform = WsfSimulation.FindPlatform("test_radar");
+   WsfSensor sensor = platform.Sensor("sensor");
+   WsfEM_Rcvr rcvr = sensor.Rcvr(0);
+   WsfEM_Xmtr xmtr = sensor.Xmtr(0);
+   
+   WsfPlatform otherPlatform = WsfSimulation.FindPlatform("test_radar_other");
+   WsfSensor sensorOther = otherPlatform.Sensor("sensor");
+   WsfEM_Xmtr xmtrOther = sensorOther.Xmtr(0);
+   WsfEM_Rcvr rcvrOther = sensorOther.Rcvr(0);
+     
+   TestRcvrBasic("rcvr_basic", rcvr, xmtr, xmtrOther, 2000000000.0, 20000.0);
+   TestRcvrParameters("rcvr_parameters", rcvr, 1.55, "rf_sensor", 10000.0, 500.0, 2.2, 0.22, 1.06);
+   TestRcvrPolarization("rcvr_polarization", rcvrOther);
+end_execute
+
+end_time 2 s

@@ -1,0 +1,170 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test for comm initialization availability.
+// Comms and networks should be available for usage in on_initialize2 blocks.
+// Message sending is NEVER supported during initialization for obvious reasons.
+
+script_variables
+   int num_networks = 2; //default and "testNetwork"
+end_script_variables
+
+network testNetwork WSF_COMM_NETWORK_GENERIC
+   network_address 192.168.1.1/24
+end_network
+
+comm TEST_COMM WSF_COMM_TRANSCEIVER
+   network_name testNetwork
+end_comm
+
+router TEST_ROUTER WSF_COMM_ROUTER
+end_router
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   comm comm TEST_COMM
+   end_comm
+   
+   //For verification purposes, one may uncomment the line below
+   //which results in numerous warnings and test failure.
+   //This is expected and correct behavior.
+   on_initialize
+      //InitializeTest(PLATFORM);
+   end_on_initialize
+   
+   on_initialize2
+      InitializeTest(PLATFORM);
+   end_on_initialize2
+end_platform_type
+
+platform test1 TEST_PLATFORM
+end_platform
+
+platform test2 TEST_PLATFORM
+end_platform
+
+script void InitializeTest(WsfPlatform aPlatform)
+      WsfAddress address = aPlatform.Comm("comm").GetAddress();
+      if(address.IsNull() || !address.IsValid())
+      {
+         writeln("-FAIL-");
+         writeln("Fail WsfComm.GetAddress()");
+      }
+      
+      WsfComm comm = WsfComm.GetComm(address);
+      if(comm.IsNull() || !comm.IsValid() || comm.GetAddress().IsNull())
+      {
+         writeln("-FAIL-");
+         writeln("Fail WsfComm.GetComm()");
+      }
+      
+      WsfNetwork network = WsfNetwork.GetNetwork(comm.NetworkName());
+      if(network.IsNull() || !network.IsValid() || network.GetAddress().IsNull())
+      {
+         writeln("-FAIL-");
+         writeln("Fail WsfNetwork.GetNetwork()");
+      }
+      
+      WsfNetworkGeneric otherNetwork = {};
+      string newNetworkName = aPlatform.Name() + ".otherNetwork";
+      otherNetwork.SetName(newNetworkName);
+      WsfAddress otherAddress = {};
+      
+      if(!WsfNetwork.AddNetwork(otherNetwork))
+      {
+         writeln("-FAIL-");
+         writeln("Fail WsfNetwork.AddNetwork()");
+      }
+      
+      WsfNetwork addedOtherNetwork = WsfNetwork.GetNetwork(newNetworkName);
+      
+      num_networks = num_networks + 1;
+      
+      Array<string> managedNetworks = WsfNetwork.GetManagedNetworks();
+      if(managedNetworks.Size() != num_networks) // Default, testNetwork, and any new networks
+      {
+         writeln("-FAIL-");
+         writeln("Fail WsfNetwork.GetManagedNetworks()");
+      }
+      
+      if(!network.RemoveMember(comm.GetAddress()))
+      {
+         writeln("-FAIL-");
+         writeln("Fail WsfNetwork.RemoveMember()");
+      }
+      
+      if(!addedOtherNetwork.AddMember(comm) && (addedOtherNetwork.GetMembers().Size() != 1))
+      {
+         writeln("-FAIL-");
+         writeln("Fail WsfNetwork.AddMember()");
+      }
+      
+      addedOtherNetwork.RemoveMember(comm.GetAddress());
+      network.AddMember(comm);
+      
+      Array<WsfAddress> members = network.GetMembers();
+      foreach (WsfAddress member in members)
+      {
+         foreach(WsfAddress otherMember in members)
+         {
+            if(member.GetAddress() != otherMember.GetAddress())
+            {
+               if(!network.AddLink(member, otherMember))
+               {
+                   writeln("-FAIL-");
+                   writeln("Fail WsfNetwork.AddLink() for: " + member.GetAddress() + " to: " + otherMember.GetAddress());
+               }
+               else if(!WsfComm.GetComm(member).IsConnectedTo(otherMember))
+               {
+                   writeln("-FAIL-");
+                   writeln("Fail NOT WsfComm.IsConnectedTo() for: " + member.GetAddress() + " to: " + otherMember.GetAddress());
+               }
+               else if(!WsfComm.GetComm(member).PathExistsTo(otherMember))
+               {
+                   writeln("-FAIL-");
+                   writeln("Fail NOT WsfComm.PathExistsTo() for: " + member.GetAddress() + " to: " + otherMember.GetAddress());
+               }
+            }
+         }
+      }
+      
+      foreach (WsfAddress member in members)
+      {
+         foreach(WsfAddress otherMember in members)
+         {
+            if(member.GetAddress() != otherMember.GetAddress())
+            {
+               if(!network.RemoveLink(member, otherMember))
+               {
+                   writeln("-FAIL-");
+                   writeln("Fail WsfNetwork.RemoveLink() for: " + member.GetAddress() + " to: " + otherMember.GetAddress());
+               }
+               else if(WsfComm.GetComm(member).IsConnectedTo(otherMember))
+               {
+                   writeln("-FAIL-");
+                   writeln("Fail WsfComm.IsConnectedTo() for: " + member.GetAddress() + " to: " + otherMember.GetAddress());
+               }
+               else if(WsfComm.GetComm(member).PathExistsTo(otherMember))
+               {
+                   writeln("-FAIL-");
+                   writeln("Fail WsfComm.PathExistsTo() for: " + member.GetAddress() + " to: " + otherMember.GetAddress());
+               }
+            }
+         }
+      }
+      
+      WsfNetwork.RemoveNetwork(addedOtherNetwork);
+      num_networks = num_networks - 1;
+      managedNetworks.Clear();
+      managedNetworks = WsfNetwork.GetManagedNetworks();
+      if(managedNetworks.Size() != num_networks)
+      {
+         writeln("-FAIL-");
+         writeln("Fail WsfNetwork.RemoveNetwork()");
+      }
+end_script

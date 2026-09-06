@@ -1,0 +1,75 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _wsfsimulation.cyber_methods:
+
+Cyber Methods
+=============
+
+.. method:: bool CyberAttack(WsfPlatform aTarget, string aAttackType)
+            bool CyberAttack(WsfPlatform aTarget, string aAttackType, WsfCyberAttackParameters aParameters)
+
+   A special use case to launch a cyber attack. Typically, cyber attacks are initiated from the
+   platform scope against a target platform. However, not all cyber attacks fit this definition,
+   such as in the case of embedded cyber. The AFSIM cyber framework considers such attacks as
+   self-inflicted, as in the attacking platform is the same as the victim. This method allows
+   self-targeting cyber attacks for use cases such as embedded cyber, from the global scope.
+   The target platform 'aTarget' is also the attacker in this method, and uses the attack type 'aAttackType'.
+   'aAttackType' must be a valid :command:`cyber_attack` type.
+
+   The version of this method using :class:`WsfCyberAttackParameters` allows for the passage of
+   user defined parameters, in cases where effects associated with the attack can utilize or require
+   such data.
+
+   Returns true if the command was successful or false if one of the arguments was incorrect.
+
+   .. note::
+
+      Be mindful that the attacker is also the victim in this call, especially in terms of defining
+      :command:`cyber_protect` for this platform. Any default cyber protection will also apply to
+      any attack called in this way.
+
+.. method:: int CyberEngagementScanDelayStatus(string aAttackType, WsfPlatform aAttacker, WsfPlatform aTarget)
+            int CyberEngagementAttackDelayStatus(string aAttackType, WsfPlatform aAttacker, WsfPlatform aTarget)
+
+   Queries for truth regarding the delay of the scan or attack engagement specified by the parameters provided. The integer
+   return value indicates the current delay in the cyber engagement progression in the following manner:
+
+   +--------------+------------------------+
+   | Return Value |       Delay Type       |
+   +==============+========================+
+   |      0       |       Scan Delay       |
+   +--------------+------------------------+
+   |      1       |       Attack Delay     |
+   +--------------+------------------------+
+   |      2       | Attack Detection Delay |
+   +--------------+------------------------+
+   |      3       | Attack Recovery Delay  |
+   +--------------+------------------------+
+   |      4       |     Unused in Core     |
+   +--------------+------------------------+
+   |      5       |          None          |
+   +--------------+------------------------+
+
+   As indicated above, a return value of none is the result of an engagement that is
+   not active or ongoing, has no delays, or could not be found matching
+   the user supplied parameters.
+
+.. method:: bool CyberScanCancel(string aAttackType, WsfPlatform aAttacker, WsfPlatform aTarget)
+            bool CyberAttackCancel(string aAttackType, WsfPlatform aAttacker, WsfPlatform aTarget)
+
+   Ends a scan or attack engagement, specified by the parameters provided, immediately during the current delay phase.
+   The effect on the cyber engagement progression depends on the delay phase in which the engagement is canceled.
+
+   * An attack or scan canceled during their initial delay will prevent the attack or scan and any subsequent actions.
+   * An attack canceled during a detection delay will prevent subsequent detection and recovery by the target.
+   * An attack canceled during attack recovery delay will not recover.
+
+   This method returns true if the engagement was successfully found and canceled. It will return false if the
+   engagement could not be found with the provided parameters, or if the engagement is not active.

@@ -1,0 +1,89 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include test_functions.txt
+
+script_variables
+   # global variables
+   int gi = 2; # global int
+end_script_variables
+
+on_initialize
+   ####################################################################
+   # complex assignment checks of non-strings that verify correct
+   # behavior while also ensuring stack slot recycling behavior of
+   # assignment doesn't introduce any incorrect results.
+   
+   # prefixs:
+   #  l = local var
+   #  g = global var
+   #  c = constant var
+   #  s = static var
+
+   bool pass = true;
+   pass = pass && AssertEqualsMessage(gi, 2, "int g=2");
+
+   # constant variables
+   int ci = 3;
+   pass = pass && AssertEqualsMessage(ci, 3, "int c=3");
+
+   # local variables
+   int li = gi + ci;
+   pass = pass && AssertEqualsMessage(li, 5, "int l=g+c");
+
+   # static varaibles
+   static int si = 7;
+   pass = pass && AssertEqualsMessage(si, 7, "int s = 7");
+
+   li = li + ci;
+   pass = pass && AssertEqualsMessage(li, 8, "int l=l+c");
+   li = li + li;
+   pass = pass && AssertEqualsMessage(li, 16, "int l=l+l");
+   li = -1.0 * li;
+   pass = pass && AssertEqualsMessage(li, -16, "int l=c*l");
+   li = si / -1;
+   pass = pass && AssertEqualsMessage(li, -7, "int l=s/c");
+   li = si * li;
+   pass = pass && AssertEqualsMessage(li, -49, "int l=s*l");
+   li /= li;
+   pass = pass && AssertEqualsMessage(li, 1, "int l/=l");
+   li += li;
+   pass = pass && AssertEqualsMessage(li, 2, "int l+=l");
+   li += 3;
+   pass = pass && AssertEqualsMessage(li, 5, "int l+=c");
+   li += si;
+   pass = pass && AssertEqualsMessage(li, 12, "int l+=s");
+   li = gi + li;
+   pass = pass && AssertEqualsMessage(li, 14, "int l=g+l");
+   li = -1 * li;
+   pass = pass && AssertEqualsMessage(li, -14, "int l=c+l");
+   li += -3 * li;
+   pass = pass && AssertEqualsMessage(li, 28, "int l+=c+l");
+
+   ####################################################################
+   # legacy tests of assigning a constant value directly to a variable.
+   int x = 99;
+   static int y = -99;
+   int z = (x + y);
+   global string gVal = "global variable";
+   string myStr = "      My string with 6 leading and trailing spaces      ";
+
+   pass = AssertEqualsMessage(x,99, "declaration & assignment to const number.") && pass;
+
+   pass = AssertEqualsMessage(y,-99, "static declaration & assignment to negative const number.") && pass;
+
+   pass = AssertEqualsMessage(z,0, "declaration & assignment to 2 previously assigned variables.") && pass;
+
+   pass = AssertEqualsMessage(gVal,"global variable", "declaration & assignment of global string value.") && pass;
+
+   pass = AssertEqualsMessage(myStr,"      My string with 6 leading and trailing spaces      ",
+            "decl. & assmt. of string with leading & trailing zeroes.") && pass;
+
+   writePass(pass);
+end_on_initialize

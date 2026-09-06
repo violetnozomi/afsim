@@ -1,0 +1,46 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+# The brawler maneuever evaluation functions:
+#   EvaluateRatesWithSpeed()
+#   EvaluateRatesWithThrottle()
+#   EvaluateHeadingSpeedAltitude()
+#   EvaluateTurnInPlaneWithSpeed()
+#   EvaluateTurnInPlaneWithThrottle()
+#   EvaluateVectorWithSpeed()
+#   EvaluateVectorWithThrottle()
+#
+# ...each return a value that is the sum of all the maneuever value components.
+# example:  double score = EvaluateVectorWithSpeed()
+# so: score = ManeuverValueComponent("i_voffef") +
+#             ManeuverValueComponent("i_vlospd") +
+#             ManeuverValueComponent("i_valdfx") +
+#             ManeuverValueComponent("i_valevd") +
+#             ManeuverValueComponent("i_vmaim");
+#
+# note, most of the maneuver value components have a raw value that has been adjusted by scale factors:
+# ManeuverValueComponent("i_valdfx") = RawDefensiveValue * TunnelVisionMultiplier("i_valdfx");
+# ManeuverValueComponent("i_valevd") = RawMissileEvasionValue * TunnelVisionMultiplier("i_valevd");
+# ManeuverValueComponent("i_vlospd") = RawLowSpeedRecoveryValue * sqrt(DegreeOfThreatCompliment(PLATFORM, tgtTrack)) * InherentBiasFaults("i_nospd") * TunnelVisionMultiplier("i_vlospd");
+# ManeuverValueComponent("i_vmaim")  = RawMissileAimingValue * LastEngagementValue(tgtPlatform) * InherentBiasFaults("i_ovroff") * TunnelVisionMultiplier("i_vmaim");
+#
+# NOTE : the offensive score is more complicated!!!
+#
+# crunch = -1.0 * ramp(0.0, greq, MaxPerformanceInstantaneousTurnGLoad_g());
+#
+# in most cases (when pursuing a target):
+#   ManeuverValueComponent("i_voffef") = (RawOffensiveValue * 0.75 * (1.0 - RawMissileAimingValue) + crunch + ManeuverValueComponent("i_vmaim")) * OffensiveMultiplier() * DegreeOfThreatCompliment(PLATFORM, tgtTrack) * InherentBiasFaults("i_ovroff") * TunnelVisionMultiplier("i_voffef");
+#
+# when ready to fire on target (mostly driven by the missile aiming value):
+#   ManeuverValueComponent("i_voffef") = (crunch + ManeuverValueComponent("i_vmaim")) * OffensiveMultiplier() * DegreeOfThreatCompliment(PLATFORM, tgtTrack) * InherentBiasFaults("i_ovroff") * TunnelVisionMultiplier("i_voffef");
+#
+# in other cases, when not on a target (ie: nothing to do with missile aiming):
+#   ManeuverValueComponent("i_voffef") = RawOffensiveValue * OffensiveMultiplier() * DegreeOfThreatCompliment(PLATFORM, tgtTrack) * InherentBiasFaults("i_ovroff") * TunnelVisionMultiplier("i_voffef");
+#

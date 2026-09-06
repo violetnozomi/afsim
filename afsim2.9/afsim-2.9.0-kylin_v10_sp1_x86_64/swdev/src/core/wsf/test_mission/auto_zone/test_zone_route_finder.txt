@@ -1,0 +1,164 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Auto-tests for the WsfZoneRouteFinder script class
+
+//define the zones to avoid
+zone z1
+   polygonal
+   lat_lon
+   point 0:0:0n 0:0:0e
+   point 0:0:0n 1:0:0e
+   point 1:0:0n 1:0:0e
+   point 1:0:0n 0:0:0e
+   minimum_altitude 0 km
+   maximum_altitude 1 km
+end_zone
+
+zone z2
+   polygonal
+   lat_lon
+   point 2:0:0n 4:0:0w
+   point 2:0:0n 5:0:0w
+   point 3:0:0n 5:0:0w
+   point 3:0:0n 4:0:0w
+   minimum_altitude 0 km
+   maximum_altitude 1 km
+end_zone
+
+zone z3
+   polygonal
+   lat_lon
+   point 3:0:0n 0:0:0w
+   point 3:0:0n 1:0:0w
+   point 4:0:0n 1:0:0w
+   point 4:0:0n 0:0:0w
+   minimum_altitude 0 km
+   maximum_altitude 1 km
+end_zone
+
+zone z4
+   polygonal
+   lat_lon
+   point 1:30:0n 1:30:0w
+   point 1:30:0n 2:30:0w
+   point 2:30:0n 2:30:0w
+   point 2:30:0n 1:30:0w
+   minimum_altitude 0 km
+   maximum_altitude 1 km
+end_zone
+
+//define a platform with an initial route
+platform p1 WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      //the route's waypoints are located at the center of each zone
+      route
+         position 1:0:0s 2:0:0w
+            altitude 0 km
+            speed 3.43 km/s
+         position 0:30:0n 0:30:0e
+            altitude 0 km
+         position 2:30:0n 4:30:0w
+            altitude 0.5 km
+         position 3:30:0n 0:30:0w
+            altitude 0.5 km
+         position 5:0:0n 2:0:0w
+            altitude 0 km
+      end_route
+   end_mover
+end_platform
+
+//Auto-test:  Tests WsfZoneRouteFinder's AvoidZone method
+script bool TestAvoidZone()
+   //create the WsfZoneRouteFinder
+   WsfZoneRouteFinder zrf = WsfZoneRouteFinder();
+
+   //get access to global zones z1 and z2 from the WsfSimulation
+   WsfZone z1 = WsfZone.FindZone("z1");
+   WsfZone z2 = WsfZone.FindZone("z2");
+
+   //try to avoid z1
+   zrf.AvoidZone(z1);
+   //Test:  make sure that NumberOfAvoidanceZones() == 1
+   if (zrf.NumberOfAvoidanceZones() < 1)
+   {
+      writeln("-FAIL- Failed to avoid z1");
+      return false;
+   }
+   //try to avoid z1 again
+   zrf.AvoidZone(z1);
+   //Test:  make sure that NumberOfAvoidanceZones() == 1
+   if (zrf.NumberOfAvoidanceZones() > 1)
+   {
+      writeln("-FAIL- Avoided z1 twice");
+      return false;
+   }
+   //try to avoid z2
+   zrf.AvoidZone(z2);
+   //Test:  make sure that NumberOfAvoidanceZones() == 2
+   if (zrf.NumberOfAvoidanceZones() < 2)
+   {
+      writeln("-FAIL- Failed to avoid z2");
+      return false;
+   }
+   //create a copy of z1
+   Array<WsfGeoPoint> z1p = z1.PolyPoints();
+   WsfZone z1c = WsfZone.CreatePolygonal(z1p);
+   //try to avoid z1c
+   zrf.AvoidZone(z1c);
+   //Test:  make sure that NumberOfAvoidanceZones() == 3
+   if (zrf.NumberOfAvoidanceZones() < 3)
+   {
+      writeln("-FAIL- Failed to avoid z1c");
+      return false;
+   }
+   return true;
+end_script
+
+//Auto-test:  Tests WsfZoneRouteFinder's RoutesAroundZones method
+script bool TestRoutesAroundZones()
+   //create the WsfZoneRouteFinder
+   WsfZoneRouteFinder zrf = WsfZoneRouteFinder();
+   //get access to global zones z1 through z4 from the WsfSimulation
+   WsfZone z1 = WsfZone.FindZone("z1");
+   WsfZone z2 = WsfZone.FindZone("z2");
+   WsfZone z3 = WsfZone.FindZone("z3");
+   WsfZone z4 = WsfZone.FindZone("z4");
+   //avoid zones z1, z2, z3, z4
+   zrf.AvoidZone(z1);
+   zrf.AvoidZone(z2);
+   zrf.AvoidZone(z3);
+   zrf.AvoidZone(z4);
+   //get access to the platform's route
+   WsfPlatform p1 = WsfSimulation.FindPlatform("p1");
+   WsfRoute p1r = p1.Route();
+   //get access to the route's start and end waypoints
+   WsfWaypoint p1r_s = p1r.Get(0);
+   WsfWaypoint p1r_e = p1r.Get(4);
+   //try to compute the shortest path around the zones
+   WsfRoute zr = zrf.RouteAroundZones(p1r_s.Location(), p1r_e.Location(), 343.0);
+   //Test:  make sure the route has waypoints
+   if (zr.Size() == 0)
+   {
+      writeln("-FAIL- Failed to find shortest route");
+      return false;
+   }
+   p1.SetRoute(zr);
+   return true;
+end_script
+
+execute at_time 1 hour absolute
+   if (TestAvoidZone() &&
+       TestRoutesAroundZones())
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+end_time 2 hours

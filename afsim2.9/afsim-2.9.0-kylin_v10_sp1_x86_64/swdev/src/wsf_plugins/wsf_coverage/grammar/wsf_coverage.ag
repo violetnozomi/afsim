@@ -1,0 +1,407 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+(struct root
+   (var ObjectMap/Grid coverageGridType)
+   (var ObjectMap/Grid coverageGrid)
+   (var ObjectMap/Coverage coverage)
+   (var ObjectMap/Measure measureType)
+   (var ObjectMap/MeasureOutput measureOutputType)
+
+   (rule grid-type {
+      grid <string> <string> (new (type coverageGrid $1) (type coverageGridType $2)) [apply($$)] <TypeCommand>* end_grid
+    | (error { grid <ignore>* end_grid })
+   })
+
+   (rule coverage-type {
+      coverage <string> <string> (new (type coverage $1) (type coverage $2)) [apply($$)] <TypeCommand>* end_coverage
+    | (error { coverage <ignore>* end_coverage })
+   })
+
+   {
+      <grid-type>
+    | <coverage-type>
+   }
+)
+
+(struct Grid
+   {
+      <central-body-type>
+    | grid_data_file <quotable-string>
+    | suppress_grid_platforms <Bool>
+   }
+)
+
+(rule altitude-ref-specification
+   {
+      msl
+    | agl
+   }
+)
+
+(rule platform-type-grid-asset-spec
+   {
+      asset (typeref platformType) <string>
+   }
+)
+
+(rule rectangular-grid-command
+   {
+      altitude <Length> <altitude-ref-specification>
+    | origin <Latitude> <Longitude>
+    | <platform-type-grid-asset-spec>
+   }
+)
+
+(struct WSF_LAT_LON_GRID :symbol (type coverageGridType WSF_LAT_LON_GRID)
+                         :base_type Grid
+   {
+      <Grid>
+    | <rectangular-grid-command>
+    | latitude_span <Latitude> <Latitude>
+    | longitude_span <Longitude> <Longitude>
+    | latitude_spacing <Angle>
+    | longitude_spacing <Angle>
+    | spacing <Angle>
+   }
+)
+
+(struct WSF_ZONE_BASED_GRID :symbol (type coverageGridType WSF_ZONE_BASED_GRID)
+                            :base_type Grid
+   {
+      <Grid>
+    | <rectangular-grid-command>
+    | latitude_spacing <Angle>
+    | longitude_spacing <Angle>
+    | spacing <Angle>
+    | zone (typeref zone)
+   }
+)
+
+(struct WSF_DISTANCE_STEPPED_GRID :symbol (type coverageGridType WSF_DISTANCE_STEPPED_GRID)
+                                  :base_type Grid
+   {
+      <Grid>
+    | <rectangular-grid-command>
+    | step_distance <Length> <Length>
+    | size <integer> <integer>
+    | origin_index <integer> <integer>
+   }
+)
+
+(struct WSF_EXISTING_PLATFORM_GRID :symbol (type coverageGridType WSF_EXISTING_PLATFORM_GRID)
+                                   :base_type Grid
+   (rule existing-platform-spec
+      {
+         platform (typeref platform) <string>
+      }
+   )
+
+   {
+      <Grid>
+    | <existing-platform-spec>
+   }
+)
+
+(struct WSF_COMPOSITE_GRID :symbol (type coverageGridType WSF_COMPOSITE_GRID)
+                           :base_type Grid
+   (var ObjectMap/Grid subgrids)
+   (rule subgrid-type
+      {
+         subgrid <string> <string> (new (subtype subgrids $1) (type coverageGridType $2)) [apply($$)] <TypeCommand>* end_subgrid
+      }
+   )
+
+   {
+      <Grid>
+    | <subgrid-type>
+   }
+)
+
+(struct MeasureOutput
+   {
+      file <quotable-string>
+   }
+)
+
+(struct MeasureTextOutput :base_type MeasureOutput
+   (rule justify-option
+      {
+         left
+       | right
+      }
+   )
+   (rule format-option
+      {
+         fixed
+       | scientific
+      }
+   )
+
+   {
+      precision <integer>
+    | width <integer>
+    | justify <justify-option>
+    | format <format-option>
+    | <MeasureOutput>
+   }
+)
+
+(struct grid_stats :symbol (type measureOutputType grid_stats)
+                   :base_type MeasureTextOutput
+   {
+      <MeasureTextOutput>
+   }
+)
+
+(struct lat_lon_stats :symbol (type measureOutputType lat_lon_stats)
+                      :base_type MeasureTextOutput
+   {
+      bin_size <Angle>
+    | latitude
+    | longitude
+    | <MeasureTextOutput>
+   }
+)
+
+(struct data :symbol (type measureOutputType data)
+             :base_type MeasureTextOutput
+   {
+      <MeasureTextOutput>
+   }
+)
+
+(struct Measure
+   {
+      output <string> (load (type measureOutputType $1)) [apply($$)] <TypeCommand>* end_output
+   }
+)
+
+(struct WSF_ACCESS_DURATION_MOE :symbol (type measureType WSF_ACCESS_DURATION_MOE)
+                                :base_type Measure
+   (rule access-duration-subtype
+      {
+         mean
+       | minimum
+       | maximum
+       | standard_deviation
+       | percent_above <real>
+       | sum
+      }
+   )
+
+   {
+      <Measure>
+    | subtype <access-duration-subtype>
+   }
+)
+
+(struct WSF_COVERAGE_TIME_MOE :symbol (type measureType WSF_COVERAGE_TIME_MOE)
+                              :base_type Measure
+   (rule coverage-time-subtype
+      {
+         total
+       | percent
+       | total_time_above <integer>
+       | percent_time_above <integer>
+       | maximum_per <Time>
+       | maximum_percent_per <Time>
+       | minimum_per <Time>
+       | minimum_percent_per <Time>
+       | mean_per <Time>
+       | mean_percent_per <Time>
+       | standard_deviation_per <Time>
+       | standard_deviation_percent_per <Time>
+      }
+   )
+
+   {
+      <Measure>
+    | subtype <coverage-time-subtype>
+   }
+)
+
+(struct WSF_N_ASSET_COVERAGE_MOE :symbol (type measureType WSF_N_ASSET_COVERAGE_MOE)
+                                 :base_type Measure
+   (rule n-asset-coverage-subtype
+      {
+         mean
+       | minimum
+       | maximum
+       | percent_above <real>
+       | unique
+      }
+   )
+
+   {
+      <Measure>
+    | subtype <n-asset-coverage-subtype>
+   }
+)
+
+(struct WSF_NUMBER_OF_ACCESSES_MOE :symbol (type measureType WSF_NUMBER_OF_ACCESSES_MOE)
+                                   :base_type Measure
+   (rule number-of-accesses-subtype
+      {
+         in_span <Time> <Time>
+       | in_span_per <Time> <Time> <Time>
+       | maximum_per <Time>
+       | mean_per <Time>
+       | minimum_per <Time>
+       | total
+      }
+   )
+
+   {
+      <Measure>
+    | subtype <number-of-accesses-subtype>
+   }
+)
+
+(struct WSF_NUMBER_OF_GAPS_MOE :symbol (type measureType WSF_NUMBER_OF_GAPS_MOE)
+                               :base_type Measure
+   (rule number-of-gaps-subtype
+      {
+         total
+       | in_span <Time> <Time>
+       | maximum_per <Time>
+       | minimum_per <Time>
+       | mean_per <Time>
+       | in_span_per <Time> <Time> <Time>
+      }
+   )
+
+   {
+      <Measure>
+    | subtype <number-of-gaps-subtype>
+   }
+)
+
+(struct WSF_REVISIT_TIME_MOE :symbol (type measureType WSF_REVISIT_TIME_MOE)
+                             :base_type Measure
+   (rule revisit-time-subtype
+      {
+         mean
+       | minimum
+       | maximum
+       | standard_deviation
+       | number_percent_below <real>
+       | percent_below <real>
+       | percent_below_gaps_only <real>
+      }
+   )
+
+   {
+      <Measure>
+    | subtype <revisit-time-subtype>
+   }
+)
+
+(struct WSF_SIMPLE_COVERAGE_MOE :symbol (type measureType WSF_SIMPLE_COVERAGE_MOE)
+                                :base_type Measure
+   {
+      <Measure>
+   }
+)
+
+(struct WSF_TIME_AVERAGE_GAP_MOE :symbol (type measureType WSF_TIME_AVERAGE_GAP_MOE)
+                                 :base_type Measure
+   {
+      <Measure>
+   }
+)
+
+(struct Coverage
+   (var ObjectMap/Measure measures)
+
+   (rule platform-asset
+      {
+         platform (typeref platform) <string>
+      }
+   )
+   (rule platform_type-asset
+      {
+         platform_type (typeref platformType) <string>
+      }
+   )
+   (rule category-asset
+      {
+         category (name category) <string>
+      }
+   )
+   (rule group-asset
+      {
+         group (typeref group) <string>
+      }
+   )
+   (rule asset-specification
+      {
+         <platform-asset>
+       | <platform_type-asset>
+       | <category-asset>
+       | <group-asset>
+      }
+   )
+   (rule asset-block
+      {
+         assets <asset-specification>* end_assets
+      }
+   )
+   (rule moe-type
+      {
+         moe <string> <string> (new (subtype measures $1) (type measureType $2)) [apply($$)]
+            <TypeCommand>*
+         end_moe
+      }
+   )
+   (rule interval-constraint-specification
+      {
+         minimum <Time>
+       | maximum <Time>
+       | interval <Time> <Time>
+      }
+   )
+   (rule interval-constraint-command
+      {
+         output_file <quotable-string>
+       | platform (typeref platform) <interval-constraint-specification>
+       | platform_type (typeref platformType) <interval-constraint-specification>
+       | device <string> <interval-constraint-specification>
+       | device_type <string> <interval-constraint-specification>
+      }
+   )
+   (rule interval-constraint
+      {
+         interval_constraint
+            <interval-constraint-command>*
+         end_interval_constraint
+      }
+   )
+
+   {
+      output_dir <quotable-string>
+    | raw_data_file <quotable-string>
+    | overlay_file <quotable-string>
+    | start_time <Time>
+    | end_time <Time>
+    | start_epoch <month-value> <integer> <integer> <string>
+    | end_epoch <month-value> <integer> <integer> <string>
+    | grid (typeref coverageGrid)
+    | <asset-block>
+    | <moe-type>
+    | <interval-constraint>
+   }
+)
+
+(struct WSF_SENSOR_COVERAGE :symbol (type coverage WSF_SENSOR_COVERAGE)
+                            :base_type Coverage
+   {
+      <Coverage>
+   }
+)

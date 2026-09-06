@@ -1,0 +1,324 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests the base functionality common to all transmitters and receivers via the WsfEM_XmtrRcvr object.
+propagation_model TEST_PROPAGATION fast_multipath
+end_propagation_model
+
+attenuation_model TEST_ATTENUATION simple
+end_attenuation_model
+
+antenna_pattern RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain           35 dB
+     minimum_gain       -20 dB
+     azimuth_beamwidth   5 deg
+     elevation_beamwidth 45 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+sensor TEST_RADAR WSF_RADAR_SENSOR
+   // These values are generated solely for testing and
+   // are not based on any analog
+   frame_time 5.0 sec
+   reports_side
+
+   transmitter
+      attenuation TEST_ATTENUATION
+      propagation TEST_PROPAGATION
+      duty_cycle 0.5
+      frequency             2.0 ghz
+      alternate_frequency 1 2.1 ghz
+      alternate_frequency 2 2.2 ghz
+      antenna_pattern_table
+         polarization default
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+      end_antenna_pattern_table
+      powers
+         frequency 2.0 ghz 75000 watts
+         frequency 2.1 ghz 70000 watts
+         frequency 2.2 ghz 55000 watts
+      end_powers
+      pulse_width 50 usec
+      pulse_repetition_frequencies
+         prf 1 500 hz
+         prf 2 350 hz
+      end_pulse_repetition_frequencies
+      internal_loss              2 db
+      pulse_compression_ratio    13 absolute
+   end_transmitter
+
+   receiver
+      frequency 2.0 ghz
+      beam_tilt 1.2 deg
+      bandwidth 20000 hz
+      instantaneous_bandwidth 10000 hz
+      internal_loss 1.1 db
+      antenna_pattern_table
+         polarization default
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+         polarization horizontal
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+         polarization vertical
+            frequency 2.0 ghz RADAR_ANTENNA
+            frequency 2.1 ghz RADAR_ANTENNA
+            frequency 2.2 ghz RADAR_ANTENNA
+      end_antenna_pattern_table
+   end_receiver
+end_sensor
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   sensor sensor TEST_RADAR
+   end_sensor
+end_platform_type
+
+platform test_radar TEST_PLATFORM
+end_platform
+
+script bool FloatEqual(double aVal1, double aVal2)
+   if((aVal1 > (aVal2 - 1.0E-10)) && (aVal1 < (aVal2 + 1.0E-10)))
+   {
+      return true;
+   }
+   return false;
+end_script
+
+script bool FloatEqualWithEpsilon(double aVal1, double aVal2, double epsilon)
+   if((aVal1 > (aVal2 - epsilon)) && (aVal1 < (aVal2 + epsilon)))
+   {
+      return true;
+   }
+   return false;
+end_script
+
+execute at_time 1 s absolute
+   WsfPlatform platform = WsfSimulation.FindPlatform("test_radar");
+   WsfSensor sensor = platform.Sensor("sensor");
+   WsfEM_Xmtr xmtr = sensor.Xmtr(0);
+   WsfEM_Rcvr rcvr = sensor.Rcvr(0);
+
+   WsfEM_XmtrRcvr xmtrBase = (WsfEM_XmtrRcvr)xmtr;
+   WsfEM_XmtrRcvr rcvrBase = (WsfEM_XmtrRcvr)rcvr;
+
+   WsfEM_Antenna antenna1 = xmtrBase.Antenna();
+   WsfEM_Antenna antenna2 = rcvrBase.Antenna();
+
+   if(xmtrBase.ArticulatedPart() != rcvrBase.ArticulatedPart())
+   {
+      writeln("-FAIL-");
+      writeln("Articulated part error");
+   }
+
+   if(!antenna1.IsValid() || !antenna2.IsValid() || (antenna1 != antenna2))
+   {
+      writeln("-FAIL-");
+      writeln("Antenna error");
+   }
+
+   WsfAntennaPattern pattern1 = xmtrBase.AntennaPattern(2000000000);
+   WsfAntennaPattern pattern2 = rcvrBase.AntennaPattern(2000000000);
+
+   if(!pattern1.IsValid() || !pattern2.IsValid())
+   {
+      writeln("-FAIL-");
+      writeln("Antenna pattern freq error");
+   }
+
+   WsfAntennaPattern pattern3 = xmtrBase.AntennaPattern(2000000000, "default");
+   WsfAntennaPattern pattern4 = rcvrBase.AntennaPattern(2000000000, "default");
+
+   if(!pattern3.IsValid() || !pattern4.IsValid() || (pattern1 != pattern3) || (pattern2 != pattern4))
+   {
+      writeln("-FAIL-");
+      writeln("Antenna pattern freq/pol error");
+   }
+
+   WsfEM_Attenuation att1 = xmtrBase.AttenuationModel();
+   WsfEM_Attenuation att2 = rcvrBase.AttenuationModel();
+   if(!att1.IsValid() || att2.IsValid())
+   {
+      writeln("-FAIL-");
+      writeln("Attenuation error");
+   }
+
+   WsfEM_Propagation prop1 = xmtrBase.PropagationModel();
+   WsfEM_Propagation prop2 = rcvrBase.PropagationModel();
+   if(!prop1.IsValid() || prop2.IsValid())
+   {
+      writeln("-FAIL-");
+      writeln("Propagation error");
+   }
+
+   double band1 = xmtrBase.Bandwidth();
+   double band2 = rcvrBase.Bandwidth();
+   if(!FloatEqual(band1, 0.0))
+   {
+      writeln("-FAIL-");
+      writeln("Xmtr bandwidth error");
+   }
+   if(!FloatEqual(band2, 20000.0))
+   {
+      writeln("-FAIL-");
+      writeln("Rcvr bandwidth error");
+   }
+
+   double beamTilt1 = xmtrBase.BeamTilt();
+   double beamTilt2 = rcvrBase.BeamTilt();
+   if(!FloatEqual(beamTilt1, beamTilt2) || !FloatEqual(beamTilt1, 1.2))
+   {
+      writeln("-FAIL-");
+      writeln("Beamtilt error");
+   }
+
+   xmtrBase.SetBeamTilt(2.0);
+   rcvrBase.SetBeamTilt(2.0);
+   if(!FloatEqual(xmtrBase.BeamTilt(), rcvrBase.BeamTilt()) || !FloatEqual(xmtrBase.BeamTilt(), 2.0))
+   {
+      writeln("-FAIL-");
+      writeln("Set Beamtilt error");
+   }
+
+   bool masking1 = xmtrBase.CheckMasking();
+   bool masking2 = rcvrBase.CheckMasking();
+   if(!masking1 || !masking2)
+   {
+      writeln("-FAIL-");
+      writeln("Masking error");
+   }
+
+   xmtrBase.SetCheckMasking(false);
+   rcvrBase.SetCheckMasking(false);
+   if(xmtrBase.CheckMasking() || rcvrBase.CheckMasking())
+   {
+      writeln("-FAIL-");
+      writeln("Set Masking error");
+   }
+
+   double erm1 = xmtrBase.EarthRadiusMultiplier();
+   double erm2 = rcvrBase.EarthRadiusMultiplier();
+   if(!FloatEqual(erm1, (4.0/3.0)))
+   {
+      writeln("-FAIL-");
+      writeln("Earth radius multiplier xmtr error");
+   }
+   if(!FloatEqual(erm2, 1.0))
+   {
+      writeln("-FAIL-");
+      writeln("Earth radius multiplier rcvr error");
+   }
+
+   xmtrBase.SetEarthRadiusMultiplier(1.5);
+   rcvrBase.SetEarthRadiusMultiplier(1.5);
+   if(!FloatEqual(xmtrBase.EarthRadiusMultiplier(), 1.5))
+   {
+      writeln("-FAIL-");
+      writeln("Earth radius set multiplier xmtr error");
+   }
+   if(!FloatEqual(rcvrBase.EarthRadiusMultiplier(), 1.5))
+   {
+      writeln("-FAIL-");
+      writeln("Earth radius set multiplier rcvr error");
+   }
+
+   double freq1 = xmtrBase.Frequency();
+   double freq2 = rcvrBase.Frequency();
+   if(!FloatEqualWithEpsilon(freq1, 2000000000.0, 1.0E-5) || !FloatEqualWithEpsilon(freq2, 2000000000.0, 1.0E-5))
+   {
+      writeln("-FAIL-");
+      writeln("Freq error");
+   }
+
+   double loss1 = xmtrBase.InternalLoss();
+   double loss2 = rcvrBase.InternalLoss();
+   if(!FloatEqual(loss1, 2.0))
+   {
+      writeln("-FAIL-");
+      writeln("Loss xmtr error");
+   }
+   if(!FloatEqual(loss2, 1.1))
+   {
+      writeln("-FAIL-");
+      writeln("Loss rcvr error");
+   }
+
+   xmtrBase.SetInternalLoss(3.5);
+   rcvrBase.SetInternalLoss(3.5);
+   if(!FloatEqual(xmtrBase.InternalLoss(), 3.5))
+   {
+      writeln("-FAIL-");
+      writeln("Set Loss xmtr error");
+   }
+   if(!FloatEqual(rcvrBase.InternalLoss(), 3.5))
+   {
+      writeln("-FAIL-");
+      writeln("Set Loss rcvr error");
+   }
+
+   string pol1 = xmtrBase.Polarization();
+   string pol2 = rcvrBase.Polarization();
+   if((pol1 != "default") || (pol2 != "default"))
+   {
+      writeln("-FAIL-");
+      writeln("Polarization error");
+   }
+
+   Array<string> polTypes1 = xmtrBase.PolarizationTypes();
+   Array<string> polTypes2 = rcvrBase.PolarizationTypes();
+   if(polTypes1.Size() != 1)
+   {
+      writeln("-FAIL-");
+      writeln("Polarization types xmtr error");
+   }
+   if(polTypes2.Size() != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Polarization types rcvr error");
+   }
+
+   double wave1 = xmtrBase.Wavelength();
+   double wave2 = rcvrBase.Wavelength();
+   if(!FloatEqual(wave1, wave2) || !FloatEqual(wave1, (Math.LIGHT_SPEED() / freq1)))
+   {
+      writeln("-FAIL-");
+      writeln("Wavelength error");
+   }
+
+   xmtrBase.SetBandwidth(19000.0);
+   rcvrBase.SetBandwidth(19000.0);
+   band1 = xmtrBase.Bandwidth();
+   band2 = rcvrBase.Bandwidth();
+   if(!FloatEqual(band1, 19000.0))
+   {
+      writeln("-FAIL-");
+      writeln("Xmtr bandwidth error set");
+   }
+   if(!FloatEqual(band2, 19000.0))
+   {
+      writeln("-FAIL-");
+      writeln("Rcvr bandwidth error set");
+   }
+
+   xmtrBase.SetFrequency(2100000000.0);
+   rcvrBase.SetFrequency(2100000000.0);
+   freq1 = xmtrBase.Frequency();
+   freq2 = rcvrBase.Frequency();
+   if(!FloatEqualWithEpsilon(freq1, 2100000000.0, 1.0E-5) || !FloatEqualWithEpsilon(freq2, 2100000000.0, 1.0E-5))
+   {
+      writeln("-FAIL-");
+      writeln("Freq error set");
+   }
+end_execute
+
+end_time 2 s

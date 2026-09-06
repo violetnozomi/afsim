@@ -1,0 +1,52 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test for aux_data inputs and scripted access on a zone
+
+zone test
+   aux_data 
+      string STRING  = "test"
+      double DOUBLE  = 1234.5
+      int    INTEGER = 12345
+      bool   BOOLEAN = true
+   end_aux_data
+end_zone
+
+platform p WSF_PLATFORM
+   use_zone test as z
+   
+   execute at_time 1.0 sec absolute
+      WsfZone z = Zone("z");
+      if (! z.HasAuxData())                    writeln("-FAIL- zone: has no aux_data");
+      
+      if (! z.AuxDataExists("STRING"))         writeln("-FAIL- zone: var not present");
+      if (z.AuxDataString("STRING") != "test") writeln("-FAIL- zone: var invalid content");
+      if (! z.DeleteAuxData("STRING"))         writeln("-FAIL- zone: var delete return not true");
+      if (z.AuxDataExists("STRING"))           writeln("-FAIL- zone: var present after delete");
+      if (z.CheckAuxData("STRING"))            writeln("-FAIL- zone: var present after delete-2");
+      
+      if (! z.AuxDataExists("DOUBLE"))         writeln("-FAIL- zone: var not present");
+      if (z.AuxDataDouble("DOUBLE") != 1234.5) writeln("-FAIL- zone: var invalid content");
+      if (! z.DeleteAuxData("DOUBLE"))         writeln("-FAIL- zone: var delete return not true");
+      if (z.AuxDataExists("DOUBLE"))           writeln("-FAIL- zone: var present after delete");
+      if (z.CheckAuxData("DOUBLE"))            writeln("-FAIL- zone: var present after delete-2");
+      
+      if (! z.AuxDataExists("INTEGER"))        writeln("-FAIL- zone: var not present");
+      if (z.AuxDataInt("INTEGER") != 12345)    writeln("-FAIL- zone: var invalid content");
+      if (! z.DeleteAuxData("INTEGER"))        writeln("-FAIL- zone: var delete return not true");
+      if (z.AuxDataExists("INTEGER"))          writeln("-FAIL- zone: var present after delete");
+      if (z.CheckAuxData("INTEGER"))           writeln("-FAIL- zone: var present after delete-2");
+      
+      if (! z.AuxDataExists("BOOLEAN"))        writeln("-FAIL- zone: var not present");
+      if (z.AuxDataBool("BOOLEAN") != true)    writeln("-FAIL- zone: var invalid content");
+      if (! z.DeleteAuxData("BOOLEAN"))        writeln("-FAIL- zone: var delete return not true");
+      if (z.AuxDataExists("BOOLEAN"))          writeln("-FAIL- zone: var present after delete");
+      if (z.CheckAuxData("BOOLEAN"))           writeln("-FAIL- zone: var present after delete-2");
+   end_execute
+end_platform

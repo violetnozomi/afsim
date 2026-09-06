@@ -1,0 +1,61 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+include ../auto_script/test_functions.txt
+include ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 2;
+end_script_variables
+
+platform test1 WSF_PLATFORM
+   position 15n 10e
+   altitude 10 km agl
+end_platform
+
+platform test2 WSF_PLATFORM
+   position 10n 15e
+   altitude 100 km agl
+end_platform
+
+platform test3 WSF_PLATFORM
+   position 20n 10e
+   altitude 1000 km agl
+end_platform
+
+platform test4 WSF_PLATFORM
+   position 10n 20e
+   altitude 10000 km agl
+end_platform
+
+platform control WSF_PLATFORM
+   position 0n 0e
+   altitude 0 m agl
+
+   on_initialize
+      foreach(int i in {1, 3})
+      {
+         string testPlatName = "test" + (string)i;
+         string nextTestPlat = "test" + (string)(i+1);
+         WsfPlatform testPlat0 = WsfSimulation.FindPlatform(testPlatName);
+         WsfPlatform testPlat1 = WsfSimulation.FindPlatform(nextTestPlat);
+
+         double groundRange0 = PLATFORM.GroundRangeTo(testPlat0);
+         double groundRange1 = PLATFORM.GroundRangeTo(testPlat1);
+
+         // Test: The ground ranges should be equal because their
+         // positions fall on the circumference of the same greater circle
+         if (AssertWithinToleranceMessage(groundRange1, groundRange0, 5.0e-4, "Ground ranges not within tolerance"))
+         {
+            pass();
+         }
+      }
+   end_on_initialize
+end_platform

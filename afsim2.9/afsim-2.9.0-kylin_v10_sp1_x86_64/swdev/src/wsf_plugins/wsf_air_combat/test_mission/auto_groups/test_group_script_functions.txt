@@ -1,0 +1,163 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test script methods on groups.
+#
+include_once ../auto_script/utility_test_functions.txt
+include_once platforms/tracking_platform.txt
+include_once platforms/target_platform.txt
+
+end_time 1 min
+
+script_variables
+   bool allTestsPassed = true; // any failure turns it false
+end_script_variables
+
+platform red-1 TARGET_PLATFORM
+
+   route
+      position 0:05:0n 0:50:0e
+      altitude 35000 ft
+      speed      450 kts
+      heading     90 deg
+   end_route
+
+end_platform
+
+platform red-2 TARGET_PLATFORM
+
+   route
+      position 0:05:10n 0:50:0e
+      altitude 45000 ft
+      speed      450 kts
+      heading     90 deg
+   end_route
+
+end_platform
+
+platform red-3 TARGET_PLATFORM
+
+   route
+      position 0:05:0s 0:50:0e
+      altitude 30000 ft
+      speed      450 kts
+      heading     90 deg
+   end_route
+
+end_platform
+
+platform red-4 TARGET_PLATFORM
+
+   route
+      position 0:05:10s 0:50:0e
+      altitude 40000 ft
+      speed      450 kts
+      heading     90 deg
+   end_route
+
+end_platform
+
+# This platform uses defaults for all SA processor update intervals
+platform blue-1 TEST_PLATFORM
+
+   route
+      position 0:0:0n 0:0:0w
+      altitude 35000 ft
+      speed      450 kts
+      heading     90 deg
+   end_route
+   
+   execute at_time 50 s absolute
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      if (proc.IsValid())
+      {
+         Array<WsfSA_Group> groups = proc.PerceivedGroups();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PerceivedItemCount(), "Incorrect number of PIs.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, groups.Size(), "Groups list is the wrong size.");
+         string g0name = groups[0].GroupName();
+         string g1name = groups[1].GroupName();
+         allTestsPassed = allTestsPassed && AssertFalseMessage(proc.RenameGroup(groups[0], g1name), "Multiple groups now have the same name.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(groups[0].GetFocus(), "Group is unfocused.");
+         allTestsPassed = allTestsPassed && AssertFalseMessage(groups[0].GetFocusProtection(), "Group is focus protected when it shouldn't be.");
+         allTestsPassed = allTestsPassed && AssertFalseMessage(groups[0].GetElementProtection(), "Group is element protected when it shouldn't be.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.SetFocus(groups[0], false), "SetFocus failed.");
+         // This next call prints a warning; that's supposed to happen, because this tests a failure state.
+         allTestsPassed = allTestsPassed && AssertFalseMessage(proc.MergeGroups(groups).IsValid(), "Merge succeeded when it shouldn't have.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, proc.PerceivedItemCount(), "Incorrect number of PIs.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.SetFocus(groups[0], true), "SetFocus failed.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, proc.PerceivedItemCount(), "Incorrect number of PIs.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(groups[0].GetFocusProtection(), "Group is not focus protected when it should be.");
+         WsfSA_Group temp = proc.MergeGroups(groups);
+         allTestsPassed = allTestsPassed && AssertTrueMessage(temp.IsValid(), "Merge failed.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(temp.GetElementProtection(), "Group is not element protected when it should be.");
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.IsNull(), "Old group references not nullified.");
+         }
+         groups = proc.PerceivedGroups();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, groups.Size(), "Groups list is the wrong size.");
+         groups = proc.SplitGroup(groups[0], 2, "maximum altitude");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, groups.Size(), "Split failed.");
+         foreach (WsfSA_Group group in groups)
+         {
+            allTestsPassed = allTestsPassed && AssertTrueMessage(group.IsValid(), "New group references nullified.");
+         }
+         // groups[0] should have the lower altitude aircraft.
+         allTestsPassed = allTestsPassed && AssertEqualsMessage("red-3", groups[0].ElementList()[0].PerceivedName(), "red-3 is not in the expected group.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage("red-1", groups[0].ElementList()[1].PerceivedName(), "red-1 is not in the expected group.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage("red-4", groups[1].ElementList()[0].PerceivedName(), "red-4 is not in the expected group.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage("red-2", groups[1].ElementList()[1].PerceivedName(), "red-2 is not in the expected group.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.DisbandGroup(groups[0]), "Could not disband groups[0].");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.DisbandGroup(groups[1]), "Could not disband groups[1].");
+         Array<WsfSA_EntityPerception> entities = proc.PerceivedBandits();
+         temp = proc.CreateGroup(entities);
+         allTestsPassed = allTestsPassed && AssertTrueMessage(temp.IsValid(), "Could not create a group.");
+         groups = proc.SplitGroup(temp, 2, "rightmost from heading");
+         // Should be [left group, right group]
+         allTestsPassed = allTestsPassed && AssertEqualsMessage("red-1", groups[0].ElementList()[0].PerceivedName(), "red-1 is not in the expected group.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage("red-2", groups[0].ElementList()[1].PerceivedName(), "red-2 is not in the expected group.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage("red-3", groups[1].ElementList()[0].PerceivedName(), "red-3 is not in the expected group.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage("red-4", groups[1].ElementList()[1].PerceivedName(), "red-4 is not in the expected group.");
+         WsfSA_EntityPerception transfer = groups[0].ElementList()[0];
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.TransferEntity(transfer, groups[1]), "Entity transfer failed.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, groups[0].NumElements(), "group[0] reports the wrong number of elements after transfer.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, groups[1].NumElements(), "group[1] reports the wrong number of elements after transfer.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.RemoveEntityFromGroup(transfer), "Entity removal failed.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, groups[0].NumElements(), "group[0] reports the wrong number of elements after removal.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, groups[1].NumElements(), "group[1] reports the wrong number of elements after removal.");
+         groups = proc.PerceivedGroups();
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, groups.Size(), "Degenerate group was not created for the removed entity.");
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

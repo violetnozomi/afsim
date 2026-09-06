@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test waypoint callbacks occurs in the proper order
+//    with time between
+// Also verify that Method callbacks work correctly
+
+end_time 90 s
+
+route 7
+    position 31n 111w altitude 0 ft agl speed 50 mph
+    position 31:00:10n 110:59:50w altitude 0 ft agl
+      execute cb1
+    position 31:00:20n 110:59:50w altitude 0 ft agl
+      execute cb2
+    position 31:00:30n 110:59:50w altitude 0 ft agl
+    position 31:00:31n 110:59:50w altitude 0 ft agl
+    position 32n 112w altitude 0 ft agl
+end_route
+
+platform test_plat WSF_PLATFORM
+   script_variables
+      double Time1 = -1;
+      double Time2 = -1;
+   end_script_variables
+   add mover WSF_GROUND_MOVER
+      update_interval 1 s  // otherwise mover never updates
+   end_mover
+   use_route 7
+   execute at_time 1 s absolute
+      WsfRoute newRoute = Route();
+      newRoute[3].SetCallback(Method.Create(WsfSimulation.FindPlatform("other_platform"), "cb3"));
+      newRoute[4].SetCallback(Method.Create(WsfSimulation.FindPlatform("other_platform"), "cb4"));
+   end_execute
+   script void cb1()
+      Time1 = TIME_NOW;
+   end_script
+   script void cb2()
+      Time2 = TIME_NOW;
+   end_script
+   script void on_platform_deleted()
+      if (Time1 > -1 && Time2 > Time1)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- Time1: ", Time1, " Time2: ", Time2);
+      }
+   end_script
+end_platform
+platform other_platform WSF_PLATFORM
+   script_variables
+      bool called = false;
+   end_script_variables
+   script void cb3()
+      called = true;
+   end_script
+   # Verify that WsfPlatform is the calling platform
+   script void cb4(WsfPlatform plat)
+      called = (plat.Name() == "test_plat" && called);
+   end_script
+   script void on_platform_deleted()
+      if (! called)
+      {
+         writeln("-FAIL- Method callback not completed");
+      }
+   end_script
+end_platform

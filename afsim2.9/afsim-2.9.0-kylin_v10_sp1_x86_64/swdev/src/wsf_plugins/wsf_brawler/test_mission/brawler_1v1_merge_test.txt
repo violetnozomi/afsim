@@ -1,0 +1,78 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+file_path .
+file_path ../data
+
+end_time 3 min
+
+#dis_interface
+#   record                      test_brawler_1v1_merge.rep
+#   mover_update_timer          1.0 sec
+#   entity_position_threshold   0.03 m
+#end_dis_interface
+
+execute at_time 179 seconds absolute 
+   WsfPlatform blue_1 = WsfSimulation.FindPlatform("blue_1");
+   WsfPlatform red_1  = WsfSimulation.FindPlatform("red_1");
+   if (!blue_1.IsValid() || !red_1.IsValid())
+   {
+      writeln("-FAIL- blue_1=", blue_1.IsValid(), " red_1=", red_1.IsValid());
+   }
+   else if (blue_1.RoundsFiredAt(WsfTrackId()) > 0 &&
+            red_1.RoundsFiredAt(WsfTrackId())  > 0 &&
+            blue_1.Altitude() < 1000 &&
+            red_1.Altitude() < 1000)
+   {
+      writeln("--PASS--");
+   }
+   else
+   {
+      writeln("-FAIL- blue fired=", blue_1.RoundsFiredAt(WsfTrackId()), " blue alt=", blue_1.Altitude(), " red fired=", red_1.RoundsFiredAt(WsfTrackId()), " red alt=", red_1.Altitude());
+   }
+end_execute
+
+include_once brawler_fighter.txt
+include_once brawler_commander.txt
+
+platform blue_cmdr BRAWLER_COMMANDER
+   side blue
+   position 00:01:00.00s  00:00:25.00w
+end_platform
+
+platform blue_1 BRAWLER_FIGHTER
+   side blue
+   icon F-15
+   commander blue_cmdr
+   position 00:01:50.00s 00:00:25.00w  altitude 10000.00 ft
+   heading 360 deg
+end_platform
+
+platform red_cmdr BRAWLER_COMMANDER
+   side red
+   edit comm datalink 
+      network_name red_net
+   end_comm
+   position 00:01:00.00s  00:01:00.00e
+end_platform
+
+platform red_1 BRAWLER_FIGHTER
+   side red
+   icon SU-27
+   commander red_cmdr
+   edit comm datalink 
+      network_name red_net
+   end_comm
+   route
+      position 00:01:50.00n 00:00:25.00e altitude 10000.00 ft speed 350.0 kts
+      position 00:00:50.00s 00:00:25.00e
+   end_route
+end_platform
+
+

@@ -1,0 +1,1418 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#-----------------------RigidBodySixDOF_Grammar--------------------
+
+#-----------------------Table Types---------------------
+
+(rule alpha_table {
+    <real>*
+})
+
+(rule value_table {
+   <real>*
+})
+
+(rule beta_table {
+   <real>*
+})
+
+(rule alt_table {
+    <real>*
+})
+
+(rule surface_table {
+   <real>*
+})
+
+(rule machValueTable {
+   <real> <real>
+})
+
+(rule inputvalues_irr_table {
+     input <real> <real> <real> <real> <real>
+   | values <real> <real> <real> <real> <real>
+
+   file <string>
+})
+
+(rule inputvalues_reg_table {
+     input <real> <real> <real> <real> <real>
+   | values <real> <real> <real> <real> <real>
+
+   file <string>
+})
+
+(rule irr_table {
+     independent_variable <string> <string> <string>
+   | dependent_variable <string> <string>
+   | control_value <real> <inputvalues_irr_table>*
+   | mach <real>*
+   | alpha <real>*
+   | beta <real>*
+   | alt <real>*
+   | values <real>*
+   | surface_angle <real>*
+})
+
+(rule reg_table {
+     independent_variable <string> <string> <string> <real>* end_independent_variable
+   | dependent_variable <string> <string> <real>* end_dependent_variable
+   | control_value <real> <inputvalues_reg_table>*
+   | mach <real>*
+   | alpha <real>*
+   | beta <real>*
+   | alt <real>*
+   | values <real>*
+   | surface_angle <real>*
+})
+
+(rule mass-unit {
+   (nocase {
+    slug
+ })
+})
+
+#-------------------SIXDOF/MOVER-----------------
+
+(rule SixDOF_Position {
+   six_dof_position <real> <real>
+})
+
+(rule SixDOF_Altitude {
+   six_dof_alt <Length>
+})
+
+(rule SixDOF_Heading {
+   six_dof_ned_heading <Angle>
+})
+
+(rule SixDOF_Pitch {
+   six_dof_ned_pitch <Angle>
+})
+
+(rule SixDOF_Roll {
+   six_dof_ned_roll <Angle>
+})
+
+(rule SixDOF_SetVel {
+   six_dof_set_velocity_ned_fps <real> <real> <real>
+})
+
+(rule SixDOF_ReplayOut {
+   six_dof_output_replay_file <string>
+})
+
+(rule SixDOF_ReplayIn {
+   six_dof_input_replay_file <string>
+})
+
+(rule SixDOF_SetTargetLoc {
+   six_dof_set_target_latlon <real> <real>
+})
+
+(struct WSF_SIX_DOF_MOVER_BASE :symbol (type moverType WSF_SIX_DOF_MOVER_BASE)
+                               :base_type Mover
+	(rule SixDOF_Mover {
+		  vehicle_type <string>
+	})
+   (var Route defaultCommonRoute :default "")
+   (var String useCommonRoute)
+{
+   route [push(defaultCommonRoute);waypoints=""]<Route>* end_route
+ | use_route (typeref routes) [defaultCommonRoute="";useCommonRoute=$1]
+ | <SixDOF_Mover>
+ | <SixDOF_ObjectCommands>
+ | <SixDOF_Position>
+ | <SixDOF_Altitude>
+ | <SixDOF_Heading>
+ | <SixDOF_Pitch>
+ | <SixDOF_Roll>
+ | <SixDOF_SetVel>
+ | <SixDOF_ReplayOut>
+ | <SixDOF_ReplayIn>
+ | <SixDOF_SetTargetLoc>
+ | engines_on <Bool>
+ | throttle_idle <Bool>
+ | throttle_full <Bool>
+ | throttle_afterburner <Bool>
+ | autopilot_no_control <Bool>
+ | wash_in_conditions <Bool>
+ | follow_vertical_track
+ | enable_thrust_vectoring <Bool>
+ | enable_controls <Bool>
+ | produces_launch_smoke <Time>
+ | ignore_all_crashes <Time>
+ | <Mover>
+})
+
+(struct WSF_RIGID_BODY_SIX_DOF_MOVER :symbol (type moverType WSF_RIGID_BODY_SIX_DOF_MOVER)
+                                     :base_type WSF_SIX_DOF_MOVER_BASE
+{
+   <WSF_SIX_DOF_MOVER_BASE>
+ | landing_gear_down <Bool>
+ | parking_brake_on <Bool>
+ | taxi_mode_enabled <Bool>
+ | nws_enabled <Bool>
+ | event_core_data <Time>
+ | event_core_data <Frequency>
+ | event_kinematic_data <Time>
+ | event_kinematic_data <Frequency>
+ | event_engine_fuel_data <Time>
+ | event_engine_fuel_data <Frequency>
+ | event_autopilot_data <Time>
+ | event_autopilot_data <Frequency>
+ | event_autopilot_limits_data <Time>
+ | event_autopilot_limits_data <Frequency>
+ | event_control_inputs_data <Time>
+ | event_control_inputs_data <Frequency>
+ | event_control_surfaces_data <Time>
+ | event_control_surfaces_data <Frequency>
+ | event_force_moment_data <Time>
+ | event_force_moment_data <Frequency>
+})
+
+(struct WSF_POINT_MASS_SIX_DOF_MOVER :symbol (type moverType WSF_POINT_MASS_SIX_DOF_MOVER)
+                                     :base_type WSF_SIX_DOF_MOVER_BASE
+{
+   <WSF_SIX_DOF_MOVER_BASE>
+ | event_core_data <Time>
+ | event_core_data <Frequency>
+ | event_kinematic_data <Time>
+ | event_kinematic_data <Frequency>
+ | event_engine_fuel_data <Time>
+ | event_engine_fuel_data <Frequency>
+ | event_autopilot_data <Time>
+ | event_autopilot_data <Frequency>
+ | event_autopilot_limits_data <Time>
+ | event_autopilot_limits_data <Frequency>
+ | event_control_inputs_data <Time>
+ | event_control_inputs_data <Frequency>
+ | event_force_moment_data <Time>
+ | event_force_moment_data <Frequency>
+})
+
+#-------------------SixDOF_Environmentals-----------------
+
+(rule WsfSixDOF_Terrain {
+     terrain <quotable-string>
+})
+
+#-------------------SixDOF_ObjectType-----------------
+
+(rule SixDOF_FuelTransfer {
+     source_tank <string>
+   | target_tank <string>
+})
+
+(rule WsfSixDOF_Sequencer {
+     all_events
+   | event_timer <Time>
+   | event_timer_int_msec <Int>
+   | event_timer_int_nanosec <Int>
+   | event_lifetime <Time>
+   | event_lifetime_int_msec <Int>
+   | event_lifetime_int_nanosec <Int>
+   | event_above_alt <Length>
+   | event_below_alt <Length>
+   | event_dynamic_pressure_above <Pressure>
+   | event_dynamic_pressure_below <Pressure>
+   | event_static_pressure_above <Pressure>
+   | event_static_pressure_below <Pressure>
+   | event_fuel_percent_below <real>
+   | event_ground_distance <Length>
+   | event_nx_above <Acceleration>
+   | event_nx_below <Acceleration>
+   | event_ny_above <Acceleration>
+   | event_ny_below <Acceleration>
+   | event_nz_above <Acceleration>
+   | event_nz_below <Acceleration>
+   | event_released_from_parent
+   | event_manual_input_trigger <integer>
+   | event_manual_input_button <integer>
+   | event_manual_input_button_released <integer>
+   | event_boolean_input <string>
+   | event_null
+   | action_null
+   | action_jett_obj <string>
+   | action_jett_self
+   | action_ignite_engine <string>
+   | action_set_graphical_model <integer>
+   | action_activate_subobject_sequencer <string> <string>
+   | action_ignite_subobject <string>
+   | action_ignite_self
+   | action_terminate_thrust
+   | action_shutdown_engine <string>
+   | action_shutdown_subobject <string>
+   | action_change_aero_mode <string>
+   | action_enable_size_factor
+   | action_enable_controls
+   | action_disable_controls
+   | sequencer <string> <WsfSixDOF_Sequencer>* end_sequencer
+})
+
+#WsfSixDOF_Object.cpp
+(rule SixDOF_SubObjects {
+     parent_rel_x <Length>
+   | parent_rel_y <Length>
+   | parent_rel_z <Length>
+   | parent_rel_yaw <Angle>
+   | parent_rel_pitch <Angle>
+   | parent_rel_roll <Angle>
+   | separation_vx <Speed>
+   | separation_vy <Speed>
+   | separation_vz <Speed>
+   | separation_omega_x <AngleRate>
+   | separation_omega_y <AngleRate>
+   | separation_omega_z <AngleRate>
+   | size_factor_radius <Length>
+   | size_factor_min <real>
+   | size_factor_max <real>
+   | size_factor_volume_rate_m3_per_sec <real>
+   | size_factor_area_rate_m2_per_sec <real>
+   | size_factor_radius_rate_m_per_sec <real>
+   | fixed_object <Bool>
+   | aero_pitch_symmetry <Bool>
+   | nominal_max_mach <real>
+   | nominal_max_alpha <Angle>
+   | nominal_min_alpha <Angle>
+   | nominal_max_beta <Angle>
+   | integrator <string>
+   | six_dof_integrator <string>
+})
+
+#-------------------Thrust Objects-----------------
+
+(rule thrustTable {
+   <real> <real>
+})
+
+(rule alpha_mach_thrust_angle {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+(rule SixDOF_RocketTableInput {
+   {<real> <real>}*
+})
+
+(rule SixDOF_RocketThrustData {
+   {<real> <real>}*
+})
+
+#SixDOF_JetEngineObject.cpp
+(rule SixDOF_JetEngineData {
+     tsfc_idle_pph <real>
+   | tsfc_mil_pph <real>
+   | tsfc_ab_pph <real>
+   | rated_thrust_idle <Force>
+   | rated_thrust_mil <Force>
+   | rated_thrust_ab <Force>
+   | spin_up_mil_per_sec <real>
+   | spin_down_mil_per_sec <real>
+   | spin_up_ab_per_sec <real>
+   | spin_down_ab_per_sec <real>
+   | spin_up_table_mil_per_sec <SixDOF_SimpleTable>* end_spin_up_table_mil_per_sec
+   | spin_down_table_mil_per_sec <SixDOF_SimpleTable>* end_spin_down_table_mil_per_sec
+   | spin_up_table_ab_per_sec <SixDOF_SimpleTable>* end_spin_up_table_ab_per_sec
+   | spin_down_table_ab_per_sec <SixDOF_SimpleTable>* end_spin_down_table_ab_per_sec
+   | thrust_table_idle <thrustTable>* end_thrust_table_idle
+   | thrust_table_mil <thrustTable>* end_thrust_table_mil
+   | thrust_table_ab <thrustTable>* end_thrust_table_ab
+   | thrust_idle_mach_alt_table <irregular_table_rule>* end_thrust_idle_mach_alt_table
+   | thrust_mil_mach_alt_table <irregular_table_rule>* end_thrust_mil_mach_alt_table
+   | thrust_ab_mach_alt_table <irregular_table_rule>* end_thrust_ab_mach_alt_table
+   | thrust_idle_alt_mach_table <irregular_table_rule>* end_thrust_idle_alt_mach_table
+   | thrust_mil_alt_mach_table <irregular_table_rule>* end_thrust_mil_alt_mach_table
+   | thrust_ab_alt_mach_table <irregular_table_rule>* end_thrust_ab_alt_mach_table
+   | engine_smokes_above_power_setting <real>
+})
+
+#SixDOF_RamjetEngineObject.cpp
+(rule SixDOF_RamjetEngineData {
+     thrust_alt_mach_table <irregular_table_rule>* end_thrust_alt_mach_table
+   | tsfc_alt_mach_table <irregular_table_rule>* end_tsfc_alt_mach_table
+   | afterburner_appearance_when_operating <Bool>
+   | latch_fuel_injection <Bool>
+   | use_proportional_throttle <Bool>
+   | minimum_proportional_thrust <real>
+})
+
+#SixDOF_RocketLiquidPropellantObject.cpp
+(rule SixDOF_LiquidRocketData {
+     normalized_thrust_vs_alt <SixDOF_RocketTableInput>* end_normalized_thrust_vs_alt
+   | isp_vs_alt <SixDOF_RocketTableInput>* end_isp_vs_alt
+   | max_thrust_sealevel <Force>
+   | max_thrust_vacuum <Force>
+   | normalized_spinup <real>
+   | normalized_spindown <real>
+   | creates_smoke_trail <Bool>
+})
+
+#SixDOF_RocketSolidPropellantObject.cpp
+(rule SixDOF_SolidRocketData {
+     rated_thrust <Force>
+   | thrust_vs_time_sealevel <SixDOF_RocketThrustData>* end_thrust_vs_time_sealevel
+   | thrust_vs_time_vacuum <SixDOF_RocketThrustData>* end_thrust_vs_time_vacuum
+   | isp_vs_alt <SixDOF_RocketTableInput>* end_isp_vs_alt
+   | creates_smoke_trail <Bool>
+})
+
+#WsfSixDOF_FuelTank.cpp
+(rule tankData {
+     max_fuel_quantity <Mass>
+   | current_fuel_quantity <Mass>
+   | max_flow_rate <MassTransfer>
+   | max_fill_rate <MassTransfer>
+   | max_xfer_rate <MassTransfer>
+   | cg_full_x <Length>
+   | cg_full_y <Length>
+   | cg_full_z <Length>
+   | cg_empty_x <Length>
+   | cg_empty_y <Length>
+   | cg_empty_z <Length>
+})
+
+#WsfRigidBodySixDOF_PropulsionSystem.cpp
+(rule engineData {
+     fuel_feed <string>
+   | rel_pos_x <Length>
+   | rel_pos_y <Length>
+   | rel_pos_z <Length>
+   | rel_yaw <Angle>
+   | rel_pitch <Angle>
+   | rel_roll <Angle>
+   | thrust_offset <Length>
+   | inop_ref_area <Area>
+   | throttle_setting_mil <string>
+   | throttle_setting_ab <string>
+   | throttle_setting_reverser <string>
+   | throttle_setting_yaw <string>
+   | throttle_setting_pitch <string>
+   | maximum_yaw_acceleration_at_thrust <AngleAcceleration> <Force>
+   | maximum_pitch_acceleration_at_thrust <AngleAcceleration> <Force>
+   | maximum_roll_acceleration_at_thrust <AngleAcceleration> <Force>
+})
+
+#WsfRigidBodySixDOF_PropulsionSystem.cpp
+(rule object_prop_data {
+     engine <string> <string> <engineData>* end_engine
+   | fuel_tank <string> <tankData>* end_fuel_tank
+   | fuel_transfer <string> <SixDOF_FuelTransfer>* end_fuel_transfer
+})
+
+#RigidBodySixDOF_MassProperties.cpp
+(rule massPropertiesCommand {
+   mass_properties <massPropertiesSubCommands>* end_mass_properties
+})
+
+#RigidBodySixDOF_MassProperties.cpp
+(rule massPropertiesSubCommands {
+     mass <Mass>
+   | moment_of_inertia_ixx <AngularInertia>
+   | moment_of_inertia_iyy <AngularInertia>
+   | moment_of_inertia_izz <AngularInertia>
+   | center_of_mass_x <Length>
+   | center_of_mass_y <Length>
+   | center_of_mass_z <Length>
+})
+
+#WsfRigidBodySixDOF_LandingGear.cpp
+(rule WsfRigidBodySixDOF_LandingGear {
+   landing_gear <gearSubCommands>* end_landing_gear
+})
+
+#WsfRigidBodySixDOF_LandingGear.cpp
+(rule gearSubCommands {
+     nws_enable_control_name <string>
+   | nominal_height_above_ground_on_gear <Length>
+   | <groundReaction>
+})
+
+#WsfRigidBodySixDOF_GroundReactionPoint.cpp
+(rule groundReaction {
+   ground_reaction_point <string> <reactionData>* end_ground_reaction_point
+})
+
+#WsfRigidBodySixDOF_GroundReactionPoint.cpp
+(rule reactionData{
+     control_surface_name <string>
+   | steering_control_surface_name <string>
+   | nws_angle_control_surface_name <string>
+   | is_nose_gear <Bool>
+   | braking_control_surface_name <string>
+   | gear_extended_relative_position_x <Length>
+   | gear_extended_relative_position_y <Length>
+   | gear_extended_relative_position_z <Length>
+   | gear_compression_vector_x <real>
+   | gear_compression_vector_y <real>
+   | gear_compression_vector_z <real>
+   | gear_rolling_vector_x <real>
+   | gear_rolling_vector_y <real>
+   | gear_rolling_vector_z <real>
+   | spring_constant_lbs_per_ft <real>
+   | damper_constant_lbs_per_fps <real>
+   | uncompressed_length <Length>
+   | max_compression <Length>
+   | rolling_coefficient_of_friction <real>
+   | braking_coefficient_of_friction <real>
+   | scuffing_coefficient_of_friction <real>
+   | ignore_friction <Bool>
+   | is_landing_gear <Bool>
+   | is_contact_point <Bool>
+})
+
+
+(rule angleTable {
+   <Angle>*
+})
+
+(rule rollProgram {
+   Roll_Table <angleTable>* end_Roll_table
+})
+
+#RigidBodySixDOF_TestGuidance.cpp
+(rule guideParam {
+     drift
+   | body_delta_roll <real>
+   | body_roll_rate <real>
+   | body_roll_hold
+   | local_roll_angle <real>
+   | local_roll_program <rollProgram>* end_local_roll_program
+   | body_delta_pitch <real>
+   | body_pitch_rate <real>
+   | body_pitch_hold
+   | local_pitch_angle <real>
+   | local_pitch_program <rollProgram>* end_local_pitch_program
+   | body_delta_yaw <real>
+   | body_yaw_rate <real>
+   | body_yaw_hold <real>
+   | local_yaw_angle <real>
+   | local_yaw_program <rollProgram>* end_local_yaw_program
+   | hold_local_attitude
+   | hold_inertial_attitude
+   | zero_body_rates
+   | local_angles
+   | inertial_vector <real> <real> <real>
+   | inertial_vector_with_up <real> <real> <real> <real> <real> <real>
+   | point_to_earth_nadir
+   | point_to_earth_nadir_with_up <real> <real> <real>
+   | point_to_tgt
+   | point_to_tgt_with_up <real> <real> <real>
+   | body_roll_to_tgt_az
+   | yaw_to_tgt_az
+   | body_yaw_pitch_to_tgt_az
+   | zero_alpha_beta
+   | zero_alpha
+   | zero_beta
+   | alpha_angle <real>
+   | beta_angle <real>
+   | g_bias <real>
+   | ignite
+   | terminate_thrust
+   | terminate_thrust_by_cmd
+   | local_pitch_angle_by_cmd
+   | body_delta_pitch_by_cmd
+   | altitude_hold <real>
+   | climb_rate <real>
+   | heading_hold <real>
+   | wings_level <real>
+   | yaw_damper <real>
+   | yaw_sas <real>
+   | pitch_sas <real>
+   | roll_sas <real>
+   | pro_nav
+   | simple_pursuit
+   | target_table_pitch
+   | switch_at_time_sec <real> <string>
+   | switch_at_time_msec <Int> <string>
+})
+
+#RigidBodySixDOF_TestGuidance.cpp
+(rule RigidBodySixDOF_Guidance {
+   guidance_group <quotable-string> <guideParam>* end_guidance_group
+   | guidance_ballistic_file <quotable-string>
+})
+
+(rule RigidBodySixDOF_FuelMod {
+   fuel_quantity <Mass>
+})
+
+#SixDOF_ObjectType.cpp
+(rule SixDOF_ObjectElements {
+     <massPropertiesCommand>
+   | sequencer <string> <WsfSixDOF_Sequencer>* end_sequencer
+   | use_spherical_earth <Bool>
+   | use_rotating_earth <Bool>
+   | ignore_jettisoned_objects <Bool>
+   | <SixDOF_AeroData>
+   | <SixDOF_SubObjects>
+   | <WsfSixDOF_PilotManager>
+   | <RigidBodySixDOF_AeroPart>
+   | <RigidBodySixDOF_FlightControls>
+   | <RigidBodySixDOF_Controls>
+   | <PointMassSixDOF_Controls>
+   | <WsfRigidBodySixDOF_LandingGear>
+   | propulsion_data <object_prop_data>* end_propulsion_data
+   | subobject <string> <string> <SixDOF_SubObjects>* end_subobject
+   | propulsion_data <object_prop_data>* end_propulsion_data
+   | fuel_transfer <string> <SixDOF_FuelTransfer>* end_fuel_transfer
+   | remove_fuel_transfer <string>
+   | remove_fuel_tank <string>
+   | modify_fuel_quantity <string> <RigidBodySixDOF_FuelMod>* end_modify_fuel_quantity
+   | remove_sequencer <string>
+})
+
+(rule SixDOF_ThrustProducerData {
+     <engineData>
+   | jet <SixDOF_JetEngineData>* end_jet
+   | ramjet <SixDOF_RamjetEngineData>* end_ramjet
+   | solid_propellant_rocket <SixDOF_SolidRocketData>* end_solid_propellant_rocket
+   | liquid_propellant_rocket <SixDOF_LiquidRocketData>* end_liquid_propellant_rocket
+})
+
+(rule SixDOF_ObjectCommands {
+     rigid_body_vehicle_type <string> <string> <SixDOF_ObjectElements>* end_rigid_body_vehicle_type
+   | point_mass_vehicle_type <string> <string> <SixDOF_ObjectElements>* end_point_mass_vehicle_type
+   | rigid_body_engine_type <string> <string> <SixDOF_ThrustProducerData>* end_rigid_body_engine_type
+   | point_mass_engine_type <string> <string> <SixDOF_ThrustProducerData>* end_point_mass_engine_type
+   | integrators <quotable-string>
+   | map_vehicle_to_platform <string> <string>      #WsfSixDOF_TypeManager.cpp
+})
+
+(rule SixDOF_ObjectTypesCommand {
+     six_dof_object_types <SixDOF_ObjectCommands>* end_six_dof_object_types
+})
+
+(rule SixDOF_EnvironmentCommands {
+     <WsfSixDOF_Terrain>
+})
+
+(rule SixDOF_EnvironmentCommand {
+     six_dof_environment <SixDOF_EnvironmentCommands>* end_six_dof_environment
+})
+
+(rule root-command {
+     <SixDOF_ObjectTypesCommand>
+   | <SixDOF_EnvironmentCommand>
+   | <SixDOF_NavigationAutopilot>
+   | <WsfSixDOF_Terrain>
+})
+
+
+#-------------------AeroData-----------------
+
+(rule irregular_table_rule {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule regular_table_rule {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alpha_mach_cL {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule alpha_beta_mach_cL {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alpha_mach_CLq {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alphadot_alpha_mach_cL {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alpha_mach_cd {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule beta_mach_cd {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule alpha_beta_mach_cd {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule beta_mach_cy {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule alpha_beta_mach_cy {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule beta_mach_cyr {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule betadot_beta_mach_cy {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alpha_mach_cm {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule alpha_beta_mach_cm {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alphadot_mach_cm {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule beta_mach_cn {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule alpha_beta_mach_cn {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule betadot_mach_cn {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule beta_mach_cl {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule alpha_beta_mach_cl {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alphadot_mach_cl {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule betadot_mach_cl {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule aero_modes {
+   aero_data <aerodata>* end_aero_data
+})
+
+(rule aeroTableVehicle {
+     Name <string>
+   | Param1 <string>
+   | Param2 <string>
+   | Result <string>
+   | irregular_table <irr_table>* end_irregular_table
+})
+
+#RigidBodySixDOF_AeroTable.cpp
+(rule aeroTableControl {
+     Name <string>      # TABLE NAME
+   | Surface <string>   # NAME OF SURFACE
+   | Param1 <string>    # MACH
+   | Param2 <string>    # ALPHA
+   | Param3 <string>    # ANGLE
+   | Result <string>    # CL
+   | irregular_table <irr_table>* end_irregular_table
+})
+
+#WsfRigidBodySixDOF_AeroCoreObject.cpp
+(rule common_aerodata {
+     wing_chord_ft <real>
+   | wing_span_ft <real>
+   | wing_area_sqft <real>
+   | ref_area_sqft <real>
+   | aero_center_x <Length>
+   | aero_center_y <Length>
+   | aero_center_z <Length>
+   | aero_angle <Angle>
+   | use_reduced_frequency <Bool>
+   | cL_alpha_mach_table <alpha_mach_cL>* end_cL_alpha_mach_table
+   | cL_alpha_beta_mach_table <alpha_beta_mach_cL>* end_cL_alpha_beta_mach_table
+   | cLq_alpha_mach_table <alpha_mach_CLq>* end_cLq_alpha_mach_table
+   | cL_alphadot_alpha_mach_table <alphadot_alpha_mach_cL>* end_cL_alphadot_alpha_mach_table
+   | cd_alpha_mach_table <alpha_mach_cd>* end_cd_alpha_mach_table
+   | cd_beta_mach_table <beta_mach_cd>* end_cd_beta_mach_table
+   | cd_alpha_beta_mach_table <alpha_beta_mach_cd>* end_cd_alpha_beta_mach_table
+   | cy_beta_mach_table <beta_mach_cy>* end_cy_beta_mach_table
+   | cy_alpha_beta_mach_table <alpha_beta_mach_cy>* end_cy_alpha_beta_mach_table
+   | cyr_beta_mach_table <beta_mach_cyr>* end_cyr_beta_mach_table
+   | cy_betadot_beta_mach_table <betadot_beta_mach_cy>* end_cy_betadot_beta_mach_table
+   | cm_alpha_mach_table <alpha_mach_cm>* end_cm_alpha_mach_table
+   | cm_alpha_beta_mach_table <alpha_beta_mach_cm>* end_cm_alpha_beta_mach_table
+   | cmq_mach_table <machValueTable>* end_cmq_mach_table
+   | cmp_mach_table <machValueTable>* end_cmp_mach_table
+   | cm_alphadot_mach_table <machValueTable>* end_cm_alphadot_mach_table
+   | cn_beta_mach_table <beta_mach_cn>* end_cn_beta_mach_table
+   | cn_alpha_beta_mach_table <alpha_beta_mach_cn>* end_cn_alpha_beta_mach_table
+   | cn_betadot_mach_table <machValueTable>* end_cn_betadot_mach_table
+   | cnr_mach_table <machValueTable>* end_cnr_mach_table
+   | cnp_mach_table <machValueTable>* end_cnp_mach_table
+   | cl_beta_mach_table <beta_mach_cl>* end_cl_beta_mach_table
+   | cl_alpha_beta_mach_table <alpha_beta_mach_cl>* end_cl_alpha_beta_mach_table
+   | clp_mach_table <machValueTable>* end_clp_mach_table
+   | cl_alphadot_mach_table <machValueTable>* end_cl_alphadot_mach_table
+   | cl_betadot_mach_table <machValueTable>* end_cl_betadot_mach_table
+   | clr_mach_table <machValueTable>* end_clr_mach_table
+   | clq_mach_table <machValueTable>* end_clq_mach_table
+   | maximum_roll_acceleration_mach_table <regular_table_rule>* end_maximum_roll_acceleration_mach_table
+   | maximum_pitch_acceleration_mach_table <regular_table_rule>* end_maximum_pitch_acceleration_mach_table
+   | maximum_yaw_acceleration_mach_table <regular_table_rule>* end_maximum_yaw_acceleration_mach_table
+   | alpha_stabilizing_frequency_mach_table <regular_table_rule>* end_alpha_stabilizing_frequency_mach_table
+   | beta_stabilizing_frequency_mach_table <regular_table_rule>* end_beta_stabilizing_frequency_mach_table
+   | roll_stabilizing_frequency_mach_table <regular_table_rule>* end_roll_stabilizing_frequency_mach_table
+   | speedbrake_dcd_mach_table <regular_table_rule>* end_speedbrake_dcd_mach_table
+   | flaps_dcl_mach_table <regular_table_rule>* end_flaps_dcl_mach_table
+   | flaps_dcd_mach_table <regular_table_rule>* end_flaps_dcd_mach_table
+   | spoilers_dcl_mach_table <regular_table_rule>* end_spoilers_dcl_mach_table
+   | spoilers_dcd_mach_table <regular_table_rule>* end_spoilers_dcd_mach_table
+})
+
+(rule aerodata {
+     <common_aerodata>
+   | aero_mode <string> <common_aerodata>* end_aero_mode
+})
+
+(rule SixDOF_AeroData {
+   aero_data <aerodata>* end_aero_data
+})
+
+#-------------------ControlsProvider-----------------
+
+(rule basicControls {
+   autopilot_support_file <quotable-string>
+})
+
+(rule moreControls {
+     control_name <string>
+   | std_stick_back <string>
+   | std_stick_right <string>
+   | std_rudder_right <string>
+   | std_throttle_mil <string>
+   | std_throttle_ab <string>
+   | std_thrust_reverser <string>
+   | std_thrust_vectoring_yaw <string>
+   | std_thrust_vectoring_pitch <string>
+   | std_thrust_vectoring_roll <string>
+   | std_speed_brakes_out <string>
+   | std_flaps_down <string>
+   | std_spoilers_out <string>
+   | std_landing_gear_down <string>
+   | std_nose_wheel_steering <string>
+   | std_nws_steering <string>
+   | std_nws_enabled <string>
+   | std_wheel_brake_left <string>
+   | std_wheel_brake_right <string>
+   | <basicControls>
+   | use_fly_by_wire <integer>
+})
+
+(rule RigidBodySixDOF_Controls {
+   controls_provider <string> <moreControls>* end_controls_provider
+})
+
+(rule PointMassSixDOF_Controls {
+   controls_provider <string> <basicControls>* end_controls_provider
+})
+
+#----------------------------------------------------------------------
+
+
+(rule syntheticPilotCommands {
+      autopilot_config <autopilotCommands>* end_autopilot_config
+      | inherit_controls <Bool>
+})
+
+(rule manualPilotSimpleCommands {
+      inherit_controls <Bool>
+      | pitch_control_mapping_table <SixDOF_SimpleTable>* end_pitch_control_mapping_table
+      | roll_control_mapping_table <SixDOF_SimpleTable>* end_roll_control_mapping_table
+      | yaw_control_mapping_table <SixDOF_SimpleTable>* end_yaw_control_mapping_table
+      | pitch_trim_factor <real>
+      | roll_trim_factor <real>
+      | yaw_trim_factor <real>
+      | simple_yaw_damper <Bool>
+})
+
+(rule manualPilotAugmentedCommands {
+      autopilot_config <autopilotCommands>* end_autopilot_config
+      | inherit_controls <Bool>
+      | pitch_control_mapping_table <SixDOF_SimpleTable>* end_pitch_control_mapping_table
+      | roll_control_mapping_table <SixDOF_SimpleTable>* end_roll_control_mapping_table
+      | yaw_control_mapping_table <SixDOF_SimpleTable>* end_yaw_control_mapping_table
+      | pitch_control_augmentation_factor_g <real>
+      | yaw_control_augmentation_factor_g <real>
+      | yaw_control_augmentation_factor_deg <real>
+      | roll_control_augmentation_factor_dps <real>
+      | pitch_trim_factor <real>
+      | roll_trim_factor <real>
+      | yaw_trim_factor <real>
+})
+
+(rule manualPilotAugmentedStability {
+      autopilot_config <autopilotCommands>* end_autopilot_config
+      | inherit_controls <Bool>
+      | pitch_control_mapping_table <SixDOF_SimpleTable>* end_pitch_control_mapping_table
+      | roll_control_mapping_table <SixDOF_SimpleTable>* end_roll_control_mapping_table
+      | yaw_control_mapping_table <SixDOF_SimpleTable>* end_yaw_control_mapping_table
+      | roll_stability_augmentation <Bool>
+      | pitch_stability_augmentation <Bool>
+      | yaw_stability_augmentation <Bool>
+      | pitch_trim_factor <real>
+      | roll_trim_factor <real>
+      | yaw_trim_factor <real>
+})
+
+(rule syntheticPilotBlock {
+     synthetic_pilot <syntheticPilotCommands>* end_synthetic_pilot
+})
+
+(rule manualPilotSimpleBlock {
+     manual_pilot_simple_controls <manualPilotSimpleCommands>* end_manual_pilot_simple_controls
+})
+
+(rule manualPilotAugmentedControlsBlock {
+     manual_pilot_augmented_controls <manualPilotAugmentedCommands>* end_manual_pilot_augmented_controls
+})
+
+(rule manualPilotAugmentedStabilityBlock {
+     manual_pilot_augmented_stability <manualPilotAugmentedStability>* end_manual_pilot_augmented_stability
+})
+
+(rule controlInputsCommands {
+      control_name <string>
+      | std_stick_back <string>
+      | std_stick_right <string>
+      | std_rudder_right <string>
+      | std_throttle_mil <string>
+      | std_throttle_ab <string>
+      | std_thrust_reverser <string>
+      | std_thrust_vectoring_yaw <string>
+      | std_thrust_vectoring_pitch <string>
+      | std_thrust_vectoring_roll <string>
+      | std_speed_brakes_out <string>
+      | std_flaps_down <string>
+      | std_spoilers_out <string>
+      | std_landing_gear_down <string>
+      | std_nose_wheel_steering <string>
+      | std_nws_steering <string>
+      | std_nws_enabled <string>
+      | std_wheel_brake_left <string>
+      | std_wheel_brake_right <string>
+      | autopilot_support_file <quotable-string>
+      | use_fly_by_wire <integer>
+})
+
+(rule controlInputsBlock {
+   control_inputs <controlInputsCommands>* end_control_inputs
+})
+
+(rule SixDOF_PilotManagerStuff {
+     <controlInputsBlock>
+   | <syntheticPilotBlock>
+   | <manualPilotSimpleBlock>
+   | <manualPilotAugmentedControlsBlock>
+   | <manualPilotAugmentedStabilityBlock>
+   | active_pilot <string>
+   | common_autopilot_support_file <string>
+})
+
+(rule WsfSixDOF_PilotManager {
+   pilot_manager
+      <SixDOF_PilotManagerStuff>*
+   end_pilot_manager
+})
+
+
+#-------------------FlightControls-----------------
+
+(rule tableData {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+(rule SixDOF_MapTable {
+     type <string>
+   | table_data <tableData>* end_table_data
+})
+
+(rule SixDOF_Gain {
+     gain <real>
+})
+
+(rule SixDOF_ClampGain {
+     min_clamp <real>
+   | max_clamp <real>
+})
+
+(rule SixDOF_SimpleTable {
+   <real> <real>
+})
+
+(rule SixDOF_GainTable {
+     type <string>
+   | simple_table <SixDOF_SimpleTable>* end_simple_table
+})
+
+(rule RigidBodySixDOF_ControlInputTable {
+     modifier <string>
+})
+
+(rule RigidBodySixDOF_Input {
+   control_input <string> <RigidBodySixDOF_ControlInputTable>* end_control_input
+})
+
+(rule RigidBodySixDOF_AngleMapTable {
+   <real> <real>
+})
+
+#WsfRigidBodySixDOF_ControlActuator.cpp
+(rule RigidBodySixDOF_Actuator {
+   actuator <actuatorCommand>* end_actuator
+})
+
+#WsfRigidBodySixDOF_ControlActuator.cpp
+(rule actuatorCommand {
+     max_positive_rate <AngleRate>
+   | max_negative_rate <AngleRate>
+   | max_angle <Angle>
+   | min_angle <Angle>
+   | current_angle <Angle>
+})
+
+(rule alpha_mach_control_CL {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+(rule alpha_mach_control_Cd {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+(rule beta_mach_control_Cd {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+(rule beta_mach_control_CY {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+(rule alpha_mach_control_Cm {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+(rule beta_mach_control_Cn {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+(rule alpha_mach_control_Cl {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+(rule beta_mach_control_Cl {
+   irregular_table <irr_table>* end_irregular_table
+})
+
+#RigidBodySixDOF_FlightControls.cpp
+(rule RigidBodySixDOF_ControlSurface {
+     min_angle <Angle>
+   | max_angle <Angle>
+   | current_angle <Angle>
+   | inputs <RigidBodySixDOF_Input>* end_inputs
+   | angle_mapping_table <RigidBodySixDOF_AngleMapTable>* end_angle_mapping_table
+   | angle_mapping_manual_table <RigidBodySixDOF_AngleMapTable>* end_angle_mapping_manual_table
+   | <RigidBodySixDOF_Actuator>
+})
+
+(rule RigidBodySixDOF_ControlBool {
+     name <string>
+   | current_value <real>
+   | threshold_value <real>
+   | inputs <RigidBodySixDOF_Input>* end_inputs
+})
+
+(rule RigidBodySixDOF_ControlValue {
+     name <string>
+   | min_value <real>
+   | max_value <real>
+   | current_value <real>
+   | inputs <RigidBodySixDOF_Input>* end_inputs
+})
+
+(rule scalarGain {
+   {<real> <real>}*
+})
+
+(rule signalMapping {
+   {<real> <real>}*
+})
+
+(rule nontrimDevice {
+   lag_time_constant <Time>
+})
+
+(rule machGain {
+   {<real> <real>}*
+})
+
+(rule alphaGain {
+   {<real> <real>}*
+})
+
+(rule gainAlphaMach {
+     Name <string>
+   | irregular_table <irr_table>* end_irregular_table
+})
+
+(rule gainMach {
+   Name <string>
+   | irregular_table <irr_table>* end_irregular_table
+})
+
+#RigidBodySixDOF_FlightControls.cpp
+(rule flightControls {
+     mapping_table <string> <SixDOF_MapTable>* end_mapping_table
+   | gain_table <string> <SixDOF_GainTable>* end_gain_table
+   | scalar_gain <string> <SixDOF_Gain>* end_scalar_gain
+   | clamp_gain <string> <SixDOF_ClampGain>* end_clamp_gain
+   | sas_channel <string> <SixDOF_MapTable>* end_sas_channel
+   | control_surface <string> <RigidBodySixDOF_ControlSurface>* end_control_surface
+   | control_value <string> <RigidBodySixDOF_ControlValue>* end_control_value
+   | control_boolean <string> <RigidBodySixDOF_ControlBool>* end_control_boolean
+   | stick_right <signalMapping>* end_stick_right
+   | stick_back <signalMapping>* end_stick_back
+   | rudder_right <signalMapping>* end_rudder_right
+   | speedbrakes <nontrimDevice>* end_speedbrakes
+   | flaps <nontrimDevice>* end_flaps
+   | spoilers <nontrimDevice>* end_spoilers
+})
+
+#RigidBodySixDOF_FlightControls.cpp
+(rule RigidBodySixDOF_FlightControls {
+       flight_controls <flightControls>* end_flight_controls
+})
+
+#-------------------AeroPart-----------------
+
+(rule alpha_mach_cL_angle {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alpha_mach_cd_angle {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule alpha_mach_cm_angle {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alpha_mach_cl_angle {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule beta_mach_cd_angle {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule beta_mach_cl_angle {
+   irregular_table <irr_table>* end_irregular_table
+   | file <string>
+})
+
+(rule beta_mach_cn_angle {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule alpha_beta_cl_angle {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule beta_mach_cy_angle {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+(rule mach_angle_value {
+   regular_table <reg_table>* end_regular_table
+   | file <string>
+})
+
+#WsfRigidBodySixDOF_AeroMovableObject.cpp
+(rule aeroPart {
+     type <string>
+   | use_reduced_frequency <Bool>
+   | ref_area_sqft <real>
+   | cL_angle_alpha_mach_table <alpha_mach_cL_angle>* end_cL_angle_alpha_mach_table
+   | cd_angle_alpha_mach_table <alpha_mach_cd_angle>* end_cd_angle_alpha_mach_table
+   | cd_angle_beta_mach_table <beta_mach_cd_angle>* end_cd_angle_beta_mach_table
+   | cd_angle_mach_table <mach_angle_value>* end_cd_angle_mach_table
+   | cy_angle_beta_mach_table <beta_mach_cy_angle>* end_cy_angle_beta_mach_table
+   | cm_angle_alpha_mach_table <alpha_mach_cm_angle>* end_cm_angle_alpha_mach_table
+   | cmq_angle_mach_table <mach_angle_value>* end_cmq_angle_mach_table
+   | cn_angle_beta_mach_table <beta_mach_cn_angle>* end_cn_angle_beta_mach_table
+   | cnr_angle_mach_table <mach_angle_value>* end_cnr_angle_mach_table
+   | cl_angle_mach_table <mach_angle_value>* end_cl_angle_mach_table
+   | cl_angle_alpha_beta_table <alpha_beta_cl_angle>* end_cl_angle_alpha_beta_table
+   | clp_angle_mach_table <mach_angle_value>* end_clp_angle_mach_table
+   | clq_angle_mach_table <mach_angle_value>* end_clq_angle_mach_table
+   | clr_angle_mach_table <mach_angle_value>* end_clr_angle_mach_table
+})
+
+(rule RigidBodySixDOF_AeroPart {
+   aero_component <aeroPart>* end_aero_component
+})
+
+#-------------------SIXDOF NAVIGATION AUTOPILOT-----------------
+
+# SixDOF_Autopilot.cpp
+(rule autopilotControlCommand {
+     bank_to_turn_no_yaw
+   | bank_to_turn_with_yaw
+   | yaw_to_turn_no_roll
+   | yaw_to_turn_roll_rate
+   | yaw_to_turn_zero_bank
+   | BANK_TO_TURN_NO_YAW
+   | BANK_TO_TURN_WITH_YAW
+   | YAW_TO_TURN_NO_ROLL
+   | YAW_TO_TURN_ROLL_RATE
+   | YAW_TO_TURN_ZERO_BANK
+})
+
+# SixDOF_Autopilot.cpp
+(rule pidCommand {
+     pid_alpha <pidSubCommand>* end_pid_alpha
+   | pid_vert_speed <pidSubCommand>* end_pid_vert_speed
+   | pid_pitch_angle <pidSubCommand>* end_pid_pitch_angle
+   | pid_pitch_rate <pidSubCommand>* end_pid_pitch_rate
+   | pid_flightpath_angle <pidSubCommand>* end_pid_flightpath_angle
+   | pid_delta_pitch <pidSubCommand>* end_pid_delta_pitch
+   | pid_altitude <pidSubCommand>* end_pid_altitude
+   | pid_beta <pidSubCommand>* end_pid_beta
+   | pid_yaw_rate <pidSubCommand>* end_pid_yaw_rate
+   | pid_yaw_heading <pidSubCommand>* end_pid_yaw_heading
+   | pid_taxi_heading <pidSubCommand>* end_pid_taxi_heading
+   | pid_roll_rate <pidSubCommand>* end_pid_roll_rate
+   | pid_delta_roll <pidSubCommand>* end_pid_delta_roll
+   | pid_bank_angle <pidSubCommand>* end_pid_bank_angle
+   | pid_roll_heading <pidSubCommand>* end_pid_roll_heading
+   | pid_forward_accel <pidSubCommand>* end_pid_forward_accel
+   | pid_speed <pidSubCommand>* end_pid_speed
+   | pid_taxi_forward_accel <pidSubCommand>* end_pid_taxi_forward_accel
+   | pid_taxi_speed <pidSubCommand>* end_pid_taxi_speed
+   | pid_taxi_yaw_rate <pidSubCommand>* end_pid_taxi_yaw_rate
+   | limits_and_settings <pidLimitsCommand>* end_limits_and_settings
+})
+
+# SixDOF_Autopilot.cpp
+(rule pidLimitsCommand {
+     afterburner_threshold <real>
+   | speedbrake_threshold <real>
+   | pitch_gload_min <real>
+   | pitch_gload_max <real>
+   | alpha_min <real>
+   | alpha_max <real>
+   | pitch_rate_min <real>
+   | pitch_rate_max <real>
+   | vert_speed_min <real>
+   | vert_speed_max <real>
+   | yaw_gload_max <real>
+   | taxi_speed_max_fps <real>
+   | taxi_yaw_rate_max <real>
+   | beta_max <real>
+   | yaw_rate_max <real>
+   | roll_rate_max <real>
+   | bank_angle_max <real>
+   | forward_accel_min <real>
+   | forward_accel_max <real>
+   | turn_roll_in_multiplier <real>
+   | route_allowable_angle_error <Angle>
+})
+
+# SixDOF_Autopilot.cpp
+(rule pidSubCommand {
+     update_interval <Time>
+   | kp <real>
+   | ki <real>
+   | kd <real>
+   | max_error_accum <real>
+   | low_pass_alpha <real>
+   | ignore_large_error_accum <real>
+   | ignore_small_error_accum <real>
+   | kt_anti_windup_gain <real>
+   | gain_table <pidGainTableCommand>* end_gain_table
+
+})
+
+# SixDOF_Autopilot.cpp
+(rule pidGainTableCommand {
+     control_value <real>
+   | kp <real>
+   | ki <real>
+   | kd <real>
+   | max_error_accum <real>
+   | low_pass_alpha <real>
+   | ignore_large_error_accum <real>
+   | ignore_small_error_accum <real>
+   | kt_anti_windup_gain <real>
+
+})
+
+# SixDOF_Autopilot.cpp
+(rule autopilotCommands {
+     vertical_middle_loop_rate_factor <integer>
+   | lateral_middle_loop_rate_factor <integer>
+   | speed_middle_loop_rate_factor <integer>
+   | vertical_outer_loop_rate_factor <integer>
+   | lateral_outer_loop_rate_factor <integer>
+   | speed_outer_loop_rate_factor <integer>
+   | control_method <autopilotControlCommand>
+   | pid_group <pidCommand>* end_pid_group
+   | min_taxi_turn_radius <Length>
+   | use_simple_yaw_damper <Bool>
+})
+
+# SixDOF_Autopilot.cpp
+(rule SixDOF_NavigationAutopilot {
+   autopilot_config <autopilotCommands>* end_autopilot_config
+})
+
+# WsfSixDOF_GuidanceComputer
+(struct WSF_SIX_DOF_GUIDANCE_COMPUTER :symbol (type processorType WSF_SIX_DOF_GUIDANCE_COMPUTER)
+                                         :base_type WSF_GUIDANCE_COMPUTER
+{
+   <WSF_GUIDANCE_COMPUTER>
+ | <:ExternalLinks>
+})
+
+
+
+# --------------------------------------------------------------------------------
+
+# WsfSixDOF_Fuel
+(struct WSF_SIX_DOF_FUEL :symbol (type fuelType WSF_SIX_DOF_FUEL)
+                            :base_type Fuel
+{
+   <Fuel>
+ | <:ExternalLinks>
+})
+
+# --------------------------------------------------------------------------------
+
+#---------------Formation Related-----------------------
+
+(rule offset-type-rule
+{
+   welded_wing
+ | fixed_altitude
+})
+
+(rule offset-command
+{
+   offset <Length> <Angle> <Length> <offset-type-rule>
+})
+
+(rule common-formation-command
+{
+   debug
+ | <offset-command>
+})
+
+(rule unit-platform-command
+{
+   member_platform <string>
+})
+
+(rule six-dof-unit-block
+{
+   six_dof_unit <string>
+      <unit-command>*
+   end_six_dof_unit
+})
+
+(rule six-dof-unit-command
+{
+   <common-formation-command>
+ | <unit-platform-command>
+})
+
+(rule six-dof-section-block
+{
+   six_dof_section <string>
+      <six-dof-section-command>*
+   end_six_dof_section
+})
+
+(rule six-dof-section-command
+{
+   <common-formation-command>
+ | detached
+ | <six-dof-unit-block>
+ | lead <six-dof-unit-block>
+})
+
+(rule six-dof-formation-command
+{
+   <common-formation-command>
+ | detached
+ | <six-dof-formation-block>
+ | lead <six-dof-formation-block>
+ | <six-dof-section-block>
+ | lead <six-dof-section-block>
+ | <six-dof-unit-block>
+ | lead <six-dof-unit-block>
+})
+
+(rule six-dof-formation-block
+{
+   six_dof_formation <string>
+      <six-dof-formation-command>*
+   end_six_dof_formation
+})
+
+(rule root
+{
+   <six-dof-formation-block>
+})
+
+#-------------------WSF_SIX_DOF_EXPLICIT_WEAPON----------------
+
+(struct WSF_SIX_DOF_EXPLICIT_WEAPON
+   :symbol (type weaponType WSF_SIX_DOF_EXPLICIT_WEAPON)
+   :base_type WSF_EXPLICIT_WEAPON
+{
+   add_subobject <string>
+ | <WSF_EXPLICIT_WEAPON>
+})

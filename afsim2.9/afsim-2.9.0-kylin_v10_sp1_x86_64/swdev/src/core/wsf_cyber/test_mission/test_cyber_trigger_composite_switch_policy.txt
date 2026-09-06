@@ -1,0 +1,135 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//This test uses the composite trigger mutator to switch policies. For each test case, a trigger will be tested
+//that is globally defined, and a trigger that is used in the platform context.
+//Trigger 1 and 2 will switch from OR to AND.
+//Trigger 3 and 4 will switch from AND to OR.
+
+include_once trigger_test_defs.txt
+
+cyber_trigger trigger1 TRIGGER1_BASE
+   policy or
+   execute_trigger true
+end_cyber_trigger
+
+platform plat_trigger2 WSF_PLATFORM
+   add cyber_trigger trigger2 TRIGGER2_BASE
+      policy or
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+cyber_trigger trigger3 TRIGGER3_BASE
+   policy and
+   execute_trigger true
+end_cyber_trigger
+
+platform plat_trigger4 WSF_PLATFORM
+   add cyber_trigger trigger4 TRIGGER4_BASE
+      policy and
+      execute_trigger true
+   end_cyber_trigger
+end_platform
+
+execute at_time 1 s absolute
+   WsfCyberTrigger trigger1base = WsfCyberTrigger.GetTrigger("trigger1");
+   WsfCyberTrigger trigger2base = WsfCyberTrigger.GetTrigger("plat_trigger2", "trigger2");
+   WsfCyberTrigger trigger3base = WsfCyberTrigger.GetTrigger("trigger3");
+   WsfCyberTrigger trigger4base = WsfCyberTrigger.GetTrigger("plat_trigger4", "trigger4");
+   
+   WsfCyberTriggerComposite trigger1 = (WsfCyberTriggerComposite)trigger1base;
+   WsfCyberTriggerComposite trigger2 = (WsfCyberTriggerComposite)trigger2base;
+   WsfCyberTriggerComposite trigger3 = (WsfCyberTriggerComposite)trigger3base;
+   WsfCyberTriggerComposite trigger4 = (WsfCyberTriggerComposite)trigger4base;
+   
+   if(!trigger1.IsPolicyOR())
+   {
+      writeln("-FAIL-");
+      writeln("Fail trigger1 policy check.");
+   }
+   if(!trigger2.IsPolicyOR())
+   {
+      writeln("-FAIL-");
+      writeln("Fail trigger2 policy check.");
+   }
+   if(!trigger3.IsPolicyAND())
+   {
+      writeln("-FAIL-");
+      writeln("Fail trigger3 policy check.");
+   }
+   if(!trigger4.IsPolicyAND())
+   {
+      writeln("-FAIL-");
+      writeln("Fail trigger4 policy check.");
+   }
+   
+   //Referencing the AND and OR script tests using the same definitions,
+   //(test_cyber_trigger_composite_AND_script.txt and test_cyber_trigger_composite_OR_script.txt)
+   //the results for the baseline OR trigger is 10 evals and 3 executions, and
+   //the results for the baseline AND trigger is 9 evals and 2 executions.
+   //We expect the same behavior for these triggers once their policy is switched.
+   trigger1.SetPolicyAND();
+   trigger2.SetPolicyAND();
+   trigger3.SetPolicyOR();
+   trigger4.SetPolicyOR();
+end_execute
+
+execute at_time 151 s absolute
+   if(trigger1_executed != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger1 executions.");
+      writeln("Executions counted: " + (string)trigger1_executed);
+   }
+   if(trigger1_evals != 9)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger1 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger1_evals);
+   }
+   if(trigger2_executed != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger2 executions.");
+      writeln("Executions counted: " + (string)trigger2_executed);
+   }
+   if(trigger2_evals != 9)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger2 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger2_evals);
+   }
+   if(trigger3_executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger3 executions.");
+      writeln("Executions counted: " + (string)trigger3_executed);
+   }
+   if(trigger3_evals != 10)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger3 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger3_evals);
+   }
+   if(trigger4_executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger4 executions.");
+      writeln("Executions counted: " + (string)trigger4_executed);
+   }
+   if(trigger4_evals != 10)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of trigger4 evaluations.");
+      writeln("Evaluations counted: " + (string)trigger4_evals);
+   }
+end_execute
+
+end_time 152 s

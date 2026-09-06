@@ -1,0 +1,57 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Convenience Methods
+===================
+
+.. method:: double OrbitalPeriod()
+
+   Return the period of the platform's orbit in seconds.
+
+.. method:: string OrbitalRegime()
+
+   Return the orbital regime of the platform's orbit. Possible return values include:
+
+   * 'LEO' when the apoapsis altitude is less than 2000 km;
+   * 'MEO' when the apoapsis altitude is less than 35686 km and the periapsis
+     altitude is greater than 2000 km;
+   * 'GEO' when the altitude is within 100 km of 35786 km at all points
+     along the orbit, the eccentricity of the orbit is less than 0.001, and the
+     inclination is less than 90 degrees;
+   * 'HEO' when the eccentricity is greater than 0.4;
+   * an empty string when the orbit does not fall into one of the
+     other regimes.
+
+.. method:: double RevolutionNumber(double aTime)
+            double RevolutionNumber(Calendar aTime)
+
+   Return the number of revolutions that the platform has traversed since the
+   given time.
+   
+   .. note::
+      This uses the current orbital elements to calculate
+      the number of revolutions, so this method will not give accurate
+      results if the platform has maneuvered between the given time and now.
+   
+.. method:: Vec3 RIC(WsfPlatform aPlatform)
+            Vec3 RIC(WsfTrack aTrack)
+
+   Return radial, in-track, and cross-track distances between the 
+   mover and the platform or track at the current time.
+
+.. method:: Vec3 RIC_AtTime(double aTime, WsfPlatform aPlatform)
+            Vec3 RIC_AtTime(double aTime, WsfTrack    aTrack)
+
+   Return radial, in-track, and cross-track distances between the 
+   mover and the platform or track at the specified time.
+   
+   .. note::
+      The platform version of RIC_AtTime is only valid for platforms with no mover or a
+      :model:`WSF_SPACE_MOVER`, :model:`WSF_AIR_MOVER`, 
+      :model:`WSF_GROUND_MOVER` or :model:`WSF_SURFACE_MOVER`.

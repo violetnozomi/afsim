@@ -1,0 +1,237 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# -----------------------------------------------------------------------------
+# Test of WSF_COMPOSITE_SENSOR
+# -----------------------------------------------------------------------------
+
+antenna_pattern SIMPLE_RADAR_ANTENNA
+   constant 35 db
+end_antenna_pattern
+
+sensor SIMPLE_RADAR WSF_RADAR_SENSOR
+   mode_template
+      reports_range
+      reports_bearing
+   end_mode_template
+
+   mode NARROW
+      frame_time                       5 sec
+
+      transmitter
+         antenna_pattern               SIMPLE_RADAR_ANTENNA
+         polarization                  horizontal
+         frequency                     3 ghz
+         power                         10000 w
+      end_transmitter
+
+      receiver
+      end_receiver
+
+      detection_threshold              12.8 db
+
+      azimuth_error_sigma              0.15 deg
+      range_error_sigma                3 m
+
+      hits_to_maintain_track           1 3
+
+      track_quality                    0.7
+   end_mode
+
+   mode WIDE
+      frame_time                       5.1 sec
+
+      transmitter
+         antenna_pattern               SIMPLE_RADAR_ANTENNA
+         polarization                  vertical
+         frequency                     3 ghz
+         power                         10000 w
+      end_transmitter
+
+      receiver
+      end_receiver
+
+      detection_threshold              12.8 db
+
+      azimuth_field_of_view            -30 deg 30 deg
+      azimuth_error_sigma              0.2 deg
+      range_error_sigma                15 m
+
+      hits_to_maintain_track           3 8
+
+      track_quality                    0.5
+   end_mode
+   
+   on_initialize 
+      int filler = 1;
+   end_on_initialize
+   script bool OnSensorDetectionAttempt(WsfPlatform aTarget, WsfSensorInteraction aInteraction)
+      return aInteraction.Detected();
+   end_script
+end_sensor
+
+platform_type HOST WSF_PLATFORM
+
+   processor track_proc WSF_TRACK_PROCESSOR
+      purge_interval 60 sec
+   end_processor
+   sensor simple_radar_wide SIMPLE_RADAR
+      initial_mode WIDE
+   end_sensor
+
+   sensor simple_radar_narrow SIMPLE_RADAR
+      initial_mode NARROW
+   end_sensor
+
+   sensor gmti_composite WSF_COMPOSITE_SENSOR
+      operating_mode independent
+      sensor         simple_radar_wide
+      sensor         simple_radar_narrow
+      on
+      internal_link  track_proc
+
+      filter WSF_KALMAN_FILTER
+         process_noise_sigmas 0.1 m/s2 0.2 m/s2 0.2 m/s2
+      end_filter
+
+#      debug
+      #track_quality 0.8
+      on_initialize 
+         int filler = 1;
+      end_on_initialize
+      script bool OnSensorDetectionAttempt(WsfPlatform aTarget, WsfSensorInteraction aInteraction)
+         return aInteraction.Detected();
+      end_script
+   end_sensor
+end_platform_type
+
+# -----------------------------------------------------------------------------
+# Define a target whose radar signature can be change so that it can be seen
+# by both modes or only one mode of the GMTI sensor. To do this we define
+# multiple signature states with a polarization-dependent signature in each
+# state. The signature values are totally bogus - the values are only used to
+# allow or disallow detection by a given mode.
+
+radar_signature TARGET_RADAR_SIG
+
+   # Detectable by either mode
+   state default
+      constant 10 m^2
+
+   # Only detectable by NARROW mode
+   state HPOL_ONLY
+      polarization horizontal
+         constant 10 m^2
+      polarization default
+         constant 0.01 m^2
+
+   # Only detectable by WIDE mode
+   state VPOL_ONLY
+      polarization vertical
+         constant 10 m^2
+      polarization default
+         constant 0.01 m^2
+
+   # Not detectable by either mode.
+   state NONE
+      constant 0.01 m^2
+
+end_radar_signature
+
+platform_type TARGET WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+   mover WSF_GROUND_MOVER
+   end_mover
+end_platform_type
+
+# -----------------------------------------------------------------------------
+
+platform a_host HOST
+   side blue
+   position 0n 0e altitude 30000 ft heading 0 deg
+
+   execute at_time 0.1 sec absolute
+      Sensor("simple_radar_wide").TurnOn();
+   end_execute
+
+   execute at_time 0.11 sec absolute
+      Sensor("simple_radar_narrow").TurnOn();
+   end_execute
+
+
+   # The follow group of stuff makes sure the composite sensor cleans up its observer
+   # registrations when it is deleted...
+
+   execute at_time 19 min absolute
+      DeletePlatform();
+   end_execute
+end_platform
+
+platform target TARGET
+   side red
+   route
+     position 1n 0e heading 90 deg speed 10 kts
+   end_route
+
+   execute at_time 3 min absolute
+      SetRadarSigState("HPOL_ONLY");
+   end_execute
+
+   execute at_time 6 min absolute
+      SetRadarSigState("VPOL_ONLY");
+   end_execute
+
+   execute at_time 9 min absolute
+      SetRadarSigState("NONE");
+   end_execute
+
+   execute at_time 12 min absolute
+      SetRadarSigState("default");
+   end_execute
+
+   # The follow group of stuff makes sure the composite sensor cleans up its observer
+   # registrations when it is deleted...
+
+   add sensor dummy WSF_GEOMETRIC_SENSOR
+      frame_time 1 sec
+      reports_location
+   end_sensor
+
+   execute at_time 19.1 min absolute
+      Sensor("dummy").TurnOn();
+   end_execute
+
+   execute at_time 19.2 min absolute
+      Sensor("dummy").TurnOff();
+   end_execute
+
+end_platform
+
+# -----------------------------------------------------------------------------
+
+end_time 20 min
+/*
+event_output
+   file replay.evt
+   print_track_covariance true
+   print_track_residual_covariance true
+   enable PLATFORM_APPEARANCE_CHANGED
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable LOCAL_TRACK_INITIATED
+   enable LOCAL_TRACK_UPDATED
+   enable LOCAL_TRACK_DROPPED
+#   enable SENSOR_TRACK_INITIATED
+#   enable SENSOR_TRACK_UPDATED
+   enable SENSOR_DETECTION_CHANGED
+   enable SENSOR_TRACK_DROPPED
+   enable SENSOR_TURNED_ON
+   enable SENSOR_TURNED_OFF
+end_event_output
+*/

@@ -1,0 +1,101 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+
+// Test Sun Vector Utilities
+// Set up at the vernal equinox,
+// where the sun will be along the +x eci axis.
+// At noon, the two coordinate frames are roughly
+// aligned.
+execute at_time 1.0 s absolute
+   bool allPass = true;
+   Calendar cal = {};
+   cal.SetDate(2005, 3, 20);
+   cal.SetTime(12, 0, 0.0);
+   Vec3 unitVecWCS = Sun.UnitVecWCS(cal);
+   Vec3 unitVecECI = Sun.UnitVecECI(cal);
+   Vec3 vecECI = Sun.LocationECI(cal);
+   vecECI.Normalize();
+   Vec3 vecWCS = Sun.LocationWCS(cal);
+   vecWCS.Normalize();
+   Vec3 eciX = Vec3.Construct(1.0, 0.0, 0.0);
+   if (Vec3.Dot(eciX, vecECI) < 0.999)
+   {
+      writeln("-FAIL-");
+      allPass = false;
+   }
+   if (Vec3.Dot(eciX, vecWCS) < 0.999)
+   {
+      writeln("-FAIL-");
+      allPass = false;
+   }
+   if (Vec3.Dot(eciX, unitVecWCS) < 0.999)
+   {
+      writeln("-FAIL-");
+      allPass = false;
+   }
+   if (Vec3.Dot(eciX, unitVecECI) < 0.999)
+   {
+      writeln("-FAIL-");
+      allPass = false;
+   }
+   cal.SetTime(0.0, 0, 0.0);
+   unitVecWCS = Sun.UnitVecWCS(cal);
+   unitVecECI = Sun.UnitVecECI(cal);
+   if (Vec3.Dot(eciX, unitVecWCS) > -0.999)
+   {
+      writeln("-FAIL-");
+      allPass = false;
+   }
+   if (Vec3.Dot(eciX, unitVecECI) < 0.999)
+   {
+      writeln("-FAIL-");
+      allPass = false;
+   }
+   
+   // Test Elevation/Azimuth
+   // Compare to values from:
+   // https://midcdmz.nrel.gov/solpos/solpos.html
+   
+   cal.SetTime(12, 0, 0.0);
+   if (!AssertWithinToleranceMessage(88.14, Sun.Elevation(cal, 0, 0), 0.01, "Sun.Elevation at (0,0)"))
+   {
+      allPass = false;
+   }
+   # Tolerance 0.1
+   if (!AssertWithinToleranceMessage(90.26, Sun.Azimuth(cal, 0, 0), 0.1, "Sun.Azimuth at (0,0)"))
+   {
+      allPass = false;
+   }
+
+   if (!AssertWithinToleranceMessage(-1.85, Sun.Elevation(cal, 38.6, -90.5), 0.01, "Sun.Elevation at (38.6, -90.5)"))
+   {
+      allPass = false;
+   }
+   if (!AssertWithinToleranceMessage(88.53, Sun.Azimuth(cal, 38.6, -90.5), 0.01, "Sun.Azimuth at (38.6, -90.5)"))
+   {
+      allPass = false;
+   }
+
+   if (!AssertWithinToleranceMessage(14.37, Sun.Elevation(cal, -49.5, 69.4), 0.01, "Sun.Elevation at (-49.5, 69.4)"))
+   {
+      allPass = false;
+   }
+   if (!AssertWithinToleranceMessage(287.45, Sun.Azimuth(cal, -49.5, 69.4), 0.01, "Sun.Azimuth at (-49.5, 69.4)"))
+   {
+      allPass = false;
+   }
+   
+
+   if (allPass)
+   {
+      writeln("-PASS- All tests passed.");
+   }
+end_execute

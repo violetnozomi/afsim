@@ -1,0 +1,68 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once utils.txt
+
+$define predictTime 1000000
+
+script_variables
+   double predictTime = $<predictTime:2000>$;
+   double tolerance = 0.0001;
+end_script_variables
+
+end_time $<predictTime:2000>$ s
+
+platform_type SPACE_PLATFORM WSF_PLATFORM
+   script_variables 
+      WsfGeoPoint predictedLocation;
+      WsfGeoPoint actualLocation;
+   end_script_variables
+   
+   on_initialize2 
+      predictedLocation = PLATFORM.FutureLocation(predictTime);
+   end_on_initialize2
+
+   execute at_time $<predictTime:2000>$ sec relative
+      actualLocation = PLATFORM.Location();
+      double error = Vec3.Subtract(predictedLocation.LocationWCS(),actualLocation.LocationWCS()).Magnitude();
+      
+      ExpectDouble(error, 0, tolerance, write_str(Name(), " predicted location does not match actual location"));
+   end_execute   
+end_platform_type
+
+platform space_mover SPACE_PLATFORM
+   add mover WSF_SPACE_MOVER  
+      include orbital_elements.txt
+   end_mover
+end_platform
+
+platform norad_space_mover SPACE_PLATFORM
+   add mover WSF_NORAD_SPACE_MOVER  
+      include orbital_elements.txt
+   end_mover   
+end_platform
+
+platform integrating_space_mover SPACE_PLATFORM
+   empty_mass 1.0 kg
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER  
+      include orbital_elements.txt
+   end_mover
+
+   integrator prince_dormand_45
+      tolerance 1.0e-11
+      error_criterion L_infinity
+   end_integrator
+
+   dynamics
+      term earth_monopole
+         egm96
+      end_term
+   end_dynamics
+end_platform

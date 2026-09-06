@@ -1,0 +1,170 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This test moves a platform around a target and makes sure the computed bearing angles make sense.
+processor TRACK_TEST_PROCESSOR WSF_SCRIPT_PROCESSOR
+
+   script_variables
+      double sBearing = 0.0;
+      double sRoll = 0.0;
+   end_script_variables
+
+   script void UpdateMe()
+
+    static WsfGeoPoint center = WsfSimulation.FindPlatform("target").Location();
+    WsfGeoPoint gp = WsfGeoPoint(center);
+    gp.OffsetRBE(10000.0, sBearing, 0.0);
+    PLATFORM.SetLocation(gp);
+
+    PLATFORM.SetOrientationNED(sBearing - 180.0, 0.0, sRoll);
+    //sRoll += 1.0;
+    sBearing += 10.0;
+    if (sBearing > 180.0) sBearing -= 360.0;
+    if (sRoll > 180.0) sRoll -= 360.0;
+   end_script
+
+   script void ProcessTrackUpdate(double aSimTime, WsfTrack aTrack)
+      WsfCovariance covar;
+      if (aTrack.StateCovarianceValid())
+      {
+         covar = aTrack.StateCovariance();
+      }
+      else if (aTrack.MeasurementCovarianceValid())
+      {
+         covar = aTrack.MeasurementCovariance();
+      }
+      else
+      {
+         covar = WsfCovariance.Construct(aTrack);
+      }
+
+      if (covar.IsValid())
+      {
+         static bool firstTime = true;
+         if (! firstTime)
+         {
+            Ellipsoid e = covar.EllipsoidNED();
+            double myBearing = sBearing - 10;
+            double myBearing2 = sBearing - 10 + 180;
+            if (myBearing2 > 180.0) myBearing2 = myBearing2 - 360.0;  // ambiguous because of covariance symmetry
+
+            //writeln("Heading, pitch, roll: ", e.OrientationHeadingDeg(), ":", e.OrientationPitchDeg(), ":", e.OrientationRollDeg());
+            //writeln("Forward, side, up:    ", e.SemiAxisForward(), ":", e.SemiAxisSide(), ":", e.SemiAxisUp());
+
+            // The idea is to have a large range error and small az/el errors to make the alignment intuitive.
+            // The problem is that the ellipsoid places the long / range axis in the SemiAxisUp for this example.
+            // So the orientation is a heading / roll one, not simply heading as we would expect if the range error were in the forward direction!
+            double eHeading = e.OrientationHeadingDeg() + 90.0;
+            if (eHeading > 180.0) eHeading = eHeading - 360.0;
+
+            if ((eHeading < (myBearing - 0.1)) ||
+                (eHeading > (myBearing + 0.1)))
+            {
+               if ((eHeading < (myBearing2 - 0.1)) ||
+                   (eHeading > (myBearing2 + 0.1)))
+               {
+                  if ((eHeading < -179.99) && (myBearing2 > 179.99))
+                  {
+                  }
+                  else
+                  {
+                     writeln("-FAIL- 1");
+                  }
+               }
+            }
+            double eRoll = e.OrientationRollDeg();
+            double ePitch = e.OrientationPitchDeg();
+            if ((MATH.Fabs(eRoll) < 89.9) || (MATH.Fabs(ePitch) > 0.01))
+            {
+               writeln("-FAIL-");
+            }
+
+            double covarBearing = covar.Bearing();
+            if (covarBearing < -179.99) covarBearing = 180.0;
+            if ((covarBearing < (myBearing - 2)) ||
+                (covarBearing > (myBearing + 2)))
+            {
+               if ((covarBearing < (myBearing2 - 2)) ||
+                   (covarBearing > (myBearing2 + 2)))
+               {
+                  if ((myBearing < -179.99) && (covarBearing > 179.99))
+                  {
+                  }
+                  else
+                  {
+                     writeln("-FAIL- 2");
+                  }
+               }
+            }
+         }
+         else
+         {
+            firstTime = false;
+         }
+         UpdateMe();
+      }
+   end_script
+
+   update_interval 10 s
+
+   on_message
+      type WSF_TRACK_MESSAGE
+        script
+           WsfTrackMessage msg = (WsfTrackMessage)MESSAGE;
+           ProcessTrackUpdate(TIME_NOW, msg.Track());
+        end_script
+   end_on_message
+
+   on_message
+      type WSF_TRACK_NOTIFY_MESSAGE
+         script
+            WsfTrackNotifyMessage msg = (WsfTrackNotifyMessage)MESSAGE;
+            WsfTrackId id = msg.TrackId();
+            WsfTrack track = PLATFORM.MasterTrackList().Find(id);
+            if (track.IsValid())
+            {
+               ProcessTrackUpdate(TIME_NOW, track);
+            }
+         end_script
+   end_on_message
+
+end_processor
+
+platform_type SENSING WSF_PLATFORM
+   side blue
+   processor track_test TRACK_TEST_PROCESSOR
+   end_processor
+
+   sensor all_seeing WSF_GEOMETRIC_SENSOR
+      on
+      range_error_sigma 2000 m
+      azimuth_error_sigma 0.0001 deg    // Should be small to minimize track-truth angle differences.
+      elevation_error_sigma 0.0002 deg  // Should be small to minimize track-truth angle differences.
+      reports_range
+      reports_bearing
+      reports_elevation
+      frame_time 15 seconds
+      processor track_test
+   end_sensor
+
+end_platform_type
+
+platform_type TARGET WSF_PLATFORM
+   side red
+end_platform_type
+
+platform sensing SENSING
+   position 40n 30w altitude 30000 ft
+end_platform
+
+platform target TARGET
+   position 40.1n 30.0w altitude 30000 ft heading 180 deg
+end_platform
+
+end_time 5 minutes

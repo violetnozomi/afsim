@@ -1,0 +1,43 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.5.2)** Relaxed the compiler version check for compatible plugins on Windows (MSVC). Only the first two digits, indicating C++ toolset major number and binary compatibility, are compared to those of the host application. *(ELSZ #133)*
+* **(2.5.2)** Corrected the source value used for WCS velocity in the ``UtEntity`` copy constructor. *(ELSZ #272)*
+* **(2.5.1)** Added the directory containing plugins to library search path for Windows to allow plugins to have dependencies on other plugins. *(ELSZ #172)*
+* **(2.5.1)** Fixed a bug in the ``add_wsf_doxygen_input`` CMake macro that prevented Doxygen from generating documentation for the files in the core/wsf/source directory. *(Issue #1785)*
+* **(2.5.1)** Corrected an issue where the computed ECI-referenced orientation of ``WsfArticulatedPart`` (``UtEntityPart``) was incorrect. *(Issue #1829)*
+* ``UtCalendar`` now provides Julian dates referenced to Coordinated Universal Time (UTC), terrestrial time (TT), Barycentric Time (TDB), as well as the standard UT1. *(Issue #1240)*
+* Methods involving pseudo-inertial frame conversions in ``UtEllipsoidalEarth`` (``ConvertECIToECEF``, ``ConvertVelocityECIToECEF``, etc.) have been renamed from ECI to TOD (True-of-Date). *(Issue #1240)*
+* ECI conversions in ``UtEntity`` have been re-factored into the ``UtECI_Conversion`` class. *(Issue #1240)*
+* Removed ``struct UtDeleteObj`` which was used as a function object for freeing heap memory stored in STL containers. All container usages were modernized to use ``std::unique_ptr`` to conform to C++ core guidelines for resource management. *(Issue #1324)*
+* Class templates ``UtMappedList`` and ``UtStdMappedList`` (aliases for ``UtGenericMappedList``), and  ``WsfTrackListT`` have been updated to use ``std::unique_ptr`` instead of raw pointers to explicitly express ownership. *(Issue #1324)*
+* Removed legacy ``UtSubject/UtObserver`` interface for class ``WsfTrackManager``, and updated observers to subscribe directly to callback lists within ``WsfTrackManager`` for notification of track state changes. *(Issue #1325)*
+* Modernized the memory management of ``UtCallback`` objects in ``UtCallbackHolder`` and template ``UtCallbackListN``, enforcing RAII through the use of ``std::unique_ptr``. Developers **will need to verify** that all usages of ``UtCallbackListN<...>::Connect`` assume ownership of the returned callback object, either by assigning to a managed pointer or by passing ownership to a ``UtCallbackHolder``. *(Issue #1371)*
+* Access to the ``WsfScenario`` object from ``WsfSimulation`` and other simulation objects is now immutable (``const``). *(Issue #1367)*
+* Class ``WsfEventManager`` now uses ``std::unique_ptr`` to convey explicit ownership of the ``WsfEvent`` objects. Deprecated the delegating methods ``AddEvent`` and ``AddWallEvent`` of ``WsfSimulation`` which take raw pointers. *(Issue #1409)* 
+* Corrected an issue with source installation where the ``ConfigureUnitTests`` module was not installing the necessary CMake modules to configure GTest. *(ELSZ #163)*
+* Updated ``UtEntity`` (and by derivation ``WsfPlatform``) to be ``const``-correct according to the semantics expected by its users, making any public accessor that is logically constant (e.g. ``GetLocationWCS``) a ``const`` member. *(Issue #1372)*
+* Created a common base class ``WsfAuxDataEnabled`` from which all :command:`_.aux_data`-enabled classes now derive, to eliminate the duplication of input processing and attribute management. Corresponding script classes now make use of new macros and a function, defined in ``namespace`` ``WsfScriptAuxDataUtil``, for adding the supporting script methods. *(Issue #1518)*
+* Removed class ``WsfCallbackEvent`` and replaced usages with the ``WsfOneShotEvent`` adapter. *(Issue #1421)*
+* Refactored the comm initialization process for ease of maintenance and better performance. *(Issue #1389)*
+* Added ``constexpr`` function templates ``UtMath::NearlyZero`` and ``UtMath::NearlyEqual``, which replaces ``UtMath::Equals`` and provides a default epsilon of ``std::numeric_limits<T>::epsilon()``. *(Issue #1484)*
+* Link unit test executables against imported libraries to allow linking against GTest dynamic libraries. *(ELSZ #122)*
+* Update the finding of GMock to allow linking against debug versions of the libraries. *(ELSZ #207)*
+* Corrected the implementation of ``UtEntity::IncrementLocationWCS`` to compute the current :ref:`WCS<WCS>` location if it was invalid. *(ELSZ #214)*
+* Multiple changes to the communications framework to support router migration to a platform part. Updates include: *(Issue #1310)*
+   - The ``Router`` object was migrated to a platform part, from a comm component. This allows any number of routers on a platform, with multiple comm associations per router instead of a one-to-one mapping.
+   - Significant refactors supporting the ``Router`` move, especially with the network layer and the associated protocols.
+   - Split the existing protocol interface functionality into two protocol types - the router protocol, and the existing protocol with removed router functionality.
+   - Added a generic multicast routing protocol as a predefined type, and removed the improperly added functionality in the IGMP protocol.
+   - Removed ``bridges`` as a formal link association between comm interfaces, as this functionality has been assumed by the router.
+   - Allowed automated linking as an option for comm interfaces on a router to better model a network switch, if desired.
+   - Exposed the ``wsf::comm::Message`` copy constructor, and added an assignment operator for public copy construction of message objects.
+   - Comms now have an accessor providing their multicast conformance level, based on the presence of protocols. This summarizes the multicast capabilities of any given comm interface.
+   - Callbacks have been added to the ``WsfCommNetworkManager`` for platform initialization **after** comm framework handling, and a general callback before simulation start, but after comm framework initialization.
+   - Callbacks for routers have been added, as well as general scripting and output support.

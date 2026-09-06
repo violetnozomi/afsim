@@ -1,0 +1,253 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+random_seed 2
+
+#Provide global references to the target test platforms for use with script calls
+script_variables
+   WsfPlatform target1;
+   WsfPlatform target2;
+   int target1Received = 0;
+   int target2Received = 0;
+end_script_variables
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   extern int target1Received;
+   extern int target2Received;
+
+   if(aRcvr.Platform().Name() == "target1")
+   {
+      target1Received = target1Received + 1;
+      writeln("target1Received");
+   }
+   else if(aRcvr.Platform().Name() == "target2")
+   {
+      target2Received = target2Received + 1;
+      writeln("target2Received");
+   }
+   else
+   {
+      writeln("-FAIL- Msg destined to the wrong platform");
+   }
+end_script
+
+cyber_effect MITM_EFFECT WSF_CYBER_MAN_IN_THE_MIDDLE_EFFECT
+   platform target1
+      target_list 
+         comm1       
+      end_target_list
+
+      script WsfCyberMitmMessage OnSend(WsfMessage aMessage)
+         writeln("MITM message (target1): OnSend", " t=", TIME_NOW);
+         if(aMessage.Priority() == 10)
+         {
+            return WsfCyberMitmMessage.Construct(aMessage, 0, true);
+         }
+         return WsfCyberMitmMessage.Construct(aMessage, 3, false);
+      end_script
+
+      script WsfCyberMitmMessage OnReceive(WsfMessage aMessage)
+         writeln("MITM message (target1): OnReceive" + " t=" + (string)TIME_NOW);
+         return WsfCyberMitmMessage.Construct(aMessage, 0, false);
+      end_script
+   end_platform
+   
+   platform_type TEST_PLATFORM
+      all
+      
+      script WsfCyberMitmMessage OnSend(WsfMessage aMessage)
+         writeln("MITM message (TEST_PLATFORM): OnSend" + " t=" + (string)TIME_NOW);
+         return WsfCyberMitmMessage.Construct(aMessage, 1.5, false);
+      end_script
+      
+      script WsfCyberMitmMessage OnReceive(WsfMessage aMessage)
+         writeln("MITM message (TEST_PLATFORM): OnReceive" + " t=" + (string)TIME_NOW);
+         return WsfCyberMitmMessage.Construct(aMessage, 0, false);
+      end_script
+   end_platform_type
+   
+end_cyber_effect
+
+//! This is only for checking script contexts
+cyber_effect MITM_EFFECT_SCRIPT_CHECK WSF_CYBER_MAN_IN_THE_MIDDLE_EFFECT
+   platform target1
+      target_list 
+         comm1       
+      end_target_list
+
+      script WsfCyberMitmMessage OnSend(WsfMessage aMessage)
+         writeln("MITM message (target1): OnSend");
+         if(aMessage.Priority() == 10)
+         {
+            return WsfCyberMitmMessage.Construct(aMessage, 0, true);
+         }
+         return WsfCyberMitmMessage.Construct(aMessage, 3, false);
+      end_script
+
+      script WsfCyberMitmMessage OnReceive(WsfMessage aMessage)
+         writeln("MITM message (target1): OnReceive" + " t=" + (string)TIME_NOW);
+         return WsfCyberMitmMessage.Construct(aMessage, 0, false);
+      end_script
+   end_platform
+   
+   platform_type TEST_PLATFORM
+      all
+      
+      script WsfCyberMitmMessage OnSend(WsfMessage aMessage)
+         writeln("MITM message (TEST_PLATFORM): OnSend" + " t=" + (string)TIME_NOW);
+         return WsfCyberMitmMessage.Construct(aMessage, 1.5, false);
+      end_script
+      
+      script WsfCyberMitmMessage OnReceive(WsfMessage aMessage)
+         writeln("MITM message (TEST_PLATFORM): OnReceive" + " t=" + (string)TIME_NOW);
+         return WsfCyberMitmMessage.Construct(aMessage, 0, false);
+      end_script
+   end_platform_type
+   
+end_cyber_effect
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+   effect MITM_EFFECT
+   
+   probability_of_scan_detection 0.0
+   probability_of_attack_success 1.0
+   probability_of_status_report 1.0
+   probability_of_attack_detection 1.0
+   probability_of_future_immunity 0.0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 0 s
+   delivery_delay_time 0 s
+end_cyber_attack
+
+# All test platforms have this protection as part of the type
+cyber_protect TEST_PROTECT WSF_CYBER_PROTECT
+   attack_response TEST_ATTACK
+      probability_of_scan_detection 0.0
+      probability_of_attack_success 1.0
+      probability_of_status_report 1.0
+      probability_of_attack_detection 1.0
+      probability_of_future_immunity 0.0
+      
+      attack_detection_delay_time 0 s
+      attack_recovery_delay_time 5 s
+      restore      
+    end_attack_response     
+end_cyber_protect
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   cyber_protect TEST_PROTECT
+   end_cyber_protect
+   
+   add comm comm1 WSF_COMM_TRANSCEIVER
+      on
+   end_comm
+   
+end_platform_type
+
+platform attack1 TEST_PLATFORM
+   position 39n 90:20w
+   icon EA-6B
+   altitude 10000 m
+    execute at_time 8 s absolute
+       bool attackStatus = PLATFORM.CyberAttack(target1, "TEST_ATTACK");
+       attackStatus = PLATFORM.CyberAttack(target2, "TEST_ATTACK");
+    end_execute
+   
+end_platform
+
+platform target1 TEST_PLATFORM
+   position 38:45n 90:20w
+   icon AAA
+   
+   on_initialize
+      target1 = PLATFORM;
+   end_on_initialize
+   
+   // Message should result in successful transmission, 3 second delay.
+   // With normal message latency, reception at t=13.00005
+   execute at_time 10 s absolute
+      WsfMessage hello = WsfMessage();
+      writeln("target1 message -> target2");
+      hello.SetPriority(5);
+      PLATFORM.Comm("comm1").SendMessage(hello, "target2", "comm1");
+   end_execute
+   
+   // Message with priority = 10 results in MITM dropping message.
+   // Message is not delivered.
+   execute at_time 12 s absolute
+      WsfMessage hello = WsfMessage();
+      writeln("target1 message -> target2");
+      hello.SetPriority(10);
+      PLATFORM.Comm("comm1").SendMessage(hello, "target2", "comm1");
+   end_execute
+   
+   // Cyber attack recovered when this message sent. No delay.
+   // With normal message latency, reception at t=20.0005
+   execute at_time 20 s absolute
+      WsfMessage hello = WsfMessage();
+      writeln("target1 message -> target2");
+      hello.SetPriority(5);
+      PLATFORM.Comm("comm1").SendMessage(hello, "target2", "comm1");
+   end_execute
+   
+end_platform
+
+platform target2 TEST_PLATFORM
+   position 38:45n 90:10w
+   icon AAA
+   on_initialize
+      target2 = PLATFORM;
+   end_on_initialize
+   
+   // Message should result in successful transmission, 1.5 s delay.
+   // With normal message latency, reception at t=12.5005
+   execute at_time 11 s absolute
+      WsfMessage hello = WsfMessage();
+      writeln("target2 message -> target1");
+      PLATFORM.Comm("comm1").SendMessage(hello, target1.Comm("comm1"));
+   end_execute
+end_platform
+
+execute at_time 30 s absolute
+   extern int target1Received;
+   extern int target2Received;
+   writeln("target1Received: ", target1Received);
+   writeln("target2Received: ", target2Received);
+   assert(target1Received == 1);
+   assert(target2Received == 2);
+end_execute
+
+end_time 1 min
+
+event_output
+   file STDOUT
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable CYBER_ATTACK_INITIATED
+   enable CYBER_ATTACK_SUCCEEDED
+   enable CYBER_ATTACK_FAILED
+   enable CYBER_ATTACK_DETECTED
+   enable CYBER_ATTACK_RECOVERY
+   enable CYBER_SCAN_INITIATED
+   enable CYBER_SCAN_SUCCEEDED
+   enable CYBER_SCAN_DETECTED
+   enable CYBER_SCAN_FAILED
+   enable MESSAGE_RECEIVED
+end_event_output
+
+observer
+   enable MESSAGE_RECEIVED
+end_observer

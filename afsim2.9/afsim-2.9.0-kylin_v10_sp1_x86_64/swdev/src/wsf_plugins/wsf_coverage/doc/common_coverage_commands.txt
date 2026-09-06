@@ -1,0 +1,173 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Grid Asset Specification
+========================
+
+.. command:: grid <grid-name>
+
+   Use the coverage grid with the given name as the grid over which this
+   coverage will be computed.
+
+Free Asset Specification
+========================
+
+.. parsed-literal::
+
+   assets
+      platform_ <platform-name> <device-name>
+      platform_type_ <platform-type> <device-name>
+      category_ <category-name> <device-name>
+      group_ <group-name> <device-name>
+   end_assets
+
+.. command:: assets ... end_assets
+
+   Specify the free assets to use for this coverage.
+
+.. begin:: assets
+
+.. command:: platform <platform-name> <device-name>
+
+   Specify the platform with the given name is to be included among the free
+   assets for this coverage. Unless 'none' is supplied as the device name,
+   the given platform must have a relevant device with the given name.
+
+.. command:: platform_type <platform-type> <device-name>
+
+   Specify that all platforms with the given type are to be included among the
+   free assets for this coverage. Unless 'none' is supplied as the device name,
+   the given platform type must have a relevant device with the given name.
+
+.. command:: category <category-name> <device-name>
+
+   Specify that any platforms in the given category with a relevant device
+   are to be included among the free assets for this coverage. If 'none' is
+   specified as the device name, then all platforms in this category will be
+   added to the set of free assets for this coverage.
+
+.. command:: group <group-name> <device-name>
+
+   Specify that any platform in the given group with a relevant device are
+   to be included among the free assets for this coverage. If 'none' is
+   specified as the device name, then all platforms in this group will be added
+   to the set of free assets for this coverage.
+
+.. end::
+
+Measures of Effectiveness
+=========================
+
+.. parsed-literal::
+
+   moe_ <name> <measure-type>
+      ...
+   end_moe
+
+.. command:: moe ... end_moe
+
+   Specify a measure of effectiveness (MOE) to be computed by the coverage.
+   See :doc:`predefined_measure_types` for a list of available MOEs.
+
+Coverage Interval Commands
+==========================
+
+.. command:: start_time <time-value>
+
+   Set the start of the coverage interval to the given simulation time. Either
+   this command or start_epoch_ can be used to specify the coverage interval's
+   start time. If no start time is specified the coverage interval's start is
+   set to the simulation's start time.
+
+.. command:: end_time <time-value>
+
+   Set the end time of the coverage interval to the given simulation time.
+   Either this command or end_epoch can be used to specify the coverage
+   interval's end time. If no end time is specified the coverage interval's
+   end is set to the simulation's end time.
+
+.. command:: start_epoch <month> <day-of-month> <year> <hh:mm:ss>
+
+   Set the start of the coverage interval to the given date and time. Either
+   this command or start_time_ can be used to specify the coverage interval's
+   start time. If no start time is specified the coverage interval's start is
+   set to the simulation's start time.
+
+.. command:: end_epoch <month> <day-of-month> <year> <hh:mm:ss>
+
+   Set the end of the coverage interval to the given date and time. Either
+   this command or end_time_ can be used to specify the coverage interval's
+   end time. If no end time is specified the coverage interval's end time is
+   set to the simulation's end time.
+
+Data Output Commands
+====================
+
+.. command:: output_dir <path-value>
+
+   Set the directory into which all file produced by this coverage will be
+   generated. The default output directory is the working directory.
+
+.. command:: raw_data_file <file-name>
+
+   If this filename is set, the coverage computation will store raw access
+   intervals and write those intervals to the named file at the end of the
+   coverage computation.
+
+.. command:: overlay_file <file-name>
+
+   If this filename is set, the coverage computation will produce a data file
+   with the given name that can be displayed by the CoverageOverlay plugin.
+   This command will append the canonical extension for these files, ".cvg", to
+   the specified filename.
+
+Interval Constraint Commands
+============================
+
+.. parsed-literal::
+
+   interval_constraint_
+      output_file <file-name>
+      platform <platform-name> <constraint-type> <time-value> [<time-value>]
+      platform_type <platform-type> <constraint-type> <time-value> [<time-value>]
+      device <device-name> <constraint-type> <time-value> [<time-value>]
+      device_type <device-type> <constraint-type> <time-value> [<time-value>]
+   end_interval_constraint
+
+.. command:: interval_constraint ... end_interval_constraint
+
+   Specifying an interval constraint for a coverage computation allows intervals that are too short or long in duration to be excluded from the computation. There are a number of ways to specify for which assets these constraints apply. Multiple specifications can be included in a single interval constraint block, and multiple interval constraint blocks can be specified for a single coverage computation.
+
+.. begin:: interval_constraint
+
+.. command:: output_file <file-name>
+
+   Specify the name of the file into which the intervals that were filtered out of the coverage computation will be written. The format of these files will match the output from raw_data_file_ produced files.
+
+.. command:: platform <platform-name> <constraint-type> <time-value> [<time-value>]
+
+   Specify that access intervals involving the named platform will be filtered according to the given *<constraint-type>*, which can take on the following values:
+
+   * minimum - Access intervals with a duration shorter than the given value will be removed from the coverage computation.
+   * maximum - Access intervals with a duration longer than the given value will be removed from the coverage computation.
+   * interval - Access intervals shorter than the first given time, or longer than the second given time will be removed from the coverage computation.
+
+.. command:: platform_type <platform-type> <constraint-type> <time-value> [<time-value>]
+
+   Specify that access intervals involving platforms of the given *<platform-type>* will be filtered according to the given *<constraint-type>*.
+
+.. command:: device <device-name> <constraint-type> <time-value> [<time-value>]
+
+   Specify that access intervals involving the named device will be filtered according to the given *<constraint-type>*.
+
+.. command:: device_type <device-type> <constraint-type> <time-value> [<time-value>]
+
+   Specify that access intervals involving devices with the given *<device-type>* will be filtered according to the given *<constraint-type>*.
+
+.. end::

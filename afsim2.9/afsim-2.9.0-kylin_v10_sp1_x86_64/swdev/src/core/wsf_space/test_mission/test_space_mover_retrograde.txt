@@ -1,0 +1,113 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test extremes of inclination change; change to an inclination of
+# 0 degrees; then maneuver into a 180 degree inclination (retrograde) orbit.
+
+end_time 16 hours
+
+script_variables
+   double sInc1 = 0.0;
+   double sInc2 = 180.0;
+   double sTol = 0.001;
+   Map<string, double> sNumCompleted = {};
+end_script_variables
+
+platform_type  TEST-INCLINATION WSF_PLATFORM
+   icon satellite
+   side blue
+   add mover WSF_SPACE_MOVER
+   end_mover
+
+   maneuvering simple
+      maximum_acceleration 20 m/s2
+   end_maneuvering
+
+   mission_sequence
+      maneuver change_inclination
+         //execute_at relative_time 2000 s
+         execute_at ascending_node
+         inclination 0.0 deg
+      end_maneuver
+   end_mission_sequence
+
+   execute at_time 9 hr absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      WsfOrbitalManeuver inclinationManeuver = WsfChangeInclination.Construct(WsfOrbitalEventCondition.AT_DESCENDING_NODE(), sInc2);
+      bool scheduled = mover.ExecuteManeuver(inclinationManeuver);
+      writeln("Completed ", PLATFORM.Name(), " ", scheduled);
+   end_execute
+
+end_platform_type
+
+platform test-inclination_oe TEST-INCLINATION 
+   icon satellite
+   side blue
+   edit mover
+      semi_major_axis 20378134 m
+      inclination 10.00 deg
+      raan 10 deg
+   end_mover
+end_platform
+
+platform test-inclination_waypoint TEST-INCLINATION 
+   icon satellite
+   side blue
+   edit mover
+      position 0n 90w altitude 14000000 meters heading 0 degrees
+   end_mover
+end_platform
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 3600.0, "; begin ", aManeuver.ManeuverType());
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW / 3600.0, "; end ", aManeuver.ManeuverType());
+   writeln(aSM.Inclination());
+   double newInc = aSM.Inclination();
+   double ecc = aSM.Eccentricity();
+   if (sNumCompleted[aPlatform.Name()] == 0)
+   {
+      if ((newInc < (sInc1 - sTol)) || (newInc > (sInc1 + sTol)))
+      {
+         writeln("-FAIL- 1 ", newInc, ", ", sInc1, " ", aPlatform.Name());
+      }
+   }
+   else if (sNumCompleted[aPlatform.Name()] == 2)
+   {
+      if ((newInc < (sInc2 - sTol)) || (newInc > (sInc2 + sTol)))
+      {
+         writeln("-FAIL- 2");
+      }
+   }
+   if (ecc > sTol)
+   {
+      writeln("-FAIL- 3");
+   }
+   
+   sNumCompleted[aPlatform.Name()] = sNumCompleted[aPlatform.Name()] + 1;
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted["test-inclination_oe"] + sNumCompleted["test-inclination_waypoint"] != 4)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer

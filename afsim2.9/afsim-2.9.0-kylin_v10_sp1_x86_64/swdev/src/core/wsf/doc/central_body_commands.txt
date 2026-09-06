@@ -1,0 +1,36 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. command:: central_body ... end_central_body
+   :block:
+
+   .. parsed-literal::
+
+    central_body <central-body-type>
+       polar_offset_angles_
+    end_central_body
+
+   Specify the central body and related ellipsoid model to be used by simulation platforms.  Options for *<central body type>* are the following:
+
+   * earth_wgs72 (Earth World Geodetic System 1972): The central body ellipsoid is defined according to the WGS-72 standard.
+   * earth_wgs84 (Earth World Geodetic System 1984): The central body ellipsoid is defined according to the WGS-84 standard.
+   * earth_egm96 (Earth Gravity Model 1996): The central body ellipsoid is defined according to the EGM-96 standard.
+   * moon:  The central body ellipsoid is defined according to published lunar parameters.
+   * sun:   The central body ellipsoid is defined according to published solar parameters.
+   * jupiter: The central body ellipsoid is defined according to published Jovian parameters.
+
+   **Default** earth_wgs84
+
+   .. command:: polar_offset_angles <angle-value> <angle-value>
+
+      Specify the central_body_'s polar offset angles (:math:`x_p` and :math:`y_p`, respectively) of the Celestial Intermediate Pole (CIP) with respect to the WCS (ITRS) coordinate system.  Providing these values (of the order of tenths of arc-seconds) enables very highly accurate conversions between ECI and WCS coordinates.
+
+   **Default** 0.0 rad 0.0 rad
+
+   .. note:: WCS->LLA conversions are affected by central body choice, as well as sidereal motion transforms calculated in inertial (ECI) coordinate conversions.

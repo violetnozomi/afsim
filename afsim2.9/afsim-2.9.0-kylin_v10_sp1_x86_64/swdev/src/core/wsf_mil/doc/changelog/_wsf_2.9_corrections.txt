@@ -1,0 +1,32 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* Corrected a problem where the :model:`WSF_GUIDED_MOVER` was not computing all of the forces for each sub-step when using a Runge-Kutta integrator. Users can now optionally require computation of all forces for each sub-step, instead of only recomputing the gravitational force. (:issue:`AFSIM-152`)
+* Corrected an issue in which :method:`WsfWeapon.TimeToIntercept` was returning inaccurate results for weapons using the :model:`WSF_SAM_LAUNCH_COMPUTER`. (:issue:`AFSIM-153`)
+* Corrected an issue with the documentation for the :model:`WSF_GUIDED_MOVER` where the commands :command:`WSF_GUIDED_MOVER.divert_thrust`, :command:`WSF_GUIDED_MOVER.divert_fuel_mass`, :command:`WSF_GUIDED_MOVER.divert_fuel_flow_rate`, and :command:`WSF_GUIDED_MOVER.divert_altitude_limits`, were not explicitly noted as erroneous for use in :model:`WSF_GUIDED_MOVER`'s for a weapon used by weapon_tools to generate ballistic missile launch computer data. (:issue:`AFSIM-181`)
+* Corrected an issue with the :model:`WSF_PERCEPTION_PROCESSOR` providing incorrect number of available systems/resources on an asset platform. (:issue:`AFSIM-165`)
+* :model:`WSF_BALLISTIC_MISSILE_LAUNCH_COMPUTER` can now compute intercept solutions for platforms using a :model:`WSF_TSPI_MOVER`. (:issue:`AFSIM-167`)
+* Corrected an issue where continuous- and discrete-fire implicit weapons were generating more hits or PK draws than expected during an engagement. (:issue:`AFSIM-206`)
+* Fixed a crash when the :model:`WSF_QUANTUM_TASKER_PROCESSOR` purges multiple received tasks. (:issue:`AFSIM-208`)
+* Corrected the issue of :model:`WSF_IMPLICIT_WEAPON` ignoring quantity, reloading and firing interval settings. (:issue:`AFSIM-361`)
+* Corrected an issue with the :model:`WSF_TRACK_EFFECT` not applying the :command:`WSF_TRACK_EFFECT._subcommands.range_error`, :command:`WSF_TRACK_EFFECT._subcommands.azimuth_error` :command:`WSF_TRACK_EFFECT._subcommands.elevation_error`, or :command:`WSF_TRACK_EFFECT._subcommands.velocity_error`. (:issue:`AFSIM-660`)
+* Corrected an issue where turning optical sensors off and on that report to a :model:`WSF_IMAGE_PROCESSOR` with a :command:`WSF_IMAGE_PROCESSOR.filter` could cause a crash. (:issue:`AFSIM-838`)
+* Corrected an issue where the :model:`WSF_TBM_MOVER` would occasionally hang when computing launch angles. (:issue:`AFSIM-2043`)
+* Clarified documentation and grammar to provide guidance on :command:`weapon_effects` commands that are incompatible with :model:`WSF_CARLTON_LETHALITY`, :model:`WSF_EXOATMOSPHERIC_LETHALITY`, :model:`WSF_GRADUATED_LETHALITY`, :model:`WSF_HEL_LETHALITY`, :model:`WSF_MOBILITY_AND_FIREPOWER_LETHALITY`, and :model:`WSF_TABULATED_LETHALITY`. (:issue:`AFSIM-840`)
+* Fixed an issue where the :ref:`docs/clutter_model:surface_clutter` model fails silently with low :command:`_.antenna_commands.antenna_height` used with a surface platform on rough seas. (:issue:`AFSIM-170`)
+* Corrected a problem where intercepts of space domain objects by platforms using the :model:`WSF_GUIDED_MOVER` and fired using the :model:`WSF_BALLISTIC_MISSILE_LAUNCH_COMPUTER` were missing their target when running in a distributed environment (i.e., the shooter is in one simulation; the target in another). (:issue:`AFSIM-1041`)
+* Corrected an issue with the :model:`WSF_QUANTUM_TASKER_PROCESSOR` incorrectly allocating extra tasks when using the :command:`WSF_QUANTUM_TASKER_PROCESSOR.allocator_extra_tasks` feature. (:issue:`AFSIM-1059`)
+* Fixed a rare crash with :model:`WSF_QUANTUM_TASKER_PROCESSOR` when using the :command:`WSF_QUANTUM_TASKER_PROCESSOR.allocator_extra_tasks` feature. (:issue:`AFSIM-2142`)
+* Corrected an issue with :method:`WsfAssetPerception.RelativeBearingTo` so that it correctly returns relative bearing instead of true bearing. (:issue:`AFSIM-1317`)
+* Clarified documentation of :doc:`../target_recognition_commands` for :model:`WSF_IMAGE_PROCESSOR` and removed references to non-existent events and :command:`event_output` flags. (:issue:`AFSIM-174`)
+* Corrected an issue with the :model:`WSF_QUANTUM_TASKER_PROCESSOR` crashing during the evaluation step when the :command:`WSF_QUANTUM_TASKER_PROCESSOR.reallocation_strategy` is either static or event and the :command:`WSF_QUANTUM_TASKER_PROCESSOR.evaluator` is either distance or intercept_time. (:issue:`AFSIM-1634`)
+* Corrected an issue where launching a :model:`WSF_GUIDED_MOVER` or :model:`WSF_UNGUIDED_MOVER` without a target track could use orientation rather than velocity when separating from the launching vehicle. (:issue:`AFSIM-1675`)
+* Fixed crash that would occur with :class:`WsfClusterManager` when using H_TREE_AVG clustering. (:issue:`AFSIM-1313`)
+* Corrected an issue with :command:`WSF_WEAPON_FUSE.fuse_function_range` to allow weapons to detonate at the appropriate distance specified. (:issue:`AFSIM-1537`)
+* Corrected an issue when computing :command:`sensor_mode.range_rate_error_sigma` to reflect doppler resolution used in :model:`WSF_OTH_RADAR_SENSOR` and :model:`WSF_SURFACE_WAVE_RADAR_SENSOR` as a velocity instead of frequency. (:issue:`AFSIM-1325`)

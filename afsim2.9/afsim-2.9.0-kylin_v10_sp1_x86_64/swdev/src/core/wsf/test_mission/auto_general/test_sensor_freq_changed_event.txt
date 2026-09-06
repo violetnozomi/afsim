@@ -1,0 +1,380 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test the SENSOR_FREQUENCY_CHANGED event using the WSF_RADAR_SENSOR:
+#  - This test was adapted from the scenario attached to defect AFSIM-179
+#  - Radar sensor with three modes, each mode having one beam with three possible frequency settings
+#  - Three Monte Carlo test runs with randomize_radar_frequencies enabled for each run
+#  - Scripts that select various sensor modes during each run
+#  - Event output that captures SENSOR_FREQUENCY_CHANGED and SIMULATION_STARTING events in a file
+#  - At the end of each run, the event file is parsed to verify expected contents
+#  - See parse_event_file and parse_csv_file scripts below for test case details
+#
+include_once ../auto_script/test_functions.txt
+
+final_run_number 3
+end_time 40 sec
+
+random_seeds
+   109716198
+   201352310
+   398764583
+end_random_seeds
+
+script_variables
+   bool allTestsPassed = true;   // any failure turns it false
+   int sensorEventCount = 0;     // count of SENSOR_FREQUENCY_CHANGED events per run
+   Map<int,Array<string>> freqStrMap = Map<int,Array<string>>();
+   Map<int,Array<double>> freqDblMap = Map<int,Array<double>>();
+   string evtFile = "test_sensor_freq_changed_event_r" + (string) WsfSimulation.RunNumber() + "_evt.testout";
+   string csvFile = "test_sensor_freq_changed_event_r" + (string) WsfSimulation.RunNumber() + "_csv.testout";
+end_script_variables
+
+# Randomized frequency selection is different between Windows and Linux
+conditional_section
+   conditionals
+      feature_present os:linux
+   end_conditionals
+   # Expected frequencies for each seed under Linux
+   script_variables
+      Array<string> freqsStrRun1 = {"Frequency: 2.227 GHz", "Frequency: 11 GHz", "Frequency: 12 GHz"};
+      Array<string> freqsStrRun2 = {"Frequency: 1.621 GHz", "Frequency: 2.228 GHz", "Frequency: 12 GHz"};
+      Array<string> freqsStrRun3 = {"Frequency: 10 GHz", "Frequency: 1.622 GHz", "Frequency: 1.623 GHz"};
+      # CSV file frequencies are in scientific notation
+      Array<double> freqsDblRun1 = {2.227000e+09, 1.100000e+10, 1.200000e+10};
+      Array<double> freqsDblRun2 = {1.621000e+09, 2.228000e+09, 1.200000e+10};
+      Array<double> freqsDblRun3 = {1.000000e+10, 1.622000e+09, 1.623000e+09};
+   end_script_variables
+end_conditional_section
+
+conditional_section
+   conditionals
+      feature_present os:windows
+   end_conditionals
+   # Expected frequencies for each seed under Windows
+   script_variables
+      Array<string> freqsStrRun1 = {"Frequency: 1.621 GHz", "Frequency: 2.228 GHz", "Frequency: 12 GHz"};
+      Array<string> freqsStrRun2 = {"Frequency: 10 GHz", "Frequency: 2.228 GHz", "Frequency: 1.623 GHz"};
+      Array<string> freqsStrRun3 = {"Frequency: 2.227 GHz", "Frequency: 11 GHz", "Frequency: 2.229 GHz"};
+      # CSV file frequencies are in scientific notation
+      Array<double> freqsDblRun1 = {1.621000e+09, 2.228000e+09, 1.200000e+10};
+      Array<double> freqsDblRun2 = {1.000000e+10, 2.228000e+09, 1.623000e+09};
+      Array<double> freqsDblRun3 = {2.227000e+09, 1.100000e+10, 2.229000e+09};
+   end_script_variables
+end_conditional_section
+
+event_output
+#   file STDOUT
+   file test_sensor_freq_changed_event_r%d_evt.testout
+   flush_output true
+   enable SENSOR_FREQUENCY_CHANGED
+#   enable SENSOR_MODE_ACTIVATED
+#   enable SENSOR_MODE_DEACTIVATED
+   enable SIMULATION_STARTING
+end_event_output
+
+csv_event_output
+   file test_sensor_freq_changed_event_r%d_csv.testout
+   flush_output true
+#   insert_data_tags <boolean>
+   enable SENSOR_FREQUENCY_CHANGED
+   enable SIMULATION_STARTING
+#   enable SENSOR_MODE_ACTIVATED
+#   enable SENSOR_MODE_DEACTIVATED
+end_csv_event_output
+
+randomize_radar_frequencies enable
+
+antenna_pattern GENERIC_F-18_RADAR_ANTENNA_PATTERN
+  inline_table db 4  2
+          -1.0   1.0
+   -5.0    5.0   5.0
+   -1.5   35.0  35.0
+    1.5   35.0  35.0
+    5.0    5.0   5.0
+  end_inline_table
+end_antenna_pattern
+
+platform plat WSF_PLATFORM
+
+add sensor GENERIC_F-18_RADAR WSF_RADAR_SENSOR
+     on
+     slew_mode                 azimuth
+#     show_calibration_data
+
+     mode_template
+        transmitter
+           frequency             9.6 ghz
+           alternate_frequency 1 1621 mhz
+           alternate_frequency 2 2.228 ghz
+           power                 2.0 MW
+           antenna_pattern       GENERIC_F-18_RADAR_ANTENNA_PATTERN
+        end_transmitter
+        receiver
+        end_receiver
+
+        range_product           201.8 dBsm
+        frame_time              0.5 sec
+        reports_location
+        reports_velocity
+     end_mode_template
+
+     mode 120X10
+        azimuth_field_of_view     -60.0 deg  60.0 deg
+        elevation_field_of_view   -5.0 deg   5.0 deg
+        range_product             194.4 dBsm
+        transmitter
+           frequency 10 ghz
+           power                   2.3 MW
+           alternate_frequency 1 1621 mhz
+           alternate_frequency 2 2.227 ghz
+        end_transmitter
+     end_mode
+
+     mode 40X20
+        azimuth_field_of_view   -20.0 deg  20.0 deg
+        elevation_field_of_view -10.0 deg  10.0 deg
+        range_product           198.7 dBsm
+        transmitter
+           frequency 11 ghz
+           alternate_frequency 1 1622 mhz
+           alternate_frequency 2 2.228 ghz
+           power                   2.3 MW
+        end_transmitter
+     end_mode
+
+     mode 20X15_BALL
+        azimuth_field_of_view   -10.0 deg  10.0 deg
+        elevation_field_of_view -7.5 deg   7.5 deg
+        transmitter
+           frequency 12 ghz
+           alternate_frequency 1 1623 mhz
+           alternate_frequency 2 2.229 ghz
+           power                   2.3 MW
+        end_transmitter
+     end_mode
+   end_sensor
+
+   on_initialize
+      // Populate map of run# to expected frequency settings
+      freqStrMap[1] = freqsStrRun1;
+      freqStrMap[2] = freqsStrRun2;
+      freqStrMap[3] = freqsStrRun3;
+      freqDblMap[1] = freqsDblRun1;
+      freqDblMap[2] = freqsDblRun2;
+      freqDblMap[3] = freqsDblRun3;
+   end_on_initialize
+
+   # Set radar sensor to the first mode which is already active by default
+   execute at_time 1 sec absolute
+      Sensor("GENERIC_F-18_RADAR").SelectMode("120X10");
+   end_execute
+
+   # Set radar sensor to the second mode
+   execute at_time 11 sec absolute
+      Sensor("GENERIC_F-18_RADAR").SelectMode("40X20");
+   end_execute
+
+   # Set radar sensor to the third mode
+   execute at_time 21 sec absolute
+      Sensor("GENERIC_F-18_RADAR").SelectMode("20X15_BALL");
+   end_execute
+
+   # Set radar sensor back to the first mode
+   execute at_time 31 sec absolute
+      Sensor("GENERIC_F-18_RADAR").SelectMode("120X10");
+   end_execute
+
+end_platform
+
+# Event file entries may consist of multiple lines, indicated by a trailing
+# backslash to show continuation.  This script reads a complete event entry
+# from the specified file and returns the entry as a string.
+script string read_event_entry(FileIO evFile)
+   string eventEntry = "";
+   while (!evFile.Eof())
+   {
+       eventEntry += evFile.Readln();
+       if (eventEntry.EndsWith("\\"))
+       {
+          eventEntry = eventEntry.Substring(0,-1);
+          continue; 
+       }
+       break; // no continuation, event entry is complete
+   }
+   return eventEntry;
+end_script
+
+# Parse the event and csv files to verify expected contents:
+# - SENSOR_FREQUENCY_CHANGED events for each mode showing initial 'randomize_radar_frequencies' assignments (T=0)
+# - SIMULATION_STARTING event (T=0)
+# - No additional SENSOR_FREQUENCY_CHANGED events because electronic warfare is not configured
+#
+# Sim runtime activity:
+# --> T=0, sensor initially 'on', default mode "120x10" selected (first mode used since initial_mode not configured)
+# --> T=1, script selects mode "120x10" (no change from startup default), no event expected
+# --> T=11, script selects mode "40x20", mode changed, no event expected
+# --> T=21, script selects mode "20x15_BALL", mode changed, no event expected
+# --> T=31, script selects mode "120x10", mode changed back to default, no event expected
+#
+script bool parse_event_file(string fileName, Array<string> freqStr)
+   FileIO evFile = FileIO();
+   bool ok = evFile.Open(fileName, "in");
+   AssertTrueMessage(ok, "failed to open event file");
+   if (ok)
+   {
+      bool simStart = false;
+      while (!evFile.Eof())
+      {
+         string eventEntry = read_event_entry(evFile);
+#         writeln("Event text: '", eventEntry, "'");  // uncomment for debugging
+
+         if (eventEntry.Contains("SIMULATION_STARTING"))
+         {
+            simStart = true;
+         }
+         else if (eventEntry.Contains("SENSOR_FREQUENCY_CHANGED"))
+         {
+            sensorEventCount += 1;
+
+            // Each event entry starts with a timestamp that is used to match up expected event contents
+            if (eventEntry.StartsWith("0.000"))
+            {
+               if (eventEntry.Contains("plat Sensor: GENERIC_F-18_RADAR Mode: 120X10"))
+               {
+                  string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[0] + "'";
+                  ok = AssertTrueMessage(eventEntry.Contains(freqStr[0]), errStr) && ok;
+               }
+               else if (eventEntry.Contains("plat Sensor: GENERIC_F-18_RADAR Mode: 40X20"))
+               {
+                  string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[1] + "'";
+                  ok = AssertTrueMessage(eventEntry.Contains(freqStr[1]), errStr) && ok;
+               }
+               else if (eventEntry.Contains("plat Sensor: GENERIC_F-18_RADAR Mode: 20X15_BALL"))
+               {
+                  string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to report '" + freqStr[2] + "'";
+                  ok = AssertTrueMessage(eventEntry.Contains(freqStr[2]), errStr) && ok;
+               }
+               else
+               {
+                  writeln(TEST_FAIL_STATEMENT, " ", "Unexpected platform, sensor or mode in SENSOR_FREQUENCY_CHANGED event at T=", eventEntry.Substring(0,6));
+                  ok = false;
+               }
+               // Verify that all T=0 events come before the simulation starts
+               string errStr = "Expected T=" + eventEntry.Substring(0,6) + " event to occur before SIMULATION_STARTING event";
+               ok = AssertFalseMessage(simStart, errStr) && ok;
+            }
+            else
+            {
+               writeln(TEST_FAIL_STATEMENT, " ", "Unexpected SENSOR_FREQUENCY_CHANGED event at T=", eventEntry.Substring(0,6));
+               ok = false;
+            }
+         }
+      }
+      evFile.Close();
+   }
+   return ok;
+end_script
+#
+script bool parse_csv_file(string fileName, Array<double> freqVal)
+   FileIO evFile = FileIO();
+   bool ok = evFile.Open(fileName, "in");
+   AssertTrueMessage(ok, "failed to open csv file");
+   if (ok)
+   {
+      bool simStart = false;
+      while (!evFile.Eof())
+      {
+         string eventEntry = read_event_entry(evFile);
+#         writeln("CSV text: '", eventEntry, "'");  // uncomment for debugging
+
+         if (eventEntry.StartsWith("!"))
+         {
+            continue;   // skip 'insert_data_tags' lines
+         }
+         else if (eventEntry.Contains("SIMULATION_STARTING"))
+         {
+            simStart = true;
+         }
+         else if (eventEntry.Contains("SENSOR_FREQUENCY_CHANGED"))
+         {
+            sensorEventCount += 1;
+
+            // Convert timestamp string that starts each CSV line to an integer holding milliseconds
+            Array<string> csvFields = eventEntry.Split(",");
+            int tStampMsec = (int) (((double) csvFields[0]) * 1000);
+            double freqActual = (double) csvFields[csvFields.Size()-1]; // frequency is the last field
+            string errStr = "Incorrect frequency change reported at T=" + csvFields[0];
+
+            if (tStampMsec == 0)
+            {
+               if (eventEntry.Contains("plat") && eventEntry.Contains("GENERIC_F-18_RADAR") && eventEntry.Contains("120X10"))
+               {
+                  ok = AssertDoubleEqualsMessage(freqVal[0], freqActual, errStr) && ok;
+               }
+               else if (eventEntry.Contains("plat") && eventEntry.Contains("GENERIC_F-18_RADAR") && eventEntry.Contains("40X20"))
+               {
+                  ok = AssertDoubleEqualsMessage(freqVal[1], freqActual, errStr) && ok;
+               }
+               else if (eventEntry.Contains("plat") && eventEntry.Contains("GENERIC_F-18_RADAR") && eventEntry.Contains("20X15_BALL"))
+               {
+                  ok = AssertDoubleEqualsMessage(freqVal[2], freqActual, errStr) && ok;
+               }
+               else
+               {
+                  writeln(TEST_FAIL_STATEMENT, " ", "Unexpected platform, sensor or mode in SENSOR_FREQUENCY_CHANGED event at T=", csvFields[0]);
+                  ok = false;
+               }
+               // Verify that all T=0 events come before the simulation starts
+               string errStr = "Expected T=" + csvFields[0] + " event to occur before SIMULATION_STARTING event";
+               ok = AssertFalseMessage(simStart, errStr) && ok;
+            }
+            else
+            {
+               writeln(TEST_FAIL_STATEMENT, " ", "Unexpected SENSOR_FREQUENCY_CHANGED event at T=", csvFields[0]);
+               ok = false;
+            }
+         }
+      }
+      evFile.Close();
+   }
+   return ok;
+end_script
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Parse event files to check for expected content
+script void SimulationComplete()
+
+   int runNum = WsfSimulation.RunNumber();
+   if (runNum >= 1 && runNum <= 3)
+   {
+      writeln("+++ Validate event output for run #", runNum, " +++");
+      allTestsPassed = parse_event_file(evtFile, freqStrMap[runNum]) && allTestsPassed;
+      allTestsPassed = AssertEqualsMessage(3, sensorEventCount, "Wrong number of SENSOR_FREQUENCY_CHANGED events in .evt file") && allTestsPassed;
+
+      writeln("+++ Validate CSV output for run #", runNum, " +++");
+      sensorEventCount = 0;   // reset count for CSV parsing
+      allTestsPassed = parse_csv_file(csvFile, freqDblMap[runNum]) && allTestsPassed;
+      allTestsPassed = AssertEqualsMessage(3, sensorEventCount, "Wrong number of SENSOR_FREQUENCY_CHANGED events in .csv file") && allTestsPassed;
+   }
+   else
+   {
+      writeln(TEST_FAIL_STATEMENT, " ", "unexpected simulation run number = ", runNum);
+      allTestsPassed = false;
+   }
+
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

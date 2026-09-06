@@ -1,0 +1,212 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// test of architecture for oms / uci messaging
+include sensor_definitions.txt
+include weapon_definitions.txt
+
+//Uncomment to turn on debug output
+//script_debug_writes true 
+
+platform_type SIMPLE_SENSE WSF_PLATFORM
+   side blue
+   icon f-18
+   
+   uci_component computer COMPUTER
+   end_uci_component
+   
+   script_variables 
+      Set<string> systemIds = {};
+      Map<string, UCI_CapabilityId> controlRequests = {};
+      Array<UCI_CapabilityId> capabilities = {};
+      int currentMode = 0;
+      double currentAz = 0;
+      double currentEl = 0;
+      bool enable = true;
+   end_script_variables
+   
+   mover WSF_AIR_MOVER 
+   end_mover
+   
+   script void SendSettingsCommand()
+      WsfProcessor sp = PLATFORM.Processor("esm_command");
+      UCI_CapabilityState state = UCI_CapabilityState.DISABLE();
+      if (enable)
+      {
+         state = UCI_CapabilityState.ENABLE();
+      }
+      
+      UCI_CapabilityId id = capabilities[currentMode];
+      UCI_ESM_SettingsCommandMessage scMsg = UCI_ESM_SettingsCommandMessage.Construct(id,
+                                                                                      state);
+      sp.SendMessage(scMsg);
+   end_script
+   
+   script void RequestControl(UCI_ESM_CapabilityMessage aMsg)
+      WsfProcessor sp = PLATFORM.Processor("esm_command");
+      UCI_SystemId systemId = aMsg.Header().SystemId();
+      if (!systemIds.Exists(systemId.UUID()))
+      {
+         int size = aMsg.Size();
+         for(int i = 0; i < size; i += 1)
+         {
+            UCI_CapabilityId capabilityId = aMsg.Capability(i).CapabilityId();
+            string uuid = capabilityId.UUID();
+            string description = capabilityId.Descriptor();
+            writeln_d(i, " : ", uuid, " : ", description);
+            
+            // send a esm control request message
+            UCI_Control controlType = UCI_Control.CAPABILITY_PRIMARY();
+            UCI_ControlRequest requestType = UCI_ControlRequest.ACQUIRE();
+            UCI_ControlRequestMessage crm = UCI_ControlRequestMessage.Construct(controlType,
+                                                                                requestType,
+                                                                                systemId,
+                                                                                capabilityId);
+
+            controlRequests.Set(crm.UUID(), capabilityId);
+            sp.SendMessage(crm);   
+            systemIds.Insert(systemId.UUID()); 
+            capabilities.PushBack(capabilityId);
+            
+            //Initialize capabilities to desired state
+            int initialMode = currentMode;
+            for (int i = 0; i < capabilities.Size(); i += 1)
+            {
+               currentMode = i;
+               SendSettingsCommand();
+            }
+            currentMode = initialMode;
+         }
+      }      
+   end_script
+   
+   script void UpdateDirection()        
+      if (currentAz == 0)
+      {
+         currentAz = -Math.PI_OVER_2();
+         currentEl = 36 * Math.RAD_PER_DEG();
+      }
+      else if (currentAz == -Math.PI_OVER_2())
+      {
+         currentAz = Math.PI_OVER_2();
+         currentEl = 18 * Math.RAD_PER_DEG();
+      }
+      else
+      {
+         currentAz = 0;
+         currentEl = 0; 
+      }
+
+   end_script
+   
+   script void SendCommand()
+      WsfProcessor sp = PLATFORM.Processor("esm_command");
+      UCI_LOS_Reference losRef = UCI_LOS_Reference.INERTIAL();
+      UCI_ElevationScanStabilization stabilization = UCI_ElevationScanStabilization.CENTER_ALTITUDE();
+      UCI_SubCapabilityDetails details = UCI_SubCapabilityDetails.Construct(losRef,
+                                                                            stabilization,
+                                                                            currentAz,
+                                                                            currentEl);
+      UCI_SubCapabilitySelection selection = UCI_SubCapabilitySelection.Construct(details);
+      
+      UCI_CapabilityId id = capabilities[currentMode];
+      UCI_ESM_CapabilityCommand capCommand = UCI_ESM_CapabilityCommand.Construct(id,
+                                                                                 selection);
+   
+      UCI_ESM_Command esmCommand = UCI_ESM_Command.Construct(capCommand);
+      UCI_ESM_CommandMessage ecm = UCI_ESM_CommandMessage.Construct(esmCommand);
+      
+      string status = "enabled";
+      if (!enable)
+      {
+         status = "disabled";
+      }
+      writeln_d("New command:");
+      writeln_d("   Az: ", currentAz);
+      writeln_d("   El: ", currentEl);
+      writeln_d("   Mode: ", currentMode);
+      writeln_d("   Status: ", status);
+      sp.SendMessage(ecm);
+   end_script
+   
+   script void UpdateMode()
+      if (currentAz == 0)
+      {
+         currentMode = MATH.Mod(currentMode + 1, capabilities.Size()); 
+         if (currentMode == 0)
+         {
+            enable = !enable;
+         }
+      }
+      SendSettingsCommand();
+   end_script
+
+end_platform_type
+
+platform_type SENSE WSF_PLATFORM
+   side blue
+   icon f-18
+   
+   uci_component esm_uci_component ESM
+      sensor esm
+      update_message_interval 5 seconds
+      debug
+      internal_link computer
+   end_uci_component
+
+   uci_component computer COMPUTER
+      internal_link esm_uci_component
+   end_uci_component
+   
+   sensor esm ESM_SENSOR
+      on
+      processor track_manager
+      ignore_same_side
+   end_sensor
+   
+   uci_component weapons WEAPON 
+      update_message_interval 5 s
+      capability missile
+         uuids
+            8BEDF810-EC9D-40E4-8F4A-000000000000
+            8BEDF810-EC9D-40E4-8F4A-000000000001
+         end_uuids
+      end_capability
+      debug
+   end_uci_component
+   
+   add weapon missile missile
+      quantity 2
+   end_weapon
+   
+   processor track_manager WSF_TRACK_MANAGER
+   end_processor
+   
+   mover WSF_AIR_MOVER 
+   end_mover   
+end_platform_type
+
+platform_type TARGET EW_RADAR_SITE
+end_platform_type
+
+dis_interface 
+   exercise 1
+   site 1
+   autostart
+   connections 
+      broadcast 255.255.255.255 port 3000
+   end_connections
+   
+   entity_type TARGET 1:2:222:1:19:11:0
+   emitter_type EW_RADAR 5
+      
+end_dis_interface
+
+start_time_now
+end_time 1 hour

@@ -1,0 +1,111 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 8 hours
+
+script_variables
+   double sRad1 = 10000000.0;
+   double sRad2 = 12000000.0;
+   double sTol = 100.0;
+   int sNumCompleted = 0;
+end_script_variables
+
+platform test WSF_PLATFORM
+   empty_mass 100 kg
+
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0.0
+      inclination 1 deg
+      semi_major_axis 8000 km
+      raan 0 deg
+
+      integrator prince_dormand_45
+         tolerance 1.0e-11
+      end_integrator
+
+      dynamics
+         term earth_monopole
+            egm96
+         end_term
+      end_dynamics
+
+      mission_sequence
+         maneuver hohmann_transfer
+            final_semi_major_axis 10000000 m
+         end_maneuver
+      end_mission_sequence
+   end_mover
+
+   execute at_time 3 hours absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      WsfOrbitalManeuver hohmannTransfer = WsfHohmannTransfer.Construct(WsfOrbitalEventCondition.AT_APOAPSIS(), sRad2);
+      bool result = mover.ExecuteManeuver(hohmannTransfer);
+   end_execute
+end_platform
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; begin ", aManeuver.ManeuverType());
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   sNumCompleted += 1;
+   string type = aManeuver.Type();
+   writeln(TIME_NOW, "; end ", type);
+   double newEcc = aSM.Eccentricity();
+   double newRad = aSM.SemiMajorAxis();
+   writeln(TIME_NOW, " ", newRad);
+   if (sNumCompleted == 3)
+   {
+      if (newEcc > 0.001)
+      {
+         writeln("-FAIL- ecc 1: ", newEcc);
+      }
+      if ((newRad < (sRad1 - sTol)) || (newRad > (sRad1 + sTol)))
+      {
+         writeln("-FAIL- rad");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+   }
+   else if (sNumCompleted == 6)
+   {
+      writeln(aManeuver.Type());
+      if (newEcc > 0.001)
+      {
+         writeln("-FAIL- ecc 2: ", newEcc);
+      }
+      if ((newRad < (sRad2 - sTol)) || (newRad > (sRad2 + sTol)))
+      {
+         writeln("-FAIL- rad");
+      }
+   }
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 6)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer

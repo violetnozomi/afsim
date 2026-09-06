@@ -1,0 +1,157 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This is a basic test of functionality for cyber triggers.
+# The triggers should attempt to evaluate for a specific number
+# of times until they evaluate, which is tracked by global variables.
+#
+# In addition to a check of basic functionality, this test also performs
+# cyber attacks to ensure proper function of cyber capabilities from a
+# non-platform context, from a trigger object. This uses the new script
+# capability of a platform to attack itself at the global context via
+# WsfSimulation.CyberAttack().
+
+cyber_effect testEffect WSF_CYBER_SCRIPT_EFFECT
+   platform_type WSF_PLATFORM
+      script void Attack(WsfCyberEngagement aEngagement)
+         writeln("Cyber attack in progress.");
+         attacks = attacks + 1;
+      end_script
+      
+      script void Restore(WsfCyberEngagement aEngagement)
+         writeln("Cyber attack recovery in progress.");
+      end_script
+      
+   end_platform_type
+end_cyber_effect
+
+cyber_attack testAttack WSF_CYBER_ATTACK
+   effect testEffect
+   scan_delay_time 0 s
+   delivery_delay_time 0 s
+   
+   probability_of_scan_detection 0.0
+   probability_of_attack_success 1.0
+   probability_of_future_immunity 0.0
+   probability_of_attack_detection 1.0
+   probability_of_status_report 1.0
+   
+   scan_detection_draw_frequency always
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   future_immunity_draw_frequency always
+end_cyber_attack
+
+script_variables
+   bool triggered = false;
+   int executed = 0;
+   int evals = 0;
+   int attacks = 0;
+end_script_variables
+
+cyber_trigger test_trigger WSF_CYBER_TRIGGER
+   debug
+   extrapolated_trigger false
+   execute_trigger false
+   update_interval
+      to 2 min every 30.0 s
+   end_update_interval
+   
+   script bool OnEvaluate()
+      evals = (evals + 1);
+   
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+   
+   script void OnExecute()
+      # IMPORTANT NOTE
+      # This block should NEVER execute, as it is overridden at the platform scope.
+      # We'll severely decrement the "executed" counter here, as this will cause the test to
+      # fail if this occurs.
+      triggered = true;
+      executed = executed - 100;
+   end_script
+
+end_cyber_trigger
+
+cyber_trigger test_global_trigger WSF_CYBER_TRIGGER
+   debug
+   extrapolated_trigger true
+   execute_trigger true
+   update_interval
+      to 2 min every 30.0 s
+   end_update_interval
+   
+   script bool OnEvaluate()
+      evals = evals + 1;
+   
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+   
+   script void OnExecute()
+      triggered = true;
+      executed = executed + 1;
+      WsfPlatform targetPlatform = WsfSimulation.FindPlatform("test1");
+      WsfSimulation.CyberAttack(targetPlatform, "testAttack");
+   end_script
+
+end_cyber_trigger
+
+platform test1 WSF_PLATFORM
+   side blue
+   commander SELF
+   
+   add cyber_trigger platform_test1_trigger1 test_trigger
+      execute_trigger true
+      script void OnExecute()
+         triggered = true;
+         executed = executed + 1;
+         WsfSimulation.CyberAttack(PLATFORM, "testAttack");
+      end_script
+   end_cyber_trigger
+end_platform
+
+execute at_time 121 s absolute
+   if(evals != 7)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of evals.");
+      writeln("Evals counted: " + (string)evals);
+   }
+   if(!triggered)
+   {
+      writeln("-FAIL-");
+      writeln("Not triggered.");
+   }
+   if(executed != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of executions.");
+      writeln("Executes counted: " + (string)executed);
+   }
+   if(attacks != 3)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of cyber attacks.");
+      writeln("Attacks counted: " + (string)attacks);
+   }
+end_execute
+
+end_time 122 s

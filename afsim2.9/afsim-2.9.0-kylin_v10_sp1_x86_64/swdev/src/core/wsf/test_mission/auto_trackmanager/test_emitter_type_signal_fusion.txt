@@ -1,0 +1,327 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###########################################################################
+# Purpose: GROUND_22 is only detectable
+#          by blue_aircraft_2 and GROUND_210 and GROUND_0 are only 
+#          detectable by blue_aircraft_1. Comm on blue_aircraft_2 is turned
+#          off at 600 seconds.  At this time, blue_aircraft_1 should 
+#          no longer see GROUND_22, but blue_aircraft_2 should will see 
+#          GROUND_22 until it is turned off at 500 seconds
+###########################################################################
+
+random_seed 530702035
+
+antenna_pattern EW_RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain           35 dB
+     minimum_gain       -20 dB
+     azimuth_beamwidth   5 deg
+     elevation_beamwidth 45 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+antenna_pattern AUX_ANTENNA
+  uniform_pattern
+     peak_gain 10 dB
+     beamwidth 360 deg
+  end_uniform_pattern
+end_antenna_pattern
+
+sensor RADAR WSF_RADAR_SENSOR
+   one_m2_detect_range           100.0 nm
+   antenna_height                6.0 m
+   frame_time                    5.0 sec
+   scan_mode                     azimuth
+   azimuth_scan_limits           -180 deg 180 deg
+
+   transmitter
+      antenna_pattern            EW_RADAR_ANTENNA
+      beam_tilt                  10.0 deg
+      power                      100.0 kw
+      frequency                  2.00 ghz
+      pulse_width                25 usec
+      pulse_repetition_interval  1250 usec
+      internal_loss              2 db
+
+   end_transmitter
+
+   receiver
+      beam_tilt                  10.0 deg
+      bandwidth                  2.0 mhz
+      noise_power                -160 dBw  # will be calibrated for 1 m^2
+      internal_loss              7 dB
+   end_receiver
+
+   # Swerling detector
+   swerling_case                 1
+   probability_of_false_alarm    1.0e-6
+   required_pd                   0.5
+   number_of_pulses_integrated   16
+
+   hits_to_establish_track       3 5   # 3 of last 5 scans to establish track
+   hits_to_maintain_track        1 3   # 1 of last 3 scans to maintain  track
+
+   reports_range
+   reports_bearing
+   reports_signal_to_noise
+end_sensor
+
+sensor GROUND_210 RADAR
+   transmitter
+      frequency                  2.00 ghz
+   end_transmitter
+end_sensor
+
+sensor GROUND_22 RADAR
+   transmitter
+      frequency                  3.50 ghz
+   end_transmitter
+end_sensor
+
+sensor GROUND_0 RADAR
+  transmitter
+      frequency                  1.20 ghz
+   end_transmitter
+end_sensor
+
+
+# ****************************************************************************
+#                          ESM
+# ****************************************************************************
+
+antenna_pattern ESM_ANTENNA
+   constant 0 db
+end_antenna_pattern
+
+sensor ESM WSF_ESM_SENSOR
+   frame_time              10 sec
+   slew_mode               fixed
+
+   maximum_range           200 km
+
+   receiver
+      antenna_pattern      ESM_ANTENNA
+      detection_threshold  5 db
+      noise_power          -180 dbw
+      internal_loss        0 db
+   end_receiver
+
+   reported_emitter_type
+      default_type
+      report_truth
+   end_reported_emitter_type
+
+   ranging_time 30 sec
+
+   reports_location
+   reports_frequency 
+   reports_type
+end_sensor
+
+sensor INTCP-A_ESM ESM
+   frequency_band          0.1 ghz  3 ghz
+end_sensor
+
+sensor INTCP-A_ESM2 ESM
+   frequency_band          3 ghz  5 ghz
+end_sensor
+
+radar_signature BLUE_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+platform_type blue_platform WSF_PLATFORM
+   icon EA-6B
+   mover WSF_AIR_MOVER end_mover
+   radar_signature BLUE_SIGNATURE
+
+   comm network WSF_COMM_TRANSCEIVER
+      transfer_rate 100 mbits/sec
+      network_name  tactical_net
+      internal_link track_processor
+   end_comm
+
+   sensor intcp_esm INTCP-A_ESM
+      on
+      internal_link track_processor
+   end_sensor
+
+   sensor intcp_esm2 INTCP-A_ESM2
+      off
+      internal_link track_processor
+   end_sensor
+
+   processor track_processor WSF_TRACK_PROCESSOR 
+      report_to commander via network
+      update_interval 0.1 sec
+      purge_interval 10 s
+      fused_track_reporting off
+      raw_track_reporting on
+      internal_link network
+   end_processor
+
+end_platform_type
+
+platform_type EW_RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+
+   mover WSF_GROUND_MOVER end_mover
+
+   sensor ew_radar1 GROUND_210
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   sensor ew_radar2 GROUND_22
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   sensor ew_radar3 GROUND_0 
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   processor track_manager WSF_TRACK_PROCESSOR
+   end_processor
+
+end_platform_type
+
+script void CheckPlatform1(WsfLocalTrack aLocalTrack)
+
+   if ((TIME_NOW < 312) || (TIME_NOW > 500))
+   {
+      if ((aLocalTrack.EmitterCount() != 2) ||
+          (aLocalTrack.EmitterType(0) != "GROUND_210") ||
+          (aLocalTrack.EmitterType(1) != "GROUND_0") ||
+          (aLocalTrack.SignalCount() != 2) ||
+          (aLocalTrack.SignalFrequency(0) != 1.2e+9) ||
+          (aLocalTrack.SignalFrequency(1) != 2.0e+9))
+       {
+          writeln("-FAIL-");
+       }
+   }
+   else // (TIME_NOW <= 500.0)
+   {
+      if ((aLocalTrack.EmitterCount() != 3) ||
+          (aLocalTrack.EmitterType(0) != "GROUND_210") ||
+          (aLocalTrack.EmitterType(1) != "GROUND_0") ||
+          (aLocalTrack.EmitterType(2) != "GROUND_22") ||
+          (aLocalTrack.SignalCount() != 3) ||
+          (aLocalTrack.SignalFrequency(0) != 1.2e+9) ||
+          (aLocalTrack.SignalFrequency(1) != 2.0e+9) ||
+          (aLocalTrack.SignalFrequency(2) != 3.5e+9))
+       {
+          writeln("-FAIL-");
+       }
+   }
+end_script
+
+script void CheckPlatform2(WsfLocalTrack aLocalTrack)
+   if (TIME_NOW < 312)
+   {
+   }
+   else if (TIME_NOW < 600.0)
+   {
+      if ((aLocalTrack.EmitterCount() != 1) ||
+          (aLocalTrack.EmitterType(0) != "GROUND_22") ||
+          (aLocalTrack.SignalCount() != 1) ||
+          (aLocalTrack.SignalFrequency(0) != 3.5e+9))
+       {
+          writeln("-FAIL-");
+       }
+   }
+   else
+   {
+      writeln("-FAIL-"); // radar turns off; no further detections
+   }
+end_script
+
+script void LocalTrackUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack) 
+   int time = TIME_NOW;
+   if (aPlatform.Name() == "blue_aircraft_1")
+   {
+      CheckPlatform1(aLocalTrack);
+   }
+   else if (aPlatform.Name() == "blue_aircraft_2")
+   {
+      CheckPlatform2(aLocalTrack);
+   }      
+end_script
+
+observer
+    enable LOCAL_TRACK_UPDATED # Context: script void LocalTrackUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack) end_script
+end_observer
+
+platform blue_aircraft_1 blue_platform
+   side blue
+
+   route
+      position 36:00:00n 116:15:00w
+      altitude 35000 ft
+      speed      450 kts
+      heading    335 deg
+   end_route
+   
+end_platform
+
+platform blue_aircraft_2 blue_platform
+   side blue
+   commander blue_aircraft_1
+
+   route
+      position 35:45:00n 115:45:00w
+      altitude 35000 ft
+      speed      450 kts
+      heading    335 deg
+   end_route
+   
+   execute at_time 0.1 seconds absolute
+      PLATFORM.TurnSensorOff("intcp_esm");
+      PLATFORM.TurnSensorOn("intcp_esm2");
+   end_execute
+   
+   execute at_time 500 seconds absolute
+      PLATFORM.Comm("network").TurnOff();
+   end_execute
+   
+end_platform
+
+platform red_radar EW_RADAR_SITE
+   side red
+
+   route
+      position 37:00:00n 116:00:00w
+      altitude 0.0 ft agl
+      heading   -90 deg
+   end_route
+
+   sensor ew_radar1
+      on
+   end_sensor
+
+   sensor ew_radar2
+      off
+   end_sensor
+
+   sensor ew_radar3
+      on
+   end_sensor
+   
+   execute at_time 300 seconds absolute
+      PLATFORM.Sensor("ew_radar2").TurnOn();
+   end_execute
+   
+   execute at_time 600 seconds absolute
+      PLATFORM.Sensor("ew_radar2").TurnOff();
+   end_execute
+end_platform
+
+end_time 800 sec

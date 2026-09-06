@@ -1,0 +1,81 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+launch_computer SAM_LAUNCH_COMPUTER WSF_SCRIPT_LAUNCH_COMPUTER
+   show_results
+   
+   script void compute_intercept(WsfTrack aTrack, double aLaunchDelay)
+   
+      writeln("T=", TIME_NOW, " ", PLATFORM.Name(), ".", WEAPON.Name(),
+              ": computing intercept for ", aTrack.TargetName(),
+              ", launch delay=", aLaunchDelay);
+      
+      double avgSpeed = 500.0;
+      double shootDelay = 1.5;
+      WsfWaypoint intercept = WsfWaypoint();
+      
+      double tti = PLATFORM.InterceptLocation2D(aTrack, intercept, avgSpeed, aLaunchDelay + shootDelay);
+      if ((tti > 0.0) && (tti < 1.0E+6))
+      {
+      	 WsfGeoPoint point = aTrack.ReportedLocation();
+      	 point.Set(intercept.Latitude(), intercept.Longitude(), point.Altitude());
+      	 
+      	 SetInterceptTime(TIME_NOW + tti);
+      	 SetInterceptPoint(point);
+      	 SetLaunchTime(TIME_NOW + aLaunchDelay);
+      	 SetTimeOfFlight(tti - aLaunchDelay - shootDelay);
+      }
+   end_script
+   
+end_launch_computer
+
+weapon SAM WSF_EXPLICIT_WEAPON
+   launch_computer           SAM_LAUNCH_COMPUTER end_launch_computer
+   
+   launched_platform_type    SAM
+   quantity                  1
+end_weapon
+
+platform_type SAM WSF_PLATFORM
+end_platform_type
+
+platform_type SAM_LAUNCHER WSF_PLATFORM
+   weapon sam SAM
+   end_weapon
+end_platform_type
+
+platform_type TARGET WSF_PLATFORM
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform target TARGET
+   side blue
+   route
+      position 40n 90w altitude 30000 ft heading 180 deg speed 400 kts
+   end_route
+end_platform
+
+platform shooter SAM_LAUNCHER
+   side red
+   position 39n 90w
+   
+   execute at_time 10 sec absolute
+      WsfTrack track = WsfSimulation.FindPlatform("target").MakeTrack();
+      bool canIntercept = Weapon("sam").CanIntercept(track, 10.0);
+   end_execute
+end_platform
+
+end_time 60 sec
+
+   

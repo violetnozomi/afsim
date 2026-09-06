@@ -1,0 +1,125 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#################################################################################
+#                           Define the weapon types
+#################################################################################
+processor CONTACT_FUSE WSF_GROUND_TARGET_FUSE
+   proximity_cancel_on_loss_of_target
+end_processor
+
+aero BOMB_1000_LB_AERO WSF_AERO
+  reference_area      1.078 ft2 # 14.06 in dia
+  cd_zero_subsonic    0.100
+  cd_zero_supersonic  0.40
+  mach_begin_cd_rise  0.800
+  mach_end_cd_rise    1.200
+  mach_max_supersonic 2.000
+  cl_max             10.400    # unknown
+  aspect_ratio        4.000    # unknown
+end_aero
+
+processor BOMB_GUIDANCE_COMPUTER WSF_GUIDANCE_COMPUTER
+  proportional_navigation_gain  10.0
+  velocity_pursuit_gain         10.0
+  g_bias                         1.0
+  maximum_commanded_g          25.0 g
+  guidance_delay                0.0 sec
+end_processor
+
+platform_type BOMB_1000_LB WSF_PLATFORM
+  icon jdam
+  mover WSF_GUIDED_MOVER
+    aero BOMB_1000_LB_AERO
+    mass 1015.0 lbm
+    update_interval 0.5 s
+  end_mover
+  processor guidance_computer BOMB_GUIDANCE_COMPUTER
+  end_processor
+  processor detonator CONTACT_FUSE
+  end_processor
+end_platform_type
+
+weapon_effects BOMB_1000_LB_EFFECT WSF_SPHERICAL_LETHALITY
+  allow_incidental_damage
+  minimum_radius   30.0 m
+  maximum_radius   35.0 m
+  maximum_damage   1.0
+  minimum_damage   0.1
+  threshold_damage 0.2
+  exponent         1.0
+end_weapon_effects
+
+include_once script_launch_computer.txt
+
+weapon BOMB_1000_LB WSF_EXPLICIT_WEAPON
+   launched_platform_type BOMB_1000_LB
+   weapon_effects         BOMB_1000_LB_EFFECT
+   category               1000_POUNDER
+   category               glide_bomb_unit
+   debug
+   launch_computer        BOMB_LAUNCH_COMPUTER
+   end_launch_computer
+end_weapon
+
+
+processor BOMB_1000_LB_LAUNCH_COMPUTER WSF_TASK_PROCESSOR
+   script_debug_writes on
+   show_state_transitions
+   show_task_messages
+
+   script_variables
+      string WEAPON_NAME               = "bomb_1000_lb";
+      int SALVO_SIZE                   = 1;
+      # the following are used internally and should not be modified by the
+      # user
+      string mShootTaskStr      = "Shoot";
+   end_script_variables
+
+    script bool InInterceptEnvelopeOf(WsfWeapon aWeapon)
+       bool canIntercept = false;
+       double maxRng = 19000;
+       double minRng = 300;
+       WsfTrackId id = TRACK.TrackId();
+       double targetrange = PLATFORM.SlantRangeTo(TRACK);
+       writeln("Target range is " , targetrange);
+       if ((targetrange > minRng) && (targetrange < maxRng))
+       {
+         canIntercept = true;
+         writeln("Intercept is true");
+       }
+       return canIntercept;
+   end_script
+
+   script bool LaunchWeapon()
+      WsfWeapon   weapon;
+      weapon = PLATFORM.Weapon(WEAPON_NAME);
+      bool canInterceptNow = false;
+      if (weapon.QuantityRemaining() >= SALVO_SIZE)
+      {
+         canInterceptNow = InInterceptEnvelopeOf(weapon);
+      }
+      return canInterceptNow;
+   end_script
+
+
+# State Machine
+# Very simple single state state machine
+   evaluation_interval ENGAGE 2.0 sec
+   state ENGAGE  # Engages and fires the weapon if it can
+      next_state ENGAGE
+         bool launched = false;
+         if (InInterceptEnvelopeOf(PLATFORM.Weapon(WEAPON_NAME)))
+         {
+             writeln_d("Trying to launch weapon " );
+             launched = LaunchWeapon();
+         }
+         return launched;
+      end_next_state
+   end_state
+end_processor

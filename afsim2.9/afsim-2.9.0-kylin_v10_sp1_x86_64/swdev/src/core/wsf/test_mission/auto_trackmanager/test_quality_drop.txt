@@ -1,0 +1,98 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+mover GENAIR-MOVER WSF_AIR_MOVER
+end_mover
+
+sensor GEOSENSOR WSF_GEOMETRIC_SENSOR
+  reports_location
+  reports_velocity
+  reports_side
+  frame_time 2.0 seconds
+end_sensor
+
+platform_type LOCATOR WSF_PLATFORM
+  side green
+  icon 737
+
+  mover GENAIR-MOVER
+  end_mover
+
+  sensor acq-radar GEOSENSOR
+    on
+    processor track-manager
+    track_quality 0.5
+    maximum_range 40.0 km
+  end_sensor
+
+  sensor track-radar GEOSENSOR
+    on
+    processor track-manager
+    track_quality 1.0
+    maximum_range 30.0 km // will drop track sooner so quality will drop.
+  end_sensor
+
+  track_manager
+  end_track_manager
+
+  processor track-manager WSF_TRACK_PROCESSOR
+    master_track_processor
+  end_processor
+
+end_platform_type
+
+platform_type DETECTEE WSF_PLATFORM
+end_platform_type
+
+# ****************************************************************************
+#                        Define the platform instances
+# ****************************************************************************
+
+#fly straight away
+platform fly-straight-away LOCATOR
+  route
+    position 32n 126w speed 200.0 kts altitude 2000 feet heading 0.0 degrees
+    position 35.0n 126w altitude 2000 feet speed 200.0 kts
+    position 35.0n 128w altitude 2000 feet extrapolate
+  end_route
+  script_variables
+     double lastTrackQuality = 0.0;
+     bool passed = false;
+  end_script_variables
+  execute at_interval_of 2.0 seconds
+     WsfLocalTrackList trackList = PLATFORM.MasterTrackList();
+     if (trackList.Count() > 0)
+     {
+        WsfTrack track = trackList.Entry(0);
+        if (track.TrackQuality() < lastTrackQuality)
+        {
+            writeln("-PASS-");
+            passed = true;
+        }
+        lastTrackQuality = track.TrackQuality();
+     }
+  end_execute
+  execute at_time 999.999 seconds absolute
+     if (! passed)
+     {
+         writeln("-FAIL-");
+     }
+  end_execute
+
+end_platform
+
+platform detectee_1 DETECTEE
+  add mover WSF_GROUND_MOVER
+    route
+      position 32.5n 126.0w altitude 10.0 feet heading 0.0 degrees
+    end_route
+  end_mover
+end_platform
+
+end_time 1000 seconds

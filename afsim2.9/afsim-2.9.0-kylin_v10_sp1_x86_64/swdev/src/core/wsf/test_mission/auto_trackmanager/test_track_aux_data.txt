@@ -1,0 +1,146 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of using an alternate track processor with a task processor
+platform cmdr WSF_PLATFORM
+   add comm c WSF_COMM_TRANSCEIVER
+      processor p
+   end_comm
+
+   add processor p WSF_TRACK_PROCESSOR
+      debug
+      on_message
+         type WSF_TRACK_MESSAGE
+            script
+            end_script
+      end_on_message
+      update_interval 10 s
+      on_update
+         writeln("T=", TIME_NOW, " on_update in ", PLATFORM.Name());
+         # See notes in the platform that reports the track to us.
+         foreach (WsfTrack track in PLATFORM.MasterTrackList())
+         {
+            writeln("T=", TIME_NOW, " track ", track.TrackId());
+            if (! track.AuxDataExists("test"))
+            {
+               writeln("-FAIL- test 1 in ", PLATFORM.Name());
+            }
+         }
+         foreach (WsfTrack track in PLATFORM.MasterRawTrackList())
+         {
+            writeln("T=", TIME_NOW, " track ", track.TrackId());
+            if (! track.AuxDataExists("test"))
+            {
+               writeln("-FAIL- test 2 in ", PLATFORM.Name());
+            }
+         }
+      end_on_update
+   end_processor
+
+   commander SELF
+end_platform
+
+platform t WSF_PLATFORM
+   side blue
+
+   add comm c WSF_COMM_TRANSCEIVER
+   end_comm
+
+   commander cmdr
+
+   position 40n 90w
+
+   script_variables
+      bool FAIL = false;
+      bool MAIN_FOUND_RED = false;
+      bool AUX_FOUND_GREEN = false;
+   end_script_variables
+
+   # The 'main' sensor should only see the RED player, report it to
+   # the 'main' track processor which should update the MASTER track
+   # list, and subsequently detected by the 'main' task processor.
+
+   # This test was implemented in AFSIM 2.0 to address a CR. When run in WSF 1.x it failed.
+   # When WSF 1.x initialization order was implemented in AFSIM 2.0 to allow regression
+   # testing it failed in exactly the same way as WSF 1.x. The test case failed because of
+   # a timing problem.
+   #
+   # The first update was sent at T=0 WITHOUT the aux_data (because the task manager had not
+   # seen the track). It was received by cmdr slightly after T=0 so it didn't get checked.
+   # The next update was not sent until slightly after T=10 (which had the aux_data), and so
+   # the track seen by the commander was the one it received without aux_data.
+   #
+   # The solution was to decrease the report interval so a full update got sent to the
+   # commander and received BEFORE it checked the list at T=10
+
+   add sensor main_sensor WSF_GEOMETRIC_SENSOR
+      frame_time 5 sec
+      reports_location
+      reports_side
+      ignore_side blue
+      ignore_side green
+      internal_link main_track_proc
+      on
+   end_sensor
+
+   add processor main_track_proc WSF_TRACK_PROCESSOR
+      fused_track_reporting on
+      raw_track_reporting off
+      report_to commander via c
+      report_interval 9.0 sec                    # Solves the timing problem
+      debug
+   end_processor
+
+   add processor main_task_proc WSF_TASK_PROCESSOR
+      show_state_transitions
+
+      evaluation_interval DETECTED 5 sec
+      state DETECTED
+         on_entry
+            extern bool MAIN_FOUND_RED;
+            extern bool FAIL;
+            if (TRACK.Side() == "red")
+            {
+               TRACK.SetAuxData("test", "foo");
+               if (!TRACK.AuxDataExists("test"))
+               {
+                  writeln("-FAIL- test 1 in ", PLATFORM.Name());
+               }
+               if (!PLATFORM.MasterTrackList().FindTrack(TRACK.TrackId()).AuxDataExists("test"))
+               {
+                  writeln("-FAIL- test 2 in ", PLATFORM.Name());
+               }
+               MAIN_FOUND_RED = true;
+            }
+            else
+            {
+               FAIL = true;
+               writeln("-FAIL- main_task_proc found ", TRACK.Side(), " player");
+            }
+         end_on_entry
+      end_state
+   end_processor
+
+end_platform
+
+platform red WSF_PLATFORM
+   side red
+   position 41n 89.5w altitude 30000 ft
+end_platform
+
+end_time 20 sec
+
+script void stu(WsfPlatform p, WsfSensor s, WsfTrack t)
+//   writeln("stu");
+//   t.SetAuxData("test", "from sensor");
+end_script
+
+observer
+  enable SENSOR_TRACK_INITIATED stu
+end_observer

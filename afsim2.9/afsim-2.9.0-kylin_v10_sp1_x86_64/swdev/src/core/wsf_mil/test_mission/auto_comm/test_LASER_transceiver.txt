@@ -1,0 +1,266 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# 1st test:
+# Link budget test case from:
+# Optical Communications for Small Satellites
+# Ryan W. Kingsbury, Prof. Kerri L. Cahoy
+# https://dspace.mit.edu/bitstream/handle/1721.1/101444/939652108-MIT.pdf
+# p. 54
+
+include ../auto_script/test_functions.txt
+
+// lasercomm definition
+comm LASERCOMM_LINK1 WSF_LASER_TRANSCEIVER  
+   on
+   category linkable
+
+   slew_mode azimuth_and_elevation   
+   
+   //these commands are just to validate input usage.
+   queue_limit 512
+   queue_type fifo
+   purge_interval 0 s
+   retransmit_attempts 0
+   retransmit_delay 0 s
+
+   field_of_view circular
+       half_angle 3.33e-5 rad
+   end_field_of_view
+   
+   show_link_budget enable   
+   background_radiance            6e-4 w/cm^2/sr/um
+   turbulence_transmission_factor 1.0
+   attenuation_loss -1 db
+   
+   transmitter
+      power                            0.2 w
+      wavelength                       1550 nanometers
+      beamwidth                        0.12 deg
+      optics_loss                      -1.5 db
+      
+      pointing_loss                    -3 db
+
+      modulation_type ppm
+      ppm_order 16
+      slot_rate 2e8 hz   
+   end_transmitter
+   
+   receiver
+      //focal_length                     3 m
+      aperture_diameter                30 cm
+      optics_loss                      -2 db
+
+      //wavelength                       1550 nanometers
+      bandpass                         1 nanometer
+      
+      detector_gain                    20.0
+      responsivity                     1.0 amp/w
+      excess_noise_factor              4.3
+      noise_equivalent_power           2.8e-9 w
+      
+      detection_threshold              3 absolute // sigma
+      
+   end_receiver
+end_comm
+
+platform_type SHIP WSF_PLATFORM
+   side blue
+   icon ship
+   mover WSF_SURFACE_MOVER 
+   end_mover
+   comm lasercomm LASERCOMM_LINK1 
+      antenna_height 30 m
+   end_comm
+end_platform_type
+
+platform_type SAT1 WSF_PLATFORM
+   side blue
+   icon satellite
+   comm lasercomm LASERCOMM_LINK1 
+   end_comm
+end_platform_type
+
+platform ship1 SHIP 
+    edit comm lasercomm
+       network_name ship1 
+    end_comm    
+    execute at_time 0.01 s absolute 
+       WsfComm localComm = PLATFORM.Comm("lasercomm");
+       WsfComm remoteComm = WsfSimulation.FindPlatform("ship2").Comm("lasercomm");
+       bool added1 = localComm.AddConnection(localComm.GetAddress(), remoteComm.GetAddress());
+       bool added2 = remoteComm.AddConnection(remoteComm.GetAddress(), localComm.GetAddress());
+       if (!added1 || !added2)
+       {
+          writeln("Connection failed");
+       }
+    end_execute
+    
+   execute at_interval_of 1.0 seconds
+      WsfMessage msg = {};
+      msg.SetType("Test message");
+      msg.SetSubType("yada yada yada");
+      msg.SetSizeInBytes(1024);
+      WsfComm localComm = PLATFORM.Comm("lasercomm");
+      WsfPlatform remotePlatform = WsfSimulation.FindPlatform("ship2");      
+      localComm.CueToPoint(remotePlatform.Location());
+      WsfComm remoteComm = remotePlatform.Comm("lasercomm");
+      remoteComm.CueToPoint(PLATFORM.Location());
+      PLATFORM.Comm("lasercomm").SendMessage(msg, remoteComm);
+   end_execute
+    
+end_platform
+
+platform ship2 SAT1
+   position 7.3n 0e altitude 550 km
+    edit comm lasercomm
+       network_name ship2 
+    end_comm    
+end_platform
+
+
+# 2nd test
+# This test recreates the link budget found in 
+# the document "Laser communications for the RC-135"
+# by Tom Farrell, 10 Oct. 2018 (slide 14)
+
+// lasercomm definition
+comm LASERCOMM_LINK2 WSF_LASER_TRANSCEIVER  
+   on
+   category linkable
+
+   azimuth_slew_limits -80 deg 80 deg
+   elevation_slew_limits -80 deg 80 deg
+   slew_mode azimuth_and_elevation   
+   azimuth_slew_rate 30 deg/s
+   elevation_slew_rate 30 deg/s
+   
+   aero_optic_loss                  -10 db
+   attenuation_loss                 -0.13 db
+   turbulence_loss                  -10 db
+   show_link_budget enable
+   atmospheric_structure hv57
+   
+   background_radiance              245 w/m^2/steradian/um
+   background_irradiance            1.0e-8 w/m^2/um
+
+   transmitter
+      wavelength                       1550 nanometers
+      power                            10.0 w // peak
+      pulse_width                      3.33e-7 sec
+      aperture_diameter                0.05 m
+      optics_loss                      -3 db
+      pointing_loss                    -3 db            
+      beamwidth                        18.91e-6 rad
+
+      modulation_type ppm
+      ppm_order 64   
+   end_transmitter
+      
+   receiver
+
+      detection_threshold              3 absolute // sigma
+      aperture_diameter                0.3 m
+      optics_loss                      -3 db
+      
+      quantum_efficiency               0.7
+      detector_gain                    10.0
+      excess_noise_factor              1.2
+      
+      earth_radius_multiplier 1.0
+      
+      # Parameters for computing thermal noise
+      circuit_temperature              400 K
+      
+      # Parameters for computing background noise
+      dark_current                     2 nanoamp
+      
+   end_receiver   
+end_comm
+
+platform_type AIRCRAFT WSF_PLATFORM
+   side blue
+   icon ship
+   comm lasercomm LASERCOMM_LINK2 
+      antenna_height 30 m
+   end_comm
+end_platform_type
+
+platform_type SAT2 WSF_PLATFORM
+   side blue
+   icon satellite
+   comm lasercomm LASERCOMM_LINK2
+   end_comm
+end_platform_type
+
+platform sat SAT2
+    edit comm lasercomm
+       network_name sat 
+    end_comm
+    position 0n 15.068w altitude 240 km
+    execute at_time 0.01 s absolute 
+       WsfComm localComm = PLATFORM.Comm("lasercomm");
+       WsfComm remoteComm = WsfSimulation.FindPlatform("kc-135").Comm("lasercomm");
+       bool added1 = localComm.AddConnection(localComm.GetAddress(), remoteComm.GetAddress());
+       bool added2 = remoteComm.AddConnection(remoteComm.GetAddress(), localComm.GetAddress());
+       if (!added1 || !added2)
+       {
+          writeln("Connection failed");
+       }
+    end_execute
+    
+   execute at_interval_of 1.0 seconds
+      WsfMessage msg = {};
+      msg.SetSubType("yada yada yada");
+      WsfComm remoteComm = WsfSimulation.FindPlatform("kc-135").Comm("lasercomm");
+      PLATFORM.Comm("lasercomm").SendMessage(msg, remoteComm);
+   end_execute
+    
+end_platform
+
+script void MessageDeliveryAttempt(WsfComm            aXmtr,
+                                   WsfComm            aRcvr,
+                                   WsfMessage         aMsg,
+                                   WsfCommInteraction aResult)
+   bool passed = true;
+   double snr = MATH.DB_ToLinear(aResult.SignalToNoise());
+   double rcvdPower = MATH.DB_ToLinear(aResult.RcvdPower());
+   double rcvrNoisePower = MATH.DB_ToLinear(aResult.RcvrNoise());
+   if (aXmtr.Platform().Name() == "ship1")
+   {
+      if (! AssertWithinToleranceMessage(10.0126, snr, 0.0001, "SNR")) passed = false;
+      writePass(passed);
+      if (! AssertWithinToleranceMessage(7.2268e-10, rcvdPower, 1.0e-14, "rcvdPower")) passed = false;
+      writePass(passed);
+      if (! AssertWithinToleranceMessage(1.44354e-09, rcvrNoisePower, 1.0e-13, "rcvrNoisePower")) passed = false;
+      writePass(passed);
+   }
+   else
+   {
+      if (! AssertWithinToleranceMessage(2.53073,  snr, 0.0001, "SNR")) passed = false;
+      writePass(passed);
+      if (! AssertWithinToleranceMessage(2.3845e-7, rcvdPower, 1.0e-11, "rcvdPower")) passed = false;
+      writePass(passed);
+      if (! AssertWithinToleranceMessage(9.42218e-07, rcvrNoisePower, 1.0e-11, "rcvrNoisePower")) passed = false;
+      writePass(passed);
+   }
+end_script
+
+observer
+   enable MESSAGE_DELIVERY_ATTEMPT MessageDeliveryAttempt
+end_observer
+
+platform kc-135 AIRCRAFT 
+    position 0n 0e altitude 40000 ft
+    edit comm lasercomm
+       network_name kc-135 
+    end_comm    
+end_platform
+
+end_time 1 s

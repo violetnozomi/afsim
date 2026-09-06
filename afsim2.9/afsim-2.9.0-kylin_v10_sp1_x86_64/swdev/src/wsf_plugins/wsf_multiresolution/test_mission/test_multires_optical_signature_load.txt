@@ -1,0 +1,76 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+optical_signature OPTICAL_SIGNATURE_1
+   constant  11 m^2
+end_optical_signature
+
+platform_type SIMPLE_FIGHTER WSF_PLATFORM
+   icon F-18  
+
+   multiresolution_optical_signature WSF_MULTIRESOLUTION_OPTICAL_SIGNATURE
+     model high_fidelity_sig
+        fidelity_range 0.5 1.0
+        optical_signature OPTICAL_SIGNATURE_1
+        end_optical_signature
+     end_model
+    
+     add model low_fidelity_sig
+        fidelity_range 0.0 0.5 
+        optical_signature OPTICAL_SIGNATURE_2
+        end_optical_signature
+     end_model
+   end_multiresolution_optical_signature
+end_platform_type
+
+optical_signature OPTICAL_SIGNATURE_2
+   constant  22 m^2
+end_optical_signature
+
+platform test SIMPLE_FIGHTER
+  multiresolution_optical_signature
+     fidelity 0.25
+  end_multiresolution_optical_signature
+  
+  on_initialize2
+     // Check that the correct signature was loaded by checking the signature's state
+     double OCS = PLATFORM.OpticalCrossSection(WsfGeoPoint.Construct(0.0, 0.0, 0.0), 1.0);
+     if(OCS == 22.0){
+       writeln("-PASS-");
+     } else {
+       writeln("Wrong optical_signature. Expected OCS 22, got ", OCS);
+       writeln("-FAIL-");
+     }
+  end_on_initialize2
+end_platform
+
+platform test2 SIMPLE_FIGHTER
+   multiresolution_optical_signature
+      fidelity 0.25
+      model low_fidelity_sig # Implicit edit
+         fidelity_range 0.3 0.5
+      end_model
+      edit model high_fidelity_sig # Explicit edit
+         default
+      end_model
+   end_multiresolution_optical_signature
+   
+   on_initialize2
+      // Check that the correct signature was loaded by checking the signature's state
+      double OCS = PLATFORM.OpticalCrossSection(WsfGeoPoint.Construct(0.0, 0.0, 0.0), 1.0);
+      if(OCS == 11.0){
+        writeln("-PASS-");
+      } else {
+        writeln("Wrong optical_signature. Expected OCS 11, got ", OCS);
+        writeln("-FAIL-");
+      }
+   end_on_initialize2
+end_platform

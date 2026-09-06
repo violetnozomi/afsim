@@ -1,0 +1,136 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2022 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+test_feature multiresolution
+
+multiresolution_multirun_table
+   model_list 
+      test infrared_signature
+      test optical_signature
+      test radar_signature
+   end_model_list
+   loop_after_table_end
+   fidelity_table
+      0.0  1.0  0.0
+      0.49 0.5  0.0
+      0.5  0.49 0.49
+      1.0  0.0  0.5
+   end_fidelity_table
+end_multiresolution_multirun_table
+
+final_run_number 5
+
+infrared_signature INFRARED_SIGNATURE_1
+   constant  11 watts/steradian
+end_infrared_signature
+
+infrared_signature INFRARED_SIGNATURE_2
+   constant  22 watts/steradian
+end_infrared_signature
+
+optical_signature OPTICAL_SIGNATURE_1
+   constant  33 m^2
+end_optical_signature
+
+optical_signature OPTICAL_SIGNATURE_2
+   constant  44 m^2
+end_optical_signature
+
+radar_signature RADAR_SIGNATURE_1
+   constant  55 m^2
+end_radar_signature
+
+radar_signature RADAR_SIGNATURE_2
+   constant  66 m^2
+end_radar_signature
+
+platform test WSF_PLATFORM
+   add multiresolution_infrared_signature WSF_MULTIRESOLUTION_INFRARED_SIGNATURE
+     model high_fidelity_sig
+        fidelity_range 0.0 0.5
+        infrared_signature INFRARED_SIGNATURE_1
+        end_infrared_signature
+     end_model
+     add model low_fidelity_sig
+        fidelity_range 0.5 1.0 
+        infrared_signature INFRARED_SIGNATURE_2
+        end_infrared_signature
+     end_model
+   end_multiresolution_infrared_signature
+   
+   add multiresolution_optical_signature WSF_MULTIRESOLUTION_OPTICAL_SIGNATURE
+     model high_fidelity_sig
+        fidelity_range 0.0 0.5
+        optical_signature OPTICAL_SIGNATURE_1
+        end_optical_signature
+     end_model
+     add model low_fidelity_sig
+        fidelity_range 0.5 1.0
+        optical_signature OPTICAL_SIGNATURE_2
+        end_optical_signature
+     end_model
+   end_multiresolution_optical_signature
+   
+   add multiresolution_radar_signature WSF_MULTIRESOLUTION_RADAR_SIGNATURE
+     model high_fidelity_sig
+        fidelity_range 0.0 0.5
+        radar_signature RADAR_SIGNATURE_1
+        end_radar_signature
+     end_model
+     add model low_fidelity_sig
+        fidelity_range 0.5 1.0
+        radar_signature RADAR_SIGNATURE_2
+        end_radar_signature
+     end_model
+   end_multiresolution_radar_signature
+
+  on_initialize2
+     int runNumber = WsfSimulation.RunNumber();
+     // Check that the correct signature was loaded by checking the signature's state
+     double IRI = PLATFORM.InfraredRadiantIntensity(WsfGeoPoint.Construct(0.0, 0.0, 0.0), 1.0, "default");
+     double expectedIRI = 11.0;
+     if(runNumber == 3 || runNumber == 4){
+        expectedIRI = 22.0;
+     }
+     if(IRI == expectedIRI){
+        writeln("-PASS-");
+     } else {
+        writeln("Wrong infrared_signature. Expected IRI ", expectedIRI, ", got ", IRI);
+        writeln("-FAIL-");
+     }
+    
+     // Check that the correct signature was loaded by checking the signature's state
+     double OCS = PLATFORM.OpticalCrossSection(WsfGeoPoint.Construct(0.0, 0.0, 0.0), 1.0);
+     double expectedOCS = 44.0;
+     if(runNumber == 3 || runNumber == 4){
+        expectedOCS = 33.0;
+     }
+     if(OCS == expectedOCS){
+       writeln("-PASS-");
+     } else {
+       writeln("Wrong optical_signature. Expected OCS ", expectedOCS, ", got ", OCS);
+       writeln("-FAIL-");
+     }
+     
+     // Check that the correct signature was loaded by checking the signature's state
+     double RCS = PLATFORM.RadarCrossSection(0, 0, "", 1.0e6);
+     double expectedRCS = 55.0;
+     if(runNumber == 4){
+        expectedRCS = 66.0;
+     }
+     if(RCS == expectedRCS){
+       writeln("-PASS-");
+     } else {
+       writeln("Wrong radar_signature. Expected RCS ", expectedRCS, ", got ", RCS);
+       writeln("-FAIL-");
+     }
+  end_on_initialize2
+end_platform

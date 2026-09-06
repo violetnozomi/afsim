@@ -1,0 +1,246 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+link16_interface
+   #todo
+   include_dis_entity_id_in_j3x_tracks enable
+end_link16_interface
+
+platform_type SENSING WSF_PLATFORM
+
+   icon wedge
+   side red
+
+   sensor generic_rbe WSF_GEOMETRIC_SENSOR
+      on
+      ignore_same_side
+      frame_time 10 s
+      //azimuth_error_sigma 0.1 deg
+      //range_error_sigma 500 m
+      //elevation_error_sigma 0.1 deg
+      reports_bearing
+      reports_elevation
+      reports_range
+      internal_link track_proc
+   end_sensor
+
+   processor track_proc WSF_TRACK_PROCESSOR
+      //debug
+      purge_interval 40 s
+   end_processor
+
+   commander commander
+
+   comm l16_comm WSF_COMM_TRANSCEIVER
+      internal_link track_proc
+      internal_link l16_proc
+      network_name l16
+   end_comm
+
+   processor l16_proc WSF_LINK16_COMPUTER
+       //debug
+       comm l16_comm
+       message_processor surv SURVEILLANCE
+          send_non_sensor_reports false
+          ignore_reporting_responsibility false
+       end_message_processor
+   end_processor
+
+   processor debug DEBUG
+      off
+   end_processor
+
+end_platform_type
+
+platform_type TARGET WSF_PLATFORM
+   icon bullseye
+   side blue
+end_platform_type
+
+platform commander WSF_PLATFORM
+   side red
+   commander SELF
+   add comm l16_comm WSF_COMM_TRANSCEIVER
+      //internal_link track_proc
+      network_name l16
+   end_comm
+end_platform
+
+processor DEBUG WSF_SCRIPT_PROCESSOR
+
+   script void PrintAuxData(WsfTrack aTrack)
+      write(aTrack.TrackId(),  " ", aTrack.TargetName(), " UT: ", aTrack.UpdateTime());
+      if (aTrack.AuxDataExists("link16_track_quality"))
+      {
+         write("; quality: ", aTrack.AuxDataInt("link16_track_quality"));
+      }
+      if (aTrack.AuxDataExists("link16_source_track_number"))
+      {
+         write("; JU# ", aTrack.AuxDataInt("link16_source_track_number"));
+      }
+      if (aTrack.AuxDataExists("link16_track_number"))
+      {
+         write("; TN# ", aTrack.AuxDataString("link16_track_number"));
+      }
+      if (aTrack.AuxDataExists("link16_r2"))
+      {
+         write("; R2: ", aTrack.AuxDataBool("link16_r2"));
+      }
+      writeln();
+   end_script
+
+   on_update
+      WsfLocalTrackList tl = PLATFORM.MasterTrackList();
+      writeln(TIME_NOW, ": ", PLATFORM.Name(), "; report: ");
+      foreach (WsfLocalTrack t in tl)
+      {
+         PrintAuxData(t);
+         for (int i = 0; i < t.RawTrackCount(); i=i+1)
+         {
+            WsfTrack rt = t.RawTrack(i);
+            write("     ");
+            PrintAuxData(rt);
+         }
+      }
+   end_on_update
+
+   update_interval 10 s
+end_processor
+
+platform sense-1 SENSING
+   edit sensor generic_rbe
+      track_quality 0.8
+      off
+   end_sensor
+
+   execute at_time 30 s absolute
+      PLATFORM.Sensor("generic_rbe").TurnOn();
+   end_execute
+
+   track_manager
+      //debug
+   end_track_manager
+
+   edit processor l16_proc
+      track_number 1
+      edit message_processor surv
+          track_number_range 10000 17777
+       end_message_processor
+   end_processor
+
+   position 39.9n 45e altitude 100 m
+end_platform
+
+platform sense-2 SENSING
+   edit sensor generic_rbe
+      track_quality 0.6
+   end_sensor
+   edit processor l16_proc
+      track_number 2
+      edit message_processor surv
+          track_number_range 20000 27777
+       end_message_processor
+   end_processor
+   position 40n 44.9e altitude 100 m
+end_platform
+
+platform sense-3 SENSING
+   track_manager
+      //debug
+   end_track_manager
+   edit processor l16_proc
+      track_number 3
+      //debug
+      edit message_processor surv
+          track_number_range 30000 37777
+       end_message_processor
+   end_processor
+   edit sensor generic_rbe
+      track_quality 0.6
+   end_sensor
+   position 39.9n 45.1e altitude 100 m
+end_platform
+
+platform sense-4 SENSING
+   edit processor l16_proc
+      track_number 4
+      //debug
+      edit message_processor surv
+          track_number_range 40000 47777
+       end_message_processor
+   end_processor
+   edit sensor generic_rbe
+      track_quality 0.6
+   end_sensor
+   position 40.001n 45.1e altitude 100 m
+end_platform
+
+platform_availability
+   name sense-1 availability 1.0
+   name sense-2 availability 1.0
+   name sense-3 availability 1.0
+   name sense-4 availability 1.0
+end_platform_availability
+
+platform target-1 TARGET
+   position 40n 45e
+end_platform
+
+#event_pipe
+#   file test_rs.aer
+#end_event_pipe
+
+#event_output
+##   enable MESSAGE_QUEUED
+##   enable MESSAGE_DELIVERY_ATTEMPT
+##   enable MESSAGE_DISCARDED
+##   enable MESSAGE_FAILED_ROUTING
+##   enable MESSAGE_RECEIVED
+##   enable MESSAGE_TRANSMITTED
+#   enable all
+#   file replay.evt
+#end_event_output
+
+dis_interface
+   record test_r2.rep  // currently require an active dis interface for this test to pass.
+   //multicast 228.10.1.1 default
+   //port 3001
+end_dis_interface
+
+execute at_time 60 sec absolute
+   WsfLocalTrack track = WsfSimulation.FindPlatform("sense-1").MasterTrackList().Entry(0);
+   if (track.AuxDataExists("link16_r2"))
+   {
+      if (!track.AuxDataBool("link16_r2"))
+      {
+         writeln("-FAIL-");
+         writeln("Fail sense-1");
+      }
+   }
+   track = WsfSimulation.FindPlatform("sense-2").MasterTrackList().Entry(0);
+   if (!track.AuxDataExists("link16_r2") || track.AuxDataBool("link16_r2"))
+   {
+      writeln("-FAIL-");
+      writeln("Fail sense-2");
+   }
+   track = WsfSimulation.FindPlatform("sense-3").MasterTrackList().Entry(0);
+   if (!track.AuxDataExists("link16_r2") || track.AuxDataBool("link16_r2"))
+   {
+      writeln("-FAIL-");
+      writeln("Fail sense-3");
+   }
+   track = WsfSimulation.FindPlatform("sense-4").MasterTrackList().Entry(0);
+   if (!track.AuxDataExists("link16_r2") || track.AuxDataBool("link16_r2"))
+   {
+      writeln("-FAIL-");
+      writeln("Fail sense-4");
+   }
+end_execute
+
+end_time 60 sec

@@ -1,0 +1,231 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests that the rotocraft mover responds correctly to various commands
+
+mover HELO_MOVER WSF_ROTORCRAFT_MOVER
+
+   #debug
+
+   # Template values are appropriate for a Blackhawk.
+   # Reference:  http://www.sikorsky.com/StaticFiles/Sikorsky/Assets/Attachments/Mission%20Downloads/S70-060_IBH_TI.pdf
+   mode HOVER
+
+      weathercock_speed               12 kts
+
+      maximum_attitude_rate         3.0 rpm # <fabricated>
+      minimum_upward_acceleration   0.1 g  # <fabricated>
+
+      body_rates_gain                10 # Rotate heading toward the target at
+                                        # a rate proportional to the error,
+                                        # clamped to maximum_attitude_rate
+
+      maximum_ground_speed          30 kts
+      maximum_rate_of_climb       1250 ft/min # <fabricated>
+      maximum_rate_of_descent     1000 ft/min # <fabricated>
+      maximum_total_acceleration   2.0 g      # <fabricated>
+
+   end_mode
+
+   mode LOITER
+
+      weathercock_speed              12 kts
+
+      maximum_attitude_rate         3.0 rpm # <fabricated>
+      minimum_upward_acceleration   0.1 g  # <fabricated>
+
+      body_rates_gain                10 # Rotate heading toward the target at
+                                        # a rate proportional to the error,
+                                        # clamped to maximum_attitude_rate
+
+      maximum_ground_speed         135 kts    # Economy Cruise
+      maximum_rate_of_climb       2250 ft/min # Max ROC
+      maximum_rate_of_descent     1250 ft/min # <fabricated>
+      maximum_total_acceleration   3.0 g      # <fabricated>
+
+   end_mode
+
+   mode CRUISE
+
+      weathercock_speed              12 kts
+
+      maximum_attitude_rate         3.0 rpm # <fabricated>
+      minimum_upward_acceleration   0.1 g  # <fabricated>
+
+      body_rates_gain                10 # Rotate heading toward the target at
+                                        # a rate proportional to the error,
+                                        # clamped to maximum_attitude_rate
+
+      maximum_ground_speed         149 kts    # Max Cruise
+      maximum_rate_of_climb       1850 ft/min # <fabricated>
+      maximum_rate_of_descent     1550 ft/min # <fabricated>
+      maximum_total_acceleration   3.5 g      # <fabricated>
+
+   end_mode
+
+   mode DASH
+
+      weathercock_speed               12 kts
+
+      maximum_attitude_rate         3.0 rpm # <fabricated>
+      minimum_upward_acceleration   0.1 g  # <fabricated>
+
+      body_rates_gain                10 # Rotate heading toward the target at
+                                        # a rate proportional to the error,
+                                        # clamped to maximum_attitude_rate
+
+      maximum_ground_speed         180 kts    # (Vne = 195 kts)
+      maximum_rate_of_climb        550 ft/min # <fabricated>
+      maximum_rate_of_descent      550 ft/min # <fabricated>
+      maximum_total_acceleration   3.0 g      # <fabricated>
+
+   end_mode
+
+   start_mode    HOVER
+
+   update_interval 0.01 sec
+
+/* === ===
+   // Default values for the PIDs are provide in code,
+   // so do not have to be explicitly provided here.
+
+   lateral_acceleration_rate_pid
+      proportional_gain 2.0
+      integral_gain     0.0
+      derivative_gain   0.5
+      input_threshold   0.0
+   end_lateral_acceleration_rate_pid
+
+   lateral_acceleration_value_pid
+      proportional_gain 0.020
+      integral_gain     0.0
+      derivative_gain   20.0
+      input_threshold   0.0
+   end_lateral_acceleration_value_pid
+
+   vertical_acceleration_rate_pid
+      proportional_gain 0.025
+      integral_gain     0.001
+      derivative_gain   2.00
+      input_threshold   0.0
+   end_vertical_acceleration_rate_pid
+
+   vertical_acceleration_value_pid
+      proportional_gain 0.025
+      integral_gain     0.000
+      derivative_gain   12.00
+      input_threshold   0.0
+   end_vertical_acceleration_value_pid
+=== === */
+
+   # This value determines how dynamically the rotor disk is allowed to tilt.
+   # A small value (1 second) is very transient and dynamic, a larger value is
+   # more stable, with gentle control inputs.
+   disk_tilt_filter_time_constant              1 sec
+   position_hold_capture_radius             100.0 m
+
+   altitude_error_to_rate_of_climb_gain      2.0
+
+   desired_heading -90.0 deg
+
+   route
+
+      label home
+      position 36n       115w     altitude   0 m msl mode HOVER   # SW Corner
+      position 36:01n    115w     altitude 200 m msl mode LOITER  # NW Corner
+      position 36:01n    114:59w  altitude 500 m msl mode CRUISE # NE Corner
+      position 36n       114:59w  altitude 400 m msl mode DASH    # SE Corner
+      position 36n       115w     altitude 200 m msl mode HOVER   # SW Again
+      position 36:01n    115w     speed      0 m/s                                # NW Again
+      position 36:01n    114:59w  altitude 500 m msl mode HOVER   # NE Again
+      position 36:00:30n 114:59:30w altitude 350 m msl mode HOVER
+      position 36:00:20n 114:59:45w altitude 350 m msl mode HOVER
+      position 36:00:45n 114:59:30w altitude 350 m msl mode HOVER
+
+   end_route
+
+end_mover
+
+platform p WSF_PLATFORM
+   icon Apache
+   add mover HELO_MOVER
+      route
+         position 34n 50e altitude 1000 m heading 90 deg speed 40 m/s
+            extrapolate
+      end_route
+   end_mover
+   execute at_time 1 min absolute
+      if (Heading() - 90 > 1 || Heading() - 90 < -1) {
+         writeln("-FAIL- Heading is not 90");
+      }
+      TurnToHeading(180);
+      GoToAltitude(1100);
+   end_execute
+   execute at_time 2 min absolute
+      writeln(Heading(), ", ", Altitude());
+      # Heading might be +180 or -180, must check for both:
+      bool is180 = (Heading() - 180 > 1 || Heading() - 180 < -1);
+      bool isNeg180 = (Heading() + 180 > 1 || Heading() + 180 < -1);
+      if (! (is180 || isNeg180)) {
+         writeln("-FAIL- Heading is not 180");
+         PLATFORM.Comment("Heading not 180");
+      }
+      if (Altitude() - 1100 > 10 || Altitude() - 1100 < -10) {
+         writeln("-FAIL- Altitude is not 1100");
+      }
+
+      # ===== THIS IS IMPORTANT, AND UNIQUE TO ROTORCRAFT MOVER... =====
+      # Special script command "SetHeading" means set desired heading,
+      # and is different than turn-to-heading, which is (more correctly)
+      # "Turn To Course"... but too much infrastructure already uses Heading.
+      TurnToHeading(-90);
+      SetHeading(45);
+
+      GoToSpeed(5);
+      GoToAltitude(600);
+   end_execute
+   execute at_time 6 min absolute
+      if (Altitude() - 600 > 10 || Altitude() - 600< -10) {
+         writeln("-FAIL- Altitude is not 600");
+      }
+      if (Speed() - 5> 1 || Speed() - 5< -1) {
+         writeln("-FAIL- Speed is not 5");
+      }
+      writeln(Speed());
+      WsfGeoPoint pt = Location();
+      pt.SetAltitudeAGL(1000);
+      GoToPoint(pt);
+      GoToSpeed(0);
+   end_execute
+   execute at_time 15 min absolute
+      if (Altitude() - 1000 > 10 || Altitude() - 1000 < -10) {
+         writeln("-FAIL- Altitude is not 1000");
+      }
+      if (Speed() > 1) {
+         writeln("-FAIL- speed is not near zero.  Should be stopped.");
+      }
+      WsfGeoPoint pt = WsfGeoPoint.Construct("33:59:49.639n 49:59:47.117e");
+      pt.SetAltitudeAGL(1000);
+      GoToPoint(pt);
+      GoToSpeed(100);
+   end_execute
+   execute at_time 17.9 min absolute
+      WsfGeoPoint pt = WsfGeoPoint.Construct("33:59:49.639n 49:59:47.117e");
+      if (Location().GroundRangeTo(pt) < 1000)
+      {
+         writeln("-FAIL- didnt go past point");
+      }
+   end_execute
+end_platform
+
+#event_pipe
+#   file test_rotocraft.aer
+#end_event_pipe
+
+end_time 18 min

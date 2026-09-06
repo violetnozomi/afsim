@@ -1,0 +1,62 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that the WsfPlatform script type can be used as the key
+# type in a sorted container (i.e. Map, Set) and the container iterated over
+# in a repeatable, deterministic manner. That is, there is a well-defined
+# ordering on WsfPlatform.
+
+include_once ../auto_script/test_functions.txt
+include_once ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 201;
+end_script_variables
+
+on_initialize
+   Set<WsfPlatform> s = {};
+   Map<WsfPlatform, int> m = {};
+   // Create 100 platforms in the simulation, and add them to the Map and Set.
+   for (int i = 1; i <= 100; i = i + 1)
+   {
+      WsfPlatform p = WsfSimulation.CreatePlatform("WSF_PLATFORM");
+      p = WsfSimulation.AddPlatform(p, write_str("p", i));
+      s.Insert(p);
+      m[p] = p.Index();
+   }
+   
+   if (AssertEqualsMessage(m.Size(), s.Size(), "Map and Set have different sizes"))
+   {
+      pass();
+   }
+   
+   // Iterate over the Map and Set, verifying the platforms appear in the same order in both,
+   // and are sorted in the order they were added to the simulation (by index/unique id).
+   int index = 1;
+   SetIterator si = s.GetIterator();
+   MapIterator mi = m.GetIterator();
+   while (si.HasNext() && mi.HasNext())
+   {
+      si.Next();
+      mi.Next();
+      WsfPlatform pset = (WsfPlatform)si.Data();
+      WsfPlatform pmap = (WsfPlatform)mi.Key();
+      if (AssertEqualsMessage(pset, pmap, write_str("Set platform ", pset.Name(), " and Map platform ", pmap.Name(), " do not match")))
+      {
+         pass();
+      }
+
+      if (AssertEqualsMessage(index, (int)mi.Data(), write_str("Platform ", pmap.Name(), " out of order")))
+      {
+         pass();
+      }
+      
+      index = index + 1;
+   }
+end_on_initialize

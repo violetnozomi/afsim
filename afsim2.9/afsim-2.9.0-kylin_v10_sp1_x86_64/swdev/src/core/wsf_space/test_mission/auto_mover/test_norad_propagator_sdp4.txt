@@ -1,0 +1,96 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+###############################################################################
+# Test of the WSF_NORAD_SPACE_MOVER 
+# (SDP4 propagator for long period orbit propagation).
+# This test make use of the test case in the SpaceTrack3 report (p.82):
+#
+# TLE:
+#1 11801U          80230.29629788  .01431103  00000-0  14311-1
+#2 11801  46.7916 230.4354 7318036  47.4722  10.4117  2.28537848
+#
+# Results (time in minutes, distance in km, velocity in km/s)
+#SDP4 TSINCE X Y Z
+#0. 7473.37066650 428.95261765 5828.74786377
+#360.00000000 -3305.22537232 32410.86328125 -24697.17675781
+#720.00000000 14271.28759766 24110.46411133 -4725.76837158
+##1080.00000000 -9990.05883789 22717.35522461 -23616.89062501
+#1440.00000000 9787.86975097 33753.34667969 -15030.81176758
+#XDOT YDOT ZDOT
+#5.10715413 6.44468284 -0.18613096
+#-1.30113538 -1.15131518 -0.28333528
+#-0.32050445 2.67984074 -2.08405289
+#-1.01667246 -2.29026759 0.72892364
+#-1.09425066 0.92358845 -1.52230928
+###############################################################################
+platform_type SATELLITE WSF_PLATFORM
+   script_variables
+      Array<Vec3> sExpectedLocationTEME = {};
+      Array<Vec3> sExpectedVelocityTEME = {};
+   end_script_variables
+
+   icon satellite
+   side green
+   
+   mover WSF_NORAD_SPACE_MOVER
+      update_interval 360 minutes 
+   end_mover   
+
+   on_update
+      static int index = 0;
+      Vec3 locTEME = PLATFORM.LocationTEME();
+      Vec3 velTEME = PLATFORM.VelocityTEME();
+      Vec3 refLocTEME = sExpectedLocationTEME[index];
+      refLocTEME.Scale(1000.0);
+      Vec3 refVelTEME = sExpectedVelocityTEME[index];
+      refVelTEME.Scale(1000.0);
+      index += 1;
+      Vec3 diffTEME = Vec3.Subtract(locTEME, refLocTEME);
+      double diffLength = diffTEME.Magnitude();
+      if (diffLength > 20.0)  // fail if we are more that 20m from the reference location.
+      {
+         writeln("-FAIL-");
+      }
+      Vec3 diffVelTEME = Vec3.Subtract(velTEME, refVelTEME);
+      double diffSpeed = diffVelTEME.Magnitude();
+      if (diffSpeed > 0.1)  // fail if we are more than 0.1m/s from the reference velocity.
+      {
+         writeln("-FAIL-");
+      }
+      //writeln(TIME_NOW / 60.0, ": ", diffLength, ", ", diffSpeed);
+   end_on_update
+
+end_platform_type
+
+platform sdp4_test SATELLITE
+orbit
+1 11801U          80230.29629788  .01431103  00000-0  14311-1
+2 11801  46.7916 230.4354 7318036  47.4722  10.4117  2.28537848
+end_orbit
+on_initialize
+   sExpectedLocationTEME[0] = Vec3.Construct(7473.37066650, 428.95261765, 5828.74786377);
+   sExpectedLocationTEME[1] = Vec3.Construct(-3305.22537232, 32410.86328125, -24697.17675781);
+   sExpectedLocationTEME[2] = Vec3.Construct(14271.28759766, 24110.46411133, -4725.76837158);
+   sExpectedLocationTEME[3] = Vec3.Construct(-9990.05883789, 22717.35522461, -23616.89062501);
+   sExpectedLocationTEME[4] = Vec3.Construct(9787.86975097, 33753.34667969, -15030.81176758);
+
+   sExpectedVelocityTEME[0] = Vec3.Construct(5.10715413, 6.44468284, -0.18613096);
+   sExpectedVelocityTEME[1] = Vec3.Construct(-1.30113538, -1.15131518, -0.28333528);
+   sExpectedVelocityTEME[2] = Vec3.Construct(-0.32050445, 2.67984074, -2.08405289);
+   sExpectedVelocityTEME[3] = Vec3.Construct(-1.01667246, -2.29026759, 0.72892364);
+   sExpectedVelocityTEME[4] = Vec3.Construct(-1.09425066, 0.92358845, -1.52230928);
+end_on_initialize
+end_platform
+
+start_epoch 80230.29629788
+
+end_time 1440.1 minutes
+test_date_time  

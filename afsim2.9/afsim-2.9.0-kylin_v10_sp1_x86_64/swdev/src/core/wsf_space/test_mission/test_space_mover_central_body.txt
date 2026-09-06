@@ -1,0 +1,71 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 24 hours
+start_date Jan 10 2020
+start_time 17:21:000
+ 
+global_environment 
+   central_body earth_egm96 
+   end_central_body
+end_global_environment
+
+platform test-central_body_moon_circular WSF_PLATFORM
+   icon satellite
+   side blue
+   add mover WSF_SPACE_MOVER
+      attitude_controller instant
+      end_attitude_controller
+      //position 0n 90w altitude 14000000 meters heading 90 degrees
+      //semi_major_axis 8000 km
+      revolutions_per_day 5
+      central_body moon
+      end_central_body
+   end_mover
+end_platform
+
+platform test-central_body_moon_inclined_eccentric WSF_PLATFORM
+   icon satellite
+   side blue
+   add mover WSF_SPACE_MOVER
+      //position 0n 90w altitude 14000000 meters heading 90 degrees
+      //semi_major_axis 8000 km
+      revolutions_per_day 5
+      eccentricity 0.2
+      inclination 45 deg
+      central_body moon
+      end_central_body
+   end_mover
+end_platform
+
+platform test-central_body_earth_egm96 WSF_PLATFORM
+   icon satellite
+   side blue
+   add mover WSF_SPACE_MOVER
+      //position 0n 90w altitude 14000000 meters heading 90 degrees
+      //semi_major_axis 8000 km
+      revolutions_per_day 5
+      central_body earth_egm96      
+      end_central_body
+   end_mover
+end_platform
+
+platform observer WSF_PLATFORM 
+   icon cubesat
+   position 89n 0e altitude 1000 km
+   spatial_domain space
+end_platform
+
+platform moon WSF_PLATFORM
+   spatial_domain space
+   execute at_interval_of 1.0 s
+      Vec3 locECI = Moon.LocationECI(WsfDateTime.CurrentTime());
+      PLATFORM.SetLocationECI(Moon.LocationECI(WsfDateTime.CurrentTime()));   
+   end_execute
+end_platform

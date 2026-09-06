@@ -1,0 +1,47 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+test_feature brawler
+
+file_path .
+file_path ../data
+
+end_time 20 seconds
+
+include_once brawler_fighter.txt
+include_once brawler_commander.txt
+
+platform_type BRAWLER_TESTER BRAWLER_FIGHTER
+   edit processor task_mgr
+      behavior_tree
+         behavior_node  alt3561_force_overshoot
+      end_behavior_tree 
+   end_processor
+end_platform_type
+
+platform_type BRAWLER_TARGET WSF_PLATFORM 
+   side red
+   icon SU-27
+   mover WSF_AIR_MOVER end_mover
+end_platform_type
+
+include_once laydown_alt_tests.txt
+
+#dis_interface
+#   record                      alt_test.rep
+#   mover_update_timer          1.0 sec
+#   entity_position_threshold   0.03 m
+#end_dis_interface
+
+#event_output
+#   file   alt_test.evt
+#   enable BTREE_NODE_CHILDREN
+#   enable BTREE_NODE_EXEC
+#end_event_output
+

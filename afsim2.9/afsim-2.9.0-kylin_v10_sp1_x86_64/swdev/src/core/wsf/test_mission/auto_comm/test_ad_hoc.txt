@@ -1,0 +1,262 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests the basic functionality of the ad_hoc / script protocol.
+// Three platforms exist in a generic network with no initial connections.
+// Each potential network characteristic is forced on the network via script,
+// and the ad_hoc member should respond at the time delays indicated, with the
+// action defined in the script logic for the ad_hoc network.
+//
+// In addition, this test also uses the script capabilities for WsfCommMessage
+// and WsfCommGraph, and others for testing purposes.
+
+router_protocol AD_HOC WSF_COMM_ROUTER_PROTOCOL_AD_HOC
+   comm_added_delay_time constant 1 s
+   comm_removed_delay_time constant 2 s
+   connection_added_delay_time constant 3 s
+   connection_removed_delay_time constant 4 s
+     
+   script bool OnCommAdded(WsfAddress aAddedComm, WsfCommGraph aState, WsfCommRouter aRouter)
+      if(TIME_NOW != 2.0)
+      {
+         writeln("-FAIL-");
+         writeln("OnCommAdded error at t=" + (string)TIME_NOW);
+         return false;
+      }
+      return true;
+   end_script
+   
+   script bool OnCommRemoved(WsfAddress aRemovedComm, WsfCommGraph aState, WsfCommRouter aRouter)
+      if(TIME_NOW != 5.0)
+      {
+         writeln("-FAIL-");
+         writeln("OnCommRemoved error at t=" + (string)TIME_NOW);
+         return false;
+      }
+      return true;
+   end_script
+   
+   script bool OnConnectionAdded(WsfAddress aSourceComm, WsfAddress aDestinationComm, WsfCommGraph aState, WsfCommRouter aRouter)
+      if(TIME_NOW != 9.0)
+      {
+         writeln("-FAIL-");
+         writeln("OnConnectionAdded error at t=" + (string)TIME_NOW);
+         return false;
+      }
+      return true;
+   end_script
+   
+   script bool OnConnectionRemoved(WsfAddress aSourceComm, WsfAddress aDestinationComm, WsfCommGraph aState, WsfCommRouter aRouter)
+      if(TIME_NOW != 15.0)
+      {
+         writeln("-FAIL-");
+         writeln("OnConnectionRemoved error at t=" + (string)TIME_NOW);
+         return false;
+      }   
+      return true;
+   end_script
+   
+   script WsfAddress OnMessageRouting(WsfCommMessage aMessage, WsfAddress aInterface, WsfCommGraph aState, WsfCommRouter aRouter)
+      if(TIME_NOW != 10.0)
+      {
+         writeln("-FAIL-");
+         writeln("OnMessageRouting error at t=" + (string)TIME_NOW);
+         return WsfAddress();
+      }
+      
+      // Test some of the graph functionality
+      if(!aState.IsValid())
+      {
+         writeln("-FAIL-");
+         writeln("Graph object valid failure.");
+      }
+      
+      WsfComm adHoc1 = WsfSimulation.FindPlatform("adhoc1").Comm("comm1");
+      WsfComm adHoc2 = WsfSimulation.FindPlatform("adhoc2_observer").Comm("comm1");
+      WsfComm test1 = WsfSimulation.FindPlatform("test1").Comm("comm1");
+      WsfComm test2 = WsfSimulation.FindPlatform("test2").Comm("comm1");
+      
+      if(aState.HasNode(test2.GetAddress()))
+      {
+         writeln("-FAIL-");
+         writeln("Graph object HasNode failure 1.");
+      }
+      
+      if(!aState.HasNode(test1.GetAddress()))
+      {
+         writeln("-FAIL-");
+         writeln("Graph object HasNode failure 2.");
+      }
+      else
+      {
+         WsfCommGraphNode node = aState.GetNode(test1.GetAddress());
+         if(node.GetAddress().GetAddress() != test1.GetAddress().GetAddress())
+         {
+            writeln("-FAIL-");
+            writeln("Node object addressing failure.");
+         }
+      }
+      
+      if(aState.HasEdge(adHoc1.GetAddress(), test2.GetAddress()))
+      {
+         writeln("-FAIL-");
+         writeln("Graph object HasEdge failure 1.");
+      }
+      else
+      {
+         WsfCommGraphEdge edge = aState.GetEdge(adHoc1.GetAddress(), test1.GetAddress());
+         if(edge.SourceAddress().GetAddress() != adHoc1.GetAddress().GetAddress())
+         {
+            writeln("-FAIL-");
+            writeln("Edge object SourceAddress failure.");
+         }
+         if(edge.DestinationAddress().GetAddress() != test1.GetAddress().GetAddress())
+         {
+            writeln("-FAIL-");
+            writeln("Edge object DestinationAddress failure.");
+         }
+         if(edge.Weight() != 1.0)
+         {
+            writeln("-FAIL-");
+            writeln("Edge object weight failure.");
+         }
+      }
+           
+      if(!aState.HasEdge(adHoc1.GetAddress(), test1.GetAddress()))
+      {
+         writeln("-FAIL-");
+         writeln("Graph object HasEdge failure 2.");
+      }
+      
+      Array<WsfCommGraphEdge> test1incomingEdges = aState.GetIncomingNodeEdges(test1.GetAddress());
+      Array<WsfCommGraphEdge> test1outgoingEdges = aState.GetOutgoingNodeEdges(test1.GetAddress());
+      Array<WsfCommGraphEdge> adHoc1incomingEdges = aState.GetIncomingNodeEdges(adHoc1.GetAddress());
+      Array<WsfCommGraphEdge> adHoc1outgoingEdges = aState.GetOutgoingNodeEdges(adHoc1.GetAddress());
+      if(test1incomingEdges.Size() != 1)
+      {
+         writeln("-FAIL-");
+         writeln("Edge count failure 1.");
+      }
+      if(test1outgoingEdges.Size() != 0)
+      {
+         writeln("-FAIL-");
+         writeln("Edge count failure 2.");
+      }
+      if(adHoc1incomingEdges.Size() != 0)
+      {
+         writeln("-FAIL-");
+         writeln("Edge count failure 3.");
+      }
+      if(adHoc1outgoingEdges.Size() != 1)
+      {
+         writeln("-FAIL-");
+         writeln("Edge count failure 4.");
+      }
+      
+      Array<WsfAddress> goodRoute = aState.FindPath(adHoc1.GetAddress(), test1.GetAddress());
+      Array<WsfAddress> badRoute = aState.FindPath(adHoc1.GetAddress(), test2.GetAddress());
+      if(goodRoute.Size() != 2)
+      {
+         writeln("-FAIL-");
+         writeln("Good route path count failure.");
+      }
+      if(badRoute.Size() != 0)
+      {
+         writeln("-FAIL-");
+         writeln("Bad route path count failure.");
+      }
+      
+      // Just return the destination address, since we know we're directly connected.
+      return aMessage.GetSourceMessage().Destination();
+           
+   end_script
+end_router_protocol
+
+network generic WSF_COMM_NETWORK_GENERIC
+end_network
+
+router DEFAULT WSF_COMM_ROUTER
+   add router_protocol ad_hoc AD_HOC
+   end_router_protocol
+   use_default_protocol false
+end_router
+
+comm TEST_COMM WSF_COMM_TRANSCEIVER
+   network_name generic
+end_comm
+
+platform_type AD_HOC_PLAT WSF_PLATFORM
+   add router default DEFAULT end_router
+   add comm comm1 TEST_COMM end_comm
+end_platform_type
+
+platform_type TEST_PLAT WSF_PLATFORM
+   add comm comm1 TEST_COMM end_comm
+end_platform_type
+
+platform adhoc1 AD_HOC_PLAT
+end_platform
+
+// Add a second ad_hoc protocol platform
+// just for testing purposes
+platform adhoc2_observer AD_HOC_PLAT
+end_platform
+
+platform test1 TEST_PLAT
+end_platform
+
+// This platform is in a different network. We'll move this during runtime
+// to test the CommAdded/CommRemoved methods.
+platform test2 WSF_PLATFORM
+   add comm comm1 WSF_COMM_TRANSCEIVER  
+   end_comm
+end_platform
+
+execute at_time 1 s absolute
+   // Add test2 to the network. Will kick off OnCommAdded with 1 s delay.
+   WsfComm test2Comm = WsfSimulation.FindPlatform("test2").Comm("comm1");
+   WsfNetwork default = WsfNetwork.GetNetwork("default");
+   default.RemoveMember(test2Comm.GetAddress());
+   WsfNetwork generic = WsfNetwork.GetNetwork("generic");
+   generic.AddMember(test2Comm);
+end_execute
+
+execute at_time 3 s absolute
+   // Remove test2 from the generic, re-add to default. 2 s delay for OnCommRemoved.
+   WsfComm test2Comm = WsfSimulation.FindPlatform("test2").Comm("comm1");
+   WsfNetwork default = WsfNetwork.GetNetwork("default");
+   WsfNetwork generic = WsfNetwork.GetNetwork("generic");
+   generic.RemoveMember(test2Comm.GetAddress());
+   default.AddMember(test2Comm);
+end_execute
+
+execute at_time 6 s absolute
+   // Add a connection. 3 s delay for OnConnectionAdded.
+   WsfNetwork generic = WsfNetwork.GetNetwork("generic");
+   generic.AddLink("adhoc1", "comm1", "test1", "comm1");
+end_execute
+
+execute at_time 10 s absolute
+   // Send a message. OnMessageRouting should be called immediately.
+   WsfComm adHocComm = WsfSimulation.FindPlatform("adhoc1").Comm("comm1");
+   WsfMessage message = {};
+   adHocComm.SendMessage(message, "test1", "comm1");
+end_execute
+
+execute at_time 11 s absolute
+   // Remove a connection. 4 s delay for OnConnectionRemoved.
+   WsfNetwork generic = WsfNetwork.GetNetwork("generic");
+   generic.RemoveLink("adhoc1", "comm1", "test1", "comm1");   
+end_execute
+
+#event_output
+#   enable all
+#   file ad_hoc.rep
+#end_event_output
+

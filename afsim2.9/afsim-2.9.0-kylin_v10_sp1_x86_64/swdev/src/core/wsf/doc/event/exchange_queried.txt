@@ -1,0 +1,38 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+EXCHANGE_QUERIED
+----------------
+
+NOTE:  This is a low-level event that occurs between many different platforms, some disinterested from each other, with
+potentially no distinguishable result.  End-users will likely be more interested in :ref:`docs/event/exchange_events:EXCHANGE_COMPLETED` at the
+culmination of an exchange.
+
+event_output Signature:
+
+.. parsed-literal::
+
+   <time> <query-type> <sender> to <listener> N=<serial-request-id> ID=<identifier> DESIRED=<amount> OFFERED=<amount> NEGOTIATED=<amount> DESIRED_RATE=<rate> OFFERED_RATE=<rate> NEGOTIATED_RATE=<rate> STATUS=<result>
+
+
+Signature Elements:
+
+======================================== ========================================
+Fields                                   Description
+======================================== ========================================
+Tag                                      Description
+<time>                                   The current simulation time
+<query-type>                             The event name, which is either EXCHANGE_REQUEST_QUERIED or EXCHANGE_RESPONSE_QUERIED
+<sender>                                 Name of platform that sent the query for potential exchange
+<listener>                               Name of platform that is to evaluate the query for applicability to itself
+<serial-request-id>                      Unique identifier to link transactor transactions together
+<identifier>                             Name of the proposed commodity or service for exchange
+<amount>                                 Amount of the proposed commodity or service for exchange (units are implementation-defined)
+<rate>                                   Rate at which the commodity or service is proposed to be exchanged (units are implementation-defined; zero denotes instantaneously)
+======================================== ========================================

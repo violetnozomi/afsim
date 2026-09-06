@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+
+// Input Testing
+route rt
+   position 0n 0e
+   altitude 30 km
+   speed 30 kts
+   position 1n 1e 
+end_route
+
+platform p WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      start_at start
+      route 
+         label start
+         transform_absolute_route rt 10 m 10 m 10 m
+      end_route
+   end_mover
+end_platform
+
+// Traversing a Route test
+platform plat_A WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      at_end_of_path stop
+   end_mover
+
+   route
+      position 0n 0.0w speed 36 km/s
+      offset 36 0 km
+      offset 36 0 km
+      offset 36 0 km
+   end_route
+end_platform
+
+route offsetPlatform
+   offset 36 0 km
+   offset 36 0 km
+   offset 36 0 km
+end_route
+
+platform plat_B WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      at_end_of_path stop
+   end_mover
+
+   route
+      position 0s 0.0e speed 36 km/s
+      insert_route offsetPlatform
+   end_route
+end_platform
+
+execute at_time 5 sec absolute
+   WsfPlatform a = WsfSimulation.FindPlatform("plat_A");
+   WsfPlatform b = WsfSimulation.FindPlatform("plat_B");
+   
+   
+   if(!a.IsNull() && !b.IsNull())
+   {
+      AssertWithinToleranceMessage(a.GroundRangeTo(b), 71822.7, 0.1, "Platform A & B are not at the correct distance.");
+   }
+   else
+   {
+      writeln("-FAIL- Platform A and/or B is NULL");
+   }
+end_execute
+
+platform plat_C WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      at_end_of_path stop
+   end_mover
+
+   route
+      position 0n 0.0w speed 36 km/s
+      offset 36 0 km
+      offset 36 0 km
+      offset 36 0 km
+   end_route
+end_platform
+
+route offsetPlatform2
+   offset 36 0 km
+   offset 36 0 km
+   offset 36 0 km
+end_route
+
+platform plat_D WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      at_end_of_path stop
+   end_mover
+
+   route
+      position 0s 0.0e speed 36 km/s
+      insert_offset_route offsetPlatform2
+   end_route
+end_platform
+
+execute at_time 6 sec absolute
+   WsfPlatform c = WsfSimulation.FindPlatform("plat_C");
+   WsfPlatform d = WsfSimulation.FindPlatform("plat_D");
+   
+   //Are the platforms within 1 km of each other?
+   if(!c.IsNull() && !d.IsNull() && c.GroundRangeTo(d) <= 1000) { writeln("-PASS-"); }
+   else
+   {
+      writeln("-FAIL- Platform C & D are not at the same location");
+      writeln("       Distance between : ", c.GroundRangeTo(d));
+   }
+end_execute

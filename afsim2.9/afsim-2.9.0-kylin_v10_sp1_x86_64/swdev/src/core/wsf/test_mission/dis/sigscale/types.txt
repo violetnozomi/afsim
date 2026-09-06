@@ -1,0 +1,129 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# =============================================================================
+
+radar_signature 737_RADAR_SIGNATURE
+   constant 1 m^2
+end_radar_signature
+
+platform_type 737 WSF_PLATFORM
+   icon 737
+
+   # ==========================================================================
+   # BEGIN - DIS signature change interface
+   #
+   # The enclosed data forms the interface between the 'dis_interface' and this
+   # platform type. The 'dis_interface' block contains 'entity_appearance'
+   # entries that define the script variables that will be updated when an
+   # articulated part changes and the script that will be called when a change
+   # occurs. For example
+   #
+   # dis_interface
+   #    entity_appearance
+   #       type 737 articulation 1253 radar_sig_scale  radar_sig_scale_changed
+   #   end_entity_appearance
+   # end_dis_interface
+
+   script_variables
+      double radar_sig_scale = 1.0;
+   end_script_variables
+
+   script void radar_sig_scale_changed()
+      writeln("T=",TIME_NOW," ",Name()," radar_sig_scale changed to ", radar_sig_scale);
+      SetRadarSigScaleFactor(radar_sig_scale);
+   end_script
+
+   # END - DIS signature change interface
+   # ==========================================================================
+
+   radar_signature 737_RADAR_SIGNATURE
+
+   mover WSF_AIR_MOVER
+      update_interval 1.0 sec
+   end_mover
+
+end_platform_type
+
+# =============================================================================
+
+
+platform_type RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+
+   sensor radar WSF_RADAR_SENSOR
+      show_calibration_data
+      frame_time 5 sec
+      maximum_range 300 km
+
+      on
+      transmitter
+         power     100 kw
+         frequency 3 ghz
+      end_transmitter
+      receiver
+      end_receiver
+
+      one_m2_detect_range 150 km
+
+      reports_location
+      reports_iff
+   end_sensor
+end_platform_type
+
+# =============================================================================
+
+dis_interface
+
+   log_created_entities
+   exercise    1
+   site        25
+   application 1
+   multicast   224.2.25.54 192.168.10
+   port        3225
+   autostart
+
+   entity_type RADAR_SITE       2:1:222:1:22:0:0
+   entity_type 737           1:2:225:1:9:10:0
+
+   entity_appearance
+      #type 737 articulation 1248 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1249 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1250 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1251 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1252 radar_sig_scale radar_sig_scale_changed
+      type 737 articulation 1253 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1254 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1255 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1256 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1257 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1258 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1259 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1260 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1261 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1262 radar_sig_scale radar_sig_scale_changed
+      #type 737 articulation 1263 radar_sig_scale radar_sig_scale_changed
+   end_entity_appearance
+
+end_dis_interface
+
+event_output
+   //file   replay.evt
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable PLATFORM_KILLED
+   enable PLATFORM_APPEARANCE_CHANGED
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_DROPPED
+end_event_output
+
+realtime
+end_time 45 sec

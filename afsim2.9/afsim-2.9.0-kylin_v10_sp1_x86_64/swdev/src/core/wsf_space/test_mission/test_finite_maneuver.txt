@@ -1,0 +1,90 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 24 hours
+
+platform proton-m WSF_PLATFORM
+   icon satellite
+   side blue
+
+   add mover WSF_SPACE_MOVER
+      semi_major_axis 22000 km
+      eccentricity 0.1
+      inclination 10 deg
+      update_interval 10 s
+
+      mission_sequence
+            debug
+            maneuver change_semi_major_axis
+               finite
+               debug
+               semi_major_axis 35800 km
+               execute_at periapsis
+               finite
+            end_maneuver
+     end_mission_sequence
+      
+      maneuvering simple
+         maximum_acceleration 10 m/s2
+         delta_v 10.0 km/s
+      end_maneuvering
+      
+   end_mover
+
+end_platform
+
+script_variables
+   bool sUpdated = false; 
+end_script_variables
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; begin ", aManeuver.ManeuverType());
+   if (aManeuver.ManeuverType() == "CHANGE_SEMI_MAJOR_AXIS")
+   {
+#      writeln(aSM.AvailableDeltaV());
+#      writeln(aManeuver.Duration());
+   }
+end_script
+
+script void OrbitalManeuverUpdated(WsfPlatform        aPlatform,
+                                   WsfSpaceMover      aSM,
+                                   WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "CHANGE_SEMI_MAJOR_AXIS")
+   {
+      #writeln(TIME_NOW, ": ", aSM.AvailableDeltaV());
+   }
+   sUpdated = true;
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; end ", aManeuver.ManeuverType());
+   if (!sUpdated)
+   {
+      writeln("-FAIL- (no maneuver update)");
+   }
+   double deltaSMA = Math.Fabs(aSM.SemiMajorAxis() - 35800000.0);
+   if (deltaSMA > 10.0)
+   {
+      writeln("-FAIL- (sma not matched) ", aSM.SemiMajorAxis());
+   }
+end_script
+
+script void SimulationComplete()
+end_script
+
+observer   
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated 
+   enable ORBITAL_MANEUVER_UPDATED OrbitalManeuverUpdated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted 
+   enable SIMULATION_COMPLETE
+end_observer 

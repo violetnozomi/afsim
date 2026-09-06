@@ -1,0 +1,534 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+random_seed 2
+
+#Provide global references to the target test platforms for use with script calls
+script_variables
+   WsfPlatform target1;
+   WsfPlatform target2;
+   WsfPlatform target3;
+   WsfPlatform target4;
+   WsfPlatform target5;
+end_script_variables
+
+cyber_effect TOGGLE_SENSORS_EFFECT WSF_CYBER_TOGGLE_SENSORS_EFFECT
+   platform target1
+      target_list 
+         sensor1       
+      end_target_list
+   end_platform
+   
+   platform_type TEST_PLATFORM
+      select_all
+   end_platform_type
+   
+   platform_type PARENT_TYPE1
+      target_list
+         sensor2
+      end_target_list
+   end_platform_type
+     
+end_cyber_effect
+
+cyber_effect TOGGLE_COMMS_EFFECT WSF_CYBER_TOGGLE_COMMS_EFFECT
+   platform target2
+      target_list
+         comm1
+         comm2
+      end_target_list
+   end_platform
+   
+   platform_type PARENT_TYPE2
+      target_list
+         comm1
+      end_target_list
+   end_platform_type
+   
+   default
+      select_all
+   end_default
+   
+end_cyber_effect
+
+cyber_effect TOGGLE_WEAPONS_EFFECT WSF_CYBER_TOGGLE_WEAPONS_EFFECT
+   default
+      select_all
+   end_default
+end_cyber_effect
+
+cyber_effect TOGGLE_PROCESSORS_EFFECT WSF_CYBER_TOGGLE_PROCESSORS_EFFECT
+   platform target2
+      target_list
+         proc1
+      end_target_list
+   end_platform
+   
+   default
+      select_all
+   end_default
+end_cyber_effect
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+   effect TOGGLE_SENSORS_EFFECT
+   effect TOGGLE_COMMS_EFFECT
+   effect TOGGLE_WEAPONS_EFFECT
+   effect TOGGLE_PROCESSORS_EFFECT
+   
+   probability_of_scan_detection 0.0
+   probability_of_attack_success 1.0
+   probability_of_status_report 1.0
+   probability_of_attack_detection 1.0
+   probability_of_future_immunity 0.0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 0 s
+   delivery_delay_time 0 s
+end_cyber_attack
+
+# All test platforms have this protection as part of the type
+cyber_protect TEST_PROTECT WSF_CYBER_PROTECT
+   attack_response TEST_ATTACK
+      probability_of_scan_detection 0.0
+      probability_of_attack_success 1.0
+      probability_of_status_report 1.0
+      probability_of_attack_detection 1.0
+      probability_of_future_immunity 0.0
+      
+      attack_detection_delay_time 0 s
+      attack_recovery_delay_time 5 s
+      restore      
+    end_attack_response     
+end_cyber_protect
+
+platform_type TEST_WEAPON WSF_PLATFORM
+
+end_platform_type
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   cyber_protect TEST_PROTECT
+   end_cyber_protect
+   
+   comm comm1 WSF_COMM_TRANSCEIVER
+      on
+   end_comm
+   
+   comm comm2 WSF_COMM_XMTR
+      on
+   end_comm
+   
+   sensor sensor1 WSF_GEOMETRIC_SENSOR
+      on
+      reports_location
+      frame_time 10 s
+   end_sensor
+   
+   sensor sensor2 WSF_RADAR_SENSOR
+      on
+      reports_location
+      frame_time 10 s
+      transmitter
+         power 100 kw
+         frequency 100 ghz
+      end_transmitter
+      receiver
+         frequency 10 ghz
+      end_receiver
+   end_sensor  
+   
+   weapon weapon1 WSF_EXPLICIT_WEAPON
+      on
+      launched_platform_type TEST_WEAPON
+   end_weapon 
+   
+   weapon weapon2 WSF_IMPLICIT_WEAPON
+      on
+   end_weapon
+   
+   processor proc1 WSF_TRACK_PROCESSOR
+      on
+   end_processor
+   
+   processor proc2 WSF_TASK_PROCESSOR
+      on
+   end_processor
+   
+end_platform_type
+
+platform_type PARENT_TYPE1 WSF_PLATFORM
+comm comm1 WSF_COMM_TRANSCEIVER
+      on
+   end_comm
+   
+   comm comm2 WSF_COMM_XMTR
+      on
+   end_comm
+   
+   sensor sensor1 WSF_GEOMETRIC_SENSOR
+      on
+      reports_location
+      frame_time 10 s
+   end_sensor
+   
+   sensor sensor2 WSF_RADAR_SENSOR
+      on
+      reports_location
+      frame_time 10 s
+      transmitter
+         power 100 kw
+         frequency 100 ghz
+      end_transmitter
+      receiver
+         frequency 10 ghz
+      end_receiver
+   end_sensor  
+   
+   weapon weapon1 WSF_EXPLICIT_WEAPON
+      on
+      launched_platform_type TEST_WEAPON
+   end_weapon 
+   
+   weapon weapon2 WSF_IMPLICIT_WEAPON
+      on
+   end_weapon
+end_platform_type
+
+platform_type PARENT_TYPE2 PARENT_TYPE1
+end_platform_type
+
+platform attack1 TEST_PLATFORM
+   position 39n 90:20w
+   icon EA-6B
+   altitude 10000 m
+    execute at_time 1.0 s absolute
+       bool attackStatus = PLATFORM.CyberAttack(target1, "TEST_ATTACK");
+       attackStatus = PLATFORM.CyberAttack(target2, "TEST_ATTACK");
+       attackStatus = PLATFORM.CyberAttack(target3, "TEST_ATTACK");
+       attackStatus = PLATFORM.CyberAttack(target4, "TEST_ATTACK");
+       attackStatus = PLATFORM.CyberAttack(target5, "TEST_ATTACK");
+    end_execute
+    
+    
+    execute at_time 1.1 s absolute
+    
+       ######################## target1 ########################
+       WsfSensor sensor1 = target1.Sensor("sensor1");
+       WsfSensor sensor2 = target1.Sensor("sensor2");
+       WsfComm comm1 = target1.Comm("comm1");
+       WsfComm comm2 = target1.Comm("comm2");
+       WsfWeapon weapon1 = target1.Weapon("weapon1");
+       WsfWeapon weapon2 = target1.Weapon("weapon2");
+       WsfProcessor proc1 = target1.Processor("proc1");
+       WsfProcessor proc2 = target1.Processor("proc2");
+       
+       #Sensor1 should be off
+       assert(!sensor1.IsTurnedOn());  
+       assert(sensor2.IsTurnedOn()); 
+       
+       #All comms should be off
+       assert(!comm1.IsTurnedOn());  
+       assert(!comm2.IsTurnedOn()); 
+       
+       #All weapons should be off
+       assert(!weapon1.IsTurnedOn());  
+       assert(!weapon2.IsTurnedOn());
+       
+       #All processors should be off
+       assert(!proc1.IsTurnedOn());
+       assert(!proc2.IsTurnedOn()); 
+       
+       ######################## target2 ########################
+       sensor1 = target2.Sensor("sensor1");
+       sensor2 = target2.Sensor("sensor2");
+       comm1 = target2.Comm("comm1");
+       comm2 = target2.Comm("comm2");
+       weapon1 = target2.Weapon("weapon1");
+       weapon2 = target2.Weapon("weapon2");
+       proc1 = target2.Processor("proc1");
+       proc2 = target2.Processor("proc2");
+       
+       #All sensors should be off
+       assert(!sensor1.IsTurnedOn());  
+       assert(!sensor2.IsTurnedOn()); 
+       
+       #All comms should be off
+       assert(!comm1.IsTurnedOn());  
+       assert(!comm2.IsTurnedOn()); 
+       
+       #All weapons should be off
+       assert(!weapon1.IsTurnedOn());  
+       assert(!weapon2.IsTurnedOn());
+       
+       #Only proc1 should be off
+       assert(proc1.IsTurnedOff());
+       assert(proc2.IsTurnedOn());
+       
+       ######################## target3 ########################
+       sensor1 = target3.Sensor("sensor1");
+       sensor2 = target3.Sensor("sensor2");
+       comm1 = target3.Comm("comm1");
+       comm2 = target3.Comm("comm2");
+       weapon1 = target3.Weapon("weapon1");
+       weapon2 = target3.Weapon("weapon2");
+       
+       #Sensor2 should be off
+       assert(sensor1.IsTurnedOn());  
+       assert(!sensor2.IsTurnedOn()); 
+       
+       #All comms should be off
+       assert(!comm1.IsTurnedOn());  
+       assert(!comm2.IsTurnedOn()); 
+       
+       #All weapons should be off
+       assert(!weapon1.IsTurnedOn());  
+       assert(!weapon2.IsTurnedOn()); 
+       
+       ######################## target4 ########################
+       sensor1 = target4.Sensor("sensor1");
+       sensor2 = target4.Sensor("sensor2");
+       comm1 = target4.Comm("comm1");
+       comm2 = target4.Comm("comm2");
+       weapon1 = target4.Weapon("weapon1");
+       weapon2 = target4.Weapon("weapon2");
+       
+       #Sensor2 should be off
+       assert(sensor1.IsTurnedOn());  
+       assert(!sensor2.IsTurnedOn()); 
+       
+       #Comm1 should be off
+       assert(!comm1.IsTurnedOn());  
+       assert(comm2.IsTurnedOn()); 
+       
+       #All weapons should be off
+       assert(!weapon1.IsTurnedOn());  
+       assert(!weapon2.IsTurnedOn()); 
+       
+       ######################## target5 ########################
+       sensor1 = target5.Sensor("sensor1");
+       sensor2 = target5.Sensor("sensor2");
+       comm1 = target5.Comm("comm1");
+       comm2 = target5.Comm("comm2");
+       weapon1 = target5.Weapon("weapon1");
+       weapon2 = target5.Weapon("weapon2");
+       
+       #No sensors should be off
+       assert(sensor1.IsTurnedOn());  
+       assert(sensor2.IsTurnedOn()); 
+       
+       #All comms should be off
+       assert(!comm1.IsTurnedOn());  
+       assert(!comm2.IsTurnedOn()); 
+       
+       #All weapons should be off
+       assert(!weapon1.IsTurnedOn());  
+       assert(!weapon2.IsTurnedOn()); 
+       
+       
+    end_execute
+    
+    #Recovery has occured at this point in time. All should be on
+    execute at_time 6.1 s absolute
+    
+       ######################## target1 ########################
+       WsfSensor sensor1 = target1.Sensor("sensor1");
+       WsfSensor sensor2 = target1.Sensor("sensor2");
+       WsfComm comm1 = target1.Comm("comm1");
+       WsfComm comm2 = target1.Comm("comm2");
+       WsfWeapon weapon1 = target1.Weapon("weapon1");
+       WsfWeapon weapon2 = target1.Weapon("weapon2");
+       WsfProcessor proc1 = target1.Processor("proc1");
+       WsfProcessor proc2 = target1.Processor("proc2");
+       
+       assert(sensor1.IsTurnedOn());    
+       assert(sensor2.IsTurnedOn()); 
+       assert(comm1.IsTurnedOn());  
+       assert(comm2.IsTurnedOn()); 
+       assert(weapon1.IsTurnedOn());  
+       assert(weapon2.IsTurnedOn());
+       assert(proc1.IsTurnedOn());
+       assert(proc2.IsTurnedOn());
+       
+       ######################## target2 ########################
+       sensor1 = target2.Sensor("sensor1");
+       sensor2 = target2.Sensor("sensor2");
+       comm1 = target2.Comm("comm1");
+       comm2 = target2.Comm("comm2");
+       weapon1 = target2.Weapon("weapon1");
+       weapon2 = target2.Weapon("weapon2");
+       proc1 = target2.Processor("proc1");
+       proc2 = target2.Processor("proc2");
+       
+       assert(sensor1.IsTurnedOn());    
+       assert(sensor2.IsTurnedOn()); 
+       assert(comm1.IsTurnedOn());  
+       assert(comm2.IsTurnedOn()); 
+       assert(weapon1.IsTurnedOn());  
+       assert(weapon2.IsTurnedOn());
+       assert(proc1.IsTurnedOn());
+       assert(proc2.IsTurnedOn());
+       
+       ######################## target3 ########################
+       sensor1 = target3.Sensor("sensor1");
+       sensor2 = target3.Sensor("sensor2");
+       comm1 = target3.Comm("comm1");
+       comm2 = target3.Comm("comm2");
+       weapon1 = target3.Weapon("weapon1");
+       weapon2 = target3.Weapon("weapon2");
+       
+       assert(sensor1.IsTurnedOn());    
+       assert(sensor2.IsTurnedOn()); 
+       assert(comm1.IsTurnedOn());  
+       assert(comm2.IsTurnedOn()); 
+       assert(weapon1.IsTurnedOn());  
+       assert(weapon2.IsTurnedOn()); 
+       
+       ######################## target4 ########################
+       sensor1 = target4.Sensor("sensor1");
+       sensor2 = target4.Sensor("sensor2");
+       comm1 = target4.Comm("comm1");
+       comm2 = target4.Comm("comm2");
+       weapon1 = target4.Weapon("weapon1");
+       weapon2 = target4.Weapon("weapon2");
+       
+       assert(sensor1.IsTurnedOn());    
+       assert(sensor2.IsTurnedOn()); 
+       assert(comm1.IsTurnedOn());  
+       assert(comm2.IsTurnedOn()); 
+       assert(weapon1.IsTurnedOn());  
+       assert(weapon2.IsTurnedOn()); 
+       
+       ######################## target5 ########################
+       sensor1 = target5.Sensor("sensor1");
+       sensor2 = target5.Sensor("sensor2");
+       comm1 = target5.Comm("comm1");
+       comm2 = target5.Comm("comm2");
+       weapon1 = target5.Weapon("weapon1");
+       weapon2 = target5.Weapon("weapon2");
+       
+       assert(sensor1.IsTurnedOn());    
+       assert(sensor2.IsTurnedOn()); 
+       assert(comm1.IsTurnedOn());  
+       assert(comm2.IsTurnedOn()); 
+       assert(weapon1.IsTurnedOn());  
+       assert(weapon2.IsTurnedOn()); 
+       
+    end_execute
+    
+end_platform
+
+platform target1 TEST_PLATFORM
+   position 38:45n 90:20w
+   icon AAA
+   on_initialize
+      target1 = PLATFORM;
+   end_on_initialize
+end_platform
+
+platform target2 TEST_PLATFORM
+   position 38:45n 90:10w
+   icon AAA
+   on_initialize
+      target2 = PLATFORM;
+   end_on_initialize
+end_platform
+
+platform target3 PARENT_TYPE1
+   position 38:45n 90:00w
+   icon AAA
+   add cyber_protect TEST_PROTECT
+   end_cyber_protect
+   on_initialize
+      target3 = PLATFORM;
+   end_on_initialize   
+end_platform
+
+platform target4 PARENT_TYPE2
+   position 38:45n 89:50w
+   icon AAA
+   add cyber_protect TEST_PROTECT
+   end_cyber_protect
+   on_initialize
+      target4 = PLATFORM;
+   end_on_initialize   
+end_platform
+
+platform target5 WSF_PLATFORM
+   position 38:45n 89:40w
+   icon AAA
+   add cyber_protect TEST_PROTECT
+   end_cyber_protect
+   on_initialize
+      target5 = PLATFORM;
+   end_on_initialize
+   
+   add comm comm1 WSF_COMM_TRANSCEIVER
+      on
+   end_comm
+   
+   add comm comm2 WSF_COMM_XMTR
+      on
+   end_comm
+   
+   add sensor sensor1 WSF_GEOMETRIC_SENSOR
+      on
+      reports_location
+      frame_time 10 s
+   end_sensor
+   
+   add sensor sensor2 WSF_RADAR_SENSOR
+      on
+      reports_location
+      frame_time 10 s
+      transmitter
+         power 100 kw
+         frequency 100 ghz
+      end_transmitter
+      receiver
+         frequency 10 ghz
+      end_receiver
+   end_sensor  
+   
+   add weapon weapon1 WSF_EXPLICIT_WEAPON
+      on
+      launched_platform_type TEST_WEAPON
+   end_weapon 
+   
+   add weapon weapon2 WSF_IMPLICIT_WEAPON
+      on
+   end_weapon
+   
+end_platform
+
+
+end_time 1 min
+
+event_output
+   file STDOUT
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable CYBER_ATTACK_INITIATED
+   enable CYBER_ATTACK_SUCCEEDED
+   enable CYBER_ATTACK_FAILED
+   enable CYBER_ATTACK_DETECTED
+   enable CYBER_ATTACK_RECOVERY
+   enable CYBER_SCAN_INITIATED
+   enable CYBER_SCAN_SUCCEEDED
+   enable CYBER_SCAN_DETECTED
+   enable CYBER_SCAN_FAILED
+end_event_output
+
+
+
+

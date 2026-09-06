@@ -1,0 +1,97 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests that we get identical results when using identical movers, but with one 
+# attached to a platform in the standard way and one using multiresolution_mover.
+
+platform_type SIMPLE_FIGHTER WSF_PLATFORM
+   icon F-18
+   multiresolution_mover WSF_MULTIRESOLUTION_MOVER
+      model low_fidelity_mover
+         fidelity_range 0 0.5
+         mover WSF_AIR_MOVER
+            update_interval 30 sec
+         end_mover
+      end_model
+      model high_fidelity_mover
+         fidelity_range 0.5 1.0
+         mover WSF_AIR_MOVER
+            update_interval 0.1 sec
+         end_mover
+      end_model
+   end_multiresolution_mover
+end_platform_type
+
+platform mr_mover_platform SIMPLE_FIGHTER
+   multiresolution_mover
+      fidelity 0
+      common
+         route
+            position 0n 0e altitude 20000 ft heading 0 deg speed 450 kts
+            position 0.1n 0e altitude 20000 ft speed 450 kts
+            position 0.1n 0.1e altitude 25000 ft speed 450 kts
+         end_route
+      end_common
+   end_multiresolution_mover
+end_platform
+
+platform air_mover_platform WSF_PLATFORM
+   icon F-18  
+   add mover WSF_AIR_MOVER
+      update_interval 30 sec
+   end_mover
+   route
+      position 0n 0e altitude 20000 ft heading 0 deg speed 450 kts
+      position 0.1n 0e altitude 20000 ft speed 450 kts
+      position 0.1n 0.1e altitude 25000 ft speed 450 kts
+   end_route
+end_platform
+
+end_time 4 min
+
+script_variables
+   WsfGeoPoint mrMoverLocation = WsfGeoPoint();
+   bool mrMoverHasUpdate = false;
+   WsfGeoPoint airMoverLocation = WsfGeoPoint();
+   bool airMoverHasUpdate = false;
+end_script_variables
+
+script void MoverUpdated(WsfPlatform aPlatform, WsfMover aMover)
+   if(mrMoverHasUpdate && aPlatform.Name() == "mr_mover_platform") {
+      writeln("-FAIL- Got two mr_mover_platform updates, expected a air_mover_platform update");
+   }
+   if(airMoverHasUpdate && aPlatform.Name() == "air_mover_platform") {
+      writeln("-FAIL- Got two air_mover_platform updates, expected an mr_mover_platform update");
+   }
+   
+   if(!airMoverHasUpdate && aPlatform.Name() == "air_mover_platform") {
+      airMoverLocation = aPlatform.Location();
+      airMoverHasUpdate = true;
+   } else if(!mrMoverHasUpdate && aPlatform.Name() == "mr_mover_platform") {
+      mrMoverLocation = aPlatform.Location();
+      mrMoverHasUpdate = true;
+   }
+   
+   if(mrMoverHasUpdate && airMoverHasUpdate){
+      if(mrMoverLocation.SlantRangeTo(airMoverLocation) > 1.0e-15){
+         writeln("Locations don't match: MR: ", mrMoverLocation, ", air: ", airMoverLocation);
+         writeln("-FAIL-");
+      } else {
+         writeln("-PASS- Locations match");
+      }
+      mrMoverHasUpdate = false;
+      airMoverHasUpdate = false;
+   }
+end_script
+
+observer
+   enable MOVER_UPDATED
+end_observer

@@ -1,0 +1,446 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This is a very simple jammer test
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+# ****************************************************************************
+# Define the system types (movers, sensors, weapons, etc.)
+# ****************************************************************************
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+  constant 10 m^2
+end_radar_signature
+
+radar_signature TRANSPORT_RADAR_SIGNATURE
+  constant 100 m^2
+end_radar_signature
+
+# ****************************************************************************
+#                       Demonstration Airborne Jammer
+
+antenna_pattern DEMO_JAMMER_ANTENNA
+  circular_pattern
+     peak_gain 10 dB
+     beamwidth 10 deg
+  end_circular_pattern
+end_antenna_pattern
+
+false_target FALSE_TARGET WSF_FALSE_TARGET
+  quantity                100
+
+  #multi_radar_behavior consistent_to_multiple_radars
+  multi_radar_behavior random_to_multiple_radars
+
+  #false_target_behavior  consistent_scan_to_scan
+  false_target_behavior  random_scan_to_scan
+
+  scan_time 20 sec
+
+  distribution_centroid
+    altitude 35000 ft
+    latitude 36:30:00n
+    longitude 115:30:00w
+  end_distribution_centroid
+
+  distribution
+    bearing_reference       jammer
+    radius      150000 m
+    sector_arc  360 deg
+  end_distribution
+
+  false_target_movement
+     speeds    450 kts 450 kts
+     headings   0 deg   0 deg
+  end_false_target_movement
+
+  range_constrained    false
+  persistence          1.0
+end_false_target
+
+electronic_warfare jammer_ea_1 WSF_ELECTRONIC_ATTACK
+   technique false_targets WSF_EA_TECHNIQUE
+     default_on // Effect is turned on at time zero.
+     effect ft_effect WSF_FALSE_TARGET_EFFECT
+        false_target_technique FALSE_TARGET
+     end_effect
+   end_technique
+   technique noise_jamming WSF_EA_TECHNIQUE
+      default_on // Effect is turned on at time zero.
+      effect noise_effect WSF_JAMMER_POWER_EFFECT
+         jamming_delta_gain 0 dB
+      end_effect
+   end_technique
+end_electronic_warfare
+
+weapon DEMO_JAMMER_1 WSF_RF_JAMMER
+  maximum_number_of_spots      2
+  jammer_group mine
+  group_power_distribution average
+  transmitter
+    power     300 w
+    frequency 900 mhz
+    bandwidth 1 mhz
+    antenna_pattern DEMO_JAMMER_ANTENNA
+    electronic_attack jammer_ea_1 end_electronic_attack
+  end_transmitter
+end_weapon
+
+electronic_warfare jammer_ea_2 WSF_ELECTRONIC_ATTACK
+   technique false_targets WSF_EA_TECHNIQUE
+     default_on // Effect is turned on at time zero.
+     effect ft_effect WSF_FALSE_TARGET_EFFECT
+        false_target_technique FALSE_TARGET
+     end_effect
+   end_technique
+   technique noise_jamming WSF_EA_TECHNIQUE
+      default_on // Effect is turned on at time zero.
+      effect noise_effect WSF_JAMMER_POWER_EFFECT
+         jamming_delta_gain 0 dB
+      end_effect
+   end_technique
+end_electronic_warfare
+ 
+weapon DEMO_JAMMER_2 WSF_RF_JAMMER
+  maximum_number_of_spots      2
+  jammer_group mine
+  group_power_distribution average
+  transmitter
+    power 300 w
+    frequency 900 mhz
+    bandwidth 1 mhz
+    antenna_pattern DEMO_JAMMER_ANTENNA
+    electronic_attack jammer_ea_2 end_electronic_attack
+  end_transmitter
+end_weapon
+
+# ****************************************************************************
+#                     Demonstration Early Warning Radar
+
+antenna_pattern EW_RADAR_ANTENNA
+  rectangular_pattern
+     peak_gain 35 dB
+     minimum_gain -20 dB
+     azimuth_beamwidth   10 deg
+     elevation_beamwidth 45 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+antenna_pattern AUX_ANTENNA
+  uniform_pattern
+     peak_gain 10 dB
+     beamwidth 360 deg
+  end_uniform_pattern
+end_antenna_pattern
+
+# A simple EW radar (this somewhat corresponds to the EW/GCI radar defined
+# in the Suppressor Obruty demo)
+electronic_warfare radar_ep WSF_ELECTRONIC_PROTECT
+     technique sensor_sidelobe_canceler WSF_EP_TECHNIQUE
+        mitigated_techniques
+           noise_jamming
+        end_mitigated_techniques
+        effect slc_effect WSF_SLC_EFFECT
+           number_canceler_channels  1
+           cancelation_lock_ratio    0 dB
+           antenna_pattern            AUX_ANTENNA
+              cancelation_ratios
+                 number_canceled_jammers 1
+                    jammer_to_noise 0.0 db   0.0 db
+                    jammer_to_noise 15.0 db 10.0 db
+                    jammer_to_noise 30.0 db 20.0 db
+                 saturation_ratio 5.0 db
+           end_cancelation_ratios
+        end_effect
+     end_technique
+     technique sensor_sidelobe_blanker WSF_EP_TECHNIQUE
+        mitigated_techniques
+           false_targets
+        end_mitigated_techniques
+        effect slb_effect WSF_SLB_EFFECT
+           antenna_pattern      AUX_ANTENNA
+           blanking_threshold 0 dB
+           saturation_effect
+             duty_cycle_limit_effect
+             duty_cycle_limit 0.5
+          end_saturation_effect
+          target_blanking_effect
+             probabilities
+                pulse_density 0.0 0.0
+                pulse_density 0.1 0.2
+                pulse_density 0.3 0.6
+                pulse_density 0.5 0.8
+                pulse_density 1.0 1.0
+              end_probabilities
+           end_target_blanking_effect
+        end_effect
+     end_technique
+end_electronic_warfare
+   
+sensor EW_RADAR WSF_RADAR_SENSOR
+
+  frame_time                1  sec
+
+  # Specify the location and orientation of the sensor on the platform.
+
+  location                  0.0 0.0 -30 m
+
+  # The sensor sweeps only in azimuth
+  scan_mode                 azimuth
+  azimuth_scan_limits       -180 deg 180 deg
+
+  # The field of view, minimum_range and maximum_range are not required.
+  # They are simply used for quick culling and should be generous.
+  # (i.e. the field_of_view limits should be probably be larger than the
+  # corresponding slew limit because the beam can probably detect things
+  # outside the slew limit).
+
+  elevation_field_of_view  -2.5 deg 42.5 deg
+
+  minimum_range             0 nm
+  maximum_range           400 km  # really 225 km
+
+  false_target_screener SCREENER_1 WSF_FT_SCREENER
+     track_capacity    50
+     plot_capacity     100
+     transfer_capacity 50
+  end_false_target_screener
+
+  transmitter
+     power                        750 kw
+     frequency                    900 mhz
+     bandwidth                    0.1 mhz          # Added
+     antenna_pattern              EW_RADAR_ANTENNA
+     antenna_tilt                 10 deg
+     pulse_width                  50  usec
+     pulse_repetition_interval    750 usec // max PRI range of 225 km
+  end_transmitter
+
+  receiver
+     antenna_pattern              EW_RADAR_ANTENNA
+     antenna_tilt                  10 deg
+     frequency                    900 mhz
+     bandwidth                      1 mhz
+    electronic_protect radar_ep end_electronic_protect
+  end_receiver
+
+  one_m2_detect_range       225 km
+
+  azimuth_error_sigma   0.001 deg
+  elevation_error_sigma 0.001 deg
+  range_error_sigma     7.0 m
+
+  filter WSF_ALPHA_BETA_FILTER
+    alpha 0.4
+    beta  0.1
+  end_filter
+
+  hits_to_establish_track   3 5   # 3 of last 5 scans to establish track
+  hits_to_maintain_track    1 4   # 1 of last 4 scans to maintain  track
+
+  reports_location
+  reports_velocity
+  reports_signal_to_noise
+  reports_range
+  reports_bearing
+  reports_elevation
+
+end_sensor
+
+# ****************************************************************************
+# Define the platform types
+# ****************************************************************************
+
+
+platform_type JAMMER_PLATFORM_1 WSF_PLATFORM
+
+  icon EA-6B
+  mover WSF_AIR_MOVER end_mover
+  radar_signature TRANSPORT_RADAR_SIGNATURE
+
+  weapon jammer-1 DEMO_JAMMER_1 end_weapon
+
+  weapon jammer-2 DEMO_JAMMER_2 end_weapon
+
+  processor track_manager WSF_TRACK_PROCESSOR
+  end_processor
+
+  processor proc WSF_SCRIPT_PROCESSOR
+     # Script to select a jammer and add a spot
+     //script_listing on
+
+     script_variables
+        WsfWeapon jammer;
+        int jamming = 0;
+     end_script_variables
+
+     #debug
+     on
+     update_interval 30.0 sec
+     on_update
+
+        for (int i=0; i < PLATFORM.WeaponCount(); i = i + 1)
+        {
+           jammer = PLATFORM.WeaponEntry(i);
+           string jammerName = jammer.Name();
+           if (jammerName == "jammer-2")
+           {
+              if (jamming == 0)
+              {
+                 writeln("-PASS- Started Jamming - ", jammerName);
+                 jammer.StartJamming(900000000, 1000000);
+                 jamming = 1;
+              }
+              else
+              {
+                 writeln("-PASS- Stopped Jamming - ", jammerName);
+                 jammer.StopJamming(900000000, 1000000);
+                 jamming = 0;
+              }
+           }
+        }
+     end_on_update
+  end_processor
+
+end_platform_type
+
+platform_type EW_RADAR_SITE WSF_PLATFORM
+
+  icon Ground_Radar
+  mover WSF_GROUND_MOVER end_mover
+
+  sensor ew_radar EW_RADAR
+     processor track_manager
+  end_sensor
+
+  processor track_manager WSF_TRACK_PROCESSOR
+  end_processor
+
+end_platform_type
+
+platform_type STRIKER_PLATFORM WSF_PLATFORM
+  icon F-18E
+  side blue
+  mover WSF_AIR_MOVER end_mover
+  radar_signature FIGHTER_RADAR_SIGNATURE
+end_platform_type
+
+# ****************************************************************************
+#                        Define the platform instances
+# ****************************************************************************
+
+platform jammer-1 JAMMER_PLATFORM_1
+  side blue
+  route
+    position 36:45:48n 114:51:30w
+    altitude 35000 ft
+    speed 450 kts
+    heading 270 deg
+  end_route
+
+  weapon jammer-1
+    on
+  end_weapon
+
+  weapon jammer-2
+      off
+  end_weapon
+
+end_platform
+
+platform ew-radar-site-1 EW_RADAR_SITE
+  side red
+  route
+    position 36:46:06n 115:53:24w
+    altitude 100 ft
+    heading 90 deg
+  end_route
+  sensor ew_radar
+    on
+  end_sensor
+end_platform
+
+platform striker-1 STRIKER_PLATFORM
+  route
+    position 36:27:36n 115:15:54w
+    altitude 35000 ft
+    speed 450 kts
+    heading 0 deg
+  end_route
+
+  side blue
+
+end_platform
+
+platform striker-2 STRIKER_PLATFORM
+  route
+    position 36:27:30n 115:04:18w
+    altitude 35000 ft
+    speed 450 kts
+    heading 0 deg
+  end_route
+
+  side blue
+
+end_platform
+
+event_output
+#   enable all
+#   enable CRASHED_INTO_GROUND
+#   enable COMM_TURNED_OFF
+#   enable COMM_TURNED_ON
+#   enable ENTER_STATE
+#   enable EXIT_STATE
+#   enable EXECUTE_ACTION
+#   enable LOCAL_TRACK_CORRELATION
+#   enable LOCAL_TRACK_DECORRELATION
+#   enable LOCAL_TRACK_INITIATED
+#   enable LOCAL_TRACK_UPDATED
+#   enable LOCAL_TRACK_DROPPED
+#   enable MESSAGE_DISCARDED
+#   enable MESSAGE_QUEUED
+#   enable MESSAGE_RECEIVED
+#   enable MESSAGE_TRANSMITTED
+#   enable MESSAGE_TRANSMITTED
+#   enable MESSAGE_RECEIVED
+#   enable MESSAGE_QUEUED
+#   enable MESSAGE_DISCARDED
+#   enable PLATFORM_ADDED
+#   enable PLATFORM_DELETED
+#   enable PLATFORM_BROKEN
+#   enable RAN_OUT_OF_FUEL
+#   enable SENSOR_TRACK_DROPPED
+#   enable SENSOR_TRACK_INITIATED
+#   enable SENSOR_TRACK_UPDATED
+#   enable SENSOR_TURNED_ON
+#   enable SENSOR_TURNED_OFF
+#   enable SENSOR_TURNED_ON
+#   enable SENSOR_TURNED_OFF
+#   enable SENSOR_TRACK_INITIATED
+#   enable SENSOR_TRACK_UPDATED
+#   enable SENSOR_TRACK_DROPPED
+#   enable TASK_ASSIGNED
+#   enable TASK_CANCELLED
+#   enable TASK_COMPLETED
+#   enable WEAPON_FIRED
+#   enable WEAPON_HIT
+#   enable WEAPON_MISSED
+#   enable WEAPON_TERMINATED
+#   enable WEAPON_RELOAD_STARTED
+#   enable WEAPON_RELOAD_ENDED
+#   enable WEAPON_TURNED_ON
+#   enable WEAPON_TURNED_OFF
+#  file replay.evt
+end_event_output
+
+end_time 60 sec
+
+

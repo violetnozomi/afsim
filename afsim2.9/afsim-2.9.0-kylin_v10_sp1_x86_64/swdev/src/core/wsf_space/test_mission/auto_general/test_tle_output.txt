@@ -1,0 +1,155 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#############################################################################
+#to write out TLE data from orbital propagators
+#############################################################################
+
+script_variables
+   int gNumPassed = 0;
+end_script_variables
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   icon satellite
+   side green
+
+   script_variables
+      string mShadowSatName = "";
+   end_script_variables
+   
+script void TestLocDiff(string aOtherPlatform)
+   Vec3 loc1 = PLATFORM.LocationECI();
+   Vec3 loc2 = WsfSimulation.FindPlatform(aOtherPlatform).LocationECI();
+   Vec3 diff = Vec3.Subtract(loc2, loc1);
+   writeln(TIME_NOW, ": Location difference is ", diff.Magnitude(), " from ", aOtherPlatform);
+   
+      writeln("   ", PLATFORM.Name(), ": ", loc1);
+      writeln("   ",  aOtherPlatform, ": ", loc2);
+
+   // This difference tolerance is large because the uncertainty in a TLE mean anomaly
+   // is 0.0001 deg; at 10000 km this is ~17m!
+   if (diff.Magnitude() > 20.0)
+   {
+      writeln("-FAIL- ", TIME_NOW / 60, " ", PLATFORM.Name(), " ", aOtherPlatform);
+      writeln("   ", PLATFORM.Name(), ": ", loc1);
+      writeln("   ",  aOtherPlatform, ": ", loc2);
+   }
+   else
+   {
+      gNumPassed += 1;
+   }
+end_script
+   
+end_platform_type
+
+platform_type NSAT TEST_PLATFORM
+
+   mover WSF_NORAD_SPACE_MOVER
+      update_interval 360 minutes 
+   end_mover
+
+end_platform_type
+
+platform_type SAT TEST_PLATFORM
+
+   mover WSF_SPACE_MOVER
+      update_interval 360 minutes 
+   end_mover
+
+end_platform_type
+
+platform sgp4_test NSAT
+
+   on_initialize
+      mShadowSatName = "shadow";
+   end_on_initialize      
+   
+orbit
+1 88888U          80275.98708465  .00073094  13844-3  66816-4 0     8
+2 88888  72.8435 115.9689 0086731  52.6988 110.5714 16.05824518   105
+end_orbit
+
+execute at_time 30 min absolute
+   WsfSpaceMover sm = (WsfSpaceMover)PLATFORM.Mover();
+   string tle = sm.TwoLineElement();
+   writeln(tle);
+   WsfPlatform shadow = WsfSimulation.CreatePlatform(PLATFORM.Type());
+   WsfSpaceMover ssm = (WsfSpaceMover)shadow.Mover();
+   ssm.SetTwoLineElement(tle);
+   WsfSimulation.AddPlatform(shadow, mShadowSatName);
+end_execute
+
+execute at_time 300 minutes absolute 
+   TestLocDiff(mShadowSatName);
+end_execute
+execute at_time 330 minutes absolute
+   // Set the tle on the active platform.
+   WsfSpaceMover sm = (WsfSpaceMover)PLATFORM.Mover();
+   string tle = sm.TwoLineElement();   
+   sm.SetTwoLineElement(tle);
+   TestLocDiff(mShadowSatName);
+end_execute
+
+end_platform
+
+platform sattest SAT
+
+   on_initialize
+      mShadowSatName = "shadow2";
+   end_on_initialize      
+   
+   edit mover
+      semi_major_axis 10000 km
+      eccentricity 0.0
+      mean_anomaly 20 deg
+      inclination 20 deg
+      argument_of_periapsis 150 deg
+      raan 210 deg
+   end_mover
+
+execute at_time 30 min absolute
+   WsfSpaceMover sm = (WsfSpaceMover)PLATFORM.Mover();
+   string tle = sm.TwoLineElement();
+   writeln(tle);
+   WsfPlatform shadow = WsfSimulation.CreatePlatform(PLATFORM.Type());
+   WsfSpaceMover ssm = (WsfSpaceMover)shadow.Mover();
+   ssm.SetTwoLineElement(tle);
+   WsfSimulation.AddPlatform(shadow, mShadowSatName);
+end_execute
+
+execute at_time 300 minutes absolute 
+   TestLocDiff(mShadowSatName);
+end_execute
+
+execute at_time 330 minutes absolute
+   // Set the tle on the active platform.
+   WsfSpaceMover sm = (WsfSpaceMover)PLATFORM.Mover();
+   string tle = sm.TwoLineElement();   
+   sm.SetTwoLineElement(tle);
+   TestLocDiff(mShadowSatName);
+end_execute
+
+end_platform
+
+start_epoch 1980275.98708465
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+script void SimulationComplete()
+   if (gNumPassed == 4)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+end_time 330.1 minutes
+test_date_time  

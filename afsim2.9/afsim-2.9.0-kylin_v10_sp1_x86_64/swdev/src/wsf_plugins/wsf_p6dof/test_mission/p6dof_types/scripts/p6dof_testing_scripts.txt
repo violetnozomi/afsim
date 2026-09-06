@@ -1,0 +1,174 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+//******************************************************************
+// This file wraps functions in the WsfScriptP6DOF_MoverTestObject
+// so that the user does not need to type the same block of code
+// to get the mover from the platform.
+//******************************************************************
+
+// This uses maximum throttle (value=2.0, afterburner). If the vehicle
+// does not have an afterburner, it will use full throttle
+// (value=1.0, military power) instead.
+script void FlyStraightLevelFullThrottle(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().FlyStraightLevelFullThrottle();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script double GetRangeSinceStart_km(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      return p6dofMover.__getTestObject().GetRangeSinceStart_km();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return false;
+   }
+end_script
+
+script void SetMasterNoLagTesting(WsfPlatform aPlatform, bool aEnable)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().SetMasterNoLagTesting(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeAltitude(WsfPlatform aPlatform, bool aEnable)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().SetMasterFreezeAltitude(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezePitch(WsfPlatform aPlatform, bool aEnable)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().SetMasterFreezePitch(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeRoll(WsfPlatform aPlatform, bool aEnable)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().SetMasterFreezeRoll(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeVerticalSpeed(WsfPlatform aPlatform, bool aEnable)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().SetMasterFreezeVerticalSpeed(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeYaw(WsfPlatform aPlatform, bool aEnable)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().SetMasterFreezeYaw(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterFreezeFuelBurn(WsfPlatform aPlatform, bool aEnable)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().SetMasterFreezeFuelBurn(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetMasterNoAlphaTesting(WsfPlatform aPlatform, bool aEnable)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().SetMasterNoAlphaTesting(aEnable);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script int CanFlyAt(WsfPlatform aPlatform, double aAltitude_ft, double aVelocity_mps, double aThrottle, double aFlaps)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      return p6dofMover.__getTestObject().CanFlyAt(aAltitude_ft, aVelocity_mps, aThrottle, aFlaps);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return -1;
+   }
+end_script
+
+script void CreateAutopilotSupportFile(WsfPlatform aPlatform, string aFilename)
+WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.__getTestObject().CreateAutopilotSupportFile(aFilename);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script

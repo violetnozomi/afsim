@@ -1,0 +1,36 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+########################################################################
+# Grammar for wsf_argo8
+########################################################################
+
+(struct ARGO8_MOVER :base_type Mover :symbol (type moverType WSF_ARGO8_MOVER)
+                                     :symbol (type platformType WSF_ARGO8_PLATFORM movers mover)
+   (rule missile-type {
+         standard
+      })
+   (rule guidance-method {
+         track
+       | truth
+      })
+   (rule seeker-method {
+         track
+       | truth
+      })
+{
+   missile_type <missile-type>
+ | argo_log_file_path <string>
+ | guidance_update_interval <real>
+ | library_name <string>
+ | seeker_method <seeker-method>
+ | guidance_method <guidance-method>
+ | output_fuze_data
+ | endgame_gees <real>
+ | <Mover>
+})

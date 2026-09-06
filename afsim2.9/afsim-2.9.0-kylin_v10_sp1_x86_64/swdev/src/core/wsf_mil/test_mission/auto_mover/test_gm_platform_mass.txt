@@ -1,0 +1,53 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../auto_script/test_pass.txt
+include_once ../auto_script/test_functions.txt
+include_once platforms/test_platform.txt
+
+script_variables 
+   double gTolerance = MATH.Pow(10, -6);
+   PassTestCount = 8; // should be increased by 4 when the on_initialize2 block gets uncommented 
+end_script_variables
+
+platform gm_platform TEST_PLATFORM_BASE
+
+// Currently, there is an issue with the guided mover masses not being initialized when they should. 
+// They are initialized during Initialize2 (in code), when they should be initialized in Initialize
+// When the issue gets fixed, the following code should be uncommented:
+#   on_initialize2
+#      WsfGuidedMover mover = (WsfGuidedMover)PLATFORM.Mover();
+#      
+#      if (AssertWithinToleranceMessage(mover.CurrentFuelMass() - PLATFORM.FuelMass(), 0.0, gTolerance, "FuelMassDifference")) pass();
+#      if (AssertWithinToleranceMessage(mover.PayloadMass() - PLATFORM.PayloadMass(), 0.0, gTolerance, "PayloadMassDifference")) pass();
+#      if (AssertWithinToleranceMessage(mover.EmptyMass() - PLATFORM.EmptyMass(), 0.0, gTolerance, "EmptyMassDifference")) pass();
+#      if (AssertWithinToleranceMessage(mover.CurrentTotalMass() - PLATFORM.TotalMass(), 0.0, gTolerance, "TotalMassDifference")) pass();
+#   end_on_initialize2
+
+   // In the middle of Stage 1
+   execute at_time 10 s absolute
+         WsfGuidedMover mover = (WsfGuidedMover)PLATFORM.Mover();
+      
+         if (AssertWithinToleranceMessage(mover.CurrentFuelMass() - PLATFORM.FuelMass(), 0.0, gTolerance, "FuelMassDifference")) pass();
+         if (AssertWithinToleranceMessage(mover.PayloadMass() - PLATFORM.PayloadMass(), 0.0, gTolerance, "PayloadMassDifference")) pass();
+         if (AssertWithinToleranceMessage(mover.EmptyMass() - PLATFORM.EmptyMass(), 0.0, gTolerance, "EmptyMassDifference")) pass();
+         if (AssertWithinToleranceMessage(mover.CurrentTotalMass() - PLATFORM.TotalMass(), 0.0, gTolerance, "TotalMassDifference")) pass();
+   end_execute
+
+   // In the middle of Stage 2
+   execute at_time 20 s absolute
+         WsfGuidedMover mover = (WsfGuidedMover)PLATFORM.Mover();
+      
+         if (AssertWithinToleranceMessage(mover.CurrentFuelMass() - PLATFORM.FuelMass(), 0.0, gTolerance, "FuelMassDifference")) pass();
+         if (AssertWithinToleranceMessage(mover.PayloadMass() - PLATFORM.PayloadMass(), 0.0, gTolerance, "PayloadMassDifference")) pass();
+         if (AssertWithinToleranceMessage(mover.EmptyMass() - PLATFORM.EmptyMass(), 0.0, gTolerance, "EmptyMassDifference")) pass();
+         if (AssertWithinToleranceMessage(mover.CurrentTotalMass() - PLATFORM.TotalMass(), 0.0, gTolerance, "TotalMassDifference")) pass();
+   end_execute
+
+end_platform

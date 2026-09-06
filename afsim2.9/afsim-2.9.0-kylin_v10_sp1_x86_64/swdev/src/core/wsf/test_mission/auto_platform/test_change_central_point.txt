@@ -1,0 +1,41 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform moon_default WSF_PLATFORM
+end_platform
+
+platform moon_lla WSF_PLATFORM
+   position 0n 0e altitude 0 m
+end_platform
+
+include_once ../auto_script/test_functions.txt
+
+script void TestLocation(WsfPlatform aPlatform)
+   Vec3 location = aPlatform.LocationWCS();
+   WsfGeoPoint locG = aPlatform.Location();
+   writeln(locG);   
+   writeln(location);
+   static double cTOL = 1.0e-12;
+   AssertWithinToleranceMessage(0.0, locG.Latitude(), cTOL, "latitude");
+   AssertWithinToleranceMessage(0.0, locG.Longitude(),  cTOL, "longitude");
+   AssertWithinToleranceMessage(0.0, locG.Altitude(), cTOL, "altitude");
+   AssertWithinToleranceMessage(1.737103E+6, location.X(), cTOL, "WCS X");
+   AssertWithinToleranceMessage(0.0, location.Y(), cTOL, "WCS Y");
+   AssertWithinToleranceMessage(0.0, location.Z(), cTOL, "WCS Z");   
+end_script
+
+execute at_time 1.0e-22 s absolute
+  TestLocation(WsfSimulation.FindPlatform("moon_default"));
+  TestLocation(WsfSimulation.FindPlatform("moon_lla"));
+end_execute
+
+global_environment 
+   central_body moon 
+   end_central_body
+end_global_environment

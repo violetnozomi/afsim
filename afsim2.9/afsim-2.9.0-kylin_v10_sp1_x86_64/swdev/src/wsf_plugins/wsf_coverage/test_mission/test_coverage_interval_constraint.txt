@@ -1,0 +1,253 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This scenario tests the interval_constraint option on coverage compuations.
+# To control explicitly the intervals, the free asset platforms have sensors
+# that are turned on an off in a scripted way.
+
+start_date may 20 2020
+start_time 12:00:00.000
+end_time 10 min
+
+include_once utils.txt
+
+# Two sensor types, where GEOALT is identical to GEO so that we can
+# filter on the one type but not the other.
+sensor GEO WSF_GEOMETRIC_SENSOR
+   on
+   initial_mode OFF
+   
+   mode_template 
+      azimuth_field_of_view -180 deg 180 deg
+      elevation_field_of_view -90 deg -80 deg
+      frame_time 1 s
+      reports_location
+   end_mode_template
+   
+   mode ON
+      maximum_range 100 km
+   end_mode
+   
+   mode OFF
+      maximum_range 0.01 m
+   end_mode
+end_sensor
+
+sensor GEOALT GEO
+end_sensor
+
+script void ToggleSensor(string aPlatformName, string aSensorName)
+   WsfPlatform platform = WsfSimulation.FindPlatform(aPlatformName);
+   ExpectBool(platform.IsValid(), true, "Unable to find platform '" + aPlatformName + "'");
+   if (platform.IsValid())
+   {
+      WsfSensor sensor = platform.Sensor(aSensorName);
+      ExpectBool(sensor.IsValid(), true, "Unable to find sensor '" + aSensorName + "' on platform '" + aPlatformName + "'");
+      if (sensor.IsValid())
+      {
+         if (sensor.CurrentMode() == "ON")
+         {
+            sensor.SelectMode("OFF");
+         }
+         else if (sensor.CurrentMode() == "OFF")
+         {
+            sensor.SelectMode("ON");
+         }
+      }
+   }
+end_script
+
+script void ScheduleIntervals(string        aPlatform, 
+                              string        aSensor,
+                              Array<double> aBoundaries)
+   for (int i = 0; i < aBoundaries.Size(); i += 1)
+   {
+      Array<Object> args = {aPlatform, aSensor};
+      WsfSimulation.ExecuteAtTime(aBoundaries.Get(i), "ToggleSensor", args);
+   }
+end_script
+
+# Assets
+platform_type ASSET WSF_PLATFORM
+   position 0n 0w altitude 10 km
+   sensor eye GEO
+   end_sensor
+   processor track_mgr WSF_TRACK_PROCESSOR
+      purge_interval 10 s 
+   end_processor 
+end_platform_type
+
+platform_type ASSETALT WSF_PLATFORM
+   position 0n 0w altitude 10 km
+   sensor eyealt GEOALT
+   end_sensor
+end_platform_type
+
+platform alice ASSET
+   # Schedule the intervals
+   execute at_time 1 s absolute
+      Array<double> boundaries = {10.0, 30.0, 60.0, 560.0};
+      ScheduleIntervals(PLATFORM.Name(), "eye", boundaries);
+   end_execute
+end_platform
+
+platform bob ASSET
+   delete sensor eye
+   add sensor scope GEO
+   end_sensor
+   
+   # Schedule the intervals
+   execute at_time 1 s absolute
+      Array<double> boundaries = {10.0, 15.0, 60.0, 560.0};
+      ScheduleIntervals(PLATFORM.Name(), "scope", boundaries);
+   end_execute
+end_platform
+
+platform charlie ASSETALT
+   # Schedule the intervals
+   execute at_time 1 s absolute
+      Array<double> boundaries = {10.0, 15.0, 20.0, 50.0, 60.0, 350.0};
+      ScheduleIntervals(PLATFORM.Name(), "eyealt", boundaries);
+   end_execute
+end_platform
+
+platform diana ASSETALT
+   delete sensor eyealt
+   add sensor scopealt GEOALT
+   end_sensor
+   
+   # Schedule the intervals
+   execute at_time 1 s absolute
+      Array<double> boundaries = {10.0, 110.0, 200.0, 490.0};
+      ScheduleIntervals(PLATFORM.Name(), "scopealt", boundaries);
+   end_execute
+end_platform
+
+# Coverage grid with a single point
+grid test_grid WSF_LAT_LON_GRID
+   altitude 1 m msl
+   latitude_span 0.5s 0.5n
+   longitude_span 0.5w 0.5e
+   latitude_spacing 1 deg
+   longitude_spacing 1 deg
+   origin 0n 0w
+   asset WSF_PLATFORM none
+end_grid
+
+# Coverage definition
+coverage test_coverage WSF_SENSOR_COVERAGE
+   grid test_grid
+   assets
+      platform alice eye
+      platform bob scope
+      platform charlie eyealt
+      platform diana scopealt
+   end_assets
+   output_dir intervalconstraint
+   raw_data_file intervals.csv
+   
+   interval_constraint
+      output_file filtered.csv
+      platform alice maximum 300 s
+      platform_type ASSET minimum 10 s
+      device eyealt interval 10 s 300 s
+      device_type GEOALT maximum 200 s
+   end_interval_constraint
+end_coverage
+
+# variables for test
+script_variables
+   double gExpectedIntervalLineCount = 4;
+   double gExpectedFilteredLineCount = 5;
+   
+   Map<string, int> gIntervalCounts = {};
+   gIntervalCounts["alice"]   = 0;
+   gIntervalCounts["bob"]     = 0;
+   gIntervalCounts["charlie"] = 0;
+   gIntervalCounts["diana"]   = 0;
+   
+   Map<string, int> gExpectedIntervalCounts = {};
+   gExpectedIntervalCounts["alice"]   = 1;
+   gExpectedIntervalCounts["bob"]     = 1;
+   gExpectedIntervalCounts["charlie"] = 1;
+   gExpectedIntervalCounts["diana"]   = 1;
+   
+   Map<string, double> gIntervalDuration = {};
+   gIntervalDuration["alice"]   = 20.0;
+   gIntervalDuration["bob"]     = 500.0;
+   gIntervalDuration["charlie"] = 30.0;
+   gIntervalDuration["diana"]   = 100.0;
+   
+   Map<string, int> gFilterCounts = {};
+   gFilterCounts["alice"]   = 0;
+   gFilterCounts["bob"]     = 0;
+   gFilterCounts["charlie"] = 0;
+   gFilterCounts["diana"]   = 0;
+   
+   Map<string, int> gExpectedFilterCounts = {};
+   gFilterCounts["alice"]   = 1;
+   gFilterCounts["bob"]     = 1;
+   gFilterCounts["charlie"] = 2;
+   gFilterCounts["diana"]   = 1;
+end_script_variables
+
+script void IntervalsAction(string aId,
+                            string aGridDevice,
+                            string aFreeAsset,
+                            string aFreeDevice,
+                            string aStartEpoch,
+                            string aEndEpoch,
+                            string aStartTime,
+                            string aEndTime,
+                            string aDuration)
+   gIntervalCounts[aFreeAsset] = gIntervalCounts[aFreeAsset] + 1;
+   ExpectDouble((double)aDuration, gIntervalDuration[aFreeAsset], 1.0e-6, "Mismatch in interval duration");
+end_script
+
+script void FilteredAction(string aId,
+                           string aGridDevice,
+                           string aFreeAsset,
+                           string aFreeDevice,
+                           string aStartEpoch,
+                           string aEndEpoch,
+                           string aStartTime,
+                           string aEndTime,
+                           string aDuration)
+   gFilterCounts[aFreeAsset] = gFilterCounts[aFreeAsset] + 1;
+end_script
+
+script void RunTests()
+   Path path = Path.GetWorkingDirectory();
+   path.Join("intervalconstraint");
+   
+   path.Join("intervals.csv");
+   CheckDataFile(path, "Interval File", "IntervalsAction", gExpectedIntervalLineCount);
+   path.Up();
+   
+   foreach (string asset : int amount in gExpectedIntervalCounts)
+   {
+      ExpectInt(amount, gIntervalCounts[asset], "Mismatch between expected and observed count");
+   }
+   
+   path.Join("filtered.csv");
+   CheckDataFile(path, "Filtered File", "FilteredAction", gExpectedFilteredLineCount);
+   path.Up();
+   
+   foreach (string asset : int amount in gExpectedFilterCounts)
+   {
+      ExpectInt(amount, gFilterCounts[asset], "Mismatch between expected and observed count, filtered");
+   }
+   
+   FinalAssessment();
+   
+   RemoveCoverageOutputDir(path);
+end_script
+
+observer
+   enable SIMULATION_COMPLETE RunTests
+end_observer

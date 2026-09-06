@@ -1,0 +1,45 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.8.3)** Set the script type to "WSF_DIS_MOVER" for DIS mover instances. It was previously unset and so :method:`mover.Type()<WsfObject.Type>` returned an empty string. (:issue:`AFSIM-2117`)
+* **(2.8.3)** Added the :class:`Matrix` script class. (:issue:`AFSIM-1952`)
+* **(2.8.1)** Added additional functionality to :class:`FileIO` for users to query mode and path information for opened files. (:issue:`AFSIM-820`)
+* **(2.8.1)** Added the option to declare a :command:`platform.category` as :command:`dis_interface.private` in :command:`dis_interface`. (:issue:`AFSIM-244`)
+* **(2.8.1)** Added :method:`WsfSensor.TrackQuality` methods that allow a user to access :command:`sensor_mode.track_quality` inputs per sensor :command:`sensor.mode`. (:issue:`AFSIM-245`)
+* **(2.8.1)** Added support for methods :method:`WsfZone.Draw` and :method:`WsfZone.DebugDrawZone` to draw all types of polygonal zones as well as absolute ones. (:issue:`AFSIM-203`)
+* **(2.8.1)** Added command :command:`console_output.force_flushing` to configure the automatic flushing of :command:`console_output`. (:issue:`AFSIM-953`)
+* **(2.8.1)** Added a version of :method:`WsfPlatform.RadarCrossSection` that allows a user to query a platform's bistatic RCS using both receiver and transmitter aspect angles. (:issue:`AFSIM-952`)
+* **(2.8.1)** Added new versions of :method:`WsfPlatform.SlantRangeTo`, :method:`WsfTrack.SlantRangeTo`, and :method:`WsfGeoPoint.SlantRangeTo` that perform the slant range calculation with spherical coordinates. (:issue:`AFSIM-996`)
+* **(2.8.1)** Added new script method :method:`KeySet<Map\<T1,T2\>.KeySet>` to access the full set of keys for a :class:`Map<Map\<T1,T2\>>`. (:issue:`AFSIM-1056`)
+* **(2.8.1)** Optimized the performance of a graph pathfinding algorithm, resulting in improved runtimes for scenarios utilizing communications. (:issue:`AFSIM-1117`)
+* **(2.8.1)** Added methods :method:`WsfGeoPoint.ApparentTimeNow` and :method:`WsfGeoPoint.ApparentTime` for querying the mean solar time of a :class:`WsfGeoPoint`. (:issue:`AFSIM-1153`)
+* **(2.8.1)** Added a method :method:`WsfPlatform.ApparentTime` for querying the mean solar time of a :class:`WsfPlatform`. (:issue:`AFSIM-1153`)
+* **(2.8.1)** Added new script methods :method:`WsfTrack.RangeRate` and :method:`WsfTrack.RangeRateErrorSigma`. (:issue:`AFSIM-1664`)
+* Added new :ref:`field_of_view_commands.equatorial` :command:`field_of_view` type. (:issue:`AFSIM-314`)
+* Added new command :command:`sensor_mode.target_solar_illumination_angle` to all passive IR and passive visual sensors, as well as :model:`WSF_GEOMETRIC_SENSOR`.
+* Added new :command:`observer` for the :ref:`docs/event/sensor_events:IMAGE_CREATED` event.
+* Added command :command:`sensor_mode.enable_moon_los_block` to :command:`sensor` to prevent sensor detections due to lunar blocking of a sensor's line-of-sight.
+* Added script methods to :class:`Moon` and :class:`Sun` to get the :ref:`WCS` location of those bodies.
+* Added methods to :class:`Earth` to convert :ref:`ECI` locations to and from :ref:`WCS`, and to get the geostationary orbital radius.
+* Added script methods :method:`WsfPlatform.PrintComponentInfo` and :method:`WsfPlatform.GetComponentInfo` to return and print the names and types of all components attached to a :class:`WsfPlatform`.
+* Added :method:`WsfArticulatedPart.TimeToCueToLLA`, :method:`WsfArticulatedPart.TimeToCueToWCS`, :method:`WsfArticulatedPart.TimeToCueToPoint`, :method:`WsfArticulatedPart.TimeToCueToTrack`, :method:`WsfArticulatedPart.TimeToCueToAbsoluteAzEl`, and :method:`WsfArticulatedPart.TimeToCueToRelativeAzEl`. Each of these methods returns the time required for the part to orient to a given location. (:issue:`AFSIM-108`)
+* Added documentation for :ref:`command chains<Command_Chains>` to explain how the default command chain is constructed. (:issue:`AFSIM-124`)
+* Added new script methods :method:`Quaternion.Multiply` and :method:`Quaternion.Slerp` to :class:`Quaternion`. (:issue:`AFSIM-333`)
+* Improved performance when publishing a lot of :command:`event_pipe` data. (:issue:`AFSIM-525`)
+* Added the capability to disable horizon checks while still requiring terrain checks when performing sensor detections. This allows sensors to consider both terrain and bathymetry data for line-of-sight checks. Specific commands and script methods include :command:`_.receiver.check_terrain_masking`, :command:`_.receiver.terrain_masking_mode`, :method:`WsfEM_XmtrRcvr.MaskingMode`, and :method:`WsfEM_XmtrRcvr.SetMaskingMode`. (:issue:`AFSIM-530`)
+* :command:`event_pipe` has been modified to publish entity-state data at up to the mover update rates.  New input arguments were added to allow for the tuning of these rates. (:issue:`AFSIM-526`)
+* Updated the format for the :command:`csv_event_output` and :command:`event_output` documentation to be more visually appealing and concise.  (:issue:`AFSIM-576`)
+* Added methods to :class:`Earth` to provide the sub-solar and sub-lunar points, and the Camera-Target-Earth angle.
+* Added script method :method:`Vec3.AngleWith` to obtain the angle between two arbitrary vectors. (:issue:`AFSIM-647`)
+* Added script method :method:`Vec3.Negate` to reverse the direction of a vector. (:issue:`AFSIM-661`)
+* Added new functionality allowing trees within trees, root node types, and descriptions for :doc:`Advanced Behavior Trees<../advanced_behavior_tree>`. (:issue:`AFSIM-666`)
+* Added script method :method:`WsfSimulation.SetEndTime` to set the scheduled :command:`end_time` of the simulation. (:issue:`AFSIM-756`)
+* Added support for loading :command:`terrain.bathymetry` files in ASCII XYZ format to supply water depth and new script methods :method:`WsfTerrain.BathymetryElevApprox` and :method:`WsfTerrain.BathymetryElevInterp`. (:issue:`AFSIM-873`)
+* Added new :ref:`command line parameters<docs/mission:Command Line>` ``-log-server-host <host>`` and ``-log-server-port <port>`` to support logging simulation output to a log server. (:issue:`AFSIM-984`)
+* Modifications have been made to the simulation initialization routine, such that all communication framework script functionality is now available for usage with :command:`on_initialize2` script blocks. (:issue:`AFSIM-437`)

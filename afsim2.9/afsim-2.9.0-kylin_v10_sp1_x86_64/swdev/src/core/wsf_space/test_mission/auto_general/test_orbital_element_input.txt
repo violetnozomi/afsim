@@ -1,0 +1,64 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date mar 20 2018
+start_time 17:15:00.000
+end_time 1.72 hours
+
+platform_type GENSAT WSF_PLATFORM
+   icon satellite
+   side blue
+   
+   mover WSF_SPACE_MOVER
+      oblate_earth disable
+      eccentricity 0.0 
+      argument_of_periapsis 0.0 deg
+   end_mover
+
+   execute at_time 0.0001 sec absolute
+      double anomTol = 0.0001;
+   
+      # Test Platform
+      double expectedAnom = Math.NormalizeAngle0_360(PLATFORM.AuxDataDouble("initAnom"));         
+      WsfSpaceMover myProp = (WsfSpaceMover)PLATFORM.Mover();
+      double trueA = myProp.TrueAnomaly();
+   
+      if (Math.Fabs(trueA - expectedAnom) > anomTol)
+      {
+         writeln("-FAIL-");
+      }
+   end_execute
+      
+end_platform_type
+
+platform NotGenSat_6_1 GENSAT
+   mover
+      inclination 0 deg // acceptable
+      inclination 180 deg
+      raan 359.999 deg
+      raan 0 deg
+      mean_anomaly 359.999 deg
+      mean_anomaly 0 deg
+      true_anomaly 359.999 deg
+      true_anomaly 0 deg
+      argument_of_periapsis 359.999 deg
+      argument_of_periapsis 0 deg
+      eccentricity 0.0
+      
+      inclination 35.0 deg
+      revs_per_day 14.0
+      raan 270.0 deg
+      true_anomaly 135.0 deg
+   end_mover
+   
+   aux_data
+      double initAnom = 135.0
+   end_aux_data
+   
+end_platform

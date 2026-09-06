@@ -1,0 +1,30 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests the setting and querying of simulation end-time
+
+end_time 10 sec
+
+execute at_time 3 sec absolute
+   // If end time is set to a value less than the current time,
+   // the current time will be used.
+   WsfSimulation.SetEndTime(2);
+   if (WsfSimulation.EndTime() != TIME_NOW)
+   {
+      writeln("-FAIL- Unexpected simulation end time");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+execute at_time 5 sec absolute
+   writeln("-FAIL- Simulation did not end at expected time");
+end_execute

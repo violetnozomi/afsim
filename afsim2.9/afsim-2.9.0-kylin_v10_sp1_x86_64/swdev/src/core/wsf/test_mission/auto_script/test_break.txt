@@ -1,0 +1,74 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_break.txt
+# Test the break command, to be executed at various points.
+
+include test_functions.txt
+
+on_initialize
+   bool pass = true;
+
+   # 1. Break from while loop
+   int i = 0;
+   while (i < 10)
+   {
+      if (i > 3)
+      {
+         break;
+      }
+
+      i = i + 1;
+   }
+
+   if (i != 4)
+   {
+      writeln("-FAIL- on: while loop break attempt.");
+      pass = false;
+   }
+
+   # 2. Break from for loop
+   int j = 0;
+   for (j = 0; j < 100; j = j + 1)
+   {
+      if (j == 4)
+      {
+         break;
+      }
+   }
+
+   if (j != 4)
+   {
+      pass = false;
+      writeln("-FAIL- on: for loop break attempt.");
+   }
+
+   # 3. Break on do-while attempt
+   int k = 0;
+   do
+   {
+      writeln("k is ", k);
+
+      if (k == 6)
+      {
+         break;
+      }
+
+      k = k + 1;
+
+   } while (k < 10);
+
+   if (k != 6)
+   {
+      writeln("-FAIL- on: do-while break attempt.");
+      pass = false;
+   }
+
+   writePass(pass);
+end_on_initialize

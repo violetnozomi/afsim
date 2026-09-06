@@ -1,0 +1,151 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test reloading.
+#
+# TODO - this test is not complete. It doesn't give a pass or fail status.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+weapon_effects SAM_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 100 m 0.7
+end_weapon_effects
+
+platform_type SAM WSF_PLATFORM
+   icon SA-10_Missile
+
+   weapon_effects SAM_LETHALITY
+
+   mover WSF_STRAIGHT_LINE_MOVER
+      update_interval 1.0 secs
+      average_speed 1500 kts
+   end_mover
+
+   processor seeker WSF_PERFECT_TRACKER
+      update_interval 1.0 sec
+   end_processor
+
+   processor fuze WSF_AIR_TARGET_FUSE
+      max_time_of_flight_to_detonate 300 secs
+   end_processor
+end_platform_type
+
+platform_type SAM_LAUNCHER WSF_PLATFORM
+   icon SA-10_LAUNCHER
+
+   script void Fire(int aQty)
+      WsfWeapon weapon = PLATFORM.Weapon("sam");
+      WsfTrack  track  = PLATFORM.MasterTrackList().Entry(0);
+      if (weapon.IsValid() &&
+          track.IsValid())
+      {
+         writeln("T=", TIME_NOW, " remaining=", weapon.QuantityRemaining(),
+                 " reloading=", weapon.IsReloading(),
+                 " requested=", aQty);
+         if (weapon.QuantityRemaining() > 0)
+         {
+            int salvoSize = aQty;
+            if (weapon.FireSalvo(track, salvoSize))
+            {
+               writeln("  Fired ", salvoSize, " rounds; remaining=", weapon.QuantityRemaining());
+            }
+            else
+            {
+               writeln("  Fire failed remaining=", weapon.QuantityRemaining());
+            }
+         }
+      }
+   end_script
+
+   script void Print()
+      WsfWeapon weapon = PLATFORM.Weapon("sam");
+      if (weapon.IsValid())
+      {
+         writeln("T=", TIME_NOW," remaining=", weapon.QuantityRemaining(),
+                 " reloading=", weapon.IsReloading());
+      }
+   end_script
+
+   weapon sam WSF_EXPLICIT_WEAPON
+      launched_platform_type      SAM
+      launch_delta_v              20 0 0 m/s
+      tilt                        89.9 deg
+   end_weapon
+end_platform_type
+
+// ----------------------------------------------------------------------------
+
+/*
+event_pipe
+   file replay.aer
+end_event_pipe
+
+event_output
+   file replay.evt
+   disable all
+   enable  WEAPON_FIRE_ABORTED
+   enable  WEAPON_FIRE_REQUESTED
+   enable  WEAPON_FIRED
+   //enable  WEAPON_HIT
+   //enable  WEAPON_MISSED
+   enable  WEAPON_TERMINATED
+   enable  WEAPON_RELOAD_STARTED
+   enable  WEAPON_RELOAD_ENDED
+end_event_output
+*/
+end_time 400 secs
+
+platform_type FIGHTER WSF_PLATFORM
+   icon F-18E
+
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform fighter FIGHTER
+   side blue
+   indestructible
+   route
+      position 40n 88w altitude 40000 ft heading 270 deg speed 500 kts
+   end_route
+end_platform
+
+platform sam_launcher SAM_LAUNCHER
+   side red
+   position 40n 90w
+
+   weapon sam
+      #debug
+      quantity         4
+      maximum_quantity 4
+
+      firing_delay     4 sec
+      salvo_interval   2 sec
+      
+      reload_inventory 16
+      reload_threshold 2
+      reload_increment 4
+      reload_time      30 sec
+
+      #inhibit_while_reloading true
+   end_weapon
+
+   execute at_time   2 seconds absolute  Fire(3); end_execute  // 6, 8, 10
+   execute at_time   5 seconds absolute  Print(); end_execute
+   execute at_time   7 seconds absolute  Print(); end_execute
+   execute at_time   9 seconds absolute  Print(); end_execute
+   execute at_time  11 seconds absolute  Fire(2); end_execute
+   execute at_time  60 seconds absolute  Fire(2); end_execute
+
+   track
+      platform fighter
+   end_track
+end_platform
+

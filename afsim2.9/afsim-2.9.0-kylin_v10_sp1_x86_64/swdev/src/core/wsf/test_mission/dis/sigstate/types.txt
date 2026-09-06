@@ -1,0 +1,191 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# =============================================================================
+
+radar_signature 747_RADAR_SIGNATURE
+
+   state gear_up
+      constant 1 m^2
+
+   state default
+      constant 1 m^2
+
+   state gear_down
+      constant 100 m^2
+
+end_radar_signature
+
+platform_type 747 WSF_PLATFORM
+   icon B-747
+
+   # ==========================================================================
+   # BEGIN - DIS signature change interface
+   #
+   # The enclosed data forms the interface between the 'dis_interface' and this
+   # platform type. The 'dis_interface' block contains 'entity_appearance'
+   # entries that define the script variables that will be updated when an
+   # articulated part changes and the script that will be called when a change
+   # occurs. For example
+   #
+   # dis_interface
+   #    entity_appearance
+   #       type 747 articulation 3179 left_gear_state    gear_state_changed
+   #       type 747 articulation 3211 right_gear_state   gear_state_changed
+   #       type 747 articulation 1274 forward_gear_state gear_state_changed
+   #   end_entity_appearance
+   # end_dis_interface
+
+   script_variables
+      double left_gear_state    = 0.0;
+      double right_gear_state   = 0.0;
+      double forward_gear_state = 0.0;
+   end_script_variables
+
+   script void gear_state_changed()
+      writeln("T=",TIME_NOW," ",Name()," gear_state_changed");
+      writeln("  left    gear state: ", left_gear_state);
+      writeln("  right   gear state: ", right_gear_state);
+      writeln("  forward gear state: ", forward_gear_state);
+      if ((left_gear_state    == 0.0) &&
+          (right_gear_state   == 0.0) &&
+          (forward_gear_state == 0.0))
+      {
+         writeln(" Change signature to gear_up");
+         SetRadarSigState("gear_up");
+      }
+      else
+      {
+         writeln(" Change signature to gear_down");
+         SetRadarSigState("gear_down");
+      }
+   end_script
+
+   # END - DIS signature change interface
+   # ==========================================================================
+
+   radar_signature 747_RADAR_SIGNATURE
+
+   mover WSF_AIR_MOVER
+      update_interval 1.0 sec
+   end_mover
+
+   visual_part left_gear    WSF_VISUAL_PART
+   end_visual_part
+
+   visual_part right_gear   WSF_VISUAL_PART
+   end_visual_part
+
+   visual_part forward_gear WSF_VISUAL_PART
+   end_visual_part
+
+   script void RaiseGear(string aGear)
+      writeln("T=", TIME_NOW, " ", Name(), " raise gear ", aGear);
+      WsfVisualPart part = VisualPart(aGear);
+      if (part.IsValid())
+      {
+         part.SetRoll(0);
+         writeln("  Angle is now ", part.Roll());
+      }
+      else
+      {
+         writeln("***** ERROR: Invalid gear: ", aGear);
+      }
+   end_script
+
+   script void LowerGear(string aGear)
+      writeln("T=", TIME_NOW, " ", Name(), " lower gear ", aGear);
+      WsfVisualPart part = VisualPart(aGear);
+      if (part.IsValid())
+      {
+         part.SetRoll(90);
+         writeln("  Angle is now ", part.Roll());
+      }
+      else
+      {
+         writeln("***** ERROR: Invalid gear: ", aGear);
+      }
+   end_script
+end_platform_type
+
+# =============================================================================
+
+
+platform_type RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+
+   sensor radar WSF_RADAR_SENSOR
+      show_calibration_data
+      frame_time 1 sec
+      maximum_range 300 km
+
+      on
+      transmitter
+         power     100 kw
+         frequency 3 ghz
+      end_transmitter
+      receiver
+      end_receiver
+
+      one_m2_detect_range 150 km
+
+      reports_location
+      reports_iff
+   end_sensor
+end_platform_type
+
+# =============================================================================
+
+dis_interface
+
+   log_created_entities
+   exercise    1
+   site        25
+   application 1
+   multicast   224.2.25.54 192.168.10
+   port        3225
+   autostart
+
+   entity_type RADAR_SITE       2:1:222:1:22:0:0
+   entity_type 747              1:2:225:4:10:2:0
+
+   entity_appearance
+      type 747 articulation 3183 left_gear_state    gear_state_changed
+      type 747 articulation 3215 right_gear_state   gear_state_changed
+      type 747 articulation 1263 forward_gear_state gear_state_changed
+   end_entity_appearance
+
+   articulated_part 747 left_gear    3168
+      publish rotation                           # parameter type 3183
+   end_articulated_part
+
+   articulated_part 747 right_gear   3200
+      publish rotation                           # parameter type 3215
+   end_articulated_part
+
+   articulated_part 747 forward_gear 1248
+      publish rotation                           # parameter type 1263
+   end_articulated_part
+
+end_dis_interface
+
+event_output
+   //file   replay.evt
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable PLATFORM_BROKEN
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SENSOR_TRACK_INITIATED
+   enable SENSOR_TRACK_DROPPED
+end_event_output
+
+realtime
+end_time 30 sec

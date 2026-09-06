@@ -1,0 +1,97 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+electronic_warfare_effect 3DB_SIGNAL_EFFECT WSF_POWER_EFFECT
+   signal_delta_gain 3 db
+end_electronic_warfare_effect
+
+electronic_warfare_technique SIGNAL_GAIN WSF_EP_TECHNIQUE
+   default_on
+   mitigated_technique_classes
+      jamming_gain
+   end_mitigated_technique_classes
+   effect signal_gain_effect 3DB_SIGNAL_EFFECT
+      signal_delta_gain 1 db
+   end_effect
+end_electronic_warfare_technique
+
+sensor RADAR_SENSOR WSF_RADAR_SENSOR
+   beam 1
+      receiver
+         electronic_protect
+            // Test modifying a technique type
+            technique power_gain SIGNAL_GAIN
+               mitigated_techniques
+                  jamming_gain
+                  jamming_gain_addition
+               end_mitigated_techniques
+
+               // Test modifying an effect
+               effect signal_gain_effect
+                  signal_delta_gain 5 db
+               end_effect
+
+               // Test adding in a new effect
+               effect sidelobe_blanking WSF_SLB_EFFECT
+                  signal_delta_gain -2.0 db
+               end_effect
+            end_technique
+
+            // Test adding a new technique
+            technique sidelobe_cancellation WSF_EP_TECHNIQUE
+               mitigated_techniques
+                  jamming_gain_addition
+               end_mitigated_techniques
+               effect sidelobe_cancellation_effect WSF_SLC_EFFECT
+                  signal_delta_gain -3.0 dB
+               end_effect
+            end_technique
+
+            // Test adding a legacy technique
+            technique sidelobe_blanking WSF_EP_TECHNIQUE
+               mitigated_techniques
+                  jamming_gain_addition
+               end_mitigated_techniques
+               effect sidelobe_blanking_effect WSF_SLB_EFFECT
+                  signal_delta_gain -2.0 dB
+               end_effect
+            end_technique
+         end_electronic_protect
+      end_receiver
+   end_beam
+
+   beam 2
+      receiver
+         electronic_protect
+            // Test modifying a technique
+            technique sidelobe_cancellation
+               mitigated_techniques
+                  jamming_gain_addition
+               end_mitigated_techniques
+               effect sidelobe_cancellation_effect
+                  signal_delta_gain -5.0 dB
+               end_effect
+            end_technique
+
+            // Test modifying a legacy technique
+            technique sidelobe_blanking 
+               mitigated_techniques
+                  jamming_gain_addition
+               end_mitigated_techniques
+               effect sidelobe_blanking_effect
+                  signal_delta_gain -3.0 dB
+               end_effect
+            end_technique
+         end_electronic_protect
+      end_receiver
+   end_beam
+end_sensor

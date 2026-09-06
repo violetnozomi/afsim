@@ -1,0 +1,68 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script double CalculateThreatLevel(WsfSA_EntityPerception aThreat, bool aIsBogie)
+{
+   WsfGeoPoint here = PLATFORM.Location();
+   WsfGeoPoint there = WsfGeoPoint.Construct(aThreat.Lat(), aThreat.Lon(), aThreat.Altitude());
+   double dist = here.SlantRangeTo(there) * 0.001;
+   // To differentiate this from CalculateGroupTargetLevel,
+   // we'll say higher altitude is more threatening.
+   double ret = dist + aThreat.Altitude() * 0.01;
+   // Normalize with a logistic function.
+   double k = 0.1;
+   double x0 = 200.0;
+   return 1.0 / (1 + MATH.Pow(MATH.E(), -k * (ret - x0)));
+}
+end_script
+
+script double CalculateTargetValue(WsfSA_EntityPerception aTarget, bool aIsBogie)
+{
+   WsfGeoPoint here = PLATFORM.Location();
+   WsfGeoPoint there = WsfGeoPoint.Construct(aTarget.Lat(), aTarget.Lon(), aTarget.Altitude());
+   double dist = here.SlantRangeTo(there) * 0.001;
+   // To differentiate this from CalculateGroupThreatLevel,
+   // we'll say lower altitude means a better target.
+   double ret = dist + ((100.0 / aTarget.Altitude()));
+   // Normalize with a logistic function.
+   double k = 0.1;
+   double x0 = 100.0;
+   return 1.0 / (1 + MATH.Pow(MATH.E(), -k * (ret - x0)));
+}
+end_script
+
+script double CalculateGroupThreatLevel(WsfSA_Group aThreat, bool aIsBogie)
+{
+   WsfGeoPoint here = PLATFORM.Location();
+   WsfGeoPoint there = WsfGeoPoint.Construct(aThreat.Lat(), aThreat.Lon(), aThreat.Altitude());
+   double dist = here.SlantRangeTo(there) * 0.001;
+   // To differentiate this from CalculateGroupTargetLevel,
+   // we'll say higher altitude is more threatening.
+   double ret = 1.0 / dist + aThreat.Altitude() * 0.01;
+   // Normalize with a logistic function.
+   double k = 0.1;
+   double x0 = 200.0;
+   return 1.0 / (1 + MATH.Pow(MATH.E(), -k * (ret - x0)));
+}
+end_script
+
+script double CalculateGroupTargetValue(WsfSA_Group aTarget, bool aIsBogie)
+{
+   WsfGeoPoint here = PLATFORM.Location();
+   WsfGeoPoint there = WsfGeoPoint.Construct(aTarget.Lat(), aTarget.Lon(), aTarget.Altitude());
+   double dist = here.SlantRangeTo(there) * 0.001;
+   // To differentiate this from CalculateGroupThreatLevel,
+   // we'll say lower altitude means a better target.
+   double ret = 1.0 / dist + ((100.0 / aTarget.Altitude()));
+   // Normalize with a logistic function.
+   double k = 0.1;
+   double x0 = 100.0;
+   return 1.0 / (1 + MATH.Pow(MATH.E(), -k * (ret - x0)));
+}
+end_script

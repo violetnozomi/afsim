@@ -1,0 +1,300 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests the OSPF addition of members to areas,
+//! and ensuring the new members can be routed to.
+script_variables
+   int num_message = 0;
+end_script_variables
+
+processor print WSF_SCRIPT_PROCESSOR
+   on_message type TEST_MESSAGE
+      script
+         writeln("Received Message...");
+      end_script
+   end_on_message
+end_processor
+
+router_protocol test_ospf WSF_COMM_ROUTER_PROTOCOL_OSPF
+end_router_protocol
+
+router DEFAULT WSF_COMM_ROUTER
+   use_default_protocol false
+   add router_protocol ospf test_ospf end_router_protocol
+end_router
+
+protocol IGMP WSF_COMM_PROTOCOL_IGMP
+end_protocol
+
+comm test_comm WSF_COMM_TRANSCEIVER
+   add protocol multicast IGMP end_protocol
+end_comm
+
+platform_type test_platform WSF_PLATFORM
+   add processor printComm print
+   end_processor
+   add comm test test_comm
+         internal_link printComm
+   end_comm
+   add router default DEFAULT  
+   end_router
+end_platform_type
+
+platform_type new_platform_area_2 WSF_PLATFORM
+   add processor printComm print
+   end_processor
+   add comm test test_comm
+      internal_link printComm
+   end_comm
+   add router default DEFAULT
+      edit router_protocol ospf
+         ospf_area 1.1.1.2/32
+      end_router_protocol
+   end_router
+end_platform_type
+
+platform_type new_platform_area_3 WSF_PLATFORM
+   add processor printComm print
+   end_processor
+   add comm test test_comm
+      internal_link printComm
+   end_comm
+   add router default DEFAULT
+      edit router_protocol ospf
+         ospf_area 1.1.2.1/32
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform_type
+
+platform_type new_platform_area_4 WSF_PLATFORM
+   add processor printComm print
+   end_processor
+   add comm test test_comm
+      internal_link printComm
+   end_comm
+   add router default DEFAULT
+      edit router_protocol ospf
+         ospf_area 1.1.3.1/32
+      end_router_protocol
+   end_router
+end_platform_type
+
+platform test1 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+         backbone 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test2 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test3 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test4 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test5 test_platform
+   edit comm test
+      # See the notest below for platform test8
+      # This is required, due to not being on
+      # the same network and not having linkage
+      # automatically generated (assuming mesh,
+      # other topologies may also cause
+      # lack of communications depending on area
+      # assignments. OSPF is not simple.
+      link test8 test
+   end_comm
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.1/32
+         ospf_area 1.1.1.2/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test8 test_platform
+   edit comm test
+      network_name anotherNetwork
+      # We have to add explicit links to the other
+      # area members if we expect the members of
+      # area 1.1.1.2 to be able to talk and share
+      # information. If this isn't done, test8 will
+      # technically be set up correctly in OSPF, but
+      # will in reality not be able to communicate.
+      link test5 test
+   end_comm
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.2/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test9 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.5/32
+         ospf_area 1.1.1.1/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test10 test_platform
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.5/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test6 test_platform
+   edit comm test
+      network_name ospf_AS_2
+   end_comm
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.3/32
+         ospf_area 1.1.1.4/32
+      end_router_protocol
+   end_router
+end_platform
+
+platform test7 test_platform
+   edit comm test
+      network_name ospf_AS_2_other_network
+   end_comm
+   edit router default
+      edit router_protocol ospf
+         ospf_area 1.1.1.4/32
+         backbone 1.1.1.4/32
+      end_router_protocol
+   end_router
+end_platform
+
+execute at_time 1 s absolute
+#   writeln(WsfSimulation.FindPlatform("test1").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test2").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test3").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test4").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test5").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test6").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test7").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test8").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test9").Comm("test").GetAddress().GetAddress());
+#   writeln(WsfSimulation.FindPlatform("test10").Comm("test").GetAddress().GetAddress());
+end_execute
+
+execute at_time 112 s absolute
+   WsfPlatform p = WsfSimulation.CreatePlatform("new_platform_area_2");
+   WsfPlatform pa = WsfSimulation.AddPlatform(p, "newMember1");
+   if (! pa.IsValid()) writeln("***** ERROR T=", TIME_NOW, " Could not add platform of type ", p.Type());
+end_execute
+
+execute at_time 140 s absolute
+   //! Test sending from within area.
+   WsfMessage msg = {};
+   msg.SetType("TEST_MESSAGE");
+   WsfMessage otherMsg = {};
+   otherMsg.SetType("TEST_MESSAGE");
+   WsfSimulation.FindPlatform("test8").Comm("test").SendMessage(msg, "newMember1", "test");
+   WsfSimulation.FindPlatform("newMember1").Comm("test").SendMessage(otherMsg, "test8", "test");
+end_execute
+
+execute at_time 150 s absolute
+   //! Test sending from/to backbone.
+   WsfMessage msg = {};
+   msg.SetType("TEST_MESSAGE");
+   WsfMessage otherMsg = {};
+   otherMsg.SetType("TEST_MESSAGE");
+   WsfSimulation.FindPlatform("test2").Comm("test").SendMessage(msg, "newMember1", "test");
+   WsfSimulation.FindPlatform("newMember1").Comm("test").SendMessage(otherMsg, "test2", "test");
+end_execute
+
+execute at_time 160 s absolute
+   //! Test sending to/from two different non-backbone areas.
+   WsfMessage msg = {};
+   msg.SetType("TEST_MESSAGE");
+   WsfMessage otherMsg = {};
+   otherMsg.SetType("TEST_MESSAGE");
+   WsfSimulation.FindPlatform("test10").Comm("test").SendMessage(msg, "newMember1", "test");
+   WsfSimulation.FindPlatform("newMember1").Comm("test").SendMessage(otherMsg, "test10", "test");
+end_execute
+
+execute at_time 160 s absolute
+   //! Add a member with a new area, as an ABR to the backbone.
+   WsfPlatform p = WsfSimulation.CreatePlatform("new_platform_area_3");
+   WsfPlatform pa = WsfSimulation.AddPlatform(p, "newMember2");
+   if (! pa.IsValid()) writeln("***** ERROR T=", TIME_NOW, " Could not add platform of type ", p.Type());
+end_execute
+
+execute at_time 180 s absolute
+   //! Perform all the same above tests with the new member
+   WsfMessage msg = {};
+   msg.SetType("TEST_MESSAGE");
+   WsfSimulation.FindPlatform("test8").Comm("test").SendMessage(msg, "newMember2", "test");
+   WsfSimulation.FindPlatform("newMember2").Comm("test").SendMessage(msg, "test8", "test");
+   WsfSimulation.FindPlatform("test2").Comm("test").SendMessage(msg, "newMember2", "test");
+   WsfSimulation.FindPlatform("newMember2").Comm("test").SendMessage(msg, "test2", "test");
+   WsfSimulation.FindPlatform("test10").Comm("test").SendMessage(msg, "newMember2", "test");
+   WsfSimulation.FindPlatform("newMember2").Comm("test").SendMessage(msg, "test10", "test");
+end_execute
+
+execute at_time 190 s absolute
+   //! This will fail, only used for manual testing.
+#   WsfPlatform p = WsfSimulation.CreatePlatform("new_platform_area_4");
+#   WsfPlatform pa = WsfSimulation.AddPlatform(p, "newMember3");
+#   if (! pa.IsValid()) writeln("***** ERROR T=", TIME_NOW, " Could not add platform of type ", p.Type());
+end_execute
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   if(aMsg.Type() == "TEST_MESSAGE")
+   {
+      num_message = (num_message + 1);
+   }
+end_script
+
+script void SimulationComplete()
+   if (num_message != 12)
+   {
+      writeln("-FAIL-");
+      writeln("Messages received was: " + (string)num_message);
+   }
+end_script
+
+observer
+   enable MESSAGE_RECEIVED MessageReceived
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+#event_output
+#   file replay.evt
+#   enable all
+#end_event_output
+
+end_time 200 s

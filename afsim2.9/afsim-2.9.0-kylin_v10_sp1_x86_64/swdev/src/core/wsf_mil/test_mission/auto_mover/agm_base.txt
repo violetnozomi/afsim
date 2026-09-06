@@ -1,0 +1,105 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# UNCLASSIFIED
+# NOT FOR EXPORT (ITAR).
+# This is a stripped-down version of demos/base_types/weapons/agm/agm-154.txt.
+# It is used for testing various things with the WSF_GUIDED_MOVER and WSF_GUIDANCE_COMPUTER.
+#
+# The user must derive from AGM_MOVER_BASE to create AGM_MOVER and AGM_GUIDANCE_BASE
+# to create AGM_GUIDANCE and update as needed. They should use these to create the platform
+# type SSM which must derive from AGM_BASE.
+
+###############################################################################
+
+aero AGM_WINGS_FOLDED WSF_AERO #used for initial drop from aircraft
+  reference_area      169 in2 #13x13box
+  cd_zero_subsonic    0.100
+  cd_zero_supersonic  0.40
+  mach_begin_cd_rise  0.800
+  mach_end_cd_rise    1.200
+  mach_max_supersonic 2.000
+  cl_max              3.00    # unknown
+  aspect_ratio        4.000   # unknown
+end_aero
+
+aero AGM_WINGS_EXTENDED WSF_AERO
+   reference_area      169 in2 #13x13box
+   cd_zero_subsonic    0.100
+   cd_zero_supersonic  0.40
+   mach_begin_cd_rise  0.800
+   mach_end_cd_rise    1.200
+   mach_max_supersonic 2.000
+   cl_max              15.00
+   aspect_ratio        50.000    # unknown
+end_aero
+
+weapon_effects AGM_EFFECT WSF_GRADUATED_LETHALITY
+   radius_and_pk 30 m 0.8
+end_weapon_effects
+
+###############################################################################
+
+mover AGM_MOVER_BASE WSF_GUIDED_MOVER
+   update_interval 0.1 secs
+   
+   stage 1
+      aero AGM_WINGS_FOLDED
+      total_mass 0 lbs
+      pre_ignition_coast_time 0.1 sec
+      pre_separation_coast_time 10.0 sec #give it 10 secs to open wings
+   end_stage
+   
+   stage 2
+      aero AGM_WINGS_EXTENDED
+      total_mass 1065 lbs
+   end_stage
+end_mover
+
+###############################################################################
+
+processor AGM_GUIDANCE_BASE WSF_GUIDANCE_COMPUTER
+   phase LAUNCH
+      maximum_commanded_g          1.2 g
+      next_phase GLIDE when phase_time > 10 sec
+   end_phase
+
+   phase GLIDE
+      maximum_commanded_g           3 g
+      maximum_descent_rate          5 fps
+      g_bias                        1.03
+      #next_phase TERMINAL  when los_target_angle > 25 deg
+      next_phase TERMINAL  when target_slant_range < 5 nm
+   end_phase
+
+   phase TERMINAL
+      proportional_navigation_gain  5 # 10
+      maximum_pitch_angle           80 deg
+      maximum_commanded_g           10 g
+   end_phase
+end_processor
+
+###############################################################################
+
+platform_type AGM_BASE WSF_PLATFORM
+   icon JSOW
+   side blue
+   weapon_effects AGM_EFFECT
+   processor fuse WSF_GROUND_TARGET_FUSE end_processor
+
+   script_variables
+      int mShotNumber = 0;
+   end_script_variables
+
+   on_initialize
+      extern int gShotCount;
+      gShotCount = gShotCount + 1;
+      mShotNumber = gShotCount;
+   end_on_initialize
+end_platform_type

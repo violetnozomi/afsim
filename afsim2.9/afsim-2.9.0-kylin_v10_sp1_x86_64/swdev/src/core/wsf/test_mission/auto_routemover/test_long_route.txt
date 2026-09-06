@@ -1,0 +1,110 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test a long route to verify expected behavior
+// after fixing defect AFSIM-311 in which long
+// path segments (> ~1/4 earth circumference) were
+// being silently cut short.
+//
+// Test steps to exercise multiple code paths for long path segments:
+//   - use route from London to Hawaii, verify arrival
+//   - use GoToPoint from Hawaii to Athens, verify arrival
+//   - use GoToLocation from Athens to Auckland, verify arrival
+//
+//////////////////////////////////////////
+
+include_once ../auto_script/test_functions.txt
+
+end_time 183000 sec
+
+event_pipe
+    #file test_long_route.aer
+end_event_pipe
+
+script_variables
+    double altitude = 10000;    // same as used in route below
+    WsfGeoPoint locLondon = WsfGeoPoint.Construct(51.5074, -0.1278, altitude);
+    WsfGeoPoint locHawaii = WsfGeoPoint.Construct(21.3628, -157.8389, altitude);
+    WsfGeoPoint locAthens = WsfGeoPoint.Construct(37.997, 23.719, altitude);
+    WsfGeoPoint locAuckland = WsfGeoPoint.Construct(-36.844, 174.7583, altitude);
+end_script_variables
+
+platform_type TEST WSF_PLATFORM
+    mover WSF_AIR_MOVER
+        default_climb_rate 50 m/s
+        default_dive_rate 30 m/s
+        maximum_linear_acceleration 20 m/s2
+        minimum_altitude 0 m
+        maximum_altitude 300 km
+        maximum_speed 500 m/s
+        #debug_path true
+    end_mover
+end_platform_type
+
+platform test TEST
+    // Log initial path segment from route below
+    execute at_time 0.1 s absolute
+        writeln("Route from London (", locLondon.Latitude(), ", ", locLondon.Longitude(),
+                ") to Hawaii (", locHawaii.Latitude(), ", ", locHawaii.Longitude(), ")");
+    end_execute
+
+    // Verify Hawaii location, then travel to Athens
+    script void CheckpointHawaii()
+        writeln("Hawaii arrival:  Lat actual[", Latitude(), "], expected[", locHawaii.Latitude(),
+                "]; Lon actual[", Longitude(), "], expected [", locHawaii.Longitude(), "]");
+        AssertLocation(locHawaii.Latitude(), locHawaii.Longitude(), PLATFORM);
+
+        // On to Athens, Greece for another long segment using a different script method
+        writeln("GoToPoint([Athens]) at ", locAthens.Latitude(), ", ", locAthens.Longitude());
+        PLATFORM.GoToPoint(locAthens, "ArrivedAthensCB");
+    end_script
+
+    // Verify Athens location, then travel to Auckland
+    script void CheckpointAthens()
+        writeln("Athens arrival:  Lat actual[", Latitude(), "], expected[", locAthens.Latitude(),
+                "]; Lon actual[", Longitude(), "], expected [", locAthens.Longitude(), "]");
+        AssertLocation(locAthens.Latitude(), locAthens.Longitude(), PLATFORM);
+
+        // On to Auckland, New Zealand for another long segment using a different script method
+        writeln("GoToLocation(", locAuckland.Latitude(), ", ", locAuckland.Longitude(), ") [Auckland]");
+        PLATFORM.GoToLocation(locAuckland.Latitude(), locAuckland.Longitude());
+        WsfRoute newRoute = PLATFORM.Route().Copy();
+        newRoute.AddCallbackToLastWaypoint("ArrivedAucklandCB");
+        FollowRoute(newRoute);
+    end_script
+
+    // Verify Auckland location, route complete
+    script void CheckpointAuckland()
+        writeln("Auckland arrival:  Lat actual[", Latitude(), "], expected[", locAuckland.Latitude(),
+                "]; Lon actual[", Longitude(), "], expected [", locAuckland.Longitude(), "]");
+        AssertLocation(locAuckland.Latitude(), locAuckland.Longitude(), PLATFORM);
+        writeln("Route complete.");
+    end_script
+
+    callback ArrivedAthensCB WSF_SCRIPT_CALLBACK
+        execute CheckpointAthens
+    end_callback
+
+    callback ArrivedAucklandCB WSF_SCRIPT_CALLBACK
+        execute CheckpointAuckland
+    end_callback
+
+    // Initial long path segment via route
+    route
+        // London
+        position 51.5074n 0.1278w
+        altitude 10 km agl
+        speed 235 m/s
+        radial_acceleration 1.13 g
+
+	    // Hawaii
+        position 21.3628n 157.8389w
+        execute CheckpointHawaii
+    end_route
+end_platform

@@ -1,0 +1,126 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+####################################################################################################
+# Test of WsfWeaponEngagement ECS and Results methods.
+####################################################################################################
+
+include_once bomber.txt
+
+# Definitions for bomber_miss, a bomber that is edited to hit 0% of the time
+
+weapon_effects HIT_0 WSF_GRADUATED_LETHALITY
+   radius_and_pk 50.0 m 0.7
+   script void on_weapon_target_engagement(WsfPlatform aTarget)
+      SetPkDegrade(0);
+   end_script
+end_weapon_effects
+
+platform_type BOMBER_MISS BOMBER
+   edit weapon sdb
+      weapon_effects HIT_0
+   end_weapon
+end_platform_type
+
+platform bomber_miss BOMBER_MISS
+   side blue
+   route
+      position 40.05n 89.9w altitude 10000 ft heading 270 deg speed 400 mph
+   end_route
+end_platform
+
+# Definitions for bomber_hit, a bomber that is edited to hit 99% of the time.
+
+weapon_effects HIT_99 WSF_GRADUATED_LETHALITY
+   radius_and_pk 50.0 m 0.7
+   script void on_weapon_target_engagement(WsfPlatform aTarget)
+      SetPkDegrade(.99);
+   end_script
+end_weapon_effects
+
+platform_type BOMBER_HIT BOMBER
+   edit weapon sdb
+      weapon_effects HIT_99
+   end_weapon
+end_platform_type
+
+platform bomber_hit BOMBER_HIT
+   side blue
+   route
+      position 40.05n 89.9w altitude 10000 ft heading 270 deg speed 400 mph
+   end_route
+end_platform
+
+# Target Definition
+
+radar_signature TARGET_RADAR_SIG
+   constant 10 m^2
+end_radar_signature
+
+platform target WSF_PLATFORM
+   position 40n 90w heading 90 deg 
+   radar_signature TARGET_RADAR_SIG
+end_platform
+
+# Tests
+
+script_variables
+   bool hitOccurred = false;
+   bool missOccurred = false;
+end_script_variables
+
+script void WeaponHit(WsfWeaponEngagement aEngagement, WsfPlatform aTarget)
+   string firingPlat = aEngagement.FiringPlatform().Name();
+   string tgtResult  = aEngagement.TargetResult();
+   string incResult  = aEngagement.IncidentalResult();
+   string extResult  = aEngagement.ExtendedResult();
+   Vec3   wpnLocECS  = aEngagement.WeaponLocationECS();
+   Vec3   wpnVelECS  = aEngagement.WeaponVelocityECS();
+   double wpnSpeed   = wpnVelECS.Normalize();
+   // Equivalence operator not defined for Vec3, so compute magnitude of error and check if within tolerances
+   double locErrSq   = Vec3.Subtract(Vec3.Construct(-0.000840639, -0.000210121, 1.84214e-06), wpnLocECS).MagnitudeSquared();
+   double velErrSq   = Vec3.Subtract(Vec3.Construct(-0.677458, 0.661254, 0.322171), wpnVelECS).MagnitudeSquared();
+   double degrade = aEngagement.PkDegrade();
+
+   if      (tgtResult  != "KILLED")                { writeln("-FAIL- Unexpected target result: ", tgtResult); }
+   else if (incResult  != "MISSED")                { writeln("-FAIL- Unexpected incidental result: ", incResult); }
+   else if (extResult  != "AGL limit encountered") { writeln("-FAIL- Unexpected extended result: ", extResult); }
+   else if (firingPlat != "bomber_hit")            { writeln("-FAIL- Unexpected platform name: " , firingPlat); }
+   else if (degrade != .99)                        { writeln("-FAIL- Unexpected PkDegrade: ", degrade); }
+   else if (locErrSq  >  5.0e-14)                  { writeln("-FAIL- Unexpected weapon location ECS: ", wpnLocECS); }
+   else if (Math.Fabs(wpnSpeed - 255.71) > 8.0e-5) { writeln("-FAIL- Unexpected ECS weapon velocity magnitude: ", wpnSpeed); }
+   else if (velErrSq  >  1.0e-12)                  { writeln("-FAIL- Unexpected ECS weapon velocity unit vector: ", wpnVelECS); }
+   else                                            { hitOccurred = true; }
+end_script
+
+script void WeaponMissed(WsfWeaponEngagement aEngagement, WsfPlatform aTarget)
+   string firingPlat = aEngagement.FiringPlatform().Name();
+   string tgtResult = aEngagement.TargetResult();
+   string incResult = aEngagement.IncidentalResult();
+   string extResult = aEngagement.ExtendedResult();
+   double degrade = aEngagement.PkDegrade();
+   
+   if      (tgtResult != "MISSED")                 { writeln("-FAIL- Unexpected target result: ", tgtResult); }
+   else if (incResult != "MISSED")                 { writeln("-FAIL- Unexpected incidental result: ", incResult); }
+   else if (extResult != "AGL limit encountered")  { writeln("-FAIL- Unexpected extended result: ", extResult); }
+   else if (firingPlat != "bomber_miss")           { writeln("-FAIL- Unexpected platform name: " , firingPlat); }
+   else if (degrade != 0)                          { writeln("-FAIL- Unexpected PkDegrade: ", degrade); }
+   else                                            { missOccurred = true; }
+end_script
+
+# Both 1 hit and 1 miss should occur on target
+script void SimulationComplete()
+   if (hitOccurred && missOccurred) { writeln("-PASS-"); }
+end_script
+
+observer
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable SIMULATION_COMPLETE
+end_observer

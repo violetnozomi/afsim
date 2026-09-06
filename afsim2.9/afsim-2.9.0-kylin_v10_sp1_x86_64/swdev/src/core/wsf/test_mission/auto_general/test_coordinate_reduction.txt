@@ -1,0 +1,59 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test ECI<->WCS coordinate conversions
+# A more complete set of tests can be found in the unit test space_tests/test_coordinate_reduction.cpp
+# Refer to Example 3-14, p. 220 from Vallado, Fundamentals of Astrodynamics and Applications, 4th ed.
+#
+
+start_date apr 6 2004
+start_time 07:51:28.386009
+
+delta_universal_time -0.439961 s
+delta_atomic_time 32
+
+global_environment
+   polar_offset_angles -0.140682 arcseconds 0.33309 arcseconds
+end_global_environment
+
+platform_type CS WSF_PLATFORM
+   icon cubesat
+   nutation_update_interval 500 s
+end_platform_type
+
+script void Test(Vec3 aResult, Vec3 aRef, double aTol)
+   for (int i = 0; i < 3; i=i+1)
+   {
+      if (Math.Fabs(aResult[i] - aRef[i]) > aTol)
+      {
+         writeln("-FAIL-");
+      }
+   }   
+end_script
+
+script_variables
+   Vec3 gLocECI = Vec3.Construct(5102508.958, 6123011.401, 6378136.928);
+   Vec3 glocWCS = Vec3.Construct(-1033479.383, 7901295.2754, 6380356.5958);
+end_script_variables
+
+execute at_time 1.0e-13 s absolute       
+   WsfPlatform testECI_Location = WsfSimulation.CreatePlatform("CS");
+   WsfPlatform testWCS_Location = WsfSimulation.CreatePlatform("CS");
+   testECI_Location = WsfSimulation.AddPlatform(testECI_Location, "test_eci_location");
+   testWCS_Location = WsfSimulation.AddPlatform(testWCS_Location, "test_wcs_location");
+
+   testECI_Location.SetLocationECI(gLocECI);
+   WsfGeoPoint gpWCS = WsfGeoPoint.ConstructWCS(glocWCS);
+   testWCS_Location.SetLocation(gpWCS);
+   Test(testECI_Location.LocationWCS(), glocWCS, 0.01); // ECI->WCS
+   Test(testWCS_Location.LocationECI(), gLocECI, 0.01); // WCS->ECI
+end_execute
+
+end_time 1 s

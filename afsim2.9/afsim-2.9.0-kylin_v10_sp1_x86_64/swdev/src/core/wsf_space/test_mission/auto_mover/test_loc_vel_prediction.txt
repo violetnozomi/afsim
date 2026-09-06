@@ -1,0 +1,74 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2017 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform oracle WSF_PLATFORM
+   icon satellite
+   
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.1
+      inclination 10.0 deg
+      raan 0.0 deg
+      semi_major_axis 5278 mi
+      true_anomaly 0.0 deg
+      argument_of_periapsis 0.0 deg
+   end_mover
+
+   script_variables
+      Array<Vec3> velocities = {};
+      Array<Vec3> locations = {};
+      bool setup = false;
+      double firstTime = 0.0;
+      double interval = 3600.0;
+      double tolerance = 1.0;      // 1 m tolerance   or  1 m/s tolerance
+      int index = 0;
+   end_script_variables
+   
+   execute at_interval_of 60 min
+      WsfSpaceMover mov = (WsfSpaceMover)PLATFORM.Mover();
+      if (setup)
+      {
+         Vec3 locECI = PLATFORM.LocationECI();
+         Vec3 velECI = PLATFORM.VelocityECI();
+         
+         Vec3 locDiff = Vec3.Subtract(locECI, locations[index]);
+         Vec3 velDiff = Vec3.Subtract(velECI, velocities[index]);
+         
+         if (locDiff.Magnitude() > tolerance) 
+         {
+            writeln("-FAIL- Loc ", locDiff.Magnitude());
+         }
+         if (velDiff.Magnitude() > tolerance) 
+         {
+            writeln("-FAIL- Vel ", velDiff.Magnitude());
+         }
+      }
+      else
+      {
+         firstTime = TIME_NOW;
+
+         for (int i = 0; i < 300; i += 1)
+         {
+            double tPred = firstTime + (double)i * interval;
+            locations.PushBack(mov.LocationECI_AtTime(tPred));
+            velocities.PushBack(mov.VelocityECI_AtTime(tPred));
+         }
+         
+         setup = true;
+      }
+      index += 1;
+   end_execute
+   
+end_platform
+
+
+start_date mar 18 2017
+
+end_time 24 hour

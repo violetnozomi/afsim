@@ -1,0 +1,96 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _wsfplatform.cyber_methods:
+
+Cyber Methods
+=============
+
+Attack Methods
+^^^^^^^^^^^^^^
+
+.. method:: bool CyberAttack(WsfPlatform aTarget, string aAttackType)
+
+   Initiates a cyber attack against the target platform 'aTarget' using the attack type 'aAttackType'.
+   'aAttackType' must be a valid :command:`cyber_attack` type.
+
+   Returns true if the command was successful or false if one of the arguments was incorrect.
+   This method will also return false is the attack contains an effect that requires the user
+   to supply additional data, as the alternate CyberAttack method must be utilized.
+
+.. method:: bool CyberAttack(WsfPlatform aTarget, string aAttackType, WsfCyberAttackParameters aParameters)
+
+   Initiates a cyber attack against the target platform 'aTarget' using the attack type
+   'aAttackType'. Certain effects require additional user supplied data at the time an
+   attack is initiated, which is supplied via the 'aParameters' object.
+
+   Returns true if the command was successful or false if one of the arguments was invalid.
+   If none of the effects associated with an attack require additional user data, this
+   method will also return false and terminate execution.
+
+.. method:: bool CyberAttackStatus(WsfPlatform aTarget, string aAttackType)
+
+   Determines the perceived status of the most recent cyber attack against the target platform 'aTarget'
+   using the the attack type 'aAttackType'.
+
+   Returns:
+
+   * < 0 if the status is unknown (the :command:`cyber_attack.delivery_delay_time` has not expired or
+     the victim has blocked the attack and prevented a status report.)
+   * = 0 if the status is failed.
+   * > 0 if the attack succeeded.
+
+.. method:: double LastCyberAttackTime(WsfPlatform aTarget, string aAttackType)
+
+   Returns the time when the last cyber attack was initiated against the target platform 'aTarget'
+   using the attack type 'aAttackType'.
+   'aAttackType' must be a valid :command:`cyber_attack` type.
+   This will be a large positive value if an attack has never been attempted.
+
+Cancel Methods
+^^^^^^^^^^^^^^
+
+To cancel a pending scan/attack see :method:`WsfSimulation.CyberScanCancel`.
+
+Constraint Methods
+^^^^^^^^^^^^^^^^^^
+
+.. method:: WsfCyberConstraint Constraint()
+
+   Initializes and/or returns a cyber constraint object associated with the
+   platform object.
+
+Scan Methods
+^^^^^^^^^^^^
+
+.. method:: bool CyberScan(WsfPlatform aTarget, string aAttackType)
+
+   Initiates a cyber scan against the target platform 'aTarget' using the attack type 'aAttackType'.
+   'aAttackType' must be a valid :command:`cyber_attack` type.
+
+   Returns true if the command was successful or false if one of the arguments was incorrect.
+
+.. method:: bool CyberScanStatus(WsfPlatform aTarget, string aAttackType)
+
+   Determines the perceived status of the most recent cyber scan against the target platform 'aTarget'
+   using the attack type 'aAttackType'.
+   'aAttackType' must be a valid :command:`cyber_attack` type.
+
+   Returns:
+
+   * < 0 if the scan is still in progress (the :command:`cyber_attack.scan_delay_time` has not elapsed.)
+   * = 0 if the scan was unsuccessful (target is not vulnerable.)
+   * > 0 if the scan was successful (target is potentially vulnerable to an attack.)
+
+.. method:: double LastCyberScanTime(WsfPlatform aTarget, string aAttackType)
+
+   Returns the time when the last cyber scan was initiated against the target platform 'aTarget'
+   using the attack type 'aAttackType'.
+   'aAttackType' must be a valid :command:`cyber_attack` type.
+   This will be a large positive value if a scan has never been attempted.

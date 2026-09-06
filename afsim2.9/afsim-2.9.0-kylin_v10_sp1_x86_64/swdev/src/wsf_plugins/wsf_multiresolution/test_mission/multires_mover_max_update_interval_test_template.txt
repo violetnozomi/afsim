@@ -1,0 +1,93 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+test_feature multiresolution
+
+platform USES_MOVER_DIRECTLY WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      # The -1 here and with all references to UPDATE_INTERVAL and FIDELITY_VALUE
+      # are to have the lines pass the grammar check; if the -1 value somehow
+      # gets used, the script will fail, as negative update_interval and
+      # fidelity values are invalid.
+      update_interval $<UPDATE_INTERVAL:-1>$ s
+   end_mover
+end_platform
+
+platform USES_MULTIRESOLUTION_MOVER WSF_PLATFORM
+   add multiresolution_mover WSF_MULTIRESOLUTION_MOVER
+      fidelity $<FIDELITY_VALUE:-1>$
+      add model FIRST_MODEL
+         fidelity_range 0.5 1
+         mover WSF_AIR_MOVER
+            update_interval $<UPDATE_INTERVAL:-1>$ s
+            maximum_climb_rate 50 m/s
+         end_mover
+      end_model
+      add model SECOND_MODEL
+         fidelity_range 0 0.5
+         mover WSF_AIR_MOVER
+            update_interval $<UPDATE_INTERVAL:-1>$ s
+            maximum_climb_rate 100000 m/s
+         end_mover
+      end_model
+   end_multiresolution_mover
+
+   on_initialize2
+      WsfMover mover = PLATFORM.Mover();
+      if(mover != NULL){
+         # Make sure this platform's mover's update interval value matches
+         # that of the platform that defines a mover directly.
+         double update_interval = mover.UpdateInterval();
+         double comparison_platform_value = WsfSimulation.FindPlatform("USES_MOVER_DIRECTLY").Mover().UpdateInterval();
+         if(update_interval == comparison_platform_value){
+            # Also check that the update interval value matches the expected value.
+            # This is to test code changes that can potentially impact both the
+            # multiresolution mover platform and the platform that uses a mover directly.
+            if(Math.Fabs(update_interval - $<EXPECTED_VALUE:-99999>$) < 1.0E-5){
+               writeln("-PASS-");
+            } else {
+               writeln("Multiresolution mover update interval, ",
+                       update_interval,
+                       " (which matches the value from the comparison platform)",
+                       ", does not match the expected value, ",
+                       $<EXPECTED_VALUE>$,
+                       ". UPDATE_INTERVAL was ",
+                       $<UPDATE_INTERVAL>$,
+                       ", MAXIMUM_MOVER_UPDATE_INTERVAL was ",
+                       $<MAXIMUM_MOVER_UPDATE_INTERVAL:"None">$,
+                       ", FIDELITY_VALUE was ",
+                       $<FIDELITY_VALUE>$,
+                       "; also note that event_pipe 'file' command may be enabled or not, but ",
+                       "there's no way to indicate which here.");
+               writeln("-FAIL-");
+            }
+
+         } else {
+            writeln("Multiresolution mover update interval, ",
+                    update_interval,
+                    ", does not match that from comparison platform, ",
+                    comparison_platform_value,
+                    ". UPDATE_INTERVAL was ",
+                    $<UPDATE_INTERVAL>$,
+                    ", MAXIMUM_MOVER_UPDATE_INTERVAL was ",
+                    $<MAXIMUM_MOVER_UPDATE_INTERVAL:"None">$,
+                    ", FIDELITY_VALUE was ",
+                    $<FIDELITY_VALUE>$,
+                    "; also note that event_pipe 'file' command may be enabled or not, but ",
+                    "there's no way to indicate which here.");
+            writeln("-FAIL-");
+         }
+      } else {
+         writeln("No mover.");
+         writeln("-FAIL-");
+      }
+   end_on_initialize2
+end_platform

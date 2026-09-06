@@ -1,0 +1,183 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+(struct UCI_Component
+   :symbol (type uciComponentType UCI_Component)
+   :base_type PlatformPart
+{
+   subsystem_uuid <string>
+ | subsystem_descriptor <string>
+ | <PlatformPart>
+})
+
+(struct root
+   (var ObjectMap/UCI_Component uciComponentType)
+   (rule uci-component-type {
+      uci_component <string> <string> (new (type uciComponentType $1) (type uciComponentType $2)
+         :backup (type uciComponentType UCI_COMPONENT)) [apply($$)]
+         <TypeCommand>*
+      end_uci_component
+    | (error { uci_component <ignore>* end_uci_component })
+   })
+{
+   <uci-component-type>
+})
+
+(struct Platform
+   (var ObjectMap/UCI_Component uciComponents)
+   (rule type-command {
+      uci_component <string> <string> (new (subtype uciComponents $1) (type uciComponentType $2)
+         :backup (type uciComponentType UCI_COMPONENT)) [apply($$)] <TypeCommand>* end_uci_component
+   })
+   (rule instance-command {
+      uci_component <string> (load (subtype uciComponents uciComponent)) [apply($$)] <TypeCommand>* end_uci_component
+   })
+   {
+      add uci_component <string> <string> (new (subtype uciComponents $2) (type uciComponentType $3)
+         :backup (type uciComponentType UCI_COMPONENT)) [apply($$)] <TypeCommand>* end_uci_component
+    | edit uci_component <string> (load (subtype uciComponents $2)) [apply($$)] <TypeCommand>* end_uci_component
+    | delete uci_component <string> (delete (subtype uciComponents $2)) [apply($$)]
+   }
+)
+
+(rule uci-interface-command {
+    service_name       <string>
+  | service_descriptor <string>
+  | message_topic      <uci-message-topic> <string>
+})
+
+(rule uci-message-topic {
+   AMTI_ActivityMessage
+ | AMTI_CapabilityMessage
+ | AMTI_CapabilityStatusMessage
+ | AMTI_CommandStatusMessage
+ | AMTI_SettingsCommandMessage
+ | AMTI_SettingsCommandStatusMessage
+ | ControlRequestMessage
+ | ControlRequestStatusMessage
+ | ControlStatusMessage
+ | DMPI_Message
+ | DMPI_StatusMessage
+ | EntityMessage
+ | ESM_ActivityMessage
+ | ESM_CapabilityMessage
+ | ESM_CapabilityStatusMessage
+ | ESM_CommandMessage
+ | ESM_CommandStatusMessage
+ | ESM_SettingsCommandMessage
+ | ESM_SettingsCommandStatusMessage
+ | POST_ActivityMessage
+ | POST_CapabilityMessage
+ | POST_CapabilityStatusMessage
+ | POST_CommandMessage
+ | POST_CommandStatusMessage
+ | POST_SettingsCommandMessage
+ | POST_SettingsCommandStatusMessage
+ | StrikeActivityMessage
+ | StrikeCapabilityMessage
+ | StrikeCapabilityStatusMessage
+ | StrikeCommandMessage
+ | StrikeCommandStatusMessage
+ | SubsystemStatusMessage
+ | SystemStatusMessage
+})
+
+(rule uci-interface-block {
+   uci_interface <uci-interface-command>* end_uci_interface
+})
+
+(struct root
+   <uci-interface-block>
+)
+
+(struct UCI_Part
+   :base_type UCI_Component
+{
+   update_message_interval <Time>
+ | <UCI_Component> 
+})
+
+(struct UCI_Sensor
+   :base_type UCI_Part
+{
+   sensor <string>
+ | mode_uuid <string> <string>
+ | default_mode_uuid <string>
+ | capability_uuid <string> <string> 
+ | <UCI_Part>
+})
+
+(struct UCI_Weapon
+   :symbol (type uciComponentType WEAPON)
+   :base_type UCI_Part
+   (rule store_category 
+   {
+      air
+    | ground
+    | gun
+    | sea_subsurface
+    | sea_surface
+    | sea_surface_samssm
+   })
+   (rule capability_info
+   {
+      uuids <string>* end_uuids
+    | store_category <store_category>
+    | store_type <integer>
+   })
+{
+   capability <string> <capability_info>* end_capability
+ | <UCI_Part>
+})
+
+(struct UCI_Irst
+   :symbol (type uciComponentType IRST)
+   :base_type UCI_Sensor
+{
+   <UCI_Sensor>
+})
+
+(struct UCI_Esm
+   :symbol (type uciComponentType ESM)
+   :base_type UCI_Sensor
+{
+   <UCI_Sensor>
+})
+
+(struct UCI_Amti
+   :symbol (type uciComponentType AMTI)
+   :base_type UCI_Sensor
+{
+   <UCI_Sensor>
+})
+
+(struct UCI_Computer
+   :symbol (type uciComponentType COMPUTER)
+   :base_type UCI_Component
+{
+   <UCI_Component>
+})
+
+# WsfUCI_EventOutput.cpp
+(rule event_output-event-type {
+   UCI_MESSAGE_SENT
+ | UCI_MESSAGE_RECEIVED
+})
+
+# WsfUCI_CSV_EventOutput.cpp
+(rule csv_event_output-event-type {
+  UCI_MESSAGE_SENT
+| UCI_MESSAGE_RECEIVED
+})
+
+# WsfUCI_ScriptObserver.cpp
+(rule observer-event-type {
+  UCI_MESSAGE_SENT
+| UCI_MESSAGE_RECEIVED
+})

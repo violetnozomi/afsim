@@ -1,0 +1,453 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# File: AntennaPlotFunction.cpp
+
+# Shared rules
+(rule sensor-plot-header-command {
+   header_line_1 <line-string>
+ | header_line_2 <line-string>
+ | header_line_3 <line-string>
+})
+
+# File: MapPlotVariables.cpp
+(rule sensor-plot-map-plot-variable {
+   pd
+ | detection_threshold
+ | required_rcs
+ | rcs_required
+ | radar_signature
+ | optical_signature
+ | infrared_signature
+ | signal_power
+ | clutter_power
+ | noise_power
+ | jammer_power
+ | noise_jammer_power
+ | pulse_jammer_power
+ | coherent_jammer_power
+ | signal_to_noise
+ | signal_to_interference
+ | jammer_to_signal
+ | noise_jammer_to_signal
+ | pulse_jammer_to_signal
+ | coherent_jammer_to_signal
+ | coherent_jammer_to_noise
+ | signal_at_target
+ | background_radiant_intensity
+ | contrast_radiant_intensity
+ | attenuation_factor
+ | propagation_factor
+ | transmit_antenna_gain
+ | receive_antenna_gain
+ | down_range
+ | cross_range
+ | ground_range
+ | slant_range
+ | azimuth_angle
+ | elevation_angle
+ | angle
+ | grazing_angle
+ | target_to_sensor_ground_range
+ | target_to_sensor_slant_range
+ | target_to_sensor_azimuth_angle
+ | target_to_sensor_elevation_angle
+ | sensor_latitude
+ | sensor_longitude
+ | sensor_altitude
+ | sensor_speed
+ | sensor_heading
+ | sensor_pitch
+ | sensor_roll
+ | target_latitude
+ | target_longitude
+ | target_altitude
+ | target_speed
+ | target_heading
+ | target_pitch
+ | target_roll
+ | sar_dwell_time
+ | sar_resolution
+ | sar_clutter_to_noise
+ | sar_doppler_foldover
+ | sar_can_image
+ | pixel_count
+ | time
+ | masking_status
+ | required_jamming_power
+ | required_jammer_power
+ | jamming_power_required
+ | jammer_power_required
+ | terrain_elevation
+})
+
+(rule sensor-plot-map-variable-command {
+   detection_reference <Ratio>
+})
+(rule sensor-plot-flight-path-selector {
+   sensor_type (typeref sensorType)
+ | sensor_category (typeref category)
+ | platform_type (typeref platformType)
+ | platform_category (typeref category)
+})
+(rule sensor-plot-flight-path-path-command {
+   position <Latitude> <Longitude>
+ | altitude <Length> <agl-or-msl>?
+ | heading <Angle>
+ | pitch <Angle>
+ | roll <Angle>
+ | speed <Speed>
+})
+
+(rule sensor-plot-target-command {
+   target_platform_type (typeref platformType)
+ | target_heading <Angle>
+ | target_yaw <Angle>
+ | target_pitch <Angle>
+ | target_roll <Angle>
+ | target_speed <Speed>
+ | target_mach <real>
+})
+
+(rule sensor-plot-sensor-command {
+   sensor_platform_type (typeref platform)
+ | mode_name <string>
+ | required_pd <real>
+ | automatic_target_cueing <Bool>
+})
+
+# Sensor plot functions:
+(struct SensorPlotFunction
+   (var String name)
+   (var String pdMapFile)
+   (var String gnuplotFile)
+   (var String gnuplotPlayerFile)
+   (rule pd-map-file {
+      pd_map_file (output-file-reference pd-map-file) [pdMapFile = $$]
+   })
+   (rule gnuplot-file {
+      gnuplot_file (output-file-reference plt-file) [gnuplotFile = $$]
+   })
+   (rule gnuplot-player-file {
+      gnuplot_player_file (output-file-reference plt-file) [gnuplotPlayerFile = $$]
+   })
+{
+   name <$name>
+ | platform_availability <platform-availability-command>* end_platform_availability
+ | <object-script-context-command>
+})
+
+(struct SensorPlotFlightPathAnalysis :base_type SensorPlotFunction
+                                     :symbol (type sensorPlots FLIGHT_PATH_ANALYSIS)
+   (rule TSPI-command
+     (rule element-type {
+        time | altitude | speed | pitch | roll | heading
+     })
+   {
+     <element-type> in <string>
+    | <element-type> inverted
+   })
+{
+   <SensorPlotFunction.gnuplot-file>
+ | header_line_1 <line-string>
+ | header_line_2 <line-string>
+ | header_line_3 <line-string>
+ | mode_name <string>
+ | sensor_platform_yaw <Angle>
+ | sensor_platform_pitch <Angle>
+ | sensor_platform_roll <Angle>
+ | target_platform_name (typeref platform)
+ | jamming_platform_name (typeref platform)
+ | sample_interval <Time>
+ | variable <sensor-plot-map-plot-variable>
+ | script_variable <string> <real>
+ | jammer_to_signal_reference <Ratio>
+ | automatic_target_cueing <Bool>
+ | reverse_evaluations <Bool>
+ | exclude <sensor-plot-flight-path-selector>
+ | no_exclude <sensor-plot-flight-path-selector>
+ | path <sensor-plot-flight-path-path-command>* end_path
+ | alarm_fpa_file (file-reference alarm-fpa-file)
+ | tspi_file (file-reference tspi)
+ | TSPI_file (file-reference tspi)
+ | TSPI_filename (file-reference tspi)
+  # TSPI-command is in wsf.ag
+ | <TSPI-command>
+ | <SensorPlotFunction>
+})
+
+
+(struct SensorPlotAntennaPlot  :base_type SensorPlotFunction
+                               :symbol (type sensorPlots ANTENNA_PLOT)
+   (var String outputFile)
+   (rule ebs-mode {
+      azimuth
+    | elevation
+    | both
+    | azimuth_and_elevation
+    | none
+   })
+   (rule antenna-axes { vertical | horizontal | both})
+{
+   pattern_name <string>
+ | axes <antenna-axes>
+ | azimuth_range <Angle> <Angle>
+ | azimuth_step <Angle>
+ | elevation_range <Angle> <Angle>
+ | elevation_step <Angle>
+ | tilt_angle <Angle>
+ | azimuth_steering_angle <Angle>
+ | elevation_steering_angle <Angle>
+ | electronic_beam_steering <ebs-mode>
+ | electronic_beam_steering_limit <Angle>
+ | electronic_beam_steering_loss_exponent <real>
+ | frequency <frequency-value>
+ | polarization <polarization-value>
+ | output_file (output-file-reference plt-file) [outputFile=$$]
+ | <SensorPlotFunction.gnuplot-file>
+ | <sensor-plot-header-command>
+ | output_column_limit <integer>
+ | <SensorPlotFunction>
+})
+
+
+(struct SensorPlotHorizontalMap  :base_type SensorPlotFunction
+                                 :symbol (type sensorPlots HORIZONTAL_MAP)
+   (var String kmlFile)
+   (var String shapeFile)
+   (var String seditFile)
+   (var String tiffFile)
+   (var String defendedAreaFile)
+   (var String analysisMapFile)
+   (rule contour-level-command {
+      line_color <:Color>
+    | line_width <real>
+   })
+   (rule analysis-map-command {
+      file (output-file-reference plt-file) [analysisMapFile=$$]
+    | color_range <real> to <real> <:Color>
+    | data_title <string>
+    | units <string>
+   })
+   (rule target-region-command {
+      latitude_limits <Latitude> <Latitude>
+    | latitude_range <Latitude> <Latitude>
+    | longitude_limits <Longitude> <Longitude>
+    | longitude_range <Longitude> <Longitude>
+    | latitude_step <real>
+    | longitude_step <real>
+    | down_range_limits <Length> <Length>
+    | cross_range_limits <Length> <Length>
+    | down_range_step <Length>
+    | cross_range_step <Length>
+   })
+{
+   contour_level <real> <contour-level-command>* end_contour_level
+ | contour_variable <sensor-plot-map-plot-variable>
+ | analysis_map <analysis-map-command>* end_analysis_map
+ | <SensorPlotFunction.gnuplot-file>
+ | <SensorPlotFunction.gnuplot-player-file>
+ | <SensorPlotFunction.pd-map-file>
+ | <sensor-plot-header-command>
+ | output_column_limit <integer>
+ | kml_file (output-file-reference kml-file) [kmlFile=$$]
+ | shapefile (output-file-reference shape-file) [shapeFile=$$]
+ | sedit_file (output-file-reference sed-file) [seditFile=$$]
+ | tiff_file (output-file-reference tiff-file) [tiffFile=$$]
+ | defended_area_report_file (output-file-reference sensorplot-file) [defendedAreaFile=$$]
+ | mode_name <string>
+ | sensor_platform_yaw <Angle>
+ | sensor_platform_pitch <Angle>
+ | sensor_platform_roll <Angle>
+ | platform_to_detect_name (typeref platform)
+ | jamming_platform_name (typeref platform)
+ | target_region <target-region-command>* end_target_region
+ | <target-region-command>
+ | <sensor-plot-target-command>
+ | target_altitude <Length> <agl-or-msl>?
+ | variable <sensor-plot-map-plot-variable>
+ | script_variable <string> <real>
+ | jammer_to_signal_reference <Ratio>
+ | automatic_target_cueing <Bool>
+ | line_of_sight_masking <Bool>
+ | exclude <sensor-plot-flight-path-selector>
+ | no_exclude <sensor-plot-flight-path-selector>
+ | <SensorPlotFunction>
+})
+
+# File: HorizontalCoverageFunction.cpp
+(struct SensorPlotHorizontalCoverage :base_type SensorPlotFunction
+                                     :symbol (type sensorPlots HORIZONTAL_COVERAGE)
+   (var String outputBase)
+   (var String outputFile)
+   (rule range-bearing-command {
+      range <Length>
+    | ranges from <Length> to <Length> by <Length>
+    | bearings from <Angle> to <Angle> by <Angle>
+   })
+{
+   output_base (output-file-reference sensorplot-file) [outputBase=$$]
+ | output_file (output-file-reference sensorplot-file) [outputFile=$$]
+ | output_min_range
+ | output_max_range
+ | altitude <Length>
+ | altitude <Length> <range-bearing-command>* end_altitude
+ | altitudes from <Length> to <Length> by <Length> <range-bearing-command>* end_altitudes
+ | altitude_units <string>
+ | range_units <string>
+ | x_units <string>
+ | y_units <string>
+ | maximum_range <Length>
+ | large_range_step <Length>
+ | small_range_step <Length>
+ | azimuth_limits <Angle> <Angle>
+ | azimuth_range <Angle> <Angle>
+ | azimuth_step <Angle>
+ | <sensor-plot-sensor-command>
+ | <sensor-plot-target-command>
+ | <SensorPlotFunction>
+})
+
+(struct SensorPlotSphericalMap :base_type SensorPlotFunction
+                               :symbol (type sensorPlots SPHERICAL_MAP)
+{
+   <SensorPlotFunction.pd-map-file>
+ | <sensor-plot-header-command>
+ | output_column_limit <integer>
+ | <SensorPlotFunction.gnuplot-file>
+ | altitude <Length>
+ | azimuth_limits <Angle> <Angle>
+ | azimuth_step <Angle>
+ | elevation_limits <Angle> <Angle>
+ | elevation_step <Angle>
+ | range <Length>
+ | fixed_target_position
+ | fixed_sensor_position
+ | variable <sensor-plot-map-plot-variable>
+ | script_variable <string> <real>
+ | jammer_to_signal_reference <Ratio>
+ | <sensor-plot-map-variable-command>
+ | <sensor-plot-sensor-command>
+ | sensor_platform_yaw <Angle>
+ | sensor_platform_pitch <Angle>
+ | sensor_platform_roll <Angle>
+ | <sensor-plot-target-command>
+ | <SensorPlotFunction>
+})
+
+(struct SensorPlotVerticalMap  :base_type SensorPlotFunction
+                               :symbol (type sensorPlots VERTICAL_MAP)
+{
+   <SensorPlotFunction.pd-map-file>
+ | <sensor-plot-header-command>
+ | output_column_limit <integer>
+ | <SensorPlotFunction.gnuplot-file>
+ | <SensorPlotFunction.gnuplot-player-file>
+ | ground_range_limits <Length> <Length>
+ | altitude_limits <Length> <Length>
+ | ground_range_step <Length>
+ | altitude_step <Length>
+ | fixed_target_position
+ | fixed_sensor_position
+ | variable <sensor-plot-map-plot-variable>
+ | script_variable <string> <real>
+ | jammer_to_signal_reference <Ratio>
+ | <sensor-plot-sensor-command>
+ | <sensor-plot-target-command>
+ | <SensorPlotFunction>
+})
+
+# File: VerticalCoverageFunction.cpp
+(struct SensorPlotVerticalCoverage :base_type SensorPlotFunction
+                                   :symbol (type sensorPlots VERTICAL_COVERAGE)
+   (var String outputBase)
+   (var String outputFile)
+{
+   output_base (output-file-reference sensorplot-file) [outputBase=$$]
+ | output_file (output-file-reference sensorplot-file) [outputFile=$$]
+ | output_max_height
+ | output_max_range
+ | altitude_units <string>
+ | range_units <string>
+ | x_units <string>
+ | y_units <string>
+ | maximum_range <Length>
+ | large_range_step <Length>
+ | small_range_step <Length>
+ | elevation_limits <Angle> <Angle>
+ | elevation_range <Angle> <Angle>
+ | elevation_step <Angle>
+ | <sensor-plot-sensor-command>
+ | <sensor-plot-target-command>
+ | <SensorPlotFunction>
+})
+
+# File: ClutterTableFunction.cpp
+(struct SensorPlotClutterTable  :base_type SensorPlotFunction
+                                :symbol (type sensorPlots CLUTTER_TABLE)
+   (rule range-bearing-command {
+      range <Length>
+    | ranges from <Length> to <Length> by <Length>
+    | bearings from <Angle> to <Angle> by <Angle>
+   })
+{
+   altitude <Length> <range-bearing-command>* end_altitude
+ | altitudes from <Length> to <Length> by <Length> <range-bearing-command>* end_altitudes
+ | output_file_name <string>
+ | output_object_name <string>
+ | altitude_units <string>
+ | range_units <string>
+ | sensor_platform_yaw <Angle>
+ | sensor_platform_pitch <Angle>
+ | sensor_platform_roll <Angle>
+ | sensor_platform_latitude <Latitude>
+ | sensor_platform_longitude <Longitude>
+ | sensor_platform_altitude <Length>
+ | <sensor-plot-sensor-command>
+ | <sensor-plot-target-command>
+ | <SensorPlotFunction>
+})
+
+# Root
+(struct root
+   (var ObjectMap/SensorPlotFunction sensorPlots)
+{
+   antenna_plot            (new (type sensorPlots generated_name) (type sensorPlots ANTENNA_PLOT)) [apply($$)]
+      <TypeCommand>*
+   end_antenna_plot
+ | clutter_table           (new (type sensorPlots generated_name) (type sensorPlots CLUTTER_TABLE)) [apply($$)]
+      <TypeCommand>*
+   end_clutter_table
+ | flight_path_analysis    (new (type sensorPlots generated_name) (type sensorPlots FLIGHT_PATH_ANALYSIS)) [apply($$)]
+      <TypeCommand>*
+   end_flight_path_analysis
+ | horizontal_map          (new (type sensorPlots generated_name) (type sensorPlots HORIZONTAL_MAP)) [apply($$)]
+      <TypeCommand>*
+   end_horizontal_map
+ | horizontal_coverage     (new (type sensorPlots generated_name) (type sensorPlots HORIZONTAL_COVERAGE)) [apply($$)]
+      <TypeCommand>*
+   end_horizontal_coverage
+ #| radar_envelope     (new (type sensorPlots generated_name) (type sensorPlots RADAR_ENVELOPE)) [apply($$)]
+ #     <TypeCommand>*
+ #  end_radar_envelope
+ | spherical_map           (new (type sensorPlots generated_name) (type sensorPlots SPHERICAL_MAP)) [apply($$)]
+      <TypeCommand>*
+   end_spherical_map
+ | vertical_map            (new (type sensorPlots generated_name) (type sensorPlots VERTICAL_MAP)) [apply($$)]
+      <TypeCommand>*
+   end_vertical_map
+ | vertical_coverage       (new (type sensorPlots generated_name) (type sensorPlots VERTICAL_COVERAGE)) [apply($$)]
+      <TypeCommand>*
+   end_vertical_coverage
+})
+
+
+

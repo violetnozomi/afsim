@@ -1,0 +1,210 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// test of architecture for oms / uci messaging
+include ./sensor_definitions.txt
+
+//Uncomment following line to enable writeln_d comments
+//script_debug_writes true
+
+platform_type SIMPLE_SENSE WSF_PLATFORM
+   side blue
+   icon f-18
+   uci_component computer COMPUTER
+      //debug
+   end_uci_component
+   
+   script_variables 
+      Set<string> systemIds = {};
+      Map<string, UCI_CapabilityId> controlRequests = {};
+      Array<UCI_CapabilityId> capabilities = {};
+      int currentMode = 0;
+      double currentAz = 0;
+      double currentEl = 0;
+      bool enable = true;
+   end_script_variables
+   
+   script void SendSettingsCommand()
+      WsfProcessor sp = PLATFORM.Processor("amti_command");
+      UCI_CapabilityState state = UCI_CapabilityState.DISABLE();
+      if (enable) state = UCI_CapabilityState.ENABLE();
+      
+      UCI_AMTI_SettingsCommandMessage scMsg = UCI_AMTI_SettingsCommandMessage.Construct(capabilities[currentMode],
+                                                                                        state);
+      if (!enable)
+      {
+         writeln_d("Command should be rejected");
+      }
+      sp.SendMessage(scMsg); 
+   end_script
+   
+   script void RequestControl(UCI_AMTI_CapabilityMessage aMsg)
+      WsfProcessor sp = PLATFORM.Processor("amti_command");
+      string systemID = aMsg.Header().SystemId().UUID();
+      
+      //Keep track of which capabilities have already been discovered
+      if (!systemIds.Exists(systemID))
+      {
+         writeln_d("Adding system: ", systemID);
+         int size = aMsg.Size();
+         
+         //Loop over all capabilities in the message to request control
+         for(int i = 0; i < size; i = i +1)
+         {
+            UCI_CapabilityId capabilityId = aMsg.Capability(i).CapabilityId();
+            string uuid = capabilityId.UUID();
+            string description = capabilityId.Descriptor();
+            writeln_d(i, " : ", uuid, " : ", description);
+      
+            // send an AMTI Control Request message
+            UCI_Control controlType = UCI_Control.CAPABILITY_PRIMARY();
+            UCI_ControlRequest requestType = UCI_ControlRequest.ACQUIRE();
+            UCI_ControlRequestMessage crm = UCI_ControlRequestMessage.Construct(controlType,
+                                                                                requestType,
+                                                                                aMsg.Header().SystemId(),
+                                                                                capabilityId);
+
+            controlRequests.Set(crm.UUID(), capabilityId);
+            sp.SendMessage(crm);   
+            systemIds.Insert(systemID); 
+            capabilities.PushBack(capabilityId);
+            
+            //Initialize capabilities to desired state
+            int initialMode = currentMode;
+            for (int i = 0; i < capabilities.Size(); i += 1)
+            {
+               currentMode = i;
+               SendSettingsCommand();
+            }
+            currentMode = initialMode;
+         }
+      }      
+   end_script
+   
+   script void UpdateDirection()
+      if (currentAz == 0)
+      {
+         currentAz = -Math.PI_OVER_2();
+         currentEl = 36 * Math.RAD_PER_DEG();
+      }
+      else if (currentAz == -Math.PI_OVER_2())
+      {
+         currentAz = Math.PI_OVER_2();
+         currentEl = 18 * Math.RAD_PER_DEG();
+      }
+      else
+      {
+         currentAz = 0;
+         currentEl = 0;
+      }
+   end_script
+   
+   script void SendCommand()
+      WsfProcessor sp = PLATFORM.Processor("amti_command");
+      UCI_LOS_Reference losRef = UCI_LOS_Reference.INERTIAL(); 
+      UCI_ElevationScanStabilization stabilization = UCI_ElevationScanStabilization.CENTER_ALTITUDE();     
+      UCI_AirTargetVolumeCommand atVolumeCommand = UCI_AirTargetVolumeCommand.Construct(losRef,
+                                                                                        stabilization,
+                                                                                        currentAz,
+                                                                                        currentEl);
+      UCI_CapabilityId id = capabilities[currentMode];
+      UCI_AMTI_CapabilityCommand capCommand = UCI_AMTI_CapabilityCommand.Construct(id,
+                                                                                   atVolumeCommand);     
+      UCI_AMTI_Command amtiCommand = UCI_AMTI_Command.Construct(capCommand);
+      UCI_AMTI_CommandMessage acm = UCI_AMTI_CommandMessage.Construct(amtiCommand);
+      
+      string enableStr = "enabled";
+      if (!enable)
+      {
+         enableStr = "disabled";
+      }
+      
+      string modeStr = "";
+      if (currentMode == 1)
+      {
+         modeStr = " (Uncommandable mode, rejected)";
+      }
+      writeln_d("Sending command:");
+      writeln_d("   Az: ", currentAz);
+      writeln_d("   El: ", currentEl);
+      writeln_d("   Status: ", enableStr);
+      writeln_d("   Mode: ", currentMode, modeStr);
+      
+      sp.SendMessage(acm);
+   end_script
+   
+   //Switch capabilities and dis/enable once all capabilities have 
+   //gone through all AzEl
+   script void UpdateMode()
+      
+      if (currentAz == 0)
+      {
+         currentMode = MATH.Mod(currentMode + 1, capabilities.Size());
+         if (currentMode ==  0)
+         {
+            enable = !enable;
+         }
+         SendSettingsCommand();
+      }     
+   end_script
+   
+   mover WSF_AIR_MOVER 
+   end_mover  
+
+end_platform_type
+
+platform_type SENSE WSF_PLATFORM
+   side blue
+   icon f-18
+   
+   uci_component computer COMPUTER
+      internal_link amti_uci_component
+   end_uci_component
+   
+   sensor amti EW_RADAR
+      on
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   processor track_manager WSF_TRACK_MANAGER
+   end_processor
+   
+   mover WSF_AIR_MOVER 
+   end_mover   
+   
+   uci_component amti_uci_component AMTI
+      mode_uuid commandable 8BEDF810-EC9D-40E4-8F4A-09478DF5B0F5
+      mode_uuid non_commandable 8BEDF810-EC9D-40E4-8F4A-09478DF5B0F7
+      sensor amti
+      update_message_interval 5 seconds
+      internal_link computer
+   end_uci_component
+end_platform_type
+
+platform_type TARGET ESM_PLATFORM 
+end_platform_type
+
+dis_interface 
+   exercise 1
+   site 1
+   autostart
+   
+   connections 
+      broadcast 255.255.255.255 port 3000
+   end_connections
+   
+   entity_type TARGET 1:2:222:1:19:11:0
+
+   emitter_type EW_RADAR 5
+      
+end_dis_interface
+
+start_time_now
+end_time 1 hour

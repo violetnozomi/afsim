@@ -1,0 +1,157 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// A test to ensure that all initialization contexts are called and in the correct order.
+// The correct order of initialization is the following (as of AFSIM 2.8)
+//global init1
+//platform1-init1
+//platform2-init1
+//platform1-component1-init1
+//platform1-component2-init1
+//platform2-component1-init1
+//platform2-component2-init1
+//platform1-init2
+//platform2-init2
+//platform1-component1-init2
+//platform1-component2-init2
+//platform2-component1-init2
+//platform2-component2-init2
+
+script_variables
+   bool enable_output = false; // set to true for console output   
+   Array<string> init_order = {};
+end_script_variables
+
+processor PROC WSF_SCRIPT_PROCESSOR
+   on_initialize
+      if(enable_output)
+      {
+         writeln(PLATFORM.Name() + "." + PROCESSOR.Name() + " on_initialize");
+      }
+      init_order.PushBack(PLATFORM.Name() + "." + PROCESSOR.Name() + "." + "init1");
+   end_on_initialize
+
+   on_initialize2
+      if(enable_output)
+      {
+         writeln(PLATFORM.Name() + "." + PROCESSOR.Name() + " on_initialize2");
+      }
+      init_order.PushBack(PLATFORM.Name() + "." + PROCESSOR.Name() + "." + "init2");
+   end_on_initialize2
+end_processor
+
+platform_type TEST WSF_PLATFORM
+   on_initialize
+      if(enable_output)
+      {
+         writeln(PLATFORM.Name() + " on_initialize");
+      }
+      init_order.PushBack(PLATFORM.Name() + "." + "init1");
+   end_on_initialize
+   
+   on_initialize2
+      if(enable_output)
+      {
+         writeln(PLATFORM.Name() + " on_initialize2");
+      }
+      init_order.PushBack(PLATFORM.Name() + "." + "init2");
+   end_on_initialize2
+   
+   processor component1 PROC
+   end_processor
+   
+   processor component2 PROC
+   end_processor
+end_platform_type
+
+platform platform1 TEST  
+end_platform
+
+platform platform2 TEST
+end_platform
+
+on_initialize
+      if(enable_output)
+      {
+         writeln("Global on_initialize");
+      }
+      init_order.PushBack("GlobalInit");
+end_on_initialize
+
+execute at_time 1 s absolute
+   if(init_order.Size() != 13)
+   {
+      writeln("Error - num inits are: " + (string)init_order.Size());
+      writeln("-FAIL-");
+      return;
+   }
+   
+   if(init_order[0] != "GlobalInit")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[1] != "platform1.init1")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[2] != "platform1.component1.init1")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[3] != "platform1.component2.init1")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[4] != "platform2.init1")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[5] != "platform2.component1.init1")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[6] != "platform2.component2.init1")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[7] != "platform1.init2")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[8] != "platform1.component1.init2")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[9] != "platform1.component2.init2")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[10] != "platform2.init2")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[11] != "platform2.component1.init2")
+   {
+      writeln("-FAIL-");
+   }
+   if(init_order[12] != "platform2.component2.init2")
+   {
+      writeln("-FAIL-");
+   }
+   
+   //debug
+#   foreach(string str in init_order)
+#   {
+#      writeln(str);
+#   }
+   //end_debug
+   
+end_execute
+
+end_time 1.1 s

@@ -1,0 +1,93 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   bool gAnyFailure         = false;
+   string gFinalTestsMethod = "";
+end_script_variables
+
+script void ExpectString(string aMeasured, string aExpectation, string aMessage)
+   if (aMeasured != aExpectation)
+   {
+      gAnyFailure = true;
+      writeln("-FAIL- String '", aMeasured, "' does not match expected string '", aExpectation, "'. ", aMessage);
+   }
+end_script
+
+script void ExpectDouble(double aValue, double aExpectation, double aTolerance, string aMessage)
+   double diff = Math.Fabs(aValue - aExpectation);
+   if (diff > aTolerance)
+   {
+      gAnyFailure = true;
+      writeln("-FAIL- double '", Format.Scientific(aValue, 12), "' does not match expected '", Format.Scientific(aExpectation, 12), "'. ", aMessage);
+      writeln("   Diff was: ", diff);
+   }
+end_script
+
+script void ExpectInt(int aValue, int aExpectation, string aMessage)
+   if (aValue != aExpectation)
+   {
+      gAnyFailure = true;
+      writeln("-FAIL- int '", aValue, "' does not match expected '", aExpectation, "'. ", aMessage);
+   }
+end_script
+
+script void ExpectBool(bool aValue, bool aExpectation, string aMessage)
+   if (aValue != aExpectation)
+   {
+      gAnyFailure = true;
+      writeln("-FAIL- bool '", aValue, "' does not match expected '", aExpectation, "'. ", aMessage);
+   }
+end_script
+
+script void ExpectVec(Vec3 aValue, Vec3 aExpectation, double aTolerance, string aMessage)
+   ExpectDouble(aValue.X(), aExpectation.X(), aTolerance, aMessage + " X");
+   ExpectDouble(aValue.Y(), aExpectation.Y(), aTolerance, aMessage + " Y");
+   ExpectDouble(aValue.Z(), aExpectation.Z(), aTolerance, aMessage + " Z");
+end_script
+
+script void ExpectNearRelative(double aObserved, double aExpected, double aTolerance, string aMessage)
+   if (MATH.Fabs(aObserved - aExpected) / aExpected > aTolerance)
+   {
+      gAnyFailure = true;
+      writeln("Value is not near enough to expected value. ", aMessage);
+      writeln("   Expected value: ", Format.Scientific(aExpected, 12));
+      writeln("   Observed value: ", Format.Scientific(aObserved, 12));
+      writeln("   Tolerance:      ", aTolerance);
+   }
+end_script
+
+script void SetFailureFlag()
+   gAnyFailure = true;
+end_script
+
+script void SetFinalTestMethodName(string aName)
+   gFinalTestsMethod = aName;
+end_script
+
+script void FinalAssessment()
+   if (gFinalTestsMethod.Length() > 0)
+   {
+      ExpectBool(WsfSimulation.ScriptExists(gFinalTestsMethod), true, "Final test method script should exist");
+      WsfSimulation.Execute(gFinalTestsMethod);
+   }
+
+   if (gAnyFailure)
+   {
+      writeln("-FAIL- Not all tests passed.");
+   }
+   else
+   {
+      writeln("-PASS- All tests passed.");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE FinalAssessment
+end_observer

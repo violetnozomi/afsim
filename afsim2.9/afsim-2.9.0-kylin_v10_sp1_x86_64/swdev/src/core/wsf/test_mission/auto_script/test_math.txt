@@ -1,0 +1,299 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_math.txt
+# Test your math constants
+
+include test_functions.txt
+
+on_initialize
+
+   bool pass = true;
+
+   if (!(WithinTolerance(MATH.E(), 2.71828, .01)))
+   {
+      writeln("-FAIL- E                      ", MATH.E());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.PI(), 3.14159, .01)))
+   {
+      writeln("-FAIL- PI                     ", MATH.PI());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.PI_OVER_2(), 1.5708, .01)))
+   {
+      writeln("-FAIL- PI_OVER_2              ", MATH.PI_OVER_2());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.PI_OVER_4(), 0.785398, .01)))
+   {
+      writeln("-FAIL- PI_OVER_4              ", MATH.PI_OVER_4());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.TWO_PI(), 6.28319, .01)))
+   {
+      writeln("-FAIL- TWO_PI                 ", MATH.TWO_PI());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.FOUR_PI(), 12.5664, .01)))
+   {
+      writeln("-FAIL- FOUR_PI                ", MATH.FOUR_PI());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.RAD_PER_DEG(), 0.0174533, .01)))
+   {
+      writeln("-FAIL- RAD_PER_DEG            ", MATH.RAD_PER_DEG());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.DEG_PER_RAD(), 57.2958, .01)))
+   {
+      writeln("-FAIL- DEG_PER_RAD            ", MATH.DEG_PER_RAD());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.FT_PER_M(), 3.28084, .01)))
+   {
+      writeln("-FAIL- FT_PER_M               ", MATH.FT_PER_M());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.M_PER_FT(), 0.3048, .01)))
+   {
+      writeln("-FAIL- M_PER_FT               ", MATH.M_PER_FT());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.M_PER_MI(), 1609.34, .01)))
+   {
+      writeln("-FAIL- M_PER_MI               ", MATH.M_PER_MI());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.M_PER_NM(), 1852, .01)))
+   {
+      writeln("-FAIL- M_PER_NM               ", MATH.M_PER_NM());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.FT_PER_NM(), 6076.12, .01)))
+   {
+      writeln("-FAIL- FT_PER_NM              ", MATH.FT_PER_NM());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.FT_PER_MI(), 5280, .01)))
+   {
+      writeln("-FAIL- FT_PER_MI              ", MATH.FT_PER_MI());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.MPS_PER_MPH(), 0.44704, .01)))
+   {
+      writeln("-FAIL- MPS_PER_MPH            ", MATH.MPS_PER_MPH());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.MPH_PER_MPS(), 2.23694, .01)))
+   {
+      writeln("-FAIL- MPH_PER_MPS            ", MATH.MPH_PER_MPS());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.MPS_PER_NMPH(), 0.514444, .01)))
+   {
+      writeln("-FAIL- MPS_PER_NMPH           ", MATH.MPS_PER_NMPH());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.NMPH_PER_MPS(), 1.94384, .01)))
+   {
+      writeln("-FAIL- NMPH_PER_MPS           ", MATH.NMPH_PER_MPS());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.LB_PER_KG(), 2.20462, .01)))
+   {
+      writeln("-FAIL- LB_PER_KG              ", MATH.LB_PER_KG());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.LB_PER_NT(), 0.224809, .01)))
+   {
+      writeln("-FAIL- LB_PER_NT              ", MATH.LB_PER_NT());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.LIGHT_SPEED(), 2.99792e+008, .01e+008)))
+   {
+      writeln("-FAIL- LIGHT_SPEED            ", MATH.LIGHT_SPEED());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.BOLTZMANN_CONSTANT(), 1.38065e-023, .01e-023)))
+   {
+      writeln("-FAIL- BOLTZMANN_CONSTANT     ", MATH.BOLTZMANN_CONSTANT());
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.GRAVITATIONAL_CONSTANT(), 6.6742e-011, .01e-011)))
+   {
+      writeln("-FAIL- GRAVITATIONAL_CONSTANT ", MATH.GRAVITATIONAL_CONSTANT());
+      pass = false;
+   }
+
+   double theta = 80.0 * MATH.RAD_PER_DEG();
+   if (!(WithinTolerance(theta, 1.39626, .01)))
+   {
+      writeln("-FAIL- theta is ", theta);
+      pass = false;
+   }
+
+   double cosTheta = MATH.Cos(theta);
+   if (!(WithinTolerance(cosTheta, 0.999703, .01)))
+   {
+      writeln("-FAIL- cos theta ", cosTheta);
+      pass = false;
+   }
+
+   double sinTheta = MATH.Sin(theta);
+   if (!(WithinTolerance(sinTheta, 0.024367, .01)))
+   {
+      writeln("-FAIL- sin theta ", sinTheta);
+      pass = false;
+   }
+
+   if (!(MATH.AngleIsBetween(80.0, 0.0, 180.0)))
+   {
+      writeln("-FAIL- theta is not between 0.0 and 180.0");
+      pass = false;
+   }
+
+   if (!(MATH.AngleWithinTolerance(80.0, 180.0)))
+   {
+      writeln("-FAIL- theta is not within tolerance");
+      pass = false;
+   }
+
+   if (MATH.Sign(theta) < 0.0)
+   {
+      writeln("-FAIL- theta is negative");
+      pass = false;
+   }
+
+   double e = 2.718281828;
+   double log_e2 = MATH.Log(e * e);
+   if (!(WithinTolerance(log_e2, 2.0, 1.0E-6)))
+   {
+      writeln("-FAIL- MATH.Log(e2) != 2: ", log_e2);
+      pass = false;
+   }
+
+   double ln_e2 = MATH.Ln(e * e);
+   if (!(WithinTolerance(ln_e2, 2.0, 1.0E-6)))
+   {
+      writeln("-FAIL- MATH.Ln(e2) != 2: ", ln_e2);
+      pass = false;
+   }
+
+   double log10_100 = MATH.Log10(100.0);
+   if (!(WithinTolerance(log10_100, 2.0, 1.0E-6)))
+   {
+      writeln("-FAIL- MATH.Log10(100) != 2: ", log10_100);
+      pass = false;
+   }
+
+   double log2_4 = MATH.Log(4.0, 2.0);
+   if (!(WithinTolerance(log2_4, 2.0, 1.0E-6)))
+   {
+      writeln("-FAIL- MATH.Log2(4) != 2: ", log2_4);
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.LinearToDB(theta), 1.44967, .01)))
+   {
+      writeln("-FAIL- MATH.LinearToDB(theta) ", MATH.LinearToDB(theta));
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.SafeLinearToDB(theta), 1.44967, .01)))
+   {
+      writeln("-FAIL- theta db using safe conversion method is ", MATH.SafeLinearToDB(theta));
+      pass = false;
+   }
+
+   double thetaDB = MATH.SafeLinearToDB(theta);
+   if (!(WithinTolerance(MATH.DB_ToLinear(thetaDB), 1.39626, .01)))
+   {
+      writeln("-FAIL- theta converted back from db to linear is ", MATH.DB_ToLinear(thetaDB));
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.Sqrt(theta), 1.18164, .01)))
+   {
+      writeln("-FAIL- the square root of theta is ", MATH.Sqrt(theta));
+      pass = false;
+   }
+
+   if (!(WithinTolerance(MATH.Fabs(theta), 1.39626, .01)))
+   {
+      writeln("-FAIL- the absolute value of theta is ", MATH.Fabs(theta));
+      pass = false;
+   }
+
+   double lat = 39.0;
+   string latString = MATH.LatToString(lat);
+   if (latString != "39:00:00.0n")
+   {
+      writeln("-FAIL- LatToString expected 39:00:00.0n, got ", latString);
+      pass = false;
+   }
+   lat = MATH.StringToLat(latString);
+   if (lat != 39.0)
+   {
+      writeln("-FAIL- StringToLat expected 39.0, got ", lat);
+      pass = false;
+   }
+
+   double lon = -90.0;
+   string lonString = MATH.LonToString(lon);
+   if (lonString != "90:00:00.0w")
+   {
+      writeln("-FAIL- LonToString expected 90:00:00.0w, got ", lonString);
+      pass = false;
+   }
+   lon = MATH.StringToLon(lonString);
+   if (lon != -90.0)
+   {
+      writeln("-FAIL- StringToLon expected -90.0, got ", lon);
+      pass = false;
+   }
+
+   assert(MATH.NormalizeAngleMinus180_180(180.0) == -180.0, "-FAIL-");
+   assert(MATH.NormalizeAngleMinus180_180(-180.0) == -180.0, "-FAIL-");
+   assert(MATH.NormalizeAngleMinus180_180(360.0) == 0.0, "-FAIL-");
+   assert(MATH.NormalizeAngleMinus180_180(720.0) == 0.0, "-FAIL-");
+   assert(MATH.NormalizeAngleMinus180_180(92.0) == 92.0, "-FAIL-");
+   assert(MATH.NormalizeAngleMinus180_180(-92.0) == -92.0, "-FAIL-");
+   assert(MATH.NormalizeAngleMinus180_180(-181.0) == 179.0, "-FAIL-");
+
+   assert(MATH.NormalizeAngle0_360(360.0) == 0.0, "-FAIL-");
+   assert(MATH.NormalizeAngle0_360(0.0) == 0.0, "-FAIL-");
+   assert(MATH.NormalizeAngle0_360(720.0) == 0.0, "-FAIL-");
+   assert(MATH.NormalizeAngle0_360(-92.0) == (360.0-92.0), "-FAIL-");
+   assert(MATH.NormalizeAngle0_360(92.0) == 92.0, "-FAIL-");
+
+   writePass(pass);
+end_on_initialize

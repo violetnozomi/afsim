@@ -1,0 +1,44 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Here is an example of both deciding factors at play::
+
+ behavior evade_threat
+    precondition
+       Array<WsfPlatform>  mIncoming  =  Array<WsfPlatform>();
+       if (PROCESSOR.WeaponsIncoming(mIncoming) > 0)
+          return true;
+       return false;
+    end_precondition
+    execute
+       extern void Evade(void);
+       Evade();
+    end_execute
+ end_behavior
+
+ behavior chase_target
+    precondition
+       if( ! PROCESSOR.Target().IsValid() )
+          return false;
+       return true;
+    end_precondition
+    execute
+       extern void Chase(WsfTrack);
+       Chase( PROCESSOR.Target() );
+    end_execute
+ end_behavior
+
+ behavior_tree
+    selector
+       behavior_node  evade_threat
+       behavior_node  chase_target
+    end_selector
+ end_behavior_tree
+
+You can see the precondition for the "evade_threat" behavior will only let that behavior execute if there are incoming threats.  You can see the precondition for the "chase_target" behavior will only let that behavior execute if there is a valid target to chase.  Now, looking at how they are arranged in the behavior tree, we can see that the "evade_threat" behavior was set as the first child of its selector node parent.  Whenever the "evade_threat" behavior's precondition passes that behavior is "selected", it is executed, and no other children are considered.  In other words, the only time that the "chase_target" behavior will ever be chosen is when there is nothing to evade.  If the tree builder wanted both of these behaviors to be executed, he might have used a sequence node as the parent.

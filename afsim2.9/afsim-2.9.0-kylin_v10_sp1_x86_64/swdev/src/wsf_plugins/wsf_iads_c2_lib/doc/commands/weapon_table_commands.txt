@@ -1,0 +1,54 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+Weapon Table Commands
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Weapon Table block for defining the HELIOS Assign Weapons-WSPT model
+
+.. command:: speed_attributes ... end_speed_attributes
+
+   **attrib** <name> <speed-value> [ < <=  ] <speed-value>
+
+      Allows definition of user-defined speed attribute mnemonics for use within the weapon table definition.
+
+      **Default:** None. Needs to be explicitly declared for proper weapon table functionality
+
+.. command:: altitude_attributes ... end_altitude_attributes
+
+   **attrib** <length-value> [ < <= ] <length-value>
+
+      Allows definition of user-defined altitude attribute mnemonics for use within the weapon table definition.
+
+      **Default:** None. Needs to be explicitly declared for proper weapon table functionality
+
+.. command:: weapon_rows ... end_weapon_rows
+
+   **target_pref** priority [<integer>] [<target type string> "Any"] [<target subtype string> "Any"] [speed attribute] [altitude attribute] [min pk (0.1-1)] [<AI priority (integer)> <SAM priority (integer)> <Other priority (integer)>]
+
+      Allows definition of weapon rows.
+
+      priority: Sets the target priority.
+
+      type: Target type string. This is the name of the target type which was set within the track. For the reference implementation, AFSIM Platform Type was used. The strings must be enclosed in quotations (""). A wildcard to match to any type is the keyword "Any".
+
+      subtype: Target subtype string. This is the name of the target subtype which was set within the track. For the reference implementation, Platform AUX data named TARGET_SUBTYPE was used. The strings must be enclosed in quotations (""). A wildcard to match to any subtype is the keyword "Any".
+
+      speed attribute: Name of the speed attribute defined within the speed_attributes block this row applies to.
+
+      altitude attribute: Name of the altitude attribute defined within the altitude_attributes block this row applies to.
+
+      min pk: Sets the minimum probability of kill for this target to be engaged by a weapon system.
+
+      AI priority: Provides the priority set for the defined air interceptor (AI).
+
+      SAM priority: Provides the priority set for the defined surface-to-air missile (SAM).
+
+      Other priority: Provides the priority set for other category of weapons.

@@ -1,0 +1,163 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of separate transmitter and receiver
+# Link budget test case from:
+# Optical Communications for Small Satellites
+# Ryan W. Kingsbury, Prof. Kerri L. Cahoy
+# https://dspace.mit.edu/bitstream/handle/1721.1/101444/939652108-MIT.pdf
+# p. 54
+
+include ../auto_script/test_functions.txt
+
+// lasercomm definition
+comm LASERCOMM_XMTR WSF_LASER_XMTR 
+   on
+
+   slew_mode azimuth_and_elevation   
+   
+   field_of_view circular
+       half_angle 3.33e-5 rad
+   end_field_of_view
+   
+   show_link_budget enable   
+   background_radiance            6e-4 w/cm^2/sr/um
+   turbulence_transmission_factor 1.0
+   attenuation_loss -1 db
+   
+   transmitter
+      power                            0.2 w
+      wavelength                       1550 nanometers
+      beamwidth                        0.12 deg
+      optics_loss                      -1.5 db
+      
+      pointing_loss                    -3 db
+
+      modulation_type ppm
+      ppm_order 16
+      slot_rate 2e8 hz   
+   end_transmitter
+   
+end_comm
+
+// lasercomm definition
+comm LASERCOMM_RCVR WSF_LASER_RCVR  
+   on
+      
+   slew_mode azimuth_and_elevation   
+
+   receiver
+   
+      field_of_view circular
+          half_angle 3.33e-5 rad
+      end_field_of_view
+   
+      //focal_length                     3 m
+      aperture_diameter                30 cm
+      optics_loss                      -2 db
+
+      wavelength                       1550 nanometers
+      bandpass                         1 nanometer
+      
+      detector_gain                    20.0
+      responsivity                     1.0 amp/w
+      excess_noise_factor              4.3
+      noise_equivalent_power           2.8e-9 w
+      
+      detection_threshold              3 absolute // sigma
+      
+   end_receiver
+   
+end_comm
+
+event_output
+   file test_LASER_xmtr_rcvr.evt
+   enable MESSAGE_QUEUED
+   enable MESSAGE_TRANSMITTED
+   enable MESSAGE_RECEIVED
+   enable MESSAGE_DISCARDED   
+   enable MESSAGE_FAILED_ROUTING
+end_event_output
+
+platform_type SHIP WSF_PLATFORM
+   side blue
+   icon ship
+   mover WSF_SURFACE_MOVER 
+   end_mover
+   comm lasercomm LASERCOMM_XMTR
+      antenna_height 30 m
+   end_comm
+end_platform_type
+
+platform_type SAT WSF_PLATFORM
+   side blue
+   icon satellite
+   comm lasercomm LASERCOMM_RCVR 
+   end_comm
+end_platform_type
+
+platform ship1 SHIP 
+    edit comm lasercomm
+       network_name ship1 
+    end_comm    
+    execute at_time 0.01 s absolute 
+       WsfComm localComm = PLATFORM.Comm("lasercomm");
+       WsfComm remoteComm = WsfSimulation.FindPlatform("ship2").Comm("lasercomm");
+       bool added1 = localComm.AddConnection(localComm.GetAddress(), remoteComm.GetAddress());
+       bool added2 = remoteComm.AddConnection(remoteComm.GetAddress(), localComm.GetAddress());
+       if (!added1 || !added2)
+       {
+          writeln("Connection failed");
+       }
+    end_execute
+    
+   execute at_interval_of 1.0 seconds
+      WsfMessage msg = {};
+      msg.SetType("Test message");
+      msg.SetSubType("yada yada yada");
+      msg.SetSizeInBytes(1024);
+      WsfComm localComm = PLATFORM.Comm("lasercomm");
+      WsfPlatform remotePlatform = WsfSimulation.FindPlatform("ship2");      
+      localComm.CueToPoint(remotePlatform.Location());
+      WsfComm remoteComm = remotePlatform.Comm("lasercomm");
+      remoteComm.CueToPoint(PLATFORM.Location());
+      PLATFORM.Comm("lasercomm").SendMessage(msg, remoteComm);
+   end_execute
+
+end_platform
+
+platform ship2 SAT
+   position 7.3n 0e altitude 550 km
+    edit comm lasercomm
+       network_name ship2 
+    end_comm    
+end_platform
+
+script void MessageDeliveryAttempt(WsfComm            aXmtr,
+                                   WsfComm            aRcvr, 
+                                   WsfMessage         aMsg, 
+                                   WsfCommInteraction aResult)
+   bool passed = true;
+   double snr = MATH.DB_ToLinear(aResult.SignalToNoise());
+   double rcvdPower = MATH.DB_ToLinear(aResult.RcvdPower());
+   double rcvrNoisePower = MATH.DB_ToLinear(aResult.RcvrNoise());
+   if (! AssertWithinToleranceMessage(10.0126, snr, 0.0001, "SNR")) passed = false;
+   writePass(passed);
+   if (! AssertWithinToleranceMessage(7.2268e-10, rcvdPower, 1.0e-14, "rcvdPower")) passed = false;
+   writePass(passed);
+   if (! AssertWithinToleranceMessage(1.44354e-09, rcvrNoisePower, 1.0e-13, "rcvrNoisePower")) passed = false;
+   writePass(passed);
+end_script
+
+observer
+   enable MESSAGE_DELIVERY_ATTEMPT MessageDeliveryAttempt
+end_observer
+
+end_time 1 s
+

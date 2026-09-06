@@ -1,0 +1,309 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// ================================================================================================
+// Test case for incidental damage.
+//
+// A grid of players is set up moving south at 20 m/s (~ 40 kts). The movement is timed such that
+// the center of the grid is exactly at 0n 0e when the bomb hits.
+//
+// This case uses moving targets so the extrapolation of incidental target positions is tested.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once sdb.txt
+
+script_variables
+  Set<string> TARGETS_CREATED = { };
+  Set<string> TARGETS_HIT = { };
+  Set<string> TARGETS_MISSED = { };
+  Set<string> TARGETS_KILLED = { };
+  bool FAILED = false;
+end_script_variables
+
+# This is just a simple test to ensure all of the WsfWeaponEngagement script calls parse
+# and will at least execute if called.
+script void CheckSyntax(WsfWeaponEngagement aEngagement,
+                        WsfPlatform         aTarget)
+   int i;
+   double d;
+   string s;
+   WsfGeoPoint l;
+   WsfPlatform p;
+   d = aEngagement.StartTime();
+   d = aEngagement.TimeSinceStarted();
+   i = aEngagement.SerialNumber();
+   p = aEngagement.FiringPlatform();
+   s = aEngagement.FiringPlatformName();
+   s = aEngagement.WeaponSystemName();
+   s = aEngagement.WeaponSystemType();
+   p = aEngagement.WeaponPlatform();
+   s = aEngagement.WeaponPlatformName();
+   l = aEngagement.WeaponLocation();
+   l = aEngagement.WeaponLocationAtLaunch();
+   p = aEngagement.TargetPlatform();
+   s = aEngagement.TargetPlatformName();
+   WsfTrackId tid = aEngagement.TargetTrackId();
+   l = aEngagement.TargetLocation();
+   l = aEngagement.TargetLocation(aTarget);
+   d = aEngagement.MissDistance();
+   d = aEngagement.MissDistance(aTarget);
+   d = aEngagement.Pk();
+   d = aEngagement.PkDegrade();
+   aEngagement.SetPkDegrade(aEngagement.PkDegrade());
+   d = aEngagement.PkDrawn();
+end_script
+
+script void PrintEngagement(WsfWeaponEngagement aEngagement,
+                            WsfPlatform         aTarget,
+                            string              aStatus)
+   CheckSyntax(aEngagement, aTarget);
+   writeln(aStatus, " ", aTarget.Name(), " Distance=", aEngagement.MissDistance(aTarget),
+           " Pk=", aEngagement.Pk(), " PkDegrade=", aEngagement.PkDegrade(), " PkDrawn=", aEngagement.PkDrawn(),
+           " Tnow=", TIME_NOW, " Tcomp=", aEngagement.CompletionTime(),
+           " TOF=", aEngagement.CompletionTime() - aEngagement.StartTime());
+end_script
+
+script void WeaponHit(WsfWeaponEngagement aEngagement,
+                      WsfPlatform         aTarget)
+   PrintEngagement(aEngagement, aTarget, "WEAPON_HIT");
+   if (aEngagement.MissDistance(aTarget) >= 16.1)
+   {
+      writeln("-FAIL- ", aTarget.Name(), " was hit but was outside the lethal radius",
+              ", Miss distance=", aEngagement.MissDistance(aTarget));
+      FAILED = true;
+   }
+   TARGETS_HIT.Insert(aTarget.Name());
+end_script
+
+script void WeaponMissed(WsfWeaponEngagement aEngagement,
+                         WsfPlatform         aTarget)
+   PrintEngagement(aEngagement, aTarget, "WEAPON_MISSED");
+   if (aEngagement.MissDistance(aTarget) <= 16.1)
+   {
+      writeln("-FAIL- ", aTarget.Name(), " was missed but was inside the lethal radius",
+              ", Miss distance=", aEngagement.MissDistance(aTarget));
+      FAILED = true;
+   }
+   TARGETS_MISSED.Insert(aTarget.Name());
+end_script
+
+script void WeaponTerminated(WsfWeaponEngagement aEngagement)
+   WsfPlatform target = aEngagement.TargetPlatform();
+   if (target.IsValid())
+   {
+      PrintEngagement(aEngagement, target, "WEAPON_TERMINATED");
+   }
+end_script
+
+script void PlatformBroken(WsfPlatform aTarget)
+   if (TARGETS_CREATED.Exists(aTarget.Name()))
+   {
+      TARGETS_KILLED.Insert(aTarget.Name());
+      if (! TARGETS_HIT.Exists(aTarget.Name()))
+      {
+         writeln("-FAIL- ", aTarget.Name(), " was reported killed but was not hit");
+         FAILED = true;
+      }
+      if (TARGETS_MISSED.Exists(aTarget.Name()))
+      {
+         writeln("-FAIL- ", aTarget.Name(), " was reported killed but was reported as missed");
+      }
+   }
+end_script
+
+script void PlatformDeleted(WsfPlatform aTarget)
+   if (TARGETS_CREATED.Exists(aTarget.Name()))
+   {
+      if (TARGETS_HIT.Exists(aTarget.Name()))
+      {
+         if (! TARGETS_KILLED.Exists(aTarget.Name()))
+         {
+            writeln("-FAIL- ", aTarget.Name(), " was reported hit but was not killed");
+            FAILED = true;
+         }
+      }
+      else if (! TARGETS_MISSED.Exists(aTarget.Name()))
+      {
+         writeln("-FAIL- ", aTarget.Name(), " was not reported as missed");
+      }
+   }
+end_script
+
+script void SimulationComplete()
+   if (TARGETS_CREATED.Size() != 249)
+   {
+      writeln("-FAIL- Expected 249 targets, got ", TARGETS_CREATED.Size());
+      FAILED = true;
+   }
+   if (TARGETS_HIT.Size() != 89)
+   {
+      writeln("-FAIL- Expected 89 hits, got ", TARGETS_HIT.Size());
+      FAILED = true;
+   }
+   if (TARGETS_HIT.Size() + TARGETS_MISSED.Size() != TARGETS_CREATED.Size())
+   {
+      writeln("-FAIL- Number of hits (", TARGETS_HIT.Size(), ")",
+              " + number of misses (", TARGETS_MISSED.Size(), ")",
+              " != number of targets (", TARGETS_CREATED.Size(), ")");
+      FAILED = true;
+   }
+   if (! FAILED) writeln("-PASSED-");
+end_script
+
+observer
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable WEAPON_TERMINATED
+   enable PLATFORM_BROKEN
+   enable PLATFORM_DELETED
+   enable SIMULATION_COMPLETE
+end_observer
+
+// =================================================================================================
+
+// Method to create a target a specified N/E offset from the origin
+script void CreateTarget(double aOffsetN,
+                         double aOffsetE)
+                         
+   double tgtVel = 20.0;               // 20 m/s = ~40 kts
+   double timeOfFlight = 222.406;
+   
+   double latOrigin = 0.0;
+   double lonOrigin = 0.0;
+   
+   // Create the target platform
+   WsfPlatform p = WsfSimulation.CreatePlatform("TARGET");
+   
+   // Create the target name.
+   string nsChar = "n";
+   if (aOffsetN < 0) nsChar = "s";
+   string nsDist = write_str(MATH.Fabs(aOffsetN) + 1000).Substring(1, 3);
+   
+   string ewChar = "e";
+   if (aOffsetE < 0) ewChar = "w";
+   string ewDist = write_str(MATH.Fabs(aOffsetE) + 1000).Substring(1, 3);
+   
+   int radius = (MATH.Sqrt(aOffsetN * aOffsetN + aOffsetE * aOffsetE) + 0.5);
+   string rDist  = write_str(radius + 10000).Substring(1, 4);
+   
+   string name = write_str("target_", nsChar, nsDist, "_", ewChar, ewDist, "_r", rDist);
+
+   // Compute the starting position and create the route.
+   
+   WsfGeoPoint begLoc = WsfGeoPoint.Construct(latOrigin, lonOrigin, 0.0);
+   begLoc.Offset(0.0, aOffsetN + (tgtVel * timeOfFlight), aOffsetE, 0.0);
+   WsfGeoPoint hitLoc = WsfGeoPoint.Construct(latOrigin, lonOrigin, 0.0);
+   hitLoc.Offset(0.0, aOffsetN, aOffsetE, 0.0);
+   WsfGeoPoint endLoc = WsfGeoPoint.Construct(latOrigin, lonOrigin, 0.0);
+   endLoc.Offset(0.0, aOffsetN - 200.0, aOffsetE, 0.0);
+
+   WsfRoute r = WsfRoute();
+   begLoc.Set(begLoc.Latitude(), begLoc.Longitude(), 0.0);
+   r.Append(begLoc, -1.0);
+   if (tgtVel != 0.0)
+   {
+      hitLoc.Set(hitLoc.Latitude(), hitLoc.Longitude(), 0.0);
+      r.Append(hitLoc, -1.0);
+      r.Back().SetTimeToPoint(timeOfFlight);
+      endLoc.Set(endLoc.Latitude(), endLoc.Longitude(), 0.0);
+      r.Append(endLoc, -1.0);
+   }
+   p.SetRoute(r);
+   
+   // Add the platform to the simulation
+   WsfPlatform pa = WsfSimulation.AddPlatform(p, name);
+   if (! pa.IsValid()) writeln("-FAIL- target creation error ", name);
+   
+   TARGETS_CREATED.Insert(name);
+end_script
+
+// Method to create a grid of targets
+script void CreateTargets()
+   // Every 3 meters inside +/- 18 meters
+   for (int i = -18; i <= 18; i = i + 3)
+   {
+      for (int j = -18; j <= 18; j = j + 3)
+      {
+         CreateTarget(i, j);
+      }
+   }
+
+   // Every 25 meters inside +/- 100 meters
+   for (int i = -100; i <= 100; i = i + 25)
+   {
+      for (int j = -100; j <= 100; j = j + 25)
+      {
+         if ((i != 0) || (j != 0)) CreateTarget(i, j);
+      }
+   }
+end_script
+
+execute at_time 1 sec absolute
+  CreateTargets();
+end_execute
+
+// =================================================================================================
+
+weapon_effects SDB_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 16.0 m 1.0
+   # The following should be large enough to encompass all the targets.
+   # (We expect a hit or miss decision).
+   radius_and_pk 150.0 m 0.0
+   allow_incidental_damage
+end_weapon_effects
+
+platform_type TARGET WSF_PLATFORM
+   icon Cruiser
+   side red
+   mover WSF_SURFACE_MOVER
+   end_mover
+end_platform_type
+
+platform bomber WSF_PLATFORM
+   icon F-18E
+   add mover WSF_AIR_MOVER
+   end_mover
+   
+   add weapon sdb SDB
+      quantity 1
+   end_weapon
+   
+   route
+      position 0.5s 0w altitude 30000 ft heading 0 deg speed 450 kts
+   end_route
+   
+   track
+      position 0n 0w altitude 0 m
+   end_track
+   
+   execute at_time 1 sec absolute
+      Weapon("sdb").Fire(MasterTrackList().Entry(0));
+   end_execute
+end_platform
+
+// =================================================================================================
+
+/*
+event_output
+   file replay.evt
+#  enable PLATFORM_BROKEN
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable WEAPON_TERMINATED
+end_event_output
+
+event_pipe
+   file replay.aer
+end_event_pipe
+*/
+
+end_time 10 min

@@ -1,0 +1,376 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#
+# WSF_NX commands
+#
+
+
+# addition to existing AntennaPattern struct:
+(struct AntennaPattern
+   (rule GENAP-command
+      (rule distribution-value { uniform | cosine | "bw/sll" | cosecant })
+      #(rule distribution-value { uniform | cosine })
+   {
+      peak_gain <Ratio>
+    | aperture_shape rectangular
+    | aperture_shape elliptical
+    | aperture_shape circular
+    | azimuth_distribution <distribution-value>
+    | azimuth_beamwidth <Angle>
+    | azimuth_exponent <real>
+    | azimuth_side_lobe_level <Ratio>
+    | elevation_distribution <distribution-value>
+    | elevation_beamwidth <Angle>
+    | elevation_exponent <real>
+    | elevation_side_lobe_level <Ratio>
+    | elevation_cosecant_limit <Angle>
+    | <base-command>
+   })
+   (rule ALARM-command {
+      file (file-reference alarm-file)
+    | gain_correction <Ratio>
+    | polarization <polarization-value>
+    | <base-command>
+   })
+
+   (rule WSF_ESA_NX_PATTERN-command
+      (rule subdivision-table-command {
+         beam_count <integer> <integer> <integer>
+      })
+   {
+      array_subdivision_table <subdivision-table-command>* end_array_subdivision_table
+    | edge_angle_x <Angle>
+    | edge_angle_y <Angle>
+    | <esa-command>
+   })
+   # WsfElementESA_AntennaPattern.cpp
+   (rule element-esa-command
+      (rule element-location {
+         <Length> <Length> <Length> <Angle> <Angle> <real>
+      })
+   {
+      element_locations <element-location>* end_element_locations
+    | aperture_efficiencies <real> <real>
+    | aperture_efficiency <real>
+    | average_element_spacing_x <Length>
+    | average_element_spacing_y <Length>
+    | <esa-command>
+   })
+{
+   genap_pattern <GENAP-command>*
+ | alarm_pattern <ALARM-command>*
+ | steered_array_pattern <WSF_ESA_NX_PATTERN-command>*
+ | complex_esa_pattern <WSF_ESA_NX_PATTERN-command>*
+ | element_esa_pattern <element-esa-command>*
+ | rf_type1 <base-command>*
+})
+# add earce to built-in types
+(rule attenuation-instance
+   (rule builtin-type { earce | WSF_EARCE_ATTENUATION } ) )
+
+(struct WSF_EARCE_ATTENUATION :symbol (type attenuation WSF_EARCE_ATTENUATION)
+                              :symbol (type attenuation earce)
+{
+   <WSF_EM_ATTENUATION-command>
+})
+
+
+(struct WSF_ALARM_CLUTTER :base_type Clutter
+                          :symbol (type clutter WSF_ALARM_CLUTTER)
+                          :symbol (type clutter alarm)
+   (rule statistic-type {
+      mean | statistical | maximum | minimum | numerical
+   })
+{
+   sigmac <frequency-value>
+ | decay_constant <real> <string>
+ | azimuth_angle_limit <Angle>
+ | azimuth_angle_increment <Angle>
+ | maximum_range <Length>
+ | reflectivity <Ratio>
+ | reflectivity_delta <Ratio>
+ | statistic <statistic-type>
+ | random_seed <integer>
+ | cw_clutter_bin <Length>
+ | use_legacy_data <Bool>
+ | use_native_terrain_masking <Bool>
+ | <Clutter>
+})
+
+(struct WSF_ALARM_PROPAGATION :symbol (type propagation WSF_ALARM_PROPAGATION)
+                              :symbol (type propagation alarm)
+{
+   propagation <Bool>
+ | propagation_sw <Bool>
+ | diffraction <Bool>
+ | diffraction_sw <Bool>
+ | epsilon_one <real>
+ | terrain_dielectric_constant <real>
+ | sigma_zero <real>
+ | terrain_conductivity <real>
+ | roughness_factor <real>
+ | terrain_scattering_coefficient <real>
+ | sea_relaxation <real>
+ | water_temp <temperature-value>
+ | water_temperature <temperature-value>
+ | soil_moisture <real>
+ | soil_moisture_fraction <real>
+ | stddev_surface_height <Length>
+ | surface_roughness <Length>
+ | use_native_terrain_masking <Bool>
+ | water_type lake
+ | water_type sea
+ | <WSF_EM_PROPAGATION-command>
+})
+
+
+# WsfEW_NX_SLB_Effect.cpp:
+
+(struct WSF_NX_SLB_EFFECT  :base_type WSF_SLB_EFFECT
+                           :symbol (type EW_Effect WSF_NX_SLB_EFFECT)
+   (rule blanking-command {
+      cell_blanking_probability_effect
+    | number_cells_blanked <integer>
+    | <WSF_SLB_EFFECT.blanking-command>
+   })
+   (rule effect-command {
+      target_blanking_effect <blanking-command>* end_target_blanking_effect
+    | <WSF_SLB_EFFECT.effect-command>
+   })
+{
+   <effect-command>
+ | <WSF_POWER_EFFECT.subcommand>
+ | system_type_data <string> <WSF_POWER_EFFECT.subcommand>* end_system_type_data
+})
+
+(struct sensitivity_time_control
+   :symbol (type signal_processor sensitivity_time_control)
+   :symbol (type signal_processor SENSITIVITY_TIME_CONTROL)
+   :symbol (type signal_processor STC)
+   (rule stc-type { min_range | max_range | min_max_range | data_table })
+{
+   stc_type <stc-type>
+ | stc_min_response <Ratio>
+ | stc_min_range <Length>
+ | stc_max_range <Length>
+ | stc_order <real>
+ | stc_data_table <ignore>* end_stc_data_table
+ | debug
+})
+
+# WsfPD_Filter-PD
+(rule pd-filter-command {
+   pd_num_filter_poles <integer>
+ | pd_filter_slr       <Ratio>
+ | pd_filter_bandwidth <integer> <frequency-value>
+ | pd_num_filters      <integer>
+})
+
+# WsfPD_Filter-ZVF
+(rule zvf-filter-command {
+   zvf_num_filter_poles <integer>
+ | zvf_filter_slr       <Ratio>
+ | zvf_filter_bandwidth <integer> <frequency-value>
+ | zvf_switch           <Bool>
+})
+
+# WsfMTI_Filter
+(rule mti-filter-command {
+   mti_switch       <Bool>
+ | mti_num_delays   <integer>
+ | mti_min_response <Ratio>
+ | mti_num_gates    <integer>
+ | mti_range_limits <integer> <Length> <Length>
+ | mti_angle_limits <integer> <Angle> <Angle>
+})
+
+# WsfRadarPD_SignalProcessor
+(struct pulse_doppler
+   :symbol (type signal_processor pulse_doppler)
+   :symbol (type signal_processor PULSE_DOPPLER)
+   (var Bool filterOwnshipFromDoppler :default true)
+{
+   <pd-filter-command>
+ | pd_min_response <Ratio>
+ | unfiltered_doppler_speed [filterOwnshipFromDoppler=0]
+ | filtered_doppler_speed   [filterOwnshipFromDoppler=1]
+ | debug
+})
+
+# WsfRadarMTI_SignalProcessor
+(struct moving_target_indicator
+   :symbol (type signal_processor moving_target_indicator)
+   :symbol (type signal_processor moving_target_indication)
+   (var Bool filterOwnshipFromDoppler :default true)
+{
+   <mti-filter-command>
+ | unfiltered_doppler_speed [filterOwnshipFromDoppler=0]
+ | filtered_doppler_speed   [filterOwnshipFromDoppler=1]
+ | debug
+})
+
+(struct mti_table
+   :symbol (type signal_processor mti_table)
+   :symbol (type signal_processor MTI_TABLE)
+{
+   mti_min_response <Ratio>
+ | mti_data_table <ignore>* end_pd_data_table
+ | debug
+})
+
+# WsfRadarMTD_SignalProcessor
+(struct moving_target_detector
+   :symbol (type signal_processor moving_target_detector)
+   :symbol (type signal_processor moving_target_detection)
+   (var Bool filterOwnshipFromDoppler :default true)
+{
+   <mti-filter-command>
+ | <pd-filter-command>
+ | <zvf-filter-command>
+ | unfiltered_doppler_speed [filterOwnshipFromDoppler=0]
+ | filtered_doppler_speed   [filterOwnshipFromDoppler=1]
+ | debug
+})
+
+# WsfLink16Correlation #TODO - needs defaults and final input checked
+(struct WSF_TRACK_MANAGER
+   (var Real winSizeMult)
+   (var Length minWinSize)
+   (var Int trackQuality)
+   (var Angle crseDiffer)
+   (var Length altDiffer)
+   (rule link16-correlation-command {
+      window_size_multiplier <$winSizeMult>
+    | minimum_window_size <$minWinSize>
+    | minimum_track_quality <$trackQuality>
+    | maximum_track_quality <$trackQuality>
+    | restricted_track_quality <$trackQuality>
+    | course_differential <$crseDiffer>
+    | percent_speed_differential <Real>
+    | altitude_differential <$altDiffer>
+    | minimum_ppli_track_quality <$trackQuality>
+    | maximum_ppli_track_quality <$trackQuality>
+    | minimum_speed <Speed>
+    | air_delta_speed <Speed>
+    | surface_delta_speed <Speed>
+    | altitude_differential <Length>
+   })
+{
+   correlation_method link16 <link16-correlation-command>* end_correlation_method
+})
+
+###
+#  Chaff Commands
+###
+
+# WsfChaffParcel
+(struct ChaffParcel :symbol (type chaffParcel WSF_CHAFF_PARCEL)
+{
+   debug <Bool>
+ | terminal_velocity <Speed>
+ | bloom_diameter <Length>
+ | bloom_time_constant <Time>
+ | expansion_time_constant <Time>
+ | deceleration_rate <Acceleration>
+ | expiration_time <Time>
+ | frequency_maximum_rcs_table <ignore>* end_frequency_maximum_rcs_table
+ | number_dipoles <integer>
+})
+
+(struct root
+   (var ObjectMap/ChaffParcel chaffParcel)
+   {
+      chaff_parcel <string> <string> (new_replace (type chaffParcel $1) (type chaffParcel $2)) [apply($$)]
+         <TypeCommand>*
+      end_chaff_parcel
+    | chaff_parcel <string> (new_replace (type chaffParcel $1) (type chaffParcel WSF_CHAFF_PARCEL)) [apply($$)]
+         <ChaffParcel>*
+      end_chaff_parcel
+   }
+)
+
+# WsfChaffWeapon
+(struct WSF_CHAFF_WEAPON_ejector
+   :symbol (type weaponType WSF_CHAFF_WEAPON template)
+{
+   quantity <integer>
+ | parcel_type (typeref chaffParcel)
+ | location <Length3>
+ | ejection_velocity <Speed>
+ | ejection_elevation <Angle>
+ | ejection_azimuth <Angle>
+})
+
+(struct WSF_CHAFF_WEAPON
+   :symbol (type weaponType WSF_CHAFF_WEAPON)
+   :base_type WSF_EXPLICIT_WEAPON
+   (var ObjectMap/WSF_CHAFF_WEAPON_ejector ejector)
+{
+   ejector <string> (load (subtype ejector $1)) [apply($$)] <TypeCommand>* end_ejector
+ | ejector <string> (new (subtype ejector $1) (subtype template)) [apply($$)] <TypeCommand>* end_ejector
+ | cloud_update_interval <Time>
+ | draw_cloud_approximations <Bool>
+ | <WSF_EXPLICIT_WEAPON>
+})
+
+# WSF_TRIMSIM_PROCESSOR (WsfTRIMSIM_Processor.cpp)
+(struct WSF_TRIMSIM_PROCESSOR :symbol (type processorType WSF_TRIMSIM_PROCESSOR)
+                              :base_type SensorProcessor
+{
+   minimum_detections <integer>
+ | <SensorProcessor>
+})
+
+# error_model trimsim (WsfTRIMSIM_Processor.cpp)
+(struct WSF_TRIMSIM_ERROR :base_type ErrorModel
+                          :symbol (type error trimsim_error)
+
+{
+   atmospheric_refraction_residual <real>
+ | down_position_error_sigma <Length> # redundant with platform_position_errors
+ | east_position_error_sigma <Length> # redundant with platform_position_errors
+ | ground_target_altitude_error <Length>
+ | inter_system_time_delay <Time>
+ | north_position_error_sigma <Length> # redundant with platform_position_errors
+ | platform_position_errors <Length> <Length> <Length> # the WsfTRIMSIM_Processor author should consider changing the expected format so that <Length3> can be used instead
+ | reference_time_error <Time>
+ | sensor_timing_error <Time>
+ | <Error>
+})
+
+# WsfCoherentSensorProcessor.cpp
+(struct WSF_COHERENT_SENSOR_PROCESSOR :symbol (type processorType WSF_COHERENT_SENSOR_PROCESSOR)
+                          :base_type SensorProcessor
+   (var String fusionType)
+   (rule result-processing-timing {
+      result_processing_timing { on_processor_update | on_target_update }
+   })
+   (rule result-processing-type {
+      result_processing_type { SNR_BASED | RSS_BASED }
+   })
+{
+   coast_time <Time>
+ | use_target_result <Bool>
+ | <result-processing-timing>
+ | <result-processing-type>
+ | fusion_method <$fusionType>
+ | fusion_type <$fusionType>
+ | <SensorProcessor>
+})
+
+# WsfEngageLaunchPkTableLethality.cpp
+(struct WSF_ENGAGE_LAUNCH_PK_TABLE_LETHALITY :symbol (type weaponEffectType WSF_ENGAGE_LAUNCH_PK_TABLE_LETHALITY)
+                                             :base_type WeaponEffect
+{ 
+   (error { use_intercept_pk | use_pk_table | launch_pk | intercept_pk })
+ | pk_tables_path <quotable-string>
+ | default_pk <real>
+ | file_filter <quotable-string>
+ | <WeaponEffect>
+})

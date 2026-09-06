@@ -1,0 +1,80 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Input file for vertical coverage diagram.
+
+###############################################################################
+#                 Define the target signature and pltform type
+#
+# The platform type must be "TARGET_PLATFORM_TYPE"
+
+radar_signature TARGET_RADAR_SIGNATURE
+  constant 1 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+  radar_signature TARGET_RADAR_SIGNATURE
+end_platform_type
+
+###############################################################################
+#                         Define the sensing platform
+#
+# The platform type MUST be SENSOR_PLATFORM_TYPE
+
+include ../../data/radars/tin_shield.txt
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+  sensor radar TIN_SHIELD end_sensor
+end_platform_type
+
+###############################################################################
+#                      Define the parameters for the plot
+#
+# You can use the default for almost everything.
+
+vertical_coverage
+  # output_base defines the base part of the output files.
+  output_base    tin-shield
+
+  # elevation_range defines the range of elevations that will be processed.
+  # The default is -5 deg to 89.9 deg
+  #elevation_range -5 deg 89.9 deg
+
+  # elevation_step defines the increment between elevations.
+  # The default is 0.1 deg
+  elevation_step 0.05 deg
+
+  # maximum_range defines the maximum range that will be checked.
+  # The default is to use the value from the sensors 'maximum_range' value.
+  # If this value is not supplied and if the sensor does not have a value
+  # for 'maximum_range' then 2000 km will be used.
+  maximum_range 300 km
+
+  # altitude_units defines the output units for column 6 (altitude)
+  # The default is 'm'
+  #altitude_units m
+
+  # range_units defines the output units for column 2 (slant range)
+  # and column 5 (ground range).
+  # The default is 'm'
+  #range_units    m
+
+  # x_units defines the output units for column 3 (Cartesian X).
+  # The default is 'm'.
+  #x_units        m
+
+  # y_units defines the output units for column 4 (Cartesian Y).
+  # The default is 'm'.
+  #y_units        m
+
+end_vertical_coverage
+  
+

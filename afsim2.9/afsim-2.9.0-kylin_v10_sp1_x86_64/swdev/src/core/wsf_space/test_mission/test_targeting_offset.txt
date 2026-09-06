@@ -1,0 +1,367 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of targeting algorithm with fixed location offset at given times.
+
+platform_type SATELLITE WSF_PLATFORM
+   icon satellite
+   mover WSF_SPACE_MOVER
+      update_interval 1 s
+   end_mover
+end_platform_type
+
+platform target SATELLITE
+   side red
+   edit mover
+      semi_major_axis 20000 km
+      eccentricity 0.2
+      inclination 1 deg
+      mean_anomaly 10 deg
+   end_mover    
+end_platform
+
+platform chaser-intercept SATELLITE
+   side blue
+   edit mover
+      semi_major_axis 20000 km
+      eccentricity 0.2
+      inclination 1 deg
+      mean_anomaly 9.998 deg
+
+      mission_sequence 
+         maneuver intercept
+            delta_time 1000 s
+            target
+               platform target
+               offset ntw 0 20 0 m
+            end_target
+         end_maneuver
+         maneuver intercept
+            delta_time 100 s
+            target
+               platform target
+               offset ntw 0 0 20 m
+            end_target
+         end_maneuver
+         maneuver intercept
+            delta_time 100 s
+            target
+               platform target
+               offset ntw 0 0 -20 m
+            end_target
+         end_maneuver
+         maneuver intercept
+            delta_time 100 s
+            target
+               platform target
+               offset ntw 20 0 0 m
+            end_target
+         end_maneuver
+         maneuver intercept
+            delta_time 100 s
+            target
+               platform target
+               offset ntw 0 -20 0 m
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover    
+end_platform
+
+platform chaser-rendezvous SATELLITE
+   side blue
+   edit mover
+      semi_major_axis 20000 km
+      eccentricity 0.2
+      inclination 1 deg
+      mean_anomaly 9.998 deg
+
+      mission_sequence 
+         maneuver rendezvous
+            delta_time 1000 s
+            target
+               platform target
+               offset ric 0 20 0 m
+            end_target
+         end_maneuver
+         maneuver rendezvous
+            delta_time 100 s
+            target
+               platform target
+               offset ric 0 0 20 m
+            end_target
+         end_maneuver
+         maneuver rendezvous
+            delta_time 100 s
+            target
+               platform target
+               offset ric 0 0 -20 m
+            end_target
+         end_maneuver
+         maneuver rendezvous
+            delta_time 100 s
+            target
+               platform target
+               offset ric 20 0 0 m
+            end_target
+         end_maneuver
+         maneuver rendezvous
+            delta_time 100 s
+            target
+               platform target
+               offset ric 0 -20 0 m
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover    
+end_platform
+
+platform chaser_script_intercept SATELLITE
+   side blue
+   edit mover
+      semi_major_axis 20000 km
+      eccentricity 0.2
+      inclination 1 deg
+      mean_anomaly 9.998 deg
+   end_mover
+   
+   script void InterceptTarget(double aDeltaTime, Vec3 aOffset)
+      WsfTrack targetTrack = WsfSimulation.FindPlatform("target").MakeTrack();
+      WsfLocalTrack track = PLATFORM.TrackManager().AddTrackReport(targetTrack);
+      writeln("track id: ", track.TrackId());
+      if (track.IsValid())
+      {
+         WsfTargetPoint targetPoint = WsfTargetPoint.ConstructFromTrack(track.TrackId());
+         targetPoint.SetPositionOffset(aOffset, WsfOrbitalReferenceFrame.NTW());
+         
+         WsfInterceptManeuver intercept = WsfInterceptManeuver.Construct(WsfOrbitalEventCondition.NONE(), targetPoint, aDeltaTime);
+         ((WsfSpaceMover)(PLATFORM.Mover())).ExecuteManeuver(intercept);         
+      }
+   end_script
+   
+   on_initialize2
+         InterceptTarget(1000.0, Vec3.Construct(0, 20, 0));
+   end_on_initialize2
+  
+end_platform
+
+platform chaser_script_rendezvous SATELLITE
+   side blue
+   edit mover
+      semi_major_axis 20000 km
+      eccentricity 0.2
+      inclination 1 deg
+      mean_anomaly 9.998 deg
+   end_mover
+   
+   script void InterceptTarget(double aDeltaTime, Vec3 aOffset)
+      WsfTrack targetTrack = WsfSimulation.FindPlatform("target").MakeTrack();
+      WsfLocalTrack track = PLATFORM.TrackManager().AddTrackReport(targetTrack);
+      writeln("track id: ", track.TrackId());
+      if (track.IsValid())
+      {
+         WsfTargetPoint targetPoint = WsfTargetPoint.ConstructFromTrack(track.TrackId());
+         targetPoint.SetPositionOffset(aOffset, WsfOrbitalReferenceFrame.NTW());
+      
+         WsfRendezvousManeuver rendezvous = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.NONE(), targetPoint, aDeltaTime);
+         ((WsfSpaceMover)(PLATFORM.Mover())).ExecuteManeuver(rendezvous);         
+      }
+   end_script
+   
+   on_initialize2
+      InterceptTarget(1000.0, Vec3.Construct(0, 20, 0));
+   end_on_initialize2
+  
+end_platform
+
+platform chaser_script_target SATELLITE
+   side blue
+   edit mover
+      semi_major_axis 20000 km
+      eccentricity 0.2
+      inclination 1 deg
+      mean_anomaly 9.998 deg
+   end_mover
+   
+   script void InterceptTarget(double aDeltaTime, Vec3 aOffset)
+      WsfTrack targetTrack = WsfSimulation.FindPlatform("target").MakeTrack();
+      WsfLocalTrack track = PLATFORM.TrackManager().AddTrackReport(targetTrack);
+      writeln("track id: ", track.TrackId());
+      if (track.IsValid())
+      {
+         WsfTargetPoint targetPoint = WsfTargetPoint.ConstructFromTrack(track.TrackId());
+         targetPoint.SetPositionOffset(aOffset, WsfOrbitalReferenceFrame.NTW());
+      
+         WsfTargetManeuver target = WsfTargetManeuver.Construct(WsfOrbitalEventCondition.NONE(), targetPoint, aDeltaTime);         
+         WsfMatchVelocity mv = WsfMatchVelocity.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(aDeltaTime), track.TrackId());
+         WsfOrbitalManeuverSequence seq = WsfOrbitalManeuverSequence.Construct();
+         seq.AddEvent(target);
+         seq.AddEvent(mv);         
+         ((WsfSpaceMover)(PLATFORM.Mover())).ExecuteMissionSequence(seq);         
+      }
+   end_script
+   
+   on_initialize2
+      InterceptTarget(1000.0, Vec3.Construct(0, 20, 0));
+   end_on_initialize2
+  
+end_platform
+
+script_struct TimeVec
+   script_variables
+      double time = 0.0;
+      Vec3   offset = {};
+   end_script_variables
+end_script_struct
+
+script TimeVec TVConstruct(double aTime, Vec3 aOffset)
+    TimeVec vec = {};
+    vec.time = aTime;
+    vec.offset = aOffset;
+    return vec;
+end_script 
+
+script_variables
+   Array<TimeVec> mTimeVec = {};
+end_script_variables
+
+on_initialize
+   mTimeVec.PushBack(TVConstruct(1000.0, Vec3.Construct(0, 20, 0)));
+   mTimeVec.PushBack(TVConstruct(100.0, Vec3.Construct(0, 0, 20)));
+   mTimeVec.PushBack(TVConstruct(100.0, Vec3.Construct(0, 0, -20)));
+   mTimeVec.PushBack(TVConstruct(100.0, Vec3.Construct(20, 0, 0)));
+   mTimeVec.PushBack(TVConstruct(100.0, Vec3.Construct(0, -20, 0)));
+end_on_initialize
+
+script_variables
+   double sTol = 7.0e-2;
+   int sNumCompleted = 0;
+   Vec3 sTargetOffset = {};
+   bool sAllPassed = true;
+end_script_variables
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; begin ", aManeuver.ManeuverType());
+end_script
+
+script void CheckIntercept(WsfPlatform aPlatform, Vec3 aOffset)
+   Vec3 loc1 = aPlatform.LocationECI();
+   Vec3 loc2 = WsfSimulation.FindPlatform("target").LocationECI();
+   Vec3 deltaDistance = Vec3.Subtract(loc2, loc1);
+   deltaDistance.Subtract(deltaDistance, aOffset);
+   double ddist = deltaDistance.Magnitude();
+   Vec3 vel1 = aPlatform.VelocityECI();
+   Vec3 vel2 = WsfSimulation.FindPlatform("target").VelocityECI();
+   if (Math.Fabs(ddist - 20.0) > sTol)
+   {
+      writeln("-FAIL- distance too large: ", ddist);
+      sAllPassed = false;
+   }
+   else
+   {
+      writeln("-PASS- ", aPlatform.Name());
+   }
+   Vec3 deltaVel = Vec3.Subtract(vel2, vel1);
+   double dvelMag = deltaVel.Magnitude();
+   if (dvelMag > 10.0)
+   {
+      writeln("-FAIL- speed too large: ", dvelMag);
+      sAllPassed = false;
+   }
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; end ", aManeuver.ManeuverType());
+   sNumCompleted += 1;
+   if (aManeuver.Type() == "INTERCEPT")
+   {
+      WsfInterceptManeuver im = ((WsfInterceptManeuver)aManeuver);
+      Vec3 offset = im.TargetPoint().PositionOffset();
+      CheckIntercept(aPlatform, offset);
+      
+      if (aPlatform.Name() == "chaser_script_intercept")
+      {
+         static int index = 1;
+         if (index < mTimeVec.Size())
+         {
+            TimeVec tv = mTimeVec.Get(index);
+            WsfSimulation.FindPlatform("chaser_script_intercept")->InterceptTarget(tv.time, tv.offset);
+            index += 1;
+         }
+      }
+   }
+   if (aManeuver.Type() == "RENDEZVOUS")
+   {
+      WsfRendezvousManeuver rm = ((WsfRendezvousManeuver)aManeuver);
+      Vec3 offset = rm.TargetPoint().PositionOffset();
+      CheckIntercept(aPlatform, offset);
+
+      if (aPlatform.Name() == "chaser_script_rendezvous")
+      {
+         static int index = 1;
+         if (index < mTimeVec.Size())
+         {
+            TimeVec tv = mTimeVec.Get(index);
+            WsfSimulation.FindPlatform("chaser_script_rendezvous")->InterceptTarget(tv.time, tv.offset);
+            index += 1;
+         }
+      }
+   }
+   if (aPlatform.Name() == "chaser_script_target")
+   {
+      if (aManeuver.Type() == "MATCH_VELOCITY")
+      {
+         // cast check
+         if (!((WsfMatchVelocity)aManeuver).IsValid())
+         {
+            writeln("-FAIL-");
+            sAllPassed = false;
+         }
+         CheckIntercept(aPlatform, sTargetOffset);
+         static int index = 1;
+         if (index < mTimeVec.Size())
+         {
+            TimeVec tv = mTimeVec.Get(index);
+            WsfSimulation.FindPlatform("chaser_script_target")->InterceptTarget(tv.time, tv.offset);
+            index += 1;
+         }
+      }
+      else if (aManeuver.Type() == "TARGET")
+      {
+         sTargetOffset = ((WsfTargetManeuver)aManeuver).TargetPoint().PositionOffset();
+      }
+   }      
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 60)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+   if (!sAllPassed)
+   {
+      writeln("-FAIL- Not all tests passed.");
+   }
+   else
+   {
+      writeln("-PASS- All tests passed");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 1 hours

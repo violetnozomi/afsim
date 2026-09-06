@@ -1,0 +1,55 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests the 'exclude' zones for zone_set's
+zone z1
+   circular
+   position 0n 0e
+   maximum_radius 10000 m
+end_zone
+zone z2
+   polygonal
+   position 0n 0e
+   lat_lon
+   point 0n 0e
+   point 1n 0e
+   point 1n 1e
+end_zone
+
+zone_set zs1
+   use_zone z1
+   use_exclude_zone z2
+end_zone_set
+
+platform inside WSF_PLATFORM
+   position 0.05n 0.01w
+   execute at_time 1 s absolute
+      WsfGeoPoint outside = WsfGeoPoint.Construct(0.05, 0.02, 0);
+      if (! outside.WithinZone("zs1"))
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- Test 2");
+      }
+      WsfGeoPoint inside = WsfGeoPoint.Construct(0.05, -0.02, 0);
+      if (inside.WithinZone("zs1"))
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- Test 1");
+      }
+   end_execute
+
+end_platform
+
+end_time 10 s

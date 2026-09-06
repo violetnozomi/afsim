@@ -1,0 +1,284 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test for comm related script observers that can be evoked in the AFSIM core/wsf and are not referenced in other tests.
+// COMM_FREQUENCY_CHANGED - Not currently used in core/wsf.
+// LINK_ENABLED_ON_LOCAL - Not currently used in core/wsf.
+// LINK_DISABLED_ON_LOCAL - Not currently used in core/wsf.
+// MESSAGE_DISCARDED - see test_message_discard.txt
+// MESSAGE_DELIVERY_ATTEMPT - see test_network_ad_hoc.txt (and others)
+// MESSAGE_FAILED_ROUTING - see test_network_ad_hoc.txt
+// MESSAGE_HOP - see test_message_hop.txt
+// MESSAGE_UPDATED - Not currently used in core/wsf.
+// MESSAGE_QUEUED - see test_reXmitLink.txt
+// MESSAGE_RECEIVED - see test_ad_hoc_advanced.txt (and others)
+// MESSAGE_TRANSMITTED - see test_medium_channel_guided.txt (and others)
+// MESSAGE_TRANSMITTED_HEARTBEAT - Not currently used in core/wsf.
+// MESSAGE_TRANSMIT_ENDED - Not currently used in core/wsf.
+
+script_variables
+   int CommAddManager = 0;
+   int CommRemovedManager = 0;
+   int CommTurnedOn = 0;
+   int CommTurnedOff = 0;
+   int LinkEnabledManager = 0;
+   int LinkDisabledManager = 0;
+   int LinkAddedManager = 0;
+   int LinkRemovedManager = 0;
+   int CommAddLocal = 0;
+   int CommRemoveLocal = 0;
+   int LinkAddedLocal = 0;
+   int LinkRemovedLocal = 0;
+end_script_variables
+
+router_protocol AD_HOC WSF_COMM_ROUTER_PROTOCOL_AD_HOC
+end_router_protocol
+
+network test_network WSF_COMM_NETWORK_GENERIC
+   network_address 192.168.1.1/24
+end_network
+
+comm TEST_COMM WSF_COMM_TRANSCEIVER
+   network_name test_network
+end_comm
+
+platform_type template WSF_PLATFORM
+   comm comm TEST_COMM
+   end_comm
+end_platform_type
+
+platform commPlatform WSF_PLATFORM
+   add comm comm TEST_COMM
+   end_comm
+   add router default WSF_COMM_ROUTER
+      add router_protocol adHoc AD_HOC end_router_protocol
+   end_router
+end_platform
+
+platform commPlatform2 WSF_PLATFORM
+   add comm comm TEST_COMM
+   end_comm
+end_platform
+
+execute at_time 1 s absolute
+   WsfPlatform plat = WsfSimulation.FindPlatform("commPlatform");
+   WsfComm comm = plat.Comm("comm");
+   
+   //COMM_TURNED_OFF
+   comm.TurnOff();
+end_execute
+
+execute at_time 2 s absolute
+   WsfPlatform plat = WsfSimulation.FindPlatform("commPlatform");
+   WsfComm comm = plat.Comm("comm");
+   
+   //COMM_TURNED_ON
+   comm.TurnOn();
+end_execute
+
+execute at_time 3 s absolute
+   WsfPlatform plat = WsfSimulation.FindPlatform("commPlatform");
+   WsfComm comm = plat.Comm("comm");
+   WsfPlatform plat2 = WsfSimulation.FindPlatform("commPlatform2");
+   WsfComm comm2 = plat2.Comm("comm");
+   WsfAddress address1 = comm.GetAddress();
+   WsfAddress address2 = comm2.GetAddress();
+   
+   //LINK_ADDED_TO_MANAGER
+   //LINK_ADDED_TO_LOCAL
+   comm.AddConnection(address2);
+   
+   //LINK_DISABLED_ON_MANAGER
+   comm.DisableConnection(address1, address2); 
+   
+   //LINK_ENABLED_ON_MANAGER
+   comm.EnableConnection(address1, address2);
+end_execute
+
+execute at_time 4 s absolute
+   //COMM_ADDED_TO_MANAGER
+   //COMM_TURNED_ON
+   WsfPlatform platform = WsfSimulation.CreatePlatform("template");
+   WsfSimulation.AddPlatform(platform, "dynamic");
+end_execute
+
+execute at_time 5 s absolute
+   WsfPlatform plat = WsfSimulation.FindPlatform("commPlatform");
+   WsfComm comm = plat.Comm("comm");
+   WsfPlatform plat2 = WsfSimulation.FindPlatform("dynamic");
+   WsfComm comm2 = plat2.Comm("comm");
+   WsfAddress address1 = comm.GetAddress();
+   WsfAddress address2 = comm2.GetAddress();
+   
+   //COMM_REMOVED_FROM_MANAGER 
+   //LINK_REMOVED_FROM_LOCAL
+   WsfNetwork network = WsfNetwork.GetNetwork("test_network");
+   network.RemoveMember(address2); 
+end_execute
+
+execute at_time 6 s absolute
+   //Does nothing for comms, already removed from network.
+   WsfSimulation.DeletePlatform("dynamic");
+end_execute
+
+execute at_time 7 s absolute
+   WsfPlatform plat = WsfSimulation.FindPlatform("commPlatform");
+   WsfComm comm = plat.Comm("comm");
+   WsfPlatform plat2 = WsfSimulation.FindPlatform("commPlatform2");
+   WsfComm comm2 = plat2.Comm("comm");
+   WsfAddress address1 = comm.GetAddress();
+   WsfAddress address2 = comm2.GetAddress();
+   
+   //LINK_REMOVED_FROM_MANAGER
+   //LINK_REMOVED_FROM_LOCAL
+   comm.RemoveConnection(address2);
+
+   //COMM_REMOVED_FROM_MANAGER
+   WsfSimulation.DeletePlatform("commPlatform");
+end_execute
+
+
+execute at_time 8 s absolute
+   if(CommAddManager != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL COMM_ADDED_TO_MANAGER");
+   }
+   if(CommRemovedManager != 2)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL COMM_REMOVED_FROM_MANAGER");   
+   }
+   if(CommTurnedOff != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL COMM_TURNED_OFF");   
+   }   
+   if(CommTurnedOn != 2)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL COMM_TURNED_ON");   
+   }  
+   if(LinkEnabledManager != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL LINK_ENABLED_ON_MANAGER");   
+   }
+   if(LinkDisabledManager != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL LINK_DISABLED_ON_MANAGER");   
+   }
+   if(LinkAddedManager != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL LINK_ADDED_TO_MANAGER");   
+   }
+   if(LinkRemovedManager != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL LINK_REMOVED_FROM_MANAGER");   
+   }
+   if(CommAddLocal != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL COMM_ADDED_TO_LOCAL");   
+   }
+   if(CommRemoveLocal != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL COMM_REMOVED_FROM_LOCAL");   
+   }
+   if(LinkAddedLocal != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL LINK_ADDED_TO_LOCAL");   
+   }
+   if(LinkRemovedLocal != 1)
+   {
+      writeln("-FAIL-");
+      writeln("FAIL LINK_REMOVED_FROM_LOCAL");   
+   }   
+end_execute
+
+script void CommAddedToManager(WsfComm aComm) 
+   if(TIME_NOW > 0.0) // Ignore standard initialization routines at sim start.
+   {
+      CommAddManager = CommAddManager + 1;
+   }
+end_script
+
+script void CommRemovedFromManager(WsfComm aComm) 
+   CommRemovedManager = CommRemovedManager + 1;
+end_script
+
+script void CommTurnedOff(WsfComm aComm)
+   CommTurnedOff = CommTurnedOff + 1;
+end_script
+
+script void CommTurnedOn(WsfComm aComm)
+   if(TIME_NOW > 0.0)   // Ignore standard initialization routines at sim start.
+   {
+      CommTurnedOn = CommTurnedOn + 1;
+   }
+end_script
+
+script void LinkEnabledOnManager(WsfComm aSourceComm, WsfComm aDestinationComm)
+   LinkEnabledManager = LinkEnabledManager + 1;
+end_script
+
+script void LinkDisabledOnManager(WsfComm aSourceComm, WsfComm aDestinationComm)
+   LinkDisabledManager = LinkDisabledManager + 1;
+end_script
+
+script void LinkAddedToManager(WsfComm aSourceComm, WsfComm aDestinationComm)
+   LinkAddedManager = LinkAddedManager + 1;
+end_script
+
+script void LinkRemovedFromManager(WsfComm aSourceComm, WsfComm aDestinationComm)
+   LinkRemovedManager = LinkRemovedManager + 1;
+end_script
+
+script void CommAddedToLocal(WsfCommRouter aRouter, string aProtocolType, WsfAddress aAddedAddress)
+   CommAddLocal = CommAddLocal + 1;
+end_script
+
+script void CommRemovedFromLocal(WsfCommRouter aRouter, string aProtocolType, WsfAddress aRemovedAddress)
+   CommRemoveLocal = CommRemoveLocal + 1;
+end_script
+
+script void LinkAddedToLocal(WsfCommRouter aRouter, string aProtocolType, WsfAddress aSourceAddress, WsfAddress aDestinationAddress)
+   LinkAddedLocal = LinkAddedLocal + 1;
+end_script
+
+script void LinkRemovedFromLocal(WsfCommRouter aRouter, string aProtocolType, WsfAddress aSourceAddress, WsfAddress aDestinationAddress)
+   LinkRemovedLocal = LinkRemovedLocal + 1;
+end_script
+
+observer
+   enable COMM_ADDED_TO_MANAGER
+   enable COMM_REMOVED_FROM_MANAGER
+   enable COMM_TURNED_OFF
+   enable COMM_TURNED_ON
+   enable LINK_ENABLED_ON_MANAGER
+   enable LINK_DISABLED_ON_MANAGER
+   enable LINK_ADDED_TO_MANAGER
+   enable LINK_REMOVED_FROM_MANAGER
+   enable COMM_ADDED_TO_LOCAL
+   enable COMM_REMOVED_FROM_LOCAL 
+   enable LINK_ADDED_TO_LOCAL
+   enable LINK_REMOVED_FROM_LOCAL 
+end_observer
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output
+
+end_time 9 s

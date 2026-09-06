@@ -1,0 +1,79 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once utils.txt
+
+start_date mar 13 2020
+start_time 12:00:00.000
+end_time 25 min
+
+atmosphere_model basic WSF_PIECEWISE_EXPONENTIAL_ATMOSPHERE
+end_atmosphere_model
+
+platform test WSF_PLATFORM
+   icon cubesat
+   side blue
+   
+   empty_mass 10 kg
+   
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      initial_state
+         position 6571 km 0 km 0 km
+         velocity 0 m/s 0 m/s 0 m/s
+         epoch_date_time mar 13 2020 12:00:00.000
+      end_initial_state
+      
+      integrator prince_dormand_78
+         tolerance 1.0e-11
+         error_criterion L_2
+      end_integrator
+      
+      dynamics
+         term atmospheric_drag
+            cross_sectional_area 1.0 m^2
+            drag_coefficient 1.0
+            atmosphere_model basic
+         end_term
+         
+         term earth_monopole 
+         end_term
+      end_dynamics
+   end_mover
+   
+   script_variables
+      double gTerminalAccelerationLimit = 0.1;
+      
+      double gObjectMass         = 10.0;
+      double gCrossSectionalArea = 1.0;
+      double gDragCoefficient    = 1.0;
+      
+      WsfEarthMonopoleTerm grav = WsfEarthMonopoleTerm.Construct();
+      WsfPiecewiseExponentialAtmosphere atmo = WsfPiecewiseExponentialAtmosphere.Construct();
+   end_script_variables
+   
+   execute at_interval_of 10 s
+      Vec3 up = PLATFORM.LocationWCS().Normal();
+      double accDown = -Vec3.Dot(PLATFORM.AccelerationWCS(), up);
+      if (MATH.Fabs(accDown) < gTerminalAccelerationLimit && PLATFORM.Altitude() > 0.0)
+      {
+         double localG = grav.GravitationalParameter() / PLATFORM.LocationECI().MagnitudeSquared();
+         
+         Calendar now = WsfDateTime.CurrentTime();
+         double localDrag = 0.5 * (gDragCoefficient * gCrossSectionalArea / gObjectMass) * atmo.Density(now, PLATFORM.Location()) * PLATFORM.VelocityNED().MagnitudeSquared();
+         
+         double omega = Earth.ROTATION_RATE() * Math.TWO_PI() / 360.0;    // [rad/s]
+         double centrip = omega * omega * PLATFORM.LocationECI().Magnitude();
+         
+         double expectedAcc = localG - localDrag - centrip;
+         
+         ExpectNearRelative(accDown, expectedAcc, 1.0e-4, "Acceleration in terminal phase mismatch");
+      }
+   end_execute
+end_platform
+

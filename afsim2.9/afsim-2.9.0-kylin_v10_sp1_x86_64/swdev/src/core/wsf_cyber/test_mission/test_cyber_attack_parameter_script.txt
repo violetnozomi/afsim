@@ -1,0 +1,108 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//! Tests the script objects relating to attack parameters.
+
+execute at_time 1 s absolute
+   WsfCyberAttackParameterObject object = {};
+   WsfCyberAttackParameterObject anotherObject = {};
+   if(object.HasAuxData() || anotherObject.HasAuxData())
+   {
+      writeln("-FAIL-");
+   }
+   
+   object.SetAuxData("effect", 42);
+   if(!object.HasAuxData())
+   {
+      writeln("-FAIL-");
+   }
+   
+   WsfTrack track = {};
+   track.SetSide("yellow");
+   anotherObject.SetAuxData("effect", track);
+   if(!anotherObject.HasAuxData())
+   {
+      writeln("-FAIL-");
+   }
+   
+   WsfCyberAttackParameters parameters = {};
+   Array<string> effectNames = parameters.GetEffectNames();
+   if(effectNames.Size() != 0)
+   {
+      writeln("-FAIL-");
+   }
+   
+   parameters.AddParameter(object);
+   parameters.AddParameter(anotherObject);
+   effectNames = parameters.GetEffectNames();
+   
+   if(effectNames.Size() != 1)
+   {
+      writeln("-FAIL-");
+   }
+   
+   WsfCyberAttackParameterObject differentObject = {};
+   differentObject.SetAuxData("another_effect", "another_effect_parameter_string");
+   
+   parameters.AddParameter(differentObject);
+   effectNames = parameters.GetEffectNames();
+   
+   if(effectNames.Size() != 2)
+   {
+      writeln("-FAIL-");
+   }
+   
+   int count1 = parameters.GetEffectEntryCount("effect");
+   int count2 = parameters.GetEffectEntryCount("another_effect");
+   
+   if((count1 != 2) || (count2 != 1))
+   {
+      writeln("-FAIL-");
+   }
+   
+   WsfCyberAttackParameterObject testObj1 = parameters.GetEffectEntryByIndex("effect", 0);
+   WsfCyberAttackParameterObject testObj2 = parameters.GetEffectEntryByIndex("effect", 1);
+   WsfCyberAttackParameterObject testObj3 = parameters.GetEffectEntryByIndex("another_effect", 0);
+   
+   if(!testObj1.HasAuxData() || !testObj2.HasAuxData() || !testObj3.HasAuxData())
+   {
+      writeln("-FAIL-");
+   }
+   
+   WsfTrack testTrack = (WsfTrack)testObj2.AuxDataObject("effect");   
+   if(testObj1.AuxDataInt("effect") != 42)
+   {
+      writeln("-FAIL-");
+   }
+   if(testTrack.Side() != "yellow")
+   {
+      writeln("-FAIL-");
+   }
+   if(testObj3.AuxDataString("another_effect") != "another_effect_parameter_string")
+   {
+      writeln("-FAIL-");
+   }
+   
+   WsfCyberAttackParameterObject multipleObject = {};
+   multipleObject.SetAuxData("effect", "effect_string");
+   multipleObject.SetAuxData("another_effect", "another_effect_string");
+   multipleObject.SetAuxData("new_effect", "new_effect_string");
+   
+   parameters.AddParameter(multipleObject);
+   
+   // Invalid parameter - Only a single effect per parameter object.
+   // Aux data further restricts each attribute/effect name to a single value.
+   // Thus, every WsfCyberAttackParameterObject may only have a single attribute with a single variable.
+   effectNames = parameters.GetEffectNames();
+   
+   if(effectNames.Size() != 2)
+   {
+      writeln("-FAIL-");
+   }
+end_execute

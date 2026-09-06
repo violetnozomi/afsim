@@ -1,0 +1,81 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once platforms/starfleet.txt
+include_once laydown/command_structure.txt
+
+end_time 1 min
+
+script_variables
+   WsfPlatform picard;
+   WsfPlatform riker;
+   WsfPlatform data;
+   WsfPlatform worf;
+end_script_variables
+
+execute at_time 5 s absolute
+   picard = WsfSimulation.FindPlatform("john_luke_picard");
+   riker = WsfSimulation.FindPlatform("william_riker");
+   data = WsfSimulation.FindPlatform("data");
+   worf = WsfSimulation.FindPlatform("worf");
+
+   WsfMessage message = WsfMessage();
+   message.SetSizeInBits(100);
+   message.SetType("Incoming_Borg_Attack!");
+   picard.Comm("STARFLEET_INSIGNIA").SendMessageToSubordinates("default", message);
+end_execute
+
+execute at_time 5.68 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetSizeInBits(100);
+   message.SetType("0.68 seconds is an eternity for an android.");
+   data.Comm("STARFLEET_INSIGNIA").SendMessageToCommander("default", message);
+end_execute
+
+execute at_time 10 s absolute
+   WsfSimulation.DeletePlatform("john_luke_picard");
+end_execute
+
+execute at_time 15 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetSizeInBits(100);
+   message.SetType("Mr. Worf, Fire!.");
+   riker.Comm("STARFLEET_INSIGNIA").SendMessageToPeers("default", message);
+end_execute
+
+execute at_time 20 s absolute
+   riker.SetCommander(riker);
+   data.SetCommander(riker);
+   worf.SetCommander(riker);
+   WsfMessage message = WsfMessage();
+   message.SetSizeInBits(100);
+   message.SetType("I'm taking command.");
+   riker.Comm("STARFLEET_INSIGNIA").SendMessageToSubordinates("default", message);
+end_execute
+
+execute at_time 21 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetSizeInBits(100);
+   message.SetType("Acknowledged.");
+   worf.Comm("STARFLEET_INSIGNIA").SendMessageToCommander("default", message);
+end_execute
+
+execute at_time 22 s absolute
+   WsfMessage message = WsfMessage();
+   message.SetSizeInBits(100);
+   message.SetType("Take my Worf, please.");
+   data.Comm("STARFLEET_INSIGNIA").SendMessageToPeers("default", message);
+end_execute
+
+execute at_time 55 s absolute
+   if(num_messages != 10)
+   {
+      writeln("-FAIL-");
+   }
+end_execute

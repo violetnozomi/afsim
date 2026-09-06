@@ -1,0 +1,108 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 24 hours
+
+script_variables
+   double sRad1 = 35791811.0;
+   double sRad2 = 30000000.0;
+   double sTol = 100.0;
+   int sNumCompleted = 0;
+end_script_variables
+
+platform test-geo WSF_PLATFORM
+  icon satellite
+  side blue
+  add mover WSF_SPACE_MOVER
+     position 0n 90w altitude 10000000 meters heading 90 degrees
+  end_mover
+
+      mission_sequence
+         //debug 
+         maneuver hohmann_transfer 
+            //debug
+            final_semi_major_axis 35791811 m
+         end_maneuver       
+      end_mission_sequence
+  
+  execute at_time 10 hours absolute
+     WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+     WsfOrbitalManeuver hohmannTransfer = WsfHohmannTransfer.Construct(WsfOrbitalEventCondition.AT_APOAPSIS(), sRad2);
+     bool result = mover.ExecuteManeuver(hohmannTransfer);
+  end_execute
+
+end_platform
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln(TIME_NOW, "; begin ", aManeuver.ManeuverType());
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   sNumCompleted += 1;
+   string type = aManeuver.Type();
+   writeln(TIME_NOW, "; end ", type);
+   double newEcc = aSM.Eccentricity();
+   double newRad = aSM.SemiMajorAxis();
+   writeln(TIME_NOW, " ", newRad);
+   if (sNumCompleted == 3)
+   {
+      if (newEcc > 0.001)
+      {
+         writeln("-FAIL- ecc 1: ", newEcc);
+      }
+      if ((newRad < (sRad1 - sTol)) || (newRad > (sRad1 + sTol)))
+      {
+         writeln("-FAIL- rad");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+   }
+   else if (sNumCompleted == 6)
+   {
+      writeln(aManeuver.Type());
+      if (newEcc > 0.001)
+      {
+         writeln("-FAIL- ecc 2: ", newEcc);
+      }
+      if ((newRad < (sRad2 - sTol)) || (newRad > (sRad2 + sTol)))
+      {
+         writeln("-FAIL- rad");
+      }
+   }
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 6)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+end_script
+
+#event_pipe
+#   file test_space_mover_hohmann_transfer.aer
+#end_event_pipe
+
+#event_output 
+#   enable ORBITAL_MANEUVER_INITIATED
+#   enable ORBITAL_MANEUVER_COMPLETED
+#   file test_space_mover_hohmann_transfer.evt
+#end_event_output
+
+observer   
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated 
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted 
+   enable SIMULATION_COMPLETE
+end_observer 
+

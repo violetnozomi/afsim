@@ -1,0 +1,73 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# *******************************************************************************************
+# File Log
+# 11/11/15 - J.Iffrig - This is a very basic unguided expendable used to simulate a chaff bundle.
+# ******************************************************************************************
+
+aero INITIAL_CHAFF_AERO WSF_AERO
+   reference_area      0.1 m^2
+   zero_lift_cd        0.5
+   cl_max             0.25    # unknown
+   aspect_ratio        0.25   # unknown
+end_aero
+
+aero CHAFF_AERO WSF_AERO
+   reference_area      50 ft^2
+   zero_lift_cd        .5
+   cl_max              0.25    # unknown
+   aspect_ratio        .45
+end_aero
+
+weapon_effects CHAFF_EFFECT WSF_SPHERICAL_LETHALITY
+  allow_incidental_damage
+  minimum_radius   .10 m
+  maximum_radius   .15 m
+  maximum_damage   0.1
+  minimum_damage   0.0
+  remove_weapon_platform true
+end_weapon_effects
+
+platform_type CHAFF WSF_PLATFORM
+   icon chaff
+   weapon_effects CHAFF_EFFECT
+   
+   mover WSF_GUIDED_MOVER
+     update_interval 0.1 secs
+
+      stage 1
+         aero INITIAL_CHAFF_AERO
+         total_mass 5 lbs
+         pre_ignition_coast_time 0.1 sec
+         pre_separation_coast_time 11.0 sec # this prevents it from flying away because the max time of flight is less than this.
+      end_stage
+
+      stage 2
+         aero CHAFF_AERO
+         total_mass 5 lbs
+      end_stage
+   end_mover
+   
+   processor fuse WSF_WEAPON_FUSE
+      maximum_time_of_flight 10 sec
+      time_of_flight_to_arm 20 sec
+   end_processor
+      
+end_platform_type
+
+weapon CHAFF WSF_EXPLICIT_WEAPON
+   launched_platform_type CHAFF
+   tilt 0.0 deg
+end_weapon
+
+
+
+
+

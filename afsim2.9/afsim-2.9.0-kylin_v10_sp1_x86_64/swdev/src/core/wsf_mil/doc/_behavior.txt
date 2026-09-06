@@ -1,0 +1,50 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+Military Specific
+=================
+
+*Example Behavior*::
+
+ # this behavior checks to make sure the platform has a target and a weapon
+ # it also checks that this weapon has not already been used
+ # if the precondition passes, it tries to fire once at the target
+
+ behavior check_and_fire
+
+   script_variables
+     WsfWeapon myWeapon;
+   end_script_variables
+
+   on_init
+     myWeapon = PLATFORM.WeaponEntry(0);  #just grabs the first defined weapon
+   end_on_init
+
+   precondition
+     WsfTrack myTarget = PLATFORM.CurrentTargetTrack();
+     if (myWeapon.IsValid() && myTarget.IsValid())
+     {
+       if (myWeapon.TotalQuantityUsed() < 1.0)
+       {
+         return true;
+       }
+     }
+     return false;
+   end_precondition
+
+   execute
+     WsfTrack myTarget = PLATFORM.CurrentTargetTrack();  #should be valid, if precondition passed
+     myWeapon.Fire(myTarget);
+   end_execute
+
+ end_behavior
+
+
+

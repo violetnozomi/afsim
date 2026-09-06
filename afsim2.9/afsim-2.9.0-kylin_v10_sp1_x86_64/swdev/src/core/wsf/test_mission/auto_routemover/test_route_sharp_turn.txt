@@ -1,0 +1,46 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test AirMover for unconstrained sharp turning
+//
+// If the mover fails to turn sharply then last waypoint will not be acheived
+//
+
+end_time 30 s
+
+route route1
+   position 30n       90w       speed 50 mph
+   position 30n       90:00:05w speed 50 mph
+   position 30:00:01n 90w       speed 50 mph
+      execute end_route1
+end_route
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+   use_route route1
+   script_variables
+      bool pass = false;
+   end_script_variables
+   script void end_route1()
+      pass = true;
+   end_script
+   script void on_platform_deleted()
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+end_platform
+

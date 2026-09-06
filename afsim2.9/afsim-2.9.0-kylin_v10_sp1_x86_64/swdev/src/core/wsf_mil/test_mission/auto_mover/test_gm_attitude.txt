@@ -1,0 +1,187 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the explicit attitude control program of WSF_GUIDED_MOVER and WSF_GUIDANCE_COMPUTER
+
+include setup_test_gm.txt
+
+mover SSM_MOVER SSM_MOVER_BASE
+end_mover
+
+processor SSM_GUIDANCE SSM_GUIDANCE_BASE
+   #show_status
+  
+   # Generalized attitude reset program... used several times.
+   program RESET_ATTITUDE ATTITUDE_PROGRAM
+      reset
+      yaw_rate 5 deg/sec
+      pitch_rate 5 deg/sec
+      roll_rate 5 deg/sec
+   end_program
+   
+   phase ASCENT
+      guidance_delay 2000 sec
+      next_phase BOOST_COMPLETE when boost_complete   # When stage 2 burns out...
+   end_phase
+   
+   phase BOOST_COMPLETE
+      guidance_delay 2000 sec
+      next_phase CONTINUOUS_ROLL_RIGHT when phase_time > 60 sec
+   end_phase
+   
+   # Continuous roll tests
+   
+   phase CONTINUOUS_ROLL_RIGHT
+      program ATTITUDE_PROGRAM
+         roll_rate 20 deg/sec
+      end_program
+      next_phase CONTINUOUS_ROLL_LEFT when phase_time > 30 sec
+   end_phase
+   
+   phase CONTINUOUS_ROLL_LEFT
+      program ATTITUDE_PROGRAM
+         roll_rate -20 deg/sec
+      end_program
+      next_phase CONTINUOUS_ROLL_RESET when phase_time > 30 sec
+   end_phase
+   
+   phase CONTINUOUS_ROLL_RESET
+      use_program RESET_ATTITUDE
+      next_phase YAW_RIGHT when program RESET_ATTITUDE complete
+   end_phase
+   
+   # Yaw tests
+   
+   phase YAW_RIGHT
+      program ATTITUDE_PROGRAM
+         yaw 50 deg
+         yaw_rate 5 deg/sec
+      end_program
+      next_phase YAW_LEFT when program ATTITUDE_PROGRAM complete
+   end_phase
+   
+   phase YAW_LEFT
+      program ATTITUDE_PROGRAM
+         yaw -50 deg
+         yaw_rate 5 deg/sec
+      end_program
+      next_phase YAW_RESET when program ATTITUDE_PROGRAM complete
+   end_phase
+   
+   phase YAW_RESET
+      use_program RESET_ATTITUDE
+      next_phase PITCH_UP when program RESET_ATTITUDE complete
+   end_phase
+   
+   # Pitch tests
+   
+   phase PITCH_UP
+      program ATTITUDE_PROGRAM
+         pitch 50 deg
+         pitch_rate 5 deg/sec
+      end_program
+      next_phase PITCH_DOWN when program ATTITUDE_PROGRAM complete
+   end_phase
+   
+   phase PITCH_DOWN
+      program ATTITUDE_PROGRAM
+         pitch -50 deg
+         pitch_rate 5 deg/sec
+      end_program
+      next_phase PITCH_RESET when program ATTITUDE_PROGRAM complete
+   end_phase
+   
+   phase PITCH_RESET
+      use_program RESET_ATTITUDE
+      next_phase ROLL_RIGHT when program RESET_ATTITUDE complete
+   end_phase
+   
+   # Roll tests
+   
+   phase ROLL_RIGHT
+      program ATTITUDE_PROGRAM
+         roll 50 deg
+         roll_rate 5 deg/sec
+      end_program
+      next_phase ROLL_LEFT when program ATTITUDE_PROGRAM complete
+   end_phase
+   
+   phase ROLL_LEFT
+      program ATTITUDE_PROGRAM
+         roll -50 deg
+         roll_rate 5 deg/sec
+      end_program
+      next_phase ROLL_RESET when program ATTITUDE_PROGRAM complete
+   end_phase
+   
+   phase ROLL_RESET
+      use_program RESET_ATTITUDE
+      next_phase COAST when program RESET_ATTITUDE complete
+   end_phase
+
+   # Wait for a bit and then do the fixed pitch test...
+   
+   phase COAST
+      guidance_delay 2000 sec
+      next_phase PITCH_FIXED when altitude > 500 km
+   end_phase
+   
+   phase PITCH_FIXED
+      program ATTITUDE_PROGRAM
+         pitch_fixed -80 deg
+      end_program
+      next_phase REENTRY when altitude < 400 km
+   end_phase
+
+   phase REENTRY
+      use_program RESET_ATTITUDE
+      next_phase DESCENT when program RESET_ATTITUDE complete
+   end_phase
+   
+   phase DESCENT
+      guidance_delay 2000 sec
+   end_phase
+   
+end_processor
+
+###############################################################################
+
+platform_type SSM SSM_BASE
+   icon Space_Shuttle   # icon changed so we can see attitude better
+   mover SSM_MOVER end_mover
+   processor guidance SSM_GUIDANCE end_processor
+end_platform_type
+
+###############################################################################
+
+platform target SSM_TARGET
+end_platform
+
+platform launcher SSM_LAUNCHER
+   track
+      platform target
+   end_track
+   execute at_time  1 sec relative Launch(); end_execute
+end_platform
+
+###############################################################################
+
+on_initialize
+  gExpectedPassCount = 0; # no reported tests for now...
+end_on_initialize
+
+#event_pipe
+#   file replay.aer
+#end_event_pipe
+
+#event_output
+#   file STDOUT
+#end_event_output
+
+end_time 2000 sec

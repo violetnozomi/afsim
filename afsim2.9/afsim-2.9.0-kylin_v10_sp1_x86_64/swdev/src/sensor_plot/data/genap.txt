@@ -1,0 +1,83 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Sample antenna patterns for testing the GENAP interface.
+#
+# This file defines the four antenna patterns that are graphically
+# displayed in the SUPPRESSOR User Guide, Volume II, Input Data Items,
+# under the description of the GENAP-PATTERN in the TDB Instructions.
+#
+# Generate pattern files by running:
+#
+#   run -p <pattern_name> -v genap.txt
+#
+# And plot using:
+#
+#   gnuplot
+#   set xtics -90,10,90
+#   set ytics -90,10,90
+#   set grid on
+#   plot "<pattern_name>.plt" w l
+#
+# NOTE: The pattern names are lowercase rather than the traditional uppercase
+#       to make plotting easier. There is no compelling reason to make them
+#       uppercase.
+
+antenna_pattern genap_uniform
+   genap_pattern
+      peak_gain                   1 db
+      minimum_gain                -70 db
+      aperture_shape              circular
+      azimuth_distribution        uniform
+      azimuth_beamwidth           5.0 deg
+      elevation_distribution      uniform
+      elevation_beamwidth         5.0 deg 
+end_antenna_pattern
+
+antenna_pattern genap_cosine
+   genap_pattern
+      peak_gain                   1 db
+      minimum_gain                -70 db
+      aperture_shape              circular
+      azimuth_distribution        cosine
+      azimuth_beamwidth           5.0 deg
+      azimuth_exponent            1.0
+      elevation_distribution      cosine
+      elevation_beamwidth         5.0 deg 
+      elevation_exponent          1.0
+end_antenna_pattern
+
+antenna_pattern genap_bwsll
+   genap_pattern
+      peak_gain                   1 db
+      minimum_gain                -70 db
+      aperture_shape              circular
+      azimuth_distribution        bw/sll
+      azimuth_beamwidth           5.0 deg
+      azimuth_side_lobe_level     25 db
+      elevation_distribution      bw/sll
+      elevation_side_lobe_level   25 db
+      elevation_beamwidth         5.0 deg 
+end_antenna_pattern
+
+antenna_pattern genap_cosecant
+   genap_pattern
+      peak_gain                   1 db
+      minimum_gain                -70 db
+      aperture_shape              rectangular
+      azimuth_distribution        cosine
+      azimuth_beamwidth           5.0 deg
+      azimuth_exponent            1.0
+      elevation_distribution      cosecant
+      elevation_beamwidth         5.0 deg 
+      elevation_exponent          2.0
+      elevation_cosecant_limit    27.5 deg
+end_antenna_pattern

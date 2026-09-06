@@ -1,0 +1,172 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This is a test to confirm that on_initialize and on_initialize2 
+# produce the correct kinematic states for P6DOF movers
+# --------------------------------------------------------------------------------------------------
+
+end_time 5 sec
+
+include_once ../six_dof_types/environment/six_dof_environment.txt
+include_once ../six_dof_types/aircraft/fa-lgt/fa-lgt.txt
+
+script_variables
+   bool allPassed    = true;
+   double onePercent = 0.01;
+end_script_variables
+
+script bool CheckValue(string aPlatformName, 
+                       double aValue, 
+                       double aTargetValue, 
+                       double aTolerance, 
+                       string aAttributeName, 
+                       string aValueUnits, 
+                       string aTime)
+                       
+   double delta = MATH.Fabs(aValue - aTargetValue);
+   bool passed = true;
+   if (delta >= aTolerance)
+   {
+      writeln("-FAIL- ", aAttributeName, " = ", aValue, " ", aValueUnits, " is not within tolerance of (", aTolerance, ") from the target of ", aTargetValue, " ", aValueUnits, " for platform ", aPlatformName, " at time = ", aTime);
+      passed = false;
+   }
+   return passed;
+   
+end_script
+
+route level
+   position 01:00:00n 01:00:00w 
+   altitude 20000 ft
+   speed 300 kts
+   position 01:00:00n 02:00:00w
+   altitude 20000 ft
+end_route 
+
+route climb
+   position 01:00:00n 01:00:00w 
+   altitude 20000 ft
+   speed 300 kts
+   position 01:00:00n 02:00:00w
+   altitude 30000 ft
+end_route 
+
+platform_type p6dof WSF_PLATFORM
+   script_variables 
+      double targetLatitude;
+      double targetLongitude;
+      double targetAltitude;
+      double targetHeading;
+      double targetPitch;
+      double targetRoll;
+      double targetSpeed;
+
+      double toleranceLatitude;
+      double toleranceLongitude;
+      double toleranceAltitude;
+      double toleranceHeading;
+      double tolerancePitch;
+      double toleranceRoll;
+      double toleranceSpeed;
+      
+   end_script_variables    
+
+   script bool CheckInitValues(string aTime, string aTimeUnits)
+      bool passed = true;
+      passed = CheckValue(Name(), Latitude(), targetLatitude, toleranceLatitude, "Latitude", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Longitude(), targetLongitude, toleranceLongitude, "Longitude", "deg", aTime) && passed;
+      
+      # Wash-in does not hold altitude, so don't bother checking these
+      # passed = CheckValue(Name(), Altitude(), targetAltitude, toleranceAltitude, "Altitude", "meters", aTime) && passed;
+      # passed = CheckValue(Name(), Speed(), targetSpeed, toleranceSpeed, "Speed", "m/s", aTime) && passed;
+      
+      passed = CheckValue(Name(), Heading(), targetHeading, toleranceHeading, "Heading", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Roll(), targetRoll, toleranceRoll, "Roll", "deg", aTime) && passed;
+      return passed;
+   end_script
+
+   script bool CheckChangedValues(string aTime, string aTimeUnits)
+      bool passed = true;
+      passed = CheckValue(Name(), Heading(), targetHeading, toleranceHeading, "Heading", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Pitch(), targetPitch, tolerancePitch, "Pitch", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Roll(), targetRoll, toleranceRoll, "Roll", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Speed(), targetSpeed, toleranceSpeed, "Speed", "m/s", aTime) && passed;
+      return passed;
+   end_script
+
+   on_initialize    
+      targetLatitude  =  1.0;
+      targetLongitude = -1.0;
+      targetAltitude  = 20000.0 * Math.M_PER_FT();
+      targetHeading   = -90.0;
+      targetRoll      = 0.0;
+      
+      toleranceLatitude  = 0.001;
+      toleranceLongitude = 0.001;
+      toleranceAltitude  = 0.01;
+      toleranceHeading   = 1.0;
+      tolerancePitch     = 0.01;
+      toleranceRoll      = 0.25;
+      toleranceSpeed     = 0.01;
+      
+   end_on_initialize
+
+   on_initialize2
+      targetPitch    = PLATFORM.Pitch();
+      targetSpeed    = PLATFORM.Speed();
+      
+      tolerancePitch = Math.Fabs(0.01 * targetPitch);
+      toleranceSpeed = Math.Fabs(0.01 * targetSpeed);
+
+      allPassed = CheckInitValues("on_initialize2", "") && allPassed;
+   end_on_initialize2
+   
+   execute at_time 4.99 sec absolute
+      if (Name().Contains("wash_in"))
+      {
+         allPassed = CheckChangedValues("5", "seconds") && allPassed;
+      }
+   end_execute
+  
+   add mover WSF_RIGID_BODY_SIX_DOF_MOVER
+      vehicle_type FA-LGT_RB6
+      update_interval 0.01 s
+   end_mover
+   
+   follow_vertical_track
+end_platform_type 
+ 
+platform p6dof_level p6dof
+   use_route level
+end_platform
+ 
+platform p6dof_level_wash_in p6dof
+   use_route level
+   wash_in_conditions true
+end_platform
+
+platform p6dof_climb p6dof
+   use_route climb
+end_platform
+
+platform p6dof_climb_wash_in p6dof
+   use_route climb
+   wash_in_conditions true
+end_platform   
+
+execute at_time 5 sec absolute
+   if(allPassed)
+   {
+      writeln("-PASS-");
+   }     
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }
+end_execute

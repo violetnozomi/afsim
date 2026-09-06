@@ -1,0 +1,38 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Attitude Controller Models
+==========================
+
+.. parsed-literal::
+
+   attitude_controller_ :ref:`<attitude-controller-model-name><attitude_controller_models>`
+     ...
+   end_attitude_controller
+
+.. command:: attitude_controller ... end_attitude_controller
+   :block:
+
+   Specify the attitude controller for the platform. All platforms having a :model:`WSF_SPACE_MOVER` or 
+   :model:`WSF_NORAD_SPACE_MOVER` will have an attitude controller of some kind. If no attitude controller block is specified, 
+   the mover will operate as if the `instant <Instant Attitude Controller>`_ attitude controller was selected.
+
+   Attitude controllers will attempt to change the orientation of the platform to match a given target orientation. At creation
+   time, the attitude controller will have a target orientation specified by an 
+   :command:`orientation command <attitude_controller.orientation>` in the attitude controller block. After creation, the 
+   orientation target of the attitude controller can be changed via :class:`WsfSpaceMover.SetOrientation`.
+
+   Target orientations are either a one-time selection of the target orientation, or it will connect the attitude controller to one 
+   of the pre-set :command:`orientation types<attitude_controller.orientation>`. In the latter case, the attitude controller 
+   will have a continually updated target orientation as the craft moves along its orbit.
+
+**Available Models:**
+
+* :ref:`attitude_controller_models.instant`
+* :ref:`attitude_controller_models.rate_limited`

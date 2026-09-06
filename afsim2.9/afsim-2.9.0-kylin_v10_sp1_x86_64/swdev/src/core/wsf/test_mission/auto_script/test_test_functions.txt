@@ -1,0 +1,39 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the test_functions.txt
+#
+# Note: not all methods or outcomes are testable
+#       e.g. AssertTrueMessage(false, "AssertTrueMessage - failure case")
+#            would output the "-FAIL" string and thus be reported as a
+#            failure.
+
+include test_functions.txt
+
+on_initialize
+   AssertTrueMessage(true, "AssertTrueMessage");
+
+   AssertTrueMessage(WithinTolerance(5.5, 6.7, 1.2000000001), "WithinTolerance - true");
+   AssertTrueMessage(!WithinTolerance(5.5, 6.7, 1.19999999), "WithinTolerance - false");
+
+   AssertTrueMessage(assertEquals(true, true), "assertEquals(bool) -true");
+   AssertTrueMessage(!assertEquals(true, false), "assertEquals(bool)-false");
+
+   AssertTrueMessage(assertEquals(1, 1), "assertEquals(int)-true");
+   AssertTrueMessage(!assertEquals(1, 2), "assertEquals(int)-false");
+
+   AssertTrueMessage(assertEquals(1.1, 1.1), "assertEquals(double)-true");
+   AssertTrueMessage(!assertEquals(1.1, 1.2), "assertEquals(double)-false");
+
+   AssertEqualsMessage(true, true, "AssertEqualsMessage");
+
+   AssertDoubleEqualsMessage(1.1, 1.1, "AssertDoubleEqualsMessage");
+
+   AssertWithinToleranceMessage(5.5, 6.7, 1.20000001, "WithinToleranceMessage");
+end_on_initialize

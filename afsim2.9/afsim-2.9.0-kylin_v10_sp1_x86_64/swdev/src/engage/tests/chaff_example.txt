@@ -1,0 +1,172 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+radar_signature CHAFF_SIG WSF_CHAFF_SIGNATURE
+
+
+      #constant 1.0 m^2
+
+end_radar_signature
+
+aero INITIAL_CHAFF_AERO WSF_AERO
+  reference_area    2.0 ft2
+  cd_zero_subsonic    0.100
+  cd_zero_supersonic  0.20
+  mach_begin_cd_rise  0.800
+  mach_end_cd_rise    1.200
+  mach_max_supersonic 2.000
+  cl_max              .500    # unknown
+  aspect_ratio        4.000    # unknown
+end_aero
+
+aero CHAFF_AERO WSF_AERO
+  reference_area   190.0 ft2 # 67 m2 # 150.0 ft2
+  cd_zero_subsonic    1.1 # 1.100
+  cd_zero_supersonic  1.38
+  mach_begin_cd_rise  0.800
+  mach_end_cd_rise    1.200
+  mach_max_supersonic 2.000
+  cl_max            .1 # .5  # 1.2 # .500    # unknown
+  aspect_ratio        4.000    # unknown
+end_aero
+
+platform_type CHAFF WSF_PLATFORM
+   icon wedge
+
+   radar_signature CHAFF_SIG
+
+   mover WSF_CHAFF_MOVER
+     #update_interval .01 sec
+   end_mover
+
+end_platform_type
+
+weapon_effects CHAFF_EFFECT WSF_SPHERICAL_LETHALITY
+  allow_incidental_damage
+  minimum_radius   .10 m
+  maximum_radius   .15 m
+  maximum_damage   0.1
+  minimum_damage   0.0
+end_weapon_effects
+
+chaff_parcel CHAFF_PARCEL_BASE WSF_CHAFF_PARCEL
+  terminal_velocity 2.5 m/s
+  bloom_diameter 30 m
+  expansion_time_constant 1 sec
+end_chaff_parcel
+
+chaff_parcel parcel-1 CHAFF_PARCEL_BASE
+  terminal_velocity 5.0 m/s
+  bloom_diameter 10 m
+  expansion_time_constant 2 sec
+end_chaff_parcel
+
+chaff_parcel parcel-2 parcel-1
+  bloom_diameter 1600 ft
+  expansion_time_constant 3 sec
+
+end_chaff_parcel
+
+weapon CHAFF_WEAPON WSF_CHAFF_WEAPON
+   debug
+   launched_platform_type CHAFF
+   weapon_effects CHAFF_EFFECT
+   quantity 1
+   firing_delay 2.0 sec
+   salvo_interval 2.0 sec
+
+   pitch  -89.9 deg
+
+   ejector eject-1
+     number_slots 10
+     parcel_type parcel-1
+     location 1 2 3 m
+     drop_delay 1 sec
+     drop_interval 1 sec
+     ejection_velocity 15 m/s
+     ejection_azimuth 90 deg
+     ejection_elevation 10 deg
+   end_ejector
+
+   ejector eject-2
+     number_slots 20
+     parcel_type parcel-2
+     location 2 3 4 m
+     #drop_delay 2 sec
+     #drop_interval 2 sec
+     ejection_velocity 25 m/s
+     ejection_azimuth 90 deg
+     ejection_elevation 20 deg
+   end_ejector
+
+   ejector eject-3
+     number_slots 30
+     parcel_type CHAFF_PARCEL_BASE
+     location 3 4 5 m
+     drop_delay 3 sec
+     drop_interval 3 sec
+     ejection_velocity 30 m/s
+     ejection_azimuth 90 deg
+     ejection_elevation 30 deg
+   end_ejector
+end_weapon
+
+platform_type C-17 WSF_PLATFORM
+   icon C-17
+
+   processor fuse WSF_WEAPON_FUSE
+   end_processor
+   mover WSF_AIR_MOVER end_mover
+   weapon chaff CHAFF_WEAPON  end_weapon
+end_platform_type
+
+##############################################################
+
+platform c-17 C-17
+   side blue
+
+   position 39:31:42.42n 91:38:35.111w
+   route
+      position 39:31:42n 91:38:35w altitude 30000 ft speed 500 kts
+      position 39:31:40n 91:30:00w altitude 30000 ft speed 500 kts
+   end_route
+
+   execute at_time 1.0 sec absolute
+      WsfChaffWeapon weapon = (WsfChaffWeapon)PLATFORM.Weapon("chaff");
+      bool fired = weapon.DropChaffCloud({1, 1, 1}, {"eject-1", "eject-2", "eject-3"});
+   end_execute
+
+end_platform
+
+dis_interface
+   record output/chaff_example.rep
+end_dis_interface
+
+terrain
+   raw-dted 2 \\vwcnas\one\elev\NGA\SRTF2_All -90 -180 90 180
+end_terrain
+
+event_output
+   file output/chaff_example.evt
+   disable all
+   //enable  PLATFORM_ADDED
+   //enable  PLATFORM_DELETED
+   //enable  TASK_ASSIGNED
+   //enable  TASK_CANCELED
+   //enable  TASK_COMPLETED
+   enable  WEAPON_FIRE_ABORTED
+   enable  WEAPON_FIRE_REQUESTED
+   enable  WEAPON_FIRED
+   enable  WEAPON_HIT
+   enable  WEAPON_MISSED
+   enable  WEAPON_TERMINATED
+   enable  WEAPON_RELOAD_STARTED
+   enable  WEAPON_RELOAD_ENDED
+end_event_output
+
+end_time 6000 sec

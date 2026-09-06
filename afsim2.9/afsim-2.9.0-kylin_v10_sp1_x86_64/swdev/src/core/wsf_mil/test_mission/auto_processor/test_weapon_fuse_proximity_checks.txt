@@ -1,0 +1,125 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test that proximity checks for detonation occur against all potential targets, regardless of 
+// order in which they are defined, when do_not_use_current_target is specified on the weapon fuse. 
+
+file_path ../auto_script
+include test_functions.txt
+include test_pass.txt
+
+end_time 1 min
+
+script_variables
+   int gHitCount  = 0;
+   int gMissCount = 0;
+   PassTestCount = 2;
+end_script_variables
+
+aero BULLET_AERO  WSF_AERO
+   reference_area    132.7321775 cm2
+   cl_max            0.001
+   mach_and_cd       0.20    0.21
+   mach_and_cd       0.80    0.30
+   mach_and_cd       0.95    0.34
+   mach_and_cd       1.00    0.37
+   mach_and_cd       1.20    0.41
+   mach_and_cd       1.70    0.35
+   mach_and_cd       2.00    0.27
+   mach_and_cd       3.50    0.20
+end_aero
+
+platform_type BULLET WSF_PLATFORM 
+   category bullet
+   
+   mover WSF_UNGUIDED_MOVER 
+      update_interval 0.001 sec
+      total_mass 33.4 kg
+      aero BULLET_AERO
+   end_mover
+   
+   processor fuse WSF_WEAPON_FUSE 
+      gross_update_interval    0.01 sec
+      fine_update_interval   0.0001 sec
+      gross_proximity_range    1500 m
+      hit_proximity_range       200 m      
+      detonate_below_height_MSL -20 m
+      do_not_use_current_target 
+      excluded_category bullet
+   end_processor
+end_platform_type
+
+weapon_effects BULLET_EFFECTS WSF_SPHERICAL_LETHALITY 
+   minimum_radius 5 m
+   maximum_damage .2
+   maximum_radius 20 m
+   minimum_damage .05 
+   exponent 4
+end_weapon_effects
+
+weapon GUN WSF_EXPLICIT_WEAPON 
+   launched_platform_type BULLET 
+   weapon_effects BULLET_EFFECTS
+   slew_mode azimuth_and_elevation
+   azimuth_slew_limits  -180 deg 180 deg
+   elevation_slew_limits -90 deg  90 deg 
+   quantity 100
+   firing_delay 0 s
+   firing_interval 0.5 s
+   salvo_interval 0.5 s
+   automatic_target_cueing false
+   launch_delta_v 850 0 0 m/s
+end_weapon
+
+platform_type SHIP WSF_PLATFORM 
+   weapon gun GUN
+      tilt 0.75 deg
+   end_weapon 
+end_platform_type
+
+platform target-1 WSF_PLATFORM
+   position 00:00:30n 00:00e
+end_platform
+
+platform target-2 WSF_PLATFORM
+   position 00:01n 00:00e
+end_platform
+
+platform shooter SHIP 
+   track platform target-1 end_track
+   track platform target-2 end_track
+   // All 7 weapons should miss target-2 because proximity checks against the 
+   // interposed target-1 will trigger detonation prior to reaching the target
+   execute at_time 1 s absolute 
+      PLATFORM.Weapon("gun").FireSalvo(PLATFORM.MasterTrackList().Entry(1), 7);
+   end_execute
+   // Weapons should hit target-1 because no interposed platform exists
+   execute at_time 6 s absolute
+      PLATFORM.Weapon("gun").FireSalvo(PLATFORM.MasterTrackList().Entry(0), 10);
+   end_execute
+end_platform
+
+script void WeaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+   gHitCount = gHitCount + 1;
+end_script
+
+script void WeaponMissed(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+   gMissCount = gMissCount + 1;
+end_script
+
+script void SimulationComplete()
+   if (AssertEqualsMessage(9, gHitCount,  "Unexpected hit count"))  { pass(); }
+   if (AssertEqualsMessage(7, gMissCount, "Unexpected miss count")) { pass(); }
+end_script
+
+observer
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable SIMULATION_COMPLETE
+end_observer

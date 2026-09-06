@@ -1,0 +1,181 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that the route network is generating expected solutions
+# for shortest path computations.  GeneratePathOnRoute() and GeneratePathOffRouteToRoute()
+# 
+include_once kuwait_roads.txt
+include_once random_points.txt
+include_once exhaustive_solutions.txt
+
+// Uncomment this for debugging:
+/*
+event_pipe
+   file replay.aer
+end_event_pipe
+draw route_network  road_network
+end_draw
+script_variables
+   bool show_work = true;
+end_script_variables
+*/
+
+script_variables
+   bool show_work = false;
+   int  pointIndex = 0;
+   Array<double> results = {};
+end_script_variables
+
+script void draw_route(WsfRoute r)
+   WsfDraw d = WsfDraw();
+   d.SetDuration(5.0);
+   d.SetColor(1,0,0);
+   d.SetLineSize(3);
+   d.BeginPolyline();
+   d.VertexRoute(r);
+   d.End();
+   d.SetPointSize(4);
+   d.SetColor(0,1,0,.5);
+   d.BeginPoints();
+   double TL = r.TotalLength();
+   for (double i = 0.0; i < TL; i=i+TL/100.0)
+   {
+      d.Vertex(r.LocationAtDistance(i));
+   }
+   d.End();
+end_script
+
+# This uses WsfRoute.LocationAtDistance() to verify that positions along the generated route
+# are actually on the network.  
+script bool verify_route(WsfRoute r)
+   bool ok = true;
+   int S = r.Size();
+   WsfRouteNetwork net = WsfRouteNetwork.FindRouteNetwork("road_network");
+   double TL = r.TotalLength();
+   for (double i = 0.0; i < TL; i=i+TL/100.0)
+   {
+      WsfGeoPoint pt = r.LocationAtDistance(i);
+      WsfGeoPoint ptOnNet = net.SnapToNearestSegment(pt);
+      double delta = pt.GroundRangeTo(ptOnNet);
+      if (delta > 5.0)
+      {
+         WsfDraw d = WsfDraw();
+         d.SetColor(0,1,1);
+         d.SetLineSize(5);
+         d.BeginLines();
+            d.Vertex(pt);
+            d.Vertex(ptOnNet);
+         d.End();
+         writeln("-FAIL- Path goes off network.", delta);
+         ok = false;
+      }
+   }
+   # Attempt to detect U-Turns -- they should be incompatible with an optimal path.
+   for (int i = 0; i < r.Size() - 2; i=i+1)
+   {
+      WsfGeoPoint a = r[i].Location();
+      WsfGeoPoint b = r[i+1].Location();
+      WsfGeoPoint c = r[i+2].Location();
+      # Ignore points very close.
+      if (b.GroundRangeTo(a) > 10 && b.GroundRangeTo(c) > 10)
+      {
+         double turnAngle = b.TrueBearingTo(a) - b.TrueBearingTo(c);
+         if (MATH.Fabs(MATH.NormalizeAngleMinus180_180(turnAngle)) < 1)
+         {
+            writeln("-FAIL- Detected a 180 turn -- Likely error in route generation");
+            writeln(a);
+            writeln(b);
+            writeln(c);
+         }
+      }
+      
+   }
+   return ok;
+end_script
+
+script void test_query()
+   extern bool show_work;
+   extern int pointIndex;
+   if (pointIndex >= random_points.Size() - 4) return;
+   WsfRouteNetwork net = WsfRouteNetwork.FindRouteNetwork("road_network");
+   WsfGeoPoint a = WsfGeoPoint.Construct(random_points[pointIndex],random_points[pointIndex+1],0);
+   pointIndex=pointIndex+2;
+   WsfGeoPoint b = WsfGeoPoint.Construct(random_points[pointIndex],random_points[pointIndex+1],0);
+   pointIndex=pointIndex+2;
+   #a = WsfGeoPoint.Construct("29:50:49.738n 46:40:22.633e");
+   #b = WsfGeoPoint.Construct("29:25:32.674n 46:44:19.782e");
+   WsfRoute r1 = net.GeneratePathOnRoute(a,b);
+   results.PushBack(r1.TotalLength());
+   WsfRoute r2 = net.GeneratePathOffRouteToRoute(a, b);
+   results.PushBack(r2.TotalLength());
+   if (show_work)
+   {
+      draw_route(r1);
+      WsfDraw d = WsfDraw();
+      d.SetDuration(5);
+      d.SetPointSize(5);
+      d.BeginPoints();
+         d.SetColor(0,0,1);
+         d.Vertex(a);
+         d.SetColor(0,1,0);
+         d.Vertex(b);
+      d.End();
+   }
+   verify_route(r1);
+   # Prune last and first waypoints before verifying route 2 (it goes off-network)
+   r2.Remove(0);
+   r2.Remove(r2.Size()-1);
+   verify_route(r2);
+end_script
+
+execute at_interval_of 5 s 
+   test_query();
+end_execute
+
+script void update_solutions()
+   FileIO f = FileIO();
+   if (f.Open("exhaustive_solutions.tmp", "out"))
+   {
+      f.Writeln("script_variables");
+      f.Writeln("Array<double> solutions = {");
+      foreach (double r in results)
+      {
+         f.Writeln(write_str(r, ","));
+      }
+      f.Writeln("};");
+      f.Writeln(write_str("end_","script_variables")); # Input parsing fails without splitting this string
+   }
+end_script
+execute at_time 599 s absolute
+   bool ok = true;
+   for (int i = 0; i < solutions.Size(); i = i + 1)
+   {
+      double delta = MATH.Fabs(solutions[i] - results[i]);
+      if (delta > 10.0)
+      {
+         writeln("-FAIL-  Detected change in solution.  Expected: ", solutions[i], " Computed: ", results[i]);
+         ok = false;
+      }
+   }
+   ### This may be uncommented to write out a new 'exhaustive_solutions' file, which should
+   ### only be done if the previous solutions were flawed.
+   #####update_solutions();
+   if (ok)
+   {
+      writeln("-PASS- On ", solutions.Size(), " tests");
+   }
+end_execute
+end_time 600 s
+
+platform p WSF_PLATFORM
+   position 29:50:45n 46:40e
+end_platform
+
+
+

@@ -1,0 +1,99 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform_type plat_type WSF_PLATFORM
+   icon Wedge
+   side blue
+
+   add mover WSF_AIR_MOVER
+      default_radial_acceleration .1 g
+      maximum_radial_acceleration .2 g
+      default_linear_acceleration .25 g
+      maximum_linear_acceleration .5 g
+      default_climb_rate          5 m/s
+      maximum_climb_rate          10 m/s
+   end_mover
+end_platform_type
+
+
+platform climb-rate-tester plat_type
+   route
+      position 0n 0e altitude 0 m
+         speed 100 m/s
+      # climb to 1000 m using default climb rate
+      position 0.1n 0e altitude 1000 m
+         climb_rate 100 m/s
+      # climb to 2000 m using max climb rate (< 100m/s)
+      position 0.2n 0e altitude 2000 m
+         climb_rate default
+      # climb to 3000 m using default climb rate
+      position 0.3n 0e altitude 3000 m
+   end_route
+
+   script void CheckPitch(double goodPitch)
+      double pitchError = MATH.Fabs(Pitch() - goodPitch);
+      if (pitchError > .1)
+      {
+         writeln("-FAIL- Bad climb rate");
+      }
+      else
+      {
+         writeln("-PASS- climb-rate");
+      }
+   end_script
+   execute at_time 60 s absolute
+      CheckPitch(2.87);
+   end_execute
+   execute at_time 180 s absolute
+      CheckPitch(5.74);
+   end_execute
+   execute at_time 330 s absolute
+      CheckPitch(2.87);
+   end_execute
+end_platform
+
+platform linear-accel-tester plat_type
+   route
+      position 0n 1e
+         speed 100 m/s
+         # accelerate to 200 m/s w/ default acceleration
+      position 0.1n 1e
+         speed 200 m/s
+         linear_acceleration 9 g
+         # accelerate to 300 m/s w/ max acceleration
+      position 0.2n 1e
+         speed 300 m/s
+         linear_acceleration default
+         # decelerate to 200 m/s w/ default acceleration
+      position 0.3n 1e
+         speed 200 m/s
+   end_route
+
+   script void CheckSpeed(double goodSpeed)
+      double error = MATH.Fabs(Speed() - goodSpeed);
+      if (error > 4)
+      {
+         writeln("-FAIL- Bad linear acceleration");
+      }
+      else
+      {
+         writeln("-PASS- linear acceleration");
+      }
+   end_script
+   execute at_time 8.3 s absolute
+      CheckSpeed(120.3);
+   end_execute
+   execute at_time 75.7 s absolute
+      CheckSpeed(250.5);
+   end_execute
+   execute at_time 117.7 s absolute
+      CheckSpeed(270.1);
+   end_execute
+end_platform
+end_time 10 min

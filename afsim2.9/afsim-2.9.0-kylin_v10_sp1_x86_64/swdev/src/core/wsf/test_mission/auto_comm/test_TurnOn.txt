@@ -1,0 +1,80 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+	int msgRcvdCount = 0;
+	int expectedMsgRcvdCount = 2;
+end_script_variables
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+	extern int msgRcvdCount;
+	if (aRcvr.Platform().Name() == "Listener")
+	{
+		msgRcvdCount = msgRcvdCount + 1;
+	}
+	else{
+		writeln("-FAIL- Msg destined to wrong person");
+	}
+end_script
+
+observer
+	enable MESSAGE_RECEIVED
+end_observer
+
+comm Radio_A WSF_COMM_TRANSCEIVER
+	on
+end_comm
+
+platform Talker WSF_PLATFORM
+	add comm talker Radio_A
+	end_comm
+
+	execute at_time 10 seconds absolute # shouldn't be received, because comm is off
+		WsfMessage hello = WsfMessage();
+		PLATFORM.Comm("talker").SendMessage(hello, "Listener", "listener_on_a");
+	end_execute
+
+	execute at_time 14 seconds absolute # shouldn't be received, because comm is off
+		WsfMessage hello = WsfMessage();
+		PLATFORM.Comm("talker").SendMessage(hello, "Listener", "listener_on_a");
+	end_execute
+
+	execute at_time 20 seconds absolute # should be received, because comm is on
+		WsfMessage hello = WsfMessage();
+		PLATFORM.Comm("talker").SendMessage(hello, "Listener", "listener_on_a");
+	end_execute
+
+	execute at_time 25 seconds absolute # should be received, because comm is on
+		WsfMessage hello = WsfMessage();
+		PLATFORM.Comm("talker").SendMessage(hello, "Listener", "listener_on_a");
+	end_execute
+
+end_platform
+
+platform Listener WSF_PLATFORM
+	add comm listener_on_a Radio_A
+		off
+	end_comm
+
+	execute at_time 15 seconds absolute
+		PLATFORM.Comm("listener_on_a").TurnOn();
+	end_execute
+end_platform
+
+execute at_time 30 seconds absolute
+	extern int msgRcvdCount;
+	extern int expectedMsgRcvdCount;
+
+	if (msgRcvdCount != expectedMsgRcvdCount)
+	{
+		writeln("-FAIL-");
+	}
+end_execute
+
+end_time 35 seconds

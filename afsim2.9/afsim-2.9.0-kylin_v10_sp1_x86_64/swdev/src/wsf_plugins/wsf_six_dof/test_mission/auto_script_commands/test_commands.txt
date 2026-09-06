@@ -1,0 +1,440 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This is a test to confirm the P6DOF mover can use scripting.
+# --------------------------------------------------------------------------------------------------
+
+include_once ../platforms/fa-lgt.txt
+
+script double GetTotalFuelRemaining(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      return p6dofMover.GetTotalFuelRemaining();
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+      return 0.0;
+   }
+end_script
+
+# test_feature wsf_p6dof
+
+end_time 370 sec
+
+script double GetTotalFuelFlowRate(WsfPlatform aPlatform)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+   {
+      WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+      return p6dofMover.GetTotalFuelFlowRate();
+   }
+   return 0.0;
+end_script
+
+script bool CheckStateData(WsfPlatform aPlatform,
+                           double targetFuelFlow_pph,
+                           double targetFuelQty_lbs,
+                           double targetLat,
+                           double targetLon,
+                           double targetAlt_ft,
+                           double targetSpeed_KTAS,
+                           double targetHeading_deg,
+                           double targetPitch_deg,
+                           double targetRoll_deg)
+                           
+   double fuelFlow_pph =  GetTotalFuelFlowRate(aPlatform) * Math.LB_PER_KG() * 3600.0;
+   double fuelRemaining_lbs = GetTotalFuelRemaining(aPlatform) * Math.LB_PER_KG();
+   double lat = aPlatform.Latitude();
+   double lon = aPlatform.Longitude();
+   double alt_ft = aPlatform.Altitude()*MATH.FT_PER_M();
+   double speed_KTAS = aPlatform.Speed()*MATH.NMPH_PER_MPS();
+   double heading_deg = aPlatform.Heading();
+   double pitch_deg = aPlatform.Pitch();
+   double roll_deg = aPlatform.Roll();
+
+   double deltaFuelFlow_pph = MATH.Fabs(fuelFlow_pph-targetFuelFlow_pph);
+   double deltaFuelRemaining_lbs = MATH.Fabs(fuelRemaining_lbs-targetFuelQty_lbs);
+   double deltaLat = MATH.Fabs(lat-targetLat);
+   double deltaLon = MATH.Fabs(lon-targetLon);
+   double deltaAlt_ft = MATH.Fabs(alt_ft-targetAlt_ft);
+   double deltaSpeed_KTAS = MATH.Fabs(speed_KTAS-targetSpeed_KTAS);
+   double deltaHeading_deg = MATH.Fabs(heading_deg-targetHeading_deg);
+   double deltaPitch_deg = MATH.Fabs(pitch_deg-targetPitch_deg);
+   double deltaRoll_deg = MATH.Fabs(roll_deg-targetRoll_deg);
+   
+   if(deltaHeading_deg > 180.0)
+   {
+      deltaHeading_deg -= 360.0;
+   }
+   else if(deltaHeading_deg < -180.0)
+   {
+      deltaHeading_deg += 360.0;
+   }
+
+   if(deltaRoll_deg > 180.0)
+   {
+      deltaRoll_deg -= 360.0;
+   }
+   else if(deltaRoll_deg < -180.0)
+   {
+      deltaRoll_deg += 360.0;
+   }
+   
+   double debugMultiplier = 1.0; // Set to -1 for testing
+   
+   // Fuel flow varies significantly with altitude, power setting, and speed as
+   // well as autopilot repsonse. A 5% tolerance will be used. For a fuel flow
+   // of 5,000 lbs/hr, a 5% error is 250 lbs/hr.
+   double toleranceFuelFlow_pph = debugMultiplier * targetFuelFlow_pph*0.05;
+
+   // Fuel quantity should be within 1% or 10 gallons (about 60 lbs),
+   // whichever is higher.
+   double toleranceFuelRemaining_lbs = targetFuelQty_lbs*0.01;
+   if(toleranceFuelRemaining_lbs < 60.0)
+   {
+      toleranceFuelRemaining_lbs = 60.0;
+   }
+   toleranceFuelRemaining_lbs *= debugMultiplier;
+   
+   // For lat/lon, the desired tolerance is 500 feet. Since a nautical mile
+   // is approx 0.016667 deg, 500 feet is roughly 0.00137 deg.
+   double toleranceLat = debugMultiplier * 0.00137;
+   double toleranceLon = debugMultiplier * 0.00137;
+
+   // Altitude should be within 20 feet
+   double toleranceAlt_ft = debugMultiplier * 20.0;
+
+   // Speed should be within 1%. Thus, at 450 KTAS, this is 4.5 knots.
+   double toleranceSpeed_KTAS = debugMultiplier * targetSpeed_KTAS*0.01;
+
+   // Heading should be within 2 deg
+   double toleranceHeading_deg = debugMultiplier * 2.0;
+
+   // Pitch should be within 2 deg
+   double tolerancePitch_deg = debugMultiplier * 2.0;
+   
+   // Roll should be within 2 deg
+   double toleranceRoll_deg = debugMultiplier * 2.0;
+   
+   bool passed = true;
+
+   // Uncomment the following line during debugging to add a blank line
+   // writeln(" ");
+   
+   if( deltaFuelFlow_pph > toleranceFuelFlow_pph )
+   {
+      passed  = false;
+      writeln("-FAIL- Fuel Flow = ", fuelFlow_pph, " lbs/hr is not within tolerance of (", toleranceFuelFlow_pph, ") from the target of ", targetFuelFlow_pph, " lbs/hr at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaFuelRemaining_lbs > toleranceFuelRemaining_lbs )
+   {
+      passed  = false;
+      writeln("-FAIL- Fuel Qty = ", fuelRemaining_lbs, " lbs is not within tolerance of (", toleranceFuelRemaining_lbs, ") from the target of ", targetFuelQty_lbs, " lbs at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaLat > toleranceLat )
+   {
+      passed  = false;
+      writeln("-FAIL- Latitude = ", lat, " deg is not within tolerance of (", toleranceLat, ") from the target of ", targetLat, " deg at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaLon > toleranceLon )
+   {
+      passed  = false;
+      writeln("-FAIL- Longitude = ", lon, " deg is not within tolerance of (", toleranceLon, ") from the target of ", targetLon, " deg at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaAlt_ft > toleranceAlt_ft )
+   {
+      passed  = false;
+      writeln("-FAIL- Altitude = ", alt_ft, " ft is not within tolerance of (", toleranceAlt_ft, ") from the target of ", targetAlt_ft, " ft at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaSpeed_KTAS > toleranceSpeed_KTAS )
+   {
+      passed  = false;
+      writeln("-FAIL- Speed = ", speed_KTAS, " KTAS is not within tolerance of (", toleranceSpeed_KTAS, ") from the target of ", targetSpeed_KTAS, " KTAS at time = ", TIME_NOW, " sec");
+   }
+
+   if( deltaHeading_deg > toleranceHeading_deg )
+   {
+      passed  = false;
+      writeln("-FAIL- Heading = ", heading_deg, " deg is not within tolerance of (", toleranceHeading_deg, ") from the target of ", targetHeading_deg, " deg at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaPitch_deg > tolerancePitch_deg )
+   {
+      passed  = false;
+      writeln("-FAIL- Pitch = ", pitch_deg, " deg is not within tolerance of (", tolerancePitch_deg, ") from the target of ", targetPitch_deg, " deg at time = ", TIME_NOW, " sec");
+   }
+   
+   if( deltaRoll_deg > toleranceRoll_deg )
+   {
+      passed  = false;
+      writeln("-FAIL- Roll = ", roll_deg, " deg is not within tolerance of (", toleranceRoll_deg, ") from the target of ", targetRoll_deg, " deg at time = ", TIME_NOW, " sec\n");
+   }
+   
+   return passed;
+
+end_script
+
+# --------------------------------------------------------------------------------------------------
+platform TEST_AIRCRAFT FA-LGT_RB6
+   side  blue
+
+   script_variables
+      bool passed = true;
+   end_script_variables
+
+   route
+      position   21.325n   158.000w  altitude   500.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   500.0 ft   speed  450.0 kts
+   end_route
+   
+   // Ensure the gear are up at start
+   landing_gear_down false
+   
+   // Start with throttle set to full (MIL)
+   throttle_full true
+
+   // Turn to Heading of 145
+   execute at_time 10 sec absolute 
+      PLATFORM.TurnToHeading(145);
+   end_execute
+
+   execute at_time 40 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        6147.94,   // targetFuelFlow_pph
+                                        6928.82,   // targetFuelQty_lbs
+                                        21.2506,  // targetLat
+                                        -157.968, // targetLon
+                                        500.9,    // targetAlt_ft
+                                        450.0,   // targetSpeed_KTAS
+                                        145.0,    // targetHeading_deg
+                                        0.98,     // targetPitch_deg
+                                        -0.01);   // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   // Fuel flow and quantity check
+   execute at_time 50 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        6149.61,   // targetFuelFlow_pph
+                                        6911.74,   // targetFuelQty_lbs
+                                        21.2335,  // targetLat
+                                        -157.955, // targetLon
+                                        500.9,    // targetAlt_ft
+                                        450.0,    // targetSpeed_KTAS
+                                        145.0,    // targetHeading_deg
+                                        0.98,     // targetPitch_deg
+                                        -0.01);   // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   execute at_time 60 sec absolute
+      WsfMover mover = PLATFORM.Mover();
+      if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+      {
+         WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+         p6dofMover.EnableAutopilot(false);
+         p6dofMover.TakeDirectControlInput();
+         p6dofMover.SetDirectControlInputs(0.0,0.02,0.0,1.0); // Right,Back,Rudder,Throttle
+      }
+   end_execute
+
+   execute at_time 65 sec absolute 
+      WsfMover mover = PLATFORM.Mover();
+      if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+      {
+         WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+         p6dofMover.SetDirectControlInputs(1.0,0.02,0.0,1.0); // Right,Back,Rudder,Throttle
+      }
+   end_execute
+
+   execute at_time 66.35 sec absolute 
+      WsfMover mover = PLATFORM.Mover();
+      if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+      {
+         WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+         p6dofMover.SetDirectControlInputs(0.0,0.02,0.0,1.0); // Right,Back,Rudder,Throttle
+      }
+   end_execute
+
+   execute at_time 68 sec absolute 
+      WsfMover mover = PLATFORM.Mover();
+      if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+      {
+         WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+         p6dofMover.SetDirectControlInputs(0.0,1.0,0.0,2.0); // Right,Back,Rudder,Throttle
+      }
+   end_execute
+
+   // Fuel flow check
+   execute at_time 85 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        56287,  // targetFuelFlow_pph
+                                        4660.3,   // targetFuelQty_lbs
+                                        21.2069,  // targetLat
+                                        -157.934, // targetLon
+                                        3857.8,   // targetAlt_ft
+                                        502.9,    // targetSpeed_KTAS
+                                        -107.8,   // targetHeading_deg
+                                        -83.5,    // targetPitch_deg
+                                        -106.1);  // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   execute at_time 90 sec absolute 
+      WsfMover mover = PLATFORM.Mover();
+      if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+      {
+         WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+         p6dofMover.SetDirectControlInputs(0.0,0.02,0.0,2.0); // Right,Back,Rudder,Throttle
+      }
+   end_execute
+
+   execute at_time 91 sec absolute 
+      WsfMover mover = PLATFORM.Mover();
+      if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+      {
+         WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+         p6dofMover.ReleaseDirectControlInput();
+         p6dofMover.EnableAutopilot(true);
+         p6dofMover.EnableDirectThrottleInput();
+         p6dofMover.MoveThrottleToAfterburner();
+         double alt_m = 1000 * MATH.M_PER_FT(); 
+         PLATFORM.GoToAltitude(alt_m);
+         double heading_deg = Heading();
+         PLATFORM.TurnToHeading(heading_deg);
+      }
+   end_execute
+
+   execute at_time 95 sec absolute 
+      WsfMover mover = PLATFORM.Mover();
+      if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+      {
+         WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+         p6dofMover.MoveThrottleToMilitary();
+      }
+   end_execute
+
+   // Fuel flow check
+   execute at_time 100 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        10126.3,  // targetFuelFlow_pph
+                                        4457.9,   // targetFuelQty_lbs
+                                        21.1793,  // targetLat
+                                        -157.915, // targetLon
+                                        825.4,    // targetAlt_ft
+                                        520.8,    // targetSpeed_KTAS
+                                        145.7,    // targetHeading_deg
+                                        2.39,     // targetPitch_deg
+                                        0.05);    // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+   
+   execute at_time 105 sec absolute 
+      WsfMover mover = PLATFORM.Mover();
+      if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+      {
+         WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+         p6dofMover.MoveThrottleToIdle();
+      }
+   end_execute
+
+   // Data check
+   execute at_time 120 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        741.7,    // targetFuelFlow_pph
+                                        4436.2,   // targetFuelQty_lbs
+                                        21.144,  // targetLat
+                                        -157.889, // targetLon
+                                        996.0,    // targetAlt_ft
+                                        413.7,    // targetSpeed_KTAS
+                                        145.7,    // targetHeading_deg
+                                        1.33,     // targetPitch_deg
+                                        -0.01);   // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   execute at_time 121 sec absolute 
+      WsfMover mover = PLATFORM.Mover();
+      if(mover.IsA_TypeOf("WSF_RIGID_BODY_SIX_DOF_MOVER"))
+      {
+         WsfRigidBodySixDOF_Mover p6dofMover = (WsfRigidBodySixDOF_Mover)mover;
+         p6dofMover.ReleaseDirectThrottleInput();
+      }
+   end_execute
+
+   execute at_time 130 sec absolute 
+      double spd_mps = 450 * MATH.MPS_PER_NMPH(); 
+      PLATFORM.GoToSpeed(spd_mps);
+   end_execute
+
+   // Speed check
+   execute at_time 160 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        4268.3,   // targetFuelFlow_pph
+                                        4364.3,   // targetFuelQty_lbs
+                                        21.0765,  // targetLat
+                                        -157.840, // targetLon
+                                        1000.7,   // targetAlt_ft
+                                        450.0,    // targetSpeed_KTAS
+                                        145.7,    // targetHeading_deg
+                                        0.97,     // targetPitch_deg
+                                        -0.01);   // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   execute at_time 165 sec absolute 
+      PLATFORM.TurnToHeading(90);
+   end_execute
+
+   execute at_time 210 sec absolute
+      double alt_m = 5000 * MATH.M_PER_FT(); 
+      PLATFORM.GoToAltitude(alt_m);
+   end_execute
+
+   // Final check
+   execute at_time 360 sec absolute
+      bool checkPassed = CheckStateData(PLATFORM,
+                                        3959.3,   // targetFuelFlow_pph
+                                        4081.9,   // targetFuelQty_lbs
+                                        21.0532,   // targetLat
+                                        -157.406, // targetLon
+                                        5000.7,   // targetAlt_ft
+                                        450.0,    // targetSpeed_KTAS
+                                        90.0,     // targetHeading_deg
+                                        1.15,     // targetPitch_deg
+                                        -0.02);   // targetRoll_deg
+      if(!checkPassed) { passed = false; }
+   end_execute
+
+   script void on_platform_deleted()
+
+      if(passed)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL- One or more tests failed.");
+      }
+           
+   end_script   
+   
+end_platform
+
+# --------------------------------------------------------------------------------------------------
+

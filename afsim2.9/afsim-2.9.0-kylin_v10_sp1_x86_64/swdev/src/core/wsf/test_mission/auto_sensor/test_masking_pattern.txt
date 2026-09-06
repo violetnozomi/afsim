@@ -1,0 +1,199 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# =============================================================================
+# Test the 'masking_pattern' capability of articulated parts.
+#
+# 'masking_pattern's can apply to any articulated part (comm, sensor, etc.).
+# This test case only tests its application within sensors, but
+# if it works here it should work in any context.
+# =============================================================================
+
+script_variables
+   bool gPASS = true;
+   int  gCHANCES = 0;
+   int  gCHANCES_EXPECTED = 18;
+   double gTARGET_AZIMUTH_ECS = 0.0;
+   bool gSHOULD_DETECT = false;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform,
+                                   WsfSensor   aSensor,
+                                   WsfPlatform aTarget,
+                                   WsfSensorInteraction aResult)
+   gCHANCES = gCHANCES + 1;
+   if (gSHOULD_DETECT != aResult.Succeeded())
+   {
+      gPASS = false;
+      writeln("-FAIL- TargetAzimuthECS=", gTARGET_AZIMUTH_ECS,
+              " detected=", aResult.Succeeded(),
+              " expected=", gSHOULD_DETECT);
+   }
+end_script
+
+script void SimulationComplete()
+   if (gCHANCES != gCHANCES_EXPECTED)
+   {
+      writeln("-FAIL- Expected ", gCHANCES_EXPECTED,
+              " detections chances, got ", gCHANCES);
+   }
+   else if (gPASS)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+# =============================================================================
+
+masking_pattern TEST_MASKING_PATTERN
+
+   # When the sensor is installed with a yaw angle of 30 degrees, the following
+   # will result in a unmasked area in ECS of 5 deg -> 45 deg.
+
+   state default
+      # Visible within +/- 45 azimuth off of nose
+      platform_factor
+         inline_table none 4 6
+                   -90.0 -45.1 -45.0 45.0 45.1 90.0
+              0.0    0.0   0.0   1.0  1.0  0.0  0.0
+             45.0    0.0   0.0   1.0  1.0  0.0  0.0
+             45.1    0.0   0.0   0.0  0.0  0.0  0.0
+            180.0    0.0   0.0   0.0  0.0  0.0  0.0
+         end_inline_table
+
+      # Visible with +/- 25 azimuth off of part.
+      part_factor
+         inline_table none 4 6
+                   -90.0 -45.1 -45.0 45.0 45.1 90.0
+              0.0    0.0   0.0   1.0  1.0  0.0  0.0
+             25.0    0.0   0.0   1.0  1.0  0.0  0.0
+             25.1    0.0   0.0   0.0  0.0  0.0  0.0
+            180.0    0.0   0.0   0.0  0.0  0.0  0.0
+         end_inline_table
+
+   state PLATFORM_ONLY
+      # Visible within +/- 45 azimuth off of nose
+      platform_factor
+         inline_table none 4 6
+                   -90.0 -45.1 -45.0 45.0 45.1 90.0
+              0.0    0.0   0.0   1.0  1.0  0.0  0.0
+             45.0    0.0   0.0   1.0  1.0  0.0  0.0
+             45.1    0.0   0.0   0.0  0.0  0.0  0.0
+            180.0    0.0   0.0   0.0  0.0  0.0  0.0
+         end_inline_table
+
+   state PART_ONLY
+      # Visible with +/- 25 azimuth off of part.
+      part_factor
+         inline_table none 4 6
+                   -90.0 -45.1 -45.0 45.0 45.1 90.0
+              0.0    0.0   0.0   1.0  1.0  0.0  0.0
+             25.0    0.0   0.0   1.0  1.0  0.0  0.0
+             25.1    0.0   0.0   0.0  0.0  0.0  0.0
+            180.0    0.0   0.0   0.0  0.0  0.0  0.0
+         end_inline_table
+
+end_masking_pattern
+
+platform viewer WSF_PLATFORM
+   side blue
+   position 39n 90w altitude 30000 ft heading 45 deg
+   add sensor sensor WSF_GEOMETRIC_SENSOR
+      yaw             30 deg
+      frame_time      1 sec
+      maximum_range   100 nm
+      masking_pattern TEST_MASKING_PATTERN
+      reports_location
+   end_sensor
+
+   execute at_time 1 sec absolute
+      Sensor("sensor").TurnOn();
+   end_execute
+
+   script void SetTestConditions(double aTargetAzimuthECS,
+                                 bool   aShouldDetect)
+     extern double gTARGET_AZIMUTH_ECS;
+     extern bool gSHOULD_DETECT;
+     extern bool gPASS;
+
+     gTARGET_AZIMUTH_ECS = aTargetAzimuthECS;
+     gSHOULD_DETECT      = aShouldDetect;
+
+     WsfGeoPoint p = PLATFORM.Location();
+     p.OffsetRBE(50000.0, PLATFORM.Heading() + aTargetAzimuthECS, 0.0);
+     WsfPlatform t = WsfSimulation.FindPlatform("target");
+     if (t.IsValid())
+     {
+        t.SetLocation(p);
+     }
+     else
+     {
+        writeln("-FAIL- FindPlatform");
+        gPASS = false;
+     }
+   end_script
+
+   # Sensor detection chances start at 1 sec and occur at 1 second intervals.
+   # The target position is updated at x.5 sec to set the conditions for the
+   # detection chance at x+1 sec.
+
+   # The visible area in ECS of +5 deg -> +45 deg.
+
+   execute at_time  0.5 sec absolute  SetTestConditions(0.0, false);  end_execute
+   execute at_time  1.5 sec absolute  SetTestConditions(4.0, false);  end_execute
+   execute at_time  2.5 sec absolute  SetTestConditions(6.0, true);  end_execute
+   execute at_time  3.5 sec absolute  SetTestConditions(30.0, true);  end_execute
+   execute at_time  4.5 sec absolute  SetTestConditions(44.0, true);  end_execute
+   execute at_time  5.5 sec absolute  SetTestConditions(46.0, false);  end_execute
+
+   # The visible area in ECS is +/-45 deg
+
+   execute at_time  6.4 sec absolute
+      Sensor("sensor").SetMaskingPatternState("PLATFORM_ONLY");
+   end_execute
+
+   execute at_time  6.5 sec absolute  SetTestConditions(-46.0, false);  end_execute
+   execute at_time  7.5 sec absolute  SetTestConditions(-44.0, true);  end_execute
+   execute at_time  8.5 sec absolute  SetTestConditions(0.0, true);  end_execute
+   execute at_time  9.5 sec absolute  SetTestConditions(30.0, true);  end_execute
+   execute at_time 10.5 sec absolute  SetTestConditions(44.0, true);  end_execute
+   execute at_time 11.5 sec absolute  SetTestConditions(46.0, false);  end_execute
+
+   # The visible area in PCS is +/- 25 deg, which is +5 deg -> +55 deg in ECS
+
+   execute at_time 12.4 sec absolute
+      Sensor("sensor").SetMaskingPatternState("PART_ONLY");
+   end_execute
+
+   execute at_time 12.5 sec absolute  SetTestConditions(0.0, false);  end_execute
+   execute at_time 13.5 sec absolute  SetTestConditions(4.0, false);  end_execute
+   execute at_time 14.5 sec absolute  SetTestConditions(6.0, true);  end_execute
+   execute at_time 15.5 sec absolute  SetTestConditions(30.0, true);  end_execute
+   execute at_time 16.5 sec absolute  SetTestConditions(54.0, true);  end_execute
+   execute at_time 17.5 sec absolute  SetTestConditions(56.0, false);  end_execute
+
+end_platform
+
+platform target WSF_PLATFORM
+   side red
+   position 40n 90w altitude 30000 ft
+end_platform
+
+end_time 18.6 sec
+
+event_output
+   #file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+

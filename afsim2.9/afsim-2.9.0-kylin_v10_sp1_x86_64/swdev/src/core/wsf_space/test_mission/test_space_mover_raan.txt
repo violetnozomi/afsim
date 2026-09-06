@@ -1,0 +1,157 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# ****************************************************************************
+# Test of change-raan maneuver, scripted and input-based.
+# A large variety of changes are performed, including some edge cases
+# (0-0, 0-180, etc.).  Pro and retrograde inclinations were tested;
+# although in the final version, inclination is retrograde.
+# ****************************************************************************
+
+end_time 4 hours
+
+script_variables
+   double sTol = 0.001;
+   int    sNumCompleted = 0;
+end_script_variables
+
+platform_type TEST-RAAN WSF_PLATFORM
+
+   script_variables
+      double mRAAN1 = 10;
+      double mRAAN2 = 90;
+      int    mNumCompleted = 0;
+   end_script_variables
+
+   icon satellite
+   side blue
+   mover WSF_SPACE_MOVER
+      semi_major_axis 7000 km
+      eccentricity 0.0
+      inclination 45 deg
+      #argument_of_periapsis 160.0 deg
+      raan 181 deg
+   end_mover
+   
+   // Test scripted behavior
+   execute at_time 6000 s absolute
+      static bool north = true;
+      WsfOrbitalManeuver raanManeuver;      
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      if (north)
+      {
+         raanManeuver = WsfChangeRAAN.Construct(
+            WsfOrbitalEventCondition.AT_NORTHERN_INTERSECTION(), mRAAN2);
+      }
+      else
+      {
+         raanManeuver = WsfChangeRAAN.Construct(
+            WsfOrbitalEventCondition.AT_SOUTHERN_INTERSECTION(), mRAAN2);
+      }
+      north = !north;
+      mover.ExecuteManeuver(raanManeuver);
+   end_execute
+   
+end_platform_type
+
+//script_debug_writes enable
+
+on_initialize
+   // create combinations for raan changes.
+   // Initial change is to a start raan (input-based).
+   // Final change is to an end raan (script-based).
+   double start = 30.0;
+   double end = 210.000;
+   double inc = 0.0;
+   for (start = 0.0; start < 360.0; start = start + 30)
+   {
+      for (end = 30.00; end < 360.0; end = end + 30)
+      {
+         for (inc = 30.00; inc < 180.0; inc = inc + 30)
+         {
+            if (start != end)
+            {
+               WsfPlatform p = WsfSimulation.CreatePlatform("TEST-RAAN");
+               string raanInput = "raan " + (string)start + " deg";
+               p.ProcessInput(raanInput); 
+               string incInput = "inclination " + (string)inc + " deg";
+               p.ProcessInput(incInput); 
+               string si = "script_variables " + 
+                           "mRAAN1 = " + (string)end + "; " +
+                           "mRAAN2 = " + (string)(end - 30.0)   + "; " +
+                           "end_script_variables";
+               p.ProcessInput(si);
+               string inputManeuver = "mission_sequence maneuver change_raan raan " + (string)end + 
+                  " deg execute_at southern_intersection end_maneuver end_mission_sequence";
+               p.ProcessInput(inputManeuver);
+               string name = "test-raan:" + (string)start + "-" + (string)end + "(" + (string)inc + ")";
+               writeln(name);
+               WsfSimulation.AddPlatform(p, name);
+            }
+         }
+      }   
+   }
+end_on_initialize
+
+script void OrbitalManeuverInitiated(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   WsfChangeRAAN cr = (WsfChangeRAAN)aManeuver;                          
+   writeln_d(TIME_NOW / 60.0, "; begin ", aManeuver.ManeuverType(), "; RAAN: ", aSM.RAAN(), "-", 
+         cr.RAAN(), " (", aSM.Inclination() ,")");
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   writeln_d(TIME_NOW / 60.0, "; end ", aManeuver.ManeuverType());
+   writeln_d("RAAN: ", aSM.RAAN());
+   double newRAAN = aSM.RAAN();
+   //writeln("Inclination: ", aSM.Inclination());
+   if (aPlatform->mNumCompleted == 0)
+   {
+      if ((newRAAN < (aPlatform->mRAAN1 - sTol)) || (newRAAN > (aPlatform->mRAAN1 + sTol))  &&
+          (!((aPlatform->mRAAN1 == 0.0) && (MATH.Fabs(newRAAN - 360.0) < sTol))))
+      {
+         writeln("-FAIL-");
+         writeln("   ", aSM.Platform().Name());
+         writeln("   RAAN: ", aSM.RAAN());
+      }
+   }
+   else if (aPlatform->mNumCompleted == 1)
+   {
+      if ((newRAAN < (aPlatform->mRAAN2 - sTol)) || (newRAAN > (aPlatform->mRAAN2 + sTol)) &&
+          (!((aPlatform->mRAAN2 == 0.0) && (MATH.Fabs(newRAAN - 360.0) < sTol))))
+      {
+         writeln("-FAIL- 2 ", aPlatform.Name(), ":", 
+                 Format.Scientific(newRAAN, 8), "; ", 
+                 Format.Scientific(aPlatform->mRAAN2, 8));
+      }
+   }
+   aPlatform->mNumCompleted += 1;
+   sNumCompleted += 1;
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 1210)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+   
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_INITIATED OrbitalManeuverInitiated
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer

@@ -1,0 +1,41 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. This is designed to be included into the (csv_)event_output documentation.
+
+Examples:
+
+   * One-party event: A :command:`sensor` is turned on or off.
+   * Two-party event: A :command:`sensor` on one :command:`platform` is detecting a second :command:`platform`.
+   * Three-party event: One :command:`platform` is ordered by its commander, a second :command:`platform`, to follow a third :command:`platform`.
+
+General Breakdown
+=================
+
+An event within the file is composed of a *logical line* which may be one or more *physical lines*.
+If a *physical line* ends in a backslash (``\``), then the *logical line* continues on the next line.
+A *logical line* ends when a *physical line* is read that does not end in a backslash (``\``).
+
+.. table::
+   :align: left
+
+   ===================== ================================================================================
+   Field                 Description
+   ===================== ================================================================================
+   <time>                The current simulation time
+   <event>               The event name
+   <party-1>             The subject platform name (where the event originates)
+   <party-2>             The object platform name
+   <party-3>             The non-subject, non-object platform name relating to the event
+   <extra-data>          Any other pertinent data
+
+                         .. note::
+                            This Field's format varies by event.
+                            Contact development if additional event data is needed.
+   ===================== ================================================================================

@@ -1,0 +1,66 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# -----------------------------------------------------------------------------
+# A basic test of the ITU attenuation. It basically just makes sure it runs,
+# accepts all of its commands, and when run under 'valgrind', doesn't trigger
+# any errors.
+# -----------------------------------------------------------------------------
+
+attenuation_model EX_RADAR_ATTENUATION itu
+   query
+      frequency    3 ghz
+      polarization vertical
+      altitude     10 m
+      range        100 km
+      elevation    1.0 deg
+   end_query
+   plot gas_figure_1
+   plot gas_figure_2
+   #plot gas_figure_3                  # Takes awhile, so skip it.
+   plot cloud_figure_1
+end_attenuation_model
+
+sensor EX_RADAR WSF_RADAR_SENSOR
+   show_calibration_data
+
+   frame_time 10 sec
+   antenna_height 10 m
+   transmitter
+      frequency 3 ghz
+      power 250 kw
+      attenuation_model EX_RADAR_ATTENUATION
+   end_transmitter
+   one_m2_detect_range 200 nm
+   reports_location
+   on
+end_sensor
+
+platform radar_site WSF_PLATFORM
+   side red
+   position 40n 90w altitude 0 m heading 0 deg
+   add sensor radar EX_RADAR on end_sensor
+end_platform
+
+radar_signature TARGET_RADAR_SIG
+   constant 0 dbsm
+end_radar_signature
+
+platform target WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+   side blue
+   position 41n 90w altitude 35000 ft heading 180 deg
+end_platform
+
+event_output
+   file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+end_time 10 sec

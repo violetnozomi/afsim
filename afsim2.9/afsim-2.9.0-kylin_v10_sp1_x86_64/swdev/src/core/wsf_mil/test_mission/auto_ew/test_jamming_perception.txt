@@ -1,0 +1,235 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+radar_signature WIDE_BODY_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+antenna_pattern JAMMER_ANTENNA
+  uniform_pattern
+     peak_gain 0 dB
+     beamwidth 10 deg
+     minimum_gain -50 db
+end_antenna_pattern
+
+weapon JAMMER WSF_RF_JAMMER
+   transmitter
+      power             1 w
+      frequency       250 mhz
+      bandwidth         2 mhz
+      antenna_pattern JAMMER_ANTENNA
+   end_transmitter
+end_weapon
+
+antenna_pattern EW_RADAR_ANTENNA
+  uniform_pattern
+     peak_gain           35 dB
+     minimum_gain       -50 dB
+     azimuth_beamwidth   5 deg
+     elevation_beamwidth 45 deg
+end_antenna_pattern
+
+sensor EW_RADAR WSF_RADAR_SENSOR
+   frame_time                    10.0 sec
+   beam 1
+      antenna_height             6.0 m
+
+      scan_mode                  azimuth
+      azimuth_scan_limits        -180 deg 180 deg
+
+      transmitter
+         antenna_pattern         EW_RADAR_ANTENNA
+         beam_tilt               20.0 deg
+         power                   500.0 kw
+         frequency               200 mhz
+      end_transmitter
+
+      receiver
+         beam_tilt               5.0 deg
+         bandwidth               2.0 mhz
+         noise_power             -160 dBw
+      end_receiver
+
+      detection_threshold        12.5 db
+
+      continuous_jamming_perception_threshold 15 db
+      pulsed_jamming_perception_threshold     15 db
+   end_beam
+
+   beam 2
+      transmitter
+         frequency               250 mhz
+         beam_tilt                65 deg
+      end_transmitter
+      receiver
+         beam_tilt                65 deg
+      end_receiver
+   end_beam
+
+   jamming_perception_timeout     15 sec
+
+   required_pd                   0.5
+
+   reports_range
+   reports_bearing
+   reports_signal_to_noise
+end_sensor
+
+platform_type JAMMER_PLATFORM WSF_PLATFORM
+   icon EA-6B
+   mover WSF_AIR_MOVER end_mover
+   radar_signature WIDE_BODY_SIGNATURE
+
+   weapon jammer JAMMER
+      pitch   -55 deg                  // Aim jammer towards radar
+   end_weapon
+end_platform_type
+
+platform_type EW_RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+
+   sensor ew_radar EW_RADAR
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   processor track_manager WSF_TRACK_PROCESSOR
+   end_processor
+end_platform_type
+
+platform_type STRIKER_PLATFORM WSF_PLATFORM
+   icon F-18E
+   mover WSF_AIR_MOVER end_mover
+   radar_signature FIGHTER_RADAR_SIGNATURE
+end_platform_type
+
+platform jammer JAMMER_PLATFORM
+   side blue
+
+   route
+      position 37:00:00n 115:55:00w
+      altitude 35000 ft
+      speed      5 kts
+      heading    270 deg
+   end_route
+
+   weapon jammer
+      on
+   end_weapon
+
+   execute at_time 10 sec absolute
+      WsfWeapon jammer = PLATFORM.Weapon("jammer");
+      jammer.TurnOff();
+   end_execute
+end_platform
+
+platform ew-radar-site EW_RADAR_SITE
+   side red
+
+   position 37:00:00n 116:00:00w
+   altitude 0.0 ft agl
+   heading   90 deg
+
+   sensor ew_radar
+      on
+   end_sensor
+end_platform
+
+platform striker-1 STRIKER_PLATFORM
+   side blue
+
+   route
+      position 37:00:00n 114:30:00w
+      altitude 35000 ft
+      speed     450 kts
+      heading  -90 deg
+   end_route
+end_platform
+
+end_time 30 sec
+
+script_variables
+   int targetDetectCount = 0;
+   int jamPerceiveCount = 0;
+   int contJamPerceiveCount = 0;
+   int jamNOTPerceiveCount = 0;
+   int contNOTJamPerceiveCount = 0;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+   if (aSensor.Name() == "ew_radar")
+   {
+      writeln("T=", TIME_NOW, " Processing Beam:", aResult.BeamNumber());
+      if (aResult.Detected())
+      {
+         writeln("   Target '", aResult.TargetPlatformName(), "' Detected");
+         targetDetectCount = targetDetectCount + 1;
+      }
+
+      if (aResult.NoiseJammerPower() != 0.0)
+      {
+          writeln("   ContinuousJNR:", aResult.NoiseJammerPower() - aResult.RcvrNoise());
+      }
+
+      if (aSensor.JammingPerceived())
+      {
+         writeln("   Jamming Perceived");
+         jamPerceiveCount = jamPerceiveCount + 1;
+      }
+      else
+      {
+         writeln("   Jamming NOT Perceived");
+         jamNOTPerceiveCount = jamNOTPerceiveCount + 1;
+      }
+
+      if (aSensor.ContinuousJammingPerceived())
+      {
+         writeln("   Continuous Jamming Perceived");
+         contJamPerceiveCount = contJamPerceiveCount + 1;
+      }
+      else
+      {
+         writeln("   Continuous Jamming NOT Perceived");
+         contNOTJamPerceiveCount = contNOTJamPerceiveCount + 1;
+      }
+   }
+end_script
+
+script void SimulationComplete()
+   if (targetDetectCount != 6)
+   {
+      writeln("-FAIL- target detection count is ", targetDetectCount, " expected: 6");
+   }
+   if (jamPerceiveCount != 12)
+   {
+      writeln("-FAIL- jam perceive count is ", jamPerceiveCount, " expected: 12");
+   }
+   if (contJamPerceiveCount != 12)
+   {
+      writeln("-FAIL- cont jam perceive count is ", contJamPerceiveCount, " expected: 12");
+   }
+   if (jamNOTPerceiveCount != 2)
+   {
+      writeln("-FAIL- jam NOT perceived count is ", jamNOTPerceiveCount, " expected: 2");
+   }
+   if (contNOTJamPerceiveCount != 2)
+   {
+      writeln("-FAIL- cont jam NOT perceived count is ", contNOTJamPerceiveCount, " expected: 2");
+   }
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT
+   enable SIMULATION_COMPLETE
+end_observer
+

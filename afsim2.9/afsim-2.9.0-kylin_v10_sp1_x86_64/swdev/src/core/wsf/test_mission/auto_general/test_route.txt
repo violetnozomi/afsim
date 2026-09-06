@@ -1,0 +1,84 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests some basic route methods including Insert() and Remove()
+# Also tests LocationAtDistance() and SubrouteByDistance()
+route A
+   position 0n 0e
+   position 1n 0e
+   turn_right 30 deg
+      #time 30 s
+      distance 1000 m
+end_route
+route B
+   position 0n 0e
+   position 0.5n 0e
+   position 1n 0e
+end_route
+route C
+   position 0n 0e
+   position 0.0n 0.5e
+   position 0.5n 0.5e
+   position 1n 0.5e
+   position 1n 1e
+end_route
+execute at_time 1 s absolute
+   WsfRoute r = WsfRoute.CopyGlobal("A");
+   WsfGeoPoint point = WsfGeoPoint.Construct("0.5n 0e");
+   r.Insert(1, WsfWaypoint.Create(point, -1));
+   double originalLength = r.TotalLength();
+   # Add 3 segments of 10 meters each, should add 20 meters to the total length
+   #   -- 10 east, 10 west
+   point.Offset(90, 10, 0, 0); r.Insert(2, WsfWaypoint.Create(point, -1));
+   point.Offset(0, 10, 0, 0); r.Insert(3, WsfWaypoint.Create(point, -1));
+   point.Offset(-90, 10, 0, 0); r.Insert(4, WsfWaypoint.Create(point, -1));
+   double error = 20 - (r.TotalLength() - originalLength);
+   if (MATH.Fabs(error) > .5)
+   {
+      writeln("-FAIL- Insertion failure");
+   }
+   WsfRoute r2 = WsfRoute(r);
+   r.Remove(2);
+   r.Remove(2);
+   r.Remove(2);
+   r2.Remove(4);
+   r2.Remove(3);
+   r2.Remove(2);
+   error = r.TotalLength() - r2.TotalLength();
+   if (MATH.Fabs(error) > .5)
+   {
+      writeln("-FAIL- Deletion failure");
+   }
+end_execute
+execute at_time 2 s absolute
+   WsfRoute r = WsfRoute.CopyGlobal("B");
+   WsfGeoPoint pt1 = r.LocationAtDistance(0.0);
+   WsfGeoPoint pt2 = r.LocationAtDistance(1500.0);
+   double error = MATH.Fabs(pt1.GroundRangeTo(pt2) - 1500.0);
+   if (error > 50)
+   {
+      writeln("-FAIL- Distance");
+   }
+   error = MATH.Fabs(r.SubrouteByDistance(0.0, 1500.0).TotalLength() - 1500.0);
+   if (error > 50)
+   {
+      writeln("-FAIL- Subroute 1 ", error);
+   }
+   error = MATH.Fabs(r.SubrouteByDistance(r.TotalLength(), r.TotalLength() - 1500).TotalLength() - 1500.0);
+   if (error > 50)
+   {
+      writeln("-FAIL- Subroute 2");
+   }
+   WsfRoute C = WsfRoute.CopyGlobal("C");
+   error = MATH.Fabs(C.TotalLength() - C.SubrouteByDistance(0, C.TotalLength()).TotalLength());
+   if (error > 50) { writeln("-FAIL- Subroute 3"); }
+   error = MATH.Fabs(C.TotalLength() - C.SubrouteByDistance(C.TotalLength(), 0).TotalLength());
+   if (error > 50) { writeln("-FAIL- Subroute 4"); }
+end_execute
+

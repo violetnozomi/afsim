@@ -1,0 +1,24 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* Added a :doc:`../drift` orbital maneuver with corresponding class :class:`WsfDriftManeuver`. (:issue:`AFSIM-750`)
+* Added a :doc:`../teardrop` orbital maneuver with corresponding class :class:`WsfTeardropManeuver`. (:issue:`AFSIM-752`)
+* Added :command:`target.lag_time` and :command:`target.offset_time` to the specification of :doc:`targets <../target_specification>` for maneuvers and via :class:`WsfTargetPoint`. (:issue:`AFSIM-752`)
+* Added space track position and velocity extrapolation using orbital propagation, such that :method:`WsfTrack.LocationAtTime` now returns accurate results. (:issue:`AFSIM-509`)
+* Added methods to :class:`WsfSpaceMover` to compute common space mission-relevant geometric quantities (:method:`WsfSpaceMover.LookAngleTo`, :method:`WsfSpaceMover.IncidenceAngle`, :method:`WsfSpaceMover.TargetElevationAngle`, :method:`WsfSpaceMover.SquintAngleTo`, :method:`WsfSpaceMover.DistanceToHorizon`, and :method:`WsfSpaceMover.LookAngleToHorizon`). (:issue:`AFSIM-1152`)
+* Added a :class:`WsfOrbitDesigner` that can be used to create a sun-synchronous orbit (see :method:`SunSynchronous<WsfOrbitDesigner.SunSynchronous>`) given the desired altitude and local time of descending node. (:issue:`AFSIM-1156`)
+* Added alternative forms of the methods :method:`WsfSpaceMover.ComputeRendezvous`, and :method:`WsfSpaceMover.ComputeIntercept`, allowing computation of intercept and rendezvous maneuvers with a target specified by a :class:`WsfTargetPoint` instance. (:issue:`AFSIM-692`)
+* Added the ability to target a specific kinematic state when specifying :doc:`targets <../target_specification>` for maneuvers and via :class:`WsfTargetPoint`.
+* Added :method:`WsfSpaceMover.InitialHeading`, which calculates the heading of a satellite from its initial velocity state. (:issue:`AFSIM-697`)
+* Added :method:`WsfSpaceMover.SetInitialOrbitalState`, which allows specification of orbital state from script, along with new script types :class:`ReferenceFrame`, :class:`CentralBody`, :class:`CoordinateSystem`, :class:`OrbitalElements`, and :class:`OrbitalState`. (:issue:`AFSIM-559`)
+* Added variant of :method:`WsfSpaceMover.SetOrbit` that accepts an initial epoch as a parameter. (:issue:`AFSIM-1254`)
+* Added the ability to optimize orbital targeting using a cost function. This is supported in input, :command:`target_maneuver.optimize_cost`, and in scripting, :class:`WsfOrbitalOptimizationCost` and :class:`WsfOrbitalBlendedCost`. (:issue:`AFSIM-1787`)
+* Added orbital targeting pre-computation methods :method:`WsfSpaceMover.ComputeIntercept` and :method:`WsfSpaceMover.ComputeRendezvous` accepting a :class:`WsfOrbitalOptimizationCost` to specify the cost to be minimized. (:issue:`AFSIM-1787`)
+* Added constructors to the script classes for the targeting class events (:class:`WsfTargetManeuver`, :class:`WsfInterceptManeuver`, :class:`WsfRendezvousManeuver`, :class:`WsfNaturalMotionCircumnavigation`, :class:`WsfTeardropManeuver`, and :class:`WsfDriftManeuver`). (:issue:`AFSIM-1787`)
+* Added :command:`WSF_SPACE_MOVER.orbital_state` input block to :model:`WSF_SPACE_MOVER` and :model:`WSF_NORAD_SPACE_MOVER`, which fully describes an orbital state as a two-line element, a position and velocity vector, or a sufficient set of orbital elements. (:issue:`AFSIM-747`)

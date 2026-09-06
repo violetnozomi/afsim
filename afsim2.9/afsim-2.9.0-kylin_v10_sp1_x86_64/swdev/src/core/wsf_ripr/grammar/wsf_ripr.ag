@@ -1,0 +1,31 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+(struct WSF_RIPR_PROCESSOR
+   :symbol (type processorType WSF_RIPR_PROCESSOR)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WsfRIPRProcessor PROCESSOR :this 1)
+{
+   job_pass_through
+ | num_job_channels <Int>
+ | channel_job_type <integer> <string>
+ | query_bid <ScriptBlock>* end_query_bid
+ | query_bid_type <string> <ScriptBlock>* end_query_bid_type
+ | auto_exclusive_mode <Bool>
+ | job_window_open_length <Time>
+ | bid_window_open_length <Time>
+ | job_stickiness <real>
+ | job_board_comm <string>
+ | weapon_uplink_path (typeref .sensors) (typeref .comms)
+ | use_remote_tracks_for_uplink <Bool>
+ | max_weapon_uplinks <integer>
+ | <object-script-context-command>
+ | <object-message-script-command>
+ | <WSF_SCRIPT_PROCESSOR>
+})

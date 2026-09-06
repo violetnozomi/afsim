@@ -1,0 +1,43 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+SixDof Formation Commands
+=========================
+
+.. command:: debug
+
+   Enable extra debugging output.
+
+.. command:: detached
+
+   For formations defined in the initial conditions, this will cause this
+   formation to not be attached to its parent. After initialization any attached
+   formation will have its members placed into the correct positions relative
+   to the formation leader. The detached status on a formation also effects
+   the way formation commands are propagated down through the hierarchy.
+   See :class:`WsfSixDofFormationCommand`.
+
+.. command:: offset <length-value> <angle-value> <length-value> offset_type
+
+   Specify the offset of the formation from its parent. This is the means
+   by which the initial relative positioning of the members of a formation
+   is specified. The offset is given as a triplet of a range from the 
+   reference point, a relative bearing from the direction of travel of the
+   leader, and a vertical offset (or stack). For example, the following offset
+   would be the point 100 m to the right of the reference point and at 1 m
+   higher altitude.
+
+   ::
+
+      offset 100 m 90 deg 1 m fixed-altitude
+
+   The offset type is either ``welded-wing`` or ``fixed-altitude``. A welded 
+   wing offset computes its location based on the body frame of the lead
+   platform. A fixed altitude offset computes its location as if the lead
+   platform has a zero roll angle.

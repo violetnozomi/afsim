@@ -1,0 +1,366 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+define_path_variable CASE test_ballistic_missile_launch_computer_TSPI
+
+// ****************************************************************************
+// Ground target for red side
+platform target01 WSF_PLATFORM
+  icon Bullseye
+  side blue
+  position 39:38:18.98n 75:55:20.79w
+  add mover WSF_GROUND_MOVER end_mover  
+end_platform
+
+// ****************************************************************************
+// Red side - TSPI mover
+infrared_signature RED_MRBM_INFRARED_SIG constant 1 watts/steradian end_infrared_signature
+optical_signature  RED_MRBM_OPTICAL_SIG  constant 1 m^2             end_optical_signature
+radar_signature    RED_MRBM_RADAR_SIG    constant 20 m^2            end_radar_signature
+
+weapon_effects RED_MRBM_EFFECT WSF_GRADUATED_LETHALITY
+   radius_and_pk 1000.0 m 1.0
+end_weapon_effects
+
+platform_type RED_MRBM WSF_PLATFORM
+   icon Scud_Missile
+
+   infrared_signature RED_MRBM_INFRARED_SIG
+   optical_signature  RED_MRBM_OPTICAL_SIG
+   radar_signature    RED_MRBM_RADAR_SIG
+
+   weapon_effects     RED_MRBM_EFFECT
+
+   mover WSF_TSPI_MOVER
+      filename ballistic_missile/test.tspi.dat
+      heading in deg
+      pitch in deg
+      roll in deg
+   end_mover
+
+   processor fuse WSF_GROUND_TARGET_FUSE
+      # If the target is killed by another weapon we want to still keep going.
+      coast_time_on_loss_of_target     10000.0 secs
+   end_processor
+   
+end_platform_type
+
+weapon RED_MRBM WSF_EXPLICIT_WEAPON
+   launched_platform_type RED_MRBM
+end_weapon
+
+processor LAUNCH_SSM_PROCESSOR WSF_SCRIPT_PROCESSOR
+   script_variables
+      string WEAPON_NAME = " ";  # this is set in the platform_type definition
+      double TIME_TO_LAUNCH = 0;  #if scenario doesn't give time, it will fire first pass
+      int trackIndex     = 0;   # Don't change this; used internally
+   end_script_variables
+
+   update_interval 10.0 sec # how often to run the on_update script
+   on_update
+      if (TIME_NOW > TIME_TO_LAUNCH)
+      {
+         WsfLocalTrackList trackList = PLATFORM.MasterTrackList();
+         WsfWeapon tbm = PLATFORM.Weapon(WEAPON_NAME);
+         if ((PLATFORM.WeaponCount() > 0) && (trackIndex < trackList.TrackCount()))
+         {
+            if (tbm.IsValid() && (tbm.QuantityRemaining() > 0))
+            {
+               tbm.CueToTarget(trackList.TrackEntry(trackIndex));
+               writeln_d(TIME_NOW, " Fired ", WEAPON_NAME);
+               tbm.Fire(trackList.TrackEntry(trackIndex));
+               trackIndex = trackIndex + 1;
+            }
+         }
+         else
+         {
+             writeln_d(TIME_NOW, " Turning ssm processor off for ", PLATFORM.Name());
+             PROCESSOR.TurnOff(); # no weapons or targets left
+         }
+      }
+   end_on_update
+end_processor
+
+platform red_mrbm_2_launcher01 WSF_PLATFORM
+   icon Scud_Launcher
+   side red
+   position 54:51:26.26n 99:44:00.71w   
+
+   track
+     platform target01
+   end_track
+   
+   add mover WSF_GROUND_MOVER end_mover
+   add weapon red_mrbm RED_MRBM
+      quantity 1
+   end_weapon
+   add processor launch_ssm_processor LAUNCH_SSM_PROCESSOR
+      script_variables
+         WEAPON_NAME = "red_mrbm";
+         TIME_TO_LAUNCH = 60 ; # sim time in seconds         
+      end_script_variables
+   end_processor
+end_platform
+
+// ****************************************************************************
+# Signature data is unknown...
+infrared_signature BLUE_SAM_INFRARED_SIGNATURE constant 1 watts/steradian end_infrared_signature
+optical_signature  BLUE_SAM_OPTICAL_SIGNATURE  constant 1 m^2             end_optical_signature
+radar_signature    BLUE_SAM_RADAR_SIGNATURE    constant 1 m^2             end_radar_signature
+
+# Weapon effects
+weapon_effects BLUE_SAM_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 3 km 1.0
+end_weapon_effects
+
+########### Aero definitions ##################################################
+aero                   BLUE_SAM_STAGE_1_AERO WSF_AERO
+   reference_area            2.35 ft^2
+   # Values estimated from Hoerner's Drag book
+   cd_zero_subsonic          0.10
+   cd_zero_supersonic        0.25
+   mach_begin_cd_rise        0.95
+   mach_end_cd_rise          1.30
+   mach_max_supersonic       10.00
+end_aero
+aero                   BLUE_SAM_STAGE_2_AERO WSF_AERO
+   reference_area            1.02 ft^2
+   # Values estimated from Hoerner's Drag book
+   cd_zero_subsonic          0.10
+   cd_zero_supersonic        0.25
+   mach_begin_cd_rise        0.95
+   mach_end_cd_rise          1.30
+   mach_max_supersonic       10.00
+end_aero
+aero                   BLUE_SAM_STAGE_3_AERO WSF_AERO
+   reference_area            1.02 ft^2
+   # Values estimated from Hoerner's Drag book
+   cd_zero_subsonic          0.10
+   cd_zero_supersonic        0.25
+   mach_begin_cd_rise        0.95
+   mach_end_cd_rise          1.30
+   mach_max_supersonic       10.00
+end_aero
+aero                   BLUE_SAM_STAGE_4_AERO WSF_AERO #warhead & sensor
+   reference_area            1.02 ft^2
+   # Values estimated from Hoerner's Drag book
+   cd_zero_subsonic          0.10
+   cd_zero_supersonic        0.25
+   mach_begin_cd_rise        0.95
+   mach_end_cd_rise          1.30
+   mach_max_supersonic       10.00
+end_aero
+
+########### Mover definitions ##################################################
+mover BLUE_SAM_MOVER WSF_GUIDED_MOVER
+   #show_status
+   integration_timestep      0.001 secs
+   update_interval           0.01 secs
+# divert thrust taken from unclass blue_lr_sam and doubled
+   divert_thrust                        8000 Nt
+   divert_fuel_mass                     10 kg
+   divert_fuel_flow_rate                1.0 kg/s
+   divert_altitude_limits               80 km 1000 km
+   # stage info came from janes.com,
+   # designation-systems.com
+   # astronautix.com
+   stage 1 # MK-72 Solid Rocket Booster
+       aero                   BLUE_SAM_STAGE_1_AERO
+       empty_mass             535 lbs
+       total_mass             1540 lbs
+       specific_impulse       260 sec
+       thrust_duration        6 sec
+   end_stage
+   stage 2 # MK-104 Solid Rocket Booster
+       aero                   BLUE_SAM_STAGE_2_AERO
+       pre_ignition_coast_time 1 sec
+       total_mass              1100 lbs
+       empty_mass              282 lbs
+       #fuel_mass              418 lbs
+       specific_impulse       260 sec
+       thrust_duration        25 sec
+       pre_separation_coast_time  30 sec
+   end_stage
+   stage 3 # MK-136 Solid Rocket
+       aero                  BLUE_SAM_STAGE_3_AERO
+       total_mass            220 lbs
+       empty_mass            187 lbs
+      # fuel_mass             125 lbs
+       specific_impulse      260 sec
+       thrust_duration        15 sec
+       pre_separation_coast_time  1 sec
+   end_stage
+   stage 4 # warhead and seeker (aka kill vehicle )
+       aero                  BLUE_SAM_STAGE_4_AERO
+       total_mass           70 lbs
+       fuel_mass              0 lbs
+   end_stage
+end_mover
+
+############### BLUE_SAM platform ##########################################
+platform_type BLUE_SAM WSF_PLATFORM
+   icon Scud_Missile
+   infrared_signature BLUE_SAM_INFRARED_SIGNATURE
+   optical_signature  BLUE_SAM_OPTICAL_SIGNATURE
+   radar_signature    BLUE_SAM_RADAR_SIGNATURE
+   weapon_effects     BLUE_SAM_LETHALITY
+
+   mover BLUE_SAM_MOVER
+   end_mover
+
+   processor BLUE_SAM_GUIDANCE WSF_GUIDANCE_COMPUTER
+     #show_status
+     show_graphics
+      guide_to_truth          true
+      phase LAUNCH
+         commanded_flight_path_angle     from_launch_computer
+         proportional_navigation_gain    0.0                 # Don't guide to target
+         velocity_pursuit_gain           0.0                 # Don't guide to target
+
+         next_phase TERMINAL if target_slant_range < 200 km # 150 km
+         next_phase MIDCOURSE if on_commanded_flight_path_angle
+      end_phase
+
+      phase MIDCOURSE
+         guidance_delay       2000 secs # stay on commanded loft angle
+         next_phase TERMINAL when target_slant_range < 100 km #250 km
+      end_phase
+
+      phase TERMINAL
+         proportional_navigation_gain     10.0
+         proportional_navigation_method   augmented
+
+         # Disable velocity pursuit. The angle which controls the switch between
+         # velocity pursuit and pronav are too sensitive at short ranges.
+         velocity_pursuit_gain            0.0
+
+         # Disable g-bias. The target is also falling, so we don't want to fight
+         # against it! (this is assuming terminal intercept, not boost)
+         g_bias                           0.0
+      end_phase
+   end_processor
+
+   processor fuse WSF_AIR_TARGET_FUSE
+      use_current_target
+      gross_proximity_range   7 km
+      hit_proximity_range     5 km
+      update_interval         0.50 sec
+      fine_update_interval    0.01 sec
+      time_of_flight_to_arm   60 sec
+   end_processor
+
+   processor seeker WSF_PERFECT_TRACKER
+      update_interval 0.25 sec
+   end_processor
+
+end_platform_type
+
+launch_computer BLUE_SAM_LAUNCH_COMPUTER WSF_BALLISTIC_MISSILE_LAUNCH_COMPUTER
+   maximum_time_of_flight             1000 sec
+   surface_to_air_table               ballistic_missile/sam_launch_data.txt
+   integration_time_step              0.05 sec
+   show_graphics
+   # Disallow intercepts at unreasonable angles
+   maximum_intercept_angle   60 deg
+   
+   allow_boost_phase_intercept true 
+   show_graphics 
+#   show_results
+end_launch_computer
+
+weapon BLUE_SAM WSF_EXPLICIT_WEAPON
+   launched_platform_type BLUE_SAM
+
+   launch_computer BLUE_SAM_LAUNCH_COMPUTER
+   end_launch_computer
+
+   tilt  89.9 degrees
+
+   # This causes a call to the launch computer to compute the predicted intercept.
+   # The launcher will then be cued to the proper angles (Subject to the slewing
+   # limits defined below). This is a bit of a hack until the guidance computer
+   # is changed...
+
+   cue_to_predicted_intercept true
+   slew_mode azimuth
+   azimuth_slew_limits -180 deg 180 deg
+
+   quantity               5
+
+   require_loft_angle
+   
+   maximum_request_count 5
+end_weapon
+
+platform blue_battery WSF_PLATFORM
+  side blue
+  icon PAC-3_Launcher
+  position 39:44:02.86n 76:31:44.28w  
+  
+  add sensor geo WSF_GEOMETRIC_SENSOR
+     on
+     frame_time 1 s
+     reports_location
+     reports_velocity
+     ignore_same_side
+     internal_link data_mgr
+  end_sensor
+  
+  add processor data_mgr WSF_TRACK_PROCESSOR
+  end_processor
+  
+  add processor task_mgr WSF_TASK_PROCESSOR
+#     show_state_transitions
+     evaluation_interval DETECTED 1 s
+     state DETECTED
+        next_state DONE
+           WsfWeapon weap = PLATFORM.Weapon("blue_sam");
+           WsfLaunchComputer computer = weap.LaunchComputer();
+           computer.ComputeLaunchWindows();
+           if (computer.CanIntercept(TRACK, 0.))
+           {
+              Fire(TRACK, "FIRE", weap, 1);
+              return true;
+           }
+           return false;
+        end_next_state
+     end_state
+     evaluation_interval DONE 1 s
+     state DONE
+     end_state
+  end_processor
+  
+  add weapon blue_sam BLUE_SAM
+     quantity 5
+  end_weapon
+end_platform
+
+script_variables
+   bool gWeaponHit = false;
+end_script_variables
+
+// ****************************************************************************
+script void WeaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform) 
+   gWeaponHit = (aWeaponEngagement.TargetResult() == "KILLED"); 
+end_script
+
+script void SimulationComplete() 
+   if (!gWeaponHit) writeln("-FAIL-");
+end_script
+
+observer
+   enable WEAPON_HIT
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 30 mins
+
+#event_pipe
+#   file $(CASE).aer
+#end_event_pipe

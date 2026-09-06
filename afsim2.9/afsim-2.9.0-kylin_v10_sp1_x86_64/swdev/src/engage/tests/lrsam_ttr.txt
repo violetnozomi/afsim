@@ -1,0 +1,108 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2013 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Fire Control Radar for LRSAM
+
+antenna_pattern LRSAM_TTR_ANTENNA
+  sine_pattern
+    peak_gain            40 dB
+    minimum_gain         -10.0 db
+    azimuth_beamwidth    1 deg
+    elevation_beamwidth  1 deg
+  end_sine_pattern
+end_antenna_pattern
+
+sensor LRSAM_TTR WSF_RADAR_SENSOR
+
+   selection_mode                      multiple
+
+   slew_mode                           azimuth_and_elevation
+   azimuth_slew_limits                 -180 deg 180 deg
+   elevation_slew_limits               0.0 deg 80.0 deg
+
+   mode_template
+      maximum_request_count            1
+      one_m2_detect_range              150.0 nm
+
+      antenna_height                   4.0 m
+
+      transmitter
+         antenna_pattern               LRSAM_TTR_ANTENNA
+         power                         1000.0 kw
+         frequency                     9500 mhz
+         internal_loss                 2 db
+      end_transmitter
+
+      receiver
+         antenna_pattern               LRSAM_TTR_ANTENNA
+         bandwidth                     500.0 khz
+         noise_power                   -160 dBw  # will be calibrated for 1 m^2
+         internal_loss                 7 dB
+      end_receiver
+
+      probability_of_false_alarm       1.0e-6
+      required_pd                      0.5
+      swerling_case                    1
+
+      reports_range
+      reports_bearing
+      reports_elevation
+      reports_velocity
+   end_mode_template
+
+   mode SEARCH
+      cue_mode azimuth
+      scan_mode                       azimuth_and_elevation
+      azimuth_scan_limits            -10 deg 10 deg
+      elevation_scan_limits            0 deg 40 deg
+
+      frame_time                       2.0 sec
+
+      hits_to_establish_track          3 5
+      hits_to_maintain_track           1 3
+
+      track_quality                    0.7   # 'weapons' grade
+   end_mode
+
+   mode ACQUIRE
+      maximum_request_count            1
+
+      scan_mode                        azimuth_and_elevation
+      azimuth_scan_limits              -2 deg 2 deg
+      elevation_scan_limits            -2 deg 2 deg
+
+      frame_time                       1.0 sec
+
+      hits_to_establish_track          2 4
+      hits_to_maintain_track           1 3
+
+      track_quality                    0.9
+   end_mode
+
+   mode TRACK
+      maximum_request_count            1
+
+      scan_mode                        azimuth_and_elevation
+      azimuth_scan_limits              -1 deg 1 deg
+      elevation_scan_limits            -1 deg 1 deg
+
+      frame_time                       1.0 sec
+
+      hits_to_establish_track          2 4
+      hits_to_maintain_track           1 3
+
+      track_quality                    1.0   # 'weapons' grade
+   end_mode
+
+   ignore_same_side
+
+   #debug_scheduler
+end_sensor

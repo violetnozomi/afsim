@@ -1,0 +1,50 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#        1         2         3         4         5         6         7         8
+#2345678901234567890123456789012345678901234567890123456789012345678901234567890
+################################################################################
+
+radar_signature TARGET_RADAR_SIGNATURE
+  constant 20 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+  radar_signature TARGET_RADAR_SIGNATURE
+end_platform_type
+
+include ../../data/radars/radar_tps-1d.txt
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+  sensor radar-1 TPS-1D_SENSOR end_sensor
+end_platform_type
+
+platform sensor<1> SENSOR_PLATFORM_TYPE
+  position 0n 0w altitude 30 m agl heading 0 deg
+end_platform
+
+horizontal_map
+  pd_map_file hm-req-rcs.map
+  variable    required_rcs
+  detection_reference 1.0376 absolute
+
+  target_region
+    down_range_limits  -120 nm 120 nm
+    down_range_step       2 nm
+
+    cross_range_limits -120 nm 120 nm
+    cross_range_step      2 nm
+  end_target_region
+
+  target_speed 400 kts
+  target_altitude 10000 ft msl
+
+end_horizontal_map

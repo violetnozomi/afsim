@@ -1,0 +1,433 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# *******************************************************************************************
+# File Log
+# 11/11/15 - J.Iffrig - This is a very basic Link16 J11 communication model. It doesn't fully
+#   model a true link16 simulation. It just faciliates the passing of data over DIS Signal PDUs
+#   to associated receivers with in WSF. There is also a J11 sender component which is utilized
+#   within WSF to send responses and statuses after J11 commands are sent to WSF
+# ******************************************************************************************f
+
+###############################################################################
+# JTIDS Terminal definition
+comm J11_COMM WSF_JTIDS_TERMINAL
+   on                  
+   
+   # Format: command_chain <slot-group-map-key> <slot-group-name>
+   # This command_chain entry actually sets up a mapping in the code.
+   # The JTIDS terminal stores a map of slot group names and the key to this 
+   # map is the user-defined <slot-group-map-key> entry.
+   #
+   # Each message processor type sets the <slot-group-map-key> that matches
+   # the slot group name it needs to use on the JTIDS_terminal.  The keyword 
+   # 'command_chain <slot-group-map-key> is used to set up the connection
+   # between the message processor and the JTIDS terminal. The message processor
+   # sends the key to the JTIDS terminal.  The terminal then selects the appropriate 
+   # slot group on which to transmit/receive any messages.
+   
+   command_chain WEAPON_GRP_KEY   WEAPON_SLOT_GRP_NAME
+   command_chain SCRIPTED_GRP_KEY SCRIPTED_SLOT_GRP_NAME
+   
+   slot_group WEAPON_SLOT_GRP_NAME 
+      slots_per_frame 512
+   end_slot_group
+   
+   slot_group SCRIPTED_SLOT_GRP_NAME
+      slots_per_frame 16
+      per_unit_slots_per_frame 2
+   end_slot_group
+   
+end_comm   
+
+# Link 16 computer on the weapon
+processor FIGHTER_LINK16_COMPUTER_IN WSF_LINK16_COMPUTER
+   
+   on
+   c2  false
+   output_dis true 
+   #output_WSF true
+   processor track-processor
+   
+   message_processor scripted SCRIPTED
+    
+      script_variables
+         bool bSent     = false;
+         bool bReceived = false;
+         bool bReceivedScripted = false;
+      end_script_variables
+   
+      npg 8
+      network 40
+       
+      # Format: command_chain <slot-group-map-key>
+      # Set the key to allow the JTIDS terminal to access the correct slot group.
+      # If this is omitted, the default command chain is used, which in most cases breaks
+      # the communication link.
+      #
+      # Note: this key name must match the command_chain name entry on the platform
+      #       On the platform: command_chain <slot-group-map-key> <SELF|commander|peers|suboridnates>
+      #              Use case: command_chain  SCRIPTED_GRP_KEY SELF            
+      command_chain SCRIPTED_GRP_KEY
+       
+      execute at_time 30 s absolute
+         WsfTadilJ7_0I msg = WsfTadilJ7_0I();
+         if (msg.IsValid())
+         {
+            msg.TrackNumber("A0001");
+     
+#################################################
+#
+# NOTE: For messages that need to be handled on a per demand basis, the SendJMessage() method must 
+#       be called in order to start the message passing process.
+#
+#########                                  ######
+             JPROCESSOR.SendJMessage(msg);
+#########                                  ######
+#################################################
+
+          }
+       end_execute
+       
+       script void on_send_7_0(WsfTadilJ7_0I msg)
+          writeln("SEND J7.0 sssssssssssssssssssssssssssssssssssssssss");
+       end_script
+      
+       script void on_message_11_1(WsfTadilJ11_1I message)
+          if (message.SourceTrackNumber() == 1000)
+          {
+             if (! bReceivedScripted)
+             {
+                writeln("PASS - SCRIPTED::WEAPON TN = 1 received j11.1 from controller TN = 1000");
+                bReceivedScripted = true;
+             }
+          }
+       end_script
+   end_message_processor
+   
+   message_processor NetworkEnabledWeapon NETWORK_ENABLED_WEAPON 
+    
+      script_variables
+         bool bSent     = false;
+         bool bReceived = false;
+         bool bReceivedScripted = false;
+      end_script_variables
+      
+      npg         7
+      network     40
+      slot_number 5
+      tsec        4
+      msec        5
+      
+             
+      # Format: command_chain <slot-group-map-key>
+      # Set the key to allow the JTIDS terminal to access the correct slot group.
+      # If this is omitted, the default command chain is used, which in most cases breaks
+      # the communication link.
+      #
+      # Note: this key name must match the command_chain name entry on the platform
+      #       On the platform: command_chain <slot-group-map-key> <SELF|commander|peers|suboridnates>
+      #              Use case: command_chain  WEAPON_GRP_KEY SELF 
+      
+      command_chain WEAPON_GRP_KEY
+      
+      execute at_interval_of 5 s   #1 s
+         if (TIME_NOW > 5)
+         {
+		 WsfTadilJ11_0I msg = WsfTadilJ11_0I();
+		 if (msg.IsValid())
+		 {
+		     WsfTadilJ11_0E0 e0 = msg.FindExtension0();
+		     if (! e0.IsValid())
+		     {
+			e0 = msg.AddExtension0();
+		     }
+		     e0.TrackNumberIndexOrig2(4);
+		     #writeln("WEAPON sending j11.0 using TN = ", e0.TrackNumberIndexOrig2());
+	#            WsfTadilJ11_0C1 c1 = msg.FindContinuation1();
+	#            if (! c1.IsValid())
+	#            {
+	#               c1 = msg.AddContinuation1();
+	#            }
+	#            c1.Latitude(PLATFORM.Latitude());
+	#            c1.Longitude(PLATFORM.Longitude());
+	#            c1.HeightAboveEllipsoid(PLATFORM.Altitude()*Math.FT_PER_M());
+	#            WsfTadilJ11_0C2 c2 = msg.FindContinuation2();
+	#            if (! c2.IsValid())
+	#            {
+	#               c2 = msg.AddContinuation2();
+	#            }
+	#            c2.Speed(PLATFORM.Speed());
+	#            c2.Course(PLATFORM.Heading());
+	#
+		     WsfTadilJ11_0C4 c4 = msg.FindContinuation4();
+		     if (! c4.IsValid())
+		     {
+			c4 = msg.AddContinuation4();
+		     }
+		     if (c4.IsValid())
+		     {
+			c4.TrackNumberController(1000);
+			#writeln("WEAPON sending j11.0 to controller TN = ", c4.TrackNumberController());
+		     }
+##################################################################
+#
+#  NOTE: Unless the message needs to go out at TIME_NOW, the system will forward the 
+#        message automatically and there is no need to have to call the SendJMessage here in
+#        the script.  An update interval is set in the code.
+#
+##################                                          ######
+
+		     #######JPROCESSOR.SendJMessage(msg);
+##################                                          ######
+##################################################################
+	##            msg.Print();
+		   }
+         }
+      end_execute
+      
+       script void on_message_11_1(WsfTadilJ11_1I message)
+          if (message.SourceTrackNumber() == 1000)
+          {
+             if (! bReceived)
+             {
+                writeln("PASS - NETWORK_ENABLED_WEAPON::WEAPON TN = 1 received j11.1 from controller TN = 1000");
+                bReceived = true;
+             }
+          }
+#         message.Print();
+          WsfTadilJ11_1C2 c2 = message.FindContinuation2();
+          if (c2.IsValid())
+          {
+             double msgLat = c2.Latitude();
+             double msgLon = c2.Longitude();
+             #writeln("J11.1 Target Latitude  = ", msgLat);
+             #writeln("J11.1 Target Longitude = ", msgLon);
+          }
+          WsfTadilJ11_1C3 c3 = message.FindContinuation3();
+          if (c3.IsValid())
+          {
+             double msgAlt = c3.HeightAboveEllipsoid() * MATH.FT_PER_M();
+             #writeln("J11.1 Target Altitude  = ", msgAlt);
+          }
+          if (PLATFORM.HasCurrentTarget())
+          {
+             WsfTrack targetTrack = PLATFORM.CurrentTargetTrack();
+             if (targetTrack.IsValid())
+             {
+                #writeln("Current Target at ", targetTrack.Latitude(), " ", targetTrack.Longitude(), " ", targetTrack.Altitude()*MATH.FT_PER_M());
+             }
+          }
+       end_script
+       
+       script void on_send_11_0(WsfTadilJ11_0I message)
+          if (! bSent)
+          {
+             writeln("PASS - NETWORK_ENABLED_WEAPON::WEAPON sending j11.0");
+             bSent = true;
+          }
+       end_script
+   end_message_processor
+   
+end_processor
+
+# Link 16 computer on the controller
+processor FIGHTER_LINK16_COMPUTER_OUT WSF_LINK16_COMPUTER 
+   
+   on
+   c2  false
+   output_dis true
+#   debug
+   decimal_track_number 1000 
+   
+   message_processor scripted SCRIPTED
+    
+      script_variables
+         bool bSent     = false;
+         bool bReceived = false;
+         bool bReceivedScripted = false;
+       end_script_variables
+       
+       npg 8
+       network 40
+       
+       # Format: command_chain <slot-group-map-key>
+       # Set the key to allow the JTIDS terminal to access the correct slot group.
+       # If this is omitted, the default command chain is used, which in most cases breaks
+       # the communication link.
+       #
+       # Note: this key name must match the command_chain name entry on the platform
+       #       On the platform: command_chain <slot-group-map-key> <SELF|commander|peers|suboridnates>
+       #              Use case: command_chain  SCRIPTED_GRP_KEY SELF  
+       #
+       command_chain SCRIPTED_GRP_KEY
+       
+       script void on_message_7_0(WsfTadilJ7_0I msg)
+          writeln("RECEIVED j7.0 ++++++++++++++++++++++++++++++++++++++++++");
+          string track_number = msg.TrackNumber();
+          writeln("         track_number = ", track_number);
+       end_script
+      
+      script void on_message_11_0(WsfTadilJ11_0I message)
+         #writeln("CONTROLLER Received WEAPON Message J11.0");
+         WsfTadilJ11_0C4 c4 = message.FindContinuation4();
+         if (c4.IsValid())
+         {
+            #writeln("SCRIPTED::controller TN = ",c4.TrackNumberController());
+            
+            if ((c4.TrackNumberController() == 1000) && 
+                ((message.SourceTrackNumber() == 1) || (message.SourceTrackNumber() == 4)))
+            {
+               if (! bReceivedScripted)
+               {
+                  writeln("PASS - SCRIPTED::controller TN = 1000 received j11.0 from weapon TN = ", message.SourceTrackNumber());
+                  bReceivedScripted = true;
+               }
+            }
+         }
+         #message.Print();
+      end_script
+      
+      script void on_send_11_1(WsfTadilJ11_1I message)
+         if (! bSent)
+         {
+            writeln("PASS - NETWORK_ENABLED_WEAPON::controller TN = 1000 sent j11.1 to weapon TN = 1");
+            bSent = true;
+         }
+      end_script
+       
+   end_message_processor
+   
+   message_processor j11 NETWORK_ENABLED_WEAPON  
+    
+      script_variables
+         bool bSent     = false;
+         bool bReceived = false;
+         bool bReceivedScripted = false;
+      end_script_variables
+       
+      # Format: command_chain <slot-group-map-key>
+      # Set the key to allow the JTIDS terminal to access the correct slot group.
+      # If this is omitted, the default command chain is used, which in most cases breaks
+      # the communication link.
+      #
+      # Note: this key name must match the command_chain name entry on the platform
+      #       On the platform: command_chain <slot-group-map-key> <SELF|commander|peers|suboridnates>
+      #              Use case: command_chain  WEAPON_GRP_KEY SELF  
+      #     
+      command_chain WEAPON_GRP_KEY
+
+      execute at_interval_of 1 s
+      
+         WsfPlatform target = WsfSimulation.FindPlatform("red-1");
+         double tgtLat = 35.0;
+         double tgtLon = -118.0;
+         double tgtAlt = 10000 * MATH.M_PER_FT();
+         if (target.IsValid())
+         {
+            tgtLat = target.Latitude();
+            tgtLon = target.Longitude();
+            tgtAlt = target.Altitude();
+         }
+         Vec3 tgtVelNED = target.VelocityNED();
+         
+         # I know the weapon is lauched around 15 sec so I start
+         # sending in-flight target update (IFTU) messages at this point
+         if (TIME_NOW > 10)
+         {
+            #WsfPlatform target = WsfSimulation.FindPlatform("<dis>200:200:200");
+#           // J11.1 Initial
+            WsfTadilJ11_1I msg = WsfTadilJ11_1I();         
+            msg.TrackNumberAddressee(1);        
+            msg.WeaponDirective(12);
+            msg.ResponseRequest(true);
+
+##################################################
+##
+##          MUST HAVE Continuation Word 5 defined and Track Number must be
+##          assigned to send message
+##
+##          Expects a target index 
+##
+##################################################
+ 
+            WsfTadilJ11_1C5 c5 = msg.FindContinuation5();
+            if (! c5.IsValid())
+            {
+               #writeln("C5 NOT VALID");
+               c5 = msg.AddContinuation5();
+            }
+            if (c5.IsValid())
+            {
+               #writeln("C5 IS VALID");
+               
+               string trackNumberString = (string)target.Index();
+               c5.TrackNumber(trackNumberString);
+            }
+#
+#           // J11.1 Contuation Word 2
+            WsfTadilJ11_1C2 cont2 = msg.FindContinuation2();
+            if (!cont2.IsValid())
+            {
+               cont2 = msg.AddContinuation2(); 
+            }   
+            cont2.Latitude(tgtLat);
+            cont2.Longitude(tgtLon);
+            cont2.TargetVelocityDown(0);
+#
+#           // J11.1 Contuation Word 3
+            WsfTadilJ11_1C3 cont3 = msg.FindContinuation3();
+            if (!cont3.IsValid())
+            {
+               cont3 = msg.AddContinuation3();         
+            }   
+            cont3.HeightAboveEllipsoid(tgtAlt);
+#           cont3.TargetVelocityNorth(tgtVelNED.X());
+#           cont3.TargetVelocityEast(tgtVelNED.Y());
+
+#           // J11.1 Continuation Word 10
+            WsfTadilJ11_1C10 cont10 = msg.FindContinuation10();
+            if (! cont10.IsValid())
+            {
+               cont10 = msg.AddContinuation10();
+            }
+            cont10.TargetVelocityNorth(tgtVelNED.X());
+            cont10.TargetVelocityEast(tgtVelNED.Y());
+            cont10.TargetVelocityDown(tgtVelNED.Z());
+#
+#          // Send the message
+#           msg.Print();
+
+            #writeln("CONTROLLER send J11.1");
+            JPROCESSOR.SendJMessage(msg);
+         }
+      end_execute
+      
+      script void on_message_11_0(WsfTadilJ11_0I message)
+         #writeln("CONTROLLER Received WEAPON Message J11.0");
+         WsfTadilJ11_0C4 c4 = message.FindContinuation4();
+         if (c4.IsValid())
+         {
+            #writeln("SCRIPTED::controller TN = ",c4.TrackNumberController());
+            if ((c4.TrackNumberController() == 1000) && 
+                ((message.SourceTrackNumber() == 1) || (message.SourceTrackNumber() == 4)))
+            {
+               if (! bReceivedScripted)
+               {
+                  writeln("PASS - NETWORK_ENABLED_WEAPON::controller TN = 1000 received j11.0 from weapon TN = ", message.SourceTrackNumber());
+                  bReceivedScripted = true;
+               }
+            }
+         }
+         #message.Print();
+      end_script
+      
+   end_message_processor 
+   
+end_processor

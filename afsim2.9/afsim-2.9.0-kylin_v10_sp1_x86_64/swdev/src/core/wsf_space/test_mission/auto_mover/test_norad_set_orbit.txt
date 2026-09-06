@@ -1,0 +1,81 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2017 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Automated test for setting WSF_NORAD_SPACE_MOVER orbit in script.
+
+platform_type SECONDARYSAT WSF_PLATFORM
+   icon satellite
+   side red
+   add mover WSF_NORAD_SPACE_MOVER
+      eccentricity 0.000001
+      inclination 0.1 deg
+      raan 50.0 deg
+      semi_major_axis 6871 km
+      true_anomaly 0 deg
+      argument_of_periapsis 0.0 deg
+   end_mover
+end_platform_type
+
+platform primary WSF_PLATFORM
+   icon satellite
+   side blue
+   add mover WSF_NORAD_SPACE_MOVER
+      eccentricity 0.000001
+      inclination 0.1 deg
+      raan 0.0 deg
+      semi_major_axis 6871 km
+      true_anomaly 0 deg
+      argument_of_periapsis 0.0 deg
+   end_mover
+end_platform
+
+execute at_time 4 hr absolute
+   WsfPlatform full = WsfSimulation.FindPlatform("primary");
+   Vec3 loc = full.LocationECI();
+   Vec3 vel = full.VelocityECI();
+   
+   WsfPlatform proto = WsfSimulation.CreatePlatform("SECONDARYSAT");
+   WsfPlatform half  = WsfSimulation.AddPlatform(proto, "secondary");
+   WsfSpaceMover mov = (WsfSpaceMover)half.Mover();
+   WsfSpaceMover nor = (WsfSpaceMover)full.Mover();
+   mov.SetOrbit(loc, vel);
+end_execute
+
+script void TestDistance(double aTime)
+   WsfPlatform full = WsfSimulation.FindPlatform("primary");
+   WsfPlatform half = WsfSimulation.FindPlatform("secondary");
+   
+   Vec3 fullPos = full.LocationECI();
+   Vec3 halfPos = half.LocationECI();
+   Vec3 fullVel = full.VelocityECI();
+   Vec3 halfVel = half.VelocityECI();
+   
+   if (Vec3.Subtract(fullPos, halfPos).Magnitude() > 0.1)
+   {
+      writeln("-FAIL- position solution failed.");
+   }
+   if (Vec3.Subtract(fullVel, halfVel).Magnitude() > 0.1)
+   {
+      writeln("-FAIL- velocity solution failed.");
+   }
+end_script
+
+execute at_time 4 hr absolute
+   TestDistance(TIME_NOW);
+end_execute
+
+execute at_time 8 hr absolute
+   TestDistance(TIME_NOW);
+end_execute
+
+start_date dec 08 2017
+start_time 00:00:00
+
+end_time 10 hour

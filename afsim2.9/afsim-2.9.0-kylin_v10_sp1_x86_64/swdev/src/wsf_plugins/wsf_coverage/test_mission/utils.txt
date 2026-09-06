@@ -1,0 +1,135 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test related utilities
+script_variables
+   bool gAllPassed = true;
+end_script_variables
+
+script void ExpectInt(int aObserved, int aExpected, string aMessage)
+   if (aObserved != aExpected)
+   {
+      gAllPassed = false;
+      writeln("Observed integral value, ", aObserved, ", does not match expectation, ", aExpected, ". ", aMessage);
+   }
+end_script
+
+script void ExpectDouble(double aObserved, double aExpected, double aTolerance, string aMessage)
+   if (Math.Fabs(aObserved - aExpected) > aTolerance)
+   {
+      gAllPassed = false;
+      writeln("Observed real value, ", aObserved, ", does not match expection, ", aExpected,
+              " (tolerance ", aTolerance, "). ", aMessage);
+   }
+end_script
+
+script void ExpectBool(bool aObserved, bool aExpected, string aMessage)
+   if (aObserved != aExpected)
+   {
+      gAllPassed = false;
+      writeln("Observed boolean value, ", aObserved, ", does not match expectation, ", aExpected, ". ", aMessage);
+   }
+end_script
+
+script void ExpectString(string aObserved, string aExpected, string aMessage)
+   if (aObserved != aExpected)
+   {
+      gAllPassed = false;
+      writeln("Observed string '", aObserved, "' does not match expectation, '", aExpected, "'. ", aMessage);
+   }
+end_script
+
+script void ExpectFileExists(Path aFileName, string aMessage)
+   if (!aFileName.Exists())
+   {
+      writeln("-FAIL- File '", aFileName.ToString(), "' does not exist when it should. ", aMessage);
+      gAllPassed = false;
+   }
+end_script
+
+script void FinalAssessment()
+   if (gAllPassed)
+   {
+      writeln("-PASS- All tests passed.");
+   }
+   else
+   {
+      writeln("-FAIL- Not all tests passed.");
+   }
+end_script
+
+# OS dependent utilities
+conditional_section
+   conditionals
+      feature_present os:windows
+   end_conditionals
+   
+   script bool RemoveCoverageOutputDir(Path aPath)
+      bool retval = false;
+      if (aPath.Exists() && aPath.IsDirectory())
+      {
+         retval = System.Command("rmdir /Q /S " + aPath.ToString()) == 0;
+      }
+      return retval;
+   end_script
+end_conditional_section
+
+conditional_section
+   conditionals
+      feature_present os:linux
+   end_conditionals
+   
+   script bool RemoveCoverageOutputDir(Path aPath)
+      bool retval = false;
+      if (aPath.Exists() && aPath.IsDirectory())
+      {
+         retval = System.Command("rm -rf " + aPath.ToString()) == 0;
+      }
+      return retval;
+   end_script
+end_conditional_section
+
+# File IO related utilities
+script void ApplyToLines(FileIO aFile, string aDescriptor, string aActionName, int aExpectedLineCount)
+   if (!WsfSimulation.ScriptExists(aActionName))
+   {
+      writeln("-FAIL- Script '", aActionName, "' does not exists.");
+      gAllPassed = false;
+      return;
+   }
+   
+   // loop over the lines, skipping the header. Then pass the tokenized line to the
+   // provided function.
+   string header = aFile.Readln();
+   string line = aFile.Readln();
+   int lineCount = 0;
+   while (line.Length() != 0)
+   {
+      lineCount += 1;
+      
+      // call action
+      Array<string> tokens = line.Split(",");
+      Array<string> stripped = Array<string>();
+      for (int i = 0; i < tokens.Size(); i += 1)
+      {
+         stripped.PushBack(tokens[i].Strip());
+      }
+      WsfSimulation.Execute(aActionName, stripped);
+      line = aFile.Readln();
+   }
+   
+   ExpectInt(lineCount, aExpectedLineCount, aDescriptor + " line count");
+end_script
+
+script void CheckDataFile(Path aPath, string aDescriptor, string aAction, int aExpectedLineCount)
+   ExpectFileExists(aPath, aDescriptor);
+   FileIO file = FileIO();
+   file.Open(aPath, "in");
+   ApplyToLines(file, aDescriptor, aAction, aExpectedLineCount);
+end_script

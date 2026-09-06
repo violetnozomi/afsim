@@ -1,0 +1,87 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+Military Specific
+=================
+
+Subsystem Methods
+^^^^^^^^^^^^^^^^^
+
+.. method:: WsfWeapon Weapon(string aName)
+
+   Returns the WsfWeapon object with the given name.
+
+.. method:: int WeaponCount()
+
+   Returns the number of weapon instances on this platform. This is not the weapon quantity.
+
+.. method:: WsfWeapon WeaponEntry(int aIndex)
+
+   Returns the WsfWeapon object at the given index.
+
+   .. note::
+
+      0-based indexing applies.
+
+.. method:: double TimeSinceWeaponLastFiredFor(WsfTrackId aTrackId)
+
+   Return the amount of time that has elapsed since a weapon fire was last requested against the track with the indicated
+   track ID.  NOTE: a weapon may or may not have actually been fired, this time is in reference to the last fire request.
+   If no weapon fire has been requested, the return value will be less than zero.
+
+.. method:: double TimeSinceWeaponLastTerminatedFor(WsfTrackId aTrackId)
+
+   Return the amount of time that has elapsed since any weapon (fired from this platform) last terminated against the
+   track with the indicated track ID.  If no weapon has terminated, the return value will be less than zero.
+
+.. method:: int WeaponsPendingFor(WsfTrackId aTrackId)
+
+   Return the number of weapon rounds that are in the process of being fired but not yet in-flight against track with the
+   indicated track ID.  The reason the weapon is pending is likely because of a firing delay, firing interval, or salvo
+   interval.
+
+.. method:: int WeaponsActiveFor(WsfTrackId aTrackId)
+
+   Return the number of weapon rounds that are currently active (in-flight, weapon platforms created) against track with
+   the indicated track ID.
+
+.. method:: int RoundsCompleteFor(WsfTrackId aTrackId)
+
+   Return the number of terminated weapon platforms that were fired against track with the indicated track ID.
+
+.. method:: int RoundsFiredAt(WsfTrackId aTrackId)
+
+   This is equivalent to "WeaponsActiveFor() + RoundsCompleteFor()".  This returns the number of weapon rounds that have
+   been fired against the track with the indicated ID. This includes rounds that are in-flight.
+
+.. method:: int SalvosFiredAt(WsfTrackId aTrackId)
+
+   Return the number of salvos fire requests that have been asked for against the track with the indicated ID.  This
+   includes salvos that are in-flight, and salvos that were requested even when no weapons were left.
+
+.. method:: WsfPlatformList ActiveWeaponPlatformsFor(WsfTrackId aTrackId)
+
+   Return the weapon platforms (currently active & in-flight) fired from this platform against the track with the
+   indicated ID.
+
+Perception Methods
+^^^^^^^^^^^^^^^^^^
+
+.. method:: Array<WsfTrack> PerceivedThreats()
+
+   Returns the platform's perceived threats according to the perception rules setup in the :model:`WSF_PERCEPTION_PROCESSOR` :class:`WsfPerceptionProcessor`.
+
+Track Methods
+^^^^^^^^^^^^^
+
+.. method:: WsfWeaponEngagement WeaponEngagement()
+
+   Returns the weapon engagement object for weapon platforms.  Caller should test if the returned engagement IsValid()
+   prior to using.

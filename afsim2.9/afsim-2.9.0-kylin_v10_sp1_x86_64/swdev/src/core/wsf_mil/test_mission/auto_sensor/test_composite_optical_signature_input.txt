@@ -1,0 +1,83 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test all of the inputs for WSF_COMPOSITE_OPTICAL_SIGNATURE
+
+# Test of an implicitly defined 'default' state.
+optical_signature COMPOSITE_OPTICAL_SIG_1 WSF_COMPOSITE_OPTICAL_SIGNATURE
+   surface sphere
+      radius 10 m
+      temperature 300 k
+   end_surface
+end_optical_signature
+
+optical_signature COMPOSITE_OPTICAL_SIG_2 WSF_COMPOSITE_OPTICAL_SIGNATURE
+
+   temperature 300 k
+   temperature adiabatic_wall
+   temperature ambient
+   temperature_offset 10 k
+   temperature_offset -10 k
+   recovery_factor 0.85
+   gamma 1.4
+   debug
+   debug_level 1
+
+   state default
+      surface box
+         location 0 0 0 m
+         size 1 m 1 m 1 m
+         yaw   0 deg
+         pitch 0 deg
+         roll  0 deg
+      end_surface
+
+      surface cone
+         location 0 0 0 m
+         length 2 m
+         radius 0.5 m
+         yaw   0 deg
+         pitch 0 deg
+         roll  0 deg
+         #test
+      end_surface
+
+      surface cylinder
+         location 0 0 0 m
+         length 10 m
+         radius 0.5 m
+         yaw   0 deg
+         pitch 0 deg
+         roll  0 deg
+         #test
+      end_surface
+
+      surface hemisphere
+         location 0 0 0 m
+         radius 1 m
+         yaw   0 deg
+         pitch 0 deg
+         roll  0 deg
+         #test
+      end_surface
+
+      surface plume
+         length 1 m
+         radius 1 m
+      end_surface
+
+      surface sphere
+         location 0 0 0 m
+         radius 10 m
+      end_surface
+
+      surface tabular
+         projected_area constant 10 m^2
+      end_surface
+end_optical_signature

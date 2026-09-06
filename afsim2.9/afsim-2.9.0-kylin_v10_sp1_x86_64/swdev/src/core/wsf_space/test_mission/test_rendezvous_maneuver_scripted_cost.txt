@@ -1,0 +1,89 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This test performs a Rendezvous maneuver using scripting using the blended
+# cost function.
+
+include_once utils.txt
+
+start_date aug 25 2021
+start_time 12:00:00.000
+end_time 4 hr
+
+platform target WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.00
+      argument_of_periapsis 25 deg
+      raan 50 deg
+      inclination 40 deg
+      revolutions_per_day 14
+      true_anomaly 0 deg
+      epoch_date_time aug 25 2021 12:00:10.000
+   end_mover
+end_platform
+
+platform_type CHASER WSF_PLATFORM
+   mover WSF_SPACE_MOVER
+      eccentricity 0.05
+      argument_of_periapsis 20 deg
+      raan 40 deg
+      inclination 30 deg
+      revolutions_per_day 14
+      true_anomaly 0 deg
+   end_mover
+end_platform_type
+
+platform script_rendezvous CHASER
+   execute at_time 10 s absolute
+      WsfPlatform targetPlatform = WsfSimulation.FindPlatform("target");
+      PLATFORM.TrackManager().AddTrackReport(targetPlatform.MakeTrack());
+      WsfTargetPoint targetPoint = WsfTargetPoint.ConstructFromTrack(PLATFORM.MasterTrackList().Entry(0).TrackId());
+      WsfRendezvousManeuver mvr = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0),
+                                                                  targetPoint,
+                                                                  WsfOrbitalBlendedCost.Construct(1.0, 1.0, 0.0),
+                                                                  3600.0,
+                                                                  100.0 * 1000.0);
+      WsfSpaceMover mover = (WsfSpaceMover)PLATFORM.Mover();
+      mover.ExecuteManeuver(mvr);
+   end_execute
+end_platform
+
+platform input_rendezvous CHASER
+   mission_sequence
+      maneuver rendezvous
+         execute_at relative_time 10 seconds
+         maximum_delta_time 1 hours
+         maximum_delta_v 100 km/s
+         optimize_cost blended 1.0 1.0 0.0
+         tolerance 1e-09
+         target
+            platform target
+         end_target
+      end_maneuver
+   end_mission_sequence
+end_platform
+
+script void CompareToTarget(WsfPlatform aPlatform, string aCase)
+   WsfPlatform targetPlatform = WsfSimulation.FindPlatform("target");
+   Vec3 targetLoc = targetPlatform.LocationECI();
+   Vec3 testLoc = aPlatform.LocationECI();
+   double diff = Vec3.Subtract(targetLoc, testLoc).Magnitude();
+   ExpectDouble(diff, 0.0, 1.0e-1, aCase + " was not near to the target");
+end_script
+
+script void CheckPositions(WsfPlatform aPlatform, WsfSpaceMover aMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "RENDEZVOUS" && aPlatform.Name() == "input_rendezvous")
+   {
+      CompareToTarget(aPlatform, "input_rendezvous");
+      CompareToTarget(WsfSimulation.FindPlatform("script_rendezvous"), "script_rendezvous");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED CheckPositions
+end_observer

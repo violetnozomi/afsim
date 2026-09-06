@@ -1,0 +1,32 @@
+{#
+    wsftheme/layout.html
+    ~~~~~~~~~~~~~~~~~~~~
+#}
+
+{%- extends "basic/layout.html" %}
+
+{% block rootrellink %}
+  <li>
+    <img src="{{ pathto('_static/relbar_logo.png', 1) }}" alt=""
+         style="vertical-align: middle; margin-top: -2px" />
+  </li>
+  <li>
+    <a href="{{ pathto('docs/main_page') }}">{{ docstitle }}</a>{{ reldelim1 }}
+  </li>
+  {{ super() }}
+{% endblock %}
+
+{% block sidebarlogo %}
+  {% if logo %}
+    <p class="logo"><a href="{{ pathto('docs/main_page') }}">
+      <img class="logo" src="{{ pathto('_static/' + logo, 1) }}" alt="Logo"/>
+    </a></p>
+  {% endif %}
+{% endblock %}
+
+{%- block scripts %}
+    {{ super() }}
+    {% if theme_collapsiblesidebar|tobool %}
+    <script src="{{ pathto('_static/sidebar.js', 1) }}"></script>
+    {% endif %}
+{%- endblock %}

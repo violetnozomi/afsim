@@ -1,0 +1,33 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//Simple test to verify that non-constructible types 
+//cannot be initialized with empty braces
+
+//Two examples of non-constructible types
+script_expect_error true
+script void BadBraces_1()
+   WsfPlatform badPlat = {};
+end_script
+
+script_expect_error true 
+script void BadBraces_2()
+   string badString = {};
+end_script
+
+//List initialization cannot be used on non-containers
+script_expect_error true
+script void BadBraces_3()
+   string badListType = { "a", "b" };
+end_script
+
+//This part should be valid
+on_initialize
+   Array<int> goodContainer = { 1, 2 };
+end_on_initialize

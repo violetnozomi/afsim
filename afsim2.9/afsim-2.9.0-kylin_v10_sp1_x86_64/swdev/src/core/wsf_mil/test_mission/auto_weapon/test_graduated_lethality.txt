@@ -1,0 +1,144 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+####################################################################################################
+# Test WSF_GRADUATED_LETHALITY
+####################################################################################################
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once bomber.txt
+
+script_variables
+   double pkSmall  = -1.0;
+   double pkMedium = -1.0;
+   double pkLarge  = -1.0;
+end_script_variables
+
+# --------------------------------------------------------------------------------------------------
+
+radar_signature VEHICLE_RADAR_SIG
+   constant 10 m^2
+end_radar_signature
+
+platform_type VEHICLE WSF_PLATFORM
+   icon Pickup_Truck
+   radar_signature VEHICLE_RADAR_SIG
+   mover WSF_GROUND_MOVER
+   end_mover
+end_platform_type
+
+platform_type SMALL_VEHICLE  VEHICLE end_platform_type
+platform_type MEDIUM_VEHICLE VEHICLE end_platform_type
+platform_type LARGE_VEHICLE  VEHICLE end_platform_type
+
+# --------------------------------------------------------------------------------------------------
+
+# Override the SDB lethality to provide type-specific lethality
+
+weapon_effects SDB_LETHALITY WSF_GRADUATED_LETHALITY
+
+   target_type LARGE_VEHICLE
+      radius_and_pk 100.0 m 0.5
+      radius_and_pk 200.0 m 0.01
+   //end_target_type                    // Test new unterminated syntax
+
+   target_type MEDIUM_VEHICLE
+      radius_and_pk 100.0 m 0.6
+      radius_and_pk 200.0 m 0.01
+   end_target_type
+
+   target_type DEFAULT
+      radius_and_pk 100.0 m 0.7
+      radius_and_pk 200.0 m 0.01
+   end_target_type
+
+   script void on_weapon_target_engagement(WsfPlatform aTarget)
+      extern double pkSmall;
+      extern double pkMedium;
+      extern double pkLarge;
+      writeln("T=", TIME_NOW, " Target Type: ", aTarget.Type(), ", Miss Distance: ", MissDistance(), ", Pk: ", Pk());
+      if (aTarget.Type() == "SMALL_VEHICLE")
+      {
+         pkSmall = Pk();
+      }
+      else if (aTarget.Type() == "MEDIUM_VEHICLE")
+      {
+         pkMedium = Pk();
+      }
+      else if (aTarget.Type() == "LARGE_VEHICLE")
+      {
+         pkLarge = Pk();
+      }
+      else
+      {
+         writeln("-FAIL- Unexpected target type ", aTarget.Type());
+      }
+   end_script
+end_weapon_effects
+
+# --------------------------------------------------------------------------------------------------
+
+platform bomber BOMBER
+   side blue
+   route
+      position 40.25n 89w altitude 30000 ft heading 270 deg speed 400 kts
+   end_route
+   weapon sdb
+      quantity 6
+      maximum_request_count 3
+   end_weapon
+end_platform
+
+platform <default> SMALL_VEHICLE
+   side red
+   route
+      position 40n 90w heading 90 deg speed 10 kts
+   end_route
+end_platform
+
+platform <default> MEDIUM_VEHICLE
+   side red
+   route
+      position 40.1n 90w heading 90 deg speed 10 kts
+   end_route
+end_platform
+
+platform <default> LARGE_VEHICLE
+   side red
+   route
+      position 40.2n 90w heading 90 deg speed 10 kts
+   end_route
+end_platform
+/*
+event_output
+   file replay.evt
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable WEAPON_TERMINATED
+   enable PLATFORM_BROKEN
+   #enable LOCAL_TRACK_INITIATED
+   #enable LOCAL_TRACK_DROPPED
+   #enable SENSOR_TRACK_INITIATED
+   #enable SENSOR_TRACK_DROPPED
+end_event_output
+*/
+execute at_time 1799.0 sec absolute
+   if ((pkSmall  < 0.69) || (pkSmall  > 0.71)) writeln("-FAIL- Small  Pk not 0.7: ", pkSmall);
+   if ((pkMedium < 0.59) || (pkMedium > 0.61)) writeln("-FAIL- Medium Pk not 0.6: ", pkMedium);
+   if ((pkLarge  < 0.49) || (pkLarge  > 0.51)) writeln("-FAIL- Large  Pk not 0.5: ", pkLarge);
+end_execute
+/*
+event_pipe
+   file replay.aer
+end_event_pipe
+*/
+end_time 1800 sec

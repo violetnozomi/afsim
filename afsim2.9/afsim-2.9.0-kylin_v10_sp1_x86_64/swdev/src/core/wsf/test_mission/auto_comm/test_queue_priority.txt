@@ -1,0 +1,66 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+	bool firstMsgRcvd = false;
+	string actualFirstMsg = "";
+	string expectedFirstMsg = "787_message";
+end_script_variables
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+	extern string actualFirstMsg;
+	extern string expectedFirstMsg;
+	extern bool firstMsgRcvd;
+
+	if (! firstMsgRcvd)
+	{
+		writeln("1st message received");
+		firstMsgRcvd = true;
+		actualFirstMsg = aMsg.AuxDataString("name");
+
+		if (actualFirstMsg != expectedFirstMsg)
+		{
+			writeln("-FAIL-");
+		}
+	}
+	writeln("Order = ", aMsg.AuxDataString("order"));
+	writeln("message received");
+end_script
+
+observer
+	enable MESSAGE_RECEIVED
+end_observer
+
+comm Radio_NW_A WSF_COMM_TRANSCEIVER
+	on
+	queue_type priority
+end_comm
+
+platform Talker WSF_PLATFORM
+	add comm talker Radio_NW_A
+	end_comm
+
+	execute at_time 10 seconds absolute
+		WsfMessage first = WsfMessage();
+		first.SetAuxData("name", "737_message");
+		first.SetPriority(1); # higher number = higher priority
+		WsfMessage second = WsfMessage();
+		second.SetAuxData("name", "787_message");
+		second.SetPriority(2); # so this message will be highest priority
+		PLATFORM.Comm("talker").SendMessage(first, "Listener_A", "listener_on_a");
+		PLATFORM.Comm("talker").SendMessage(second, "Listener_A", "listener_on_a");
+	end_execute
+end_platform
+
+platform Listener_A WSF_PLATFORM
+	add comm listener_on_a Radio_NW_A
+	end_comm
+end_platform
+
+end_time 20 seconds

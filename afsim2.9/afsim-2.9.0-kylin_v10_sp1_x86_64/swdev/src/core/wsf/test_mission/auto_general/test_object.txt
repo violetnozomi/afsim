@@ -1,0 +1,127 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test validate Object input commands and methods
+
+include_once ../auto_script/test_functions.txt
+
+script_variables
+  bool gPass = true;
+end_script_variables
+
+script void SimulationComplete()
+  writePass(gPass);
+end_script
+
+observer
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+script void Check_AUTOMOBILE(WsfPlatform aPlatform,
+                             string      aExpectedName)
+   writeln("Name: ", aPlatform.Name(), ", Type: ", aPlatform.Type(), " Base Type: ", aPlatform.BaseType());
+   gPass = gPass && AssertEqualsMessage(aExpectedName, aPlatform.Name(), "Name()");
+   gPass = gPass && AssertEqualsMessage("AUTOMOBILE", aPlatform.Type(), "Type()");
+   gPass = gPass && AssertEqualsMessage("WSF_PLATFORM", aPlatform.BaseType(), "BaseType()");
+   gPass = gPass && AssertEqualsMessage(false, aPlatform.IsA_TypeOf("VEHICLE"), "VEHICLE");
+   gPass = gPass && AssertEqualsMessage(false, aPlatform.IsA_TypeOf("CHEVROLET"), "CHEVROLET");
+end_script
+
+script void Check_SPORTS_CAR(WsfPlatform aPlatform,
+                             string      aExpectedName)
+   writeln("Name: ", aPlatform.Name(), ", Type: ", aPlatform.Type(), " Base Type: ", aPlatform.BaseType());
+   gPass = gPass && AssertEqualsMessage(aExpectedName, aPlatform.Name(), "Name()");
+   gPass = gPass && AssertEqualsMessage("SPORTS_CAR", aPlatform.Type(), "Type()");
+   gPass = gPass && AssertEqualsMessage("AUTOMOBILE", aPlatform.BaseType(), "BaseType()");
+   gPass = gPass && AssertEqualsMessage(true, aPlatform.IsA_TypeOf("VEHICLE"), "VEHICLE");
+   gPass = gPass && AssertEqualsMessage(false, aPlatform.IsA_TypeOf("CHEVROLET"), "CHEVROLET");
+end_script
+
+script void Check_CORVETTE(WsfPlatform aPlatform,
+                             string      aExpectedName)
+   writeln("Name: ", aPlatform.Name(), ", Type: ", aPlatform.Type(), " Base Type: ", aPlatform.BaseType());
+   gPass = gPass && AssertEqualsMessage(aExpectedName, aPlatform.Name(), "Name()");
+   gPass = gPass && AssertEqualsMessage("CORVETTE", aPlatform.Type(), "Type()");
+   gPass = gPass && AssertEqualsMessage("SPORTS_CAR", aPlatform.BaseType(), "BaseType()");
+   gPass = gPass && AssertEqualsMessage(true, aPlatform.IsA_TypeOf("VEHICLE"), "VEHICLE");
+   gPass = gPass && AssertEqualsMessage(true, aPlatform.IsA_TypeOf("CHEVROLET"), "CHEVROLET");
+end_script
+
+antenna_pattern RADAR_ANTENNA circular_pattern
+   beamwidth 2 deg
+   peak_gain 30 db
+end_antenna_pattern
+
+sensor RADAR WSF_RADAR_SENSOR
+   frame_time 1 sec
+   reports_location
+   transmitter
+      power 100 kw
+      frequency 3 ghz
+      attenuation_model blake
+      antenna_pattern RADAR_ANTENNA
+   end_transmitter
+   receiver
+   end_receiver
+   one_m2_detect_range 50 nm
+end_sensor
+
+radar_signature AUTOMOBILE_RADAR_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+// Define a heirarchy of automobile types.
+platform_type AUTOMOBILE WSF_PLATFORM
+   radar_signature AUTOMOBILE_RADAR_SIGNATURE
+end_platform_type
+
+platform_type SPORTS_CAR AUTOMOBILE
+   is_a_type_of VEHICLE
+end_platform_type
+
+platform_type CORVETTE SPORTS_CAR
+   is_type_of CHEVROLET
+end_platform_type
+
+platform platform_1 AUTOMOBILE
+  execute at_time 0.1 sec absolute
+     Check_AUTOMOBILE(PLATFORM, "platform_1");
+  end_execute
+  add sensor radar RADAR end_sensor
+  add sensor passive WSF_GEOMETRIC_SENSOR
+     frame_time 1 sec
+     reports_location
+  end_sensor
+end_platform
+
+platform platform_2 SPORTS_CAR
+  execute at_time 0.1 sec absolute
+     Check_SPORTS_CAR(PLATFORM, "platform_2");
+  end_execute
+end_platform
+
+platform platform_3 CORVETTE
+  execute at_time 0.1 sec absolute
+     Check_CORVETTE(PLATFORM, "platform_3");
+  end_execute
+end_platform
+
+platform platform_4 CORVETTE
+  execute at_time 0.1 sec absolute
+     Check_CORVETTE(PLATFORM, "platform_4");
+  end_execute
+end_platform
+
+end_time 1.0 sec
+
+# These serve no purpose but to ensure these commands parse and process.
+# They didn't work for awhile, so this serves as a trivial sanity check.
+
+enumerate platform_types to STDOUT
+enumerate sensor_types to STDOUT

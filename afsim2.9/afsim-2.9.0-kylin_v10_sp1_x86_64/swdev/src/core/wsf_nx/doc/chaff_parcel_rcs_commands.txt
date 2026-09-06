@@ -1,0 +1,32 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. command:: frequency_maximum_rcs_table ... end_frequency_maximum_rcs_table
+
+   Defines the maximum RCS response of the parcel as a function of frequency. This table is used to look up the value of :math:`\sigma_{max}`
+   in the parcel RCS equation above. Format expected::
+
+    frequency_maximum_rcs_table
+       [independent_variable [units <frequency-unit>] [precision <double | float>] [extrapolate]]
+       [dependent_variable [units <area-db-unit>] [precision <double | float>]]
+
+       <frequency-1> <max-rcs-1>
+       <frequency-2> <max-rcs-2>
+       ...
+
+    end_frequency_maximum_rcs_table
+
+   If no units are specified, frequency is assumed in Hz and RCS in dBsm.
+
+.. command:: number_dipoles <integer-value>
+
+   If the frequency_maximum_rcs_table_ is not defined, :math:`\sigma_{max}` can be computed as a function of the number of chaff dipoles
+   and the radar wavelength, assuming randomly oriented half-wave dipoles, according to the equation above. 
+
+   **Default:** 1e6

@@ -1,0 +1,56 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//
+// Test string properties script object
+//
+// insure string correctly returns properties
+//
+
+include_once test_functions.txt
+#script_listing on
+
+script bool And(bool aBool1, bool aBool2)
+   return (aBool1 && aBool2);
+end_script
+
+on_initialize
+   bool pass = true;
+   string str = "lost time can never be found again";
+   pass = And(pass, AssertTrueMessage(str.EndsWith("lost time can never be found again"), "EndWith() full string"));
+   pass = And(pass, AssertTrueMessage(str.EndsWith("time can never be found again"), "EndsWith() all but one word"));
+   pass = And(pass, AssertTrueMessage(str.EndsWith("again"), "EndsWith() last word"));
+   pass = And(pass, AssertTrueMessage(str.EndsWith("in"), "EndsWith() last two letters"));
+   pass = And(pass, AssertTrueMessage(str.EndsWith("n"), "EndsWith() last letter"));
+   pass = And(pass, AssertTrueMessage(!str.EndsWith("m"), "EndsWith() wrong last letter"));
+   pass = And(pass, AssertTrueMessage(!str.EndsWith("on"), "EndsWith() wrong last two letters"));
+   pass = And(pass, AssertTrueMessage(!str.EndsWith("first"), "EndsWith() wrong last word"));
+   pass = And(pass, AssertTrueMessage(!str.EndsWith("time can never be found first"), "EndsWith() all but one word last word wrong"));
+   pass = And(pass, AssertTrueMessage(!str.EndsWith("time can never be lost  again"), "EndsWith() all but one word middle word wrong"));
+   pass = And(pass, AssertTrueMessage(!str.EndsWith("snow can never be found again"), "EndsWith() full string first word wrong"));
+
+   pass = And(pass, AssertTrueMessage(str.StartsWith("lost time can never be found again"), "EndWith() full string"));
+   pass = And(pass, AssertTrueMessage(str.StartsWith("lost time can never be found"), "StartsWith() all but one word"));
+   pass = And(pass, AssertTrueMessage(str.StartsWith("lost"), "StartsWith() first word"));
+   pass = And(pass, AssertTrueMessage(str.StartsWith("lo"), "StartsWith() first two letters"));
+   pass = And(pass, AssertTrueMessage(str.StartsWith("l"), "StartsWith() first letter"));
+   pass = And(pass, AssertTrueMessage(!str.StartsWith("m"), "StartsWith() wrong first letter"));
+   pass = And(pass, AssertTrueMessage(!str.StartsWith("hi"), "StartsWith() wrong first two letters"));
+   pass = And(pass, AssertTrueMessage(!str.StartsWith("fond"), "StartsWith() wrong first word"));
+   pass = And(pass, AssertTrueMessage(!str.StartsWith("lost time can never be forgotten"), "StartsWith() all but one word last word wrong"));
+   pass = And(pass, AssertTrueMessage(!str.StartsWith("lost time wil never be found again"), "StartsWith() all but one word middle word wrong"));
+   pass = And(pass, AssertTrueMessage(!str.StartsWith("snow time can never be found again"), "StartsWith() full string first word wrong"));
+
+
+   if (pass)
+   {
+      writeln("-PASS-");
+   }
+end_on_initialize
+

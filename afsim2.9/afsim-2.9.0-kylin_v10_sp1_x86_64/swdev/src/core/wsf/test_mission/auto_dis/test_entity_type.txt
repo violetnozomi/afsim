@@ -1,0 +1,73 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../auto_script/test_functions.txt
+
+dis_interface
+   entity_type AIRCRAFT 1:2:225:1:9:10:0
+end_dis_interface
+
+platform_type AIRCRAFT WSF_PLATFORM
+end_platform_type
+
+platform aircraft_1 AIRCRAFT
+end_platform
+
+script void CheckEntityType(EntityType et)
+   if (et.String() != "1:2:225:1:9:10:0")
+   {
+       writeln("-FAIL- EntityType.String()=" + et.String() + " expected 1:2:225:1:9:10:0");
+   }
+   if (et.EntityKind() != 1)
+   {
+       writeln("-FAIL- EntityType.Kind()=", et.EntityKind(), " expected 1");
+   }
+   if (et.Domain() != 2)
+   {
+       writeln("-FAIL- EntityType.Domain()=", et.Domain(), " expected 2");
+   }
+   if (et.Country() != 225)
+   {
+       writeln("-FAIL- EntityType.Kind()=", et.Country(), " expected 225");
+   }
+   if (et.Category() != 1)
+   {
+       writeln("-FAIL- EntityType.Kind()=", et.Category(), " expected 1");
+   }
+   if (et.SubCategory() != 9)
+   {
+       writeln("-FAIL- EntityType.Kind()=", et.SubCategory(), " expected 9");
+   }
+   if (et.Specific() != 10)
+   {
+       writeln("-FAIL- EntityType.Specific()=", et.Specific(), " expected 10");
+   }
+   if (et.Extra() != 0)
+   {
+       writeln("-FAIL- EntityType.Extra()=", et.Extra(), " expected 1");
+   }
+end_script
+
+execute at_time 0.1 sec absolute
+   WsfPlatform pltfrm = WsfSimulation.FindPlatform("aircraft_1");
+
+   EntityType et = pltfrm.EntityType();
+   writeln("**** Checking Entity Type through platform:      " + et.String());
+   CheckEntityType(et);
+   
+   et = WsfDIS.EntityType("AIRCRAFT");
+   writeln("**** Checking Entity Type by DIS, platform type: " + et.String());
+   CheckEntityType(et);
+   
+   et = WsfDIS.EntityType(pltfrm);
+   writeln("**** Checking Entity Type by DIS, object  type:  " + et.String());
+   CheckEntityType(et);   
+end_execute
+
+end_time 1 sec

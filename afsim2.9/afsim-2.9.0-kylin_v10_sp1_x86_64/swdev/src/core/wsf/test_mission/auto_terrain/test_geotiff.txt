@@ -1,0 +1,23 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+terrain
+  geotiff ${WSF_SWDEV_PATH}/../tools/geodata/test/data
+end_terrain
+
+execute at_time 1 sec absolute
+   writeln("Terrain test");
+   WsfTerrain t = WsfTerrain();
+   double elev = t.TerrainElevInterp(37.5, -119.5);
+   double expected = 2490;
+   if (elev == expected) writeln("-PASS- Geotiff Terrain Works");
+   else writeln("-FAIL- Geotiff Terrain Failed, expected ", expected, " got ", elev);
+end_execute
+
+end_time 2 sec

@@ -1,0 +1,202 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../auto_script/test_functions.txt
+include_once ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 21;
+end_script_variables
+
+script void TestEarthConstants()
+   if (AssertDoubleEqualsMessage(Earth.GEOSTATIONARY_RADIUS(),
+                                 4.216416963417e+07,
+                                 "GEOSTATIONARY_RADIUS"))
+   {
+      pass();
+   }
+
+   if (AssertDoubleEqualsMessage(Earth.ACCEL_OF_GRAVITY(),
+                                 9.80665,
+                                 "ACCEL_OF_GRAVITY"))
+   {
+      pass();
+   }
+
+   if (AssertDoubleEqualsMessage(Earth.EQUATORIAL_RADIUS(),
+                                 6378137.0,
+                                 "EQUATORIAL_RADIUS"))
+   {
+      pass();
+   }
+
+   if (AssertDoubleEqualsMessage(Earth.GRAVITATIONAL_PARAMETER(),
+                                 3.986004415e14,
+                                 "GRAVITATIONAL_PARAMETER"))
+   {
+      pass();
+   }
+
+   if (AssertDoubleEqualsMessage(Earth.MASS(),
+                                 5.9736e+24,
+                                 "MASS"))
+   {
+      pass();
+   }
+
+   if (AssertDoubleEqualsMessage(Earth.MEAN_RADIUS(),
+                                 6371000.0,
+                                 "MEAN_RADIUS"))
+   {
+      pass();
+   }
+
+   if (AssertDoubleEqualsMessage(Earth.POLAR_RADIUS(),
+                                 6356752.3142,
+                                 "POLAR_RADIUS"))
+   {
+      pass();
+   }
+
+   if (AssertDoubleEqualsMessage(Earth.ROTATION_RATE(),
+                                 4.178074622245e-3,
+                                 "ROTATION_RATE"))
+   {
+      pass();
+   }
+
+   if (AssertDoubleEqualsMessage(Earth.SSL_AIR_DENSITY(),
+                                 1.2250,
+                                 "SSL_AIR_DENSITY"))
+   {
+      pass();
+   }
+end_script
+
+script void TestEquinox(Vec3 aSubPoint, string aMessage)
+   // At an equinox, the z-component of the input vector should be small.
+   double relComp = aSubPoint.Z() / aSubPoint.Magnitude();
+   if (AssertLessThanOrEqualsMessage(Math.Fabs(relComp), 1.0e-4, "Sub-solar point is not an equinox"))
+   {
+      pass();
+   }
+end_script
+
+script void TestSolstice(Vec3 aSubPoint, bool aNorth, string aMessage)
+   // At a solstice, the input vector should make a 90 - 23.5 degree angle with
+   // the z axis.
+   double ctheta = aSubPoint.Z() / aSubPoint.Magnitude();
+   
+   if (aNorth && AssertLessThanOrEqualsMessage(0.0, ctheta, "Sub-solar point is in wrong hemisphere"))
+   {
+      pass();
+   }
+   if (!aNorth && AssertLessThanOrEqualsMessage(ctheta, 0.0, "Sub-solar point is in wrong hemisphere"))
+   {
+      pass();
+   }
+   
+   double expected = Math.Cos(90.0 - 23.5);
+   if (AssertLessThanOrEqualsMessage(Math.Fabs(ctheta),
+                                     expected,
+                                     "The sub-solar point should have a smaller geodetic latitude than geocentric latitude."))
+   {
+      pass();
+   }
+
+   if (AssertLessThanOrEqualsMessage(expected - Math.Fabs(ctheta),
+                                     4.0e-3,
+                                     "Sub-solar point is not near the solstice"))
+   {
+      pass();
+   }
+end_script
+
+script void TestSubSolarPoint()
+   Calendar spring = Calendar.Construct();
+   spring.SetDate(2020, 3, 20);
+   spring.SetTime(3, 49, 0.0);
+
+   TestEquinox(Earth.SubSolarPoint(spring), "spring");
+
+   Calendar summer = Calendar.Construct();
+   summer.SetDate(2020, 6, 20);
+   summer.SetTime(21, 43, 0.0);
+
+   TestSolstice(Earth.SubSolarPoint(summer), true, "summer");
+
+   Calendar autumn = Calendar.Construct();
+   autumn.SetDate(2020, 9, 22);
+   autumn.SetTime(13, 30, 0.0);
+
+   TestEquinox(Earth.SubSolarPoint(autumn), "autumn");
+
+   Calendar winter = Calendar.Construct();
+   winter.SetDate(2020, 12, 21);
+   winter.SetTime(10, 02, 0.0);
+
+   TestSolstice(Earth.SubSolarPoint(winter), false, "winter");
+end_script
+
+script void TestSubLunarPoint()
+   Calendar solarEclipse = Calendar.Construct();
+   solarEclipse.SetDate(2024, 4, 8);
+   solarEclipse.SetTime(18, 17, 16.0);
+
+   Vec3 sun = Earth.SubSolarPoint(solarEclipse);
+   Vec3 moon = Earth.SubLunarPoint(solarEclipse);
+
+   double ctheta = Vec3.Dot(sun, moon) / (sun.Magnitude() * moon.Magnitude());
+   if (AssertLessThanOrEqualsMessage(1.0 - ctheta,
+                                     1.0e-4,
+                                     "Sub-solar and -lunar points are not well-aligned during an eclipse"))
+   {
+      pass();
+   }
+
+   Calendar lunarEclipse = Calendar.Construct();
+   lunarEclipse.SetDate(2018, 7, 27);
+   lunarEclipse.SetTime(20, 21, 43.5);
+
+   sun = Earth.SubSolarPoint(lunarEclipse);
+   moon = Earth.SubLunarPoint(lunarEclipse);
+
+   ctheta = Vec3.Dot(sun, moon) / (sun.Magnitude() * moon.Magnitude());
+   if (AssertLessThanOrEqualsMessage(ctheta + 1.0,
+                                     1.0e-5,
+                                     "Sub-solar and -lunar points are not well-anti-aligned during lunar eclipse"))
+   {
+      pass();
+   }
+end_script
+
+script void TestCATE_Angle()
+   Vec3 a = Vec3.Construct(Earth.MEAN_RADIUS() * 2.0, 0.0, 0.0);
+   Vec3 b = Vec3.Construct(Earth.MEAN_RADIUS() * 2.0, Earth.MEAN_RADIUS() * 2.0, 0.0);
+
+   double ninety = Earth.CATE_Angle(b, a);
+   double fortyfive = Earth.CATE_Angle(a, b);
+
+   if (AssertLessThanOrEqualsMessage(Math.Fabs(ninety - 90.0), 1.0e-06, "expected CATE angle of 90"))
+   {
+      pass();
+   }
+   
+   if (AssertLessThanOrEqualsMessage(Math.Fabs(fortyfive - 45.0), 1.0e-6, "expected CATE angle of 45"))
+   {
+      pass();
+   }
+end_script
+
+execute at_time 1 s absolute
+   TestEarthConstants();
+   TestSubSolarPoint();
+   TestSubLunarPoint();
+   TestCATE_Angle();
+end_execute

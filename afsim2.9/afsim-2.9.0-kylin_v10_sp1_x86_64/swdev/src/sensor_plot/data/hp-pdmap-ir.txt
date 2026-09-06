@@ -1,0 +1,124 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#        1         2         3         4         5         6         7         8
+#2345678901234567890123456789012345678901234567890123456789012345678901234567890
+################################################################################
+
+##############################################################################
+#                       Define the target characteristics
+##############################################################################
+
+infrared_signature TARGET_INFRARED_SIG
+   constant 75 w/sr
+end_infrared_signature
+
+optical_signature TARGET_OPTICAL_SIG
+   constant 10 m^2
+end_optical_signature
+
+radar_signature TARGET_RADAR_SIG
+   constant 10 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   icon F-18
+   infrared_signature TARGET_INFRARED_SIG
+   optical_signature  TARGET_OPTICAL_SIG
+   radar_signature    TARGET_RADAR_SIG
+
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+##############################################################################
+#                        Define the IRST characteristics
+##############################################################################
+
+sensor IRST_SENSOR WSF_IRST_SENSOR
+
+   frame_time               0.05 seconds
+   maximum_range            50 nm
+
+   azimuth_field_of_view   -45 deg 45 deg
+   elevation_field_of_view -45 deg 45 deg
+
+#  band is the operating band of the sensor.  It is one of the following:
+#       short               1 -  3 microns
+#       medium              3 -  5 microns
+#       long                8 - 12 microns
+#       very_long          15 - 30 microns
+
+   band                     medium
+
+#  noise_equivalent_irradiance (NEI) is the receiver noise.
+#  The ratio of computed 'signal' and this value must exceed the value of
+#  'detection_threshold' for a detection to be declared.
+
+   noise_equivalent_irradiance    1.0E-12 w/cm^2
+
+#  detection_threshold is the signal/noise required for detection.
+
+   detection_threshold            3.0
+
+#  The atmospheric_attenuation is a very simple-minded approach to modeling
+#  propagation.  It can also be thought of as the 'rate_of_extinction'. This
+#  should include the effects of scattering and absorbance.
+#
+#  In reality the propagation would have to consider the wavelength of the
+#  spectral content, the scattering and absorbsion coefficients as a function
+#  of altitude and wavelength as well as environmental effects such as dust,
+#  humidity, etc.
+
+   atmospheric_attenuation   0.05 per km
+
+#  The background_radiance is a very simple-minded approach to modeling
+#  the background radiance (duh).  In reality it is a function of many
+#  variables (time of day (and hence, sun position), temperature, and many
+#  other environmental effects.
+
+   background_radiance       500 microwatts/cm^2/sr
+
+#   azimuth_error_sigma   0.001 deg
+#   elevation_error_sigma 0.001 deg
+#   range_error_sigma     7.0 m
+
+#   hits_to_establish_track   3 5   # 3 of last 5 scans to establish track
+#   hits_to_maintain_track    1 4   # 1 of last 4 scans to maintain  track
+
+   reports_range
+   reports_bearing
+
+end_sensor
+
+platform_type SENSOR_PLATFORM_TYPE WSF_PLATFORM
+  sensor irst IRST_SENSOR end_sensor
+end_platform_type
+
+platform sensor<1> SENSOR_PLATFORM_TYPE
+  position 0n 0w altitude 30 m agl heading 0 deg
+end_platform
+
+horizontal_map
+  target_region
+    down_range_limits  -60 nm 60 nm
+    down_range_step     0.5 nm
+
+    cross_range_limits -60 nm 60 nm
+    cross_range_step    0.5 nm
+  end_target_region
+
+  target_speed 400 kts
+  target_altitude 10000 ft msl
+
+  pd_map_file pdmap.map
+
+end_horizontal_map

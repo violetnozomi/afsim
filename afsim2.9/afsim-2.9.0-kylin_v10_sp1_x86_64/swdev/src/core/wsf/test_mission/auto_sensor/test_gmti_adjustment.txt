@@ -1,0 +1,99 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+################################################################################
+# A basic test for the gmti_adjustment table in WSF_RADAR_SENSOR.
+################################################################################
+
+include ../auto_script/test_functions.txt
+
+antenna_pattern GMTI_ANTENNA
+   constant 35 db
+end_antenna_pattern
+
+sensor GMTI_SENSOR WSF_RADAR_SENSOR
+   frame_time 10 sec
+
+   transmitter
+      antenna_pattern        GMTI_ANTENNA
+      power                  500 kw
+      frequency              3 ghz
+   end_transmitter
+
+   receiver
+      noise_power            -150 dbw
+   end_receiver
+
+   signal_processor gmti_adjustment
+      gmti_adjustment_table
+         doppler_frequency    0 hz adjustment -35.0 db
+         doppler_frequency   25 hz adjustment -20.0 db
+         doppler_frequency   50 hz adjustment -15.0 db
+         doppler_frequency  100 hz adjustment -10.0 db
+         doppler_frequency  150 hz adjustment  -7.5 db
+         doppler_frequency  200 hz adjustment  -6.0 db
+         doppler_frequency  250 hz adjustment  -5.0 db
+         doppler_frequency  400 hz adjustment  -3.8 db
+         doppler_frequency  600 hz adjustment  -3.0 db
+         doppler_frequency 1000 hz adjustment  -3.0 db
+      end_gmti_adjustment_table
+   end_signal_processor
+
+   reports_range
+   reports_bearing
+   reports_elevation
+
+   ignore_same_side
+
+   detection_threshold 12.8251 db
+end_sensor
+
+radar_signature TRUCK_RADAR_SIG
+   constant 10 m^2
+end_radar_signature
+
+platform_type TRUCK WSF_PLATFORM
+   icon Pickup_Truck
+   radar_signature TRUCK_RADAR_SIG
+   mover WSF_GROUND_MOVER
+   end_mover
+end_platform_type
+
+################################################################################
+
+platform truck TRUCK
+   side red
+   route
+      position 40n 88:00:00w speed 50 kts
+      position 40n 88:01:00w speed 0 kts
+   end_route
+end_platform
+
+platform collector WSF_PLATFORM
+   side blue
+
+   add mover WSF_AIR_MOVER
+   end_mover
+
+   route
+      position 40n 90w altitude 30000 ft heading 90 deg speed 400 kts
+   end_route
+
+   add sensor gmti GMTI_SENSOR
+      on
+   end_sensor
+
+end_platform
+
+event_output
+   file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+end_time 120 sec

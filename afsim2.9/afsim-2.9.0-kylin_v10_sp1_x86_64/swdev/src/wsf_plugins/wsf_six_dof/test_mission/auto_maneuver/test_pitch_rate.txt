@@ -1,0 +1,78 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../platforms/fa-lgt.txt
+include_once ../scripts/utils.txt
+
+end_time 600 s
+
+script_variables 
+   bool allPassed = true;
+end_script_variables
+
+platform TEST_AIRCRAFT FA-LGT_RB6
+   side blue
+   
+   route
+      position   21.325n   158.000w  altitude   20000.0 ft   speed  450.0 kts
+      position   20.00n    157.98w   altitude   20000.0 ft   speed  450.0 kts
+   end_route
+   
+   script_variables
+      bool keepChecking = true;
+   end_script_variables
+   
+   execute at_time 10 sec absolute
+      WsfSixDOF_PitchRateManeuver mvr = WsfSixDOF_PitchRateManeuver.Construct(10.0);
+      mvr.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(10.0));
+      mvr.SetExitConstraint(WsfSixDOF_ManeuverConstraint.AT_RELATIVE_TIME(3.0));
+      
+      WsfSixDOF_FlightPathAngleManeuver flat = WsfSixDOF_FlightPathAngleManeuver.Construct(0.0);
+      flat.SetEntryConstraint(WsfSixDOF_ManeuverConstraint.AT_PITCH_ANGLE(45.0));
+      
+      allPassed = ExpectDouble(mvr.GetPitchRate(), 10.0, 0.1, "Rate should be 10") && allPassed;
+      
+      WsfSixDOF_ManeuverSequence sqn = WsfSixDOF_ManeuverSequence.Construct();
+      sqn.Append(mvr);
+      sqn.Append(flat);
+      
+      WsfRigidBodySixDOF_Mover mov = (WsfRigidBodySixDOF_Mover)PLATFORM.Mover();
+      mov.ExecuteManeuverSequence(sqn);
+   end_execute
+   
+   execute at_time 12 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Y(), 0.00, 3.0, "Pitch should be small") && allPassed;
+   end_execute
+   
+   execute at_time 19.9 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Y(), 0.00, 3.0, "Pitch should be small") && allPassed;
+   end_execute
+   
+   execute at_time 22 sec absolute
+      if (PLATFORM.OrientationNED().Y() < 1.0)
+      {
+         writeln("-FAIL- Pitch should have started. ", PLATFORM.OrientationNED().Y());
+      }
+   end_execute
+   
+   execute at_time 300 sec absolute
+      allPassed = ExpectDouble(PLATFORM.OrientationNED().Y(), 0.0, 3.0, "Pitch should be small") && allPassed;
+   end_execute
+end_platform
+
+execute at_time 400 s absolute
+   if (allPassed)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }   
+end_execute  

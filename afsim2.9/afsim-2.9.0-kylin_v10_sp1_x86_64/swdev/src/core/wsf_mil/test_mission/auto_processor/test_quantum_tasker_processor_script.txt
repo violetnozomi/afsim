@@ -1,0 +1,323 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+#tests every script method on the WsfQuantumTaskerProcessor
+#tests the task complete & task reject functions
+#tests the greedy allocators
+#tests the reception of task assignment & task status messages
+
+#event_output 
+#   file events.txt
+#   enable TASK_ASSIGNED
+#   enable TASK_CANCELED
+#   enable TASK_COMPLETED
+#end_event_output
+
+#event_pipe 
+#   file test_quantum_tasker_processor_script.aer
+#end_event_pipe
+
+end_time 20 sec
+
+platform_type COMMANDER WSF_PLATFORM 
+   comm comm_1 WSF_COMM_TRANSCEIVER 
+      internal_link brain
+      internal_link tasker
+      internal_link tracker
+   end_comm
+   processor brain WSF_PERCEPTION_PROCESSOR 
+      asset_perception status_messages 
+   end_processor
+   processor tasker WSF_QUANTUM_TASKER_PROCESSOR 
+      show_task_messages
+      update_interval 1 s
+      generator simple_weapon
+      evaluator distance
+      allocator greedy_value 
+      reallocation_strategy  dynamic
+      asset_representation   resources
+      allocator_extra_assets greedy_priority #should not need to be used in this scenario
+      allocator_extra_tasks  greedy_profit   #should be used once (one extra target)
+      
+      execute at_time 9 s absolute 
+         WsfTaskList allTasks = PROCESSOR.TasksAssigned();
+         if (allTasks.Count() <= 0)
+         {
+            writeln("-FAIL- commander does not have any assigned tasks");
+         }
+         WsfTaskList taskTypeTasks = PROCESSOR.TasksAssignedOfType("WEAPON");
+         if (taskTypeTasks.Count() <= 0)
+         {
+            writeln("-FAIL- commander does not have any assigned WEAPON tasks");
+         }
+         int totalTargetTaskCount = 0;
+         foreach(WsfLocalTrack target in PLATFORM.MasterTrackList())
+         {
+            WsfTaskList targetTypeTasks = PROCESSOR.TasksAssignedForTarget(target.TrackId());
+            totalTargetTaskCount += targetTypeTasks.Count();
+         }
+         if (totalTargetTaskCount <= 0)
+         {
+            writeln("-FAIL- commander does not have any assigned tasks for known targets (local tracks)");
+         }
+         WsfTaskList resourceTypeTasks = PROCESSOR.TasksAssignedForResourceType("weapon");
+         if (resourceTypeTasks.Count() <= 0)
+         {
+            writeln("-FAIL- commander does not have any received tasks for weapon resources");
+         }
+         WsfTaskList resourceNameTasks = PROCESSOR.TasksAssignedForResourceName("fake_weapon");
+         if (resourceNameTasks.Count() <= 0)
+         {
+            writeln("-FAIL- commander does not have any received tasks for weapon resource named: fake_weapon");
+         }
+      end_execute
+      
+      execute at_time 11 sec absolute 
+         Array<WsfQuantumTask> tasks = PROCESSOR.TasksConsidered();
+         if (tasks.Size() != 3)
+         {
+            writeln("-FAIL- commander should be considering 3 tasks");
+         }
+         Array<WsfAssetPerception> assets = PROCESSOR.AssetsConsidered();
+         if (assets.Size() != 4)
+         {
+            writeln("-FAIL- commander should be considering 4 assets (2 [empty] platform assets, and their 2 weapon types)");
+         }
+         Array<Array<double> > values = PROCESSOR.ValuesConsidered();
+         if (values.Size() != 3 && values[0].Size() != 4)
+         {
+            writeln("-FAIL- commander should have a 3x4 values matrix");
+         }
+         foreach(WsfQuantumTask task in tasks)
+         {
+            Array<WsfAssetPerception> assignees = PROCESSOR.AssetAssigneesFor(task);
+            if (assignees.Size() <= 0)
+            {
+               writeln("-FAIL- commander should assign every task!");
+            }
+            #TODO - verify valid assignees
+         }
+      end_execute
+      
+      script_variables
+         #int assignCount = 0;
+         #int cancelCount = 0;
+         #int controlCount = 0;
+         int statusCount = 0;
+         int minStatus = 18;
+      end_script_variables
+      #WSF_TASK_ASSIGN_MESSAGE 	WsfTaskAssignMessage
+      #WSF_TASK_CANCEL_MESSAGE 	WsfTaskCancelMessage
+      #WSF_TASK_CONTROL_MESSAGE 	WsfTaskControlMessage
+      #WSF_TASK_STATUS_MESSAGE 	WsfTaskStatusMessage
+      on_message 
+         #type WSF_TASK_ASSIGN_MESSAGE  script  assignCount  += 1;  end_script
+         #type WSF_TASK_CANCEL_MESSAGE  script  cancelCount  += 1;  end_script
+         #type WSF_TASK_CONTROL_MESSAGE script  controlCount += 1;  end_script
+         type WSF_TASK_STATUS_MESSAGE  script  statusCount  += 1;  end_script
+      end_on_message
+      execute at_time 19.99 s absolute 
+         if (statusCount < minStatus)
+         {
+            writeln("-FAIL- commander did not receive minimum number of task status messages");
+         }
+      end_execute
+   end_processor
+   processor tracker WSF_TRACK_PROCESSOR 
+      master_track_processor 
+   end_processor
+end_platform_type
+
+
+platform_type SUBORDINATE WSF_PLATFORM
+   comm comm_1 WSF_COMM_TRANSCEIVER 
+      internal_link tasker
+   end_comm
+   processor brain WSF_PERCEPTION_PROCESSOR 
+      report_to commander via comm_1
+      reporting_self true
+      report_interval 0.2 sec
+      asset_perception status_messages 
+   end_processor
+   weapon fake_weapon WSF_EXPLICIT_WEAPON
+      launched_platform_type WSF_PLATFORM
+   end_weapon
+   processor tasker WSF_QUANTUM_TASKER_PROCESSOR 
+      show_task_messages 
+      execute at_time 9 s absolute 
+         WsfTaskList allTasks = PROCESSOR.TasksReceived();
+         if (allTasks.Count() <= 0)
+         {
+            writeln("-FAIL- subordinate does not have any received tasks");
+         }
+         WsfTaskList taskTypeTasks = PROCESSOR.TasksReceivedOfType("WEAPON");
+         if (taskTypeTasks.Count() <= 0)
+         {
+            writeln("-FAIL- subordinate does not have any received WEAPON tasks");
+         }
+         
+         int totalTargetTaskCount = 0;
+         int totalTypeForTargetTaskCount = 0;
+         foreach(WsfLocalTrack target in PLATFORM.MasterTrackList())
+         {
+            WsfTaskList targetTypeTasks = PROCESSOR.TasksReceivedForTarget(target.TrackId());
+            totalTargetTaskCount += targetTypeTasks.Count();
+            WsfTaskList typeForTargetTasks = PROCESSOR.TasksReceivedOfTypeForTarget("WEAPON",target.TrackId());
+            totalTypeForTargetTaskCount += typeForTargetTasks.Count();
+         }
+         if (totalTargetTaskCount <= 0)
+         {
+            writeln("-FAIL- subordinate does not have any received tasks for known targets (local tracks)");
+         }
+         if (totalTypeForTargetTaskCount <= 0)
+         {
+            writeln("-FAIL- subordinate does not have any received WEAPON tasks for known targets (local tracks)");
+         }
+         if (totalTargetTaskCount != totalTypeForTargetTaskCount)
+         {
+            writeln("-FAIL- subordinate does not have equal counts of [any] received tasks and received WEAPON tasks for known targets (local tracks)");
+         }
+         WsfTaskList resourceTypeTasks = PROCESSOR.TasksReceivedForResourceType("weapon");
+         if (resourceTypeTasks.Count() <= 0)
+         {
+            writeln("-FAIL- subordinate does not have any received tasks for weapon resources");
+         }
+         WsfTaskList resourceNameTasks = PROCESSOR.TasksReceivedForResourceName("fake_weapon");
+         if (resourceNameTasks.Count() <= 0)
+         {
+            writeln("-FAIL- subordinate does not have any received tasks for weapon resource named: fake_weapon");
+         }
+      end_execute
+      
+      execute at_time 12 sec absolute 
+         foreach (WsfTask task in PROCESSOR.TasksReceived())
+         {
+            PROCESSOR.SetTaskProgress(task, "BLAH");
+         }
+      end_execute
+      execute at_time 15 sec absolute 
+         if (PLATFORM.Name() == "BLUE_1")
+         {
+            foreach (WsfTask task in PROCESSOR.TasksReceived())
+            {
+               PROCESSOR.SetTaskComplete(task, "HOORAY");
+            }
+         }
+         else
+         {
+            foreach (WsfTask task in PROCESSOR.TasksReceived())
+            {
+               PROCESSOR.SetTaskComplete(task);
+            }
+         }
+      end_execute
+      execute at_time 18 sec absolute 
+         foreach (WsfTask task in PROCESSOR.TasksReceived())
+         {
+            PROCESSOR.RejectTask(task);
+         }
+      end_execute
+      
+      script_variables
+         int assignCount = 0;
+         #int cancelCount = 0;
+         #int controlCount = 0;
+         int statusCount = 0;
+         int minAssign = 4;
+         int minStatus = 1;
+      end_script_variables
+      #WSF_TASK_ASSIGN_MESSAGE 	WsfTaskAssignMessage
+      #WSF_TASK_CANCEL_MESSAGE 	WsfTaskCancelMessage
+      #WSF_TASK_CONTROL_MESSAGE 	WsfTaskControlMessage
+      #WSF_TASK_STATUS_MESSAGE 	WsfTaskStatusMessage
+      on_message 
+         type WSF_TASK_ASSIGN_MESSAGE  script  assignCount  += 1;  end_script
+         #type WSF_TASK_CANCEL_MESSAGE  script  cancelCount  += 1;  end_script
+         #type WSF_TASK_CONTROL_MESSAGE script  controlCount += 1;  end_script
+         type WSF_TASK_STATUS_MESSAGE  script  statusCount  += 1;  end_script
+      end_on_message
+      execute at_time 19.99 s absolute 
+         if (assignCount < minAssign)
+         {
+            writeln("-FAIL- subordinate did not receive minimum number of task assign messages");
+         }
+         if (statusCount < minStatus)
+         {
+            writeln("-FAIL- subordinate did not receive minimum number of task status messages");
+         }
+      end_execute
+   end_processor
+   
+   processor tracker WSF_TRACK_PROCESSOR 
+      report_interval 0.2 sec
+      report_to commander via comm_1
+      report_fused_tracks 
+   end_processor
+   sensor geo WSF_GEOMETRIC_SENSOR 
+      on
+      internal_link tracker
+      frame_time 0.1 s
+      track_quality 1.0
+      azimuth_field_of_view   -180.0 degrees  180.0 degrees
+      elevation_field_of_view  -90.0 degrees   90.0 degrees
+      minimum_range 0 m
+      maximum_range 277800 m     //about 150 nm
+      reports_location 
+      reports_velocity 
+      reports_side 
+      ignore_same_side 
+   end_sensor
+end_platform_type
+
+
+#blue tasks should be assigned on distance, expected not to change
+platform BLUE_CMDR COMMANDER 
+   side blue
+   position 0:0:0.0n 0:1:0.0w altitude 10000.00 m agl
+end_platform
+
+
+platform BLUE_1 SUBORDINATE
+   side blue 
+   commander BLUE_CMDR
+   position 0:1:0.0n 0:1:0.0w altitude 10000.00 m agl
+   edit processor tasker 
+      script_variables 
+         minAssign = 5;
+         minStatus = 2;
+      end_script_variables
+   end_processor
+end_platform
+
+
+platform BLUE_2 SUBORDINATE 
+   side blue 
+   commander BLUE_CMDR
+   position 0:2:0.0n 0:1:0.0w altitude 10000.00 m agl
+end_platform
+
+
+platform RED_1 WSF_PLATFORM
+   side red
+   position 0:0:0.0n 0:1:0.0e altitude 10000.00 m agl
+end_platform
+
+
+platform RED_2 WSF_PLATFORM 
+   side red
+   position 0:1:0.0n 0:1:0.0e altitude 10000.00 m agl
+end_platform
+
+
+platform RED_3 WSF_PLATFORM 
+   side red
+   position 0:2:0.0n 0:1:0.0e altitude 10000.00 m agl
+end_platform
+

@@ -1,0 +1,123 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test case for CR 8672 - latter message table input did not override earlier input.
+
+message_table
+   default_comm_type
+      type WSF_TRACK_MESSAGE 256 bits
+      default 128 bits
+         subtype X 64 bits
+      #type WSF_DROP_TRACK_MESSAGE 128 bits
+end_message_table
+
+message_table
+   default_comm_type
+      type WSF_TRACK_MESSAGE 512 bits
+end_message_table
+
+platform target WSF_PLATFORM
+   side red
+   add mover WSF_AIR_MOVER
+   end_mover
+
+   route
+      position 41n 90w altitude 30000 ft heading 270 deg speed 400 kts
+   end_route
+end_platform
+
+platform commander WSF_PLATFORM
+   side blue
+   position 40n 90w heading 0 deg
+
+   add comm datalink WSF_COMM_TRANSCEIVER
+      internal_link msg_proc
+   end_comm
+
+   script_variables
+      bool gPass = true;
+      bool gReceivedUpdate = false;
+      bool gReceivedDrop   = false;
+   end_script_variables
+
+   script void on_platform_deleted()
+      if (! gReceivedUpdate)
+      {
+         writeln("-FAIL- Never received a WSF_TRACK_MESSAGE");
+         gPass = false;
+      }
+      if (! gReceivedDrop)
+      {
+         gPass = false;
+         writeln("-FAIL- Never received a WSF_DROP_TRACK_MESSAGE");
+      }
+      if (gPass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+
+   add processor msg_proc WSF_SCRIPT_PROCESSOR
+      on_message
+         type WSF_TRACK_MESSAGE
+            script
+                extern bool gReceivedUpdate;
+                extern bool gPass;
+                gReceivedUpdate = true;
+                writeln("T=",TIME_NOW," received WSF_TRACK_MESSAGE, size=", MESSAGE.SizeInBits());
+                if (MESSAGE.SizeInBits() != 512)
+                {
+                   gPass = false;
+                   writeln("-FAIL- Expected WSF_TRACK_MESSAGE size = 512 bits, received ", MESSAGE.SizeInBits());
+                }
+            end_script
+         type WSF_DROP_TRACK_MESSAGE
+            script
+                extern bool gReceivedDrop;
+                gReceivedDrop = true;
+                writeln("T=",TIME_NOW," received WSF_DROP_TRACK_MESSAGE, size=", MESSAGE.SizeInBits());
+                if (MESSAGE.SizeInBits() != 128)
+                {
+                   gPass = false;
+                   writeln("-FAIL- Expected WSF_DROP_TRACK_MESSAGE size = 128 bits, received ", MESSAGE.SizeInBits());
+                }
+            end_script
+      end_on_message
+   end_processor
+end_platform
+
+platform sensor WSF_PLATFORM
+   side blue
+   commander commander
+
+   position 40n 90w heading 0 deg
+
+   add comm datalink WSF_COMM_TRANSCEIVER
+   end_comm
+
+   add processor data_mgr WSF_LINKED_PROCESSOR
+      report_to commander via datalink
+   end_processor
+
+   add sensor radar WSF_GEOMETRIC_SENSOR
+      frame_time 10 sec
+      azimuth_field_of_view -5 deg 5 deg
+      reports_location
+      internal_link data_mgr
+      ignore_same_side
+      on
+   end_sensor
+end_platform
+
+end_time 2 min
+

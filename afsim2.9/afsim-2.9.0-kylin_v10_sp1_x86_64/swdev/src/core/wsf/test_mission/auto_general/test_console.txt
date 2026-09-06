@@ -1,0 +1,99 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests the filtering of various types of console output using the writeln script methods
+
+include ../auto_script/test_functions.txt
+include ../auto_script/test_pass.txt
+
+final_run_number 2
+
+console_output
+   fatal on
+   error on
+   warning on
+   info on
+   debug off
+   developer off
+   single_line off
+   
+   file console_none.testout
+      preset none   # no output
+   end_file
+   
+   # The output from both runs should be written to this file.
+   file console_persistent.testout
+      preset none
+      developer on
+   end_file
+   
+   file console_low_%d.testout
+      preset low    # fatal, error, warning
+   end_file
+   
+   file console_med_%d.testout
+      preset medium # fatal, error, warning, info
+   end_file
+end_console_output
+
+script_debug_writes on
+
+execute at_time 1 sec absolute
+   writeln_fatal("-PASS-");
+   writeln_error("-PASS-");
+   writeln_warning("-PASS-");
+   writeln("INFO -PASS-");
+   # These message types should be filtered out
+   writeln_d("-FAIL-");
+   writeln_debug("-FAIL-");
+   writeln_developer("-FAIL-");
+end_execute
+
+script_variables
+   PassTestCount = 10; // number of tests per simulation run
+end_script_variables
+
+script void SimulationComplete()
+   FileIO file = FileIO();
+   int run = WsfSimulation.RunNumber();
+   
+   # Expect empty file using preset none
+   if (AssertTrueMessage(file.Open("console_none.testout"), "Unable to open file with preset none")) { pass(); } 
+   if (AssertEqualsMessage(file.ReadAll().Length(), 0, "File should be empty")) { pass(); }
+
+   # Expect two -FAIL- messages in console_persistent.testout
+   if (AssertTrueMessage(file.Open("console_persistent.testout"), "Unable to open file with persistent output")) { pass(); }
+   # Count 
+   int persistentFailCount = file.ReadAll().Split("-FAIL").Size() - 1;
+   if (AssertEqualsMessage(persistentFailCount, run, "Bad persistent output")) { pass(); }
+
+   # Low preset files should contain fatal, error, warning and no -FAIL- messages
+   string filename = write_str("console_low_", run, ".testout");
+   if (AssertTrueMessage(file.Open(filename), "Unable to open file with preset low")) { pass(); }
+   string read = file.ReadAll();
+   if (AssertTrueMessage(read.Contains("FATAL")   &&
+                         read.Contains("ERROR")   &&
+                         read.Contains("WARNING") &&
+                        !read.Contains("INFO"),    "Low preset incorrect tags"))  { pass(); }
+   if (AssertFalseMessage(read.Contains("-FAIL-"), "Low preset contains -FAIL-")) { pass(); }
+ 
+   # Medium preset files should contain fatal, error, warning, info and no -FAIL- messages
+   filename = write_str("console_med_", run, ".testout");
+   if (AssertTrueMessage(file.Open(filename), "Unable to open file with preset medium")) { pass(); }
+   read = file.ReadAll();
+   if (AssertTrueMessage(read.Contains("FATAL")   && 
+                         read.Contains("ERROR")   &&
+                         read.Contains("WARNING") &&
+                         read.Contains("INFO"),    "Medium preset incorrect tags"))  { pass(); }
+   if (AssertFalseMessage(read.Contains("-FAIL-"), "Medium preset contains -FAIL-")) { pass(); }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE 
+end_observer

@@ -1,0 +1,59 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. This is designed to be included into the (csv_)event_output documentation.
+
+Commands
+========
+
+.. command:: file [ <file-name> | STDOUT | NULL]
+
+   Specifies the name of the file to which the |EO| is written.
+   If the file already exists, then it will be overwritten.
+   The special name **STDOUT** indicates the |EO| is to be written to standard output.
+   The special name **NULL** indicates that no |EO| is to be written.
+   **NULL** can be used to cancel a file name specified in an earlier |EO| block.
+
+   .. warning::
+      The simulation will fail and |EO| will not output anything if the directory path provided here does not exist.
+
+   .. note::
+      To insert the run number in the file name use "*%d*".
+
+   For example:
+
+   .. parsed-literal::
+
+      file_ |OUTPUT_FILE|
+      file_ |OUTPUT_FILE_D|   //with the run number
+
+.. command:: flush_output <boolean>
+
+   Specifies if the output buffer should be flushed after each event is written.
+
+   .. note::
+      Setting this value to 'true' can result in performance problems because the output is written to the output file after every event.
+      This should only be used when attempting to diagnose problems where the program terminates abnormally and the buffer would not otherwise be flushed.
+      This ensures that the last event that occurred is successfully recorded.
+
+   **Default** false
+
+.. command:: disable [ <event> | all ]
+.. command:: enable [ <event> | all ]
+
+   Specifies the names of the events to be included or excluded in the event log.
+   These commands are typically specified multiple times to select the events of interest.
+   The commands are processed in order of appearance with each successive command selecting or deselecting events as appropriate.
+
+   .. note::
+      By default, all events start out as being disabled.
+
+   .. warning::
+      Be careful about using **enable all**.
+      It can generate a lot of output and the addition of new events in the future could result in enormous amounts of output.

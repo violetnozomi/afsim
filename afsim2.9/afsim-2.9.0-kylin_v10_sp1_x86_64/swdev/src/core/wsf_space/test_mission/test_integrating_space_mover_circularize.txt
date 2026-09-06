@@ -1,0 +1,121 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 1 hours
+
+script_variables
+   int    sNumCompleted = 0;
+   double sEccTolerance = 0.0001;
+end_script_variables
+
+platform input WSF_PLATFORM
+   empty_mass 100 kg
+
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0.3
+      semi_major_axis 10000 km
+      raan 0 deg
+      inclination 0 deg
+      true_anomaly 0 deg
+      argument_of_periapsis 0 deg
+
+      maneuvering simple
+      end_maneuvering
+
+      mission_sequence
+
+         maneuver circularize
+            execute_at ascending_radius 10000 kilometers
+         end_maneuver
+
+      end_mission_sequence
+
+      integrator prince_dormand_45
+         tolerance 1.0e-6
+      end_integrator
+
+      dynamics
+         term earth_monopole
+            egm96
+         end_term
+      end_dynamics
+   end_mover
+end_platform
+
+platform script WSF_PLATFORM
+   empty_mass 100 kg
+
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      eccentricity 0.3
+      semi_major_axis 10000 km
+      raan 0 deg
+      inclination 0 deg
+      true_anomaly 180 deg
+      argument_of_periapsis 0 deg
+
+      maneuvering simple
+      end_maneuvering
+
+      integrator prince_dormand_45
+         tolerance 1.0e-11
+      end_integrator
+
+      dynamics
+         term earth_monopole
+            egm96
+         end_term
+      end_dynamics
+   end_mover
+
+   execute at_time 1 s absolute
+      WsfSpaceMover mover = ((WsfSpaceMover)PLATFORM.Mover());
+      WsfOrbitalManeuver maneuver = WsfCircularize.Construct(WsfOrbitalEventCondition.AT_DESCENDING_RADIUS(10000000.0));
+      bool result = mover.ExecuteManeuver(maneuver);
+      if (result) {
+         writeln("Circularize: true");
+      } else {
+         writeln("Circularize: false");
+      }
+   end_execute
+end_platform
+
+script void OrbitalManeuverCompleted(WsfPlatform        aPlatform,
+                                     WsfSpaceMover      aSM,
+                                     WsfOrbitalManeuver aManeuver)
+   if (aManeuver.Type() == "CIRCULARIZE")
+   {
+      writeln("At ", TIME_NOW, " s after ", aManeuver.Type(), " on ", aPlatform.Name());
+      double ecc = aSM.Eccentricity();
+      if (ecc > sEccTolerance)
+      {
+         writeln("-FAIL- ", sNumCompleted, " ecc = ", ecc, " (allowed ", sEccTolerance, ")");
+      }
+      else
+      {
+         writeln("-PASS- ", sNumCompleted, " ecc = ", ecc);
+         sNumCompleted += 1;
+      }
+   }
+end_script
+
+script void SimulationComplete()
+   if (sNumCompleted != 2)
+   {
+      writeln("-FAIL- ", sNumCompleted);
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED OrbitalManeuverCompleted
+   enable SIMULATION_COMPLETE
+end_observer

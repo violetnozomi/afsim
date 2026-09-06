@@ -1,0 +1,33 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test for script methods on WsfEM_Xmtr
+
+platform p WSF_PLATFORM
+   add sensor radar WSF_RADAR_SENSOR
+      reports_range
+      frame_time 1.0 sec
+      beam 1
+         transmitter
+            power 50 watts
+            frequency 50 hz
+         end_transmitter
+      end_beam
+   end_sensor
+   
+   execute at_time 1 sec absolute
+      WsfSensor radar = PLATFORM.Sensor("radar");
+      WsfEM_Xmtr xmtr = radar.Xmtr(0);
+      string partName = xmtr.ArticulatedPart().Name();
+      if (partName != radar.Name())
+      {
+         writeln("-FAIL- Unexpected articulated part name");
+      }
+   end_execute
+end_platform

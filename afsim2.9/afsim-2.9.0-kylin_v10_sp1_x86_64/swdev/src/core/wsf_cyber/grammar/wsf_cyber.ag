@@ -1,0 +1,388 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2018 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Cyber effect
+(struct CyberEffect :symbol (type cyberEffectType WSF_CYBER_EFFECT)
+{
+   platform_type (typeref platformType) { script <ScriptFunctionBlock>* end_script }* end_platform_type
+ | platform (typeref platform) { script <ScriptFunctionBlock>* end_script }* end_platform
+ | default { script <ScriptFunctionBlock>* end_script }* end_default
+})
+
+(struct WSF_CYBER_WEAPONS_RETARGET_EFFECT :symbol (type cyberEffectType WSF_CYBER_WEAPONS_RETARGET_EFFECT) :base_type CyberEffect)
+
+(struct WSF_CYBER_WEAPONS_UNTARGETED_EFFECT :symbol (type cyberEffectType WSF_CYBER_WEAPONS_UNTARGETED_EFFECT) :base_type CyberEffect)
+
+(struct WSF_CYBER_SCRIPT_EFFECT :symbol (type cyberEffectType WSF_CYBER_SCRIPT_EFFECT) :base_type CyberEffect
+{
+   <CyberEffect>
+})
+
+(struct WSF_CYBER_SCRIPT_EFFECT_ENHANCED :symbol (type cyberEffectType WSF_CYBER_SCRIPT_EFFECT_ENHANCED) :base_type CyberEffect
+{
+   <CyberEffect>
+})
+
+(struct WSF_CYBER_TOGGLE_SENSORS_EFFECT :symbol (type cyberEffectType WSF_CYBER_TOGGLE_SENSORS_EFFECT) :base_type CyberEffect
+   (rule cyber-toggle-sensor-body
+   {
+      script <ScriptFunctionBlock> end_script
+    | target_list <string>* end_target_list
+    | select_all
+   })
+{
+   platform_type (typeref platformType) <cyber-toggle-sensor-body>* end_platform_type
+ | platform (typeref platform) <cyber-toggle-sensor-body>* end_platform
+ | default <cyber-toggle-sensor-body>* end_default
+})
+
+(struct WSF_CYBER_TOGGLE_WEAPONS_EFFECT :symbol (type cyberEffectType WSF_CYBER_TOGGLE_WEAPONS_EFFECT) :base_type CyberEffect
+   (rule cyber-toggle-weapon-body
+   {
+      script <ScriptFunctionBlock> end_script
+    | target_list <string>* end_target_list
+    | select_all
+   })
+{
+   platform_type (typeref platformType) <cyber-toggle-weapon-body>* end_platform_type
+ | platform (typeref platform) <cyber-toggle-weapon-body>* end_platform
+ | default <cyber-toggle-weapon-body>* end_default
+})
+
+(struct WSF_CYBER_TOGGLE_COMMS_EFFECT :symbol (type cyberEffectType WSF_CYBER_TOGGLE_COMMS_EFFECT) :base_type CyberEffect
+   (rule cyber-toggle-comms-body
+   {
+      script <ScriptFunctionBlock> end_script
+    | target_list <string>* end_target_list
+    | select_all
+   })
+{
+   platform_type (typeref platformType) <cyber-toggle-comms-body>* end_platform_type
+ | platform (typeref platform) <cyber-toggle-comms-body>* end_platform
+ | default <cyber-toggle-comms-body>* end_default
+})
+
+(struct WSF_CYBER_TOGGLE_PROCESSORS_EFFECT :symbol (type cyberEffectType WSF_CYBER_TOGGLE_PROCESSORS_EFFECT) :base_type CyberEffect
+   (rule cyber-toggle-processors-body
+   {
+      script <ScriptFunctionBlock> end_script
+    | target_list <string>* end_target_list
+    | select_all
+   })
+{
+   platform_type (typeref platformType) <cyber-toggle-processors-body>* end_platform_type
+ | platform (typeref platform) <cyber-toggle-processors-body>* end_platform
+ | default <cyber-toggle-processors-body>* end_default
+})
+
+(struct WSF_CYBER_MAN_IN_THE_MIDDLE_EFFECT :symbol (type cyberEffectType WSF_CYBER_MAN_IN_THE_MIDDLE_EFFECT) :base_type CyberEffect
+   (rule cyber-man-in-the-middle-body
+   {
+      script <ScriptFunctionBlock>* end_script
+    | target_list <string>* end_target_list
+    | all
+    | exfiltrate <Bool>
+   })
+{
+   platform_type (typeref platformType) <cyber-man-in-the-middle-body>* end_platform_type
+ | platform (typeref platform) <cyber-man-in-the-middle-body>* end_platform
+ | default <cyber-man-in-the-middle-body>* end_default
+})
+
+(struct WSF_CYBER_TRACK_MANAGER_EFFECT :symbol (type cyberEffectType WSF_CYBER_TRACK_MANAGER_EFFECT) :base_type CyberEffect
+{
+   script <ScriptFunctionBlock>* end_script
+ | target_platform (typeref platform)
+ | target_platform (typeref platformType)
+ | remove_target_platform (typeref platform)
+ | remove_target_platform (typeref platformType)
+ | inactive_track_purging <Bool>
+ | inactive_raw_track_purging <Bool>
+ | local_track_history_purging <Bool>
+})
+
+(struct WSF_CYBER_TRACK_PROCESSOR_EFFECT :symbol (type cyberEffectType WSF_CYBER_TRACK_PROCESSOR_EFFECT) :base_type WSF_CYBER_TRACK_MANAGER_EFFECT
+{
+   target_processor (typeref .processors)
+ | target_processor (typeref processorType)
+ | remove_target_processor (typeref .processors)
+ | remove_target_processor (typeref processorType)
+ | <WSF_CYBER_TRACK_MANAGER_EFFECT>
+})
+
+# Cyber attack
+(struct CyberAttack :symbol (type cyberAttackType WSF_CYBER_ATTACK)
+   (rule AttackDrawFrequency
+   {
+      always
+    | once_per_simulation
+    | once_per_target
+    | interval_per_simulation <Time>
+    | interval_per_target <Time>
+   })
+{
+   probability_of_scan_detection <real>
+ | probability_of_scan_attribution <real> 
+ | probability_of_attack_success <real>
+ | probability_of_status_report <real>
+ | probability_of_attack_detection <real>
+ | probability_of_attack_attribution <real> 
+ | probability_of_future_immunity <real>
+ | resources_required <real>
+ | scan_detection_draw_frequency <AttackDrawFrequency>
+ | scan_attribution_draw_frequency <AttackDrawFrequency>
+ | attack_success_draw_frequency <AttackDrawFrequency>
+ | status_report_draw_frequency <AttackDrawFrequency>
+ | attack_detection_draw_frequency <AttackDrawFrequency>
+ | attack_attribution_draw_frequency <AttackDrawFrequency>
+ | future_immunity_draw_frequency <AttackDrawFrequency>
+ | scan_delay_time <:RandomTime>
+ | delivery_delay_time <:RandomTime>
+ | duration <Time>
+ | effect (typeref cyberEffectType)
+ | effects { (typeref cyberEffectType) }* end_effects
+})
+
+# Detonation effect
+(struct WSF_CYBER_DETONATE_EFFECT :symbol (type cyberEffectType WSF_CYBER_DETONATE_EFFECT) 
+   :base_type CyberEffect
+   (rule weapon-identifier
+   {
+      weapon_name <string>
+    | weapon_type (typeref weaponType)
+   })    
+{
+    <weapon-identifier>
+})
+
+# Cyber protect
+(struct CyberProtect :symbol (type cyberProtectType WSF_CYBER_PROTECT)
+   (rule cyber-protect-body
+   {
+      probability_of_scan_detection <real>
+    | probability_of_scan_attribution <real>
+    | probability_of_attack_success <real>
+    | probability_of_status_report <real>
+    | probability_of_attack_detection <real>
+    | probability_of_attack_attribution <real>
+    | probability_of_future_immunity <real>
+    | attack_detection_delay_time <:RandomTime>
+    | attack_recovery_delay_time <:RandomTime>
+    | script <ScriptFunctionBlock>* end_script
+    | restore
+    })
+{
+   attack_response { default | (typeref cyberAttackType) } <cyber-protect-body>* end_attack_response
+})
+
+# Cyber trigger
+(struct CyberTrigger :symbol (type cyberTriggerType WSF_CYBER_TRIGGER)
+   (rule interval-definition
+   {
+      from <:RandomTime>
+    | from <:RandomTime> every <:RandomTime>
+    | from <:RandomTime> to <:RandomTime>
+    | from <:RandomTime> to <:RandomTime> every <:RandomTime>
+    | to <:RandomTime>
+    | to <:RandomTime> every <:RandomTime>
+    | every <:RandomTime>
+   })
+{
+   debug
+ | extrapolated_trigger <Bool>
+ | execute_trigger <Bool>
+ | update_interval <interval-definition>* end_update_interval
+ | script <ScriptFunctionBlock>* end_script
+})
+
+(struct CompositeCyberTrigger :symbol (type cyberTriggerType WSF_CYBER_COMPOSITE_TRIGGER) :base_type CyberTrigger
+   (rule cyber-composite-trigger
+   {
+      # Retain this order to avoid a bug in the grammar.
+      not (typeref cyberTriggerType)
+    | (typeref cyberTriggerType)
+   })
+{
+   policy and
+ | policy or
+ | triggers <cyber-composite-trigger>* end_triggers
+ | <CyberTrigger>
+})
+
+# Cyber constraint
+(struct CyberConstraint :symbol (type cyberConstraintType WSF_CYBER_CONSTRAINT)
+   (rule cyber-constraint-body
+   {
+     degrade_probability_of_scan_detection <real>
+   | degrade_probability_of_scan_attribution <real>
+   | degrade_probability_of_attack_success <real>
+   | degrade_probability_of_status_report <real>
+   | degrade_probability_of_attack_detection <real>
+   | degrade_probability_of_attack_attribution <real>
+   | degrade_probability_of_future_immunity <real>
+   })
+{
+   attack_degrade { default | (typeref cyberAttackType) } <cyber-constraint-body>* end_attack_degrade
+   | resources <real>
+})
+
+(struct CompositeCyberTrigger :symbol (type cyberTriggerType WSF_CYBER_COMPOSITE_TRIGGER) :base_type CyberTrigger
+   (rule cyber-composite-trigger
+   {
+      (typeref cyberTriggerType)
+    | not (typeref cyberTriggerType)
+   })
+{
+   policy and
+ | policy or
+ | triggers <cyber-composite-trigger>* end_triggers
+ | <CyberTrigger>
+})
+
+# Add the new cyber grammar to the root struct
+(struct root
+   (var ObjectMap/CyberEffect cyberEffectType)
+   (var ObjectMap/CyberAttack cyberAttackType)
+   (var ObjectMap/CyberProtect cyberProtectType)
+   (var ObjectMap/CyberTrigger cyberTriggerType)
+   (var ObjectMap/CyberConstraint cyberConstraintType)
+   (rule cyber-effect-type {
+      cyber_effect <string> <string> (new (type cyberEffectType $1) (type cyberEffectType $2)
+         :backup (type cyberEffectType WSF_CYBER_EFFECT)) [apply($$)]
+         <TypeCommand>*
+      end_cyber_effect
+    | (error { cyber_effect <ignore>* end_cyber_effect })
+   })
+   (rule cyber-attack-type {
+      cyber_attack <string> <string> (new (type cyberAttackType $1) (type cyberAttackType $2)
+         :backup (type cyberAttackType WSF_CYBER_ATTACK)) [apply($$)]
+         <TypeCommand>*
+      end_cyber_attack
+    | (error { cyber_attack <ignore>* end_cyber_attack })
+   })
+   (rule cyber-protect-type {
+      cyber_protect <string> <string> (new (type cyberProtectType $1) (type cyberProtectType $2)
+         :backup (type cyberProtectType WSF_CYBER_PROTECT)) [apply($$)]
+         <TypeCommand>*
+      end_cyber_protect
+    | (error { cyber_protect <ignore>* end_cyber_protect })
+   })
+   (rule cyber-trigger-type {
+      cyber_trigger <string> <string> (new (type cyberTriggerType $1) (type cyberTriggerType $2)
+         :backup (type cyberTriggerType WSF_CYBER_TRIGGER)) [apply($$)]
+         <TypeCommand>*
+      end_cyber_trigger
+    | (error { cyber_trigger <ignore>* end_cyber_trigger })
+   })
+   (rule cyber-constraint-type {
+      cyber_constraint <string> <string> (new (type cyberConstraintType $1) (type cyberConstraintType $2)
+         :backup (type cyberConstraintType WSF_CYBER_CONSTRAINT)) [apply($$)]
+         <TypeCommand>*
+      end_cyber_constraint
+      | (error { cyber_constraint <ignore>* end_cyber_constraint })
+   })
+   {
+      <cyber-effect-type>
+    | <cyber-attack-type>
+    | <cyber-protect-type>
+    | <cyber-trigger-type>
+    | enable_cyber_wsfdraw
+    | disable_cyber_wsfdraw
+   }
+)
+
+# Add cyber protect, cyber_trigger at the platform context
+(struct Platform
+   (var ObjectMap/CyberProtect cyberProtections)
+   (var ObjectMap/CyberTrigger cyberTriggers)
+   (var ObjectMap/CyberConstraint cyberConstraints)
+   (rule type-command {
+      cyber_protect <string> (new (subtype cyberProtections cyberProtection) (type cyberProtectType $1)
+         :backup (type cyberProtectType WSF_CYBER_PROTECT)) [apply($$)] <TypeCommand>* end_cyber_protect
+    | cyber_trigger <string> <string> (new (subtype cyberTriggers $1) (type cyberTriggerType $2)
+         :backup (type cyberTriggerType WSF_CYBER_TRIGGER)) [apply($$)] <TypeCommand>* end_cyber_trigger
+    | cyber_constraint <string> (new (subtype cyberConstraints cyberConstraint) (type cyberConstraintType $1)
+         :backup (type cyberConstraintType WSF_CYBER_CONSTRAINT)) [apply($$)] <TypeCommand>* end_cyber_constraint
+
+   })
+   (rule instance-command {
+      cyber_protect <string> (load (subtype cyberProtections $1)) [apply($$)] <TypeCommand>* end_cyber_protect
+    | cyber_trigger <string> (load (subtype cyberTriggers cyberTrigger)) [apply($$)] <TypeCommand>* end_cyber_trigger
+	| cyber_constraint <string> (load (subtype cyberConstraints $1)) [apply($$)] <TypeCommand>* end_cyber_constraint
+   })
+   {
+      add cyber_protect <string> (new (subtype cyberProtections cyberProtection) (type cyberProtectType $2)
+         :backup (type cyberProtectType WSF_CYBER_PROTECT)) [apply($$)] <TypeCommand>* end_cyber_protect
+    | add cyber_constraint <string> (new (subtype cyberConstraints cyberConstraint) (type cyberConstraintType $2)
+         :backup (type cyberConstraintType WSF_CYBER_CONSTRAINT)) [apply($$)] <TypeCommand>* end_cyber_constraint
+    | add cyber_trigger <string> <string> (new (subtype cyberTriggers $2) (type cyberTriggerType $3)
+         :backup (type cyberTriggerType WSF_CYBER_TRIGGER)) [apply($$)] <TypeCommand>* end_cyber_trigger
+    | edit cyber_trigger <string> (load (subtype cyberTriggers $2)) [apply($$)] <TypeCommand>* end_cyber_trigger
+    | delete cyber_trigger <string> (delete (subtype cyberTriggers $2)) [apply($$)]
+   }
+)
+
+# WsfCyberMitmMessage
+(aux-script-class "WsfCyberMitmMessage" :constructible 1 :cloneable 1 :less_compare 1 :equal_compare 1 :base_class "Object" :base_class "WsfCyberMitmMessage"
+   (aux-script-method Construct :rtype "WsfCyberMitmMessage" :static 1 :parameter "WsfMessage" :parameter "double" :parameter "bool")
+   (aux-script-method Message :rtype "WsfMessage")
+   (aux-script-method Delay :rtype "double")
+   (aux-script-method Drop :rtype "bool")
+   (aux-script-method SetMessage :rtype "void" :parameter "WsfMessage")
+   (aux-script-method SetDelay :rtype "void" :parameter "double")
+   (aux-script-method SetDrop :rtype "void" :parameter "bool")
+)
+(struct Platform
+   (rule cyber-resource-command {
+        quantity  <real>
+   })
+   {
+      cyber_resource <cyber-resource-command>
+   }
+)
+
+# This is the rule for cyber-related event_output event types.
+(rule event_output-event-type
+   (rule event_output-cyber-event-type {
+      CYBER_ATTACK_INITIATED
+    | CYBER_ATTACK_SUCCEEDED
+    | CYBER_ATTACK_FAILED
+    | CYBER_ATTACK_DETECTED
+    | CYBER_ATTACK_ATTRIBUTED
+    | CYBER_ATTACK_RECOVERY
+    | CYBER_SCAN_INITIATED
+    | CYBER_SCAN_SUCCEEDED
+    | CYBER_SCAN_FAILED
+    | CYBER_SCAN_DETECTED
+    | CYBER_SCAN_ATTRIBUTED
+    | CYBER_TRIGGER_EVALUATION
+    | CYBER_TRIGGER_EXECUTION
+   })
+{
+   <event_output-cyber-event-type>
+})
+
+# WsfCyberScriptObserver.cpp
+(rule observer-event-type {
+   CYBER_ATTACK_INITIATED
+ | CYBER_ATTACK_SUCCEEDED
+ | CYBER_ATTACK_FAILED
+ | CYBER_ATTACK_DETECTED
+ | CYBER_ATTACK_ATTRIBUTED
+ | CYBER_ATTACK_RECOVERY
+ | CYBER_SCAN_INITIATED
+ | CYBER_SCAN_SUCCEEDED
+ | CYBER_SCAN_FAILED
+ | CYBER_SCAN_DETECTED
+ | CYBER_SCAN_ATTRIBUTED
+ | CYBER_TRIGGER_EVALUATION
+ | CYBER_TRIGGER_EXECUTION
+})

@@ -1,0 +1,115 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once utils.txt
+
+start_date jan 1 2020
+start_time 12:00:00.000
+end_time 28 day
+
+platform test_input WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.0
+      inclination 5 deg
+      raan 35 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      revs_per_day 2
+      
+      mission_sequence
+         maneuver intercept
+            execute_at relative_time 300 s
+            target
+               libration_point earth_moon l5
+            end_target
+            maximum_delta_v 5 km/s
+            optimize_time
+         end_maneuver
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform test_script WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      eccentricity 0.0
+      inclination 5 deg
+      raan 35 deg
+      argument_of_periapsis 0 deg
+      true_anomaly 0 deg
+      revs_per_day 2
+   end_mover
+end_platform
+
+execute at_time 300 s absolute
+   WsfPlatform test = WsfSimulation.FindPlatform("test_script");
+   WsfSpaceMover mover = (WsfSpaceMover)test.Mover();
+   
+   WsfTargetPoint target = WsfTargetPoint.ConstructFromLibrationPoint(WsfLibrationPointSystem.EARTH_MOON(),
+                                                                      WsfLibrationPointSelection.L4());
+   WsfRendezvousManeuver mvr = WsfRendezvousManeuver.Construct(WsfOrbitalEventCondition.AT_RELATIVE_TIME(0.0),
+                                                               target,
+                                                               WsfOrbitalManeuver.EARLIEST_TIME(),
+                                                               0.0,
+                                                               5000.0);
+   mover.ExecuteManeuver(mvr);
+end_execute
+
+script_variables
+   int gNumComplete = 0;
+end_script_variables
+
+script void ReportOnManeuver(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.Type() == "INTERCEPT")
+   {
+      gNumComplete = gNumComplete + 1;
+      ExpectBool(aPlatform.Name() == "test_input", true, "test_input should complete an intercept");
+      Vec3 pos = aPlatform.LocationECI();
+      Vec3 moon = Moon.LocationECI(WsfDateTime.CurrentTime());
+      Vec3 deltaSatMoon = Vec3.Subtract(pos, moon);
+      ExpectNearRelative(pos.Magnitude(), deltaSatMoon.Magnitude(), 1.0e-5, "Intercept should reach equilateral point");
+      WsfLibrationPoint eml = WsfLibrationPoint.Construct(WsfLibrationPointSystem.EARTH_MOON());
+      Vec3 l5pos = eml.LocationECI(WsfLibrationPointSelection.L5(), WsfDateTime.CurrentTime());
+      Vec3 l5vel = eml.VelocityECI(WsfLibrationPointSelection.L5(), WsfDateTime.CurrentTime());
+      ExpectNearRelative(pos.X(), l5pos.X(), 1.0e-5, "Intercept L5 pos X test");
+      ExpectNearRelative(pos.Y(), l5pos.Y(), 1.0e-5, "Intercept L5 pos Y test");
+      ExpectNearRelative(pos.Z(), l5pos.Z(), 1.0e-5, "Intercept L5 pos Z test");
+   }
+   if (aManeuver.Type() == "RENDEZVOUS")
+   {
+      gNumComplete = gNumComplete + 1;
+      ExpectBool(aPlatform.Name() == "test_script", true, "test_script should complete an intercept");
+      Vec3 pos = aPlatform.LocationECI();
+      Vec3 vel = aPlatform.VelocityECI();
+      Vec3 moon = Moon.LocationECI(WsfDateTime.CurrentTime());
+      Vec3 deltaSatMoon = Vec3.Subtract(pos, moon);
+      ExpectNearRelative(pos.Magnitude(), deltaSatMoon.Magnitude(), 1.0e-6, "Rendezvous should reach equilateral point");
+      WsfLibrationPoint eml = WsfLibrationPoint.Construct(WsfLibrationPointSystem.EARTH_MOON());
+      Vec3 l4pos = eml.LocationECI(WsfLibrationPointSelection.L4(), WsfDateTime.CurrentTime());
+      Vec3 l4vel = eml.VelocityECI(WsfLibrationPointSelection.L4(), WsfDateTime.CurrentTime());
+      ExpectNearRelative(pos.X(), l4pos.X(), 1.0e-6, "Rendezvous L4 pos X test");
+      ExpectNearRelative(pos.Y(), l4pos.Y(), 1.0e-6, "Rendezvous L4 pos Y test");
+      ExpectNearRelative(pos.Z(), l4pos.Z(), 1.0e-6, "Rendezvous L4 pos Z test");
+      ExpectNearRelative(vel.X(), l4vel.X(), 1.0e-10, "Rendezvous L4 vel X test");
+      ExpectNearRelative(vel.Y(), l4vel.Y(), 1.0e-10, "Rendezvous L4 vel Y test");
+      ExpectNearRelative(vel.Z(), l4vel.Z(), 1.0e-10, "Rendezvous L4 vel Z test");
+   }
+end_script
+
+script void FinalReport()
+   if (gNumComplete != 2)
+   {
+      gAnyFailure = true;
+      writeln("-FAIL- Two maneuvers should have completed. ", gNumComplete);
+   }
+end_script
+
+observer
+   enable ORBITAL_MANEUVER_COMPLETED ReportOnManeuver
+   enable SIMULATION_COMPLETE FinalReport
+end_observer

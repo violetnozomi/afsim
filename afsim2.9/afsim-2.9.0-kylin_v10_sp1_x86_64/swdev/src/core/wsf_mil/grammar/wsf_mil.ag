@@ -1,0 +1,3653 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#
+# wsf_mil commands
+#
+
+(rule weapon-effect-variable-value {
+   <variable-reference> "/default" <string>
+ | <variable-reference>
+ | (typeref weaponEffectType)
+})
+
+# A sub-command in ballistic_missile_launch_computer and WSF_BALLISTIC_MISSILE_LAUNCH_COMPUTER
+(rule ballistic-target-command {
+   target_data <string>
+      { aero (typeref aeroType)
+      | mass <Mass>
+      }*
+   end_target_data
+})
+
+(struct root
+   (var ObjectMap/WSF_LAUNCH_COMPUTER launchComputerType)
+   (var ObjectMap/Weapon weaponType)
+   (var ObjectMap/WeaponEffect weaponEffectType)
+   (var ObjectMap/WSF_EW_EFFECT EW_Effect)
+   (var ObjectMap/WSF_EA_TECHNIQUE EA_Technique)
+   (var ObjectMap/WSF_EP_TECHNIQUE EP_Technique)
+   (var ObjectMap/WSF_ELECTRONIC_ATTACK electronicAttack)
+   (var ObjectMap/WSF_ELECTRONIC_PROTECT electronicProtect)
+   (var ObjectMap/PkTable pkTable)
+
+   (rule launch-computer-type {
+      launch_computer <string> <string> (new (type launchComputerType $1) (type launchComputerType $2) :backup (type launchComputerType WSF_LAUNCH_COMPUTER)) [apply($$)]
+         <TypeCommand>*
+      end_launch_computer
+    | (error { launch_computer <ignore>* end_launch_computer })
+   })
+
+   (rule weapon-type {
+      weapon <string> <string> (new (type weaponType $1) (type weaponType $2) :backup (type weaponType WSF_EXPLICIT_WEAPON)) [apply($$)] <TypeCommand>* end_weapon
+    | (error { weapon <ignore>* end_weapon } )
+   })
+
+   (rule weapon-effects-type {
+      weapon_effects <string> <string> (new (type weaponEffectType $1) (type weaponEffectType $2) :backup (type weaponEffectType WSF_SPHERICAL_LETHALITY)) [apply($$)]
+         <TypeCommand>*
+      end_weapon_effects
+    | weapon_effects <string> <string> (new_replace (type weaponEffectType $1) (type weaponEffectType $2) :backup (type weaponEffectType WSF_SPHERICAL_LETHALITY)) [apply($$)]
+         <TypeCommand>*
+      end_weapon_effects
+    | (error { weapon_effects <ignore>* end_weapon_effects })
+   })
+{
+      <launch-computer-type>
+    | <weapon-type>
+    | <weapon-effects-type>
+    | electronic_warfare_effect <string> <string> (new (type EW_Effect $1) (type EW_Effect $2)) [apply($$)]
+         <TypeCommand>*
+      end_electronic_warfare_effect
+    | (error { electronic_warfare_effect <ignore>* end_electronic_warfare_effect })
+    | electronic_warfare_technique <string> <string> (new (type EA_Technique $1) (type EA_Technique $2)) [apply($$)]
+         <TypeCommand>*
+      end_electronic_warfare_technique
+    | electronic_warfare_technique <string> <string> (new (type EP_Technique $1) (type EP_Technique $2)) [apply($$)]
+         <TypeCommand>*
+      end_electronic_warfare_technique
+    | (error { electronic_warfare_technique <ignore>* end_electronic_warfare_technique })
+    | electronic_warfare <string> <string> (new (type electronicAttack $1) (type electronicAttack $2)) [apply($$)]
+         <TypeCommand>*
+      end_electronic_warfare
+    | electronic_warfare <string> <string> (new (type electronicProtect $1) (type electronicProtect $2)) [apply($$)]
+         <TypeCommand>*
+      end_electronic_warfare
+    | (error { electronic_warfare <ignore>* end_electronic_warfare })
+    | pk_table <string> (new_replace (type pkTable $1) (type pkTable WSF_PK_TABLE)) [apply($$)]
+         <PkTable>*
+      end_pk_table
+    | ballistic_missile_launch_computer <ballistic-target-command>* end_ballistic_missile_launch_computer
+})
+
+(struct Platform
+   (var ObjectMap/Weapon weapons)
+   (rule type-command {
+      weapon <string> <string> (new (subtype weapons $1) (type weaponType $2) :backup (type weaponType WSF_EXPLICIT_WEAPON)) [apply($$)]
+         <TypeCommand>*
+      end_weapon
+   })
+   (rule instance-command {
+      weapon <string> (load (subtype weapons $1)) [apply($$)] <TypeCommand>* end_weapon
+   })
+   {
+   weapon_effects <weapon-effect-variable-value>
+ | weapon_effects_type <string>
+ | add weapon <string> <string> (new (subtype weapons $2) (type weaponType $3) :backup (type weaponType WSF_EXPLICIT_WEAPON)) [apply($$)] <TypeCommand>* end_weapon
+ | edit weapon <string> (load (subtype weapons $2)) [apply($$)] <TypeCommand>* end_weapon
+ | delete weapon <string> (delete (subtype weapons $2)) [apply($$)]
+ | on_death remove
+ | on_death disable
+   }
+)
+
+(struct WSF_EW_TECHNIQUE
+   (var ObjectMap/WSF_EW_EFFECT EW_Effect)
+{
+   effect <string> (load (subtype EW_Effect $1)) [apply($$)] <TypeCommand>* end_effect
+ | effect <string> <string> (new (subtype EW_Effect $1) (type EW_Effect $2)) [apply($$)] <TypeCommand>* end_effect
+ | default_on
+ | debug
+})
+
+(struct WSF_EA_TECHNIQUE   :base_type WSF_EW_TECHNIQUE
+                           :symbol (type EA_Technique WSF_EA_TECHNIQUE)
+{
+   mitigation_class <string>
+ | mitigation_class_name <string>
+ | <WSF_EW_TECHNIQUE>
+})
+
+(struct WSF_EP_TECHNIQUE   :base_type WSF_EW_TECHNIQUE
+                           :symbol (type EP_Technique WSF_EP_TECHNIQUE)
+{
+   mitigated_techniques <string>* end_mitigated_techniques
+ | mitigated_technique_classes <string>* end_mitigated_technique_classes
+ | internally_controlled
+ | externally_controlled
+ | <WSF_EW_TECHNIQUE>
+})
+
+(struct WSF_ELECTRONIC_ATTACK :symbol (type electronicAttack WSF_ELECTRONIC_ATTACK)
+   (var ObjectMap/WSF_EA_TECHNIQUE EA_Technique)
+{
+   debug
+ | technique <string> (load (subtype EA_Technique $1)) [apply($$)]
+      <TypeCommand>*
+   end_technique
+ | technique <string> <string> (new (subtype EA_Technique $1) (type EA_Technique $2)) [apply($$)]
+      <TypeCommand>*
+   end_technique
+ | technique <string> (new (subtype EA_Technique $1) (type EA_Technique WSF_EA_TECHNIQUE)) [apply($$)]
+      <TypeCommand>*
+   end_technique
+})
+
+(struct WSF_ELECTRONIC_PROTECT :symbol (type electronicProtect WSF_ELECTRONIC_PROTECT)
+   (var ObjectMap/WSF_EP_TECHNIQUE EP_Technique)
+{
+   debug
+ | technique <string> (load (subtype EP_Technique $1)) [apply($$)]
+      <TypeCommand>*
+   end_technique
+ | technique <string> <string> (new (subtype EP_Technique $1) (type EP_Technique $2)) [apply($$)]
+      <TypeCommand>*
+   end_technique
+ | technique <string> (new (subtype EP_Technique $1) (type EP_Technique WSF_EP_TECHNIQUE)) [apply($$)]
+      <TypeCommand>*
+   end_technique
+})
+
+(struct WSF_FT_SCREENER :symbol (type false_target_screener WSF_FT_SCREENER)
+   (rule force-target-tracks-command
+      (rule range-Force {
+         none | inside_blip_range | outside_blip_range | both | inside_outside_blip_range | outside_inside_blip_range
+      })
+   {
+      range_force <range-Force>
+    | sector_force <Angle> <integer>
+    | range_sector_force <Length> <Angle> <integer>
+    | j_to_s_delta_threshold <Ratio>
+   })
+{
+   plot_capacity <integer>
+ | track_capacity <integer>
+ | transfer_capacity <integer>
+ | random_scan_to_scan <real>
+ | consistent_scan_to_scan <real>
+ | initial_reject random_scan_to_scan <real>
+ | initial_reject consistent_scan_to_scan <real>
+ | reject random_scan_to_scan <real>
+ | reject consistent_scan_to_scan <real>
+ | allow_track_reporting_when_flooded <Bool>
+ | request_based_tracking <Bool>
+ | only_screen_false_target_track_requests <Bool>
+ | debug
+ | force_target_tracks
+      <force-target-tracks-command>*
+   end_force_target_tracks
+})
+
+(rule false-target-screener-instance {
+   false_target_screener <string> <string> (load (type false_target_screener $2))
+      <TypeCommand>*
+   end_false_target_screener
+})
+
+
+(struct Transmitter
+   (var WSF_ELECTRONIC_ATTACK electronicAttack)
+{
+  electronic_attack <string> (new_replace (subtype electronicAttack) (type electronicAttack $1))
+      [copy(electronicAttack, ..electronicAttack.$1)]
+      <TypeCommand>* end_electronic_attack
+ | electronic_attack (load (subtype electronicAttack))
+      [push(electronicAttack)]
+      <TypeCommand>*
+   end_electronic_attack
+ | electronic_attack (new_replace (subtype electronicAttack) (type electronicAttack WSF_ELECTRONIC_ATTACK))
+      [copy(electronicAttack, ..electronicAttack.$1)]
+      <TypeCommand>*
+   end_electronic_attack
+})
+
+(struct Receiver
+   (var WSF_ELECTRONIC_PROTECT electronicProtect)
+{
+  electronic_protect <string> (new_replace (subtype electronicProtect) (type electronicProtect $1))
+      [copy(electronicProtect, ..electronicProtect.$1)]
+      <TypeCommand>*
+   end_electronic_protect
+ | electronic_protect (load (subtype electronicProtect))
+      [push(electronicProtect)]
+      <TypeCommand>*
+   end_electronic_protect
+ | electronic_protect (new_replace (subtype electronicProtect) (type electronicProtect WSF_ELECTRONIC_PROTECT))
+      [copy(electronicProtect, ..electronicProtect.$1)]
+      <TypeCommand>*
+   end_electronic_protect
+})
+
+
+(struct WSF_INTERSECT_PROCESSOR :base_type Processor
+                                :symbol (type processorType WSF_INTERSECT_PROCESSOR)
+{
+   define_offset <string> <Length> <Length> <Length>
+ | intersect_mesh (file-reference intersect-mesh)
+ | <Processor>
+})
+
+
+(struct WSF_QUANTUM_TASKER_PROCESSOR :symbol (type processorType WSF_QUANTUM_TASKER_PROCESSOR)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WsfQuantumTaskerProcessor PROCESSOR :this 1)
+   (rule quantum-command
+      (rule asset-rep-type { systems | platform | resources })
+      (rule realloc-type { static | dynamic | response | event })
+      (rule gen-type { custom <string> | simple_weapon | simple_jammer | simple_sensor })
+      (rule eval-type { custom <string> | simple | distance | intercept_time })
+      (rule alloc-type { custom <string> | simple | greedy_isolated | greedy_value | greedy_profit | greedy_priority | optimal_profit })
+   {
+      show_task_messages
+    | comm_retry_attempts     <integer>
+    | comm_retry_interval     <Time>
+    | asset_representation    <asset-rep-type>
+    | reallocation_strategy   <realloc-type>
+    | generator               <gen-type>
+    | evaluator               <eval-type>
+    | allocator               <alloc-type> type <string>
+    | allocator               <alloc-type>
+    | allocator_extra_tasks   <alloc-type>
+    | allocator_extra_assets  <alloc-type>
+    | update_assignments
+   })
+{
+   <quantum-command>
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+(struct WSF_TASK_PROCESSOR
+{
+   weapon_uplink_path (typeref .sensors) (typeref .comms)
+ | uplink_source <string>
+ | uplink_comm <string>
+ | uplink_delay <Time>
+ | auto_weapon_uplink <Bool>
+ | auto_weapon_uplink_platform <string>
+ | uplink_send_interval <Time>
+})
+
+
+(struct WSF_THREAT_PROCESSOR :symbol (type processorType WSF_THREAT_PROCESSOR)
+                             :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WsfThreatProcessor PROCESSOR :this 1)
+{
+   threat_velocity <Speed>
+ | threat_angle_spread <Angle>
+ | threat_time_to_intercept <Time>
+ | require_iff_foe <Bool>
+ | ignore_lower_altitude_threats <Bool>
+ | ignore_without_location <Bool>
+ | ignore_without_velocity <Bool>
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+
+(struct WSF_WEAPON_THREAT_PROCESSOR :symbol (type processorType WSF_WEAPON_THREAT_PROCESSOR)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (rule pk-max-cmd {
+       type pure_pursuit
+     | step_distance <Length>
+     | step_count <Int>
+   })
+   (rule weapon-load-cmd {
+      <String> <real>
+   })
+   (rule entity-load-cmd {
+        entity_type <String>
+      | weapons <weapon-load-cmd>* end_weapons
+   })
+   (rule entity-load-block {
+      entity_load <entity-load-cmd>* end_entity_load
+   })
+   (rule pk-spherical-cmd {
+        range <Length>
+      | pk_min <real>
+      | pk_max <real>
+   })
+   (rule weapon-type-cmd {
+        type_name <String>
+      | launch_pk <real>
+      | pk_spherical <pk-spherical-cmd>* end_pk_spherical
+      | pk_table table_name <String> end_pk_table
+   })
+   (rule weapon-type-block {
+      weapon_type <weapon-type-cmd>* end_weapon_type
+   })
+{
+   track_classifier <String>
+ | weapons_types_table <weapon-type-block>* end_weapons_types_table
+ | weapons_load_table <entity-load-block>* end_weapons_load_table
+ | pk_maximizer <pk-max-cmd>* end_pk_maximizer
+})
+
+
+(struct WSF_TRACK_CLASSIFIER :symbol (type processorType WSF_TRACK_CLASSIFIER)
+   :base_type WSF_LINKED_PROCESSOR
+   (rule entity-misclass-cmd {
+       <String> <real>
+   })
+   (rule misclass-block {
+       misclass <entity-misclass-cmd>* end_misclass
+   })
+   (rule entity-classify-cmd {
+       type <String>
+     | pcid <real>
+     | <misclass-block>
+   })
+   (rule entity-classify-block {
+      entity <entity-classify-cmd>* end_entity
+   })
+   (rule classifier-block {
+      classifier <String> identification_table <entity-classify-block>* end_identification_table end_classifier
+   })
+{
+   debug
+ | test
+ | <classifier-block>
+})
+
+
+(struct WeaponEffect
+   (script-var WsfWeaponEngagement ENGAGEMENT :this 1)
+{
+   excluded_category (name category)
+ | incidental_damage_allowed <Bool>
+ | remove_weapon_platform <Bool>
+ | allow_incidental_damage
+ | do_not_allow_incidental_damage
+ | use_launch_pk
+ | use_intercept_pk
+# | use_pk_table <string>             Only used by WSF_SPHERICAL_LETHALITY
+ | launch_pk <real>
+ | intercept_pk <real>
+# | circular_error_probable <Length>  Only used by WSF_TABULAR_LETHALITY which is not suitable for use and has no grammar
+# | damage_radius <Length>            Not used directly, WSF_HEL_LETHALITY uses it but also sets it based on its own input grammar
+ | debug
+ | draw_endgame_pk
+ | on_target_damaged
+      <ScriptFunctionBlock>*
+   end_on_target_damaged
+ | on_target_killed
+      <ScriptFunctionBlock>*
+   end_on_target_killed
+ | <object-script-context-command>
+#| WsfPk::TableManager command        Only used by WSF_SPHERICAL_LETHALITY
+ | <wsfobject-command>
+})
+
+# file WsfExplicitWeaponEffects.cpp
+(struct WSF_EXPLICIT_WEAPON_EFFECT
+   :base_type WeaponEffect
+{
+   maximum_radius <Length>
+ | <WeaponEffect>
+})
+
+# file WsfCarltonLethality.cpp
+(struct WSF_CARLTON_LETHALITY :symbol (type weaponEffectType WSF_CARLTON_LETHALITY)
+   :base_type WSF_EXPLICIT_WEAPON_EFFECT
+{
+   (error { use_launch_pk | launch_pk | intercept_pk })
+ | d_zero <real>
+ | lethal_area (typeref platformType) <Area>
+ | <WSF_EXPLICIT_WEAPON_EFFECT>
+})
+
+# file WsfExoAtmosphericLethality.cpp
+(struct WSF_EXOATMOSPHERIC_LETHALITY :symbol (type weaponEffectType WSF_EXOATMOSPHERIC_LETHALITY)
+   :base_type WSF_EXPLICIT_WEAPON_EFFECT
+{
+   (error { use_launch_pk | launch_pk | intercept_pk })
+ | impact_angle_and_pk <Angle> <real>
+ | impact_velocity_and_pk <Speed> <real>
+ | <WSF_EXPLICIT_WEAPON_EFFECT>
+})
+
+# file WsfGraduatedLethality.cpp
+(struct WSF_GRADUATED_LETHALITY :symbol (type weaponEffectType WSF_GRADUATED_LETHALITY)
+   :base_type WSF_EXPLICIT_WEAPON_EFFECT
+   (rule pk-and-radius {
+      radius_and_pk <Length> <real>
+    | pk_and_radius <real> <Length>
+   })
+{
+   (error { use_launch_pk | use_intercept_pk | use_pk_table | launch_pk | intercept_pk })
+ | use_3d_radius
+ | use_3d_offsets
+ | use_2d_radius
+ | use_2d_offsets
+ | discrete
+ | interpolated
+ | target_type (typeref platformType) <pk-and-radius>*
+   # optional end block not supported
+ | end_target_type
+ | <pk-and-radius>
+ | <WSF_EXPLICIT_WEAPON_EFFECT>
+})
+
+
+# file WsfSphericalLethality.cpp
+(struct WSF_SPHERICAL_LETHALITY :symbol (type weaponEffectType WSF_SPHERICAL_LETHALITY)
+   :base_type WSF_EXPLICIT_WEAPON_EFFECT
+{
+   minimum_radius <Length>
+ | maximum_radius <Length>
+ | minimum_damage <real>
+ | maximum_damage <real>
+ | exponent <real>
+ | threshold_damage <real>
+ | <WSF_EXPLICIT_WEAPON_EFFECT>
+ | use_pk_table <string>
+ | pk_table <string> (new_replace (type pkTable $1) (type pkTable WSF_PK_TABLE)) [apply($$)]
+     <PkTable>*
+   end_pk_table
+})
+
+
+# file WsfMobilityAndFirepowerLethality.cpp
+(struct WSF_MOBILITY_AND_FIREPOWER_LETHALITY :symbol (type weaponEffectType WSF_MOBILITY_AND_FIREPOWER_LETHALITY)
+   :base_type WSF_EXPLICIT_WEAPON_EFFECT
+   (rule distance-type-value {
+      missile_to_target
+    | countermeasure_to_target
+    | missile_to_countermeasure
+   })
+   (rule mfk-table {
+      probability_of_damage_given_proximity_hit <real>
+    | probability_of_mk_given_damage <real>
+    | probability_of_fk_given_damage <real>
+    | probability_of_kk_given_damage <real>
+   })
+   (rule vulner-ability {
+      minimum_duration <Time>
+    | maximum_half_cone_angle <Angle>
+    | maximum_distance <Length>
+    | minimum_distance <Length>
+    | distance_value <distance-type-value>*
+    | pk_factor <real>
+    | probability_of_weapon_defeat <real>
+    | alternate_mfk_table_name <string>
+   })
+   (rule target-type {
+      mfk_table_name <string>
+    | vulnerability <string>
+        <vulner-ability>*
+      end_vulnerability
+   })
+{
+   (error { use_launch_pk | launch_pk | intercept_pk })
+ | update_interval <Time>
+ | table <string>
+    <mfk-table>*
+   end_table
+ | mfk_table <string>
+    <mfk-table>*
+   end_mfk_table
+ | target_type <string>
+    <target-type>*
+   end_target_type
+ | <WSF_EXPLICIT_WEAPON_EFFECT>
+})
+
+# file WsfHEL_Lethality.cpp
+(struct WSF_HEL_LETHALITY :symbol (type weaponEffectType WSF_HEL_LETHALITY)
+                          :base_type WeaponEffect
+   (rule entry {
+      region (typeref platformType) <string>
+    | category <string>
+    | platform_type (typeref platformType)
+    | <string>
+   })
+   (rule tablePair {
+      <real> <Energy>
+   })
+   (rule effect
+     (rule type-value { lethal_platform | lethal_platform_part | custom })
+   {
+      minimum_energy         <Energy>
+    | minimum_energy_density <Fluence>
+    | minimum_fluence        <Fluence>
+    | pk_energy_table
+        <integer>
+        <tablePair>*
+      end_pk_energy_table
+    | damage_radius          <Length>
+    | type                   <type-value>
+   })
+{
+   manage_kills <Bool>
+ | region (typeref platformType) <string>
+      <effect>*
+   end_region
+ | target_type (typeref platformType)
+      <effect>*
+   end_target_type
+ | category <string>
+      <effect>*
+   end_category
+ | <WeaponEffect>
+ | damage_radius <Length>
+})
+
+(struct Weapon
+   :base_type ArticulatedPart
+   (var Real quantity :default 0.0)
+   (var Real maximumQuantity :default 0.0)
+   (var String launchedPlatformType)
+   (var Time firingInterval)
+   (var Time updateInterval)
+   (var Int maximumRequestCount)
+   (var Time reloadTime)
+   (var Bool automaticTargetCueing :default true)
+   (var Bool cueToPredictedIntercept :default false)
+   (var Bool inhibitWhileReloading :default false)
+   (var RealVariable reloadThreshold)
+   (var RealVariable reloadIncrement)
+   (var RealVariable reloadInventory)
+{
+   quantity <real>                           [quantity=$$]
+ | maximum_quantity <real>                   [maximumQuantity=$$]
+ | launched_platform_type <platform-type-variable-value>    [launchedPlatformType=$$]
+#| launched_platform_type (typeref platformType)            [launchedPlatformType=$$]
+ | firing_delay <:RandomTime>
+ | salvo_interval <:RandomTime>
+ | firing_interval <Time>                    [firingInterval=$$]
+ | update_interval <Time>                    [updateInterval=$$]
+ | maximum_request_count <integer>           [maximumRequestCount=$$]
+ | unknown_target_range <Length>
+ | unknown_target_altitude <Length> agl
+ | unknown_target_altitude <Length> msl
+ | unknown_target_altitude <Length> relative
+ | automatic_target_cueing <Bool>            [automaticTargetCueing=$$]
+ | cue_to_predicted_intercept <Bool>         [cueToPredictedIntercept=$$]
+ | reload_threshold <$reloadThreshold>
+ | reload_increment <$reloadIncrement>
+ | reload_inventory <$reloadInventory>
+ | reload_time <Time>                        [reloadTime=$$]
+ | inhibit_while_reloading <Bool>            [inhibitWhileReloading=$$]
+ | weapon_effects (typeref weaponEffectType)
+ | launch_computer <string> (new (subtype LaunchComputerSubtype) (type launchComputerType $1)) <TypeCommand>* end_launch_computer
+ | launch_computer (load (subtype LaunchComputerSubtype)) <TypeCommand>* end_launch_computer
+ | <:AuxData.block>
+ | <ArticulatedPart>
+})
+
+(struct WSF_IMPLICIT_WEAPON
+   :symbol (type weaponType WSF_IMPLICIT_WEAPON)
+   :base_type Weapon
+{
+   <Weapon>
+})
+
+(struct WSF_EXPLICIT_WEAPON
+   :symbol (type weaponType WSF_EXPLICIT_WEAPON)
+   :base_type Weapon
+   (script-var WsfWeapon WEAPON :this 1)
+   (script-var WsfPlatform PLATFORM)
+   (var String commander)
+   (var Bool requireInterceptPoint :default false)
+   (var Bool requireLoftAngle :default false)
+   (var Time deferredLaunchDelay)
+{
+   launch_delta_v <real> <real> <real> <speed-unit>
+ | ignore_launch_platform_velocity <Bool>
+ | commander SELF
+ | commander LAUNCHER
+ | commander LAUNCHER_COMMANDER
+ | commander (typeref platform)                             [commander=$$]
+ | command_chain (name command_chain) (typeref platform)
+ | require_intercept_point                                  [requireInterceptPoint=true]
+ | require_loft_angle                                       [requireLoftAngle=true]
+ | deferred_launch_delay <Time>                             [deferredLaunchDelay=$$]
+ | dis_entity_id_offset <integer>
+ | <object-script-context-command>
+ | <Weapon>
+})
+
+
+(struct AntennaPattern :symbol (type antennaPattern WSF_ANTENNA_PATTERN)
+   (rule esa-taylor-weighting-command {
+      sidelobe_level_x <Ratio>
+    | sidelobe_level_y <Ratio>
+    | n_bar_x <integer>
+    | n_bar_y <integer>
+      # Optional terminator:
+    | end_distribution_type
+   })
+
+   (rule esa-command {
+      element_spacing_x <Length>
+    | element_spacing_y <Length>
+    | length_x <Length>
+    | length_y <Length>
+    | number_elements_x <integer>
+    | number_elements_y <integer>
+    | exponent_x <real>
+    | exponent_y <real>
+    | distribution_type taylor <esa-taylor-weighting-command>*
+    | distribution_type uniform
+    | amplitude_quantization_bits <integer>
+    | phase_quantization_bits <integer>
+    | failed_elements_ratio <real>
+    | lattice <string>
+    | debug
+    | element_pattern <string>
+    | back_baffled <Bool>
+    | <base-command>
+   })
+{
+   esa_pattern <esa-command>*
+ | end_esa_pattern
+})
+
+
+(struct JammerXmtrAntenna
+   (var Antenna antenna)
+   (var Transmitter transmitter)
+   (var ObjectMap/WSF_EA_TECHNIQUE EA_Technique)
+   (var ObjectMap/WSF_ELECTRONIC_ATTACK electronicAttack)
+   (rule jammer-xmtr-command {
+      ignore (name category)
+    | ignore_side (name side)
+    | ignore_domain <domain-value>
+    | ignore_same_side
+    | frequency_band <Frequency> <Frequency>
+    | electronic_attack (typeref WSF_ELECTRONIC_ATTACK) end_electronic_attack
+#    | electronic_attack (new (subtype EA_Technique) (type electronicAttack WSF_ELECTRONIC_ATTACK)) [apply($$)]
+#         technique <string> (load (subtype EA_Technique $1)) [apply($$)]
+#            <TypeCommand>*
+#         end_technique
+#       | technique <string> <string> (new (subtype EA_Technique $1) (type EA_Technique $2)) [apply($$)]
+#            <TypeCommand>*
+#         end_technique
+#       | technique <string> (new (subtype EA_Technique $1) (type EA_Technique WSF_EA_TECHNIQUE)) [apply($$)]
+#            <TypeCommand>*
+#         end_technique
+#      end_electronic_attack
+#    | electronic_attack <string> (load (type electronicAttack $1)) [apply($$)]
+#         technique <string> (load (subtype EA_Technique $1)) [apply($$)]
+#            <TypeCommand>*
+#         end_technique
+#       | technique <string> <string> (new (subtype EA_Technique $1) (type EA_Technique $2)) [apply($$)]
+#            <TypeCommand>*
+#         end_technique
+#       | technique <string> (new (subtype EA_Technique $1) (type EA_Technique WSF_EA_TECHNIQUE)) [apply($$)]
+#            <TypeCommand>*
+#         end_technique
+#      end_electronic_attack
+   })
+   (rule xmtr-command { <$antenna> | <$transmitter> | <jammer-xmtr-command> })
+{
+   <$antenna>
+ | transmitter
+      <xmtr-command>*
+   end_transmitter
+ | <xmtr-command>
+})
+
+(struct WSF_RF_JAMMER_mode
+   (var JammerXmtrAntenna xmtrAntenna)
+   (var Int maximumSpotsPerBeam)
+   (var Int maximumNumberOfBeams)
+   (var Int maximumNumberOfSpots)
+   (var Bool frequencyFollowing)
+   (var Bool signalFollowing)
+   (var Bool isBeamAveragePower :default true)
+
+   (rule jammer-beam-command {
+      maximum_spots_per_beam <$maximumSpotsPerBeam>
+    | spot_power_distribution average
+    | spot_power_distribution constant
+    | power_distribution constant
+    | power_distribution average
+   })
+   (rule repeater-command {
+      frequency_following <$frequencyFollowing>
+    | signal_following <$signalFollowing>
+    | operating_mode manual
+    | operating_mode semi-auto
+    | operating_mode semi_auto
+    | operating_mode auto
+    | debug_repeater
+    | debug
+   })
+
+{
+   <$xmtrAntenna>
+ | <jammer-beam-command>
+ | maximum_number_of_beams <$maximumNumberOfBeams>
+ | maximum_number_of_spots <$maximumNumberOfSpots>
+ | beam_power_distribution average     [isBeamAveragePower=true]
+ | beam_power_distribution constant    [isBeamAveragePower=false]
+ | <repeater-command>
+ | repeater
+      <repeater-command>*
+   end_repeater
+})
+
+(struct WSF_RF_JAMMER
+   :symbol (type weaponType WSF_RF_JAMMER)
+   (symbol (type weaponType WSF_RF_JAMMER template) WSF_RF_JAMMER_mode)
+   :base_type Weapon
+   (var WSF_RF_JAMMER_mode template)
+   (var ObjectMap/WSF_RF_JAMMER_mode mode)
+   (var String jammerGroup)
+   (var Bool isConstantPower :default true)
+{
+   jammer_group <$jammerGroup>
+ | group_power_distribution average  [isConstantPower=false]
+ | group_power_distribution constant [isConstantPower=true]
+   # | <mode-command>
+   # edit mode template, edit mode, add mode, implicit mode
+ | mode_template (load (subtype template)) [push(template)]
+      <TypeCommand>*
+   end_mode_template
+ | mode <string> (load (subtype mode $1)) [apply($$)]
+      <TypeCommand>*
+   end_mode
+ | mode <string> (new (subtype mode $1) (subtype template)) [apply($$)]
+      <TypeCommand>*
+   end_mode
+ | [push(template)] <WSF_RF_JAMMER_mode>
+ | <Weapon>
+})
+
+# WsflaserDesignations
+(rule laser-designations-command
+{
+   debug_laser_designations
+ | debug_print_modulus <integer>
+ | send_external
+ | do_not_send_external
+ | stale_out_interval <Time>
+ | update_interval <Time>
+ | platform_radius <Length>
+}
+)
+
+(rule root-command {
+ laser_designations <laser-designations-command>* end_laser_designations
+})
+
+# WsfHighEnergyLaser.cpp
+(struct fluenceModel
+   (rule laser-type { carbon_dioxide | nd_yag | coil | deuterium_fluoride })
+{
+   calculate_incidence <Bool>
+ | jitter <Angle>
+ | atmospheric_structure <string>
+ | CN2_form <string>
+ | aperture_diameter <Length>
+ | wavelength <Length>
+ | laser_type <laser-type>
+ | power <Power>
+ | beam_quality <real>
+ | focus_beam <Bool>
+})
+
+# WsfDefaultHEL.cpp
+(struct defaultFluence    :base_type fluenceModel
+                          :symbol (type fluenceModelType default)
+{
+   <fluenceModel>
+ | atmosphere_model <integer>
+ | haze_model <integer>
+})
+
+(struct root
+   (var ObjectMap/fluenceModel fluenceModelType)
+)
+
+(struct WSF_LASER_WEAPON   :base_type Weapon
+                           :symbol (type weaponType WSF_LASER_WEAPON)
+{
+   firing_time <Time>
+ | fluence_model <string> (load (type fluenceModelType $1)) <TypeCommand>* end_fluence_model
+ | firing_update_interval <Time>
+ | cooling_update_interval <Time>
+ | number_of_shots <integer>
+ | cooling_time <Time>
+ | efficiency <real>
+ | high_temperature_limit <Temperature>
+ | low_temperature_limit <Temperature>
+ | thermal_system
+      <WSF_THERMAL_SYSTEM>*
+   end_thermal_system
+ | use_thermal_system (typeref thermalSystem)
+ | minimum_total_firing_time <Time>
+ | comments <Bool>
+ | <Weapon>
+})
+
+(struct WSF_CUED_LASER_WEAPON    :base_type WSF_LASER_WEAPON
+                                 :symbol (type weaponType WSF_CUED_LASER_WEAPON)
+{
+   <WSF_LASER_WEAPON>
+ | beam_director <string>
+ | use_default_beam_director
+})
+
+# WSF_LASER_DESIGNATOR (WsfLaserDesignator.cpp)
+(struct WSF_LASER_DESIGNATOR_mode
+   :symbol (type sensorType WSF_LASER_DESIGNATOR template)
+   :base_type WSF_SENSOR_MODE
+{
+   <:XmtrAntenna>
+ | <WSF_SENSOR_MODE>
+})
+
+(struct WSF_LASER_DESIGNATOR
+   :symbol (type sensorType WSF_LASER_DESIGNATOR)
+   :base_type Sensor
+{
+   laser_code <integer>
+ | private_debug
+ | maximum_target_association_distance <Length>
+ | terrain_float_distance <Length>
+ | target_association_staleout_interval <Time>
+ | maximum_transmission_range <Length>
+ | <mode-command>
+ | <sensor-tracker-command>
+ | <Sensor>
+})
+
+# WSF_LASER_TRACKER (WsfLaserTracker.cpp)
+(struct WSF_LASER_TRACKER_mode
+   :symbol (type sensorType WSF_LASER_TRACKER template)
+   :base_type WSF_SENSOR_MODE
+{
+   detection_threshold <real>
+ | <:Antenna>
+ | <:Receiver>
+ | <receiver-block>
+ | <WSF_SENSOR_MODE>
+})
+
+(struct WSF_LASER_TRACKER
+   :symbol (type sensorType WSF_LASER_TRACKER)
+   :base_type Sensor
+{
+    laser_code <integer>
+ | private_debug
+ | <mode-command>
+ | <sensor-tracker-command>
+ | <Sensor>
+})
+
+# WSF_ACOUSTIC_SENSOR (WsfAcousticSensor.cpp)
+(struct WSF_ACOUSTIC_SENSOR_mode
+   :symbol (type sensorType WSF_ACOUSTIC_SENSOR template)
+   :base_type WSF_SENSOR_MODE
+   (rule noise-level {
+      jungle_day | jungle_night | industrial | rural | residential
+   })
+{
+   detection_threshold <real>
+ | acoustic_type human
+ | verbose
+ | background_noise <noise-level>
+ | <:Antenna>
+ | <:Receiver>
+ | <receiver-block>
+ | <WSF_SENSOR_MODE>
+})
+
+# WsfJamStrobeDetector.cpp
+(struct JamStrobeDetector
+   (var Bool reportsBearing :default false)
+   (var Bool reportsElevation :default false)
+{
+   gaussian_azimuth_error_sigma <Angle>
+ | gaussian_azimuth_error_sigma <real> fraction_of_beamwidth
+ | gaussian_elevation_error_sigma <Angle>
+ | gaussian_elevation_error_sigma <real> fraction_of_beamwidth
+ | uniform_azimuth_error_sigma <Angle>
+ | uniform_azimuth_error_sigma <real> fraction_of_beamwidth
+ | uniform_elevation_error_sigma <Angle>
+ | uniform_elevation_error_sigma <real> fraction_of_beamwidth
+ | uniform_azimuth_error_bound <Angle>
+ | uniform_azimuth_error_bound <real> fraction_of_beamwidth
+ | uniform_elevation_error_bound <Angle>
+ | uniform_elevation_error_bound <real> fraction_of_beamwidth
+ | jamming_perception_threshold <Ratio>
+ | continuous_jamming_perception_threshold <Ratio>
+ | pulsed_jamming_perception_threshold <Ratio>
+ | coherent_jamming_perception_threshold <Ratio>
+ | reports_nothing             [reportsBearing=false;reportsElevation=false]
+ | reports_bearing             [reportsBearing=true]
+ | reports_elevation           [reportsElevation=true]
+ | track_quality               <real>
+})
+
+# WsfEW_SensorComponent.cpp
+(rule ew-sensor-component-beam-commands
+{
+   jamming_perception_threshold <Ratio>
+ | continuous_jamming_perception_threshold <Ratio>
+ | pulsed_jamming_perception_threshold <Ratio>
+ | coherent_jamming_perception_threshold <Ratio>
+})
+
+(rule ew-sensor-component-mode-commands
+{
+   jamming_perception_timeout <Time>
+})
+
+# WsfCTD_SensorComponent.cpp
+(rule ctd-delta-commands
+{
+   azimuth_delta <Angle>
+ | elevation_delta <Angle>
+ | range_delta <Length>
+})
+(rule close-target-detection-block-commands
+{
+   acquire_deltas <ctd-delta-commands>* end_acquire_deltas
+ | reacquire_deltas <ctd-delta-commands>* end_reacquire_deltas
+ | debug
+})
+(rule ctd-sensor-component-beam-commands
+{
+   close_target_detection <close-target-detection-block-commands>* end_close_target_detection
+})
+
+(struct WSF_ACOUSTIC_SENSOR
+   :symbol (type sensorType WSF_ACOUSTIC_SENSOR)
+   :base_type Sensor
+{
+   <mode-command>
+ | <sensor-tracker-command>
+ | <Sensor>
+})
+
+
+(struct WSF_BEAM_DIRECTOR_MODE
+   :symbol (type sensorType WSF_BEAM_DIRECTOR template)
+   :base_type WSF_SENSOR_MODE
+   (rule mode-type { scanning | locked | cued })
+{
+   angular_resolution <Angle>
+ | perfect_correlation <Bool>
+ | type <mode-type>
+ | min_pixels_for_cue <integer>
+ | <:XmtrRcvrAntenna>
+ | <WSF_SENSOR_MODE>
+})
+
+
+(struct WSF_BEAM_DIRECTOR
+   :symbol (type sensorType WSF_BEAM_DIRECTOR)
+   :base_type Sensor
+{
+   comments <Bool>
+ | <mode-command>
+ | <sensor-tracker-command>
+ | <Sensor>
+})
+
+
+# Common base class for WsfEOIR_Sensor::EOIR_Mode and WsfIRST_Sensor::IRST_Mode (WsfEOIR_IRST_SensorMode.cpp)
+(struct WSF_EOIR_IRST_SENSOR_MODE
+   :base_type WSF_SENSOR_MODE
+   (rule optical-band-value {
+      visual | <infrared-band-value>
+   })
+
+{
+   band <optical-band-value>
+ | bands <optical-band-value>+ end_bands
+ | detect_negative_contrast <Bool>
+ | detector_model detailed
+ | detector model simple
+ | detector_gain <real>
+ | integration_gain <real>
+ | nei <real> <string>
+ | NEI <real> <string>
+ | noise_equivalent_irradiance <real> <string>
+ | detection_threshold <real>
+ | atmospheric_attenuation <real> per <string>
+ | background_radiance dynamic
+ | background_radiance <real> <string>
+ | background_radiance_above_horizon <real> <string>
+ | background_radiance_below_horizon <real> <string>
+ | background_transition_region <Angle> <Angle>
+ | path_radiance <real> <string>
+ | print_computed_data
+ | target_solar_illumination_angle <Angle> <Angle>
+ | solar_elevation_at_target <Angle> <Angle>
+ | <:RcvrAntenna>
+ | <:Receiver>
+ | <WSF_SENSOR_MODE>
+})
+
+
+# WSF_EOIR_SENSOR (WsfEOIR_Sensor.cpp)
+(struct WSF_EOIR_SENSOR_mode
+   :symbol (type sensorType WSF_EOIR_SENSOR template)
+   :base_type WSF_EOIR_IRST_SENSOR_MODE
+{
+   angular_resolution <Angle>
+ | pixel_count <integer> <integer>
+ | <WSF_EOIR_IRST_SENSOR_MODE>
+})
+
+(struct WSF_EOIR_SENSOR
+   :symbol (type sensorType WSF_EOIR_SENSOR)
+   :base_type Sensor
+ {
+   call_sensor_track_observers <Bool>
+ | <Sensor>
+ | <mode-command>
+})
+
+# WSF_ESM_SENSOR (WsfESM_Sensor.cpp)
+(struct WSF_ESM_SENSOR_beam
+   :base_type WSF_PASSIVE_SENSOR_beam
+   :symbol (type sensorType WSF_ESM_SENSOR template beams 1)
+{
+   <WSF_PASSIVE_SENSOR_beam>
+})
+
+(struct WSF_ESM_SENSOR_mode
+   :symbol (type sensorType WSF_ESM_SENSOR template)
+   :base_type WSF_PASSIVE_SENSOR_mode
+{
+   <WSF_PASSIVE_SENSOR_mode>
+})
+
+(struct WSF_ESM_SENSOR
+   :symbol (type sensorType WSF_ESM_SENSOR)
+   :base_type WSF_PASSIVE_SENSOR
+{
+   <WSF_PASSIVE_SENSOR>
+})
+
+# WSF_IRST_SENSOR (WsfIRST_Sensor.cpp)
+(struct WSF_IRST_SENSOR_mode :symbol (type sensorType WSF_IRST_SENSOR template)
+                             :symbol (type sensorType WSF_IR10T_FLIR_SENSOR template)
+   :base_type WSF_EOIR_IRST_SENSOR_MODE
+{
+   <WSF_EOIR_IRST_SENSOR_MODE>
+})
+
+(struct WSF_IRST_SENSOR :symbol (type sensorType WSF_IRST_SENSOR)
+                        :base_type Sensor
+{
+   <Sensor>
+ | <mode-command>
+ | <sensor-tracker-command>
+})
+
+(rule laser-transmitter-command {
+   aperture_diameter <Length>
+ | average_power <Power>
+ | optics_transmission_factor <real>
+ | optics_loss <Ratio>
+ | beamwidth <Angle>
+ | beam_divergence_angle <Angle>
+ | wavefront_transmission_factor <real>
+ | wavefront_loss <Ratio>
+ | wavefront_error <real>
+ | pointing_loss <Ratio>
+ | pointing_error <Angle>
+ | pointing_transmission_factor <real>
+ | pointing_loss <Ratio>
+ | <:Transmitter>
+})
+
+(rule laser-receiver-command {
+   aperture_diameter <Length>
+ | bandpass <Length>
+ | beamwidth <Angle>
+ | optics_transmission_factor <real>
+ | optics_loss <Ratio>
+ | focal_length <Length>
+ | detector_size <Length>
+ | quantum_efficiency <real>
+ | detector_gain <real>
+ | circuit_temperature <Temperature>
+ | circuit_capacitance <Capacitance>
+ | dark_count_rate <Frequency>
+ | dark_current <Current>
+ | background_temperature <Temperature>
+ | excess_noise_factor <real>
+ | pointing_transmission_factor <real>
+ | pointing_loss <Ratio>
+ | responsivity <Responsivity>
+ | noise_equivalent_power <Power>
+ | <:Receiver>
+})
+
+# WSF_LADAR_SENSOR (WsfLADAR_Sensor.cpp)
+(struct WSF_LADAR_SENSOR_mode
+   :symbol (type sensorType WSF_LADAR_SENSOR template)
+   :base_type WSF_SENSOR_MODE
+{
+   transmitter
+      <laser-transmitter-command>*
+   end_transmitter
+ | receiver
+      <laser-receiver-command>*
+   end_receiver
+ | <:Antenna>
+ | background_temperature <Temperature>
+ | background_irradiance <SpectralIrradiance>
+ | integration_gain <real>
+ | detection_threshold <real>
+ | detection_probability <ignore>* end_detection_probability
+ | <WSF_SENSOR_MODE>
+})
+
+(struct WSF_LADAR_SENSOR
+   :symbol (type sensorType WSF_LADAR_SENSOR)
+   :base_type Sensor
+   (var WSF_LADAR_SENSOR_mode template)
+   (var ObjectMap/WSF_LADAR_SENSOR_mode mode)
+{
+   <Sensor>
+ | <sensor-tracker-command>
+   # edit mode template, edit mode, add mode, implicit mode
+ | mode_template (load (subtype template)) [push(template)] <TypeCommand>* end_mode_template
+ | mode <string> (load (subtype mode $1)) [apply($$)] <TypeCommand>* end_mode
+ | mode <string> (new (subtype mode $1) (subtype template)) [apply($$)] <TypeCommand>* end_mode
+ | (load (subtype template)) [apply($$)] <TypeCommand>
+})
+
+
+# WSF_OPTICAL_SENSOR (WsfOpticalSensor.cpp)
+(struct WSF_OPTICAL_SENSOR :symbol (type sensorType WSF_OPTICAL_SENSOR)
+   :base_type Sensor
+   (rule glimpse-probability {
+      azimuth_fov <Angle>
+    | minimum_elevation <Angle>
+    | maximum_elevation <Angle>
+    | number_of_iterations <integer>
+    | magnification <real>
+    | apparent_half_angle_FOV <Angle>
+    | minimum_resolution <Angle>
+    | contrast_gain <real>
+    | ocular_integration_interval <Angle>
+   })
+{
+   search_glimpse_data <glimpse-probability>* end_search_glimpse_data
+ | reacquire_glimpse_data <glimpse-probability>* end_reacquire_glimpse_data
+ | track_glimpse_data <glimpse-probability>* end_track_glimpse_data
+ | atmospheric_attenuation <real> per <string>
+ | background_radiance <real> <string>
+ | path_radiance <real> <string>
+ | reacquisition_time <Time>
+ | <:Antenna>
+ | <:Receiver>
+ | <receiver-block>
+ | verbose
+ | test_transmittance
+ | [skip()] <mode-command>
+ | <sensor-tracker-command>
+ | <Sensor>
+})
+
+
+(struct WSF_OPTICAL_SENSOR_MODE
+   :symbol (type sensorType WSF_OPTICAL_SENSOR template)
+   :base_type WSF_SENSOR_MODE
+{
+   target_solar_illumination_angle <Angle> <Angle>
+ | solar_elevation_at_target <Angle> <Angle>
+ | <WSF_SENSOR_MODE>
+})
+
+
+# WSF_OTH_RADAR_SENSOR (WsfOTH_RadarSensor.cpp)
+(struct WSF_OTH_RADAR_SENSOR_beam
+   :symbol (type sensorType WSF_OTH_RADAR_SENSOR template beams 1)
+   (var Ratio integrationGain)
+   (var XmtrRcvrAntenna xmtrRcvr)
+   (rule error-model-parameters-command {
+      azimuth_beamwidth <Angle>
+    | elevation_beamwidth <Angle>
+    | pulse_width <Time>
+    | receiver_bandwidth <Frequency>
+   })
+   (rule gmti-adjustment-command
+   {
+      closing_speed <Speed> adjustment <Ratio>
+    | doppler_frequency <Frequency> adjustment <Ratio>
+   })
+   (rule ddlc-mti-command {
+      interpulse_period_1 <Time>
+    | interpulse_period_2 <Time>
+    | clutter_lock <Bool>
+    | number_mti_stages <integer>
+    | upwind <Bool>
+    | wind_velocity <Speed>
+    | sea_state <integer>
+   })
+   (rule solar-characteristic {
+      hour_of_day <integer>
+    | day_of_year <integer>
+   })
+   (rule ionospheric-characteristic {
+      electron_temperature <real>
+   |  electron_density_at_max <real>
+   |  electron_height_at_max <Length>
+   |  reflection_height <Length>
+   |  ionosphere_constrains_minimum_range <Bool>
+   })
+{
+   [push(xmtrRcvr)] <XmtrRcvrAntenna.default>
+ | noise_environment <EM-noise-environment-level>
+ | doppler_resolution <Speed>
+ | integration_gain <Ratio> [integrationGain=$$]
+ | adjustment_factor <Ratio>
+ | operating_loss <Ratio>
+ | detection_threshold <Ratio>
+ | post_lockon_detection_threshold_adjustment <Ratio>
+ | post_lockon_adjustment_delay_time <Ratio>
+ | number_of_pulses_integrated <integer>
+ #| <detection-probability-table>
+ | detector_law <:DetectorLaw>
+ | probability_of_false_alarm <real>
+ | swerling_case <integer>
+ | no_swerling_case
+ | error_model_parameters <error-model-parameters-command>* end_error_model_parameters
+ | one_m2_detect_range <Length>
+ | range_product <AreaDB>
+ | loop_gain <Ratio>
+ | look_down_factor <Ratio>
+ | prf_factor <Ratio>
+ | <ew-sensor-component-beam-commands>
+ | <ctd-sensor-component-beam-commands>
+ | clutter_attenuation_factor <Ratio>
+ | max_mti_range <Length>
+ | solar_characteristics <solar-characteristic>* end_solar_characteristics
+ | ionospheric_characteristics <ionospheric-characteristic>* end_ionospheric_characteristics
+ | <signal-processor-system-command>
+})
+
+(struct WSF_OTH_RADAR_SENSOR_mode
+   :symbol (type sensorType WSF_OTH_RADAR_SENSOR template)
+   :base_type WSF_SENSOR_MODE
+   (var ObjectMap/WSF_OTH_RADAR_SENSOR_beam beams)  # size=1
+   (initially { [new(beams,1)] _ } )
+{
+   compute_measurement_errors <Bool>
+ | override_measurement_with_truth <Bool>
+ | receive_only
+ | transmit_only
+ | <ew-sensor-component-mode-commands>
+ | frequency_select_delay <Time>
+ | <WSF_SENSOR_MODE>
+ | (load (subtype beams 1)) [push(beams.1)] <TypeCommand>
+ | beam <integer> (load (subtype beams $1)) [apply($$)] #[push(beams.$1)]
+      <TypeCommand>*
+   end_beam
+ | beam <integer> (new (subtype beams $1) (subtype beams 1)) [apply($$)]
+      <TypeCommand>*
+   end_beam
+})
+
+(struct WSF_OTH_RADAR_SENSOR
+   :symbol (type sensorType WSF_OTH_RADAR_SENSOR)
+   :base_type Sensor
+   (var WSF_OTH_RADAR_SENSOR_mode template)
+   (var ObjectMap/WSF_OTH_RADAR_SENSOR_mode mode)
+   (rule ddc-subcommand {
+      interpulse_period_1 <Time>
+    | interpulse_period_2 <Time>
+    | clutter_lock <Bool>
+    | number_mti_stages <integer>
+    | upwind <Bool>
+    | wind_velocity <Speed>
+    | sea_state <integer>
+   })
+   (rule solar-characteristic {
+      hour_of_day <integer>
+    | day_of_year <integer>
+   })
+   (rule ionospheric-characteristic {
+      electron_temperature <real>
+    | electron_density_at_max <real>
+    | electron_height_at_max <Length>
+    | reflection_height <Length>
+    | ionosphere_constrains_minimum_range <Bool>
+   })
+   (rule error-parameter {
+      azimuth_beamwidth <Angle>
+    | elevation_beamwidth <Angle>
+    | pulse_width <Time>
+    | receiver_bandwidth <Frequency>
+   })
+{
+   noise_environment <EM-noise-environment-level>
+ | integration_gain <Ratio>
+ | adjustment_factor <Ratio>
+ | operating_loss <Ratio>
+ | detection_threshold <Ratio>
+ | post_lockon_detection_threshold_adjustment <Ratio>
+ | post_lockon_adjustment_delay_time <Time>
+ | number_of_pulses_integrated <integer>
+ | detector_law <:DetectorLaw>
+ | probability_of_false_alarm <real>
+ | swerling_case <integer>
+ | no_swerling_case
+ | error_model_parameters <error-parameter>* error_model_parameters
+ | one_m2_detect_range <Length>
+ | range_product <Area>
+ | loop_gain <Ratio>
+ | look_down_factor <Ratio>
+ | prf_factor <Ratio>
+ | clutter_attenuation_factor <Ratio>
+ | solar_characteristics <solar-characteristic>* end_solar_characteristics
+ | ionospheric_characteristics <ionospheric-characteristic>* end_ionospheric_characteristics
+ | <sensor-tracker-command>
+ | <Sensor>
+   # edit mode template, edit mode, add mode, implicit mode
+ | mode_template (load (subtype template)) [push(template)] <TypeCommand>* end_mode_template
+ | mode <string> (load (subtype mode $1)) [apply($$)] <TypeCommand>* end_mode
+ | mode <string> (new (subtype mode $1) (subtype template)) [apply($$)] <TypeCommand>* end_mode
+ | (load (subtype template)) [apply($$)] <TypeCommand>
+})
+
+# WSF_RADAR_SENSOR (WsfRadarSensor.cpp)
+(struct WSF_RADAR_SENSOR_beam
+{
+    <ew-sensor-component-beam-commands>
+  | <ctd-sensor-component-beam-commands>
+  | <false-target-screener-instance>
+})
+
+(struct WSF_RADAR_SENSOR_mode
+# (var JamStrobeDetector jamStrobeDetector)
+ (rule jam-strobe-detector {
+   [skip()] <JamStrobeDetector>
+ })
+{
+   <ew-sensor-component-mode-commands>
+ | jam_strobe_detector <jam-strobe-detector>* end_jam_strobe_detector
+ | maintain_track_measurement_history <Bool>
+})
+
+#(struct WSF_RADAR_SENSOR
+#   :symbol (type sensorType WSF_RADAR_SENSOR)
+#   :base_type WSF_RADAR_SENSOR
+#{
+#   <WSF_RADAR_SENSOR>
+#})
+
+# file WsfSurfaceWaveRadarSensor.cpp
+(rule EM-noise-environment-level {
+   business | residential | rural | quiet_rural
+})
+
+
+# WSF_SAR_SENSOR (WsfSAR_Sensor.cpp)
+(struct WSF_SAR_SENSOR_mode
+   :base_type WSF_SENSOR_MODE
+   :symbol (type sensorType WSF_SAR_SENSOR template)
+   (enumeration SAR_OperatingMode
+      (values spot 0 strip 1)
+   {  spot [this=0]
+    | spotlight [this=0]
+    | strip [this=1]
+    | stripmap [this=1]
+   })
+   (var XmtrRcvrAntenna xmtrRcvr)
+   (var SAR_OperatingMode operatingMode :default 0)
+   (var Bool automaticTurnOff :default false)
+   (var Time dwellTime)
+   (var Time imageFormationTime)
+   (var Length resolution)
+   (var Time maximumDwellTime)
+   (var Ratio minimumClutterToNoiseRatio)
+   (var Speed maximumDetectableSpeed)
+   (var Bool inhibitSubstandardCollection)
+   (var Angle angularResolution)
+   (var Ratio detectionThreshold)
+   (var Ratio integrationGain)
+   (var Ratio adjustmentFactor)
+   (var Length oneM2_Range)
+   (var Length imageWidth)
+   (var Length imageHeight)
+
+   (rule error-model-command {
+      platform_position_error_sigmas <Length> <Length> <Length>
+    | platform_position_error_sigmas_NED <Length> <Length> <Length>
+    | platform_velocity_error_sigmas <Speed> <Speed> <Speed>
+    | platform_velocity_error_sigmas_NED <Speed> <Speed> <Speed>
+    | inter_system_time_delay <Time>
+    | range_error_sigma <Length>
+    | doppler_frequency_error_sigma <Frequency>
+    | transmit_frequency_error_sigma <Frequency>
+    | range_cursor_location_error_sigma <Length>
+    | range_target_selection_error_sigma <Length>
+    | doppler_cursor_location_error_sigma <Length>
+    | doppler_target_selection_error_sigma <Length>
+    | atmospheric_refraction_residual <real>
+   })
+{
+   [push(xmtrRcvr)] <XmtrRcvrAntenna.default>
+ | operating_mode <$operatingMode>
+ | automatic_turn_off                           [automaticTurnOff=true]
+ | doppler_filter_broadening_factor <real>
+ | doppler_foldover_margin_factor <real>
+ | doppler_overcollect_ratio <real>
+ | dwell_time <$dwellTime>
+ | image_formation_time <$imageFormationTime>
+ | resolution <$resolution>
+ | desired_resolution <$resolution>
+ | desired_image_resolution <$resolution>
+ | maximum_dwell_time <$maximumDwellTime>
+ | maximum_image_formation_time <$maximumDwellTime>
+ | minimum_clutter_to_noise_ratio <$minimumClutterToNoiseRatio>
+ | maximum_detectable_speed <$maximumDetectableSpeed>
+ | inhibit_substandard_collection <$inhibitSubstandardCollection>
+ | sar_error_model_parameters
+      <error-model-command>*
+   end_sar_error_model_parameters
+ | angular_resolution <$angularResolution>
+ | detection_threshold <$detectionThreshold>
+ | integration_gain <$integrationGain>
+ | adjustment_factor <$adjustmentFactor>
+ | one_m2_detect_range <$oneM2_Range>
+ | image_height <$imageHeight>
+ | image_width <$imageWidth>
+ | image_size <Length>              [imageHeight=$1;imageWidth=$1]
+ | <WSF_SENSOR_MODE>
+})
+
+
+(struct WSF_SAR_SENSOR
+   :symbol (type sensorType WSF_SAR_SENSOR)
+   :base_type Sensor
+   (var WSF_SAR_SENSOR_mode template)
+   (var ObjectMap/WSF_SAR_SENSOR_mode mode)
+{
+   rescale_substandard_image <Bool>
+ | automatic_turn_off
+ | sar_constraint_plotting <Bool>
+ | show_status
+ | call_sensor_track_observers <Bool>
+ | backscatter_coefficient <Ratio>
+ | intensity_limits <Power> <Power>
+ | intensity_range <Power>
+ | <Sensor>
+   # edit mode template, edit mode, add mode, implicit mode
+ | mode_template (load (subtype template)) [push(template)] <TypeCommand>* end_mode_template
+ | mode <string> (load (subtype mode $1)) [apply($$)] <TypeCommand>* end_mode
+ | mode <string> (new (subtype mode $1) (subtype template)) [apply($$)] <TypeCommand>* end_mode
+ | (load (subtype template)) [apply($$)] <TypeCommand>
+})
+
+
+(struct WSF_SURFACE_WAVE_RADAR_SENSOR_mode :symbol (type sensorType WSF_SURFACE_WAVE_RADAR_SENSOR template)
+   :base_type WSF_SENSOR_MODE
+   (rule error-parameters {
+      azimuth_beamwidth <Angle>
+    | elevation_beamwidth <Angle>
+    | pulse_width <Time>
+    | receiver_bandwidth <Frequency>
+   })
+{
+   <:Antenna>
+ | <transmitter-block>
+ | <receiver-block>
+ | noise_environment <EM-noise-environment-level>
+ | integration_gain <Ratio>
+ | adjustment_factor <Ratio>
+ | operating_loss <Ratio>
+ | detection_threshold <Ratio>
+ | number_of_pulses_integrated <integer>
+ | detector_law <:DetectorLaw>
+ | probability_of_false_alarm <real>
+ | swerling_case <integer>
+ | no_swerling_case
+ | error_model_parameters <error-parameters>* end_error_model_parameters
+ | compute_measurement_errors <Bool>
+ | <WSF_SENSOR_MODE>
+})
+
+
+# WSF_SURFACE_WAVE_RADAR_SENSOR (WsfSurfaceWaveRadarSensor.cpp)
+(struct WSF_SURFACE_WAVE_RADAR_SENSOR :symbol (type sensorType WSF_SURFACE_WAVE_RADAR_SENSOR)
+   :base_type Sensor
+{
+   <Sensor>
+ | <mode-command>
+ | <sensor-tracker-command>
+})
+
+(struct WSF_SUBSURFACE_RADIO_RCVR :symbol (type commType WSF_SUBSURFACE_RADIO_RCVR)
+                                  :base_type WSF_SUBSURFACE_RADIO_TRANSCEIVER
+{
+   <WSF_SUBSURFACE_RADIO_TRANSCEIVER>
+})
+
+(struct WSF_SUBSURFACE_RADIO_XMTR :symbol (type commType WSF_SUBSURFACE_RADIO_XMTR)
+                                  :base_type WSF_SUBSURFACE_RADIO_TRANSCEIVER
+{
+   <WSF_SUBSURFACE_RADIO_TRANSCEIVER>
+})
+
+(struct WSF_SUBSURFACE_RADIO_XMTR_RCVR :symbol (type commType WSF_SUBSURFACE_RADIO_XMTR_RCVR)
+                                       :base_type WSF_SUBSURFACE_RADIO_TRANSCEIVER
+{
+   <WSF_SUBSURFACE_RADIO_TRANSCEIVER>
+})
+
+(struct WSF_SUBSURFACE_RADIO_TRANSCEIVER :symbol (type commType WSF_SUBSURFACE_RADIO_TRANSCEIVER)
+                                         :base_type WSF_RADIO_TRANSCEIVER
+{
+   water_attenuation_factor <real> <string>
+ | minimum_horizon_angle <Angle>
+ | set_VLF_comm
+ | unset_VLF_comm
+ | max_underwater_range_filter <Length>
+ | max_communication_depth <Length>
+ | <WSF_RADIO_TRANSCEIVER>
+})
+
+(struct WSF_JTIDS_TERMINAL
+   :symbol (type commType WSF_JTIDS_TERMINAL)
+   :base_type Comm
+   (rule slot-group-command
+      (rule packing-format {
+         standard | std
+       | p2sp | packed-2-single-pulse
+       | p2dp | packed-2-double-pulse
+       | p4sp | packed-4-single-pulse
+      })
+   {
+      network <integer>
+    | slots_per_frame <integer>
+    | per_unit_slots_per_frame <integer>
+    | receive_only
+    | tsec <integer>
+    | msec <integer>
+    | npg <string>
+    | queue_limit <integer>
+    | packing_limit <packing-format>
+    | relay
+    | relay_slot_offset <integer>
+    | receive_slot_block <string>
+    | transmit_slot_block <string>
+    | contention_access_mode <integer>
+   })
+{
+   slot_group <string> <slot-group-command>* end_slot_group
+ | relay_slot_group <string> <string> <slot-group-command>* end_relay_slot_group
+ | command_chain <string> <string>
+ | maximum_range <Length>
+ | <:Antenna>
+ | <:Receiver>
+ | <:Transmitter>
+ | <transmitter-block>
+ | <receiver-block>
+ | time_per_slot <Time>
+ | sets_per_frame <integer>
+ | slots_per_set <integer>
+ | slot_size <DataSize>
+ | <Comm>
+})
+
+# WsfCommComponentLaser_HW.cpp
+(struct CommComponentLaserHardware
+   :base_type CommComponentHardware
+   {
+      <attenuation-instance>
+    | aero_optic_transmission_factor <real>
+    | aero_optic_loss <Ratio>
+    | attenuation_transmission_factor <real>
+    | attenuation_loss <Ratio>
+    | turbulence_transmission_factor <real>
+    | turbulence_loss <Ratio>
+    | background_radiance <SpectralRadiance>
+    | background_irradiance <SpectralIrradiance>
+    | show_link_budget <Bool>
+    | <CommComponentHardware>
+   })
+
+# WsfCommTypes.cpp
+(struct WSF_LASER_TRANSCEIVER
+   :symbol (type commType WSF_LASER_XMTR_RCVR)
+   :symbol (type commType WSF_LASER_TRANSCEIVER)
+   :base_type Comm
+   (rule commLaserBase
+   {
+      <:DatalinkLayer>
+    | <:PhysicalLayer>
+    | <:PhysicalLayerLegacy>
+    | <:PhysicalLayerRF_Legacy>
+    | <:CommComponentLaserHardware>
+    | <Comm>
+   })
+   ( rule modulationType
+   {
+      ook
+    | ppm
+    | dpsk
+   })
+   ( rule laser-comm-transmitter-command
+   {
+      <laser-transmitter-command>
+    | modulation_type <modulationType>
+    | slot_rate  <Frequency>
+    | slot_width <Time>
+    | ppm_order  <integer>
+   })
+   (rule commLaserTransmit
+   {
+      transmitter
+         <laser-comm-transmitter-command>*
+      end_transmitter
+   })
+   (rule commLaserReceive
+   {
+      receiver
+         <laser-receiver-command>*
+      end_receiver
+   })
+   {
+      <commLaserBase>
+    | <commLaserTransmit>
+    | <commLaserReceive>
+    | atmospheric_structure <string>
+   }
+)
+
+# WsfCommTypes.cpp
+(struct WSF_LASER_RCVR
+   :symbol (type commType WSF_LASER_RCVR)
+   :base_type WSF_LASER_TRANSCEIVER
+   {
+      <WSF_LASER_TRANSCEIVER.commLaserBase>
+    | <WSF_LASER_TRANSCEIVER.commLaserReceive>
+   }
+)
+
+# WsfCommTypes.cpp
+(struct WSF_LASER_XMTR
+   :symbol (type commType WSF_LASER_XMTR)
+   :base_type WSF_LASER_TRANSCEIVER
+   {
+      <WSF_LASER_TRANSCEIVER.commLaserBase>
+    | <WSF_LASER_TRANSCEIVER.commLaserTransmit>
+   }
+)
+
+# file WsfPkTable.cpp
+(struct PkTable :symbol (type pkTable WSF_PK_TABLE)
+   (rule inline-table-command {
+      inline_table <integer> <integer> <real>*
+   })
+   (rule pk-table-command {
+       constant <real>
+     | <inline-table-command>
+   })
+   (rule target-block {
+      target_speed <Speed> <pk-table-command> end_target_speed
+   })
+   (rule weapon-block {
+      weapon_speed <Speed> <target-block>* end_weapon_speed
+   })
+   (rule target-type-command {
+       constant <real>
+     | <inline-table-command>
+     | <weapon-block>*
+   })
+{
+   target_type <string> <target-type-command> end_target_type
+})
+
+
+# file WsfWeaponTrackProcessor.cpp
+
+(struct WSF_WEAPON_TRACK_PROCESSOR :symbol (type processorType WSF_WEAPON_TRACK_PROCESSOR)
+   :base_type Processor
+   (rule turn-on-condition {
+      after_launch | before_intercept | to_target
+   })
+{
+   turn_on_sensor <string> at_range <Length> <turn-on-condition>
+ | turn_on_sensor <string> at_time <Time> <turn-on-condition>
+ | coast_time <Time>
+ | switch_time <Time>
+ | switch_range <Length>
+ | ignore_uplink_target_change
+ | uplink_required <Bool>
+ | <object-script-context-command>
+ | <object-message-script-command>
+ | <Processor>
+})
+
+
+# file WsfGuidanceProgram.cpp
+(rule WSF_GUIDANCE_PROGRAM-base-commands {
+   debug
+})
+
+# AltitudeProgram
+(struct ALTITUDE_PROGRAM
+   :symbol (type guidance_program ALTITUDE_PROGRAM)
+{
+   altitude <Length> {agl | msl}?
+ | <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# AttitudeProgram
+(struct ATTITUDE_PROGRAM
+   :symbol (type guidance_program ATTITUDE_PROGRAM)
+{
+   yaw <Angle>
+ | yaw_rate <AngleRate>
+ | pitch <Angle>
+ | pitch_rate <AngleRate>
+ | roll <Angle>
+ | roll_rate <AngleRate>
+ | yaw_fixed <Angle>
+ | pitch_fixed <Angle>
+ | reset
+ | <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# NullProgram
+(struct NULL_PROGRAM
+   :symbol (type guidance_program NULL_PROGRAM)
+{
+   <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# FlightPathAngleProgram
+(struct FLIGHT_PATH_ANGLE_PROGRAM
+   :symbol (type guidance_program FLIGHT_PATH_ANGLE_PROGRAM)
+{
+   flight_path_angle <Angle>
+ | pitch_rate <AngleRate>
+ | time_constant <Time>
+ | <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# A synonym for FLIGHT_PATH_ANGLE_PROGRAM (compatibility)
+(struct PITCH_OVER_PROGRAM
+   :symbol (type guidance_program PITCH_OVER_PROGRAM)
+   :base_type FLIGHT_PATH_ANGLE_PROGRAM
+{
+   <FLIGHT_PATH_ANGLE_PROGRAM>
+})
+
+# GravityBiasProgram
+(struct GRAVITY_BIAS_PROGRAM
+   :symbol (type guidance_program GRAVITY_BIAS_PROGRAM)
+{
+   gravity_bias <real>
+ | g_bias <real>
+ | <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# GravityTurnProgram
+(struct GRAVITY_TURN_PROGRAM
+   :symbol (type guidance_program GRAVITY_TURN_PROGRAM)
+{
+   <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# InterceptProgram
+(struct INTERCEPT_PROGRAM
+   :symbol (type guidance_program INTERCEPT_PROGRAM)
+{
+   proportional_navigation_gain <real>
+ | proportional_navigation_limit_angle <Angle>
+ | proportional_navigation_method { pure | augmented }
+ | velocity_pursuit_gain <real>
+ | time_constant <Time>
+ | <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# LegacyFlightPathAngleProgram
+(struct LEGACY_FLIGHT_PATH_ANGLE_PROGRAM
+   :symbol (type guidance_program LEGACY_FLIGHT_PATH_ANGLE_PROGRAM)
+{
+   flight_path_angle <Angle>
+ | <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# LegacyProgram
+(struct _LEGACY_PROGRAM_
+   :symbol (type guidance_program _LEGACY_PROGRAM_)
+{
+   <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# OrbitInsertionProgram
+(struct ORBIT_INSERTION_PROGRAM
+   :symbol (type guidance_program ORBIT_INSERTION_PROGRAM)
+{
+   ascent_gravity_bias <real>
+ | ascent_g_bias <real>
+ | maximum_lateral_acceleration <Acceleration>
+ | minimum_insertion_altitude <Length>
+ | coarse_adjustment_threshold <Angle>
+ | fine_adjustment_threshold <Angle>
+ | on_insertion eject_stage
+ | on_insertion continue
+ | show_orbit <Bool>
+ | <WSF_GUIDANCE_PROGRAM-base-commands>
+})
+
+# file WsfGuidanceComputer.cpp
+
+# Define the guidance computer form of variable references.
+# These have to be global because they are also used in guidance programs
+
+(rule gc-real-variable {
+  <real>
+ | /variable <string>
+ | variable <string>
+})
+
+(rule gc-time-variable {
+   <Time>
+ | /variable <string>
+ | variable <string> <time-unit>
+})
+
+(rule gc-length-variable {
+   <Length>
+ | /variable <string>
+ | variable <string> <length-unit>
+})
+
+(rule gc-speed-variable {
+   <Speed>
+ | /variable <string>
+ | variable <string> <speed-unit>
+})
+
+(rule gc-acceleration-variable {
+   <Acceleration>
+ | /variable <string>
+ | variable <string> <acceleration-unit>
+})
+
+(rule gc-angle-variable {
+   <Angle>
+ | /variable <string>
+ | variable <string> <angle-unit>
+})
+
+(rule gc-pressure-variable {
+   <Pressure>
+ | /variable <string>
+ |  variable <string> <pressure-unit>
+})
+
+(struct WSF_GUIDANCE_COMPUTER
+   :base_type WSF_SCRIPT_PROCESSOR
+   :symbol (type processorType WSF_GUIDANCE_COMPUTER)
+   (script-var WsfGuidanceComputer PROCESSOR :this 1)
+   (rule aimpoint-direction { either | left | right })
+   (rule phase-change-condition { "<" | "<=" | "==" | "!=" | ">=" | ">" })
+   (rule next-phase-criteria {
+      end_of_route
+    | boost_complete
+    | stage_ignition
+    | stage_burnout
+    | stage_separation
+    | sensor_track_initiated
+    | program <string> complete
+    | phase_time               <phase-change-condition> <gc-time-variable>
+    | flight_time              <phase-change-condition> <gc-time-variable>
+    | altitude                 <phase-change-condition> <gc-length-variable>
+    | speed                    <phase-change-condition> <gc-speed-variable>
+    | vertical_speed           <phase-change-condition> <gc-speed-variable>
+    | flight_path_angle        <phase-change-condition> <gc-angle-variable>
+    | on_commanded_flight_path_angle
+    | dynamic_pressure         <phase-change-condition> <gc-pressure-variable>
+    | target_altitude          <phase-change-condition> <gc-length-variable>
+    | target_speed             <phase-change-condition> <gc-speed-variable>
+    | target_flight_path_angle <phase-change-condition> <gc-angle-variable>
+    | closing_speed            <phase-change-condition> <gc-speed-variable>
+    | time_to_intercept        <phase-change-condition> <gc-time-variable>
+    | range_to_intercept       <phase-change-condition> <gc-length-variable>
+    | target_slant_range       <phase-change-condition> <gc-length-variable>
+    | target_ground_range      <phase-change-condition> <gc-length-variable>
+    | target_elevation         <phase-change-condition> <gc-angle-variable>
+    | target_azimuth           <phase-change-condition> <gc-angle-variable>
+    | los_target_elevation     <phase-change-condition> <gc-angle-variable>
+    | los_target_azimuth       <phase-change-condition> <gc-angle-variable>
+    | los_target_angle         <phase-change-condition> <gc-angle-variable>
+   })
+   (rule next-phase-command {
+      <string> if <next-phase-criteria>
+    | <string> when <next-phase-criteria>
+   })
+   (rule phase-subcommand {
+     aimpoint_altitude_offset <Length>
+    | aimpoint_azimuth_offset <Angle> <aimpoint-direction>
+    | aimpoint_range_offset <Length>
+    | aimpoint_evaluation_interval <Time>
+    | allow_route_following <Bool>
+    | commanded_altitude <Length> {agl | msl}?
+    | commanded_azimuth_offset <Angle>
+    | commanded_flight_path_angle from_launch_computer
+    | commanded_flight_path_angle <Angle>
+    | commanded_mach <real>
+    | commanded_speed <Speed>
+    | g_bias <real>
+    | guidance_delay <Time>
+    | guidance_target truth
+    | guidance_target perception
+    | guidance_target predicted_intercept
+    | guidance_target default
+    | guide_to_truth <Bool>
+    | lateral_g_bias <real>
+    | maximum_ascent_rate <Speed>
+    | maximum_commanded_g <Acceleration>
+    | maximum_descent_rate <Speed>
+    | maximum_pitch_angle <Angle>
+    | pitch_change_gain <real>
+    | proportional_navigation_gain <real>
+    | proportional_navigation_limit_angle <Angle>
+    | aspect_angle_for_pro_nav_switch <Angle>
+    | proportional_navigation_method pure
+    | proportional_navigation_method augmented
+    | time_constant <Time>
+    | velocity_pursuit_gain <real>
+    | use_program <string>
+    | program <string> (load (type guidance_program $1)) <TypeCommand>* end_program
+    | next_phase <next-phase-command>
+    | on_entry <ScriptBlock>* end_on_entry
+    | on_exit <ScriptBlock>* end_on_exit
+    | on_update <ScriptBlock>* end_on_update
+   # IMU_drift_rate and time_between_GPS_fixes are accepted but not used to allow trival conversion
+   # of WSF_OLD_GUIDANCE_COMPUTER to WSF_GUIDANCE_COMPUTER
+    | IMU_drift_rate <Speed>
+    | time_between_GPS_fixes <Time>
+   })
+   (rule phase-command {
+      copy <string>
+    | <phase-subcommand>
+   })
+{
+   guide_to_truth <Bool>
+ | time_constant <Time>
+ | program <string> <string> (load (type guidance_program $2)) <TypeCommand>* end_program
+ | <phase-subcommand>
+ | phase <string> <phase-command>* end_phase
+ | phase_template <phase-command>* end_phase_template
+ | edit phase <string> <phase-command>* end_phase
+ | show_status
+ | show_diagnostics
+ | show_commands
+ | show_evaluations
+ | show_graphics
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+
+(struct WSF_AIR_TARGET_FUSE :symbol (type processorType WSF_AIR_TARGET_FUSE)
+                            :base_type WSF_WEAPON_FUSE
+{
+   <WSF_WEAPON_FUSE>
+})
+
+(struct WSF_GROUND_TARGET_FUSE
+   :symbol (type processorType WSF_GROUND_TARGET_FUSE)
+   :base_type WSF_WEAPON_FUSE
+{
+   <WSF_WEAPON_FUSE>
+})
+
+
+(struct WSF_WEAPON_FUSE :symbol (type processorType WSF_WEAPON_FUSE)
+                        :base_type WSF_SCRIPT_PROCESSOR
+{
+   time_of_flight_to_arm <Time>
+ | maximum_time_of_flight
+    { <Time>
+    | from_launch_computer delay <Time>
+    | from_launch_computer
+    }
+ | max_time_of_flight_to_detonate
+    { <Time>
+    | from_launch_computer delay <Time>
+    | from_launch_computer
+    }
+ | { detonate_below_height_agl | detonate_below_height_AGL } <Length>
+ | { detonate_below_height_msl | detonate_below_height_MSL } <Length>
+ | { detonate_above_height_agl | detonate_above_height_AGL } <Length>
+ | { detonate_above_height_msl | detonate_above_height_MSL } <Length>
+ | detonate_below_speed <Speed>
+ | detonate_below_mach <real>
+ | detonate_on_mach_decreasing_to <real>
+ | hit_proximity_range <Length>
+ | gross_proximity_range <Length>
+ | fuse_function_range <Length>
+ | update_interval <Time>
+ | gross_update_interval <Time>
+ | fine_update_interval <Time>
+ | do_not_use_current_target
+ | use_current_target
+ | detonate_on_loss_of_target
+ | coast_time_on_loss_of_target <Time>
+ | proximity_cancel_on_loss_of_target
+ | proximity_all_on_loss_of_target
+ | on_intercept { detonate | halt }
+ | air_to_ground_mode
+ | atmosphere_type <string>
+ | exclusive_target_name (typeref platform)
+ | excluded_category (name category)
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+
+(struct WSF_WEAPON_SERVER_PROCESSOR
+   :symbol (type processorType WSF_WEAPON_SERVER_PROCESSOR)
+   :base_type Processor
+{
+   wpn_server_type { DREAMS | WSF | VENDOR_R }
+ | wpn_server_site <integer>
+ | wpn_server_application <integer>
+ | wpn_server_entity <integer>
+ | ack_tolerance_time <Time>
+ | reallocate_on_NACK <Bool>
+ | debug <Bool>
+ | <Processor>
+})
+
+
+(struct WSF_LAUNCH_COMPUTER :symbol (type launchComputerType WSF_LAUNCH_COMPUTER)
+ {
+   maximum_delta_altitude <Length>
+ | minimum_delta_altitude <Length>
+ | maximum_closing_speed <Speed>
+ | minimum_closing_speed <Speed>
+ | maximum_opening_speed <Speed>
+ | minimum_opening_speed <Speed>
+ | maximum_slant_range <Length>
+ | minimum_slant_range <Length>
+ | maximum_time_of_flight <Time>
+ | maximum_boresight_angle <Angle>
+ | thrust_duration <Time>
+ | coast_duration <Time>
+ | burnout_speed <Speed>
+ | minimum_terminal_speed <Speed>
+ | debug
+ | no_debug
+ | commanded_intercept_point <Latitude> <Longitude> <Length>
+ | commanded_launcher_bearing <Angle>
+ | commanded_launcher_elevation <Angle>
+ | commanded_loft_angle <Angle>
+ | commanded_burn_time <Time>
+ | computer_generation_mode <Bool>
+ | show_results
+})
+
+
+(struct WSF_ATA_LAUNCH_COMPUTER :symbol (type launchComputerType WSF_ATA_LAUNCH_COMPUTER)
+                                :base_type WSF_LAUNCH_COMPUTER
+  (rule intercept-results-command {
+      number_of_aspect_angle_bins <integer>
+    | azimuth_bin_count_and_limit <integer> <Angle>
+    | elevation_bin_count_min_and_max_limits <integer> <Angle> <Angle>
+    | range_rate_bin_count_min_and_max_limits <integer> <Speed> <Speed>
+    | firing_range_bin_count_and_values <integer> <Length>*
+    | time_of_flight_values
+         <real>*
+      end_time_of_flight_values
+   })
+
+   (rule rectangular-results-command {
+      aspect_angle_bin_count <integer>
+    | aspect_bin_cint <integer>
+    | azimuth_limit <Angle>
+    | elevation_bin_count <integer>
+    | elevation_lower_limit <Angle>
+    | elevation_upper_limit <Angle>
+    | range_rate_bin_count <integer>
+    | range_rate_lower_limit <Speed>
+    | range_rate_upper_limit <Speed>
+    | range_bin_count <integer>
+    | minimum_ground_range <Length>
+    | maximum_ground_range <Length>
+   })
+{
+   intercept_results <intercept-results-command>* end_intercept_results
+ | generate_rectangular_results <rectangular-results-command>* end_generate_rectangular_results
+ | <WSF_LAUNCH_COMPUTER>
+})
+
+(struct WSF_AIR_TO_AIR_LAUNCH_COMPUTER :symbol (type launchComputerType WSF_AIR_TO_AIR_LAUNCH_COMPUTER)
+                                       :base_type WSF_LAUNCH_COMPUTER
+   (rule table-command
+      (rule ait-independent-variables {
+         shooter_altitudes <Length>* end_shooter_altitudes
+       | target_altitudes <Length>* end_target_altitudes
+       | shooter_machs <real>* end_shooter_machs
+       | target_machs <real>* end_target_machs
+       | target_aspect_angles <Angle>* end_target_aspect_angles
+       | target_aspects <Angle>* end_target_aspects
+       | target_leads <Angle>* end_target_leads
+       | target_lead_angles <Angle>* end_target_lead_angles
+       | target_lead_angle_limits from <Angle> to <Angle> by <Angle>
+      })
+   {
+      # this is a hack --:
+      launch_computer_table
+    | end_launch_computer_table
+    | independent_variables <ait-independent-variables>* end_independent_variables
+    | intercept_results <ignore>* end_intercept_results
+    | no_escape_maneuver <Acceleration>
+   })
+{
+   load_table (file-reference ata-launch-computer-file)
+ | <table-command>
+ | <WSF_LAUNCH_COMPUTER>
+})
+
+(struct WSF_ATG_LAUNCH_COMPUTER :symbol (type launchComputerType WSF_ATG_LAUNCH_COMPUTER)
+                                :base_type WSF_LAUNCH_COMPUTER
+   (rule LAR-command {
+      delta_altitude <Length>
+    | use_zone <string> as <string>
+    | launch_speed <Speed>
+    | sensitivity_range_per_10m_altitude <Length>
+    | sensitivity_range_per_10ms_velocity <Length>
+    | sensitivity_range_per_percent_gradient <Length>
+    | debug
+    | <wsfobject-command>
+   })
+{
+   launch_acceptable_region <string>
+      <LAR-command>*
+   end_launch_acceptable_region
+ | debug_lars
+ | <WSF_LAUNCH_COMPUTER>
+})
+
+(struct WSF_BALLISTIC_LAUNCH_COMPUTER :symbol (type launchComputerType WSF_BALLISTIC_LAUNCH_COMPUTER)
+                                      :base_type WSF_LAUNCH_COMPUTER
+{
+   launch_altitudes <Length> <Length> <integer>
+ | target_altitudes <Length> <Length> <integer>
+ | launch_speeds <Speed> <Speed> <integer>
+ | times_of_flight_values <real>*
+ | downrange_values <real>*
+ | <WSF_LAUNCH_COMPUTER>
+})
+
+(struct WSF_BALLISTIC_MISSILE_LAUNCH_COMPUTER :symbol (type launchComputerType WSF_BALLISTIC_MISSILE_LAUNCH_COMPUTER)
+                                              :base_type WSF_LAUNCH_COMPUTER
+{
+   maximum_launch_slant_range <Length>
+ | maximum_intercept_slant_range <Length>
+ | minimum_intercept_altitude <Length>
+ | maximum_intercept_altitude <Length>
+ | maximum_intercept_angle <Angle>
+ | minimum_intercept_velocity <Speed>
+ | minimum_impact_velocity <Speed>
+ | integration_timestep <Time>
+ | integration_time_step <Time>
+ | ground_range_sample_interval <Length>
+ | solution_validity_time <Time>
+ | predicted_trajectory_error_limit <Length>
+ | allow_boost_phase_intercept <Bool>
+ | compute_end_point <Bool>
+ | show_graphics
+ | debug_file_loading
+ | intercept_track_location
+ | intercept_truth_location
+ | surface_to_air_table (file-reference surface-to-air-table)
+ | surface_to_surface_table (file-reference surface-to-surface-table)
+ | <ballistic-target-command>
+ | <WSF_LAUNCH_COMPUTER>
+})
+
+(struct WSF_ORBITAL_LAUNCH_COMPUTER :symbol (type launchComputerType WSF_ORBITAL_LAUNCH_COMPUTER)
+                                    :base_type WSF_LAUNCH_COMPUTER
+{
+   leo_data <file-reference leo_data>
+ | <WSF_LAUNCH_COMPUTER>
+})
+
+(struct WSF_SAM_LAUNCH_COMPUTER :symbol (type launchComputerType WSF_SAM_LAUNCH_COMPUTER)
+                                :base_type WSF_LAUNCH_COMPUTER
+   (rule array-command {
+      from <real> <string> to <real> <string> by <real> <string>
+    | <real> <string>
+   })
+   (rule interpolation-test-command {
+      lateral_offset <Length>
+    | altitude <Length>
+    | ground_range <Length>
+    | target_speed <Speed>
+    | test
+   })
+   (rule envelope-TOF-command {
+      ground_range <Length> <string> <Time>
+   })
+   (rule envelope-command {
+      lateral_symmetry <Bool>
+    | intercept <integer> <integer> <Length> <integer> <Length> <integer> <Length> <integer> <Speed> <Time>
+
+    | target_altitude <Length> <envelope-TOF-command>*
+   })
+{
+   intercept_envelope <ignore>* end_intercept_envelope
+ | lateral_offsets <array-command>* end_lateral_offsets
+ | altitudes <array-command>* end_altitudes
+ | ranges <array-command>* end_ranges
+ | speeds <array-command>* end_speeds
+ | interpolation_test <interpolation-test-command>* end_interpolation_test
+ | <WSF_LAUNCH_COMPUTER>
+})
+
+(struct WSF_SCRIPT_LAUNCH_COMPUTER
+   :symbol (type launchComputerType WSF_SCRIPT_LAUNCH_COMPUTER)
+   :base_type WSF_LAUNCH_COMPUTER
+   (script-var WsfLaunchComputer this :this 1)
+   (script-var WsfWeapon WEAPON)
+   (script-var WsfPlatform PLATFORM)
+{
+   <object-script-context-command>
+ | <WSF_LAUNCH_COMPUTER>
+})
+
+(struct WSF_TABULAR_LAUNCH_COMPUTER
+   :symbol (type launchComputerType WSF_TABULAR_LAUNCH_COMPUTER)
+   :base_type WSF_LAUNCH_COMPUTER
+{
+   time_of_flight <UtTable>
+ | average_speed <Speed>
+ | drop_adjustment_factor <real>
+ | show_graphics
+ | <WSF_LAUNCH_COMPUTER>
+})
+
+# clutter_model surface_clutter (WsfEM_SurfaceClutter)
+(struct WSF_SURFACE_CLUTTER :base_type Clutter
+                            :symbol (type clutter WSF_SURFACE_CLUTTER)
+                            :symbol (type clutter surface_clutter)
+{
+   minimum_range <Length>
+ | maximum_range <Length>
+ | use_legacy_data <Bool>
+ | <Clutter>
+})
+
+# error_model bistatic (WsfBistaticErrorModel.cpp)
+(struct WSF_BISTATIC_ERROR :base_type ErrorModel
+                           :symbol (type error bistatic_error)
+   (rule xmtr-pos-sigmas-command {
+      #<string> <string> <Length> <Length> <Length> # Side, domain, position epsilon (x3)
+      <string> <string> <real> <real> <real> # Side, domain, position epsilon (x3)
+   })
+{
+   time_reflected_sigma <Time>
+ | time_direct_sigma <Time>
+ | transmitter_position_sigmas <string> # Table units
+      <xmtr-pos-sigmas-command>*        # Commands
+   end_transmitter_position_sigmas
+ | realistic_blurring
+ | <Error>
+})
+
+(struct WSF_FORMATION_FLYER
+   :symbol (type moverType WSF_FORMATION_FLYER)
+   :base_type Mover
+   (rule follower-command {
+      maximum_axial_acceleration <Acceleration>
+    | maximum_climb_rate <Speed>
+    | maximum_dive_rate <Speed>
+    | maximum_radial_acceleration <Acceleration>
+    | maximum_turn_rate <AngleRate>
+    | maximum_bank_angle <Angle>
+    | body_g_limit <Acceleration>
+    | maximum_roll_rate <AngleRate>
+    | maximum_speed <Speed>
+    | minimum_speed <Speed>
+    | velocity_pursuit_gain <real>
+    | position <Latitude> <Longitude>
+    | altitude <Length>
+    | speed <Speed>
+    | heading <Angle>
+    | <Mover>
+   })
+{
+   lead_aircraft (typeref platform)
+ | formation_rolls_with_lead
+ | offset_forward_from_lead <Length>
+ | offset_right_from_lead <Length>
+ | offset_down_from_lead <Length>
+ | initialize_at_offset
+ | <follower-command>
+})
+
+
+(struct WSF_GUIDED_MOVER_BASE
+   :base_type Mover
+{
+   route             [skip()]
+      <Route>*
+   end_route
+ | use_route (typeref routes)
+ | integration_timestep <Time>
+ | show_status
+ | show_trajectory
+ | align_heading_with_velocity <Bool>
+ | check_for_ground_impact
+ | time_history_path <string>
+ | <Mover>
+})
+
+
+(struct WSF_GUIDED_MOVER
+   :symbol (type moverType WSF_GUIDED_MOVER)
+   :base_type WSF_GUIDED_MOVER_BASE
+    (rule ejectable-command {
+      mass <Mass>
+    | time <Time>
+    | altitude <Length>
+    })
+    (rule stage-command
+    {
+      aero none
+    | aero (typeref aeroType)
+    | total_mass <Mass>
+    | launch_mass <Mass>
+    | mass <Mass>
+    | initial_mass <Mass>
+    | weight <Force>
+    | empty_mass <Mass>
+    | fuel_mass <Mass>
+    | thrust <Force>
+    | vacuum_thrust <Force>
+    | sea_level_thrust <Force>
+    | thrust_table <ignore>* end_thrust_table
+    | vacuum_thrust_table <ignore>* end_vacuum_thrust_table
+    | sea_level_thrust_table <ignore>* end_sea_level_thrust_table
+    | nozzle_exit_area <Area>
+    | specific_impulse <Time>
+    | vacuum_specific_impulse <Time>
+    | sea_level_specific_impulse <Time>
+    | burn_rate <mass-transfer-value>
+    | burn_rate_table <ignore>* end_burn_rate_table
+    | throttle <real>
+    | throttle <UtTable>
+    | throttle_table <UtTable> end_throttle_table
+    | thrust_duration <Time>
+    | burn_time <Time>
+    | pre_ignition_coast_time <Time>
+    | pre_burn_coast_time <Time>
+    | thrust_delay <Time>
+    | pre_separation_coast_time <Time>
+    | post_burn_coast_time <Time>
+    | staging_delay <Time>
+    | thrust_vectoring_angle_limit <Angle>
+    | max_tvc_angle <Angle>
+    | thrust_vectoring_time_limits <Time> <Time>
+    | max_tvc_time <Time>
+    | lateral_thrust_gain <real>
+    | engine_type rocket
+    | engine_type turbojet
+    | engine_type turbofan
+    | engine_type ramjet
+    | engine_type none
+    | time_constant <Time>
+    | integration_timestep <Time>
+    | final_boost_stage
+    | separation_failure_probability <real>
+    | ignition_failure_probability <real>
+    | angle_of_attack <Angle>
+    | angle_of_attack <UtTable>
+    | angle_of_attack_table <UtTable> end_angle_of_attack_table
+    | bank_to_turn
+    | skid_to_turn
+    | reverse_thrust
+   })
+{
+   <WSF_GUIDED_MOVER_BASE>
+ | time_constant constant <Time>
+ | time_constant <Time>
+ | time_constant <UtTable>
+ | table_test <ignore>* end_table_test
+ | stage <integer> <stage-command>* end_stage
+ | <stage-command>
+ | ejectable <string> <ejectable-command>* end_ejectable
+ | divert_thrust <Force>
+ | divert_fuel_mass <Mass>
+ | divert_fuel_flow_rate <mass-transfer-value>
+ | divert_altitude_limits <Length> <Length>
+ | coordinate_frame wcs
+ | coordinate_frame eci
+ | integration_method trapezoidal
+ | integration_method rk2
+ | integration_method rk4
+ | allow_inconsistent_mass_values
+ | launch_to_orbit <Bool>             # NO_DOC internal development use
+ | maintain_inclination <Bool>
+ | write_custom_time_history <Bool>   # NO_DOC internal development use
+ | compute_all_forces_each_substep <Bool>
+})
+
+(struct WSF_PARABOLIC_MOVER
+   :symbol (type moverType WSF_PARABOLIC_MOVER)
+   :base_type Mover
+{
+   tof_and_impact_lat_lon_alt <Time> <Latitude> <Longitude> <Length>
+ | tof_and_impact_lat_lon <Time> <Latitude> <Longitude>
+ | <Mover>
+})
+
+
+# WsfStraightLineMover.cpp
+(struct WSF_STRAIGHT_LINE_MOVER
+   :symbol (type moverType WSF_STRAIGHT_LINE_MOVER)
+   :base_type Mover
+   (rule tof-and-speed { <Time> <Speed> })
+   (rule guidance-value { lead_pursuit | pure_pursuit | pronav })
+{
+   average_speed <Speed>
+ | tof_and_speed <tof-and-speed>* end_tof_and_speed
+ | maximum_lateral_acceleration <Acceleration>
+ | guidance_mode <guidance-value>
+ | guide_to_truth <Bool>
+ | pronav_gain <real>
+ | <Mover>
+})
+
+(struct WSF_SUBSURFACE_MOVER :symbol (type moverType WSF_SUBSURFACE_MOVER)
+                             :base_type WSF_WAYPOINT_MOVER
+   (initially { [endOfPath=2] _ } )
+{
+   <WSF_WAYPOINT_MOVER>
+})
+
+(struct WSF_TBM_MOVER
+   :symbol (type moverType WSF_TBM_MOVER)
+   :base_type Mover
+   (rule stage-command {
+      total_mass <Mass>
+    | launch_mass <Mass>
+    | empty_mass <Mass>
+    | fuel_mass <Mass>
+    | fuel_mass_fraction <real>
+    | thrust <Force>
+    | specific_impulse <Time>
+    | ballistic_coefficient <real> <string>
+    | reference_area <Area>
+    | diameter <Length>
+    | zero_lift_cd <real>
+    | thrust_duration <Time>
+    | burn_time <Time>
+    | pre_ignition_coast_time <Time>
+    | pre_burn_coast_time <Time>
+    | pre_separation_coast_time <Time>
+    | post_burn_coast_time <Time>
+    | <Mover>
+   })
+   (rule cep-table-command {
+      range <Length>
+    | range_error <Length>
+    | cep <Length>
+    | azimuth_error <Angle>
+   })
+{
+   <stage-command>
+ | stage <integer>
+      <stage-command>*
+   end_stage
+ | trajectory_type lofted
+ | trajectory_type depressed
+ | position <Latitude> <Longitude>
+ | altitude <Length> <agl-or-msl>?
+ | target_position <Latitude> <Longitude>
+ | show_status
+ | debug_call_trigger <integer>
+ | cep <Length>
+ | cep_table
+      <cep-table-command>*
+   end_cep_table
+})
+
+
+(struct WSF_TOWED_MOVER :symbol (type moverType WSF_TOWED_MOVER)
+                        :base_type Mover
+{
+   tow_length <Length>
+ | reel_in_speed <Speed>
+ | reel_out_speed <Speed>
+ | reel_in_at_absolute_time <Time>
+ | reel_in_time_after_deployed <Time>
+ | restore_quantity <Bool>
+ | follow_lead_trajectory <Bool>
+ | azimuth_relative_to_lead <Angle>
+ | elevation_relative_to_lead <Angle>
+ | <Mover>
+})
+
+
+(struct WSF_UNGUIDED_MOVER
+   :symbol (type moverType WSF_UNGUIDED_MOVER)
+   :base_type WSF_GUIDED_MOVER
+{
+   <WSF_GUIDED_MOVER>
+})
+
+
+(rule ballistic-missile-launch-computer-command
+   (rule target-command {
+      aero (typeref aeroType)
+    | mass <Mass>
+   })
+{
+   target_data <string>
+      <target-command>*
+   end_target_data
+})
+
+(rule false-target-movement-command {
+   speeds <Speed> <Speed>
+ | track_speeds <Speed> <Speed>
+ | track_headings <Angle> <Angle>
+ | headings <Angle> <Angle>
+ | reference jammer
+ | reference none
+ | movement_reference jammer
+ | movement_reference none
+})
+
+(rule false-target-distribution-command {
+   bearing_reference jammer
+ | bearing_reference north
+ | radius <Length>
+ | sector_arc <Angle>
+ | range_extent <Length> <Length>
+ | azimuth_extent <Angle> <Angle>
+ | range_distribution { uniform | log | exponential }
+})
+
+(rule false-target-centroid-command {
+   speed <Speed>
+ | heading <Angle>
+ | position <Latitude> <Longitude>
+ | altitude <Length>
+ | agl
+ | msl
+ | latitude <Latitude>
+ | longitude <Longitude>
+})
+
+
+(struct WSF_FALSE_TARGET :symbol (type false_target WSF_FALSE_TARGET)
+{
+   debug
+ | false_target_behavior random_scan_to_scan
+ | false_target_behavior consistent_scan_to_scan
+ | multi_radar_behavior random_to_multiple_radars
+ | multi_radar_behavior consistent_to_multiple_radars
+ | persistence <real>
+ | quantity <integer>
+ | range_constrained <Bool>
+ | scan_rate <Frequency>
+ | scan_time <Time>
+ | track_movement <false-target-movement-command>* end_track_movement
+ | false_target_movement <false-target-movement-command>* end_false_target_movement
+ | distribution <false-target-distribution-command>* end_distribution
+ | circular_distribution <false-target-distribution-command>* end_circular_distribution
+ | sectored_distribution <false-target-distribution-command>* end_sectored_distribution
+ | reference_centroid <false-target-centroid-command>* end_reference_centroid
+ | distribution_centroid <false-target-centroid-command>* end_distribution_centroid
+})
+
+
+(rule false-target-type {
+   false_target <string> <string> (new (type false_target $1) (type false_target $2))
+      <TypeCommand>*
+   end_false_target
+})
+(rule root-command {
+   <atmospheric-coefficients>
+ | <false-target-type>
+})
+
+(rule false-target-instance {
+   false_target <string> <string> (load (type false_target $1) (type false_target $2))
+      <TypeCommand>*
+   end_false_target
+})
+
+(rule effect {
+   effect <string> <string> (new (type EW_Effect $1) (type EW_Effect $2))
+      <TypeCommand>*
+   end_effect
+})
+
+(struct WSF_EW_EFFECT
+   (rule subcommand
+      (rule target-set-command {
+         name <string>
+       | type <string>
+      })
+   {
+      effect_name <string>
+    | debug
+    | target_protection_type all_targets
+    | target_protection_type self_protect
+    | target_protection_type non_self_protect
+    | allowed_target_set
+         <target-set-command>*
+      end_allowed_target_set
+    | rejected_target_set
+         <target-set-command>*
+      end_rejected_target_set
+   })
+   (rule command)# no commands
+)
+
+(struct WSF_RADIUS_EFFECT  :base_type WSF_EW_EFFECT
+                           :symbol (type EW_Effect WSF_RADIUS_EFFECT)
+                           :symbol (type EW_Effect WSF_JAMMER_RADIUS_EFFECT)
+   (rule subcommand {
+      (rule limit-value {
+         inside | inside_and_equal
+       | outside | outside_and_equal
+       | equal
+       | outside_and_inside | inside_and_outside | all
+       | outside_and_inside_and_equal | inside_and_outside_and_equal
+      })
+      jamming_radius_factor <limit-value> <real>
+    | radius_factor <limit-value> <real>
+    | <WSF_EW_EFFECT.subcommand>
+   })
+   (rule command {
+      <WSF_EW_EFFECT.command>
+   })
+{
+   <command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+(struct WSF_AGILITY_EFFECT :base_type WSF_RADIUS_EFFECT
+                           :symbol (type EW_Effect WSF_AGILITY_EFFECT)
+                           :symbol (type EW_Effect WSF_COMM_AGILITY_EFFECT)
+   (rule command
+      (rule mode-changing-command {
+         mode_name <string>
+      })
+   {
+      agility_type frequency_changing end_agility_type
+    | agility_type mode_changing <mode-changing-command>* end_agility_type
+   })
+{
+   system_type_data <string>
+      <WSF_RADIUS_EFFECT.subcommand>*
+   end_system_type_data
+ | <command>
+ | <WSF_EW_EFFECT.command>
+})
+
+(struct WSF_COMM_EFFECT :base_type WSF_EW_EFFECT
+                        :symbol (type EW_Effect WSF_COMM_EFFECT)
+   (rule command {
+      bit_error_rate <DataRate>
+    | message_behavior maintain
+    | message_behavior drop
+    | message_behavior distort
+    | <WSF_EW_EFFECT.command>
+   })
+{
+   <command>
+ #| <WSF_COMM_EFFECT-subcommand>
+ #| system_type_data <string>
+ #     <WSF_COMM_EFFECT-subcommand>*
+ #  end_system_type_data
+ | system_type_data <string>
+ #     <WSF_COMM_EFFECT-subcommand>*
+   end_system_type_data
+})
+
+(struct WSF_REPEATER_EFFECT   :base_type WSF_RADIUS_EFFECT
+                              :symbol (type EW_Effect WSF_REPEATER_EFFECT)
+   (rule command {
+      <WSF_RADIUS_EFFECT.command>
+   })
+   (rule repeater-effect-control-method-types {
+      none
+    | actuals
+    | repeater
+    | repeater_actuals
+   })
+   (rule gain-control-method-types {
+      none
+    | jammer_to_noise
+    | jammer_to_signal
+    | minimum_detect
+    | masking
+    | desired_rcs
+   })
+   (rule subcommand {
+      repeater_effect_control_method <repeater-effect-control-method-types>
+    | gain_control_method <gain-control-method-types>
+    | repeater_factor_limits <Ratio> <Ratio>
+    | desired_false_target_rcs <Area>
+    | desired_jammer_to_noise <Ratio>
+    | required_jammer_to_noise <Ratio>
+    | desired_jammer_to_signal <Ratio>
+    | required_jammer_to_signal <Ratio>
+    | minimum_detect_factor <Ratio>
+    | masking_factor <Ratio>
+    | <WSF_RADIUS_EFFECT.subcommand>
+   })
+{
+   <command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+(struct WSF_POWER_EFFECT :base_type WSF_REPEATER_EFFECT
+                         :symbol (type EW_Effect WSF_POWER_EFFECT)
+                         :symbol (type EW_Effect WSF_JAMMER_POWER_EFFECT)
+   (rule command {
+      <WSF_REPEATER_EFFECT.command>
+   })
+   (rule subcommand
+      (rule jsgt-command {
+         jamming_to_signal <Ratio> <Ratio>
+      })
+   {
+      power_gain <Ratio>
+    | jamming_power_gain <Ratio>
+    | jamming_delta_gain <Ratio>
+    | jamming_modulation <Ratio>
+    | jamming_modulation_gain <Ratio>
+    | modulation_gain <Ratio>
+    | jamming_to_signal_gain_table <jsgt-command>* end_jamming_to_signal_gain_table
+    | signal_delta_gain <Ratio>
+    | signal_power_gain <Ratio>
+    | receiver_noise_delta_gain <Ratio>
+    | receiver_noise_power_gain <Ratio>
+    | <WSF_REPEATER_EFFECT.subcommand>
+   })
+{
+   <command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+(struct WSF_PULSE_EFFECT :base_type WSF_POWER_EFFECT
+                         :symbol (type EW_Effect WSF_PULSE_EFFECT)
+   (rule command {
+      <WSF_POWER_EFFECT.command>
+   })
+   (rule subcommand {
+      jamming_pulse_density <real>
+    | jamming_duty_cycle <real>
+    | <WSF_POWER_EFFECT.subcommand>
+   })
+{
+   <command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+(struct WSF_COVER_PULSE_EFFECT   :base_type WSF_PULSE_EFFECT
+                                 :symbol (type EW_Effect WSF_COVER_PULSE_EFFECT)
+   (rule subcommand {
+      probability_of_cover <real>
+    | required_j_to_s <Ratio>
+    | <WSF_PULSE_EFFECT.subcommand>
+   })
+{
+   <subcommand>
+})
+
+(struct WSF_FALSE_TARGET_EFFECT  :base_type WSF_PULSE_EFFECT
+                                 :symbol (type EW_Effect WSF_FALSE_TARGET_EFFECT)
+                                 :symbol (type EW_Effect WSF_FT_EFFECT)
+   (rule command {
+      <WSF_PULSE_EFFECT.command>
+   })
+   (rule subcommand {
+      false_target_technique <string>
+    | false_target_name <string>
+    | <false-target-type>
+    | range_constrained <Bool>
+    | scan_rate_multiplier <real>
+    | speeds <Speed> <Speed>
+    | blip_speeds <Speed> <Speed>
+    | track_speeds <Speed> <Speed>
+    | number_of_false_targets <integer>
+    | <WSF_PULSE_EFFECT.subcommand>
+   })
+{
+   <command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+(struct WSF_JAMMER_RADIUS_EFFECT    :symbol (type EW_Effect WSF_JAMMER_RADIUS_EFFECT)
+                                    :base_type WSF_RADIUS_EFFECT
+{
+   <WSF_RADIUS_EFFECT>
+})
+
+
+(struct WSF_POL_MOD_EFFECT :base_type WSF_SLC_DEGRADE_EFFECT
+                           :symbol (type EW_Effect WSF_POL_MOD_EFFECT)
+   (rule subcommand {
+      polarization_switching_rate <real>
+    | <WSF_SLC_DEGRADE_EFFECT.subcommand>
+   })
+{
+   <WSF_SLC_DEGRADE_EFFECT.command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+
+(struct WSF_PULSE_SUPPRESS_EFFECT :base_type WSF_PULSE_EFFECT
+                                  :symbol (type EW_Effect WSF_PULSE_SUPPRESS_EFFECT)
+   (rule command
+      (rule allow-command
+         (rule modulation-value {
+            none | continuous_wave | cw | coherent_pulse | non_coherent_pulse
+          | linear_fm | non_linear_fm | phase_key | phase_modulation
+          | phase_coding | ask | fsk | psk | bpsk | dpsk | qpsk | qam
+      })
+      {
+         none
+       | frequency <Frequency> <Frequency>
+       | pulse_width <Time> <Time>
+       | pulse_repitition_frequency <Frequency> <Frequency>
+       | modulation <modulation-value> <real>
+       | coherent <real>
+       | noncoherent <real>
+       | percent_of_pulses <real>
+       | pulses <real>
+      })
+   {
+      reject <allow-command>
+    | allow <allow-command>
+    | <WSF_PULSE_EFFECT.command>
+   })
+{
+   <command>
+ | <WSF_PULSE_EFFECT.subcommand>
+ | system_type_data <string> <WSF_PULSE_EFFECT.subcommand>* end_system_type_data
+})
+
+(struct WSF_RADAR_AGILITY_EFFECT :base_type WSF_AGILITY_EFFECT
+                                 :symbol (type EW_Effect WSF_RADAR_AGILITY_EFFECT)
+{
+   <WSF_AGILITY_EFFECT.command>
+})
+
+(struct WSF_RPJ_EFFECT :base_type WSF_PULSE_EFFECT
+                       :symbol (type EW_Effect WSF_RPJ_EFFECT)
+   (rule jammer-gain-command {
+      jammer_to_noise_ratio <Ratio>
+    | jammer_to_noise <Ratio>
+    | pulse_density_to_jamming_gain <real> <Ratio>
+    | pulse_density <real> <Ratio>
+   })
+   (rule command {
+      coherency_ratio <real>
+    | <WSF_PULSE_EFFECT.command>
+   })
+   (rule subcommand {
+      samples_per_detection <integer>
+    | minimum_jammer_to_noise_threshold <Ratio>
+    | jammer_gain_table <jammer-gain-command>* end_jammer_gain_table
+    | <WSF_PULSE_EFFECT.subcommand>
+   })
+{
+   <command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+
+(struct WSF_SIMPLE_FT_EFFECT  :base_type WSF_PULSE_EFFECT
+                              :symbol (type EW_Effect WSF_SIMPLE_FT_EFFECT)
+   (rule subcommand {
+      maximum_false_target_capacity <integer>
+    | number_of_false_targets <integer>
+    | use_random_calculation_draw <Bool>
+    | apply_electronic_protect_effects <Bool>
+    | update_once_per_frame <Bool>
+    | percent_of_beamwidth_for_detection <real>
+    | combine_multi_beam_counts <Bool>
+    | <WSF_PULSE_EFFECT.subcommand>
+   })
+{
+   <WSF_PULSE_EFFECT.command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+(struct WSF_SLC_EFFECT  :base_type WSF_POWER_EFFECT
+                        :symbol (type EW_Effect WSF_SLC_EFFECT)
+
+   (rule command
+      (rule cancellation-ratio-command {
+         { number_cancelled_jammers | number_canceled_jammers } <integer>
+       | { jammer_cancelled | jammer_canceled } <integer>
+       | saturation
+       | saturation_ratio <Ratio>
+       | { cancelation_ratio | cancellation_ratio } <Ratio>
+       | jammer_to_noise <Ratio> <Ratio>
+      })
+   {
+      number_of_canceller_channels <integer>
+    | number_canceller_channels <integer>
+    | number_of_canceler_channels <integer>
+    | number_canceler_channels <integer>
+    | cancellation_lock_ratio <Ratio>
+    | cancelation_lock_ratio <Ratio>
+    | main_snr_thresholds <Ratio> <Ratio>
+    | main_jnr_thresholds <Ratio> <Ratio>
+    | auxiliary_snr_thresholds <Ratio> <Ratio>
+    | auxiliary_jnr_thresholds <Ratio> <Ratio>
+    | cancellation_ratio <Ratio>
+    | cancelation_ratio <Ratio>
+    | saturation_ratio <Ratio>
+    | cancellation_ratios <cancellation-ratio-command>* end_cancellation_ratios
+    | cancelation_ratios <cancellation-ratio-command>* end_cancelation_ratios
+    | antenna_pattern <string>
+    | auxiliary_beam_tilt <Angle>
+    | auxiliary_antenna_pattern (typeref antennaPattern)
+    | minimum_cancelled_pulse_width <Time>
+    | minimum_pulse_width <Time>
+    | loop_settling_time <Time>
+    | canceller_settling_time <Time>
+    | <WSF_POWER_EFFECT.command>
+   })
+{
+   <command>
+ | <WSF_POWER_EFFECT.subcommand>
+ | system_type_data <string> <WSF_POWER_EFFECT.subcommand>* end_system_type_data
+})
+
+
+(struct WSF_SLC_DEGRADE_EFFECT   :base_type WSF_POWER_EFFECT
+                                 :symbol (type EW_Effect WSF_SLC_DEGRADE_EFFECT)
+   (rule subcommand {
+      signal_modulation <string>
+    | slc_degradation_value <Ratio>
+    | number_slc_channels_saturated <integer>
+    | <WSF_POWER_EFFECT.subcommand>
+   })
+   (rule command {
+      <WSF_POWER_EFFECT.command>
+   })
+{
+   <command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+(struct WSF_SLB_EFFECT  :base_type WSF_POWER_EFFECT
+                        :symbol (type EW_Effect WSF_SLB_EFFECT)
+   (rule probability-command {
+      duty_cycle <real> <real>
+    | pulse_density <real> <real>
+   })
+   (rule blanking-command {
+      no_target_blanking_effect
+    | duty_cycle_probability_effect
+    | probabilities <probability-command>* end_probabilities
+   })
+   (rule saturation-command {
+      no_saturation_effect
+    | duty_cycle_limit_effect
+    | duty_cycle_limit <real>
+   })
+   (rule effect-command {
+      auxiliary_beam_tilt <Angle>
+    | auxiliary_antenna_pattern (typeref antennaPattern)
+    | antenna_pattern <string>
+    | <:Antenna>
+    | receiver [skip()] <Receiver>* end_receiver
+    | blanking_threshold <Ratio>
+    | main_snr_thresholds <Ratio> <Ratio>
+    | main_jnr_thresholds <Ratio> <Ratio>
+    | auxiliary_snr_thresholds <Ratio> <Ratio>
+    | auxiliary_jnr_thresholds <Ratio> <Ratio>
+    | saturation_effect
+         <saturation-command>*
+      end_saturation_effect
+    | target_blanking_effect
+         <blanking-command>*
+      end_target_blanking_effect
+    | <WSF_POWER_EFFECT.command>
+   })
+{
+   <effect-command>
+ | <WSF_POWER_EFFECT.subcommand>
+ | system_type_data <string>
+      <WSF_POWER_EFFECT.subcommand>*
+   end_system_type_data
+})
+
+(struct WSF_TRACK_EFFECT   :base_type WSF_PULSE_EFFECT
+                           :symbol (type EW_Effect WSF_TRACK_EFFECT)
+   (rule jstt-command {
+      jamming_to_signal <Ratio> <Time> <Time>
+   })
+   (rule subcommand {
+    (rule errorType { range | azimuth | elevation | velocity | maintain_drop })
+      required_j_to_s <Ratio>
+    | range_error <Length>
+    | azimuth_error <Angle>
+    | elevation_error <Angle>
+    | velocity_error <Speed>
+    | range_walkoff_rate <Speed>
+    | azimuth_walkoff_rate <AngleRate>
+    | elevation_walkoff_rate <AngleRate>
+    | velocity_walkoff_rate <Acceleration>
+    | range_holdout <Length>
+    | azimuth_holdout <Angle>
+    | elevation_holdout <Angle>
+    | velocity_holdout <Speed>
+    | range_holdout_time <Time>
+    | azimuth_holdout_time <Time>
+    | elevation_holdout_time <Time>
+    | velocity_holdout_time <Time>
+    | maintain_drop_holdout_time <Time>
+    | range_delay_time <Time>
+    | azimuth_delay_time <Time>
+    | elevation_delay_time <Time>
+    | velocity_delay_time <Time>
+    | maintain_drop_delay_time <Time>
+    | range_recycle_time <Time>
+    | azimuth_recycle_time <Time>
+    | elevation_recycle_time <Time>
+    | velocity_recycle_time <Time>
+    | maintain_drop_recycle_time <Time>
+    | range_recycle <Bool>
+    | azimuth_recycle <Bool>
+    | elevation_recycle <Bool>
+    | velocity_recycle <Bool>
+    | maintain_drop_recycle <Bool>
+    | <WSF_PULSE_EFFECT.subcommand>
+    | delay_table <errorType> <jstt-command>* end_delay_table
+    | holdout_table <errorType> <jstt-command>* end_holdout_table
+   })
+   (rule command  {
+      (rule behavior { maintain | drop | distort })
+      track_behavior <behavior>
+    | <WSF_PULSE_EFFECT.command>
+   })
+{
+   <command>
+ | <subcommand>
+ | system_type_data <string> <subcommand>* end_system_type_data
+})
+
+(struct DISInterface
+(rule dis-interface-command
+{
+   incoming_weapon_transfer <string> from <string> using <string>
+ | incoming_weapon_transfer <string> using <string>
+ | outgoing_weapon_transfer <string>
+ | suppress_directed_energy_data <Bool>
+}))
+
+(rule ext-detonation-command
+{
+   target_priority (typeref platform) <real>
+ | simple_detonations <Bool>
+ | simple_detonations_exclude platform_type (typeref platformType)
+ | simple_detonations_exclude weapon_effect (typeref weaponEffectType)
+ | simple_detonations_exclude weapon_effects (typeref weaponEffectType)
+ | simple_kill_range <Length>
+ | use_simple_detonations
+})
+
+(rule ext-interface-command
+{
+     debug_warfare_pdu <integer>
+   | ew_technique_type <string> <integer>
+   | munition_type <string> <entity-type>
+   | simple_kill_probability <integer>
+   | warhead <string> <integer>
+   | <ext-detonation-command>
+ })
+
+(rule enumerate-command-what {
+   dictionary | platform_types | sensor_types | processor_types | weapon_types | comm_types
+})
+
+
+# attenuation_model optical (WsfOpticalAttenuation.cpp)
+(struct WSF_OPTICAL_ATTENUATION :symbol (type attenuation WSF_OPTICAL_ATTENUATION)
+                                :symbol (type attenuation optical)
+    (rule response-point {
+       <Length> <real>
+    })
+    (rule spectral-conversion-command {
+       spectral_data <string>
+     | sensor_response_curve <response-point>* end_sensor_response_curve
+     | code_output <string>
+     | table_output <string>
+     | plot_output <string>
+     | maximum_absolute_error <real>
+     | maximum_relative_error <real>
+     | maximum_segment_count <integer>
+    })
+    (rule optical-path-conversion-command {
+       wavelength <Length>
+     | atmosphere_model <integer>
+     | haze_model <integer>
+     | code_output <string>
+     | table_output <string>
+    })
+{
+   atmosphere_model <integer>
+ | haze_model <integer>
+ | cloud_model <integer>
+ | internal_table <string>
+ | external_table <string>
+ | atmospheric_attenuation <real> per <string>
+ | spectral_data_conversion <spectral-conversion-command>* end_spectral_data_conversion
+ | optical_path_conversion <optical-path-conversion-command>* end_optical_path_conversion
+ | query <ignore>* end_query
+ | <WSF_EM_ATTENUATION-command>
+})
+
+(rule atmospheric-coefficients
+   (rule optical-path-command {
+      altitude <real>* end_altitude
+    | wavelength <Length>
+    | haze <integer>
+    | haze_model <integer>
+    | atmosphere_model <integer>
+    | attenuation <real>* end_attenuation
+    | scattering <real>* end_scattering
+   })
+{
+   atmospheric_coefficients
+      <optical-path-command>*
+   end_atmospheric_coefficients
+})
+
+
+(struct WSF_FUSION_CENTER :symbol (type processorType WSF_FUSION_CENTER)
+   :base_type WSF_SCRIPT_PROCESSOR
+{
+   plot_capacity <integer>
+ | frame_time <Time>
+ | track_capacity <integer>
+ | random_to_multiple_radars <real>
+ | consistent_to_multiple_radars <real>
+ | radar_site <string>
+ | consistency_constrained <Bool>
+ | produce_fused_objects <Bool>
+ | debug
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+# WsfHeatMap.cpp
+(struct HeatMap
+   (var Real heatDecay :default 0.1)
+   (rule heat-map-command {
+      position <Latitude> <Longitude>
+    | altitude <Length>
+    | grid_extent <Length>
+    | cell_size <Length>
+    | heat_decay <real>                           [heatDecay=$$]
+    | decay_interval <Time>
+    | expansion_timeout <Time>
+    | heading_change_limit <Angle>
+    | use_asset_perception <Bool>
+    | sensor_range <Length>
+    | draw_grid <Bool>
+    | draw_heat <Bool>
+    | draw_sensor_outline <Bool>
+   })
+{
+   heat_map <heat-map-command>* end_heat_map
+})
+
+# WsfPerceptionProcessor.cpp
+(struct WSF_PERCEPTION_PROCESSOR :symbol (type processorType WSF_PERCEPTION_PROCESSOR)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WsfPerceptionProcessor PROCESSOR :this 1)
+   (rule recipient-list {
+      "commander"
+    | "peers"
+    | "subordinates"
+    | "peers:subordinates"
+    | "subordinates:peers"
+    | "peers:commander"
+    | "commander:peers"
+    | "subordinates:commander"
+    | "commander:subordinates"
+    | "peers:subordinates:commander"
+    | "subordinates:peers:commander"
+    | "peers:commander:subordinates"
+    | "commander:peers:subordinates"
+    | "subordinates:commander:peers"
+    | "commander:subordinates:peers"
+   })
+{
+   report_interval <Time>
+ | reports_self <Bool>
+ | reporting_self <Bool>
+ | reporting_others <Bool>
+ | perceive_self <Bool>
+ | asset_perception status_messages
+ | asset_perception truth <recipient-list>
+ | threat_update_interval <Time>
+ | asset_update_interval <Time>
+ | max_threat_load <integer>
+ | max_asset_load <integer>
+ | <:HeatMap>
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+(struct WSF_IMAGE_PROCESSOR
+   :symbol (type processorType WSF_IMAGE_PROCESSOR)
+   :symbol (type processorType WSF_VIDEO_PROCESSOR)
+   :base_type WSF_DELAY_PROCESSOR
+   (rule target-recognition-commands
+   {
+      average_aspect_ratio <real>
+    | detection_scene_analysis_factor <real>
+    | classification_scene_analysis_factor <real>
+    | identification_scene_analysis_factor <real>
+    | minimum_detection_pixel_count <real>
+    | minimum_classification_pixel_count <real>
+    | minimum_identification_pixel_count <real>
+    | detection_delay_time <Time>
+    | classification_delay_time <Time>
+    | identification_delay_time <Time>
+    | transition_coast_time <Time>
+    | detection_coast_time <Time>
+    | classification_coast_time <Time>
+    | identification_coast_time <Time>
+   })
+{
+   coast_time <Time>
+ | message_length <DataSize>
+ | message_priority <integer>
+ | reports_velocity
+ | reports_side
+ | reports_type
+ | reports_bearing_elevation
+ | reports_nothing
+ | include_unstable_covariance <Bool>
+ | include_unstable_residual_covariance <Bool>
+ | <filter-instance>
+ | target_recognition <Bool>
+ | <target-recognition-commands>
+ | <WSF_DELAY_PROCESSOR>
+})
+
+(struct WSF_UPLINK_PROCESSOR
+   :symbol (type processorType WSF_UPLINK_PROCESSOR)
+   :base_type WSF_SCRIPT_PROCESSOR
+{
+   max_weapon_uplinks <integer>
+ | weapon_uplink_path (typeref .sensors) (typeref .comms)
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+###############################################################
+# signatures
+###############################################################
+
+# file WsfAcousticSig.cpp
+(struct AcousticSignature :symbol (type acousticSignature WSF_ACOUSTIC_SIGNATURE)
+   (rule spectrum-command {
+      freq <Frequency>
+    | noise_pressure <NoisePressure>
+   })
+{
+   data_reference_range <Length>
+ | state <string>
+ | spectrum_data <spectrum-command>* end_spectrum_data
+})
+
+# file WsfInfraredSig.cpp
+(struct InfraredSignature :symbol (type infraredSignature WSF_INFRARED_SIGNATURE)
+{
+   state <string>
+ | band <infrared-band-value>
+ | query <string> <infrared-band-value> <Angle> <Angle>
+ | <az-el-table-command>
+ | interpolate_tables <Bool>
+ | interpolation_type <interpolation-type>
+})
+
+# file WsfInherentContrast.cpp
+(struct InherentContrast :symbol (type inherentContrast WSF_INHERENT_CONTRAST)
+{
+   state <string>
+ | <az-el-table-command-no-units>
+ | interpolate_tables <Bool>
+ | interpolation_type <interpolation-type>
+})
+
+# file WsfOpticalSig.cpp
+(struct OpticalSignature :symbol (type opticalSignature WSF_OPTICAL_SIGNATURE)
+{
+   state <string>
+ | <az-el-table-command>
+ | interpolate_tables <Bool>
+ | interpolation_type <interpolation-type>
+})
+
+# file WsfMilRadarSig.cpp
+(struct RadarSignature
+   (rule bistatic-command {
+      interpolate_transmitter_angles <Bool>
+    | transmitter_angles_interpolation_type <interpolation-type>
+    | state <string>
+    | polarization <polarization-value>
+    | frequency_limit <Frequency>
+    | azimuth <Angle>
+    | elevation <Angle>
+    | <az-el-table-command>
+   })
+{
+   bistatic_signature <bistatic-command>* end_bistatic_signature
+})
+
+# file WsfStandardOpticalReflectivity.cpp
+(struct OpticalReflectivity :symbol (type opticalReflectivity WSF_OPTICAL_REFLECTIVITY)
+   (rule command {
+      state <string>
+    | <az-el-table-command-no-units>
+    | interpolate_tables <Bool>
+    | interpolation_type <interpolation-type>
+   })
+{
+   <command>
+})
+
+# file WsfCompositeOpticalSignature.cpp
+
+(struct WSF_COMPOSITE_OPTICAL_SIGNATURE :symbol (type opticalSignature WSF_COMPOSITE_OPTICAL_SIGNATURE)
+                                        :base_type OpticalSignature
+
+   (rule surface-commands {
+      location <real> <real> <real> <length-unit>
+    | temperature <Temperature>
+    | temperature <UtTable>
+    | temperature ambient
+    | temperature adiabatic_wall
+    | temperature_offset <Temperature>
+    | recovery_factor <real>
+    | gamma <real>
+   })
+
+   (rule orientable-surface-commands {
+      yaw <Angle>
+    | pitch <Angle>
+    | roll <Angle>
+    | <surface-commands>
+   })
+
+   (rule box-surface-commands {
+      size <Length> <Length> <Length>
+    | <orientable-surface-commands>
+   })
+
+   (rule box-surface {
+      surface box <box-surface-commands>* end_surface
+   })
+
+   (rule cone-surface-commands {
+      length <Length>
+    | radius <Length>
+    | test  # Internal testing only
+    | <orientable-surface-commands>
+   })
+
+   (rule cone-surface {
+      surface cone <cone-surface-commands>* end_surface
+   })
+
+   (rule cylinder-surface-commands {
+      length <Length>
+    | radius <Length>
+    | test  # Internal testing only
+    | <orientable-surface-commands>
+   })
+
+   (rule cylinder-surface {
+      surface cylinder <cylinder-surface-commands>* end_surface
+   })
+
+   (rule hemisphere-surface-commands {
+      radius <Length>
+    | test  # Internal testing only
+    | <orientable-surface-commands>
+   })
+
+   (rule hemisphere-surface {
+      surface hemisphere <hemisphere-surface-commands>* end_surface
+   })
+
+   (rule plume-surface-commands {
+      length <Length>
+    | radius <Length>
+    | (error { location })    # Disable 'location' in <surface-commands>
+    | <surface-commands>
+   })
+
+   (rule plume-surface {
+      surface plume <plume-surface-commands>* end_surface
+   })
+
+   (rule sphere-surface-commands {
+      radius <Length>
+    | <surface-commands>
+   })
+
+   (rule sphere-surface {
+      surface sphere <sphere-surface-commands>* end_surface
+   })
+
+   (rule tabular-surface-commands {
+      projected_area <az-el-table-command>
+    | (error { location })    # Disable 'location' in <surface-commands>
+    | <surface-commands>
+   })
+
+   (rule tabular-surface {
+      surface tabular <tabular-surface-commands>* end_surface
+   })
+{
+   <surface-commands>
+ | state <string>
+ | <box-surface>
+ | <cylinder-surface>
+ | <cone-surface>
+ | <hemisphere-surface>
+ | <plume-surface>
+ | <sphere-surface>
+ | <tabular-surface>
+ | debug
+ | debug_level <integer>
+})
+
+(rule dis-interface-command
+   (rule entity-appearance-command
+      (rule signature-type {
+         infrared | infrared_signature | optical | optical_signature
+       | radar | radar_signature | rcs | rcs_signature | acoustic
+       | acoustic_signature | inherent_contrast | contrast | all
+      })
+   {
+      name <string> afterburner <Bool.on_off> <signature-type> <string>
+    | type <string> afterburner <Bool.on_off> <signature-type> <string>
+   })
+{
+   # entity state commands
+   entity_appearance <entity-appearance-command>* end_entity_appearance
+})
+
+(struct root
+   (var ObjectMap/AcousticSignature acousticSignature)
+   (var ObjectMap/InfraredSignature infraredSignature)
+   (var ObjectMap/InherentContrast inherentContrast)
+   (var ObjectMap/OpticalReflectivity opticalReflectivity)
+   (var ObjectMap/OpticalSignature opticalSignature)
+   {
+      acoustic_signature <string> <string> (new_replace (type acousticSignature $1) (type acousticSignature $2)) [apply($$)]
+         <TypeCommand>*
+      end_acoustic_signature
+    | acoustic_signature <string> (new_replace (type acousticSignature $1) (type acousticSignature WSF_ACOUSTIC_SIGNATURE)) [apply($$)]
+         <AcousticSignature>*
+      end_acoustic_signature
+    | infrared_signature <string> <string> (new_replace (type infraredSignature $1) (type infraredSignature $2)) [apply($$)]
+         <TypeCommand>*
+      end_infrared_signature
+    | infrared_signature <string> (new_replace (type infraredSignature $1) (type infraredSignature WSF_INFRARED_SIGNATURE)) [apply($$)]
+         <InfraredSignature>*
+      end_infrared_signature
+    | inherent_contrast <string> <string> (new_replace (type inherentContrast $1) (type inherentContrast $2)) [apply($$)]
+         <TypeCommand>*
+      end_inherent_contrast
+    | inherent_contrast <string> (new_replace (type inherentContrast $1) (type inherentContrast WSF_INHERENT_CONTRAST)) [apply($$)]
+         <InherentContrast>*
+      end_inherent_contrast
+    | optical_reflectivity <string> <string> (new_replace (type opticalReflectivity $1) (type opticalReflectivity $2)) [apply($$)]
+         <TypeCommand>*
+      end_optical_reflectivity
+    | optical_reflectivity <string> (new_replace (type opticalReflectivity $1) (type opticalReflectivity WSF_OPTICAL_REFLECTIVITY)) [apply($$)]
+         <OpticalReflectivity>*
+      end_optical_reflectivity
+    | optical_signature <string> <string> (new_replace (type opticalSignature $1) (type opticalSignature $2)) [apply($$)]
+         <TypeCommand>*
+      end_optical_signature
+    | optical_signature <string> (new_replace (type opticalSignature $1) (type opticalSignature WSF_OPTICAL_SIGNATURE)) [apply($$)]
+         <OpticalSignature>*
+      end_optical_signature
+#    | radar_signature <string> <string> (new_replace (type radarSignature $1) (type radarSignature $2)) [apply($$)]
+#         <TypeCommand>*
+#      end_radar_signature
+#    | radar_signature <string> (new_replace (type radarSignature $1) (type radarSignature WSF_RADAR_SIGNATURE)) [apply($$)]
+#         <RadarSignature>*
+#      end_radar_signature
+   }
+)
+
+# This exists to make Platform a derived type.  Non-derivable doesn't contain base type information, but it's desired here.
+(struct Platform
+   (var String acousticSignature)
+   (var String infraredSignature)
+   (var String inherentContrast)
+   (var String opticalReflectivity)
+   (var String opticalSignature)
+#   (var String radarSignature)
+
+{
+   acoustic_signature (typeref acousticSignature)      [acousticSignature=$$]
+ | infrared_signature (typeref infraredSignature)      [infraredSignature=$$]
+ | inherent_contrast (typeref inherentContrast)        [inherentContrast=$$]
+ | optical_reflectivity (typeref opticalReflectivity)  [opticalReflectivity=$$]
+ | optical_signature (typeref opticalSignature)        [opticalSignature=$$]
+# | radar_signature (typeref radarSignature)            [radarSignature=$$]
+})
+
+# WsfEW_CommComponent.cpp
+(rule ew-comm-component-commands
+{
+   jamming_perception_threshold <Ratio>
+ | continuous_jamming_perception_threshold <Ratio>
+ | pulsed_jamming_perception_threshold <Ratio>
+ | coherent_jamming_perception_threshold <Ratio>
+ | jamming_perception_timeout <Time>
+})
+
+(struct Comm
+{
+   <ew-comm-component-commands>
+})
+
+# This is the rule for mil-related event_output event types.
+(rule event_output-event-type
+   (rule event_output-weapon-event-type {
+      DIRECTED_ENERGY_WEAPON_ABORT_SHOT
+    | DIRECTED_ENERGY_WEAPON_BEGIN_SHOT
+    | DIRECTED_ENERGY_WEAPON_COOLDOWN_COMPLETE
+    | DIRECTED_ENERGY_WEAPON_UPDATE_SHOT
+    | DIRECTED_ENERGY_WEAPON_END_SHOT
+    | IMPLICIT_WEAPON_BEGIN_ENGAGEMENT
+    | IMPLICIT_WEAPON_END_ENGAGEMENT
+    | JAMMING_ATTEMPT
+    | JAMMING_REQUEST_CANCELED
+    | JAMMING_REQUEST_INITIATED
+    | JAMMING_REQUEST_UPDATED
+    | MOVER_GUIDANCE_PHASE_CHANGED
+    | WEAPON_FIRE_ABORTED
+    | WEAPON_FIRE_REQUESTED
+    | WEAPON_FIRED
+    | WEAPON_HIT
+    | WEAPON_KILLED
+    | WEAPON_LAUNCHED
+    | WEAPON_MISSED
+    | WEAPON_MODE_ACTIVATED
+    | WEAPON_MODE_DEACTIVATED
+    | WEAPON_NON_OPERATIONAL
+    | WEAPON_OPERATIONAL
+    | WEAPON_RELOAD_ENDED
+    | WEAPON_RELOAD_STARTED
+    | WEAPON_SELECTED
+    | WEAPON_TERMINATED
+    | WEAPON_TURNED_OFF
+    | WEAPON_TURNED_ON
+   })
+{
+   <event_output-weapon-event-type>
+})
+
+# WsfMilScriptObserver.cpp
+(rule observer-event-type {
+   DIRECTED_ENERGY_WEAPON_ABORT_SHOT
+ | DIRECTED_ENERGY_WEAPON_BEGIN_SHOT
+ | DIRECTED_ENERGY_WEAPON_COOLDOWN_COMPLETE
+ | DIRECTED_ENERGY_WEAPON_UPDATE_SHOT
+ | DIRECTED_ENERGY_WEAPON_END_SHOT
+ | IMPLICIT_WEAPON_BEGIN_ENGAGEMENT
+ | IMPLICIT_WEAPON_END_ENGAGEMENT
+ | JAMMING_ATTEMPT
+ | JAMMING_REQUEST_CANCELED
+ | JAMMING_REQUEST_INITIATED
+ | JAMMING_REQUEST_UPDATED
+ | UPLINK_DROPPED
+ | UPLINK_INITIATED
+ | WEAPON_FIRE_ABORTED
+ | WEAPON_FIRE_REQUESTED
+ | WEAPON_FIRED
+ | WEAPON_HIT
+ | WEAPON_KILLED
+ | WEAPON_MISSED
+ | WEAPON_MODE_ACTIVATED
+ | WEAPON_MODE_DEACTIVATED
+ | WEAPON_RELOAD_ENDED
+ | WEAPON_RELOAD_STARTED
+ | WEAPON_TERMINATED
+ | WEAPON_TURNED_OFF
+ | WEAPON_TURNED_ON
+})

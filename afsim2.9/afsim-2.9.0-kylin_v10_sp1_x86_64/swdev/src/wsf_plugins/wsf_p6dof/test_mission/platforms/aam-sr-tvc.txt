@@ -1,0 +1,115 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../p6dof_types/environment/p6dof_environment.txt
+include_once ../p6dof_types/weapons/aam-sr/aam-sr-tvc.txt
+
+include_once ../processors/missile_seeker.txt
+include_once ../weapon_effects/basic_effects.txt
+include_once ../signatures/simple_signatures.txt
+include_once ../sensors/generic_seeker.txt
+include_once ../sensors/simple_generic_seeker.txt
+
+platform_type  AAM-SR-TVC-TEST  WSF_PLATFORM
+
+   radar_signature       SIMPLE_FIGHTER_RCS
+   infrared_signature    SIMPLE_FIGHTER_IR_SIG
+   optical_signature     SIMPLE_FIGHTER_OPTICAL_SIG
+   spatial_domain        air
+   side                  green
+   icon                  aim9x
+   category              weapon
+
+   # Setup the P6DOF mover
+   mover WSF_P6DOF_MOVER
+      p6dof_object_type AAM-SR-TVC
+      update_interval   0.01 sec
+   end_mover
+
+end_platform_type
+
+# ------------------------------------------------------------------------------
+
+weapon AAM-SR-TVC-WEAPON WSF_EXPLICIT_WEAPON
+   launched_platform_type AAM-SR-TVC
+end_weapon
+
+# ------------------------------------------------------------------------------
+
+platform_type AAM-SR-TVC AAM-SR-TVC-TEST
+   radar_signature       SIMPLE_FIGHTER_RCS
+   infrared_signature    SIMPLE_FIGHTER_IR_SIG
+   optical_signature     SIMPLE_FIGHTER_OPTICAL_SIG
+   spatial_domain        air
+   side                  green
+   icon                  aim9x
+   category              weapon
+   
+   weapon_effects SR_LETHALITY
+
+#...............................................................................
+
+   sensor ir_seeker SIMPLE_GENERIC_SEEKER
+      category ir_seeker
+      on
+      internal_link data_mgr
+      internal_link seeker_activation
+   end_sensor
+
+   processor guidance WSF_P6DOF_GUIDANCE_COMPUTER
+
+      update_interval 0.01 sec
+
+      phase LAUNCH_GUIDANCE
+         time_constant                   1 sec
+         proportional_navigation_gain    4
+         velocity_pursuit_gain           10
+         g_bias                          0
+         #maximum_commanded_g             20 g
+         next_phase PHASE2 when phase_time > 2.0 sec
+      end_phase
+
+      phase PHASE2
+         time_constant                   0.01 sec
+         proportional_navigation_gain    4
+         velocity_pursuit_gain           10
+         g_bias                          1
+         next_phase TERMINAL_GUIDANCE when range_to_intercept < 2.0 km
+      end_phase
+
+      phase TERMINAL_GUIDANCE
+         time_constant                   0.0 sec
+         proportional_navigation_gain    2
+         velocity_pursuit_gain           10
+         g_bias                          1
+      end_phase
+
+   end_processor
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      on
+      master_track_processor
+      update_interval 0.01 sec
+      purge_interval  1 sec
+   end_processor
+
+   processor fuse WSF_AIR_TARGET_FUSE
+      use_current_target
+      update_interval           0.1 sec
+      fine_update_interval      0.01 sec
+      gross_proximity_range     500 ft
+      detonate_below_height_agl 20.0 ft
+      detonate_below_height_msl 20.0 ft
+      maximum_time_of_flight    120.0 sec
+   end_processor
+
+   processor seeker_activation verbose_seeker_activation
+   end_processor
+
+end_platform_type

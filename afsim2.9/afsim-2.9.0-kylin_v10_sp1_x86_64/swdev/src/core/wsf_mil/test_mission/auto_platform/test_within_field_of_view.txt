@@ -1,0 +1,61 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# test WsfPlatform.WithinFieldOfView
+#
+#  both forms
+#  (Platform, weaponName)
+#  (Track,    weaponName)
+#
+#  TODO: Add test case for False results
+#
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once ../auto_script/test_functions.txt
+
+platform plat_tx WSF_PLATFORM
+   execute at_time 1 s absolute
+      extern bool AssertTrueMessage(bool, string);
+      extern void writePass(bool);
+      bool pass = true;
+      bool wfov;
+      WsfPlatform tgt_plat = WsfSimulation.FindPlatform("plat_rx");
+      wfov = WithinFieldOfView(tgt_plat, "weapon");
+      pass = AssertTrueMessage(wfov, "WithinFieldOfView(Platform)") && pass;
+      wfov = WithinFieldOfView(tgt_plat.MakeTrack(), "weapon");
+      pass = AssertTrueMessage(wfov, "WithinFieldOfView(Track)") && pass;
+      writePass(pass);
+   end_execute
+   add weapon weapon WSF_RF_JAMMER
+      on
+      transmitter
+         power 1 w
+         frequency 1 hz
+      end_transmitter
+   end_weapon
+end_platform
+
+platform plat_rx WSF_PLATFORM
+   add sensor sensor WSF_RADAR_SENSOR
+      # the configuration below does not fall under the category of testing
+      reports_range
+      frame_time 1.0 sec
+      beam 1
+         transmitter
+            power 10 watts
+            frequency 10 hz
+         end_transmitter
+         receiver
+            frequency 12 hz
+         end_receiver
+      end_beam   
+   end_sensor
+end_platform

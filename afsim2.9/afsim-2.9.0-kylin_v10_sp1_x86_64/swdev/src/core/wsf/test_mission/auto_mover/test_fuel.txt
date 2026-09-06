@@ -1,0 +1,110 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests the script fuel class.
+# Tests the consumption rate, bingo, and reserve fuel 'Set' methods.
+
+script_variables
+   int mBingoCount = 0;
+   int mReserveCount = 0;
+   int mEmptyCount = 0;
+   double mEmptyTime = 0.0;
+   double mUpdateInterval = 0.5;
+end_script_variables
+
+platform_type FUEL_TEST_PLATFORM WSF_PLATFORM
+   mover WSF_AIR_MOVER
+      update_interval 0.5 sec
+   end_mover
+
+   fuel WSF_FUEL
+     initial_quantity 10 kg
+     bingo_quantity    9 kg
+     reserve_quantity  8 kg
+     consumption_rate  1 kg/sec
+
+     on_bingo
+        extern int mBingoCount;
+        mBingoCount = mBingoCount + 1;
+     end_on_bingo
+
+     on_reserve
+        extern int mReserveCount;
+        mReserveCount = mReserveCount + 1;
+     end_on_reserve
+
+     on_empty
+        extern int mEmptyCount;
+        extern double mEmptyTime;
+        mEmptyCount = mEmptyCount + 1;
+        mEmptyTime = TIME_NOW;
+     end_on_empty
+   end_fuel
+end_platform_type
+
+platform fuel-test-plat FUEL_TEST_PLATFORM
+   icon Wedge
+   side blue
+   route
+      position 36n 118w altitude 10000 ft msl
+        speed 500 kts
+      position 37n 118w altitude 10000 ft msl
+   end_route
+
+   // Grow the bingo and reserve quantities after bingo and reserve have already triggered.
+   // We should NOT hit either again.
+   execute at_time 2.5 sec absolute
+      WsfFuel fuel = PLATFORM.Fuel();
+      if (fuel.IsValid())
+      {
+         fuel.SetBingoQuantity(9.5);
+         fuel.SetReserveQuantity(8.5);
+      }
+   end_execute
+
+   // Shrink the bingo and reserve quantities after bingo and reserve have already triggered.
+   // We should hit hit both again.
+   execute at_time 3.0 sec absolute
+      WsfFuel fuel = PLATFORM.Fuel();
+      if (fuel.IsValid())
+      {
+         fuel.SetBingoQuantity(6.0);
+         fuel.SetReserveQuantity(5.0);
+      }
+   end_execute
+
+   // Halve the consumption rate. It should twice as long to reach empty.
+   execute at_time 6.0 sec absolute
+      WsfFuel fuel = PLATFORM.Fuel();
+      if (fuel.IsValid())
+      {
+         fuel.SetConsumptionRate(0.5);
+      }
+   end_execute
+end_platform
+
+execute at_time 15 s absolute
+   extern int mBingoCount;
+   extern int mReserveCount;
+   extern int mEmptyCount;
+   extern double mEmptyTime;
+   extern double mUpdateInterval;
+
+   if ((mBingoCount == 2) && (mReserveCount == 2) && (mEmptyCount == 1) && (MATH.Fabs(mEmptyTime - 14.0) <= mUpdateInterval))
+   {
+      writeln("--PASS--");
+   }
+   else
+   {
+      writeln("-FAIL- bingo-count=", mBingoCount, " reserve-count=", mReserveCount, " empty-count=", mEmptyCount, " empty-time=", mEmptyTime);
+   }
+end_execute
+
+end_time 15 sec
+

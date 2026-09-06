@@ -1,0 +1,790 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#------------------------------------------------------------------------------
+# Set of shared resources used in the numbered tests for the spin scheduler
+#------------------------------------------------------------------------------
+
+end_time 60 min
+
+event_output
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+script_variables
+   Map<string,int> samHits = {}; 
+end_script_variables
+
+script void WeaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform)
+   string name = aTargetPlatform.Name();
+   if(samHits.Exists(name))
+   {
+      samHits[name] = samHits[name]+1;
+   }
+   else
+   {
+      samHits[name] = 1;
+   }
+end_script
+
+observer 
+   enable WEAPON_HIT
+end_observer
+
+// This serves as a base for 'blue' standalone radar players
+
+platform_type BLUE_RADAR WSF_PLATFORM
+   icon Ground_Radar
+
+   infrared_signature   VEHICLE_INFRARED_SIGNATURE
+   optical_signature    VEHICLE_OPTICAL_SIGNATURE
+   radar_signature      VEHICLE_RADAR_SIGNATURE
+
+#   comm blue_comm TEAM_DATALINK 
+#      network_name blue_net
+#      internal_link task_mgr
+#   end_comm
+
+   processor data_mgr WSF_LINKED_PROCESSOR
+      #report_to command_chain blue_chain commander via blue_comm
+   end_processor
+
+   processor task_mgr BLUE_RADAR_TACTICS
+   end_processor
+end_platform_type
+
+platform_type BOMBER WSF_PLATFORM 
+   icon bomber
+   
+#   infrared_signature BOMBER_INFRARED_SIG
+#   optical_signature BOMBER_OPTICAL_SIG
+   radar_signature BOMBER_RADAR_SIG
+   
+   mover WSF_AIR_MOVER
+   end_mover
+   
+   weapon gbu-38 GBU-38
+      quantity 4
+   end_weapon
+   
+   weapon gbu-39 GBU-39
+      quantity 6
+   end_weapon
+
+   processor fire-em BOMBER_WEAPON_RELEASE
+   end_processor
+   
+#   execute at_time 450 sec absolute
+#      PLATFORM.Weapon("gbu-38").FireSalvo(MasterTrackList().TrackEntry(0), 2);
+#      PLATFORM.Weapon("gbu-39").FireSalvo(MasterTrackList().TrackEntry(1), 2);
+#   end_execute
+   
+end_platform_type
+
+# --------------------------------------------------------------
+#                         Vehicle Signatures
+# --------------------------------------------------------------
+infrared_signature  VEHICLE_INFRARED_SIGNATURE
+   constant  10 watts/steradian
+end_infrared_signature
+
+optical_signature   VEHICLE_OPTICAL_SIGNATURE
+   constant  10 m^2
+end_optical_signature
+
+radar_signature     VEHICLE_RADAR_SIGNATURE
+   constant  1 m^2
+end_radar_signature
+
+# --------------------------------------------------------------
+#                         Red datalink
+# --------------------------------------------------------------
+
+comm TEAM_DATALINK WSF_COMM_TRANSCEIVER
+   transfer_rate      100 mbits/sec
+end_comm
+
+# --------------------------------------------------------------
+#                         Filter tactics
+# --------------------------------------------------------------
+
+filter FILTER_TACTICS WSF_KALMAN_FILTER
+   range_measurement_sigma       50. m
+   bearing_measurement_sigma     0.1 deg
+   elevation_measurement_sigma   0.1 deg
+
+   // values for maneuvering targets (per Erik)
+   process_noise_sigmas_XYZ  50 50 30
+end_filter
+
+platform_type EW_RADAR BLUE_RADAR
+   icon Ground_Radar
+   category 2D_RADAR
+
+   sensor ew_radar EW_RADAR
+      on
+      scheduler spin
+         scan_period 10 sec
+         starting_azimuth_randomized
+         clockwise true
+      end_scheduler
+      internal_link data_mgr
+      ignore_same_side
+      
+      update_interval 1 sec
+      frame_time 20 sec
+   end_sensor
+
+   aux_data
+      double max_range = 0  // meters = 100 nm
+   end_aux_data
+
+
+end_platform_type
+
+platform_type SINGLE_LARGE_SAM WSF_PLATFORM
+   icon TWIN_BOX
+   category ENGAGEMENT
+
+   infrared_signature    VEHICLE_INFRARED_SIGNATURE
+   optical_signature     VEHICLE_OPTICAL_SIGNATURE
+   radar_signature       VEHICLE_RADAR_SIGNATURE
+
+#   track_manager
+#      filter FILTER_TACTICS end_filter
+#   end_track_manager
+
+   comm cmdr_net TEAM_DATALINK
+      network_name <local:slave>
+      internal_link data_mgr
+      internal_link task_mgr
+   end_comm
+
+   comm sub_net TEAM_DATALINK
+      network_name <local:master>
+      internal_link data_mgr
+      internal_link task_mgr
+   end_comm
+
+   zone full_kinematic
+      circular
+         maximum_altitude 30 km
+         maximum_radius   25 nm
+   end_zone
+
+   sensor acq ACQ_RADAR
+      on
+      internal_link data_mgr
+   end_sensor
+
+   sensor ttr TTR_RADAR
+   end_sensor
+
+   weapon sam LARGE_SAM
+      quantity 16
+   end_weapon
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval 60 seconds
+   end_processor
+
+   processor task_mgr SINGLE_LARGE_SAM_TACTICS # WSF_TASK_PROCESSOR
+   end_processor
+end_platform_type
+
+# this file defines a simple task manager which implements very basic EMCON
+# rules for EW/ACQ type radar players
+
+processor BLUE_RADAR_TACTICS WSF_TASK_PROCESSOR
+
+   script_variables
+      bool cEVALUATE_EMCON_TURN_OFF = false;
+#      string sensorName = "ew_radar";
+#       WsfDraw mPlatDraw = WsfDraw();
+   end_script_variables
+
+   script void EvaluateEmcon()
+     int sensorCount = PLATFORM.SensorCount();
+     if (sensorCount > 0)
+     {
+        WsfSensor sensor = PLATFORM.SensorEntry(0);
+        if (sensor.IsTurnedOff())
+        {
+           # sensor is off.  Turn it on if we've received a task or
+           # we are put on alert
+           if ((TasksReceived() > 0) ||
+               (OperatingLevelFor("ENGAGE") > 0))
+           {
+              for (int entry = 0; entry < sensorCount; entry = entry + 1)
+              {
+                 PLATFORM.SensorEntry(entry).TurnOn();
+                 writeln("Current Target: " + PLATFORM.CurrentTarget().Name());
+              }
+           }
+        }
+        else if (sensor.IsTurnedOn() &&
+                 cEVALUATE_EMCON_TURN_OFF)
+        {
+           # sensor is on.  Turn it off if we have no tasks and are
+           # not on alert
+           if ((TasksReceived() < 1) &&
+               (OperatingLevelFor("ENGAGE") < 1))
+           {
+              for (int entry = 0; entry < sensorCount; entry = entry + 1)
+              {
+                 PLATFORM.SensorEntry(entry).TurnOff();
+              }
+           }
+        }
+     }
+   end_script
+
+   # this cannot be done in 'on_initialize' because the commander may not yet exist
+   execute at_time 0.1 seconds relative
+      # if my commander is in the category ENGAGEMENT then we will execute
+      # the emcon/turn-off logic
+      WsfPlatform commander = PLATFORM.Commander();
+      if (commander.IsValid() &&
+          commander.CategoryMemberOf("ENGAGEMENT"))
+      {
+         cEVALUATE_EMCON_TURN_OFF = true;
+      }
+   end_execute
+
+   # evaluate emcon whenever we have a change in assignment or alert level
+   script void on_task_assign(WsfTask aTask, WsfTrack aTrack)
+      ExecuteScriptAtTime(TIME_NOW + RANDOM.Uniform(0.0, 4.0), "EvaluateEmcon");
+   end_script
+
+   script void on_task_cancel(WsfTask aTask)
+      ExecuteScriptAtTime(TIME_NOW + RANDOM.Uniform(0.0, 4.0), "EvaluateEmcon");
+   end_script
+
+   script void on_operating_level_change(string aName)
+      ExecuteScriptAtTime(TIME_NOW + RANDOM.Uniform(0.0, 4.0), "EvaluateEmcon");
+   end_script
+end_processor
+
+processor BOMBER_WEAPON_RELEASE WSF_SCRIPT_PROCESSOR
+   
+   script_variables
+      string weaponName = "gbu-38";
+      string LARmeters = "lar_meters";
+      Array<bool> tgt_engaged = Array<bool>();
+   end_script_variables
+   
+   on_initialize2
+      for (int i=0; i<PLATFORM.MasterTrackList().Count(); i=i+1)
+      {
+         tgt_engaged[i] = false;
+      }
+   end_on_initialize2
+   
+   script bool fireWeapon (WsfTrack tTrack, string tWpn)
+      bool shot = false;
+      
+      writeln("TRACK = ", tTrack);
+      
+      WsfWeapon tempWeapon = PLATFORM.Weapon(tWpn);
+      if(tempWeapon.IsValid() && tempWeapon.AuxDataExists(LARmeters))
+      {
+         double tempRange = tempWeapon.AuxDataDouble(LARmeters);
+         if(PLATFORM.GroundRangeTo(tTrack) < tempRange
+            && tempWeapon.QuantityRemaining() > 0
+            && PLATFORM.Altitude() >= 7620)
+         {
+            shot = tempWeapon.FireSalvo(tTrack,2);
+         }
+      }
+      
+      if(shot)
+      {
+         writeln(PLATFORM.Name(), " fired ", tWpn, " at ",
+                 tTrack.TargetName(), " at time ", TIME_NOW);
+      }
+      
+      return shot;
+   end_script
+   script void Draw()
+   WsfWeapon tempWeapon = PLATFORM.Weapon(weaponName);
+   if(tempWeapon.IsValid() && tempWeapon.AuxDataExists(LARmeters))
+   {
+      WsfDraw draw = WsfDraw();
+      double range = tempWeapon.AuxDataDouble(LARmeters);
+      draw.SetDuration(3.0);
+      draw.SetColor(0,1,0);
+      draw.SetEllipseMode("line");
+      draw.BeginCircle(0.0, range);
+      draw.Vertex(PLATFORM);
+      draw.End();
+   }
+
+end_script
+   update_interval 3.0 s
+   on_update 
+      #Draw();
+      for(int i=0; i<PLATFORM.MasterTrackList().Count(); i=i+1)
+      {
+         if(!tgt_engaged[i])
+         {
+            Draw();
+         
+            WsfTrack tempTrack = PLATFORM.MasterTrackList().TrackEntry(i);
+            if(fireWeapon(tempTrack, weaponName))
+            {
+               tgt_engaged[i] = true;
+            }
+#            else if(fireWeapon(tempTrack, "gbu-39"))
+#            {
+#               tgt_engaged[i] = true;
+#            }
+         }
+      }
+   end_on_update
+end_processor
+
+processor SINGLE_LARGE_SAM_TACTICS WSF_TASK_PROCESSOR
+   script_variables 
+      double launchRange = 20.0 * MATH.M_PER_NM();
+      double salvoSize = 2;
+      string weaponName = "sam";
+   end_script_variables
+   
+   script bool CanEngage()
+      bool canEngage = false;
+      WsfWeapon sam = PLATFORM.Weapon(weaponName);
+      if(sam.IsValid() &&
+         sam.QuantityRemaining() >= salvoSize &&
+         TRACK.Target().IsValid() &&
+         PLATFORM.GroundRangeTo(TRACK) < launchRange &&
+         WeaponsActiveFor(TRACK.TrackId()) < 1)
+      {
+         canEngage = true;
+      }      
+      return canEngage;
+   end_script
+   
+   evaluation_interval DETECTED 10 sec
+   evaluation_interval ENGAGE   10 sec
+   evaluation_interval WAIT     10 sec
+   evaluation_interval IGNORE   24 hr
+   state DETECTED
+      next_state IGNORE
+         return(TRACK.Side() == PLATFORM.Side());
+      end_next_state
+      
+      next_state ENGAGE
+         return CanEngage();
+      end_next_state
+   end_state
+   
+   state ENGAGE
+      next_state WAIT
+         return Fire(TRACK, "FIRE", weaponName, salvoSize, PLATFORM);
+      end_next_state
+   end_state
+   
+   
+   state WAIT
+      next_state ENGAGE
+         return CanEngage();
+      end_next_state
+   end_state
+   
+   state IGNORE
+   end_state
+   
+end_processor
+platform sam_1 SINGLE_LARGE_SAM
+   position 30:40:25n 81:37:34.877w
+   heading 90 deg
+   
+   side blue
+   
+   #track platform bomber_case_4_1 end_track
+end_platform
+
+platform 200_ew_radar EW_RADAR
+   side blue
+   position 30:35n 81:30w
+      altitude 0.00 ft agl
+      heading 90 deg
+	  
+   edit sensor ew_radar
+      transmitter
+         frequency  150.0 mhz
+      end_transmitter
+   end_sensor
+end_platform
+
+antenna_pattern ACQ_RADAR_ANTENNA
+   rectangular_pattern
+     peak_gain             35 dB
+     minimum_gain         -10 dB
+     azimuth_beamwidth     10 deg
+     elevation_beamwidth   10 deg
+   end_rectangular_pattern
+end_antenna_pattern
+
+sensor ACQ_RADAR WSF_RADAR_SENSOR
+   one_m2_detect_range    50 nm
+   maximum_range         150 nm
+   antenna_height          5 m
+   frame_time             10 sec
+   scan_mode              azimuth_and_elevation
+   azimuth_scan_limits    -180 deg 180 deg
+   elevation_scan_limits     0 deg  50 deg
+
+   transmitter
+      antenna_pattern ACQ_RADAR_ANTENNA
+      power           1000 kw
+      frequency       3000 mhz
+      internal_loss      2 db
+   end_transmitter
+
+   receiver 
+      antenna_pattern ACQ_RADAR_ANTENNA
+      bandwidth         2 mhz
+      noise_power    -160 dbw
+      internal_loss     7 db   
+   end_receiver
+   
+   probability_of_false_alarm  1.0e-6
+   required_pd                 0.5
+   swerling_case               1
+   hits_to_establish_track     3   5
+   hits_to_maintain_track      1   5
+   track_quality               0.6   //used in tactics
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_iff 
+   
+end_sensor
+antenna_pattern EW_RADAR_ANTENNA
+  rectangular_pattern
+    peak_gain              20 dB
+    minimum_gain           -10.0 db
+    azimuth_beamwidth      10 deg
+    elevation_beamwidth    20 deg
+  end_rectangular_pattern
+end_antenna_pattern
+
+sensor EW_RADAR WSF_RADAR_SENSOR
+      scheduler spin
+         scan_period 10 sec
+         starting_beam_azimuth 0 deg
+         clockwise true
+      end_scheduler
+   one_m2_detect_range            70.0 nm
+   maximum_range                  100.0 nm
+   antenna_height                 6.0 m
+   frame_time                     20.0 sec
+   scan_mode                      azimuth
+   azimuth_scan_limits            -180 deg 180 deg
+   transmitter
+      antenna_pattern             EW_RADAR_ANTENNA
+      beam_tilt                   10.0 deg
+      power                       1000.0 kw
+      frequency                   200 mhz
+      internal_loss               2 db
+   end_transmitter
+
+   receiver
+      antenna_pattern             EW_RADAR_ANTENNA
+      beam_tilt                   10.0 deg
+      bandwidth                   2.0 mhz
+      noise_power                 -160 dBw  # will be calibrated for 1 m^2
+      internal_loss               7 dB
+   end_receiver
+
+
+   reports_range
+   reports_bearing
+   reports_iff
+end_sensor
+
+antenna_pattern TTR_RADAR_ANTENNA
+  sine_pattern
+    peak_gain            35 dB
+    minimum_gain      -10.0 dB
+    azimuth_beamwidth    1 deg
+    elevation_beamwidth  1 deg
+  end_sine_pattern
+end_antenna_pattern
+
+sensor TTR_RADAR WSF_RADAR_SENSOR
+   selection_mode                 multiple
+   slew_mode                      azimuth_and_elevation
+   azimuth_slew_limits            -180 deg 180 deg
+   elevation_slew_limits          0.0 deg 80.0 deg
+
+   mode_template
+      one_m2_detect_range            35.0 nm
+      maximum_range                 100.0 nm
+      antenna_height                 4.0 m
+
+      transmitter
+         antenna_pattern             TTR_RADAR_ANTENNA
+         power                       1000.0 kw
+         frequency                   9500 mhz
+         internal_loss               2 db
+      end_transmitter
+
+      receiver
+         antenna_pattern             TTR_RADAR_ANTENNA
+         bandwidth                   500.0 khz
+         noise_power                 -160 dBw  # will be calibrated for 1 m^2
+         internal_loss               7 dB
+      end_receiver
+
+      probability_of_false_alarm     1.0e-6
+      required_pd                    0.5
+      swerling_case                  1
+      reports_range
+      reports_bearing
+      reports_elevation
+      reports_velocity
+   end_mode_template
+
+   mode ACQUIRE
+      maximum_request_count          1
+      scan_mode                      azimuth_and_elevation
+      azimuth_scan_limits            -5 deg 5 deg
+      elevation_scan_limits          -5 deg 5 deg
+      frame_time                     2.0 sec
+      hits_to_establish_track        3 5
+      hits_to_maintain_track         1 3
+      track_quality                  0.8   # near 'weapons' grade
+   end_mode
+
+   mode TRACK
+      maximum_request_count          6
+      scan_mode                      azimuth_and_elevation
+      azimuth_scan_limits            -1 deg 1 deg
+      elevation_scan_limits          -1 deg 1 deg
+      frame_time                     1.0 sec
+      hits_to_establish_track        3 5
+      hits_to_maintain_track         1 3
+      track_quality                  1.0   # 'weapons' grade
+   end_mode
+end_sensor
+
+infrared_signature BOMBER_INFRARED_SIG
+   constant 10 watts/steradian
+end_infrared_signature
+# New file created by AFSIM Wizard
+
+optical_signature BOMBER_OPTICAL_SIG
+   constant 10 m^2
+end_optical_signature
+
+radar_signature BOMBER_RADAR_SIG
+   state default
+      inline_table dbsm 24 5
+                -90.0  -30.0   0.0   30.0   90.0
+        -180.0   20.0   20.0   0.0   20.0   20.0
+        -145.0   20.0   20.0   0.0   20.0   20.0
+        -140.0   20.0   20.0  40.0   20.0   20.0
+        -135.0   20.0   20.0  40.0   20.0   20.0
+        -130.0   20.0   20.0   0.0   20.0   20.0
+         -95.0   20.0   20.0   0.0   20.0   20.0
+         -90.0   20.0   20.0  40.0   20.0   20.0
+         -85.0   20.0   20.0   0.0   20.0   20.0
+         -50.0   20.0   20.0   0.0   20.0   20.0
+         -45.0   20.0   20.0  40.0   20.0   20.0
+         -35.0   20.0   20.0  40.0   20.0   20.0
+         -30.0   20.0   20.0   0.0   20.0   20.0
+          30.0   20.0   20.0   0.0   20.0   20.0
+          35.0   20.0   20.0  40.0   20.0   20.0
+          45.0   20.0   20.0  40.0   20.0   20.0
+          50.0   20.0   20.0   0.0   20.0   20.0
+          85.0   20.0   20.0   0.0   20.0   20.0
+          90.0   20.0   20.0  40.0   20.0   20.0
+          95.0   20.0   20.0   0.0   20.0   20.0
+         130.0   20.0   20.0   0.0   20.0   20.0
+         135.0   20.0   20.0  40.0   20.0   20.0
+         140.0   20.0   20.0  40.0   20.0   20.0
+         145.0   20.0   20.0   0.0   20.0   20.0
+         180.0   20.0   20.0   0.0   20.0   20.0
+      end_inline_table
+end_radar_signature
+
+# Weapons attributes
+radar_signature GBU-38_RADAR_SIGNATURE
+   constant 1 m2 
+end_radar_signature
+
+aero GBU-38_AERO WSF_AERO
+   cd_zero_subsonic       0.100
+   cd_zero_supersonic     0.400
+   mach_begin_cd_rise     0.800
+   mach_end_cd_rise       1.200
+   mach_max_supersonic    2.000
+   reference_area         0.059 m2
+   cl_max                10.400
+   aspect_ratio           4.000
+end_aero
+
+# Weapons effect, attribute NOT a class
+weapon_effects GBU-38_EFFECTS WSF_SPHERICAL_LETHALITY
+   incidental_damage_allowed enable
+   minimum_radius    25.0 m
+   maximum_radius    30.0 m
+   minimum_damage    0.1
+   maximum_damage    1.0
+   threshold_damage  0.2
+   exponent          1.0
+end_weapon_effects
+
+# Weapon definition
+platform_type GBU-38 WSF_PLATFORM
+   icon jdam
+   radar_signature GBU-38_RADAR_SIGNATURE
+   
+   mover WSF_GUIDED_MOVER 
+      aero               GBU-38_AERO
+      mass               500 lb
+      update_interval    0.5 s
+   end_mover
+
+   processor guidance_computer WSF_GUIDANCE_COMPUTER 
+      proportional_navigation_gain   10.0
+      velocity_pursuit_gain          10.0
+      g_bias                          1.0
+      maximum_commanded_g            25.0 g
+      guidance_delay                  0.0 s   
+   end_processor
+   
+   processor fuse WSF_GROUND_TARGET_FUSE 
+      maximum_time_of_flight 900 s
+   end_processor
+
+end_platform_type
+
+weapon GBU-38 WSF_EXPLICIT_WEAPON
+   launched_platform_type GBU-38 
+   weapon_effects GBU-38_EFFECTS
+   aux_data 
+      double lar_meters = 18520 
+   end_aux_data
+end_weapon
+
+# Weapons attributes
+radar_signature GBU-39_RADAR_SIGNATURE
+   constant 1 m2 
+end_radar_signature
+
+aero GBU-39_AERO WSF_AERO
+   cd_zero_subsonic       0.150
+   cd_zero_supersonic     0.220
+   mach_begin_cd_rise     0.850
+   mach_end_cd_rise       1.150
+   mach_max_supersonic    2.000
+   reference_area         0.028 m2
+   cl_max                 7.000
+   aspect_ratio          14.000
+end_aero
+
+# Weapon definition
+platform_type GBU-39 WSF_PLATFORM
+   icon jdam
+   radar_signature GBU-39_RADAR_SIGNATURE
+   
+   mover WSF_GUIDED_MOVER 
+      aero               GBU-39_AERO
+      mass               250 lb
+      update_interval    0.5 s
+   end_mover
+
+   processor guidance_computer WSF_GUIDANCE_COMPUTER 
+      proportional_navigation_gain   10.0
+      velocity_pursuit_gain          10.0
+      g_bias                          1.0
+      maximum_commanded_g            25.0 g
+      guidance_delay                  0.0 s   
+   end_processor
+   
+   processor fuse WSF_GROUND_TARGET_FUSE 
+      maximum_time_of_flight 900 s
+   end_processor
+
+end_platform_type
+
+# Weapons effect, attribute NOT a class
+weapon_effects GBU-39_EFFECTS WSF_SPHERICAL_LETHALITY 
+   minimum_radius    30 ft
+   maximum_radius    100 ft
+   minimum_damage    0.05
+   maximum_damage    1.00
+   threshold_damage  0.20
+   exponent          1.0
+end_weapon_effects
+
+weapon GBU-39 WSF_EXPLICIT_WEAPON
+   launched_platform_type GBU-39 
+   weapon_effects GBU-39_EFFECTS
+   aux_data 
+      double lar_meters = 74080 
+   end_aux_data
+end_weapon
+
+infrared_signature LARGE_SAM_INFRARED_SIGNATURE
+   constant 1 watts/steradian
+end_infrared_signature
+
+optical_signature  LARGE_SAM_OPTICAL_SIGNATURE
+   constant 1 m^2
+end_optical_signature
+
+radar_signature    LARGE_SAM_RADAR_SIGNATURE
+   constant 1 m^2
+end_radar_signature
+
+platform_type LARGE_SAM WSF_PLATFORM
+  icon SA-10_Missile
+
+  infrared_signature LARGE_SAM_INFRARED_SIGNATURE
+  optical_signature  LARGE_SAM_OPTICAL_SIGNATURE
+  radar_signature    LARGE_SAM_RADAR_SIGNATURE
+
+  mover WSF_STRAIGHT_LINE_MOVER
+     average_speed                 2643.0 kts  # mach 4
+     maximum_lateral_acceleration  20.0 g
+     guidance_mode                 lead_pursuit
+  end_mover
+
+  processor fuse WSF_AIR_TARGET_FUSE
+     max_time_of_flight_to_detonate  37.0 sec  # 25 nm range
+  end_processor
+
+  processor seeker WSF_PERFECT_TRACKER
+     update_interval  0.5 s
+  end_processor
+end_platform_type
+
+weapon_effects LARGE_SAM_EFFECT WSF_GRADUATED_LETHALITY
+   radius_and_pk  100.0 m  0.7
+end_weapon_effects
+
+weapon LARGE_SAM WSF_EXPLICIT_WEAPON
+   launched_platform_type LARGE_SAM
+   maximum_request_count 10
+
+   weapon_effects LARGE_SAM_EFFECT
+
+   quantity               4
+
+   firing_delay           0.5 sec
+   salvo_interval         5.0 sec
+
+   slew_mode              azimuth_and_elevation
+   azimuth_slew_limits    -180.0 deg 180.0 deg
+   elevation_slew_limits  10.0 deg  70.0 deg
+end_weapon

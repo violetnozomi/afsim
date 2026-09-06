@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that
+# WsfLocalTrack.RawTracksFrom, RawTrackFromSensorName, & RawTrackFromSensorType
+# work correctly.
+include_once ../auto_script/test_pass.txt
+script_variables
+  PassTestCount = 3;
+end_script_variables
+platform tgt WSF_PLATFORM
+   side green
+end_platform
+sensor MYSENSOR WSF_GEOMETRIC_SENSOR
+   on
+   frame_time 1 s
+   reports_location
+   maximum_range 100 nm
+end_sensor
+
+platform p WSF_PLATFORM
+   side blue
+   add sensor sen-1 MYSENSOR
+      processor data-mgr
+   end_sensor
+   add sensor sen-2 MYSENSOR
+      processor data-mgr
+   end_sensor
+   add sensor sen-3 MYSENSOR
+      processor data-mgr
+   end_sensor
+   add sensor sen-4 MYSENSOR
+      processor data-mgr
+   end_sensor
+   add sensor sen-5 MYSENSOR
+      processor data-mgr
+   end_sensor
+   add processor data-mgr WSF_TRACK_PROCESSOR
+   end_processor
+   execute at_time 5 s absolute
+      extern void pass();
+      WsfLocalTrack lt = MasterTrackList().Entry(0);
+      if (lt.RawTracksFrom(PLATFORM).Size() == 5)
+      {
+         writeln("RawTracksFrom() -- Ok");
+         pass();
+      }
+      else
+      {
+         writeln("RawTracksFrom() Failed");
+      }
+      if (lt.RawTrackFromSensorName(PLATFORM, "sen-3").SensorName() == "sen-3")
+      {
+         writeln("RawTrackFromSensorName() -- Ok");
+         pass();
+      }
+      else
+      {
+         writeln("RawTrackFromSensorName() Failed");
+      }
+
+      bool ok = false;
+      WsfTrack latestTrack = lt.RawTrackFromSensorType(PLATFORM, "MYSENSOR");
+      foreach (WsfTrack t in lt.RawTracksFrom(PLATFORM))
+      {
+         if (t.TimeSinceUpdated() < latestTrack.TimeSinceUpdated())
+         {
+            writeln("-FAIL- RawTrackFromSensorType() did not return the newer track.");
+         }
+         else if (t == latestTrack)
+         {
+            writeln("RawTrackFromSensorType() -- Ok");
+            ok = true;
+         }
+      }
+      if (ok) pass();
+   end_execute
+end_platform
+end_time 7 s

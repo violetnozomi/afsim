@@ -1,0 +1,79 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test Quaternion Commands
+// (Until full scriptability is complete on this class,
+//  use a mix of script and C++ test methods.)
+
+// Note:  As of this script writing 4/22, the following core classes
+// WsfPathComputer, WsfPathList, WsfOffsetMover.  Planned 6-DOF work
+// will likely expand this list.
+
+include_once ../auto_script/test_functions.txt
+include_once ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 5;
+end_script_variables
+
+platform plat WSF_PLATFORM
+
+   on_initialize
+
+      double yawAngle = 10.0;  // start at Psi = 10 deg
+      Quaternion attitude = Quaternion.Construct(yawAngle, 0.0, 0.0);
+
+      // Test rotation
+      double totalTime = 10.0;  // 10 sec rotate time
+      int numIterations = 100;
+      int count = 0;
+      double yawRate = 3.0; // 3 deg per sec => 30 deg total rotation
+      Vec3 pqr = Vec3.Construct(0.0, 0.0, yawRate);
+      double dt = totalTime / numIterations;
+      while (count < numIterations)
+      {
+         attitude = attitude.Rotate(pqr, dt);
+
+         if (count == 50)
+         {
+            // Does not need to be done except periodically.
+            attitude.Normalize();
+         }
+
+         count = count + 1;
+      }
+
+      // Check the yaw values
+      double psiDeg = attitude.Psi();
+      if ((psiDeg < 40.2) && (psiDeg > 39.8))
+      {
+         pass();
+      }
+
+      // Test slerp method
+      Quaternion q1 = Quaternion.Construct(10., 0.0, 0.0);
+      Quaternion q2 = Quaternion.Construct(20., 0.0, 0.0);
+      Quaternion slerp0 = Quaternion.Slerp(q1, q2, 0.0);
+      if ((slerp0.Psi() == q1.Psi()) && (slerp0.Theta() == q1.Theta()) && (slerp0.Phi() == q1.Phi())) pass();
+      Quaternion slerp1 = Quaternion.Slerp(q1, q2, 1.0);
+      if ((slerp1.Psi() == q2.Psi()) && (slerp1.Theta() == q2.Theta()) && (slerp1.Phi() == q2.Phi())) pass();
+
+      // Test multiply method
+      Quaternion q = Quaternion.Construct(1., 2., 3., 4.);
+      Quaternion p = Quaternion.Construct(-5.,6.,-7., 8.);
+      Quaternion multiplyPQ = Quaternion.Multiply(p, q);
+      if ( multiplyPQ.ToString() == "(-28, -56, -30, 20)") pass();
+      Quaternion multiplyQP = Quaternion.Multiply(q, p);
+      if ( multiplyQP.ToString() == "(-28, 48, -14, -44)") pass();
+
+   end_on_initialize
+
+end_platform
+
+end_time 10 s

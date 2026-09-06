@@ -1,0 +1,839 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# File: test_comparison.txt
+#
+# This file will test the comparison characters (<=, !=, etc...).  This file will also
+#     test the short circuit logic.  Test_functions.txt was not included by this file because
+#     of the short circuit usage inside of test_functions.txt (hence avoiding a dependency).
+#
+# ==============================================================================
+#
+# This file tests a LOT of possible combinations. Tests involving constants, variables,
+# variables in structures and function values were used because the script compiler
+# treats them differently. Also, numeric comparisons where the LHS and RHS are of
+# different width are tested. This was all in response to MANTIS issue 66, which involved
+# a problem involving comparisons involving structs. It lead to the discovery of a
+# problem that involved tests where the LHS was narrower than the RHS.
+#
+# ==============================================================================
+
+script_variables
+   global bool setMeTrue;
+   global bool setYouTrue;
+end_script_variables
+
+script bool setTrueReturnsTrueExecuted()
+   extern bool setMeTrue;
+   setMeTrue = true;
+   return true;
+end_script
+
+script bool setFalseReturnsFaleExecuted()
+   extern bool setYouTrue;
+   setYouTrue = true;
+   return false;
+end_script
+
+script void resetValues()
+   setMeTrue = false;
+   setYouTrue = false;
+end_script
+
+#######################################################################################
+# For implicit casting tests...
+
+script_struct TestStruct
+   script_variables
+      bool   bValue;
+      int    iValue;
+      double dValue;
+   end_script_variables
+end_script_struct
+
+#######################################################################################
+# For implicit casting tests
+
+script double dFunc()
+   return 1.1;
+end_script
+
+script_variables
+  int g_iFuncValue = 1;
+end_script_variables
+
+script int iFunc()
+   return g_iFuncValue;
+end_script
+
+script bool bFunc()
+   return true;
+end_script
+
+#######################################################################################
+script bool TestFailed(string aOpTypes,
+                       string aOperand1,
+                       string aOperator,
+                       string aOperand2,
+                       bool   aExpected)
+   write("-FAIL- ", aOpTypes, " ", aOperand1, " ", aOperator, " ", aOperand2);
+   if (aExpected)
+   {
+      writeln(" expected true, received: false");
+   }
+   else
+   {
+      writeln(" expected false, received: true");
+   }
+
+   return false;
+end_script
+
+#######################################################################################
+# Tests where the LHS and RHS of the comparison are not of the same type.
+# It ensures variables are widened when necessary.
+#
+# NOTE: Many of these tests failed prior to the fix for MANTIS issue 66. The basic
+#       problem occured when the RHS was wider than the LHS because the code always
+#       casted the RHS to the type of the LHS.
+
+script bool TestMismatchedComparisons(bool aPass)
+   bool pass = aPass;
+   string opTypes;
+
+   struct s = struct.New("TestStruct");
+   s->dValue = 1.1;
+   s->iValue = 1;
+   s->bValue = true;
+
+   double dValue = 1.1;
+   int    iValue = 1;
+   bool   bValue = true;
+
+   # ===========================================================================
+   # comparisons involving doubles and ints
+   # ===========================================================================
+
+   # ===========================================================================
+   # double constant OP various ints
+
+   opTypes = "double-constant OP int-constant";
+   if (1.1 <  1)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (1.1 <= 1)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (1.1 == 1)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (1.1 >= 1) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (1.1 >  1) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-constant OP int-variable";
+   if (1.1 <  iValue)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (1.1 <= iValue)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (1.1 == iValue)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (1.1 >= iValue) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (1.1 >  iValue) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-constant OP int-struct-variable";
+   if (1.1 <  s->iValue)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (1.1 <= s->iValue)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (1.1 == s->iValue)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (1.1 >= s->iValue) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (1.1 >  s->iValue) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-constant OP int-function";
+   if (1.1 <  iFunc())          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (1.1 <= iFunc())          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (1.1 == iFunc())          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (1.1 >= iFunc()) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (1.1 >  iFunc()) { } else { pass = TestFailed(opTypes, "1.1", ">", "1", true); }
+
+   # ===========================================================================
+   # double variable OP various ints
+
+   opTypes = "double-variable OP int-constant";
+   if (dValue <  1)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (dValue <= 1)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (dValue == 1)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (dValue >= 1) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (dValue >  1) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-variable OP int-variable";
+   if (dValue <  iValue)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (dValue <= iValue)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (dValue == iValue)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (dValue >= iValue) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (dValue >  iValue) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-variable OP int-struct-variable";
+   if (dValue <  s->iValue)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (dValue <= s->iValue)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (dValue == s->iValue)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (dValue >= s->iValue) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (dValue >  s->iValue) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-variable OP int-function";
+   if (dValue <  iFunc())          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (dValue <= iFunc())          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (dValue == iFunc())          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (dValue >= iFunc()) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (dValue >  iFunc()) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   # ===========================================================================
+   # double struct variable OP various ints
+
+   opTypes = "double-struct-variable OP int-constant";
+   if (s->dValue <  1)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (s->dValue <= 1)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (s->dValue == 1)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (s->dValue >= 1) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (s->dValue >  1) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-struct-variable OP int-variable";
+   if (s->dValue <  iValue)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (s->dValue <= iValue)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (s->dValue == iValue)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (s->dValue >= iValue) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (s->dValue >  iValue) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-struct-variable OP int-struct-variable";
+   if (s->dValue <  s->iValue)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (s->dValue <= s->iValue)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (s->dValue == s->iValue)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (s->dValue >= s->iValue) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (s->dValue >  s->iValue) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-struct-variable OP int-function";
+   if (s->dValue <  iFunc())          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (s->dValue <= iFunc())          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (s->dValue == iFunc())          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (s->dValue >= iFunc()) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (s->dValue >  iFunc()) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   # ===========================================================================
+   # double function OP various ints
+
+   opTypes = "double-struct-variable OP int-constant";
+   if (dFunc() <  1)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (dFunc() <= 1)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (dFunc() == 1)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (dFunc() >= 1) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (dFunc() >  1) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-struct-variable OP int-variable";
+   if (dFunc() <  iValue)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (dFunc() <= iValue)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (dFunc() == iValue)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (dFunc() >= iValue) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (dFunc() >  iValue) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-struct-variable OP int-struct-variable";
+   if (dFunc() <  s->iValue)          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (dFunc() <= s->iValue)          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (dFunc() == s->iValue)          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (dFunc() >= s->iValue) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (dFunc() >  s->iValue) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   opTypes = "double-struct-variable OP int-function";
+   if (dFunc() <  iFunc())          { pass = TestFailed(opTypes, "1.1", "<",  "1", false); }
+   if (dFunc() <= iFunc())          { pass = TestFailed(opTypes, "1.1", "<=", "1", false); }
+   if (dFunc() == iFunc())          { pass = TestFailed(opTypes, "1.1", "==", "1", false); }
+   if (dFunc() >= iFunc()) { } else { pass = TestFailed(opTypes, "1.1", ">=", "1", true); }
+   if (dFunc() >  iFunc()) { } else { pass = TestFailed(opTypes, "1.1", ">",  "1", true); }
+
+   # ===========================================================================
+   # Now repeat the tests but reverse the LHS and RHS.
+   # ===========================================================================
+
+   # various ints OP double constants
+
+   opTypes = "int-constant OP double-constant";
+   if (1 <  1.1) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (1 <= 1.1) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (1 == 1.1)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (1 >= 1.1)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (1 >  1.1)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-variable OP double-constant";
+   if (iValue <  1.1) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (iValue <= 1.1) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (iValue == 1.1)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (iValue >= 1.1)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (iValue >  1.1)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-struct-variable OP double-constant";
+   if (s->iValue <  1.1) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (s->iValue <= 1.1) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (s->iValue == 1.1)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (s->iValue >= 1.1)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (s->iValue >  1.1)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-function OP double-constant";
+   if (iFunc() <  1.1) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (iFunc() <= 1.1) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (iFunc() == 1.1)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (iFunc() >= 1.1)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (iFunc() >  1.1)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   # various ints OP double variables
+
+   opTypes = "int-constant OP double-variable";
+   if (1 <  dValue) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (1 <= dValue) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (1 == dValue)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (1 >= dValue)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (1 >  dValue)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-variable OP double-variable";
+   if (iValue <  dValue) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (iValue <= dValue) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (iValue == dValue)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (iValue >= dValue)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (iValue >  dValue)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-struct-variable OP double-variable";
+   if (s->iValue <  dValue) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (s->iValue <= dValue) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (s->iValue == dValue)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (s->iValue >= dValue)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (s->iValue >  dValue)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-function OP double-variable";
+   if (iFunc() <  dValue) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (iFunc() <= dValue) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (iFunc() == dValue)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (iFunc() >= dValue)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (iFunc() >  dValue)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   # various ints OP double struct variables
+
+   opTypes = "int-constant OP double-struct-variable";
+   if (1 <  s->dValue) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (1 <= s->dValue) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (1 == s->dValue)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (1 >= s->dValue)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (1 >  s->dValue)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-variable OP double-struct-variable";
+   if (iValue <  s->dValue) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (iValue <= s->dValue) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (iValue == s->dValue)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (iValue >= s->dValue)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (iValue >  s->dValue)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-struct-variable OP double-struct-variable";
+   if (s->iValue <  s->dValue) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (s->iValue <= s->dValue) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (s->iValue == s->dValue)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (s->iValue >= s->dValue)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (s->iValue >  s->dValue)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-function OP double-struct-variable";
+   if (iFunc() <  s->dValue) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (iFunc() <= s->dValue) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (iFunc() == s->dValue)          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (iFunc() >= s->dValue)          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (iFunc() >  s->dValue)          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   # various ints OP double function
+
+   opTypes = "int-constant OP double-function";
+   if (1 <  dFunc()) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (1 <= dFunc()) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (1 == dFunc())          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (1 >= dFunc())          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (1 >  dFunc())          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-variable OP double-function";
+   if (iValue <  dFunc()) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (iValue <= dFunc()) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (iValue == dFunc())          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (iValue >= dFunc())          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (iValue >  dFunc())          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-struct-variable OP double-function";
+   if (s->iValue <  dFunc()) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (s->iValue <= dFunc()) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (s->iValue == dFunc())          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (s->iValue >= dFunc())          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (s->iValue >  dFunc())          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   opTypes = "int-function OP double-function";
+   if (iFunc() <  dFunc()) { } else { pass = TestFailed(opTypes, "1", "<",  "1.1", true); }
+   if (iFunc() <= dFunc()) { } else { pass = TestFailed(opTypes, "1", "<=", "1.1", true); }
+   if (iFunc() == dFunc())          { pass = TestFailed(opTypes, "1", "==", "1.1", false); }
+   if (iFunc() >= dFunc())          { pass = TestFailed(opTypes, "1", ">=", "1.1", false); }
+   if (iFunc() >  dFunc())          { pass = TestFailed(opTypes, "1", ">",  "1.1", false); }
+
+   # ===========================================================================
+   # comparisons involving int and bool
+   #
+   # Remember that these all should be converted to numeric comparisons with
+   # true being 1 and false being 0!
+   # ===========================================================================
+
+   # Make sure first of the integer values of true and false.
+
+   opTypes = "bool-constant OP int-constant";
+   if (true  <  0)          { pass = TestFailed(opTypes, "true", "<", "0", false); }
+   if (true  <= 0)          { pass = TestFailed(opTypes, "true", "<=", "0", false); }
+   if (true  == 0)          { pass = TestFailed(opTypes, "true", "==", "0", false); }
+   if (true  >= 0) { } else { pass = TestFailed(opTypes, "true", ">=", "0", true); }
+   if (true  >  0) { } else { pass = TestFailed(opTypes, "true", ">", "0", true); }
+
+   if (true  <  1)          { pass = TestFailed(opTypes, "true", "<", "1", false); }
+   if (true  <= 1) { } else { pass = TestFailed(opTypes, "true", "<=", "1", true); }
+   if (true  == 1) { } else { pass = TestFailed(opTypes, "true", "==", "1", true); }
+   if (true  >= 1) { } else { pass = TestFailed(opTypes, "true", ">=", "1", true); }
+   if (true  >  1)          { pass = TestFailed(opTypes, "true", ">", "1", false); }
+
+   if (false  <  0)          { pass = TestFailed(opTypes, "false", "<", "0", false); }
+   if (false  <= 0) { } else { pass = TestFailed(opTypes, "false", "<=", "0", true); }
+   if (false  == 0) { } else { pass = TestFailed(opTypes, "false", "==", "0", true); }
+   if (false  >= 0) { } else { pass = TestFailed(opTypes, "false", ">=", "0", true); }
+   if (false  >  0)          { pass = TestFailed(opTypes, "false", ">", "0", false); }
+
+   if (false  <  1) { } else { pass = TestFailed(opTypes, "false", "<", "1", true); }
+   if (false  <= 1) { } else { pass = TestFailed(opTypes, "false", "<=", "1", true); }
+   if (false  == 1)          { pass = TestFailed(opTypes, "false", "==", "1", false); }
+   if (false  >= 1)          { pass = TestFailed(opTypes, "false", ">=", "1", false); }
+   if (false  >  1)          { pass = TestFailed(opTypes, "false", ">", "1", false); }
+
+   # ===========================================================================
+   # Now repeat the tests but reverse the LHS and RHS.
+   # ===========================================================================
+
+   opTypes = "int-constant OP bool-constant";
+   if (0 <  true) { } else { pass = TestFailed(opTypes, "0", "<", "true", true); }
+   if (0 <= true) { } else { pass = TestFailed(opTypes, "0", "<=", "true", true); }
+   if (0 == true)          { pass = TestFailed(opTypes, "0", "==", "true", false); }
+   if (0 >= true)          { pass = TestFailed(opTypes, "0", ">=", "true", false); }
+   if (0 >  true)          { pass = TestFailed(opTypes, "0", ">", "true", false); }
+
+   if (1 <  true)          { pass = TestFailed(opTypes, "1", "<", "true", false); }
+   if (1 <= true) { } else { pass = TestFailed(opTypes, "1", "<=", "true", true); }
+   if (1 == true) { } else { pass = TestFailed(opTypes, "1", "==", "true", true); }
+   if (1 >= true) { } else { pass = TestFailed(opTypes, "1", ">=", "true", true); }
+   if (1 >  true)          { pass = TestFailed(opTypes, "1", ">", "true", false); }
+
+   if (0 <  false)          { pass = TestFailed(opTypes, "0", "<", "false", false); }
+   if (0 <= false) { } else { pass = TestFailed(opTypes, "0", "<=", "false", true); }
+   if (0 == false) { } else { pass = TestFailed(opTypes, "0", "==", "false", true); }
+   if (0 >= false) { } else { pass = TestFailed(opTypes, "0", ">=", "false", true); }
+   if (0 >  false)          { pass = TestFailed(opTypes, "0", ">", "false", false); }
+
+   if (1 <  false)          { pass = TestFailed(opTypes, "1", "<", "false", false); }
+   if (1 <= false)          { pass = TestFailed(opTypes, "1", "<=", "false", false); }
+   if (1 == false)          { pass = TestFailed(opTypes, "1", "==", "false", false); }
+   if (1 >= false) { } else { pass = TestFailed(opTypes, "1", ">=", "false", true); }
+   if (1 >  false) { } else { pass = TestFailed(opTypes, "1", ">", "false", true); }
+
+   # ===========================================================================
+   # Up to now we have been comparing true and false to zero and one. Lets try an int of 2
+   # ===========================================================================
+
+   iValue = 2;
+   s->iValue = 2;
+   g_iFuncValue = 2;
+
+   # bool constant OP various int
+
+   opTypes = "bool-constant OP int-constant";
+   if (true  <  2) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (true  <= 2) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (true  == 2)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (true  >= 2)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (true  >  2)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-constant OP int-variable";
+   if (true  <  iValue) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (true  <= iValue) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (true  == iValue)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (true  >= iValue)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (true  >  iValue)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-constant OP int-struct-variable";
+   if (true  <  s->iValue) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (true  <= s->iValue) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (true  == s->iValue)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (true  >= s->iValue)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (true  >  s->iValue)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-constant OP int-function";
+   if (true  <  iFunc()) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (true  <= iFunc()) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (true  == iFunc())          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (true  >= iFunc())          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (true  >  iFunc())          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   # bool variable OP various int
+
+   opTypes = "bool-variable OP int-constant";
+   if (bValue  <  2) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (bValue  <= 2) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (bValue  == 2)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (bValue  >= 2)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (bValue  >  2)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-variable OP int-variable";
+   if (bValue  <  iValue) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (bValue  <= iValue) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (bValue  == iValue)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (bValue  >= iValue)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (bValue  >  iValue)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-variable OP int-struct-variable";
+   if (bValue  <  s->iValue) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (bValue  <= s->iValue) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (bValue  == s->iValue)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (bValue  >= s->iValue)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (bValue  >  s->iValue)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-variable OP int-function";
+   if (bValue  <  iFunc()) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (bValue  <= iFunc()) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (bValue  == iFunc())          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (bValue  >= iFunc())          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (bValue  >  iFunc())          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   # bool struct-variable OP various int
+
+   opTypes = "bool-struct-variable OP int-constant";
+   if (s->bValue  <  2) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (s->bValue  <= 2) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (s->bValue  == 2)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (s->bValue  >= 2)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (s->bValue  >  2)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-struct-variable OP int-variable";
+   if (s->bValue  <  iValue) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (s->bValue  <= iValue) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (s->bValue  == iValue)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (s->bValue  >= iValue)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (s->bValue  >  iValue)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-struct-variable OP int-struct-variable";
+   if (s->bValue  <  s->iValue) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (s->bValue  <= s->iValue) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (s->bValue  == s->iValue)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (s->bValue  >= s->iValue)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (s->bValue  >  s->iValue)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-struct-variable OP int-function";
+   if (s->bValue  <  iFunc()) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (s->bValue  <= iFunc()) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (s->bValue  == iFunc())          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (s->bValue  >= iFunc())          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (s->bValue  >  iFunc())          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   # bool funtion OP various int
+
+   opTypes = "bool-function OP int-constant";
+   if (bFunc()  <  2) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (bFunc()  <= 2) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (bFunc()  == 2)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (bFunc()  >= 2)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (bFunc()  >  2)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-function OP int-variable";
+   if (bFunc()  <  iValue) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (bFunc()  <= iValue) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (bFunc()  == iValue)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (bFunc()  >= iValue)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (bFunc()  >  iValue)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-function OP int-struct-variable";
+   if (bFunc()  <  s->iValue) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (bFunc()  <= s->iValue) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (bFunc()  == s->iValue)          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (bFunc()  >= s->iValue)          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (bFunc()  >  s->iValue)          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   opTypes = "bool-function OP int-function";
+   if (bFunc()  <  iFunc()) { } else { pass = TestFailed(opTypes, "true", "<", "2", true); }
+   if (bFunc()  <= iFunc()) { } else { pass = TestFailed(opTypes, "true", "<=", "2", true); }
+   if (bFunc()  == iFunc())          { pass = TestFailed(opTypes, "true", "==", "2", false); }
+   if (bFunc()  >= iFunc())          { pass = TestFailed(opTypes, "true", ">=", "2", false); }
+   if (bFunc()  >  iFunc())          { pass = TestFailed(opTypes, "true", ">", "2", false); }
+
+   # ===========================================================================
+   # Now repeat the tests but reverse the LHS and RHS.
+   # ===========================================================================
+
+   # int constant OP various bool
+
+   opTypes = "int-constant OP bool-constant";
+   if (2 <  true)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (2 <= true)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (2 == true)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (2 >= true) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (2 >  true) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-constant OP bool-variable";
+   if (2 <  bValue)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (2 <= bValue)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (2 == bValue)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (2 >= bValue) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (2 >  bValue) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-constant OP bool-struct-variable";
+   if (2 <  s->bValue)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (2 <= s->bValue)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (2 == s->bValue)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (2 >= s->bValue) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (2 >  s->bValue) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-constant OP bool-function";
+   if (2 <  bFunc())          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (2 <= bFunc())          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (2 == bFunc())          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (2 >= bFunc()) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (2 >  bFunc()) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   # int variable OP various bool
+
+   opTypes = "int-variable OP bool-constant";
+   if (iValue <  true)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (iValue <= true)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (iValue == true)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (iValue >= true) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (iValue >  true) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-variable OP bool-variable";
+   if (iValue <  bValue)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (iValue <= bValue)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (iValue == bValue)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (iValue >= bValue) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (iValue >  bValue) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-variable OP bool-struct-variable";
+   if (iValue <  s->bValue)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (iValue <= s->bValue)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (iValue == s->bValue)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (iValue >= s->bValue) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (iValue >  s->bValue) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-variable OP bool-function";
+   if (iValue <  bFunc())          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (iValue <= bFunc())          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (iValue == bFunc())          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (iValue >= bFunc()) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (iValue >  bFunc()) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   # int struct-variable OP various bool
+
+   opTypes = "int-struct-variable OP bool-constant";
+   if (s->iValue <  true)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (s->iValue <= true)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (s->iValue == true)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (s->iValue >= true) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (s->iValue >  true) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-struct-variable OP bool-variable";
+   if (s->iValue <  bValue)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (s->iValue <= bValue)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (s->iValue == bValue)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (s->iValue >= bValue) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (s->iValue >  bValue) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-struct-variable OP bool-struct-variable";
+   if (s->iValue <  s->bValue)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (s->iValue <= s->bValue)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (s->iValue == s->bValue)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (s->iValue >= s->bValue) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (s->iValue >  s->bValue) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-struct-variable OP bool-function";
+   if (s->iValue <  bFunc())          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (s->iValue <= bFunc())          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (s->iValue == bFunc())          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (s->iValue >= bFunc()) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (s->iValue >  bFunc()) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   # int struct-variable OP various bool
+
+   opTypes = "int-function OP bool-constant";
+   if (iFunc() <  true)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (iFunc() <= true)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (iFunc() == true)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (iFunc() >= true) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (iFunc() >  true) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-function OP bool-variable";
+   if (iFunc() <  bValue)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (iFunc() <= bValue)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (iFunc() == bValue)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (iFunc() >= bValue) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (iFunc() >  bValue) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-function OP bool-struct-variable";
+   if (iFunc() <  s->bValue)          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (iFunc() <= s->bValue)          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (iFunc() == s->bValue)          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (iFunc() >= s->bValue) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (iFunc() >  s->bValue) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+   opTypes = "int-function OP bool-function";
+   if (iFunc() <  bFunc())          { pass = TestFailed(opTypes, "2", "<", "true", false); }
+   if (iFunc() <= bFunc())          { pass = TestFailed(opTypes, "2", "<=", "true", false); }
+   if (iFunc() == bFunc())          { pass = TestFailed(opTypes, "2", "==", "true", false); }
+   if (iFunc() >= bFunc()) { } else { pass = TestFailed(opTypes, "2", ">=", "true", true); }
+   if (iFunc() >  bFunc()) { } else { pass = TestFailed(opTypes, "2", ">", "true", true); }
+
+  return pass;
+end_script
+
+#######################################################################################
+script bool testShortCircuit( bool condition, bool expectedCondition,
+                              bool expectedForMe, bool expectedForYou,
+                              string failMessage)
+
+   bool result = true;
+
+   if (condition == expectedCondition)
+   {
+      if (!(expectedForMe == setMeTrue))
+      {
+         writeln("-FAIL- : Short-Circuit logic: foo ",failMessage);
+         result = false;
+      }
+
+      if (!(expectedForYou == setYouTrue))
+      {
+         writeln("-FAIL- : Short-Circuit logic: bar ",failMessage);
+         result = false;
+      }
+   }
+   else
+   {
+      writeln("-FAIL- : Short-Circuit logic ",failMessage);
+      result = false;
+   }
+   return result;
+end_script
+
+#######################################################################################
+
+#######################################################################################
+
+on_initialize
+
+   bool pass = true;
+
+   # Perform some real basic tests...
+   if (1 == 2)
+   {
+      writeln("-FAIL- : 1 == 2 is Incorrect");
+      pass = false;
+   }
+
+   if (!(1 == 1))
+   {
+      writeln("-FAIL- : !(1 == 1) is Incorrect");
+      pass = false;
+   }
+
+   if (!(1 != 2))
+   {
+      writeln("-FAIL- : !(1 != 2), test failed.");
+      pass = false;
+   }
+
+   if ((1 != 1))
+   {
+      writeln("-FAIL- : 1 != 1, test failed.");
+      pass = false;
+   }
+
+   if (!(1 < 2))
+   {
+      writeln("-FAIL- : !(1 < 2), test failed.");
+      pass = false;
+   }
+
+   if ((1 < 0))
+   {
+      writeln("-FAIL- : (1 < 0), test failed.");
+      pass = false;
+   }
+
+   if (!(2 > 1))
+   {
+      writeln("-FAIL- : !(2 > 1), test failed.");
+      pass = false;
+   }
+
+   if ((2 > 3))
+   {
+      writeln("-FAIL- : (2 > 3), test failed.");
+      pass = false;
+   }
+
+   if (!(1 <= 2))
+   {
+      writeln("-FAIL- : !(1 <= 2), test failed.");
+      pass = false;
+   }
+
+   if ((1 <= 0))
+   {
+      writeln("-FAIL- : (1 <= 0), test failed.");
+      pass = false;
+   }
+
+   if (!(2 >= 1))
+   {
+      writeln("-FAIL- : !(2 >= 1), test failed.");
+      pass = false;
+   }
+
+   # Tests where the LHS and RHS of a comparison are not of the same type
+   pass = TestMismatchedComparisons(pass);
+
+   //Test 1: &&, !, short-circuit logic.
+   resetValues();
+   if (!(testShortCircuit(setTrueReturnsTrueExecuted() && !setFalseReturnsFaleExecuted(), true, true, true, "true && !false")))
+   {
+      writeln("-FAIL- : Short Circuit Test 1: &&, !");
+      pass = false;
+   }
+
+   //Test 2: &&, short-circuit logic.
+   resetValues();
+   if (!(testShortCircuit(setFalseReturnsFaleExecuted() && setTrueReturnsTrueExecuted(), false, false, true, "false && true")))
+   {
+      writeln("-FAIL- : Short Circuit Test 2: &&, short-circuit logic.");
+      pass = false;
+   }
+
+   //Test 3: ||, short-circuit logic."
+   resetValues();
+   if (!(testShortCircuit(setTrueReturnsTrueExecuted() || setFalseReturnsFaleExecuted(), true, true, false, "true || false")))
+   {
+      writeln("-FAIL- : Short Circuit Test 3: ||, short-circuit logic.");
+      pass = false;
+   }
+
+   # Verify that || and && actually yields a bool
+   # Verify we are allowed to use ||, && with different types
+   # Verify obj and null are interpreted as true and false correctly.
+   Map<int,int> obj = {};
+   if (! ((true == (obj || null))
+      && (true == (null || obj))
+      && (false == (obj && null))
+      && (false == (null && obj))
+      && (true == ("hi" && 5.0))
+      && (false == ("" || 0.0))))
+   {
+      writeln("-FAIL- : Null test failure.");
+      pass = false;
+   }
+
+   if(pass)
+   {
+      writeln("-PASS-");
+   }
+end_on_initialize

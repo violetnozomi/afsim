@@ -1,0 +1,127 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform_type CHAFF WSF_PLATFORM
+   on_initialize2
+      # Make sure the spatial domain is properly defined Issue #90)
+      string domain = WsfSimulation.FindPlatform("c-17").SpatialDomain();
+      if (SpatialDomain() != domain)
+      {
+         writeln("-FAIL- Platform: ", Name(), "; unexpected spatial domain: ", SpatialDomain(), ", expected: ", domain);
+      }
+   end_on_initialize2
+end_platform_type
+
+chaff_parcel CHAFF_PARCEL_BASE WSF_CHAFF_PARCEL 
+  terminal_velocity 2.5 m/s
+  bloom_diameter 30 m
+  expansion_time_constant 1 sec
+end_chaff_parcel
+
+chaff_parcel parcel-1 CHAFF_PARCEL_BASE
+  terminal_velocity 5.0 m/s
+  bloom_diameter 10 m
+  expansion_time_constant 2 sec
+end_chaff_parcel
+
+chaff_parcel parcel-2 parcel-1
+  bloom_diameter 1600 ft
+  expansion_time_constant 3 sec
+end_chaff_parcel 
+
+weapon CHAFF_WEAPON WSF_CHAFF_WEAPON 
+   debug
+   launched_platform_type CHAFF  # optional input. WSF_PLATFORM will be used as default
+   cloud_update_interval  1.0 sec
+   
+   ejector eject-1
+     quantity  10
+     parcel_type parcel-1
+     location 1 2 3 m
+     
+     ejection_velocity 15 m/s
+     ejection_azimuth 90 deg
+     ejection_elevation 10 deg
+   end_ejector
+   
+   ejector eject-2
+     quantity 20
+     parcel_type parcel-2
+     location 2 3 4 m
+     
+     ejection_velocity 25 m/s
+     ejection_azimuth 90 deg
+     ejection_elevation 20 deg
+   end_ejector
+   
+   ejector eject-3
+     quantity 30
+     parcel_type CHAFF_PARCEL_BASE
+     location 3 4 5 m
+     
+     ejection_velocity 30 m/s
+     ejection_azimuth 90 deg
+     ejection_elevation 30 deg
+   end_ejector
+end_weapon
+
+platform_type C-17 WSF_PLATFORM
+   icon C-17
+   
+   mover WSF_AIR_MOVER end_mover
+   weapon chaff CHAFF_WEAPON  end_weapon
+end_platform_type
+
+##############################################################
+
+platform c-17 C-17
+   side blue
+   
+   position 39:31:42.42n 91:38:35.111w
+   route
+      position 39:31:42n 91:38:35w altitude 30000 ft speed 500 kts
+      position 39:31:40n 91:30:00w altitude 30000 ft speed 500 kts
+   end_route
+
+   execute at_time 1.0 sec absolute
+      WsfChaffWeapon weapon = (WsfChaffWeapon)PLATFORM.Weapon("chaff");
+      bool fired = weapon.DropChaffCloud(10, 1.0, {"eject-1", "eject-2", "eject-3"});
+   end_execute
+         
+end_platform
+
+# Enable event_pipe and event_output if you need to debug something or are cloning this for another example.
+# Be sure to disable it for auto testing.
+
+/*
+event_pipe
+   file output/chaff_example.aer
+end_event_pipe
+
+event_output
+   file output/chaff_example.evt
+   disable all
+   //enable  PLATFORM_ADDED
+   //enable  PLATFORM_DELETED
+   //enable  TASK_ASSIGNED
+   //enable  TASK_CANCELED
+   //enable  TASK_COMPLETED
+   enable  WEAPON_FIRE_ABORTED
+   enable  WEAPON_FIRE_REQUESTED
+   enable  WEAPON_FIRED
+   enable  WEAPON_HIT
+   enable  WEAPON_MISSED
+   enable  WEAPON_TERMINATED
+   enable  WEAPON_RELOAD_STARTED
+   enable  WEAPON_RELOAD_ENDED
+end_event_output
+*/
+
+# Decreased for auto_test (only need to run a little bit)
+end_time 60 sec  # 6000 sec

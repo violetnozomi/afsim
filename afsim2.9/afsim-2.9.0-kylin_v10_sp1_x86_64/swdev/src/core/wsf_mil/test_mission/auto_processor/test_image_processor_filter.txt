@@ -1,0 +1,103 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+sensor GENERIC_EOIR WSF_EOIR_SENSOR
+
+   frame_time                          2 sec     # sample rate
+
+   slew_mode                           azimuth_and_elevation
+   azimuth_slew_limits                 -180 deg 180 deg
+   elevation_slew_limits               -90 deg 10 deg
+
+   azimuth_field_of_view               -1.58 deg 1.58 deg
+   elevation_field_of_view             -1.58 deg 1.58 deg
+   maximum_range                       200 km
+
+   angular_resolution                  0.001 deg
+
+   reports_location
+
+end_sensor
+
+platform_type UAV WSF_PLATFORM
+   icon Global_Hawk
+   mover WSF_AIR_MOVER
+   end_mover
+
+   sensor eoir GENERIC_EOIR
+      yaw                    0 deg
+      pitch                  -5 deg
+      internal_link          image_proc
+   end_sensor
+
+   processor image_proc WSF_IMAGE_PROCESSOR
+      filter WSF_ALPHA_BETA_FILTER  
+         alpha 0.5
+         beta 0.1
+      end_filter
+   end_processor
+   
+end_platform_type
+
+radar_signature GROUND_SITE_RADAR_SIG
+   constant 50 m^2
+end_radar_signature
+
+optical_signature GROUND_SITE_OPTICAL_SIG
+   constant 50 m^2
+end_optical_signature
+
+platform_type GROUND_SITE WSF_PLATFORM
+   icon Ground_Radar
+   radar_signature      GROUND_SITE_RADAR_SIG
+   optical_signature    GROUND_SITE_OPTICAL_SIG
+end_platform_type
+
+platform uav UAV
+   side blue
+
+   route
+      position 34:30:00n 116:00w altitude 60000 ft speed 350 kts heading 0 deg
+   end_route
+
+   execute at_time 260 s absolute
+      WsfGeoPoint point = WsfSimulation.FindPlatform("sr_target_01").Location();
+      PLATFORM.Sensor("eoir").CueToPoint(point);
+      PLATFORM.Sensor("eoir").TurnOn();
+   end_execute
+   execute at_time 360 s absolute
+      PLATFORM.Sensor("eoir").TurnOff();
+   end_execute
+
+   execute at_time 380 s absolute
+      WsfGeoPoint point = WsfSimulation.FindPlatform("sr_target_01").Location();
+      PLATFORM.Sensor("eoir").CueToPoint(point);
+      PLATFORM.Sensor("eoir").TurnOn();
+   end_execute
+   execute at_time 10 min absolute
+      PLATFORM.Sensor("eoir").TurnOff();
+   end_execute
+end_platform
+
+# Each minute of latitude  ~= 1852 m
+# Each minute of longitude ~= 1517 m
+
+# =============================================================================
+# 'short' range targets.
+
+inherent_contrast VEHICLE_CONTRAST
+   constant 1
+end_inherent_contrast
+
+platform sr_target_01 GROUND_SITE
+   side red
+   position 34:45:10n 116:45w
+   inherent_contrast VEHICLE_CONTRAST
+end_platform
+
+end_time 20 min

@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test RoadMover for having
+//    route          yes
+//    start_position no
+//    end_position   no
+//    RoadMover should follow route
+//
+
+include_once ../auto_script/test_functions.txt
+
+route_network roads
+   route
+      position 31n 111w
+         node_id start_node
+      position 31:30n 111w
+         node_id end_node
+   end_route
+end_route_network
+
+platform plat WSF_PLATFORM
+   add mover WSF_ROAD_MOVER
+      road_network roads
+      route
+         position 31n 111w speed 50 mph
+         position 31:00:10n 111w speed 50 mph
+            execute first_destination
+      end_route
+      speed 50 mph
+      off_road_speed 30 mph
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+   script_variables
+      bool initPosition = false;
+      bool firstDestination = false;
+      bool failed = false;
+   end_script_variables
+   execute at_time 0.001 s absolute
+      extern bool AssertDoubleEqualsMessage(double, double, string);
+      initPosition = AssertDoubleEqualsMessage(31, Latitude(), "Incorrect initial position");
+      failed = failed || (!initPosition);
+      writeln("initPosition ", initPosition);
+   end_execute
+   script void first_destination()
+      writeln(TIME_NOW);
+      extern bool AssertTrueMessage(bool, string);
+      firstDestination = AssertTrueMessage((TIME_NOW > 0), "Acheived first destination upon initialization");
+      failed = failed || (!firstDestination);
+      writeln("firstDestination ", firstDestination);
+   end_script
+   script void on_platform_deleted()
+      if (initPosition && firstDestination)
+      {
+         writeln("-PASS-");
+      }
+      else if (!failed)
+      {
+         writeln("-FAIL- did not execute all elements of test");
+      }
+   end_script
+end_platform
+
+end_time 50 s
+
+#event_pipe
+#   file test_road_mover_route_y_startend_n.aer
+#end_event_pipe
+

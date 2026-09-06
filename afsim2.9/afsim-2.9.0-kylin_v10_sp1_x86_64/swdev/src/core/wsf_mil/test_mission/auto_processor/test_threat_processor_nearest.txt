@@ -1,0 +1,132 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Tests the script function NearestThreat()
+#  for WsfThreatProcessor
+# Scenario:
+#  Two aircraft file a missile at a platform
+#  with a WSF_THREAT_PROCESSOR. One firing
+#  aircraft is closer. NearestThreat() should
+#  identify the missile from the closer platform.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+platform_type SIMPLE_MRM WSF_PLATFORM
+  icon SA-10_Missile 
+  mover WSF_STRAIGHT_LINE_MOVER
+     maximum_lateral_acceleration .01 g
+     tof_and_speed
+       0 s 600 m/s
+       30 s 700 m/s
+     end_tof_and_speed 
+  end_mover
+end_platform_type
+
+weapon_effects SIMPLE_EFFECT WSF_GRADUATED_LETHALITY
+   radius_and_pk  100.0 m  0.75
+end_weapon_effects
+
+weapon SIMPLE_MRM_WEAPON WSF_EXPLICIT_WEAPON
+   launched_platform_type SIMPLE_MRM
+   weapon_effects SIMPLE_EFFECT
+   quantity               1
+end_weapon
+
+platform_type VIPER_MK_II WSF_PLATFORM
+   icon F-35 
+   processor data_mgr WSF_TRACK_PROCESSOR
+   end_processor
+   mover WSF_AIR_MOVER end_mover
+   sensor simple_sensor WSF_GEOMETRIC_SENSOR
+      on
+      azimuth_field_of_view   -45.0 degrees  45.0 degrees
+      elevation_field_of_view  -20.0 degrees   20.0 degrees
+      maximum_range 175940 m    
+      frame_time    0.5 sec
+      reports_location
+      reports_velocity
+      reports_iff
+      track_quality 1.0
+      internal_link data_mgr
+      ignore_same_side
+   end_sensor
+   weapon mrm SIMPLE_MRM_WEAPON
+   end_weapon
+   processor incoming_threats WSF_THREAT_PROCESSOR 
+      # using default threat values
+      # threat_velocity 600 m/s
+      # threat_angle_spread 30 deg
+   end_processor
+end_platform_type
+
+platform test VIPER_MK_II
+   side blue
+   route
+      position 0:0:0.0n 0:0:0.0w altitude 1000.00 m agl
+      speed 200 kts
+      position 1:0:0.0n 0:0:0.0w altitude 1000.00 m agl
+   end_route
+end_platform
+
+platform threat_near VIPER_MK_II
+   side red
+   heading 180 deg
+   route
+      position 0:10:0.0n 0:0:0.0w altitude 1000.00 m agl
+      speed 300 kts
+      position 0:0:0.0n 0:0:0.0w altitude 1000.00 m agl
+   end_route
+   execute at_time 5 sec absolute
+      PLATFORM.Weapon("mrm").Fire();
+   end_execute
+end_platform
+
+platform threat_far VIPER_MK_II
+   side red
+   heading 180 deg
+   route
+      position 0:12:0.0n 0:2:0.0w altitude 1000.00 m agl
+      speed 300 kts
+      position 0:0:0.0n 0:0:0.0w altitude 1000.00 m agl
+   end_route
+   execute at_time 5 sec absolute
+      PLATFORM.Weapon("mrm").Fire();
+   end_execute
+end_platform
+
+execute at_time 20 sec absolute
+   WsfPlatform testPlatform = WsfSimulation.FindPlatform("test");
+   WsfThreatProcessor threatProc = (WsfThreatProcessor)testPlatform.Processor("incoming_threats");
+   string testStatus = "-FAIL-";
+   WsfTrack nearestThreat = threatProc.NearestThreat();
+   if (nearestThreat.IsValid())
+   {
+      if (nearestThreat.TargetName() == "threat_near_mrm_1")
+      {
+         testStatus = "-PASS-";
+      }
+      else
+      {
+         testStatus = "-FAIL-";
+      }
+      writeln(testStatus, " test platform had ", nearestThreat.TargetName(), " as the nearest threat.");
+   }
+   else
+   {
+      writeln("-FAIL- test platform has no tracks/threats, should have two.");
+   }
+end_execute 
+
+# Output for visual verification of scenario
+#event_pipe
+#   file test_threat_proc_nearest.aer
+#end_event_pipe
+
+end_time 21 sec

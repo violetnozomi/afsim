@@ -1,0 +1,31 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+expect_input_error true
+
+platform test-normal WSF_PLATFORM
+   empty_mass 100 kg
+
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      semi_major_axis 8000 km
+      inclination 10 deg
+      eccentricity 0.1
+      true_anomaly 350 deg
+
+      integrator prince_dormand_45
+         tolerance 1.0e-6
+      end_integrator
+
+      dynamics
+         term no_such_term
+            egm96
+         end_term
+      end_dynamics
+   end_mover
+end_platform

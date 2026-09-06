@@ -1,0 +1,260 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+behavior pilot_posture
+
+   script_debug_writes off
+
+   script_variables 
+      WsfTask              targetTask;
+      WsfLocalTrack        targetTrack;
+      WsfBrawlerProcessor  BRAWLER;
+      double               root3            =  1.732050808;   # pcon.fi
+      double               splita           = 45.0;           # MIND file, TODO - use read in value
+   end_script_variables
+
+   
+   on_init
+
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   
+   precondition
+   
+      WsfTaskList tasks =  BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         string err = write_str("no weapon (target) tasks!");
+         writeln_d(err);
+         return Failure(err);
+      }
+      targetTask = tasks.Entry(0);
+      targetTrack = PLATFORM.MasterTrackList().Find(targetTask.LocalTrackId());
+      if (!targetTrack.IsValid() || targetTrack.TargetKilled())
+      {
+         string err = write_str("no target track!");
+         writeln_d(err);
+         return Failure(err);
+      }
+   
+      return true;
+   end_precondition
+
+
+   execute 
+  
+     writeln_d("executing pilot_posture");
+     
+      Vec3 xp = BRAWLER.LocationNED();
+      Vec3 vp = PLATFORM.VelocityNED();
+      double spdnow = PLATFORM.Speed()*MATH.FT_PER_M();
+      Vec3 xp_iac = BRAWLER.LocationNED(targetTrack);
+      Vec3 vp_iac =  targetTrack.VelocityNED();
+      
+      
+      #aslct2()
+         #spcial()
+            #spbvri()
+            
+            
+      //   "iac" is target index, get target track from WEAPON task, for now
+
+      Vec3 hlvec = Vec3();
+      double hlspd = 0.0;
+      double hlval = 0.0;
+      
+      extern int kturn;
+      //C     --GET KTURN VALUE
+      //call ckrngi(myturn,-2,2,'~KTURN(IACID)~')
+      double sgn = 1.0;
+      if (kturn<0)
+      {
+         sgn = -1.0;
+      }
+     #double vsme = 0.0;   #TODO - speed of sound
+     #double bvrmch = 0.0; #TODO - mach to use BVR (MIND2)
+     #double bvrmch = PLATFORM.Speed()*MATH.FT_PER_M() / vsme;
+     #double sa = vsme*bvrmch;
+      double sa = BRAWLER.Platform().Speed()*MATH.FT_PER_M();
+      
+      //call asstgt(iacord,jacidord,virtl,nassign)
+      //if(nassign.eq.0) goto 900
+      //iac = iacord(1);
+      if (kturn != 0)
+      {
+        writeln_d("kturn != 0");
+         //C        --THIS CODE NOT NEEDED FOR POINT TACTIC:
+         //C        --COMPUTE INTERCEPT PT AIMP, BASED ON MAX OF MACH 1 OR PRESENT MACH
+         //C        --USE THE FIRST MEMBER OF THE ASSIGNED TARGET GROUP.
+         #st = xmag(vp(1,iac));
+         double st = vp_iac.Magnitude();
+         
+         //LBM - TODO - verify units used in WsfBrawlerPlatform AimPoint and Intercept() methods!!!
+         #call aimpt(xp(1,me),amax1(sa,vsme),xp(1,iac),vp_iac,st,aimp,lsoln);
+         #Vec3 aimp = brawlerPlatform.AimPoint(xp, MATH.Max(sa, vsme), xp_iac, vp_iac, st);
+         Vec3 aimp = BRAWLER.AimPoint(xp, sa, xp_iac, vp_iac, st);
+         
+         #Vec3 dxpme = Vec3.Subtract(xp_iac, xp);
+         #Vec3 dxt = dxpme;
+         Vec3 dxt = Vec3.Subtract(xp_iac, xp);
+         dxt.SetZ(0.0);
+         dxt.Normalize();
+         if(aimp.Magnitude() > 0)
+         {
+            #call vsub(aimp,xp(1,me),dxi);
+            Vec3 dxi = Vec3.Subtract(aimp, xp);
+            dxi.SetZ(0.0);
+            dxi.Normalize();
+         }
+      }
+      
+#      if (kturn == 0)   //C     --POINT AT TGT
+#      {
+#         hdes = -xp(3,me);
+#         if (lbit(pp_skrs,saskr) || pp_comg)
+#         {
+#            if (!ppmtrk)
+#            {
+#               hdes = amin1(hdes,-xp(3,iac));
+#            }
+#         }
+##         //LBM - dont worry about rules right now
+##         //C     --CHANGED RULFLG VALUE 18 NOV 87 DICKERSON
+##         if (rulflg == 1510)
+##         {
+##            call pcode(-rulflg);
+##            hdes = prdalt;
+##         }
+#
+#           Vec3 aimpt = ((WsfBrawlerPlatform)PLATFORM).AimPoint(Vec3, double, Vec3, Vec3, double);
+#
+#          #call intcpt(xp(1,me),spdnow(me),xp(1,iac),vp(1,iac),root3/2.0,0.0,hdes,hlvec,hlspd);
+#           hlvec = ((WsfBrawlerPlatform)PLATFORM).Intercept(Vec3, PLATFORM.Speed()*MATH.FT_PER_M(), Vec3, Vec3, double, double, double);
+#           hlspd = hlvec.Magnitude();
+#           hlvec.Normalize();
+#
+#         //goto 965;
+#      }
+#      //else
+      if (kturn == 1 || kturn == -1)   //C     --END-RUN TGT
+      {
+         writeln_d("end run");
+         double closmn = root3/2.0;
+         double angint = splita*sgn;
+         double hdes = PLATFORM.Altitude();
+         //hdes = -xp(3,me);
+         
+         //LBM - dont worry about lower targets or flying lower, for now
+#         if (lbit(pp_skrs,saskr) || pp_comg)
+#         {
+#            if (!ppmtrk)
+#            {
+#               hdes = amin1(hdes,-xp(3,iac));
+#            }
+#         }
+          //LBM - dont worry about rules right now
+#         //C     --CHANGED RULFLG VALUE 18 NOV 87 DICKERSON
+#         if (rulflg == 1510)
+#         {
+#            call pcode(-rulflg);
+#            hdes = prdalt;
+#         }
+
+
+         //LBM - TODO - verify units used in WsfBrawlerPlatform AimPoint and Intercept() methods!!!
+         //call intcpt(xp(1,me),spdnow(me),xp(1,iac),vp(1,iac),root3/2.0,splita*sgn,hdes,hlvec,hlspd);
+         Vec3 desVec = BRAWLER.Intercept(xp, spdnow, xp_iac, vp_iac, closmn, angint, hdes);
+         hlvec = desVec.Normal();
+         hlspd = desVec.Magnitude();
+         
+         //BRAWLER.InterceptLocation3D(
+         
+         //goto 965;
+      }
+#      else if (kturn == 2 || kturn == -2)   //C     --LOOP
+#      {
+#         if (lsoln) then
+#            call xmit3(dxi,temp)
+#         else
+#            call xmit3(dxt,temp)
+#         endif
+#         call makex(vp(1,me),r)
+#         call vxfrmc(r,temp,temp,1)
+#         loopha = loopha .or. temp(1).lt.0.
+#         loopnf = loopnf .or. (loopha .and. temp(1).gt.0. .and. (sign(1.,temp(2)).eq.sgn) )
+#         if (loopnf) then
+#            //C        --HERE NO LONGER LOOP - POINT
+#            goto 100
+#         endif
+#         temp(1) = 0.
+#         temp(2) = sgn
+#         temp(3) = 0.
+#         call vxfrmc(r,hlvec,temp,2)
+#         hlval = valme*1.5
+#         hlspd = bvrmch*spdnow(me)/fmachp
+#         //C     --TURN OFF FORMATION VALUES DURING LOOP:
+#         mdskpp = iand(mdskpp,6)
+#         stkppp = stkppp*0.25
+#         goto 970      
+#      }
+
+#      //C
+#//900   continue
+#      //C     --HERE NO TGT - PRESUMABLY DEAD
+#      hlval = 0.
+#      goto 970
+#      //C
+
+//965   continue
+      //C     --FINISH SETTING UP HIGH LEVEL STEERING VALUES
+      #hlval = valeff(iac);
+      hlval = BRAWLER.LastEngagementValue(targetTrack.Target());
+      #writeln_d("hlvec = ", hlvec.ToString(), ", hlval = ", hlval, ", hlspd = ", hlspd);
+      
+//970   continue
+
+      //call steer
+         #steer()
+#         if (dirspc.ne.0) then
+#            //C        --SUPPRESS VECTORED FLIGHT VALUES - DIRECT HAS PRECEDENCE
+#            valfpp= 0.0
+#         elseif (vfspc.eq.0) then
+            //C        --USE NORMAL HIGH_LEVEL VALUES FOR VECTORED_FLIGHT
+            //call xmit(3,hlvec,vecfpp)
+            
+            extern Vec3   vecfpp;
+            extern double valfpp;
+            extern double sflypp;
+            vecfpp = hlvec;
+            valfpp = hlval;
+            sflypp = hlspd;
+            
+            writeln_d("vecfpp = ", vecfpp.ToString(), ", valfpp = ", valfpp, ", sflypp = ", sflypp);
+            
+
+            BRAWLER.SuggestVectoredFlight(vecfpp, valfpp, sflypp);
+#         else
+#            //C        --USE FORCE_V VECTOR INSTEAD OF HL... VALUES
+#            //C        --THESE MAY BE SET BY EITHER PRODUCTION RULES OR IP
+#            call xmit(3,hlvfor,vecfpp)
+#            valfpp = hlvalf
+#            sflypp = hlspdf
+#         endif
+      
+      
+      //call sepset(10.0)   //LBM - not doing separation yet
+//9999
+      return;
+      
+      
+   end_execute
+
+end_behavior

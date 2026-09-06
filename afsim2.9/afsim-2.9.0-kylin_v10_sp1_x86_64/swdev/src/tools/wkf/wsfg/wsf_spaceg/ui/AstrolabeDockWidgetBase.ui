@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AstrolabeDockWidgetBase</class>
+ <widget class="QDockWidget" name="AstrolabeDockWidgetBase">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>637</height>
+   </rect>
+  </property>
+  <property name="allowedAreas">
+   <set>Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+  </property>
+  <property name="windowTitle">
+   <string>Astrolabe</string>
+  </property>
+  <widget class="QWidget" name="mDockWidget">
+   <layout class="QVBoxLayout" name="mOverallLayout" stretch="1,1">
+    <item>
+     <layout class="QVBoxLayout" name="mTopOrLeftSideLayout" stretch="0,0,0,1">
+      <item>
+       <layout class="QHBoxLayout" name="mSelectorLayout" stretch="1,1">
+        <item>
+         <widget class="wsfg::spaceg::PlatformSelector" name="mPlatformSelector" native="true"/>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="mStatusLabel">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QGridLayout" name="mButtonGrid">
+        <item row="1" column="0">
+         <widget class="QPushButton" name="mVerifyButton">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
+          <property name="text">
+           <string>Verify</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QPushButton" name="mAcceptButton">
+          <property name="text">
+           <string>Accept</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QPushButton" name="mCancelButton">
+          <property name="text">
+           <string>Cancel</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QPushButton" name="mDiscardButton">
+          <property name="text">
+           <string>Discard</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="wsfg::spaceg::AstrolabeMissionView" name="mMissionView" native="true"/>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="wsfg::spaceg::AstrolabeEventDetails" name="mDetailsPtr" native="true"/>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>wsfg::spaceg::AstrolabeEventDetails</class>
+   <extends>QWidget</extends>
+   <header>AstrolabeEventDetails.hpp</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>wsfg::spaceg::AstrolabeMissionView</class>
+   <extends>QWidget</extends>
+   <header>AstrolabeMissionView.hpp</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>wsfg::spaceg::PlatformSelector</class>
+   <extends>QWidget</extends>
+   <header>PlatformSelector.hpp</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>mDiscardButton</tabstop>
+  <tabstop>mCancelButton</tabstop>
+  <tabstop>mVerifyButton</tabstop>
+  <tabstop>mAcceptButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>

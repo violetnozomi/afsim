@@ -1,0 +1,307 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#
+# Test how importance affects the results of the default pruning function.
+# The entities of two furthest groups are marked as important, so entities
+# from the closer groups end up being pruned instead. The entities in the
+# closest group, however, are marked as unimportant.
+#
+include_once ../auto_script/utility_test_functions.txt
+include_once platforms/tracking_platform.txt
+include_once platforms/target_platform.txt
+
+end_time 1 min
+
+script_variables
+   bool allTestsPassed = true; // any failure turns it false
+end_script_variables
+
+platform red-1-1 TARGET_PLATFORM
+
+   route
+      position 0:50:0n 0:05:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-1 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:0e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-2 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:10e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-3 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:20e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-4 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:30e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-2-5 TARGET_PLATFORM
+
+   route
+      position 0:45:0n 0:05:40e
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3-1 TARGET_PLATFORM
+
+   route
+      position 0:40:0n 0:05:0w
+      altitude 45000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-3-2 TARGET_PLATFORM
+
+   route
+      position 0:40:0n 0:05:30w
+      altitude 45000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4-1 TARGET_PLATFORM
+
+   route
+      position 0:35:0n 0:05:0e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4-2 TARGET_PLATFORM
+
+   route
+      position 0:35:0n 0:05:20e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-4-3 TARGET_PLATFORM
+
+   route
+      position 0:35:0n 0:05:10e
+      altitude 40000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-1 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:0w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-2 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:10w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-3 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:20w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-4 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:30w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+platform red-5-5 TARGET_PLATFORM
+
+   route
+      position 0:30:0n 0:05:40w
+      altitude 30000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+
+end_platform
+
+# This platform uses defaults for all SA processor update intervals
+platform blue-1 TEST_PLATFORM
+
+   route
+      position 0:0:0n 0:0:0w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+   
+   edit processor sa-proc
+      include scripts/consideration_scoring.txt
+      include scripts/threat_target_scoring.txt
+   end_processor
+   
+   execute at_interval_of 1 s
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      if (proc.IsValid())
+      {
+         foreach (WsfLocalTrack track in PLATFORM.MasterTrackList())
+         {
+            // Set entities in the furthest groups as important.
+            if (track.Latitude() > PLATFORM.Latitude() + 0.70)
+            {
+               proc.SetThreatImportant(track);
+            }
+            // Set entities in the closest group as unimportant.
+            else if (track.Latitude() < PLATFORM.Latitude() + 0.55)
+            {
+               proc.SetThreatUnimportant(track);
+            }
+         }
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+   
+   execute at_time 50 s absolute
+      WsfSA_Processor proc = (WsfSA_Processor)PLATFORM.Processor("sa-proc");
+      if (proc.IsValid())
+      {
+         // Test general data.
+         Array<WsfSA_Group> groups = proc.PerceivedGroups();
+         allTestsPassed = allTestsPassed && AssertTrueMessage(proc.PerceivedItemCount() <= proc.PerceivedThreatItemLimit(), "Too many PIs.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of groups.");
+         
+         // Test sorting by ascending distance.
+         groups = proc.SortedGroups("ascending distance");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(4, groups.Size(), "Incorrect number of increasing distance sorted groups.");
+         double closest = 0.0;
+         foreach (WsfSA_Group group in groups)
+         {
+            WsfGeoPoint here = PLATFORM.Location();
+            WsfGeoPoint there = WsfGeoPoint.Construct(group.Lat(), group.Lon(), group.Altitude());
+            double dist = here.SlantRangeTo(there);
+            allTestsPassed = allTestsPassed && AssertTrueMessage(dist > closest, "Increasing distance sorted groups out of order.");
+            closest = dist;
+         }
+         
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(1, groups[3].NumElements(), "The furthest group has an incorrect number of elements.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(5, groups[2].NumElements(), "The second furthest group has an incorrect number of elements.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(2, groups[1].NumElements(), "The third furthest group has an incorrect number of elements.");
+         allTestsPassed = allTestsPassed && AssertEqualsMessage(3, groups[0].NumElements(), "The fourth furthest group has an incorrect number of elements.");
+         // AFSIM-671 allTestsPassed = allTestsPassed && AssertEqualsMessage(0, groups[0].NumElements(), "The closest group has an incorrect number of elements.");
+         
+         // The real purpose for this sorting: certain groups should be focused,
+         // and others not, according to their consideration scores
+         // In this case, the two furthest groups should be treated as important
+         // because their members are important. Together, they account for 6 PIs.
+         // Furthermore, all entities that would be in the first group are ignored.
+         // As new entities come in, they don't have time to join groups before they're dropped.
+         // AFSIM-671 allTestsPassed = allTestsPassed && AssertTrueMessage(groups[0].GetFocus(), "Closest group is incorrectly unfocused.");
+         allTestsPassed = allTestsPassed && AssertFalseMessage(groups[0].GetFocus(), "Second closest group is incorrectly focused.");
+         allTestsPassed = allTestsPassed && AssertFalseMessage(groups[1].GetFocus(), "Third closest group is incorrectly focused.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(groups[2].GetFocus(), "Fourth closest group is incorrectly unfocused.");
+         allTestsPassed = allTestsPassed && AssertTrueMessage(groups[3].GetFocus(), "Furthest group is incorrectly unfocused.");
+      }
+      else
+      {
+         writeln("Processor not found!");
+         allTestsPassed = false;
+      }
+   end_execute
+
+end_platform
+
+# ****************************************************************************
+# Configure observers to collect/finalize test results
+# ****************************************************************************
+
+observer
+    enable SIMULATION_COMPLETE
+end_observer
+
+// SIMULATION_COMPLETE observer:  Evaluate results and determine overall pass/fail
+script void SimulationComplete()
+
+   # If any tests failed, they will have already provided the '-FAIL-' output.
+   if (allTestsPassed)
+   {
+      writePass(true);
+   }
+end_script

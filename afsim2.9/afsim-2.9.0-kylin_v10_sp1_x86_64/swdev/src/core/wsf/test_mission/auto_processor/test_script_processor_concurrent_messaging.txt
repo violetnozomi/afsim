@@ -1,0 +1,48 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//Tests re-entrant messaging on script processors.
+
+platform test WSF_PLATFORM
+   add processor p1 WSF_SCRIPT_PROCESSOR
+      execute at_time 1 s absolute
+         WsfMessage msg = WsfMessage();
+         msg.SetAuxData("count", 0);
+         SendMessage(msg, "p2");
+      end_execute
+      on_message
+         default
+            script
+               SendMessage(WsfMessage(MESSAGE), "p2");
+            end_script
+      end_on_message
+   end_processor
+   
+   add processor p2 WSF_SCRIPT_PROCESSOR
+      on_message
+         default
+            script
+               int count = MESSAGE.AuxDataInt("count");
+               if (MESSAGE.AuxDataInt("count") > 2)
+               {
+                  return; 
+               }
+               count += 1;
+               MESSAGE.SetAuxData("count", count);
+               SendMessage(MESSAGE, "p1");
+               if(!MESSAGE.IsValid())
+               {
+                  writeln("-FAIL-");
+               }
+            end_script
+      end_on_message
+   end_processor
+end_platform
+
+end_time 2.1 s

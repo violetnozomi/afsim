@@ -1,0 +1,61 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test RoadMover for having
+//    route          yes
+//    start_position yes
+//    end_position   yes
+//    RoadMover should append start_ and end_ positions to route
+//
+
+include_once ../auto_script/test_functions.txt
+
+route_network roads
+   route
+      position 31n 110w
+      position 31:00:10n 110w
+   end_route
+end_route_network
+
+platform plat WSF_PLATFORM
+   add mover WSF_ROAD_MOVER
+      road_network roads
+      start_position 31n 110w
+      end_position 31:00:10n 111w
+      route
+         position 31:00:10n 110w speed 50 mph
+            execute first_destination
+         position 31:00:10n 111w speed 50 mph
+      end_route
+      speed 50 mph
+      off_road_speed 30 mph
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+   script_variables
+      bool initPosition = false;
+      bool firstDestination = false;
+   end_script_variables
+   execute at_time 0.001 s absolute
+      extern bool AssertDoubleEqualsMessage(double, double, string);
+      initPosition = AssertDoubleEqualsMessage(-110, Longitude(), "Incorrect initial position");
+   end_execute
+   script void first_destination()
+   writeln(TIME_NOW);
+      extern bool AssertTrueMessage(bool, string);
+      firstDestination = AssertTrueMessage((TIME_NOW > 0), "Acheived first destination upon initialization");
+   end_script
+   script void on_platform_deleted()
+      extern void writePass(bool);
+      bool pass = initPosition && firstDestination;
+      writePass(pass);
+   end_script
+end_platform
+
+end_time 50 s
+

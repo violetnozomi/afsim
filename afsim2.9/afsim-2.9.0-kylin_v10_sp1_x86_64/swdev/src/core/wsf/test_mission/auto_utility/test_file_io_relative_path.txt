@@ -1,0 +1,67 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+//
+// Test FileIO_relative_path script object
+//
+// utilize methods:
+//    Path
+//    Writeln
+// insure FileIO correctly
+//
+
+include_once ../auto_script/test_functions.txt
+
+on_initialize
+   bool pass = true;
+
+   //Construct a relative path to use for this test. The relative path
+   //is based on the current working directory.
+   Path curPath;
+   curPath.Construct(".");
+   Path workingPath = curPath.GetWorkingDirectory();
+   string testRelativePath = workingPath.GetFileName();
+   string relativePath = "../" + workingPath.GetFileName();
+
+   FileIO file = FileIO();
+   pass = AssertTrueMessage(file.Open(relativePath + "/FileIORelative.tmp", "out"), "Failed to open relative path output file.");
+   bool clearFile = pass;
+   if(pass)
+   {
+      pass = AssertTrueMessage((file.Path().GetFileName() == "FileIORelative.tmp"), "Output relative file path") && pass;
+      if(pass)
+      {
+         file.Writeln("Some Text");
+         file.Close();
+      }
+   }
+
+   pass = AssertTrueMessage(file.Open(relativePath + "/FileIORelative.tmp", "in"), "Failed to open relative path input file.");
+
+   if(pass)
+   {
+      // Read first line
+      pass = AssertEqualsMessage("Some Text", file.Readln(), "First line") && pass;
+      pass = AssertFalseMessage(file.Eof(), "EOF after first line") && pass;
+
+      pass = AssertTrueMessage((file.Path().GetFileName() == "FileIORelative.tmp"), "Output file path name") && pass;
+      string parentDirectory = file.Path().GetParentDirectory().ToString();
+      pass = AssertTrueMessage(parentDirectory.Contains(testRelativePath), "Output file path directory") && pass;
+   }
+
+   file.Close();
+   if(clearFile)
+   {
+      //Clear the file.
+      file.Open(relativePath + "/FileIORelative.tmp", "out");
+      file.Close();
+   }
+
+   writePass(pass);
+end_on_initialize

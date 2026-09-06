@@ -1,0 +1,94 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test FollowRoute followed by a GoToClosestPoint
+//
+// Start on route1
+// GoToClosestPoint   - Leaves heading toward the first waypoint of route2
+//
+// Therefore the first waypoint of route2 should be achieved
+//
+//////////////////////////////////////////
+
+end_time 40 s
+
+route route1
+   position 29:59:50n 90w speed 50 mph
+   position 30n 90w speed 50 mph
+   position 30n 90:00:05w speed 50 mph
+      label start
+   position 30n 90:00:07w speed 50 mph
+   position 30n 90:00:10w speed 50 mph
+      execute end_route1
+end_route
+
+route route2
+   position 30:00:02n 90:00:12w speed 50 mph
+      execute route_2_wp_0
+   position 30:00:02n 90:00:14w speed 50 mph
+      execute route_2_wp_1
+end_route
+
+platform test_plat WSF_PLATFORM
+   add mover WSF_GROUND_MOVER
+      start_at start
+      update_interval 1 s // otherwise mover never updates
+   end_mover
+   use_route route1
+   script_variables
+      double endRouteTime = 0;
+   end_script_variables
+   script void end_route1()
+      endRouteTime = TIME_NOW;
+      writeln(TIME_NOW, " Follow route2");
+      PLATFORM.FollowRoute("route2", "CLOSEST_POINT");
+   end_script
+   script_variables
+      double Time0 = -1;
+      double Time1 = -1;
+   end_script_variables
+   script void route_2_wp_0()
+      // Should be called prior to route_2_wp_1
+      Time0 = TIME_NOW;
+   end_script
+   script void route_2_wp_1()
+      // Should be called after route_2_wp_0
+      Time1 = TIME_NOW;
+   end_script
+   script void out(int index, double time)
+      string str = "   waypoint index ";
+      str = str + (string)index;
+      str = str + " ";
+      if (time == -1)
+      {
+         str = str + "not ";
+      }
+      str = str + "achieved";
+      writeln(str);
+   end_script
+   script void on_platform_deleted()
+      if (endRouteTime < Time0 && Time0 < Time1)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+         Array<Object> args = Array<Object>();
+         args.PushBack(0);
+         args.PushBack(Time0);
+         ExecuteScriptWithArgs("out", args);
+         args.Clear();
+         args.PushBack(1);
+         args.PushBack(Time1);
+         ExecuteScriptWithArgs("out", args);
+      }
+   end_script
+end_platform
+

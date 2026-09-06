@@ -1,0 +1,122 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that the geometric sensor correctly limits detections
+# based on range and PD for a specific platform_type
+
+include_once ../auto_script/test_pass.txt
+script_variables
+   PassTestCount = 3;
+   int checkCount = 0;
+end_script_variables
+
+sensor GEO_1 WSF_GEOMETRIC_SENSOR
+   mode_template
+      frame_time 1 s
+      reports_location
+   end_mode_template
+   mode short_range
+      maximum_range 1 km
+   end_mode
+   mode long_range
+      platform_type WSF_PLATFORM
+         detection_range 15 km
+         pd_range_table
+            1.0    1 km
+            0.0    1.00000001 km
+            0.0    5 km
+            0.0    8 km
+            0.0    9.99999999 km
+            1.0    10 km
+         end_pd_range_table
+      # just make sure we can parse the data
+      platform_type GARBAGE
+         detection_range 1 km
+      platform_type GARBAGE2
+         pd_range_table
+            1.0    1 km
+            0.0    5 km      
+         end_pd_range_table
+   end_mode
+end_sensor
+
+platform test_plat WSF_PLATFORM
+   position 0n 0e
+   add sensor geo-1 GEO_1
+      on
+      #debug
+      initial_mode long_range
+   end_sensor
+end_platform
+
+# Verify that WSF_PLATFORM is found in the sensor's platform_type data
+platform_type TARGET_TYPE WSF_PLATFORM end_platform_type
+platform test_target TARGET_TYPE
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 0n 0e
+         speed 100 m/s
+         altitude 1 km
+      position 1n 0e
+   end_route
+end_platform
+
+# Verifies that detections occur at the right ranges
+script void DetectAttempt(WsfPlatform plat, WsfSensor sensor, WsfPlatform target, WsfSensorInteraction aResult)
+   extern void pass();
+   double range = plat.SlantRangeTo(target);
+   if (range <= 1000)
+   {
+      if (!aResult.Detected())
+      {
+         writeln("-FAIL- Did not detect under 1 km range");
+      }
+      else if (checkCount == 0)
+      {
+         checkCount = checkCount + 1;
+         pass();
+      }
+   }
+   else if (range <= 10000)
+   {
+      // verify it doesn't detect at least once
+      if (!aResult.Detected())
+      {
+         if (checkCount == 1) { pass(); checkCount = checkCount + 1; }
+      }
+      else
+      {
+         writeln("-FAIL- Detected at range ", range);
+      }
+   }
+   else if (range <= 15000)
+   {
+      if (aResult.Detected())
+      {
+         if (checkCount == 2) { pass(); checkCount = checkCount + 1; }
+      }
+      else
+      {
+         writeln("-FAIL- Failed to detect between 10 km and 15 km");
+      }
+   }
+   else
+   {
+      if (aResult.Detected())
+      {
+         writeln("-FAIL- Detected beyond detect range");
+      }
+   }
+end_script
+observer
+   enable SENSOR_DETECTION_ATTEMPT DetectAttempt
+end_observer
+
+end_time 5 min

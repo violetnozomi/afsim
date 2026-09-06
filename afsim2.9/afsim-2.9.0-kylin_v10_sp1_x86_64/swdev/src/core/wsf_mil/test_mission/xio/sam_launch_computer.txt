@@ -1,0 +1,48 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+# This is a slitghtly modified copy of iads_demo/weapons/large_sam_launch_computer.txt
+
+# Launch/engagement computer for the SAM
+
+script bool SAM_LaunchComputer(WsfTrack    aTrack,
+                               WsfPlatform aLauncher,
+                               string      aEnvelopeName,
+                               double      aLaunchDelay)
+
+   bool canIntercept = false;
+
+   # TODO assuming launcher at 0 alt.  need AGL of target
+   double tgtAlt = aLauncher.RelativeAltitudeOf(aTrack);
+
+   double maxTOF = 0.0;
+   double avgSpd = 0.0;
+   double maxRng = 0.0;
+   double shootDelay = 0.0;
+
+   # simple wpn-spd data for now
+   maxRng = 25.0 * 1852.0;   # 25 nautical miles
+   maxTOF = 27.0;
+   avgSpd = 2643.0 * 1852.0 / 3600.0; # kts -> m/sec
+
+   WsfWaypoint intercept = WsfWaypoint();
+   double tti = aLauncher.InterceptLocation2D(aTrack, intercept, avgSpd,
+                                              aLaunchDelay + shootDelay);
+   if ((tti > 0.0) && (tti < maxTOF))
+   {
+      double lat = intercept.Latitude();
+      double lon = intercept.Longitude();
+      WsfGeoPoint point;
+      point = point.Construct(lat, lon, tgtAlt);
+      canIntercept = point.WithinZoneOf(aLauncher, aEnvelopeName);
+   }
+   writeln_d("T=",TIME_NOW," ",aLauncher.Name(), " TTI=", tti, " canIntercept=", canIntercept);
+   return canIntercept;
+end_script

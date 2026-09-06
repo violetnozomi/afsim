@@ -1,0 +1,63 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+.. command:: orientation <orientation-type>
+             orientation <entity-orientation-type> <platform-name>
+             orientation <geo-point-orientation-type> <geo-point-name>
+
+   Specify how the platform is to be oriented.
+
+   All orientation types describe a pointing alignment and pointing constraint for two of the three :ref:`ECS <ECS>` axes.
+   Depending on the type, either:
+
+     * the :ref:`ECS <ECS>` z-axis points in the direction of the fixed orientation, while the :ref:`ECS <ECS>` x-axis points in the direction of the constraint (in the plane of the constraint direction and z-axis) or
+
+     * the :ref:`ECS <ECS>` x-axis points in the direction of the fixed orientation, while the :ref:`ECS <ECS>` z-axis points in the direction of the constraint (in the plane of the constraint direction and x-axis).
+
+   .. note:: For example, **nadir_with_eci_velocity_constraint** means that the ECS z-axis points to center of the Earth (nadir), while the ECS x-axis points in the direction of the velocity vector, constrained to the plane of the velocity vector and nadir.
+
+   **Standard orientation types are the following:**
+
+     * **nadir_with_eci_velocity_constraint**  : Z-axis nadir orientation with :ref:`ECI <ECI>` x-axis velocity constraint
+     * **nadir_with_ecef_velocity_constraint** : Z-axis nadir orientation with ECEF (:ref:`WCS <WCS>`) x-axis velocity constraint
+     * **nadir_with_solar_constraint**         : Z-axis Nadir orientation with solar constraint
+     * **solar_with_nadir_constraint**         : Z-axis Solar orientation with nadir constraint
+     * **eci_velocity_with_nadir_constraint**  : X-axis :ref:`ECI <ECI>` velocity orientation with z-axis nadir constraint
+     * **eci_velocity_with_solar_constraint**  : X-axis :ref:`ECI <ECI>` velocity orientation with z-axis solar constraint
+     * **none**                                : No orientation / constraint is provided.  Orientation changes must be input by the user.
+
+   **Entity orientation types are the following:**
+
+     * **entity_with_solar_constraint**           : X-axis :doc:`entity<platform>` orientation with z-axis solar constraint
+     * **entity_with_nadir_constraint**           : X-axis :doc:`entity<platform>` orientation with z-axis nadir constraint
+     * **entity_with_orbit_plane_constraint**     : X-axis :doc:`entity<platform>` orientation with z-axis orbit plane constraint
+
+     .. note:: Given the entity pointing alignment vector :math:`\vec{p}`, the orbit plane constraint is defined to be :math:`(\vec{r}\times\vec{v})\times\vec{p}`, where :math:`\vec{r}` is the inertial location vector and :math:`\vec{v}` is the inertial velocity vector.
+     .. note:: The <platform-name> must be the name of a pre-defined platform in the current scenario.
+
+   **The geo-point orientation type is the following:**
+
+     * **point_with_orbit_plane_constraint**     : X-axis :command:`platform.geo_point` orientation with z-axis orbit plane constraint.
+
+     .. note:: Given the geo-point pointing alignment vector :math:`\vec{p}`, the orbit plane constraint is defined to be :math:`(\vec{r}\times\vec{v})\times\vec{p}`, where :math:`\vec{r}` is the inertial location vector and :math:`\vec{v}` is the inertial velocity vector.
+     .. note:: The <geo-point-name> must be the name of a :command:`platform.geo_point` defined on a :doc:`platform`.
+
+   **Default** **nadir_with_eci_velocity_constraint**
+
+   .. note:: Scripted :ref:`orientation methods<Spacemover_Orientation_Methods>` and :doc:`attitude change event <change_attitude>` can be used to change the platform's attitude during the course of a simulation.
+
+   .. note:: All orientation types are with respect to the platform's :ref:`ECS <ECS>` coordinate frame, which is
+    right-handed.
+
+.. command:: swap_axes
+
+   Swap the pointing and constraint axes for the currently specified orientation_.
+
+   .. note:: For example, if the **nadir_with_eci_velocity_constraint** orientation_ is specified, followed by swap_axes_, the x-axis will point at the nadir, and the z-axis will point in the direction of the velocity constraint.

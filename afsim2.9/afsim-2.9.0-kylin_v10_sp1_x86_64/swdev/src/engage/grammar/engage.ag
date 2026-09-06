@@ -1,0 +1,149 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# File: SiteConfig.cpp
+(rule site-config-command
+   (rule sites-command {
+      xyz <Length> <Length> <Length>
+    | heading <Angle>
+    | speed <Speed>
+   })
+ {
+   launcher_type <string>
+ | tracker_type <string>
+ | sites <sites-command>* end_sites
+ })
+
+# File: SiteConfig.cpp
+(rule site-specific-grid-command {
+   down_range from <Length> to <Length> by <Length>
+ | cross_range from <Length> to <Length> by <Length>
+})
+
+# File: TargetConfig.cpp
+(rule target-config-command
+   (rule target-grid-command {
+      down_range from <Length> to <Length> by <Length>
+    | cross_range from <Length> to <Length> by <Length>
+    | altitude from <Length> to <Length> by <Length>
+    | speed <Speed>
+   })
+   (rule simple-path-command {
+      x <Length>
+    | y <Length>
+    | z <Length>
+    | speed <Speed>
+    | heading <Angle>
+   })
+   (rule flight-path-command {
+      # Time X Y Z Vx Vy Vz Pitch Roll Yaw
+      <Time> <Length3> <real> <real> <real> <speed-unit> <real> <real> <real> <angle-unit>
+   })
+   (rule flight-route-command {
+      # X Y Z <units> Speed
+      <Length3> <Speed>
+   })
+{
+   target_type <String>
+ | use_target_path
+ | target_grid <target-grid-command>* end_target_grid
+ | simple_path <simple-path-command>* end_simple_path
+ | flight_path <flight-path-command>* end_flight_path
+ | flight_route <flight-route-command>* end_flight_route
+ })
+
+# File: TargetConfig.cpp
+(rule target-specific-grid-command {
+   target_speed <Speed>
+ | target_altitude <Length>
+ | target_altitude from <Length> to <Length> by <Length>
+})
+
+# File: OutputItem.cpp
+(rule output-item-command
+   (rule variable-command {
+      format <quotable-string>
+    | units <String>
+   })
+{
+   variable <string> <variable-command>*
+ | literal <string>
+ | new_line
+})
+
+(rule event-item-command
+   (rule event-type {
+      all | SENSOR_DETECTION_ATTEMPT | SENSOR_DETECTION_CHANGED | SENSOR_FREQUENCY_CHANGED | SENSOR_MODE_ACTIVATED
+    | WEAPON_FIRED | WEAPON_HIT | WEAPON_KILLED | WEAPON_MISSED | WEAPON_TERMINATED
+   })
+{
+   enable <event-type>
+ | disable <event-type>
+})
+
+# File: OutputConfig.cpp
+(rule output-config-command
+   (rule phase-type {
+      all | acquiring | tracking | flying
+   })
+{
+   file (file-reference)
+# | format
+ | phase <phase-type>
+ | event_output <Bool>
+ | summary_output <Bool>
+ | rate_table_name <string>
+ | items <output-item-command>* end_items
+ | events <event-item-command>* end_events
+})
+
+# File: RunConfig.cpp
+(rule run-config-command {
+   center_location <Latitude> <Longitude>
+ | event_output_file_base_name <string>
+ | output <output-config-command>* end_output
+ | perform_flyouts <Bool>
+ | record_file_base_name <string>
+ | repetition_count <integer>
+ | <site-config-command>
+ | <target-config-command>
+ | site_grid <site-grid-command>* end_site_grid
+ | enable_Pk_table_generation <Bool>
+ | Pk_table_target_type <string>
+ | Pk_table_site_type <string>
+ | Pk_table_output_directory <quotable-string>
+ | enable_Pk_table_periodic_flush <Bool>
+ | Pk_output_length_units <string>
+ | Pk_output_speed_units <string>
+})
+
+# File: RunConfig.cpp
+(rule site-grid-command {
+   <site-specific-grid-command>
+ | <target-specific-grid-command>
+})
+
+# File: OutputRate.cpp
+(rule output-rate-command {
+   time <Time>
+ | period <Time>
+})
+
+# File: InputConfig.cpp
+(rule input-config-command {
+   output_rate <String> <output-rate-command>* end_output_rate
+# | output_template <TODO>
+ | run <run-config-command>* end_run
+ | thread_count <integer>
+})
+
+(rule root-command {
+   <input-config-command>
+})
+

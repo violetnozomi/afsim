@@ -1,0 +1,109 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt31.f
+// Replicates the straight and level at max speed 3,1,1,1 alternative behavior
+
+
+behavior alt3111_straight_level_max_speed
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3111Enabled = true;
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 1;
+      int icall  = 1;
+      int lcall  = 1;
+
+      Vec3 mDir0 = Vec3();
+      double mGMX = 1.0;
+      double mSpd0 = 3.0;
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+
+   end_script_variables
+
+   on_init
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt3111_straight_level_max_speed, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3111Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      // ALL CONDITIONS PASS
+      ### Generate Maneuver Alternative
+#      C  STRAIGHT AND LEVEL AT MAX SPEED
+#10    iactn = 4
+#      lenalt = lactn(iactn)
+#      altdsc = indpk(3,1,1,1)
+#      call xmit(2,vp(1,me),dir0)
+#      dir0(3) = 0.
+#      call vnorm(dir0,dir0)
+#      gmx = gmxsu
+#      spdmod = thrttl
+#      spd0 = 3.
+#      go to 800
+
+      mDir0 = PLATFORM.VelocityNED();
+      mDir0.SetZ(0.0);
+      mDir0.Normalize();
+      
+      mGMX = ((WsfBrawlerProcessor)PROCESSOR).MaxSustainedGs();
+      mSpd0 = 3.0;
+
+      ### Evaluate [Projected] Maneuver Alternative
+      double score = ((WsfBrawlerProcessor)PROCESSOR).EvaluateVectorWithThrottle(mDir0, mGMX, mSpd0, ilevel, kalt, icall, lcall);
+      writeln_d("alt3111_straight_level_max_speed  score: ", score);
+      return score;
+
+   end_precondition
+
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.FlyVectorWithThrottle(mDir0, mGMX, mSpd0);
+   end_execute
+
+end_behavior
+

@@ -1,0 +1,115 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Jamming test.
+#
+#       radar shall not receive any tracks due to jammer.
+#
+# Note: The values are not representative of any jammer or radar. They are set
+#       simply to make for simple hand calculations
+#
+# -----------------------------------------------------------------------------
+
+include test_functions.txt
+
+antenna_pattern JAMMER_ANTENNA
+  steered_array_pattern
+    minimum_gain                -80.0 db    
+    amplitude_quantization_bits   8
+    phase_quantization_bits       8    
+    element_spacing_x             0.015 m
+    number_elements_x            10
+    edge_angle_x                  0.0 degrees  # rectangular array if 0.0 degrees      
+    element_spacing_y             0.015 m
+    number_elements_y            10
+    edge_angle_y                 90.0 degrees # rectangular array if 90.0 degrees
+    distribution_type taylor
+       sidelobe_level_x         25 dB
+       sidelobe_level_y         25 dB
+       n_bar_x                    5
+       n_bar_y                    5
+end_antenna_pattern
+
+radar_signature EA-18_RADAR_SIG
+   constant 1 m^2
+end_radar_signature
+
+platform jammer WSF_PLATFORM
+   side blue
+   icon F-18
+   radar_signature EA-18_RADAR_SIG
+
+   add mover WSF_AIR_MOVER
+   end_mover
+
+   add weapon jammer WSF_RF_JAMMER
+      on
+
+      maximum_number_of_beams      2
+      beam_power_distribution      average
+
+      maximum_number_of_spots      2
+      spot_power_distribution      average
+
+      slew_mode                    azimuth_and_elevation
+      azimuth_slew_limits          -60.0 deg 60.0 deg
+      elevation_slew_limits        -60.0 deg 60.0 deg  
+
+      electronic_beam_steering               azimuth_and_elevation
+      electronic_beam_steering_loss_exponent 1.0
+      electronic_beam_steering_limit         90 degrees
+
+      transmitter
+         antenna_pattern   JAMMER_ANTENNA 
+         power             100 watts
+         frequency         300 mhz                  # wavelength = 1m
+         bandwidth         100 khz
+      end_transmitter
+   end_weapon
+   route
+     position 00:40n 0e altitude 30000 ft heading 180 deg speed 100 kts
+   end_route
+end_platform
+
+platform radar WSF_PLATFORM
+   side red
+   position 0n 0e altitude 1 m agl
+   icon Ground_Radar
+   add sensor radar WSF_RADAR_SENSOR
+      on
+      ignore_same_side
+      frame_time 5 sec
+      antenna_height 10 m
+      scan_mode azimuth_and_elevation
+      transmitter
+         # No antenna pattern - assume unitary gain.
+         power             90 dbw
+         frequency         300 mhz                  # wavelength = 1m
+      end_transmitter
+      receiver
+         bandwidth         100 khz
+         noise_power       -150 dbw
+      end_receiver
+      detection_threshold  10 db
+      reports_range
+      reports_bearing
+      processor track_mgr
+   end_sensor
+   script_variables
+      int trackMsgCount = 0;
+   end_script_variables
+   add processor track_mgr WSF_TRACK_PROCESSOR
+   end_processor
+   script void on_platform_deleted()
+      bool pass = AssertEqualsMessage(MasterTrackList().Count(), 0, "radar got track");
+      writePass(pass);
+   end_script
+end_platform
+
+end_time 30 s

@@ -1,0 +1,62 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# EZJA test case 5
+# Target is created within sensor volume
+
+include_once spin_scheduler_resources.txt
+include_once ../auto_script/test_functions.txt
+
+observer 
+   enable SENSOR_DETECTION_ATTEMPT 
+   enable SIMULATION_COMPLETE 
+end_observer
+
+script_variables
+   bool missile_detected = false;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+    missile_detected = missile_detected || aTarget.Name().StartsWith("bomber_case_5_1_gbu-38_");
+end_script
+
+script void SimulationComplete()
+   AssertTrueMessage(missile_detected, "New targets are not detected");
+end_script
+
+platform case_5_ew_radar EW_RADAR
+   side blue
+   position 30:34n 81:30w
+      altitude 0.00 ft agl
+      heading 90 deg
+	  
+   edit sensor ew_radar
+      transmitter
+         frequency  150.0 mhz
+      end_transmitter
+   end_sensor
+
+end_platform
+
+platform bomber_case_5_1 BOMBER 
+   position 30:35n 81:00w
+   
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+
+   route
+      position 30:35:00.000n 81:00:00.000w altitude 25000.00 ft
+         speed 500 mph
+      position 30:34:09.453n 81:33:20.250w altitude 25000.00 ft
+   end_route
+
+   track platform case_5_ew_radar end_track
+
+end_platform

@@ -1,0 +1,226 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test the script 'Format' class.
+
+script_variables
+   int gTestCount = 0;
+   int gTestCountExpected = 93;
+end_script_variables
+
+script void Check(string aMethod,
+           string aResult,
+           string aExpected)
+   gTestCount = gTestCount + 1;
+   if (aResult != aExpected)
+   {
+      writeln("-FAIL- Format.", aMethod, ": Result='", aResult, "', Expected='", aExpected, "'");
+   }
+   else
+   {
+      writeln_d("-PASS- Format.", aMethod, ": result='", aResult, "'");
+   }
+end_script
+
+script void FormatTest()
+
+   Check("Pad", "abc".Pad(5), "  abc");
+   Check("Pad", "abc".Pad(-5), "abc  ");
+   Check("Pad", "abc".Pad(5, "#"), "##abc");
+   Check("Pad", "abc".Pad(-5, "#"), "abc##");
+
+   double fixed_value = 987.654321;
+   Check("Fixed", Format.Fixed(fixed_value, 7), "987.6543210");
+   Check("Fixed", Format.Fixed(fixed_value, 6), "987.654321");
+   Check("Fixed", Format.Fixed(fixed_value, 5), "987.65432");
+   Check("Fixed", Format.Fixed(fixed_value, 4), "987.6543");
+   Check("Fixed", Format.Fixed(fixed_value, 3), "987.654");
+   Check("Fixed", Format.Fixed(fixed_value, 2), "987.65");
+   Check("Fixed", Format.Fixed(fixed_value, 1), "987.7");
+   Check("Fixed", Format.Fixed(fixed_value, 0), "988");
+   Check("Fixed", Format.Fixed(fixed_value, 5).Pad(13), "    987.65432");
+   Check("Fixed", Format.Fixed(fixed_value, 5).Pad(-13), "987.65432    ");
+   Check("Fixed", Format.Fixed(fixed_value, 5).Pad(13, "#"), "####987.65432");
+   Check("Fixed", Format.Fixed(fixed_value, 5).Pad(-13, "#"), "987.65432####");
+   fixed_value = -fixed_value;
+   Check("Fixed", Format.Fixed(fixed_value, 7), "-987.6543210");
+   Check("Fixed", Format.Fixed(fixed_value, 6), "-987.654321");
+   Check("Fixed", Format.Fixed(fixed_value, 5), "-987.65432");
+   Check("Fixed", Format.Fixed(fixed_value, 4), "-987.6543");
+   Check("Fixed", Format.Fixed(fixed_value, 3), "-987.654");
+   Check("Fixed", Format.Fixed(fixed_value, 2), "-987.65");
+   Check("Fixed", Format.Fixed(fixed_value, 1), "-987.7");
+   Check("Fixed", Format.Fixed(fixed_value, 0), "-988");
+   Check("Fixed", Format.Fixed(fixed_value, 5).Pad(13), "   -987.65432");
+
+   Vec3 vec_value = Vec3.Construct(123.456, 2.3456, 0.34567);
+   Check("Fixed", Format.Fixed(vec_value, 2), "(123.46, 2.35, 0.35)");
+
+   double sci_value = 9876.54321e6;
+   Check("Scientific", Format.Scientific(sci_value, 10), "9.8765432100e+09");
+   Check("Scientific", Format.Scientific(sci_value, 9),  "9.876543210e+09");
+   Check("Scientific", Format.Scientific(sci_value, 8),  "9.87654321e+09");
+   Check("Scientific", Format.Scientific(sci_value, 7),  "9.8765432e+09");
+   Check("Scientific", Format.Scientific(sci_value, 6),  "9.876543e+09");
+   Check("Scientific", Format.Scientific(sci_value, 5),  "9.87654e+09");
+   Check("Scientific", Format.Scientific(sci_value, 4),  "9.8765e+09");
+   Check("Scientific", Format.Scientific(sci_value, 3),  "9.877e+09");
+   Check("Scientific", Format.Scientific(sci_value, 2),  "9.88e+09");
+   Check("Scientific", Format.Scientific(sci_value, 1),  "9.9e+09");
+   Check("Scientific", Format.Scientific(sci_value, 8).Pad(20), "      9.87654321e+09");
+   sci_value = -sci_value;
+   Check("Scientific", Format.Scientific(sci_value, 10), "-9.8765432100e+09");
+   Check("Scientific", Format.Scientific(sci_value, 9),  "-9.876543210e+09");
+   Check("Scientific", Format.Scientific(sci_value, 8),  "-9.87654321e+09");
+   Check("Scientific", Format.Scientific(sci_value, 7),  "-9.8765432e+09");
+   Check("Scientific", Format.Scientific(sci_value, 6),  "-9.876543e+09");
+   Check("Scientific", Format.Scientific(sci_value, 5),  "-9.87654e+09");
+   Check("Scientific", Format.Scientific(sci_value, 4),  "-9.8765e+09");
+   Check("Scientific", Format.Scientific(sci_value, 3),  "-9.877e+09");
+   Check("Scientific", Format.Scientific(sci_value, 2),  "-9.88e+09");
+   Check("Scientific", Format.Scientific(sci_value, 1),  "-9.9e+09");
+   Check("Scientific", Format.Scientific(sci_value, 8).Pad(20), "     -9.87654321e+09");
+
+   # Only a few 'General' tests are run because we can't be sure how the library will formatting
+   double gen_value = 0.00012345789;
+   Check("General", Format.General(gen_value, 5), "0.00012346");
+   #Check("General", Format.General(gen_value, 0), "0.000123458");
+   gen_value = 0.123456789e+8;
+   Check("General", Format.General(gen_value, 5), "1.2346e+07");
+   #Check("General", Format.General(gen_value, 0), "1.23457e+07");
+
+   Vec3 vec_value = Vec3.Construct(123.456, 2.3456, 0.34567);
+   Check("Fixed", Format.Fixed(vec_value, 2), "(123.46, 2.35, 0.35)");
+   vec_value.Set(123.0E7, 234.5e-8, 3.14159265);
+   Check("Scientific", Format.Scientific(vec_value, 6), "(1.230000e+09, 2.345000e-06, 3.141593e+00)");
+   Check("General", Format.General(vec_value, 6), "(1.23e+09, 2.345e-06, 3.14159)");
+
+   int d = 6;
+   int m = 5;
+   double s = 4.321;
+   double lat_value = d + (m / 60.0) + (s / 3600.0);
+   Check("Latitude", Format.Latitude(lat_value), "06:05:04.32n");
+   Check("Latitude", Format.Latitude(lat_value, 0), "06:05:04n");
+   Check("Latitude", Format.Latitude(lat_value, "dms", 3), "06:05:04.321n");
+   Check("Latitude", Format.Latitude(lat_value, "dms", 2), "06:05:04.32n");
+   Check("Latitude", Format.Latitude(lat_value, "dms", 1), "06:05:04.3n");
+   Check("Latitude", Format.Latitude(lat_value, "dms", 0), "06:05:04n");
+   Check("Latitude", Format.Latitude(lat_value, "dm", 3), "06:05.072n");
+   Check("Latitude", Format.Latitude(lat_value, "d", 5), "06.08453n");
+   lat_value = -lat_value;
+   Check("Latitude", Format.Latitude(lat_value), "06:05:04.32s");
+   Check("Latitude", Format.Latitude(lat_value, 0), "06:05:04s");
+   Check("Latitude", Format.Latitude(lat_value, "dms", 4), "06:05:04.3210s");
+   Check("Latitude", Format.Latitude(lat_value, "dms", 3), "06:05:04.321s");
+   Check("Latitude", Format.Latitude(lat_value, "dms", 2), "06:05:04.32s");
+   Check("Latitude", Format.Latitude(lat_value, "dms", 1), "06:05:04.3s");
+   Check("Latitude", Format.Latitude(lat_value, "dms", 0), "06:05:04s");
+   Check("Latitude", Format.Latitude(lat_value, "dm", 3), "06:05.072s");
+   Check("Latitude", Format.Latitude(lat_value, "d", 5), "06.08453s");
+
+   double lon_value = d + (m / 60.0) + (s / 3600.0);
+   lon_value = lon_value + 120.0;
+   Check("Longitude", Format.Longitude(lon_value), "126:05:04.32e");
+   Check("Longitude", Format.Longitude(lon_value, 0), "126:05:04e");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 4), "126:05:04.3210e");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 3), "126:05:04.321e");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 2), "126:05:04.32e");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 1), "126:05:04.3e");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 0), "126:05:04e");
+   Check("Longitude", Format.Longitude(lon_value, "dm", 3), "126:05.072e");
+   Check("Longitude", Format.Longitude(lon_value, "d", 5), "126.08453e");
+   double lon_value = d + (m / 60.0) + (s / 3600.0);
+   lon_value = -lon_value;
+   Check("Longitude", Format.Longitude(lon_value), "06:05:04.32w");
+   Check("Longitude", Format.Longitude(lon_value, 0), "06:05:04w");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 4), "06:05:04.3210w");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 3), "06:05:04.321w");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 2), "06:05:04.32w");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 1), "06:05:04.3w");
+   Check("Longitude", Format.Longitude(lon_value, "dms", 0), "06:05:04w");
+   Check("Longitude", Format.Longitude(lon_value, "dm", 3), "06:05.072w");
+   Check("Longitude", Format.Longitude(lon_value, "d", 5), "06.08453w");
+
+   double time = 1 * 3600.0 + 2 * 60.0 + 3.45;
+   Check("Time", Format.Time(time), "01:02:03.45");
+   Check("Time", Format.Time(time, 0), "01:02:03");
+   Check("Time", Format.Time(time, "hms", 2), "01:02:03.45");
+   Check("Time", Format.Time(time, "ms", 2), "62:03.45");
+   Check("Time", Format.Time(time, "s", 4), "3723.4500");
+
+   if (gTestCount != gTestCountExpected)
+   {
+      writeln("-FAIL- Not all tests completed, actual=", gTestCount, ", expected=", gTestCountExpected);
+   }
+end_script
+
+platform tester WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      route
+         position 40n 90w altitude 35000 ft speed 400 kts
+         position 42n 92w altitude 40000 ft speed 500 kts
+      end_route
+   end_mover
+
+   execute at_time 2 sec relative
+      writeln("");
+      WsfGeoPoint p = PLATFORM.Location();
+      writeln("Current position: ", Format.Latitude(p.Latitude()),
+              " ", Format.Longitude(p.Longitude()),
+              " Alt: ", Format.Fixed(p.Altitude(), 1), " m");
+   end_execute
+end_platform
+
+execute at_time 1 sec absolute
+   writeln("");
+   # Create a nice table of the atmospheric properties.
+   writeln("-Altitude- -Pressure- ---Temp--- --Density- -SonicVel-");
+   writeln("   (m)        (Pa)        (K)      (kg/m3)     (m/s)  ");
+   writeln("---------- ---------- ---------- ---------- ----------");
+   Atmosphere a = Atmosphere.Construct("standard");
+   for (int i = 0; i <= 50000; i = i + 1000)
+   {
+      double alt = i;
+      writeln(Format.Fixed(alt, 0).Pad(10), " ",
+              Format.Scientific(a.Pressure(alt), 3).Pad(10), " ",
+              Format.Fixed(a.Temperature(alt), 2).Pad(10), " ",
+              Format.Fixed(a.Density(alt), 4).Pad(10), " ",
+              Format.Fixed(a.SonicVelocity(alt), 1).Pad(10));
+   }
+end_execute
+
+execute at_time 3 sec absolute
+   writeln("");
+   Calendar c = Calendar(WsfDateTime.CurrentTime());
+   double timeOfDay = c.Hour() * 3600.0 + c.Minute() * 60.0 + c.Second();
+   writeln("The current date and time is: ", c.ToStringDate(), " ", Format.Time(timeOfDay, 5), " UT");
+end_execute
+
+execute at_time 4 sec absolute
+   writeln("");
+   Calendar c = WsfDateTime.CurrentTime();
+   Vec3 sunLocECI = Sun.LocationECI(c);
+   writeln("Distance to the Sun  : ", Format.Scientific(sunLocECI.Magnitude(), 8));
+   writeln("Sun ECI Location     : ", Format.Scientific(sunLocECI, 8));
+   writeln("Earth Semi-Major Axis: ", Format.Fixed(Earth.EQUATORIAL_RADIUS(), 2));
+   writeln("Earth Semi-Minor Axis: ", Format.Fixed(Earth.POLAR_RADIUS(), 2));
+   writeln("Earth Mass           : ", Format.Scientific(Earth.MASS(), 8));
+   writeln("Pi                   : ", Format.Fixed(Math.PI(), 15));
+   writeln("Feet per meter       : ", Format.Fixed(Math.FT_PER_M(), 8));
+
+end_execute
+
+execute at_time 5 sec absolute
+   FormatTest();
+end_execute
+
+start_date jan 25 2018
+start_time 01:23:45.6789
+
+end_time 10 sec

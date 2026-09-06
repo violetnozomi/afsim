@@ -1,0 +1,229 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void ExpectInvalid(Object aObject, string aMessage)
+   gTestPerformed = true;
+   if (aObject.IsValid() == true)
+   {
+      gAllPass = false;
+      writeln("Expected invalid object is not actually invalid. ", aMessage);
+   }
+end_script
+
+script void TestConstructErrors()
+   ExpectInvalid(Matrix.Construct(0, 5), "Construct non-positive row size");
+   ExpectInvalid(Matrix.Construct(3, 0), "Construct non-positive col size");
+end_script
+
+script void TestConstructValueErrors()
+   ExpectInvalid(Matrix.Construct(0, 5, 1.0), "Construct non-positive row size");
+   ExpectInvalid(Matrix.Construct(3, 0, 2.0), "Construct non-positive col size");
+end_script
+
+script void TestIdentityErrors()
+   ExpectInvalid(Matrix.Identity(0), "Identity non-positive size");
+end_script
+
+script void TestGetErrors()
+   Matrix A = Matrix.Construct(3, 3, 2.0);
+   // These would give 2.0 if the inputs were not out of the acceptable domain.
+   Object result = A.Get(-1, 1);
+   ExpectInvalid(result, "Get negative row");
+   result = A.Get(1, -1);
+   ExpectInvalid(result, "Get negative column");
+   result = A.Get(5, 1);
+   ExpectInvalid(result, "Get row out of domain");
+   result = A.Get(1, 5);
+   ExpectInvalid(result, "Get column out of domain");
+end_script
+
+script void TestRowErrors()
+   Matrix A = Matrix.Construct(3, 3, 2.0);
+   ExpectInvalid(A.Row(-1), "Row negative row index");
+   ExpectInvalid(A.Row(50), "Row index out of domain");
+end_script
+
+script void TestColumnErrors()
+   Matrix A = Matrix.Construct(3, 3, 5.0);
+   ExpectInvalid(A.Column(-1), "Row negative row index");
+   ExpectInvalid(A.Column(50), "Row index out of domain");
+end_script
+
+script void TestSubmatrixErrors()
+   Matrix A = Matrix.Construct(3, 4);
+   ExpectInvalid(A.Submatrix(-1, 3, 1, 3), "Submatrix row index negative");
+   ExpectInvalid(A.Submatrix(1, 3, -1, 3), "Submatrix column index negative");
+   ExpectInvalid(A.Submatrix(5, 7, 1, 3), "Submatrix row index out of domain");
+   ExpectInvalid(A.Submatrix(1, 3, 5, 7), "Submatrix column index out of domain");
+   ExpectInvalid(A.Submatrix(1, 5, 1, 3), "Submatrix row size too great");
+   ExpectInvalid(A.Submatrix(1, 3, 1, 5), "Submatrix column size too great");
+   ExpectInvalid(A.Submatrix(2, 1, 1, 3), "Submatrix row indices swapped");
+   ExpectInvalid(A.Submatrix(1, 3, 3, 1), "Submatrix col indices swapped");
+end_script
+
+script void TestTraceErrors()
+   Matrix A = Matrix.Construct(2, 3, 3.0);
+   Object result = A.Trace();
+   ExpectInvalid(result, "Trace non-square");
+end_script
+
+script void TestIsPositiveDefiniteErrors()
+   Matrix A = Matrix.Construct(2, 3, 3.0);
+   Object result = A.IsPositiveDefinite();
+   ExpectInvalid(result, "IsPositiveDefinite non-square");
+end_script
+
+script void TestSetErrors()
+   Matrix A = Matrix.Construct(2, 2, 1.0);
+   Matrix B = Matrix(A);
+   
+   A.Set(-1, 1, 0.0);
+   ExpectBool(A == B, true, "Set row index negative");
+   A.Set(1, -1, 0.0);
+   ExpectBool(A == B, true, "Set column index negative");
+   A.Set(3, 1, 0.0);
+   ExpectBool(A == B, true, "Set row index out of domain");
+   A.Set(1, 3, 0.0);
+   ExpectBool(A == B, true, "Set column index out of domain");
+end_script
+
+script void TestSetRowErrors()
+   Matrix A = Matrix.Construct(2, 2, 1.0);
+   Matrix B = Matrix.Construct(2, 2, 1.0);
+   
+   Matrix r = Matrix.Construct(1, 2, 0.0);
+   Matrix c = Matrix.Construct(2, 1, 0.0);
+   Matrix g = Matrix.Construct(1, 4, 0.0);
+   
+   A.SetRow(-1, r);
+   ExpectBool(A == B, true, "SetRow negative index");
+   A.SetRow(5, r);
+   ExpectBool(A == B, true, "SetRow index out of domain");
+   A.SetRow(0, c);
+   ExpectBool(A == B, true, "SetRow column matrix input");
+   A.SetRow(0, g);
+   ExpectBool(A == B, true, "SetRow input matrix column count mismatch");
+end_script
+
+script void TestSetColumnErrors()
+   Matrix A = Matrix.Construct(2, 2, 1.0);
+   Matrix B = Matrix.Construct(2, 2, 1.0);
+   
+   Matrix c = Matrix.Construct(2, 1, 0.0);
+   Matrix r = Matrix.Construct(1, 2, 0.0);
+   Matrix g = Matrix.Construct(4, 1, 0.0);
+   
+   A.SetColumn(-1, c);
+   ExpectBool(A == B, true, "SetColumn negative index");
+   A.SetColumn(5, c);
+   ExpectBool(A == B, true, "SetColumn index out of domain");
+   A.SetColumn(0, r);
+   ExpectBool(A == B, true, "SetColumn row matrix input");
+   A.SetColumn(0, g);
+   ExpectBool(A == B, true, "SetColumn input matrix row count mismatch");
+end_script
+
+script void TestSetDiagonalErrors()
+   Matrix A = Matrix.Construct(2, 3, 1.0);
+   Matrix B = Matrix.Construct(2, 3, 1.0);
+   Matrix c1 = Matrix.Construct(3, 1, 0.0);
+   Matrix c2 = Matrix.Construct(2, 2, 0.0);
+   
+   A.SetDiagonal(c1);
+   ExpectBool(A == B, true, "SetDiagonal incompatible size");
+   A.SetDiagonal(c2);
+   ExpectBool(A == B, true, "SetDiagonal input not a column matrix");
+end_script
+
+script void TestSetSubmatrixErrors()
+   Matrix A = Matrix.Construct(3, 3, 1.0);
+   Matrix B = Matrix.Construct(3, 3, 1.0);
+   Matrix S = Matrix.Construct(2, 2, 0.0);
+   
+   A.SetSubmatrix(-1, 0, S);
+   ExpectBool(A == B, true, "SetSubmatrix row index negative");
+   A.SetSubmatrix(0, -1, S);
+   ExpectBool(A == B, true, "SetSubmatrix column index negative");
+   A.SetSubmatrix(5, 0, S);
+   ExpectBool(A == B, true, "SetSubmatrix row index out of domain");
+   A.SetSubmatrix(0, 5, S);
+   ExpectBool(A == B, true, "SetSubmatrix column index out of domain");
+   A.SetSubmatrix(2, 0, S);
+   ExpectBool(A == B, true, "SetSubmatrix row index too high for submatrix");
+   A.SetSubmatrix(0, 2, S);
+   ExpectBool(A == B, true, "SetSubmatrix column index too high for submatrix");
+end_script
+
+script void TestMultiplyErrors()
+   Matrix A = Matrix.Construct(2, 3);
+   Matrix B = Matrix.Construct(2, 3);
+   ExpectInvalid(A.Multiply(B), "Multiply incompatible sizes");
+end_script
+
+script void TestInverseErrors()
+   Matrix A = Matrix.Construct(2, 3);
+   ExpectInvalid(A.Inverse(), "Inverse non-square");
+   
+   Matrix B = Matrix.Construct(2, 2, 1.0);
+   ExpectInvalid(B.Inverse(), "Inverse singular");
+end_script
+
+script void TestAddErrors()
+   Matrix A = Matrix.Construct(2, 3);
+   Matrix B = Matrix.Construct(3, 3);
+   Matrix C = Matrix.Construct(2, 2);
+   ExpectInvalid(A.Add(B), "Add non-matching row count");
+   ExpectInvalid(A.Add(C), "Add non-matching column count");
+end_script
+
+script void TestSubtractErrors()
+   Matrix A = Matrix.Construct(2, 3);
+   Matrix B = Matrix.Construct(3, 3);
+   Matrix C = Matrix.Construct(2, 2);
+   ExpectInvalid(A.Subtract(B), "Subtract non-matching row count");
+   ExpectInvalid(A.Subtract(C), "Subtract non-matching column count");
+end_script
+
+script void TestCholeskyDecompositionErrors()
+   Matrix A = Matrix.Construct(2, 3);
+   ExpectInvalid(A.CholeskyDecomposition(), "CholeskyDecomposition non-square");
+   
+   Matrix B = Matrix.Construct(2, 2, 1.0);
+   B.Set(1, 0, -1.0);
+   ExpectInvalid(B.CholeskyDecomposition(), "CholeskyDecomposition not positive definite");
+end_script
+
+script void TestEigensystemErrors()
+   Matrix A = Matrix.Construct(2, 3);
+   Array<Matrix> result = A.Eigensystem();
+   ExpectInt(result.Size(), 0, "Eigensystem non-square");
+end_script
+
+execute at_time 2 s absolute
+   TestConstructErrors();
+   TestConstructValueErrors();
+   TestIdentityErrors();
+   TestGetErrors();
+   TestRowErrors();
+   TestColumnErrors();
+   TestSubmatrixErrors();
+   TestTraceErrors();
+   TestIsPositiveDefiniteErrors();
+   TestSetErrors();
+   TestSetRowErrors();
+   TestSetColumnErrors();
+   TestSetDiagonalErrors();
+   TestSetSubmatrixErrors();
+   TestMultiplyErrors();
+   TestInverseErrors();
+   TestAddErrors();
+   TestSubtractErrors();
+   TestCholeskyDecompositionErrors();
+   TestEigensystemErrors();
+end_execute

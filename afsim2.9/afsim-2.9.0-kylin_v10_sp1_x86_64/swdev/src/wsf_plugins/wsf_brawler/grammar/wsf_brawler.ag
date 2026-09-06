@@ -1,0 +1,42 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+(struct WSF_BRAWLER_PROCESSOR :base_type WSF_QUANTUM_TASKER_PROCESSOR
+                               :symbol (type processorType WSF_BRAWLER_PROCESSOR)
+                               (script-var WsfBrawlerProcessor PROCESSOR :this 1)
+{
+   mind_file (file-reference mind-data)
+ | draw_alternatives
+ | draw_nominal_states
+ | debug
+ | consciousness_event_update_time <Time>
+ | time_allowed_per_sector_search <Time>
+ | <WSF_QUANTUM_TASKER_PROCESSOR>
+})
+
+(struct WSF_BRAWLER_MOVER
+   :symbol (type moverType WSF_BRAWLER_MOVER)
+   :base_type Mover
+{
+   route             [skip()]
+      <Route>*
+   end_route
+ | aero_file (file-reference aero-data-mover)
+ | draw_projection
+ | <Mover>
+})
+
+
+(struct WSF_BRAWLER_FUEL
+   :symbol (type fuelType WSF_BRAWLER_FUEL)
+   :base_type Fuel
+{
+   aero_file (file-reference aero-data-fuel)
+ | initial_quantity_ratio <real>
+ | <Fuel>
+})

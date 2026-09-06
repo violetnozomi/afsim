@@ -1,0 +1,997 @@
+{
+   "types": {
+      "eventFinite": {
+         "type": "enabler",
+         "name": "finite",
+         "display": "Finite",
+         "properties": [
+            {
+               "type": "time",
+               "name": "duration",
+               "display": "Duration"
+            },
+            {
+               "type": "time",
+               "name": "update_interval",
+               "display": "Update Interval"
+            }
+         ]
+      },
+      "orbitNumberProperty": {
+         "type": "integer",
+         "name": "orbit",
+         "display": "Orbit Number",
+         "unsigned": true
+      },
+      "apoapsisConstraint": {
+         "option": "AT_APOAPSIS",
+         "label": "Apoapsis",
+         "type": "orbitNumberProperty"
+      },
+      "periapsisConstraint": {
+         "option": "AT_PERIAPSIS",
+         "label": "Periapsis",
+         "type": "orbitNumberProperty"
+      },
+      "relativeTimeConstraint": {
+         "option": "AT_RELATIVE_TIME",
+         "label": "Relative Time",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "time",
+               "name": "relative_time",
+               "display": "Relative Time"
+            },
+            {
+               "type": "orbitNumberProperty"
+            }
+         ]
+      },
+      "ascendingNodeConstraint": {
+         "option": "AT_ASCENDING_NODE",
+         "label": "Ascending Node",
+         "type": "orbitNumberProperty"
+      },
+      "descendingNodeConstraint": {
+         "option": "AT_DESCENDING_NODE",
+         "label": "Descending Node",
+         "type": "orbitNumberProperty"
+      },
+      "ascendingRadiusConstraint": {
+         "option": "AT_ASCENDING_RADIUS",
+         "label": "Ascending Radius",
+         "type": "sequence",
+         "properties": [
+            {
+               "name": "radius",
+               "display": "Radius",
+               "type": "length"
+            },
+            {
+               "type": "orbitNumberProperty"
+            }
+         ]
+      },
+      "descendingRadiusConstraint": {
+         "option": "AT_DESCENDING_RADIUS",
+         "label": "Descending Radius",
+         "type": "sequence",
+         "properties": [
+            {
+               "name": "radius",
+               "display": "Radius",
+               "type": "length"
+            },
+            {
+               "type": "orbitNumberProperty"
+            }
+         ]
+      },
+      "northernIntersectionConstraint": {
+         "option": "AT_NORTHERN_INTERSECTION",
+         "label": "Northern Intersection",
+         "type": "orbitNumberProperty"
+      },
+      "southernIntersectionConstraint": {
+         "option": "AT_SOUTHERN_INTERSECTION",
+         "label": "Southern Intersection",
+         "type": "orbitNumberProperty"
+      },
+      "eclipseEntryConstraint": {
+         "option": "AT_ECLIPSE_ENTRY",
+         "label": "Eclipse Entry",
+         "type": "orbitNumberProperty"
+      },
+      "eclipseExitConstraint": {
+         "option": "AT_ECLIPSE_EXIT",
+         "label": "Eclipse Exit",
+         "type": "orbitNumberProperty"
+      },
+      "allStandardardConstraints": {
+         "type": "disjunction",
+         "name": "condition",
+         "display": "Event Constraint",
+         "properties": [
+            { "type": "relativeTimeConstraint" },
+            { "type": "periapsisConstraint" },
+            { "type": "apoapsisConstraint" },
+            { "type": "ascendingNodeConstraint" },
+            { "type": "descendingNodeConstraint" },
+            { "type": "eclipseEntryConstraint" },
+            { "type": "eclipseExitConstraint" }
+         ]
+      },
+      "noOptimization": {
+         "label": "No optimization",
+         "option": "none",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "time",
+               "name": "delta_time",
+               "display": "Delta Time"
+            },
+            {
+               "type": "speed",
+               "name": "maximum_delta_v",
+               "display": "Maximum Delta V"
+            }
+         ]
+      },
+      "deltaT_Optimization": {
+         "label": "Least Delta-T",
+         "option": "delta_t",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "time",
+               "name": "maximum_delta_time",
+               "display": "Maximum Delta T"
+            },
+            {
+               "type": "speed",
+               "name": "maximum_delta_v",
+               "display": "Maximum Delta V"
+            }
+         ]
+      },
+      "deltaV_Optimization": {
+         "label": "Least Delta-V",
+         "option": "delta_v",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "time",
+               "name": "maximum_delta_time",
+               "display": "Maximum Delta T"
+            },
+            {
+               "type": "speed",
+               "name": "maximum_delta_v",
+               "display": "Maximum Delta V"
+            }
+         ]
+      },
+      "blendedCost": {
+         "label": "Blended Cost",
+         "option": "blended_cost",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "real",
+               "name": "a_parameter",
+               "display": "A Parameter"
+            },
+            {
+               "type": "real",
+               "name": "b_parameter",
+               "display": "B Parameter"
+            },
+            {
+               "type": "real",
+               "name": "c_parameter",
+               "display": "C Parameter"
+            }
+         ]
+      },
+      "costSelector": {
+         "type": "disjunction",
+         "name": "cost_selection",
+         "display": "Cost Function",
+         "properties": [
+            {"type": "blendedCost"}
+         ]
+      },
+      "costOptimization": {
+         "label": "Cost Function",
+         "option": "cost_optimization",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "costSelector"
+            },
+            {
+               "type": "time",
+               "name": "maximum_delta_time",
+               "display": "Maximum Delta T"
+            },
+            {
+               "type": "speed",
+               "name": "maximum_delta_v",
+               "display": "Maximum Delta V"
+            }
+         ]
+      },
+      "targetingOptimizationSelector": {
+         "type": "disjunction",
+         "name": "optimize",
+         "display": "Optimization",
+         "properties": [
+            {"type": "noOptimization"},
+            {"type": "deltaT_Optimization"},
+            {"type": "deltaV_Optimization"},
+            {"type": "costOptimization"}
+         ]
+      },
+      "targetingProperties": {
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "target_selection",
+               "name": "target"
+            },
+            {
+               "type": "targetingOptimizationSelector"
+            },
+            {
+               "type": "allStandardardConstraints"
+            },
+            {
+               "name": "position_offset",
+               "display": "Position Offset",
+               "type": "composite",
+               "properties": [
+                  {
+                     "type": "radio",
+                     "name": "frame",
+                     "display": "Frame",
+                     "properties": [
+                        {"option": "ric", "label": "RIC"},
+                        {"option": "ntw", "label": "NTW"}
+                     ]
+                  },
+                  {
+                     "type": "length",
+                     "name": "offset_x",
+                     "display": "X Offset"
+                  },
+                  {
+                     "type": "length",
+                     "name": "offset_y",
+                     "display": "Y Offset"
+                  },
+                  {
+                     "type": "length",
+                     "name": "offset_z",
+                     "display": "Z Offset"
+                  }
+               ]
+            },
+            {
+               "name": "velocity_offset",
+               "display": "Velocity Offset",
+               "type": "composite",
+               "properties": [
+                  {
+                     "type": "radio",
+                     "name": "frame",
+                     "display": "Frame",
+                     "properties": [
+                        {"option": "ric", "label": "RIC"},
+                        {"option": "ntw", "label": "NTW"}
+                     ]
+                  },
+                  {
+                     "type": "speed",
+                     "name": "offset_x",
+                     "display": "X Offset"
+                  },
+                  {
+                     "type": "speed",
+                     "name": "offset_y",
+                     "display": "Y Offset"
+                  },
+                  {
+                     "type": "speed",
+                     "name": "offset_z",
+                     "display": "Z Offset"
+                  }
+               ]
+            },
+            {
+               "name": "offset_time",
+               "display": "Offset Time",
+               "type": "time"
+            },
+            {
+               "name": "lag_time",
+               "display": "Lag Time",
+               "type": "time"
+            },
+            {
+               "name": "tolerance",
+               "display": "Tolerance",
+               "type": "real"
+            }
+         ]
+      },
+      "inclinationProperty": {
+         "type": "angle",
+         "name": "inclination",
+         "display": "Inclination"
+      },
+      "raanProperty": {
+         "type": "angle",
+         "name": "raan",
+         "display": "RAAN"
+      },
+      "changeEccentricityManeuver": {
+         "option": "change_eccentricity",
+         "label": "Change Eccentricity",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "real",
+               "name": "eccentricity",
+               "display": "Eccentricity"
+            },
+            {
+               "type": "disjunction",
+               "name": "condition",
+               "display": "Event Constraint",
+               "properties": [
+                  { "type": "periapsisConstraint" },
+                  { "type": "apoapsisConstraint" },
+                  { "type": "relativeTimeConstraint" }
+               ]
+            },
+            {
+               "type": "eventFinite"
+            }
+         ]
+      },
+      "changeInclinationManeuver": {
+         "option": "change_inclination",
+         "label": "Change Inclination",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "inclinationProperty"
+            },
+            {
+               "type": "disjunction",
+               "name": "condition",
+               "display": "Event Constraint",
+               "properties": [
+                  { "type": "ascendingNodeConstraint" },
+                  { "type": "descendingNodeConstraint" },
+                  { "type": "relativeTimeConstraint" }
+               ]
+            }
+         ]
+      },
+      "changeRAAN_Maneuver": {
+         "option": "change_raan",
+         "label": "Change RAAN",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "raanProperty"
+            },
+            {
+               "type": "disjunction",
+               "name": "condition",
+               "display": "Event Constraint",
+               "properties": [
+                  { "type": "northernIntersectionConstraint" },
+                  { "type": "southernIntersectionConstraint" }
+               ]
+            }
+         ]
+      },
+      "changeRAAN_InclinationManeuver": {
+         "option": "change_raan_inclination",
+         "label": "Change RAAN and Inclination",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "raanProperty"
+            },
+            {
+               "type": "inclinationProperty"
+            },
+            {
+               "type": "disjunction",
+               "name": "condition",
+               "display": "Event Constraint",
+               "properties": [
+                  { "type": "northernIntersectionConstraint" },
+                  { "type": "southernIntersectionConstraint" }
+               ]
+            }
+         ]
+      },
+      "changeSMA_Maneuver": {
+         "option": "change_sma",
+         "label": "Change Semi-major Axis",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "multilength",
+               "name": ["semi_major_axis",
+                        "apoapsis_altitude",
+                        "periapsis_altitude"],
+               "display": ["Semi-major Axis",
+                           "Apoapsis Altitude",
+                           "Periapsis Altitude"]
+            },
+            {
+               "type": "allStandardardConstraints"
+            },
+            {
+               "type": "eventFinite"
+            }
+         ]
+      },
+      "circularizeManeuver": {
+         "option": "circularize",
+         "label": "Circularize",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "disjunction",
+               "name": "condition",
+               "display": "Event Constraint",
+               "properties": [
+                  { "type": "descendingRadiusConstraint" },
+                  { "type": "ascendingRadiusConstraint" }
+               ]
+            },
+            {
+               "type": "eventFinite"
+            }
+         ]
+      },
+      "inertialDeltaV": {
+         "option": "inertial",
+         "label": "Inertial",
+         "type": "sequence",
+         "properties": [
+            {
+               "name": "dv_x",
+               "display": "X Component",
+               "type": "speed"
+            },
+            {
+               "name": "dv_y",
+               "display": "Y Component",
+               "type": "speed"
+            },
+            {
+               "name": "dv_z",
+               "display": "Z Component",
+               "type": "speed"
+            }
+         ]
+      },
+      "ricDeltaV": {
+         "option": "ric",
+         "label": "RIC",
+         "type": "sequence",
+         "properties": [
+            {
+               "name": "dv_x",
+               "display": "R Component",
+               "type": "speed"
+            },
+            {
+               "name": "dv_y",
+               "display": "I Component",
+               "type": "speed"
+            },
+            {
+               "name": "dv_z",
+               "display": "C Component",
+               "type": "speed"
+            }
+         ]
+      },
+      "deltaV_Maneuver": {
+         "option": "delta_v",
+         "label": "Delta V",
+         "type": "sequence",
+         "properties": [
+            {
+               "name": "delta_v",
+               "display": "Delta V",
+               "type": "disjunction",
+               "properties": [
+                  { "type": "inertialDeltaV" },
+                  { "type": "ricDeltaV" }
+               ]
+            },
+            {
+               "type": "allStandardardConstraints"
+            }
+         ]
+      },
+      "driftManeuver": {
+         "option": "drift_maneuver",
+         "label": "Drift",
+         "type": "sequence",
+         "properties": [
+            {
+               "name": "drift_rate",
+               "display": "Drift Rate",
+               "type": "angle_rate"
+            },
+            {
+               "type": "targetingOptimizationSelector"
+            },
+            {
+               "type": "disjunction",
+               "name": "condition",
+               "display": "Event Constraint",
+               "properties": [
+                  { "type": "relativeTimeConstraint" },
+                  { "type": "ascendingNodeConstraint" },
+                  { "type": "descendingNodeConstraint" },
+                  { "type": "eclipseEntryConstraint" },
+                  { "type": "eclipseExitConstraint" }
+               ]
+            },
+            {
+               "name": "tolerance",
+               "display": "Tolerance",
+               "type": "real"
+            }
+         ]
+      },
+      "hohmannTransferManeuver": {
+         "option": "hohmann_transfer",
+         "label": "Hohmann Transfer",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "multilength",
+               "name": ["final_semi_major_axis", "final_radius"],
+               "display": ["Final Semi-major Axis", "Final Radius"]
+            },
+            {
+               "type": "allStandardardConstraints"
+            },
+            {
+               "type": "eventFinite"
+            }
+         ]
+      },
+      "matchVelocityManeuver": {
+         "option": "match_velocity",
+         "label": "Match Velocity",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "target_selection",
+               "name": "target"
+            },
+            {
+               "type": "allStandardardConstraints"
+            }
+         ]
+      },
+      "naturalMotionCircumnavigation": {
+         "option": "natural_motion_circumnavigation",
+         "label": "Natural Motion Circumnavigation",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "target_selection",
+               "name": "target",
+               "allow_libration_point": false
+            },
+            {
+               "type": "length",
+               "name": "orbit_size",
+               "display": "Orbit Size"
+            },
+            {
+               "type": "angle",
+               "name": "orbit_phase",
+               "display": "Orbit Phase"
+            },
+            {
+               "type": "length",
+               "name": "oop_amplitude",
+               "display": "Out-of-plane Amplitude"
+            },
+            {
+               "type": "angle",
+               "name": "oop_phase",
+               "display": "Out-of-plane Phase"
+            },
+            {
+               "type": "targetingOptimizationSelector"
+            },
+            {
+               "type": "allStandardardConstraints"
+            },
+            {
+               "name": "tolerance",
+               "display": "Tolerance",
+               "type": "real"
+            }
+         ]
+      },
+      "teardropManeuver": {
+         "option": "teardrop",
+         "label": "Teardrop",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "target_selection",
+               "name": "target",
+               "allow_libration_point": false
+            },
+            {
+               "type": "length",
+               "name": "r_at_poca",
+               "display": "Radial Offset at POCA"
+            },
+            {
+               "type": "time",
+               "name": "period",
+               "display": "Teardrop Period"
+            },
+            {
+               "type": "time",
+               "name": "time_to_poca",
+               "display": "Time to POCA"
+            },
+            {
+               "type": "integer",
+               "name": "repetitions",
+               "display": "Repetitions",
+               "unsigned": true
+            },
+            {
+               "type": "targetingOptimizationSelector"
+            },
+            {
+               "type": "allStandardardConstraints"
+            },
+            {
+               "name": "tolerance",
+               "display": "Tolerance",
+               "type": "real"
+            }
+         ]
+      },
+      "normalManeuver": {
+         "option": "normal",
+         "label": "Normal",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "speed",
+               "name": "delta_v",
+               "display": "Delta V"
+            },
+            {
+               "type": "allStandardardConstraints"
+            }
+         ]
+      },
+      "tangentManeuver": {
+         "option": "tangent",
+         "label": "Tangent",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "speed",
+               "name": "delta_v",
+               "display": "Delta V"
+            },
+            {
+               "type": "allStandardardConstraints"
+            },
+            {
+               "type": "eventFinite"
+            }
+         ]
+      },
+      "targetManeuver": {
+         "option": "target",
+         "label": "Target",
+         "type": "targetingProperties"
+      },
+      "interceptManeuver": {
+         "option": "intercept",
+         "label": "Intercept",
+         "type": "targetingProperties"
+      },
+      "rendezvousManeuver": {
+         "option": "rendezvous",
+         "label": "Rendezvous",
+         "type": "targetingProperties"
+      },
+      "performStagingEvent": {
+         "option": "perform_staging",
+         "label": "Perform Staging",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "allStandardardConstraints"
+            }
+         ]
+      },
+      "compoundManeuver": {
+         "option": "compound",
+         "label": "Compound Maneuver",
+         "type": "blank"
+      },
+      "scriptedEvent": {
+         "option": "scripted",
+         "label": "Scripted Event",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "string",
+               "name": "on_initialize",
+               "display": "On Initialize Script"
+            },
+            {
+               "type": "string",
+               "name": "on_update",
+               "display": "On Update Script"
+            },
+            {
+               "type": "string",
+               "name": "on_complete",
+               "display": "On Complete Script"
+            },
+            {
+               "type": "string",
+               "name": "is_complete",
+               "display": "Is Complete Script"
+            },
+            {
+               "type": "boolean",
+               "name": "finite",
+               "display": "Finite"
+            },
+            {
+               "type": "time",
+               "name": "duration",
+               "display": "Duration"
+            },
+            {
+               "type": "time",
+               "name": "update_interval",
+               "display": "Update Interval"
+            },
+            {
+               "type": "allStandardardConstraints"
+            }
+         ]
+      },
+      "standardOrientation": {
+         "type": "blank"
+      },
+      "entityRefOrientation": {
+         "type": "target_selection",
+         "name": "target",
+         "display": "Platform"
+      },
+      "geoRefOrientation": {
+         "type": "string",
+         "name": "geo_point",
+         "display": "Geo Point"
+      },
+      "allOrientations": {
+         "name": "orientation",
+         "display": "Orientation",
+         "type": "disjunction",
+         "properties": [
+            {
+               "option": "nadir_with_eci_velocity_constraint",
+               "label": "Nadir with ECI Velocity Constraint",
+               "type": "standardOrientation"
+            },
+            {
+               "option": "solar_with_nadir_constraint",
+               "label": "Solar with Nadir Constraint",
+               "type": "standardOrientation"
+            },
+            {
+               "option": "nadir_with_solar_constraint",
+               "label": "Nadir with Solar Constraint",
+               "type": "standardOrientation"
+            },
+            {
+               "option": "nadir_with_ecef_velocity_constraint",
+               "label": "Nadir with ECEF Velocity Constraint",
+               "type": "standardOrientation"
+            },
+            {
+               "option": "eci_velocity_with_nadir_constraint",
+               "label": "ECI Velocity with Nadir Constraint",
+               "type": "standardOrientation"
+            },
+            {
+               "option": "eci_velocity_with_solar_constraint",
+               "label": "ECI Velocity with Solar Constraint",
+               "type": "standardOrientation"
+            },
+            {
+               "option": "entity_with_solar_constraint",
+               "label": "Entity with Solar Constraint",
+               "type": "entityRefOrientation"
+            },
+            {
+               "option": "entity_with_nadir_constraint",
+               "label": "Entity with Nadir Constraint",
+               "type": "entityRefOrientation"
+            },
+            {
+               "option": "entity_with_orbit_plane_constraint",
+               "label": "Entity with Orbit Plane Constraint",
+               "type": "entityRefOrientation"
+            },
+            {
+               "option": "point_with_orbit_plane_constraint",
+               "label": "Point with Orbit Plane Constraint",
+               "type": "geoRefOrientation"
+            }
+         ]
+      },
+      "changeAttitudeEvent": {
+         "option": "change_attitude",
+         "label": "Change Attitude",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "allOrientations"
+            },
+            {
+               "type": "allStandardardConstraints"
+            }
+         ]
+      },
+      "missionSequence": {
+         "option": "sequence",
+         "label": "Mission Sequence",
+         "type": "sequence",
+         "properties": [
+            {
+               "type": "allStandardardConstraints",
+               "display": "Overall Sequence Constraint"
+            }
+         ]
+      }
+   },
+   "config": [
+      {
+         "name": "SEQUENCE",
+         "display": "Mission Sequence",
+         "type": "missionSequence",
+         "event_is_addable": false,
+         "event_is_transformation_target": false
+      },
+      {
+         "name": "CHANGE_ECCENTRICITY",
+         "display": "Change Eccentricity",
+         "type": "changeEccentricityManeuver"
+      },
+      {
+         "name": "CHANGE_INCLINATION",
+         "display": "Change Inclination",
+         "type": "changeInclinationManeuver"
+      },
+      {
+         "name": "CHANGE_RAAN",
+         "display": "Change RAAN",
+         "type": "changeRAAN_Maneuver"
+      },
+      {
+         "name": "CHANGE_RAAN_INCLINATION",
+         "display": "Change RAAN and Inclination",
+         "type": "changeRAAN_InclinationManeuver"
+      },
+      {
+         "name": "CHANGE_SEMI_MAJOR_AXIS",
+         "display": "Change Semi-major Axis",
+         "type": "changeSMA_Maneuver"
+      },
+      {
+         "name": "CIRCULARIZE",
+         "display": "Circularize",
+         "type": "circularizeManeuver"
+      },
+      {
+         "name": "COMPOUND",
+         "display": "Compound Maneuver",
+         "type": "compoundManeuver"
+      },
+      {
+         "name": "DELTA_V",
+         "display": "Delta V Maneuver",
+         "type": "deltaV_Maneuver"
+      },
+      {
+         "name": "DRIFT",
+         "display": "Drift Manevuer",
+         "type": "driftManeuver"
+      },
+      {
+         "name": "HOHMANN_TRANSFER",
+         "display": "Hohmann Transfer",
+         "type": "hohmannTransferManeuver"
+      },
+      {
+         "name": "INTERCEPT",
+         "display": "Intercept",
+         "type": "interceptManeuver"
+      },
+      {
+         "name": "MATCH_VELOCITY",
+         "display": "Match Velocity",
+         "type": "matchVelocityManeuver"
+      },
+      {
+         "name": "NATURAL_MOTION_CIRCUMNAVIGATION",
+         "display": "Natural Motion Circumnavigation",
+         "type": "naturalMotionCircumnavigation"
+      },
+      {
+         "name": "NORMAL",
+         "display": "Normal",
+         "type": "normalManeuver"
+      },
+      {
+         "name": "RENDEZVOUS",
+         "display": "Rendezvous",
+         "type": "rendezvousManeuver"
+      },
+      {
+         "name": "TANGENT",
+         "display": "Tangent",
+         "type": "tangentManeuver"
+      },
+      {
+         "name": "TARGET",
+         "display": "Target",
+         "type": "targetManeuver"
+      },
+      {
+         "name": "TEARDROP",
+         "display": "Teardrop",
+         "type": "teardropManeuver"
+      },
+      {
+         "name": "PERFORM_STAGING",
+         "display": "Perform Staging Event",
+         "type": "performStagingEvent"
+      },
+      {
+         "name": "SCRIPTED",
+         "display": "Scripted Event",
+         "type": "scriptedEvent"
+      },
+      {
+         "name": "CHANGE_ATTITUDE",
+         "display": "Change Attitude",
+         "type": "changeAttitudeEvent"
+      }
+   ]
+}

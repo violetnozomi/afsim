@@ -1,0 +1,356 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Tests the query of engagement status, canceling of cyber attack progression by user request,
+// and the general updated capabilities of the AFSIM event manager.
+//
+// Timeline of attack (non-interrupted)
+// 0s Attack Initiated
+// Delivery/Scan (5s duration)
+// Effect Instantiated at 5s
+// Detection Delay (10s duration)
+// Attack detected at 15s
+// Recovery Delay (7s)
+// Attack Recovery at 22s
+
+script_variables
+   WsfPlatform attacker1;
+   WsfPlatform attacker2;
+   WsfPlatform attacker3;
+   WsfPlatform attacker4;
+
+   WsfPlatform target1;
+   WsfPlatform target2;
+   WsfPlatform target3;
+   WsfPlatform target4;
+
+   int num_attacks = 0;
+   int num_restore = 0;
+   int vulnerable = 0;
+   int scan_detection = 0;
+   int attack_detection = 0;
+   int recovery = 0;
+end_script_variables
+
+cyber_effect TEST_EFFECT WSF_CYBER_SCRIPT_EFFECT
+   default
+      script void Attack(WsfCyberEngagement aEngagement)
+         if(TIME_NOW < 23.0)
+         {
+            num_attacks = num_attacks + 1;
+         }
+      end_script
+      
+      script void Restore(WsfCyberEngagement aEngagement)
+         if(TIME_NOW < 23.0)
+         {
+            num_restore = num_restore + 1;
+         }
+      end_script
+   end_default
+end_cyber_effect
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+   effect TEST_EFFECT
+   probability_of_scan_detection 1
+   probability_of_attack_success 1
+   probability_of_status_report 1
+   probability_of_attack_detection 1
+   probability_of_future_immunity 0
+   
+   attack_success_draw_frequency always
+   status_report_draw_frequency always
+   attack_detection_draw_frequency always
+   scan_detection_draw_frequency always
+   future_immunity_draw_frequency always
+   
+   scan_delay_time 5 s
+   delivery_delay_time 5 s
+end_cyber_attack
+
+cyber_protect TEST_PROTECT WSF_CYBER_PROTECT
+   attack_response TEST_ATTACK
+      probability_of_scan_detection 1
+      probability_of_attack_success 1
+      probability_of_status_report 1
+      probability_of_attack_detection 1
+      probability_of_future_immunity 0
+      
+      attack_detection_delay_time 10 s
+      attack_recovery_delay_time 7 s
+      restore
+      
+      script bool IsVulnerable(WsfCyberEngagement aEngagement)
+         if(TIME_NOW < 23.0)
+         {
+            vulnerable = vulnerable + 1;
+         }
+         return true;
+      end_script
+      script void OnScanDetection(WsfCyberEngagement aEngagement)
+         if(TIME_NOW < 23.0)
+         {
+            scan_detection = scan_detection + 1;
+         }
+      end_script
+      script void OnAttackDetection(WsfCyberEngagement aEngagement)
+         if(TIME_NOW < 23.0)
+         {
+            attack_detection = attack_detection + 1;
+         }
+      end_script
+      script void OnAttackRecovery(WsfCyberEngagement aEngagement)
+         if(TIME_NOW < 23.0)
+         {
+            recovery = recovery + 1;
+         }
+      end_script
+   end_attack_response
+end_cyber_protect
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+   cyber_protect TEST_PROTECT
+   end_cyber_protect
+end_platform_type
+
+platform attacker1 TEST_PLATFORM
+end_platform
+
+platform attacker2 TEST_PLATFORM
+end_platform
+
+platform attacker3 TEST_PLATFORM
+end_platform
+
+platform attacker4 TEST_PLATFORM
+end_platform
+
+platform target1 TEST_PLATFORM
+end_platform
+
+platform target2 TEST_PLATFORM
+end_platform
+
+platform target3 TEST_PLATFORM
+end_platform
+
+platform target4 TEST_PLATFORM
+end_platform
+
+execute at_time 0.01 s absolute
+   attacker1 = WsfSimulation.FindPlatform("attacker1");
+   attacker2 = WsfSimulation.FindPlatform("attacker2");
+   attacker3 = WsfSimulation.FindPlatform("attacker3");
+   attacker4 = WsfSimulation.FindPlatform("attacker4");
+   target1 = WsfSimulation.FindPlatform("target1");
+   target2 = WsfSimulation.FindPlatform("target2");
+   target3 = WsfSimulation.FindPlatform("target3");
+   target4 = WsfSimulation.FindPlatform("target4");
+   
+   // Begin all engagements now
+   attacker1.CyberScan(target1, "TEST_ATTACK");
+   attacker2.CyberAttack(target2, "TEST_ATTACK");
+   attacker3.CyberAttack(target3, "TEST_ATTACK");
+   attacker4.CyberAttack(target4, "TEST_ATTACK");
+end_execute
+
+execute at_time 1 s absolute
+   // Get engagement progress.
+   int engagementStatus1 = WsfSimulation.CyberEngagementScanDelayStatus("TEST_ATTACK", attacker1, target1);
+   int engagementStatus2 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker2, target2);
+   int engagementStatus3 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker3, target3);
+   int engagementStatus4 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker4, target4);
+   
+   if(engagementStatus1 != 0)
+   {
+      writeln("FAIL engagement 1 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   if(engagementStatus2 != 1)
+   {
+      writeln("FAIL engagement 2 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   if(engagementStatus3 != 1)
+   {
+      writeln("FAIL engagement 3 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   if(engagementStatus4 != 1)
+   {
+      writeln("FAIL engagement 4 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   // Cancel scan, cancel one attack now
+   WsfSimulation.CyberScanCancel("TEST_ATTACK", attacker1, target1);
+   WsfSimulation.CyberAttackCancel("TEST_ATTACK", attacker2, target2);
+   
+   // Recheck status
+   engagementStatus1 = WsfSimulation.CyberEngagementScanDelayStatus("TEST_ATTACK", attacker1, target1);
+   engagementStatus2 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker2, target2);
+   
+   if(engagementStatus1 != 5)
+   {
+      writeln("FAIL engagement 1 status after cancel at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   if(engagementStatus2 != 5)
+   {
+      writeln("FAIL engagement 2 status after cancel at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 7 s absolute
+   int engagementStatus3 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker3, target3);
+   int engagementStatus4 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker4, target4);
+   
+   if(engagementStatus3 != 2)
+   {
+      writeln("FAIL engagement 3 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   if(engagementStatus4 != 2)
+   {
+      writeln("FAIL engagement 4 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   // Cancel an attack during detection delay
+   WsfSimulation.CyberAttackCancel("TEST_ATTACK", attacker3, target3);
+   
+   // Recheck status
+   engagementStatus3 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker3, target3);
+   if(engagementStatus3 != 5)
+   {
+      writeln("FAIL engagement 3 status after cancel at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 17 s absolute
+   int engagementStatus4 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker4, target4);
+   if(engagementStatus4 != 3)
+   {
+      writeln("FAIL engagement 4 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   // Cancel an attack during recovery delay
+   WsfSimulation.CyberAttackCancel("TEST_ATTACK", attacker4, target4);
+   
+   // Recheck status
+   engagementStatus4 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker4, target4);
+   if(engagementStatus4 != 5)
+   {
+      writeln("FAIL engagement 4 status after cancel at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 25 s absolute
+   //Kick off another set of attacks/scans to ensure validity of reused engagement objects.
+   attacker1.CyberScan(target1, "TEST_ATTACK");
+   attacker2.CyberAttack(target2, "TEST_ATTACK");
+   attacker3.CyberAttack(target3, "TEST_ATTACK");
+   attacker4.CyberAttack(target4, "TEST_ATTACK");
+end_execute
+
+execute at_time 26 s absolute
+   int engagementStatus1 = WsfSimulation.CyberEngagementScanDelayStatus("TEST_ATTACK", attacker1, target1);
+   int engagementStatus2 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker2, target2);
+   int engagementStatus3 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker3, target3);
+   int engagementStatus4 = WsfSimulation.CyberEngagementAttackDelayStatus("TEST_ATTACK", attacker4, target4);
+   
+   if(engagementStatus1 != 0)
+   {
+      writeln("FAIL engagement 1 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   if(engagementStatus2 != 1)
+   {
+      writeln("FAIL engagement 2 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   if(engagementStatus3 != 1)
+   {
+      writeln("FAIL engagement 3 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+   
+   if(engagementStatus4 != 1)
+   {
+      writeln("FAIL engagement 4 status at t: " + (string)TIME_NOW);
+      writeln("-FAIL-");
+   }
+end_execute
+
+execute at_time 29 s absolute
+   ///debug///
+#   writeln("Num attacks: " + (string)num_attacks);
+#   writeln("Num restore: " + (string)num_restore);
+#   writeln("Num vulnerable: " + (string)vulnerable);
+#   writeln("Num attack detection: " + (string)attack_detection);
+#   writeln("Num scan detection: " + (string)scan_detection);
+#   writeln("Num attack recovery: " + (string)recovery);
+   ///end_debug///
+   
+   if(num_attacks != 2)
+   {
+      writeln("Fail num attacks");
+      writeln("-FAIL-");
+   }
+   
+   if(num_restore != 0)
+   {
+      writeln("Fail num restore");
+      writeln("-FAIL-");
+   }
+   
+   if(vulnerable != 2)
+   {
+      writeln("Fail num vulnerable");
+      writeln("-FAIL-");
+   }
+   
+   if(attack_detection != 1)
+   {
+      writeln("Fail num attack detection");
+      writeln("-FAIL-");
+   }
+   
+   if(scan_detection != 0)
+   {
+      writeln("Fail num scan detection");
+      writeln("-FAIL-");
+   }
+   
+   if(recovery != 0)
+   {
+      writeln("Fail num recovery");
+      writeln("-FAIL-");
+   }
+   
+end_execute
+
+end_time 30 s
+
+//debug
+#event_output
+#   enable all
+#   file debug.evt
+#end_event_output

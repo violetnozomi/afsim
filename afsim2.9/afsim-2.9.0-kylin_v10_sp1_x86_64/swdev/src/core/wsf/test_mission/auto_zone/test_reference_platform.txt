@@ -1,0 +1,210 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test of a zone relative to a platform.
+# The reference and unreferenced zones end up pointing in opposite directions (E and W
+# respectively).
+
+zone REF_ZONE
+  reference_platform ref_platform
+  circular
+     maximum_radius 112 km
+     start_angle    -80 deg
+     stop_angle     80 deg
+end_zone
+
+zone UNREF_ZONE
+  circular
+     maximum_radius 112 km
+     start_angle    -80 deg
+     stop_angle     80 deg
+end_zone
+
+platform ref_platform WSF_PLATFORM
+   position 0n 0e heading 90 deg
+
+   creation_time 5.5 sec
+
+   execute at_time 14.5 sec absolute
+      DeletePlatform();
+   end_execute
+
+end_platform
+
+platform test_platform WSF_PLATFORM
+   position 0n 0.3w heading 270 deg              # Should be close to reference point, but not exactly
+
+   use_zone REF_ZONE   as ref_zone
+   use_zone UNREF_ZONE as unref_zone
+
+   script void ZoneTest(string aTargetName, string aZoneName, bool aShouldBeInside)
+      WsfPlatform target = WsfSimulation.FindPlatform(aTargetName);
+      if (! target.IsValid())
+      {
+         writeln("-FAIL- Unable to find platform ", aTargetName);
+         return;
+      }
+      WsfGeoPoint point = target.Location();
+      bool inside =  point.WithinZoneOf(PLATFORM, aZoneName);
+      if (inside != aShouldBeInside)
+      {
+         writeln("-FAIL- ", aTargetName, " ", aZoneName, "; ", inside, " !=", aShouldBeInside);
+      }
+      else
+      {
+         writeln("-PASS- ", aTargetName, " ", aZoneName, "; ", inside, " == ", aShouldBeInside);
+      }
+   end_script
+
+   # Reference platform does not yet exist. All referenced test should return false.
+   execute at_time 5 sec absolute
+      writeln("Test platform 1 with ref_zone - no ref");
+      ZoneTest("target-n" , "ref_zone", false);
+      ZoneTest("target-ne", "ref_zone", false);
+      ZoneTest("target-e" , "ref_zone", false);
+      ZoneTest("target-se", "ref_zone", false);
+      ZoneTest("target-s" , "ref_zone", false);
+      ZoneTest("target-sw", "ref_zone", false);
+      ZoneTest("target-w" , "ref_zone", false);
+      ZoneTest("target-nw", "ref_zone", false);
+
+      # Unreference case only needs to be tested once.
+      writeln("\nTest platform 1 with unref_zone");
+      ZoneTest("target-n" , "unref_zone", false);
+      ZoneTest("target-ne", "unref_zone", false);
+      ZoneTest("target-e" , "unref_zone", false);
+      ZoneTest("target-se", "unref_zone", false);
+      ZoneTest("target-s" , "unref_zone", false);
+      ZoneTest("target-sw", "unref_zone", true);
+      ZoneTest("target-w" , "unref_zone", true);
+      ZoneTest("target-nw", "unref_zone", true);
+   end_execute
+
+   # Reference platform now exists.
+   execute at_time 10 sec absolute
+      writeln("\nTest platform 1 with ref_zone");
+      ZoneTest("target-n" , "ref_zone", false);
+      ZoneTest("target-ne", "ref_zone", true);
+      ZoneTest("target-e" , "ref_zone", true);
+      ZoneTest("target-se", "ref_zone", true);
+      ZoneTest("target-s" , "ref_zone", false);
+      ZoneTest("target-sw", "ref_zone", false);
+      ZoneTest("target-w" , "ref_zone", false);
+      ZoneTest("target-nw", "ref_zone", false);
+   end_execute
+
+   # Reference platform no longer exists, use cached point
+   execute at_time 15 sec absolute
+      writeln("\nTest platform 1 with ref_zone - no ref again");
+      ZoneTest("target-n" , "ref_zone", false);
+      ZoneTest("target-ne", "ref_zone", true);
+      ZoneTest("target-e" , "ref_zone", true);
+      ZoneTest("target-se", "ref_zone", true);
+      ZoneTest("target-s" , "ref_zone", false);
+      ZoneTest("target-sw", "ref_zone", false);
+      ZoneTest("target-w" , "ref_zone", false);
+      ZoneTest("target-nw", "ref_zone", false);
+   end_execute
+
+end_platform
+
+platform test_platform_2 WSF_PLATFORM
+   position 0n 180w              # on the other side of the earth
+
+   use_zone REF_ZONE   as ref_zone
+   use_zone UNREF_ZONE as unref_zone
+
+   script void ZoneTest(string aTargetName, string aZoneName, bool aShouldBeInside)
+      WsfPlatform target = WsfSimulation.FindPlatform(aTargetName);
+      if (! target.IsValid())
+      {
+         writeln("-FAIL- Unable to find platform ", aTargetName);
+         return;
+      }
+      WsfGeoPoint point = target.Location();
+      bool inside =  point.WithinZoneOf(PLATFORM, aZoneName);
+      if (inside != aShouldBeInside)
+      {
+         writeln("-FAIL- ", aTargetName, " ", aZoneName, "; ", inside, " !=", aShouldBeInside);
+      }
+      else
+      {
+         writeln("-PASS- ", aTargetName, " ", aZoneName, "; ", inside, " == ", aShouldBeInside);
+      }
+   end_script
+
+   # Reference platform does not yet exist. All referenced test should return false.
+   execute at_time 5 sec absolute
+      writeln("\nTest platform 2 with ref_zone - no ref");
+      ZoneTest("target-n" , "ref_zone", false);
+      ZoneTest("target-ne", "ref_zone", false);
+      ZoneTest("target-e" , "ref_zone", false);
+      ZoneTest("target-se", "ref_zone", false);
+      ZoneTest("target-s" , "ref_zone", false);
+      ZoneTest("target-sw", "ref_zone", false);
+      ZoneTest("target-w" , "ref_zone", false);
+      ZoneTest("target-nw", "ref_zone", false);
+
+      # Unreference case only needs to be tested once.
+      writeln("\nTest platform 2 with unref_zone");
+      ZoneTest("target-n" , "unref_zone", false);
+      ZoneTest("target-ne", "unref_zone", false);
+      ZoneTest("target-e" , "unref_zone", false);
+      ZoneTest("target-se", "unref_zone", false);
+      ZoneTest("target-s" , "unref_zone", false);
+      ZoneTest("target-sw", "unref_zone", false);
+      ZoneTest("target-w" , "unref_zone", false);
+      ZoneTest("target-nw", "unref_zone", false);
+   end_execute
+
+   # Reference platform now exists.
+   execute at_time 10 sec absolute
+      writeln("\nTest platform 2 with ref_zone");
+      ZoneTest("target-n" , "ref_zone", false);
+      ZoneTest("target-ne", "ref_zone", true);
+      ZoneTest("target-e" , "ref_zone", true);
+      ZoneTest("target-se", "ref_zone", true);
+      ZoneTest("target-s" , "ref_zone", false);
+      ZoneTest("target-sw", "ref_zone", false);
+      ZoneTest("target-w" , "ref_zone", false);
+      ZoneTest("target-nw", "ref_zone", false);
+   end_execute
+
+   # Reference platform no longer exists, use cached point
+   execute at_time 15 sec absolute
+      writeln("\nTest platform 2 with ref_zone - no ref again");
+      ZoneTest("target-n" , "ref_zone", false);
+      ZoneTest("target-ne", "ref_zone", true);
+      ZoneTest("target-e" , "ref_zone", true);
+      ZoneTest("target-se", "ref_zone", true);
+      ZoneTest("target-s" , "ref_zone", false);
+      ZoneTest("target-sw", "ref_zone", false);
+      ZoneTest("target-w" , "ref_zone", false);
+      ZoneTest("target-nw", "ref_zone", false);
+   end_execute
+
+end_platform
+
+platform target-n   WSF_PLATFORM position 1.00n 0.00e end_platform
+platform target-ne  WSF_PLATFORM position 0.71n 0.71e end_platform
+platform target-e   WSF_PLATFORM position 0.00n 1.00e end_platform
+platform target-se  WSF_PLATFORM position 0.71s 0.71e end_platform
+platform target-s   WSF_PLATFORM position 1.00s 0.00e end_platform
+platform target-sw  WSF_PLATFORM position 0.71s 0.71w end_platform
+platform target-w   WSF_PLATFORM position 0.00n 1.00w end_platform
+platform target-nw  WSF_PLATFORM position 0.71n 0.71w end_platform
+
+end_time 20 sec
+
+event_output
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+#   file STDOUT
+end_event_output
+

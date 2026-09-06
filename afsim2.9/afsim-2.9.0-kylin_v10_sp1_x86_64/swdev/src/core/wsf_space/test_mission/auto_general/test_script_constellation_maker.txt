@@ -1,0 +1,382 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2019 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Variables resued in multiple tests
+script_variables
+   double gSemiMajorAxis  = 8.0e6;
+   double gAltitude       = 100000.0;
+   double gPeriod         = 3600.0 * 4.0;
+   double gRevsPerDay     = 10.0;
+   double gInclination    = 45.0;
+   double gInitialRAAN    = 10.0;
+   double gInitialAnomaly = 15.0;
+   string gPlatformType   = "TEST_PLAT";
+   bool   gAllPassed      = true;
+end_script_variables
+
+// utilities
+script void ExpectInt(int aValue, int aExpectation, string aMessage)
+   if (aValue != aExpectation)
+   {
+      writeln("-FAIL- integer value mismatch. Expected ", aExpectation, " but observed ", aValue, ". ", aMessage);
+      gAllPassed = false;
+   }
+end_script
+
+script void ExpectDouble(double aValue, double aExpectation, double aTolerance, string aMessage)
+   if (MATH.Fabs(aExpectation - aValue) > aTolerance)
+   {
+      writeln("-FAIL- real value mismatch. Expected ", aExpectation,
+              " but observed ", aValue, " (tolerance ", aTolerance, "). ", aMessage);
+      gAllPassed = false;
+   }
+end_script
+
+script void ExpectString(string aValue, string aExpectation, string aMessage)
+   if (aValue != aExpectation)
+   {
+      writeln("-FAIL- string value mismatch. Expected ", aExpectation, " but observed ", aValue, ". ", aMessage);
+      gAllPassed = false;
+   }
+end_script
+
+script void ExpectBool(bool aValue, bool aExpectation, string aMessage)
+   if (aValue != aExpectation)
+   {
+      writeln("-FAIL- boolean value mismatch. Expected ", aExpectation, " but observed ", aValue, ". ", aMessage);
+      gAllPassed = false;
+   }
+end_script
+
+
+
+// Individual tests
+script void WalkerDelta(int aTotalSats, int aNumPlanes, int aF_Value)   
+   WsfConstellationMaker maker = WsfConstellationMaker.CreateWalkerDelta(aTotalSats, aNumPlanes, aF_Value);
+   ExpectBool(maker.IsValid(), true, "Walker Delta successful creation");
+   ExpectInt(maker.TotalSatellites(), aTotalSats, "Walker Delta total sats");
+   ExpectInt(maker.Planes(), aNumPlanes, "Walker Delta planes");
+   ExpectInt(maker.WalkerF(), aF_Value, "Walker Delta F");
+   
+   ExpectBool(maker.IsWalkerDelta(), true, "Walker Delta is walker delta");
+   ExpectBool(maker.IsWalkerStar(), false, "Walker Delta is not walker star");
+   ExpectBool(maker.IsGeneral(), false, "Walker Delta is not general");
+   
+   ExpectBool(maker.IsSetup(), false, "Walker Delta is not yet fully setup");
+   ExpectBool(maker.Validate().Length() > 0, true, "Walker Delta validate");
+   
+   ExpectDouble(maker.AnomalyAlias(), (360.0 / aTotalSats) * aF_Value, 0.001, "Walker Delta f");
+   ExpectDouble(maker.RAAN_Range(), 360.0, 0.001, "Walker Delta RAAN Range");
+   
+   maker.SetSemiMajorAxis(gSemiMajorAxis);
+   ExpectDouble(maker.SemiMajorAxis(), gSemiMajorAxis, 0.001, "Walker Delta sma");
+   
+   maker.SetAltitude(gAltitude);
+   ExpectDouble(maker.Altitude(), gAltitude, 0.001, "Walker Delta altitude");
+   
+   maker.SetRevolutionsPerDay(gRevsPerDay);
+   ExpectDouble(maker.RevolutionsPerDay(), gRevsPerDay, 0.001, "Walker Delta revs per day");
+   
+   maker.SetPeriod(gPeriod);
+   ExpectDouble(maker.Period(), gPeriod, 0.001, "Walker Delta period");
+   
+   maker.SetInclination(gInclination);
+   ExpectDouble(maker.Inclination(), gInclination, 0.001, "Walker Delta inclination");
+   
+   maker.SetInitialRAAN(gInitialRAAN);
+   ExpectDouble(maker.InitialRAAN(), gInitialRAAN, 0.001, "Walker Delta initial RAAN");
+   
+   maker.SetInitialAnomaly(gInitialAnomaly);
+   ExpectDouble(maker.InitialAnomaly(), gInitialAnomaly, 0.001, "Walker Delta initial anomaly");
+   
+   maker.SetConstellationName("walker_delta");
+   ExpectString(maker.ConstellationName(), "walker_delta", "Walker Delta name");
+   
+   maker.SetPlatformType(gPlatformType);
+   ExpectString(maker.PlatformType(), gPlatformType, "Walker Delta platform type");
+   
+   ExpectBool(maker.DetectConjunction(), false, "Walker Delta conjunction");
+end_script
+
+script void BadWalkerInputs()
+   // This one should fail to be created because t is not divisble by p
+   WsfConstellationMaker first = WsfConstellationMaker.CreateWalkerDelta(20, 7, 0);
+   ExpectBool(first.IsValid(), false, "Bad walker input, t not divisible by p");
+   
+   // This one should fail to be created because f is out of range.
+   WsfConstellationMaker second = WsfConstellationMaker.CreateWalkerDelta(20, 5, 6);
+   ExpectBool(second.IsValid(), false, "Bad walker input, f greater than p-1"); 
+end_script
+
+script void WalkerStar(int aTotalSats, int aNumPlanes, int aF_Value)
+   WsfConstellationMaker maker = WsfConstellationMaker.CreateWalkerStar(aTotalSats, aNumPlanes, aF_Value);
+   ExpectBool(maker.IsValid(), true, "Walker Star successful creation");
+   ExpectInt(maker.TotalSatellites(), aTotalSats, "Walker Star total sats");
+   ExpectInt(maker.Planes(), aNumPlanes, "Walker Star planes");
+   ExpectInt(maker.WalkerF(), aF_Value, "Walker Star F");
+   
+   ExpectBool(maker.IsWalkerDelta(), false, "Walker Star is walker delta");
+   ExpectBool(maker.IsWalkerStar(), true, "Walker Star is not walker star");
+   ExpectBool(maker.IsGeneral(), false, "Walker Star is not general");
+   
+   ExpectBool(maker.IsSetup(), false, "Walker Star is not yet fully setup");
+   ExpectBool(maker.Validate().Length() > 0, true, "Walker Star validate");
+   
+   ExpectDouble(maker.AnomalyAlias(), (360.0 / aTotalSats) * aF_Value, 0.001, "Walker Star f");
+   ExpectDouble(maker.RAAN_Range(), 180.0, 0.001, "Walker Star RAAN Range");
+end_script
+   
+script void General(int aNumPlanes, int aSatsPerPlane, double aAnomalyAlias, double aRAAN_Range)
+   WsfConstellationMaker maker = WsfConstellationMaker.CreateGeneral(aNumPlanes, aSatsPerPlane, aAnomalyAlias, aRAAN_Range);
+   ExpectBool(maker.IsValid(), true, "General successful creation");
+   ExpectInt(maker.Planes(), aNumPlanes, "General planes");
+   ExpectInt(maker.SatellitesPerPlane(), aSatsPerPlane, "General sats per plane");
+   ExpectDouble(maker.AnomalyAlias(), aAnomalyAlias, 0.001, "General anomaly alias");
+   ExpectDouble(maker.RAAN_Range(), aRAAN_Range, 0.001, "General RAAN range");
+   
+   ExpectBool(maker.IsWalkerDelta(), false, "General is walker delta");
+   ExpectBool(maker.IsWalkerStar(), false, "General is not walker star");
+   ExpectBool(maker.IsGeneral(), true, "General is not general");
+   
+   ExpectBool(maker.IsSetup(), false, "General is not yet fully setup");
+   ExpectBool(maker.Validate().Length() > 0, true, "General validate");
+   
+   ExpectInt(maker.TotalSatellites(), aNumPlanes * aSatsPerPlane, "General total sats");
+   ExpectInt(maker.WalkerF(), 0, "General Walker f");
+   
+   ExpectBool(maker.DetectConjunction(), false, "General incomplete setup conjunction");
+end_script
+
+platform_type SAT WSF_PLATFORM
+   icon cubesat
+   mover WSF_SPACE_MOVER
+   end_mover
+end_platform_type
+
+platform_type WRONGMOVER WSF_PLATFORM
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+platform_type NOMOVER WSF_PLATFORM
+end_platform_type
+
+platform failure_0_0 WSF_PLATFORM
+end_platform
+
+script_variables
+   int sNumPlanes = 5;
+   int sSatsPerPlane = 4;
+   double sAnomAlias = 10.0;
+   double sRAAN_Range = 360.0;
+   double sRevsPerDay = 10.0;
+   double sInclination = 55.0;
+   double sInitialAnomaly = 20.0;
+   double sInitialRAAN = 30.0;
+end_script_variables
+
+script WsfConstellationMaker ReturnGeneralMaker(string aName, string aPlatformType)
+   WsfConstellationMaker maker = WsfConstellationMaker.CreateGeneral(sNumPlanes, sSatsPerPlane, sAnomAlias, sRAAN_Range);
+   maker.SetConstellationName(aName);
+   maker.SetRevolutionsPerDay(sRevsPerDay);
+   maker.SetInclination(sInclination);
+   maker.SetInitialAnomaly(sInitialAnomaly);
+   maker.SetInitialRAAN(sInitialRAAN);
+   maker.SetPlatformType(aPlatformType);
+   return maker;
+end_script
+
+script void CreateGeneral()
+   string constellationName = "general";
+   string platformType = "SAT";
+   WsfConstellationMaker maker = ReturnGeneralMaker(constellationName, platformType);
+   ExpectBool(maker.IsValid(), true, "CreateGeneral valid");
+   
+   WsfConstellation general = maker.Create();
+   ExpectBool(general.IsValid(), true, "CreateGeneral constellation valid");
+   
+   ExpectBool(general.IsGeneral(), true, "CreateGeneral IsGeneral");
+   ExpectBool(general.IsWalkerDelta(), false, "CreateGeneral IsWalkerDelta");
+   ExpectBool(general.IsWalkerStar(), false, "CreateGeneral IsWalkerStar");
+   ExpectInt(general.TotalSats(), sNumPlanes * sSatsPerPlane, "CreateGeneral TotalSats");
+   ExpectInt(general.NumPlanes(), sNumPlanes, "CreateGeneral NumPlanes");
+   ExpectInt(general.SatsPerPlane(), sSatsPerPlane, "CreateGeneral SatsPerPlane");
+   ExpectInt(general.WalkerF(), 0, "CreateGeneral WalkerF");
+   ExpectDouble(general.AnomalyAlias(), sAnomAlias, 1.0e-6, "CreateGeneral AnomalyAlias");
+   ExpectDouble(general.RAAN_Range(), sRAAN_Range, 1.0e-6, "CreateGeneral RAAN_Range");
+   ExpectString(general.ConstellationName(), constellationName, "CreateGeneral ConstellationName");
+   ExpectString(general.PlatformType(), platformType, "CreateGeneral PlatformType");
+   ExpectDouble(general.RevolutionsPerDay(), sRevsPerDay, 1.0e-6, "CreateGeneral RevolutionsPerDay");
+   ExpectDouble(general.Inclination(), sInclination, 1.0e-6, "CreateGeneral Inclination");
+   ExpectDouble(general.InitialRAAN(), sInitialRAAN, 1.0e-6, "CreateGeneral InitialRAAN");
+   ExpectDouble(general.InitialAnomaly(), sInitialAnomaly, 1.0e-6, "CreateGeneral InitialAnomaly");
+   
+   WsfConstellation genFromStatic = WsfConstellation.FindConstellation(constellationName);
+   ExpectBool(genFromStatic.IsValid(), true, "CreateGeneral static FindConstellation");
+   ExpectInt(WsfConstellation.AllConstellations().Size(), 1, "CreateGeneral static AllConstellations");
+   
+   // Now try some failure modes of MemberName and Member
+   string name = general.MemberName(-1, 0);
+   ExpectInt(name.Length(), 0, "CreateGeneral MemberName negative plane");
+   name = general.MemberName(0, -1);
+   ExpectInt(name.Length(), 0, "CreateGeneral MemberName negative sat");
+   name = general.MemberName(sNumPlanes, 0);
+   ExpectInt(name.Length(), 0, "CreateGeneral MemberName plane too high");
+   name = general.MemberName(0, sSatsPerPlane);
+   ExpectInt(name.Length(), 0, "CreateGeneral MemberName sat too high");
+   
+   WsfPlatform member = general.Member(-1, 0);
+   ExpectBool(member.IsValid(), false, "CreateGeneral Member negative plane");
+   member = general.Member(0, -1);
+   ExpectBool(member.IsValid(), false, "CreateGeneral Member negative sat");
+   member = general.Member(sNumPlanes, 0);
+   ExpectBool(member.IsValid(), false, "CreateGeneral Member plane too high");
+   member = general.Member(0, sSatsPerPlane);
+   ExpectBool(member.IsValid(), false, "CreateGeneral Member sat too high");
+   
+   // Failure modes of Apply
+   ExpectBool(general.Apply(""), false, "CreateGeneral Apply empty script name");
+   ExpectBool(general.Apply("this_script_does_not_exist"), false, "CreateGeneral Apply non-existant script");
+   ExpectBool(general.Apply("IncorrectSignature"), false, "CreateGeneral Apply wrong signature");
+   
+   // Apply and MemberName
+   general.Apply("TestMemberName");
+end_script
+
+script void IncorrectSignature(WsfConstellation aConstellation, int aPlane, int aSat)
+end_script
+
+script void TestMemberName(WsfConstellation aConstellation, int aPlane, int aSat, WsfPlatform aMember)
+   ExpectString(aConstellation.MemberName(aPlane, aSat), aMember.Name(), "TestMemberName failure");
+end_script
+
+script void NameCollision()
+   WsfConstellationMaker maker = ReturnGeneralMaker("general", "SAT");
+   WsfConstellation general = maker.Create("", "");
+   ExpectBool(general.IsValid(), false, "NameCollision");
+end_script
+
+script void NoSuchPlatformType()
+   WsfConstellationMaker maker = ReturnGeneralMaker("failure", "NOSUCHPLATFORM");
+   WsfConstellation general = maker.Create("", "");
+   ExpectBool(general.IsValid(), false, "NoSuchPlatformType");
+end_script
+
+script void WrongMover()
+   WsfConstellationMaker maker = ReturnGeneralMaker("failure", "WRONGMOVER");
+   WsfConstellation general = maker.Create("", "");
+   ExpectBool(general.IsValid(), false, "WrongMover");
+end_script
+
+script void NoMover()
+   WsfConstellationMaker maker = ReturnGeneralMaker("failure", "NOMOVER");
+   WsfConstellation general = maker.Create("", "");
+   ExpectBool(general.IsValid(), false, "NoMover");
+end_script
+
+script void PlatformNameCollision()
+   WsfConstellationMaker maker = ReturnGeneralMaker("failure", "SAT");
+   WsfConstellation general = maker.Create("", "");
+   ExpectBool(general.IsValid(), false, "PlatformNameCollision");
+end_script
+
+script void FilterBadName()
+   WsfConstellationMaker maker = ReturnGeneralMaker("filter", "SAT");
+   WsfConstellation general = maker.Create("NoSuchScript", "");
+   ExpectBool(general.IsValid(), false, "FilterBadName");
+end_script
+
+script void FilterTestScriptBadSignature(int aA, int aB)
+end_script
+
+script void FilterBadSignature()
+   WsfConstellationMaker maker = ReturnGeneralMaker("filter", "SAT");
+   WsfConstellation general = maker.Create("FilterTestScriptBadSignature", "");
+   ExpectBool(general.IsValid(), false, "PlatformNameCollision");
+end_script
+
+script void SetupBadName()
+   WsfConstellationMaker maker = ReturnGeneralMaker("setup", "SAT");
+   WsfConstellation general = maker.Create("", "NoSuchScript");
+   ExpectBool(general.IsValid(), false, "PlatformNameCollision");
+end_script
+
+script void SetupTestScriptBadSignature(int aAllWrong)
+end_script
+
+script void SetupBadSignature()
+   WsfConstellationMaker maker = ReturnGeneralMaker("setup", "SAT");
+   WsfConstellation general = maker.Create("", "SetupBadSignature");
+   ExpectBool(general.IsValid(), false, "PlatformNameCollision");
+end_script
+
+script void CreateGeneralFailureModes()
+   NameCollision();
+   NoSuchPlatformType();
+   WrongMover();
+   NoMover();
+   PlatformNameCollision();
+   FilterBadName();
+   FilterBadSignature();
+   SetupBadName();
+   SetupBadSignature();
+end_script
+
+script bool FilterOddMembers(int aPlane, int aSat)
+   bool retval = false;
+   if (MATH.Mod(aPlane + aSat, 2))
+   {
+      retval = true;
+   }
+   return retval;
+end_script
+
+script void SetupTestOddMembers(WsfConstellation aConstellation, int aPlane, int aSat, WsfPlatform aMember)
+   ExpectBool(MATH.Mod(aPlane + aSat, 2), 0, "SetupTestOddMember for " + aMember.Name());
+end_script
+
+script void CreateScriptMethods()
+   WsfConstellationMaker maker = ReturnGeneralMaker("script", "SAT");
+   WsfConstellation general = maker.Create("FilterOddMembers", "SetupTestOddMembers");
+   ExpectBool(general.IsValid(), true, "CreateScriptMethods");
+end_script
+
+execute at_time 1 s absolute
+   WalkerDelta(20, 5, 1);
+   BadWalkerInputs();
+   
+   WalkerStar(20, 5, 0);
+   
+   General(5, 4, 10.0, 300.0);
+   
+   CreateGeneral();
+   CreateGeneralFailureModes();
+   CreateScriptMethods();
+   
+   ExpectBool(WsfConstellation.FindConstellation("general").IsValid(), true, "Recheck general");
+   ExpectBool(WsfConstellation.FindConstellation("script").IsValid(), true, "Recheck script");
+   ExpectInt(WsfConstellation.AllConstellations().Size(), 2, "Recheck size");
+end_execute
+
+script void FinalAssessment()
+   if (gAllPassed)
+   {
+      writeln("-PASS-");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE FinalAssessment
+end_observer
+
+start_date oct 28 2019
+start_time 12:00:00.000
+end_time 1 hr

@@ -1,0 +1,81 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+$define MMUI 2
+$define UPDATE_INTERVAL 9
+
+event_pipe
+   # The -1 here and with all macro dereferences are to have the lines pass
+   # the grammar check; if the -1 value somehow gets used, the script will
+   # fail, as negative values are invalid everywhere the macros are used.
+   maximum_mover_update_interval $<MMUI:-1>$ s
+   file test.aer
+end_event_pipe
+
+mover DEFERRED_MOVER WSF_AIR_MOVER
+   update_interval $<UPDATE_INTERVAL:-1>$ s
+end_mover
+
+platform no_swap_mover WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      update_interval $<UPDATE_INTERVAL:-1>$ s
+   end_mover
+end_platform
+
+platform swap_mover WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      update_interval $<UPDATE_INTERVAL:-1>$ s
+   end_mover
+
+   execute at_time 1 s absolute
+      string deferred_mover_name = "DEFERRED_MOVER";
+      WsfMover previousMover = PLATFORM.SwapMover(deferred_mover_name);
+      if (previousMover == NULL) {
+         writeln("Failed to swap mover.");
+         writeln("-FAIL-");
+      } else {
+         if (PLATFORM.Mover().Type() != deferred_mover_name)
+         {
+            writeln("Incorrect new mover type: ",
+                    PLATFORM.Mover().Type(),
+                    "; should be ",
+                    deferred_mover_name,
+                    ".");
+            writeln("-FAIL-");
+         }
+      }
+   end_execute
+end_platform
+
+execute at_time 2 s absolute
+   WsfMover m1 = WsfSimulation.FindPlatform("no_swap_mover").Mover();
+   if (m1.UpdateInterval() == $<MMUI:-1>$) {
+      writeln("-PASS-");
+   } else {
+      writeln("no_swap_mover platform's mover's update interval is ",
+              m1.UpdateInterval(),
+              "; should be ",
+              $<MMUI>$,
+              ".");
+      writeln("-FAIL-");
+   }
+   WsfMover m2 = WsfSimulation.FindPlatform("swap_mover").Mover();
+   if (m2.UpdateInterval() == $<MMUI:-1>$) {
+      writeln("-PASS-");
+   } else {
+      writeln("swap_mover platform's mover's update interval is ",
+              m2.UpdateInterval(),
+              "; should be ",
+              $<MMUI>$,
+              ".");
+      writeln("-FAIL-");
+   }
+end_execute

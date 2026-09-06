@@ -1,0 +1,112 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+# A simple test of the navigation error model
+###############################################################################
+
+include ../auto_script/test_functions.txt
+
+platform TEST_NAV WSF_PLATFORM
+
+   # Turn vehicle in order to test in-track and cross-track errors vs. NED
+   heading 90 deg
+
+   add mover WSF_AIR_MOVER
+      # Must have an update_interval because there are no events that cause us to update.
+      update_interval 1.0 sec
+   end_mover
+
+   navigation_errors
+      gps_status                       -1     # Start with INS
+
+      # GPS errors
+      gps_in_track_error               8 m
+      gps_cross_track_error            2 m
+      gps_vertical_error               3 m
+
+      # INS errors
+      ins_x_errors
+         coefficient 1 exponent 1    # 1 m/s
+      end_ins_x_errors
+      ins_y_errors
+         coefficient 2 exponent 1    # 2 m/s
+      end_ins_y_errors
+      ins_z_errors
+         coefficient 3 exponent 1    # 3 m/s
+      end_ins_z_errors
+
+      # Randomness is disabled so we can predict the errors
+      randomness off
+
+      show_status_changes true       # write a message to standard output when status changes
+
+   end_navigation_errors
+
+   script_variables
+      double insStartTime = 0.0;
+      Vec3 locErrorWCS = Vec3.Construct(100.0, 200.0, 300.0);
+   end_script_variables
+
+   # Script runs at 10, 20, 30, ... seconds to check the navigation errors.
+   script void CheckNavigationErrors()
+      double locError = PerceivedLocationErrorWCS().Magnitude();
+      int gpsStatus = GPS_Status();
+      if (gpsStatus < 0)
+      {
+         # With randomness turned off, errors acculate at a constant rate as defined by the equations.
+         double expectedError = (TIME_NOW - insStartTime) * Math.Sqrt(14);
+         AssertWithinToleranceMessage(expectedError, locError, 0.0001, "Mode=INS errors invalid.");
+      }
+      else if ((gpsStatus > 0) && (gpsStatus < 3))
+      {
+         # When randomness is turned off, GPS errors are just the RSS of the components: sqrt(8^2 + 2^2 + 3^2)
+         AssertWithinToleranceMessage(Math.Sqrt(77.0), locError, 0.0001, "Mode=GPS errors invalid.");
+         
+         # Vehicle is heading east; east=in-track, north=cross-track
+         # GPS errors will be the same with randomness turned off
+         Vec3 locErrorNED = PerceivedLocationErrorNED();
+         double locErrorNorth = locErrorNED.X();
+         double locErrorEast  = locErrorNED.Y();
+         double locErrorDown  = locErrorNED.Z();
+         AssertWithinToleranceMessage(locErrorEast,   8., 0.0001, "Mode=GPS In track error invalid.");
+         AssertWithinToleranceMessage(locErrorNorth, -2., 0.0001, "Mode=GPS Cross track error invalid.");
+         AssertWithinToleranceMessage(locErrorDown,   3., 0.0001, "Mode=GPS Vertical track error invalid.");         
+      }
+      else if (gpsStatus == 3)
+      {
+         Vec3 myLocationWCS = LocationWCS();
+         Vec3 perceivedLocationWCS = PerceivedLocation().LocationWCS();
+         Vec3 offset = Vec3.Subtract(perceivedLocationWCS, myLocationWCS);
+         AssertWithinToleranceMessage(100.0, offset[0], 0.0001, "Mode=External X offset invalid.");
+         AssertWithinToleranceMessage(200.0, offset[1], 0.0001, "Mode=External Y offset invalid.");
+         AssertWithinToleranceMessage(300.0, offset[2], 0.0001, "Mode=External Z offset invalid.");         
+      }
+      else
+      {
+         AssertDoubleEqualsMessage(0.0, locError, "Mode=Perfect errors invalid");
+      }
+      ExecuteAtTime(TIME_NOW + 10.0, "CheckNavigationErrors"); # Call again in 10 sec
+   end_script
+
+   script void ConfigureExternalMode()
+      bool changed = SetGPS_Status(3); # Mode = External
+      AssertTrueMessage(changed, "Expected GPS mode change.");
+      SetPerceivedLocationErrorWCS(locErrorWCS);
+   end_script
+   
+   execute at_time   10.0 sec absolute CheckNavigationErrors(); end_execute
+
+   # We start in Mode=INS so we get predictable result. Otherwise it is hard to get the exact value.
+   execute at_time   99.99 sec absolute SetGPS_Status(0);  end_execute # Mode=PERFECT
+   execute at_time  199.99 sec absolute SetGPS_Status(1);  end_execute # Mode=GPS
+   execute at_time  250.00 sec absolute ConfigureExternalMode(); end_execute # Mode = External
+end_platform
+
+end_time 299.99 sec

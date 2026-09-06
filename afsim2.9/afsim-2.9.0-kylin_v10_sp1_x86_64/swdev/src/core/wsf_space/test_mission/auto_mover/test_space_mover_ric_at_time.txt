@@ -1,0 +1,99 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This test compares RIC positions computed with WsfSpaceMover.RIC_AtTime
+# to those measured at the relevant times during the simulation.
+
+start_date jul 15 2021
+start_time 12:00:00.000
+end_time 600 s
+
+include_once ../utils.txt
+
+platform target_no_mover WSF_PLATFORM
+  nutation_update_interval 1 min
+  position 15n 90w altitude 0 m
+end_platform
+
+platform target_empty_mover WSF_PLATFORM
+  nutation_update_interval 1 min
+  add mover WSF_GROUND_MOVER
+  end_mover
+end_platform
+
+platform target_route WSF_PLATFORM
+  nutation_update_interval 1 min
+  add mover WSF_AIR_MOVER
+     route
+        position 15n 85w altitude 0 m speed 100 m/s heading 35 deg
+        extrapolate
+     end_route
+  end_mover
+end_platform
+
+platform test WSF_PLATFORM
+  add mover WSF_SPACE_MOVER  
+    oblate_earth          true
+    epoch                 2020000.0
+    semi_major_axis       7378 km
+    eccentricity          0
+    inclination           60 deg
+    raan                  270 deg
+    true_anomaly          30 deg
+  end_mover
+end_platform
+
+script_variables
+   double gTolerance = 1.0e-3;
+end_script_variables
+
+script void CompareCase(string aTargetPlatformName, Vec3 aPredictedRIC)
+   // Get space mover from 'test'
+   WsfPlatform testPlat = WsfSimulation.FindPlatform("test");
+   ExpectBool(testPlat.IsValid(), true, "Platform 'test' should exist at time " + (string)TIME_NOW);
+   WsfSpaceMover testMover = (WsfSpaceMover)testPlat.Mover();
+   ExpectBool(testMover.IsValid(), true, "Platform 'test' should have a space mover at time " + (string)TIME_NOW);
+   
+   // Get the target platform
+   WsfPlatform targetPlat = WsfSimulation.FindPlatform(aTargetPlatformName);
+   ExpectBool(targetPlat.IsValid(), true, "Platform '" + aTargetPlatformName + "' should exist at time " + (string)TIME_NOW);
+   
+   // Compute current RIC to the given target
+   Vec3 currentRIC = testMover.RIC(targetPlat);
+   
+   // Verify the predicted and observed match.
+   ExpectDouble(aPredictedRIC.X(), currentRIC.X(), gTolerance, "RIC R from 'test' to '" + aTargetPlatformName + "' does not match at time " + (string)TIME_NOW);
+   ExpectDouble(aPredictedRIC.Y(), currentRIC.Y(), gTolerance, "RIC I from 'test' to '" + aTargetPlatformName + "' does not match at time " + (string)TIME_NOW);
+   ExpectDouble(aPredictedRIC.Z(), currentRIC.Z(), gTolerance, "RIC C from 'test' to '" + aTargetPlatformName + "' does not match at time " + (string)TIME_NOW);
+end_script
+
+script void SetupComparisonSeries(string aTargetPlatformName)
+   // Get space mover from 'test'
+   WsfPlatform testPlat = WsfSimulation.FindPlatform("test");
+   ExpectBool(testPlat.IsValid(), true, "Platform 'test' should exist at time " + (string)TIME_NOW);
+   WsfSpaceMover testMover = (WsfSpaceMover)testPlat.Mover();
+   ExpectBool(testMover.IsValid(), true, "Platform 'test' should have a space mover at time " + (string)TIME_NOW);
+   
+   // Get the target platform
+   WsfPlatform targetPlat = WsfSimulation.FindPlatform(aTargetPlatformName);
+   ExpectBool(targetPlat.IsValid(), true, "Platform '" + aTargetPlatformName + "' should exist at time " + (string)TIME_NOW);
+   
+   // Setup series of calls
+   for (double time = 5.0; time < 600.0; time += 5.0)
+   {
+      Vec3 predictedRIC = testMover.RIC_AtTime(time, targetPlat);
+      Array<Object> args = {aTargetPlatformName, predictedRIC};
+      WsfSimulation.ExecuteAtTime(time, "CompareCase", args);
+   }
+end_script
+
+execute at_time 1 s absolute
+   SetupComparisonSeries("target_no_mover");
+   SetupComparisonSeries("target_empty_mover");
+   SetupComparisonSeries("target_route");
+end_execute

@@ -1,0 +1,212 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Basic test of the 'group' capability
+
+include ../auto_script/test_functions.txt
+
+group GROUP1 WSF_GROUP
+end_group
+
+platform thing1 WSF_PLATFORM
+   position 40n 90w
+   group_join GROUP1
+   add mover WSF_GROUND_MOVER
+      group_join GROUP1
+   end_mover
+   add comm c1 WSF_COMM_TRANSCEIVER
+      group_join GROUP1
+   end_comm
+   add processor p1 WSF_LINKED_PROCESSOR
+      group_join GROUP1
+   end_processor
+   add sensor s1 WSF_NULL_SENSOR
+      group_join GROUP1
+   end_sensor
+end_platform
+
+platform thing2 WSF_PLATFORM
+   position 40n 90w
+   group_join GROUP1
+   add mover WSF_GROUND_MOVER
+      group_join GROUP1
+   end_mover
+   add comm c2 WSF_COMM_TRANSCEIVER
+      group_join GROUP1
+   end_comm
+   add processor p2 WSF_LINKED_PROCESSOR
+      group_join GROUP1
+   end_processor
+   add sensor s2 WSF_NULL_SENSOR
+      group_join GROUP1
+   end_sensor
+end_platform
+
+script_variables
+   bool gPassed1 = false;
+   bool gPassed2 = false;
+   bool gPassed3 = false;
+   bool gPassed4 = false;
+end_script_variables
+
+script bool CheckList(string aType, Array<string> aActualNames, Array<string> aExpectedNames)
+   bool ok = true;
+   foreach (string expectedName in aExpectedNames)
+   {
+      if (! AssertTrueMessage(aActualNames.Erase(expectedName), "Expected " + aType + " not found: " + expectedName)) ok = false;
+   }
+   if (! AssertTrueMessage(aActualNames.Empty(), "Unexpected " + aType + "(s) found"))
+   {
+      ok = false;
+      foreach (string actualName in aActualNames) writeln("-FAIL-   found: ", actualName);
+   }
+   return ok;
+end_script
+
+script bool CheckGroups(Array<string> aExpectedNames)
+   return CheckList("group", WsfGroup.Groups(), aExpectedNames);
+end_script
+
+script bool CheckGroupMembers(string aGroupName, Array<string> aExpectedNames)
+   WsfGroup group = WsfGroup.Group(aGroupName);
+   bool ok = AssertTrueMessage(group.IsValid(), "Group " + aGroupName + " not found");
+   if (ok)
+   {
+      Array<WsfObject> members = group.Members();
+      Array<string> actualNames = { };
+      foreach (WsfObject member in members)
+      {
+         WsfPlatform p = (WsfPlatform) member;
+         WsfPlatformPart pp = (WsfPlatformPart) member;
+         if (p.IsValid())
+         {
+            actualNames.PushBack(p.Name());
+         }
+         else if (pp.IsValid())
+         {
+            actualNames.PushBack(pp.Platform().Name() + "." + pp.Name());
+         }
+      }
+      ok = CheckList(aGroupName + " member", actualNames, aExpectedNames);
+   }
+   return ok;
+end_script
+
+script bool CheckGroupMemberOf(string aGroupName, WsfPlatform aPlatform, bool aExpected)
+   bool ok1 = AssertTrueMessage(aPlatform.GroupMemberOf(aGroupName) == aExpected,
+   "Platform " + aPlatform.Name() + ".GroupMemberOf(string " + aGroupName + ") expected " + (string)aExpected + " but returned " + (string)!aExpected);
+
+   WsfGroup group = WsfGroup.Group(aGroupName);
+   bool ok2 = AssertTrueMessage(group.IsValid(), "Group " + aGroupName + " not found");
+   if (ok2)
+   {
+      ok2 = AssertTrueMessage(aPlatform.GroupMemberOf(group) == aExpected,
+      "Platform " + aPlatform.Name() + ".GroupMemberOf(WsfGroup " + aGroupName + ") expected " + (string)aExpected + " but returned " + (string)!aExpected);
+   }
+
+   bool ok3 = ok2;
+   if (ok3)
+   {
+      ok3 = AssertTrueMessage(aPlatform.Mover().GroupMemberOf(group) == aExpected,
+            ("Platform " + aPlatform.Name() + "." + aPlatform.Mover().Name() + ".GroupMemberOf(WsfGroup " + aGroupName + ") expected " + (string)aExpected + " but returned " + (string)!aExpected));
+      ok3 = AssertTrueMessage(aPlatform.CommEntry(0).GroupMemberOf(group) == aExpected,
+            ("Platform " + aPlatform.Name() + "." + aPlatform.CommEntry(0).Name() + ".GroupMemberOf(WsfGroup " + aGroupName + ") expected " + (string)aExpected + " but returned " + (string)!aExpected)) && ok3;
+      ok3 = AssertTrueMessage(aPlatform.ProcessorEntry(0).GroupMemberOf(group) == aExpected,
+            ("Platform " + aPlatform.Name() + "." + aPlatform.ProcessorEntry(0).Name() + ".GroupMemberOf(WsfGroup " + aGroupName + ") expected " + (string)aExpected + " but returned " + (string)!aExpected))  && ok3;
+      ok3 = AssertTrueMessage(aPlatform.SensorEntry(0).GroupMemberOf(group) == aExpected,
+            ("Platform " + aPlatform.Name() + "." + aPlatform.SensorEntry(0).Name() + ".GroupMemberOf(WsfGroup " + aGroupName + ") expected " + (string)aExpected + " but returned " + (string)!aExpected))  && ok3;
+   }
+
+   return ok1 && ok2 && ok3;
+end_script
+
+execute at_time 1 sec absolute
+   writeln("-STEP1-");
+
+   # Group should have all element from thing1 and thing2
+   WsfPlatform thing1 = WsfSimulation.FindPlatform("thing1");
+   WsfPlatform thing2 = WsfSimulation.FindPlatform("thing2");
+   gPassed1 = AssertTrueMessage(thing1.IsValid(), "thing1 not found") &&
+              AssertTrueMessage(thing2.IsValid(), "thing2 not found") &&
+              CheckGroups({ "GROUP1" }) &&
+              CheckGroupMembers("GROUP1", { "thing1", "thing1.c1", "thing1.s1",
+                                            "thing2", "thing2.c2", "thing2.s2" }) &&
+              CheckGroupMemberOf("GROUP1", thing1, true) &&
+              CheckGroupMemberOf("GROUP1", thing2, true);
+
+   # Remove thing2 from group and check membership
+   thing2.GroupLeave("GROUP1");
+   thing2.Mover().GroupLeave("GROUP1");
+   thing2.CommEntry(0).GroupLeave("GROUP1");
+   thing2.ProcessorEntry(0).GroupLeave("GROUP1");
+   thing2.SensorEntry(0).GroupLeave("GROUP1");
+   gPassed1 = gPassed1 && CheckGroupMemberOf("GROUP1", thing2, false);
+
+   # Now delete thing2
+   WsfSimulation.DeletePlatform("thing2");
+end_execute
+
+execute at_time 2 sec absolute
+   writeln("-STEP2-");
+   # Group should have all elements from only thing1
+   WsfPlatform thing1 = WsfSimulation.FindPlatform("thing1");
+   WsfPlatform thing2 = WsfSimulation.FindPlatform("thing2");
+   gPassed2 = AssertTrueMessage(thing1.IsValid(), "thing1 not found") &&
+              AssertFalseMessage(thing2.IsValid(), "thing2 found") &&
+              CheckGroups({ "GROUP1" }) &&
+              CheckGroupMembers("GROUP1", { "thing1", "thing1.c1", "thing1.s1" }) &&
+              CheckGroupMemberOf("GROUP1", thing1, true);
+end_execute
+
+execute at_time 3 sec absolute
+   writeln("-STEP3-");
+   # Manipulate a few elements of thing1
+   WsfPlatform thing1 = WsfSimulation.FindPlatform("thing1");
+   WsfPlatform thing2 = WsfSimulation.FindPlatform("thing2");
+   gPassed3 = AssertTrueMessage(thing1.IsValid(), "thing1 not found") &&
+              AssertFalseMessage(thing2.IsValid(), "thing2 found") &&
+              CheckGroups({ "GROUP1" }) &&
+              CheckGroupMembers("GROUP1", { "thing1", "thing1.c1", "thing1.s1" }) &&
+              CheckGroupMemberOf("GROUP1", thing1, true);
+
+   # Remove thing1 from group and check membership
+   thing1.GroupLeave("GROUP1");
+   thing1.Mover().GroupLeave("GROUP1");
+   thing1.CommEntry(0).GroupLeave("GROUP1");
+   thing1.ProcessorEntry(0).GroupLeave("GROUP1");
+   thing1.SensorEntry(0).GroupLeave("GROUP1");
+   gPassed3 = gPassed3 && CheckGroupMemberOf("GROUP1", thing1, false);
+
+   # Now delete thing1
+   WsfSimulation.DeletePlatform("thing1");
+end_execute
+
+execute at_time 4 sec absolute
+   writeln("-STEP4-");
+   # The group should be empty (both thing1 and thing2 have been deleted)
+   WsfPlatform thing1 = WsfSimulation.FindPlatform("thing1");
+   WsfPlatform thing2 = WsfSimulation.FindPlatform("thing2");
+   gPassed4 = AssertFalseMessage(thing1.IsValid(), "thing1 found") &&
+              AssertFalseMessage(thing2.IsValid(), "thing2 found") &&
+              CheckGroups({ "GROUP1" }) &&
+              CheckGroupMembers("GROUP1", { });
+end_execute
+
+execute at_time 5 sec absolute
+   if (gPassed1 && gPassed2 && gPassed3 && gPassed4)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+end_time 10 sec

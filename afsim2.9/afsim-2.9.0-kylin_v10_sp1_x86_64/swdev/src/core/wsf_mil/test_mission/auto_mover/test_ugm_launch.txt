@@ -1,0 +1,92 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test that WSF_UNGUIDED_MOVER launches with a velocity inherited from its 
+# launcher's velocity rather than its launcher's  orientation
+
+script_variables
+  int failCount = 0;
+end_script_variables
+
+platform_type SIMPLE_FLARE_GM WSF_PLATFORM
+   icon flare
+
+   mover WSF_UNGUIDED_MOVER
+      update_interval    0.01 sec
+      aero               none
+      total_mass         0.5 lbm
+      align_heading_with_velocity true
+   end_mover
+
+   # Remove the flare after it is no longer burning (assuming 6 second burn time)
+   execute at_time 6.0 sec relative
+      PLATFORM.DeletePlatform();
+   end_execute
+
+   # Ensure that flare was launched with the velocity of the launcher,
+   # despite the launcher facing the opposite direction of its velocity.
+   execute at_time .1 second relative
+      WsfPlatform launcher = WsfSimulation.FindPlatform("TestAircraft");
+      double angle = Vec3.AngleWith(launcher.VelocityNED(), PLATFORM.VelocityNED());
+      if(angle > 2)
+      {
+         failCount += 1;
+         writeln("FAIL: Flare velocity does not match launcher velocity.");
+      }
+   end_execute
+end_platform_type
+
+platform TestAircraft WSF_PLATFORM
+   spatial_domain     air
+   side               blue
+   icon               f15c
+   category           aircraft
+
+   add weapon flare_gm WSF_EXPLICIT_WEAPON
+      launched_platform_type  SIMPLE_FLARE_GM
+      launch_delta_v          0.0 0.0 10.0 m/sec
+      update_interval 0.1 sec
+      maximum_quantity 600.0
+      quantity         600.0
+   end_weapon
+
+   add mover WSF_AIR_MOVER
+      route
+         position 0n 0e altitude 5000 m speed 500 m/s
+         position 1n 0e
+      end_route
+   end_mover
+
+   execute at_interval_of 0.5 sec
+      # Set aircraft to temporarily face backwards
+      SetHeading(Heading() + 180);
+
+      # Fire flare, and test its velocity matches TestAircraft
+      WsfWeapon flare_gm = PLATFORM.Weapon("flare_gm");
+      flare_gm.Fire();
+   end_execute
+
+end_platform
+
+script void SimulationComplete()
+   if(failCount == 0)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- ", failCount, " tests failed.");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+end_time 20 sec

@@ -1,0 +1,52 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+	string actualResult = "";
+	string expectedResult = "network_a";
+end_script_variables
+
+comm Radio_NW_A WSF_COMM_TRANSCEIVER
+	on
+	network_name network_a
+end_comm
+
+platform Talker WSF_PLATFORM
+	add comm talker Radio_NW_A
+	end_comm
+
+	execute at_time 10 seconds absolute
+		extern string actualResult;
+		actualResult = PLATFORM.Comm("talker").NetworkName();
+	end_execute
+end_platform
+
+platform Listener_A WSF_PLATFORM
+	add comm listener_on_a Radio_NW_A
+	end_comm
+end_platform
+
+execute at_time 20 seconds absolute
+	extern string actualResult;
+	extern string expectedResult;
+
+	if (actualResult != expectedResult)
+	{
+		writeln("-FAIL-");
+		writeln("Actual network name: ", actualResult);
+		writeln("Expected network name: ", expectedResult);
+	}
+	else
+	{
+		writeln("-PASS-");
+	}
+	WsfSimulation.Terminate();
+end_execute
+
+end_time 100 seconds

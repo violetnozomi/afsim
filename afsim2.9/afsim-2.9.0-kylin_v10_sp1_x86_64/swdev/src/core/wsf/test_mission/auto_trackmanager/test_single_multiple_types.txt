@@ -1,0 +1,60 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# A sequence of tests to verify the operation of the single and multiple "type" methods on WsfTrack.
+
+platform target WSF_PLATFORM
+end_platform
+
+script void Compare(string aKey, double aValue, string aMatchKey, double aMatchValue)
+   if ((aKey != aMatchKey) || (aValue != aMatchValue))
+   {
+      writeln("-FAIL-", aKey, " ", aMatchKey, " ", aValue, " ", aMatchValue);
+   }
+end_script
+
+script bool Check(bool aVal)
+   if (! aVal)
+   {
+      writeln("-FAIL-");
+   }
+   return (!aVal);
+end_script
+
+script void Test()
+   WsfTrack targetTrack = WsfSimulation.FindPlatform("target").MakeTrack();
+   Map<string, double> ttypes = {};
+   string btr70 = "BTR-70";
+   string t72 = "T-72";
+   ttypes.Set(btr70, 0.1);
+   ttypes.Set(t72, 0.9);
+   Check(targetTrack.Type() == "WSF_PLATFORM");
+   targetTrack.SetTypes(ttypes);
+   Check(targetTrack.TypeValid());
+   Map<string, double> typesOut = targetTrack.Types();
+   Check(typesOut.Size() == 2);
+   MapIterator iter = typesOut.GetIterator();
+   iter.Next();
+   Compare((string)(iter.Key()), (double)(iter.Data()), btr70, 0.1);
+   iter.Next();
+   Compare((string)(iter.Key()), (double)(iter.Data()), t72, 0.9);
+
+   targetTrack.SetType(t72);
+   Check(targetTrack.Type() == t72);
+   typesOut = targetTrack.Types();
+   Check(typesOut.Size() == 1);
+   iter = typesOut.GetIterator();
+   iter.Next();
+   Compare((string)(iter.Key()), (double)(iter.Data()), t72, 1.0);
+
+end_script
+
+execute at_time 1.0 s absolute
+   Test();
+end_execute

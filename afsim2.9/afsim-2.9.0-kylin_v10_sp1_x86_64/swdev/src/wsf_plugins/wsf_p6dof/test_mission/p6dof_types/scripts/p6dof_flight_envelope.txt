@@ -1,0 +1,249 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+script_struct DataPair
+   script_variables
+      double velocity_fps = 0;
+      double altitude_ft = 0;
+   end_script_variables
+end_script_struct
+
+script_variables
+   //******************************************
+   //These are input variables to control the generation
+   // of AB and Mil flight envelopes
+   double feInitialAltitude_ft = 2000;
+   double feFinalAltitude_ft = 60000;
+   double feAltitudeStep_ft = 2000;
+   double feAltitudePrecision = 10.0;
+
+   double feInitialVelocity_fps = 100;
+   double feFinalVelocity_fps = 2250;
+   double feVelocityStep_fps = 25;
+   double feVelocityPrecision = 1.0;
+
+   //******************************************
+   //Do not change the remaining variables here.
+   //These are not input variables
+   Array<struct> bottomSide = Array<struct>();
+   Array<struct> topSide = Array<struct>();
+
+   double throttleSetting; //Do not initialize here, as it is set prior to use, and it might cause confusion
+   double flapSettings; //Do not initialize here, as it is set prior to use, and it might cause confusion
+
+   double minCanFlyVelocity = 0.0;
+   double minCanFlyAltitude = 0.0;
+   //******************************************
+end_script_variables
+
+script bool ComputeMinFlightSpeed(WsfP6DOF_Mover aPlatform, double aAltitude, double aMinSpeed, double aMaxSpeed, double aSpeedStep)
+   double velocity = aMinSpeed;
+   while(velocity <= aMaxSpeed)
+   {
+      if(aPlatform.__getTestObject().CanFlyAt(aAltitude, velocity, throttleSetting, flapSettings) == 2) // 2 == CAN_FLY
+      {
+         if(aSpeedStep <= feVelocityPrecision ||  // If step is small enough (accuracy is acheived, return result)
+            aMinSpeed == velocity) // if Can fly at min velocity, return result
+         {
+            struct temp = struct.New("DataPair");
+            temp->altitude_ft = aAltitude;
+            temp->velocity_fps = velocity;
+            topSide.PushBack(temp);
+            return true;
+         }
+         else
+         {
+            return ComputeMinFlightSpeed(aPlatform, aAltitude, velocity - aSpeedStep, velocity, aSpeedStep / 2);
+         }
+      }
+      velocity = velocity + aSpeedStep;
+   }
+   return false;
+end_script
+
+script bool ComputeMaxFlightSpeed(WsfP6DOF_Mover aPlatform, double aAltitude, double aMinSpeed, double aMaxSpeed, double aSpeedStep)
+   double velocity = aMinSpeed;
+   while(velocity <= aMaxSpeed)
+   {
+      if(aPlatform.__getTestObject().CanFlyAt(aAltitude, velocity, throttleSetting, flapSettings) != 2) // 2 == CAN_FLY
+      {
+         if(aSpeedStep <= feVelocityPrecision)
+         {
+            struct temp = struct.New("DataPair");
+            temp->altitude_ft = aAltitude;
+            temp->velocity_fps = velocity - aSpeedStep;
+            bottomSide.PushBack(temp);
+            return true;
+         }
+         else
+         {
+            return ComputeMaxFlightSpeed(aPlatform, aAltitude, velocity - aSpeedStep, velocity, aSpeedStep / 2);
+         }
+      }
+      velocity = velocity + aSpeedStep;
+   }
+   return false;
+end_script
+
+script void ComputeStep1(WsfP6DOF_Mover aPlatform)
+   if(ComputeMinFlightSpeed(aPlatform, feInitialAltitude_ft, feInitialVelocity_fps, feFinalVelocity_fps, feVelocityStep_fps))
+   {
+      minCanFlyVelocity = topSide[0]->velocity_fps;
+      ComputeMaxFlightSpeed(aPlatform, feInitialAltitude_ft, minCanFlyVelocity, feFinalVelocity_fps, feVelocityStep_fps);
+   }
+end_script
+
+script double ComputeMinFlightAltitude(WsfP6DOF_Mover aPlatform, double aVelocity, double aStartAltitude, double aEndAltitude, double aAltitudeStep)
+
+   double alt_ft = aStartAltitude;
+   while(alt_ft <= aEndAltitude)
+   {
+      if(aPlatform.__getTestObject().CanFlyAt(alt_ft, aVelocity, throttleSetting, flapSettings) == 2) // 2 == CAN_FLY
+      {
+         if(aAltitudeStep <= feAltitudePrecision || alt_ft <= aStartAltitude)
+         {
+            minCanFlyAltitude = alt_ft;
+
+            if(alt_ft != feInitialAltitude_ft)  //TODO, make sure this is a good idea
+            {
+               struct temp = struct.New("DataPair");
+               temp->altitude_ft = alt_ft;
+               temp->velocity_fps = aVelocity;
+               bottomSide.PushBack(temp);
+            }
+
+            return true;
+         }
+         else if(alt_ft < aAltitudeStep)
+         {
+            minCanFlyAltitude = feInitialAltitude_ft;
+            return true;
+         }
+         else
+         {
+            return ComputeMinFlightAltitude(aPlatform, aVelocity, alt_ft - aAltitudeStep, alt_ft, aAltitudeStep / 2);
+         }
+      }
+      alt_ft += aAltitudeStep;
+   }
+
+   minCanFlyAltitude = 0.0;
+   return false;
+end_script
+
+script bool ComputeMaxFlightAltitude(WsfP6DOF_Mover aPlatform, double aVelocity, double aStartAltitude, double aEndAltitude, double aAltitudeStep)
+
+   double alt_ft = aStartAltitude;
+   while(alt_ft <= aEndAltitude)
+   {
+      if(aPlatform.__getTestObject().CanFlyAt(alt_ft, aVelocity, throttleSetting, flapSettings) != 2) // 2 == CAN_FLY
+      {
+         if(aAltitudeStep <= feAltitudePrecision)
+         {
+            struct temp = struct.New("DataPair");
+            temp->altitude_ft = alt_ft;
+            temp->velocity_fps = aVelocity;
+            topSide.PushBack(temp);
+            return true;
+         }
+         else
+         {
+            return ComputeMaxFlightAltitude(aPlatform, aVelocity, alt_ft - aAltitudeStep, alt_ft, aAltitudeStep / 2);
+         }
+      }
+
+      alt_ft = alt_ft + aAltitudeStep;
+   }
+
+   if(aPlatform.__getTestObject().CanFlyAt(aEndAltitude, aVelocity, throttleSetting, flapSettings) == 2)  // 2 == CAN_FLY
+   {
+      struct temp = struct.New("DataPair");
+      temp->altitude_ft = aEndAltitude;
+      temp->velocity_fps = aVelocity;
+      topSide.PushBack(temp);
+      return true;
+   }
+
+   return false;
+
+end_script
+
+script void ComputeStep2(WsfP6DOF_Mover aPlatform)
+   double currentVelocity = (minCanFlyVelocity + feVelocityStep_fps) / feVelocityStep_fps;
+   currentVelocity = Math.Floor(currentVelocity) * feVelocityStep_fps;
+
+   bool completed = false;
+   while(currentVelocity <= feFinalVelocity_fps && !completed)
+   {
+      write(".");
+      flush_output();
+
+      if(ComputeMinFlightAltitude(aPlatform, currentVelocity, feInitialAltitude_ft, feFinalAltitude_ft, feAltitudeStep_ft))
+      {
+         ComputeMaxFlightAltitude(aPlatform, currentVelocity, minCanFlyAltitude, feFinalAltitude_ft, feAltitudeStep_ft);
+      }
+      else //There is no altitude at which the platform can fly for the given speed
+      {
+         completed = true;
+      }
+
+      currentVelocity = currentVelocity + feVelocityStep_fps;
+   }
+   writeln(".");
+
+end_script
+
+script void ComputeStep3(WsfP6DOF_Mover aPlatform)
+   // TODO
+end_script
+
+
+// This computes the flight envelope for a platform at the specified throttle and flaps settings.
+// The throttle input assumes that 0 is idle, 1 is full power without augmentation/afterburner
+// (military power), and 2 is full power with full augmentation/afterburner (full afterburner).
+script Array<struct> ComputeFlightEnvelope(WsfPlatform aPlatform, double aThrottle, double aFlaps)
+   Array<struct> returnVal = Array<struct>();
+
+   throttleSetting = aThrottle;
+   flapSettings = aFlaps;
+
+   bottomSide.Clear();
+   topSide.Clear();
+
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover           p6dofMover = (WsfP6DOF_Mover)mover;
+      WsfP6DOF_MoverTestObject testObj    = p6dofMover.__getTestObject();
+      testObj.SetMasterNoLagTesting(true);
+      testObj.SetMasterFreezeAltitude(true);
+      testObj.SetMasterFreezeFuelBurn(true);
+      testObj.SetMasterFreezeLocation(true);
+
+      write(".");
+      flush_output();
+      ComputeStep1(p6dofMover);
+      ComputeStep2(p6dofMover);
+      ComputeStep3(p6dofMover);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+
+   for(int i = 0; i < topSide.Size(); i = i + 1)
+   {
+      returnVal.PushBack(topSide[i]);
+   }
+   for(int i = bottomSide.Size() - 1; i >= 0; i = i - 1)
+   {
+      returnVal.PushBack(bottomSide[i]);
+   }
+
+   return returnVal;
+end_script

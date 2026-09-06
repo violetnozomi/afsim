@@ -1,0 +1,117 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This is a test to specifically trigger the purging of received tasks in the
+# WSF_QUANTUM_TASKER_PROCESSOR which was causing a crash.
+define_path_variable CASE test_quantum_tasker_processor_splice
+
+script_debug_writes off
+
+network lets_talk WSF_COMM_NETWORK_MESH_LEGACY end_network 
+
+platform_type MY_TYPE WSF_PLATFORM
+
+   comm radio WSF_COMM_TRANSCEIVER
+      network_name lets_talk 
+      internal_link task_mgr
+      internal_link perception
+   end_comm
+   
+   processor perception WSF_PERCEPTION_PROCESSOR
+      asset_perception truth subordinates
+      report_interval 1 s
+      report_to commander via radio      
+   end_processor
+   
+   processor task_mgr WSF_QUANTUM_TASKER_PROCESSOR 
+      update_interval 1 s
+      
+      # Custom generator
+      script Array<WsfQuantumTask> g1 (Array<WsfLocalTrack> TRACKS, Array<WsfAssetPerception> ASSETS)
+         Array<WsfQuantumTask> tasks =  Array<WsfQuantumTask>();
+         
+         # If platform has subordinates then make assignments
+         if (PLATFORM.Subordinates().Count() > 0)
+         {        
+            for (int i = 0; i < TRACKS.Size(); i = i + 1)
+            {
+               WsfLocalTrack lt = TRACKS.Get(i);
+               WsfQuantumTask task = WsfQuantumTask.Construct(1.0, "WEAPON", lt);
+               task.SetTaskType("WEAPON");
+               tasks.PushBack(task);
+               writeln_d("T=", TIME_NOW, " Generating: ", lt.TargetName(), " by ", PLATFORM.Name());
+            }
+         }
+         return tasks;
+      end_script
+      
+      # Custom evaluator - all get same value for this test
+      script double e1 (WsfQuantumTask TASK, WsfAssetPerception ASSET)
+         return 1.0;
+      end_script
+      
+      # Custom allocators
+      script Map<WsfAssetPerception, WsfQuantumTask> a1 (Array<Array<double>> MATRIX, Array<WsfAssetPerception> ASSETS, Array<WsfQuantumTask> TASKS)
+         Map<WsfAssetPerception, WsfQuantumTask> assignments = Map<WsfAssetPerception, WsfQuantumTask>();
+         writeln_d("T=", TIME_NOW, " Allocating: ", ASSETS.Get(0).Name(), " (", TASKS.Size(), ")");         
+         assignments[ASSETS.Get(0)] = TASKS.Get(0);
+         writeln_d("Assignments: \n  ", assignments);
+         return assignments;
+      end_script 
+      script Map<WsfAssetPerception, WsfQuantumTask> a_extra (Array<Array<double>> MATRIX, Array<WsfAssetPerception> ASSETS, Array<WsfQuantumTask> TASKS)
+         Map<WsfAssetPerception, WsfQuantumTask> assignments = Map<WsfAssetPerception, WsfQuantumTask>(); 
+         writeln_d("T=", TIME_NOW, " Allocating (extra): ", ASSETS.Get(0).Name(), " (", TASKS.Size(), ")");         
+         assignments[ASSETS.Get(0)] = TASKS.Get(0);       
+         writeln_d("Assignments (extra): \n  ", assignments);
+         return assignments;
+      end_script           
+      generator custom g1
+      evaluator custom e1
+      allocator custom a1
+      allocator_extra_tasks custom a_extra                  
+   end_processor
+ 
+end_platform_type
+
+platform tgt1 WSF_PLATFORM side red end_platform
+platform tgt2 WSF_PLATFORM side red end_platform
+
+platform cmdr MY_TYPE
+   side blue
+   commander SELF
+   track platform tgt1 end_track 
+   track platform tgt2 end_track    
+end_platform
+
+platform sub MY_TYPE
+   side blue
+   commander cmdr
+   edit processor task_mgr       
+      on_update
+         # To trigger the crash; reject tasks
+         if (TIME_NOW > 2)
+         {
+            writeln_d("\n*** Rejecting all tasks (", TasksReceived().Count(), ") received by ", PLATFORM.Name());
+            WsfTaskList tl = TasksReceived();
+            writeln_d(tl);           
+            foreach (WsfTask task in tl)
+            {
+               writeln_d("  ", task);
+               RejectTask(task);             # Exception thrown in debug
+            }         
+         }
+      end_on_update   
+   end_processor   
+end_platform
+
+platform sub_sub MY_TYPE
+   side blue
+   commander sub   
+end_platform
+
+end_time 3 s

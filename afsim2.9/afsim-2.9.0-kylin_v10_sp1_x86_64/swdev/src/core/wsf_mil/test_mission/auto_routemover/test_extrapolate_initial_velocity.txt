@@ -1,0 +1,43 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Verify that the route mover will extrapolate on initial
+# velocity when not given a route
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include ../auto_script/test_pass.txt
+script_variables
+  PassTestCount = 2;
+end_script_variables
+platform_type missile WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+   end_mover
+   execute at_time 1 s relative
+      extern void pass();
+      if (Math.Fabs(Speed() - 100) < .5) pass();
+      else writeln("-FAIL- Bad speed");
+      if (Math.Fabs(Heading() - 90) < .5) pass();
+      else writeln("-FAIL- Bad heading - ", Heading());
+   end_execute
+end_platform_type
+platform launcher WSF_PLATFORM
+   heading 0 deg
+   add weapon wl WSF_EXPLICIT_WEAPON
+      launched_platform_type missile
+      launch_delta_v 0 100 0 m/s
+      quantity 1
+   end_weapon
+   execute at_time 1 s absolute
+     Weapon("wl").Fire();
+   end_execute
+end_platform
+
+end_time 10 s

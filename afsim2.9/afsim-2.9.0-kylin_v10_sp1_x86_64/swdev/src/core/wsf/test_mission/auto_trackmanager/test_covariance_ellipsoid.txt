@@ -1,0 +1,301 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#!!
+#!! A test script that creates a track, and invokes the tracks covariance-2-ellipsoid
+#!! function.  That ellipsoid is then sent to WsfDraw.  The track moves from left to
+#!! right and the sensor has more range error than az or el, so the major axis
+#!! should be aligned to the beam.
+#!!   Notes: Assure the processor interval matches WsfDraw.SetDuration(), or
+#!! else there can be overlapping ellipsoids. ALSO Assure the sensors update
+#!! rate is proper, otherwise the initiated track won't be updated to make the
+#!! ocvarinace valid.
+#!!
+
+# --------------------------------------------------------------
+#                         Filters
+# --------------------------------------------------------------
+
+filter FILTER_KF1 WSF_KALMAN_FILTER
+   range_measurement_sigma       10.0   m
+   bearing_measurement_sigma     0.001  deg
+   elevation_measurement_sigma   0.001  deg
+
+   # values for maneuvering targets
+   process_noise_sigmas_XYZ      2 2 2
+   process_noise_model           constant_velocity
+   //debug
+end_filter
+
+# --------------------------------------------------------------
+#                         Sensor
+# --------------------------------------------------------------
+sensor TEST_RADAR WSF_RADAR_SENSOR
+  minimum_range             0 nm
+  ##maximum_range           3 nm
+  maximum_range             10 nm
+  ##one_m2_detect_range     3 nm
+  one_m2_detect_range       10 nm
+
+  pitch                     0   deg
+  azimuth_field_of_view     -30   deg 30   deg      # 60 degrees symmetric
+  ## Using 90 deg causes VESPA to not show the sensor coverage
+  ## azimuth_field_of_view    -90   deg 90   deg      # 60 degrees symmetric
+  ## azimuth_field_of_view    -85   deg 85   deg      # 60 degrees symmetric
+  elevation_field_of_view   -22.5 deg 22.5 deg      # 45 degrees symmetric
+
+  frame_time                 500  msec
+  ##hits_to_establish_track   2 3   # 2 of last 3 scans to establish track
+  ##hits_to_maintain_track    1 3   # 1 of last 3 scans to maintain  track
+
+  transmitter
+    power                   1 kw
+    frequency               1 ghz
+  end_transmitter
+
+  azimuth_error_sigma       10.0  deg
+  elevation_error_sigma      5.0  deg
+  range_error_sigma        100.0 m
+
+
+  ###  SAA had RBE, but we'l do location for now
+  #reports_location
+  #reports_velocity
+  # reports_signal_to_noise
+   reports_range
+   reports_bearing
+   reports_elevation
+end_sensor
+
+# --------------------------------------------------------------
+#                         Scripts
+# --------------------------------------------------------------
+
+script_interface
+   //debug
+end_script_interface
+
+processor MY_ELLIPSOID_PROCESSOR WSF_SCRIPT_PROCESSOR
+      //!!!!! If you change this time value, change below !!!(mDraw.SetDuration)
+      update_interval 1.0 seconds
+
+      script_variables
+        WsfDraw mDraw  =  WsfDraw();
+        int printcnt = 0;
+      end_script_variables
+
+      on_initialize
+         mDraw.SetLineStyle("solid");
+         mDraw.SetLineSize(5);
+         mDraw.SetColor(1.0, 0.0, 0.0, 0.5);
+         mDraw.SetDuration(1.0);
+         //mDraw.SetId("12378");
+      end_on_initialize
+
+      on_update
+         if (PLATFORM.MasterTrackList().Count() > 0)
+         {
+            int index = (int)0;
+            WsfTrack track = PLATFORM.MasterTrackList().Entry(index);
+            if (track.IsValid())
+            {
+               WsfGeoPoint trackLocation = track.CurrentLocation();
+               mDraw.BeginLines();
+               mDraw.Vertex(PLATFORM);
+               mDraw.Vertex(trackLocation);
+               mDraw.End();
+
+               WsfCovariance PWCS = track.StateCovariance();
+               // Used to give the cov access to the track location, needed
+               // for conversion to NED. ...Actually, this is not scripatble. The
+               // call to track.StateCovariance() calls copy.
+               ////PWCS.CopyTrackData(track);
+               if (PWCS.IsValid() && track.LocationValid())
+               {
+                  // We amplify the size to make it more findable
+                  // in VESPA
+                  double S = 10;
+                  //WsfGeoPoint originatorLocation = track.OriginatorLocation();
+                  Ellipsoid e2 = PWCS.EllipsoidNED();
+                  mDraw.BeginEllipsoid(
+                           e2.OrientationHeadingDeg(),
+                           e2.OrientationPitchDeg(),
+                           e2.OrientationRollDeg(),
+                           e2.SemiAxisForward()*S,
+                           e2.SemiAxisSide()*S,
+                           e2.SemiAxisUp()*S
+                  );
+                  mDraw.Vertex(trackLocation);
+                  writeln(trackLocation.Latitude(), ", ", trackLocation.Longitude());
+                  mDraw.End();
+                  //write("#");
+                  printcnt = printcnt + 1;
+                  if (printcnt < -1)//Turn off unless debugging
+                  {
+                     writeln("MY_ELLIPSOID_PROCESSOR: Accessed state covariance @", TIME_NOW
+                             ,", Lat ", trackLocation.Latitude()
+                             ,", Lon ", trackLocation.Longitude()
+                             ,", Alt ", trackLocation.Altitude()
+                             ,", r_f ", e2.SemiAxisForward()
+                             ,", r_s ", e2.SemiAxisSide()
+                             ,", r_u ", e2.SemiAxisUp()
+                             ,", Y ", e2.OrientationHeadingDeg()
+                             ,", P ", e2.OrientationPitchDeg()
+                             ,", R ", e2.OrientationRollDeg()
+                           );
+                  }
+               }
+               else
+               {
+                   //Until the filter is stable, P won't be accessable.
+                  ////writeln("MY_ELLIPSOID_PROCESSOR Covariance NOT Accessible!!!");
+               }
+            }
+         }
+      end_on_update
+
+end_processor
+
+
+# --------------------------------------------------------------
+#                         Radar Platform
+# --------------------------------------------------------------
+
+platform_type RADAR_PLATFORM WSF_PLATFORM
+
+   icon airport
+   category surveillance
+
+   # We give it an air mover so we can set the
+   # height
+   mover WSF_AIR_MOVER
+      default_radial_acceleration 2.0 g
+   #    at_end_of_path remove
+   end_mover
+
+   track_manager
+//      debug
+      filter FILTER_KF1
+      end_filter
+#      uncorrelated_track_drops     off
+#      retain_raw_tracks
+   end_track_manager
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval 60 seconds
+   end_processor
+
+   sensor myradar TEST_RADAR
+      on
+      internal_link data_mgr
+   end_sensor
+
+   processor  ellipsoid_viewer  MY_ELLIPSOID_PROCESSOR
+   end_processor
+
+end_platform_type
+
+
+platform_type VISITING_PLATFORM WSF_PLATFORM
+
+  mover WSF_AIR_MOVER
+    default_radial_acceleration 2.0 g
+#    at_end_of_path remove
+  end_mover
+
+end_platform_type
+
+
+# --------------------------------------------------------------
+#                         Instances
+# --------------------------------------------------------------
+platform radar_platform RADAR_PLATFORM
+   side blue
+   commander SELF
+   route
+    # Hover
+    position 00.934N 90.4236W altitude 1000 ft speed 0 kts
+   end_route
+
+end_platform
+
+platform visitor VISITING_PLATFORM
+   side green
+   commander SELF
+   route
+     position 00.9406N 90.4463W altitude 1000 ft speed 100 kts
+     position 00.9406N 90.4017W altitude 1000 ft speed 100 kts
+   end_route
+
+end_platform
+
+# =============================================================================
+
+script_variables
+   bool gFail = true;
+end_script_variables
+
+/*
+script void LocalTrackCorrelation(WsfPlatform aPlatform, WsfTrackId aLocalTrackId, WsfTrackId aNonLocalTrackId) end_script
+script void LocalTrackDecorrelation(WsfPlatform aPlatform, WsfTrackId aLocalTrackId, WsfTrackId aNonLocalTrackId) end_script
+script void LocalTrackDropped(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack) end_script
+script void LocalTrackInitiated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack) end_script
+script void LocalTrackUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack) end_script
+*/
+
+script void LocalTrackUpdated(WsfPlatform    aPlatformPtr,
+                              WsfLocalTrack  aTrackPtr,
+                              WsfTrack       aSourcePtr)
+
+    //write("$");
+    WsfCovariance PWCS = aTrackPtr.StateCovariance();
+    if (PWCS.IsValid() && aTrackPtr.LocationValid())
+    {
+       Ellipsoid e2 = PWCS.EllipsoidNED();
+       if (e2.OrientationHeadingDeg() == e2.OrientationHeadingDeg() && //!NaN
+           e2.OrientationPitchDeg()   == e2.OrientationPitchDeg()   && //!NaN
+           e2.OrientationRollDeg()    == e2.OrientationRollDeg()    && //!NaN
+           e2.SemiAxisForward()       >  0.0 &&
+           e2.SemiAxisSide()          >  0.0 &&
+           e2.SemiAxisUp()            >  0.0)
+        {
+          gFail = false;
+        }
+    }
+end_script
+
+script void SimulationComplete()
+   if ( gFail) writeln("-FAIL- one or more failures");
+   if (!gFail) writeln("-PASS-");
+end_script
+
+//  Uncomment this to see what's happening. This table has no debug flag because of the format.
+/*
+event_output
+   file test_ellipsoid.evt
+   //enable SENSOR_DETECTION_ATTEMPT
+   //enable SENSOR_TRACK_DROPPED
+   //enable SENSOR_TRACK_INITIATED
+   //enable SENSOR_TRACK_UPDATED
+
+   enable LOCAL_TRACK_DROPPED
+   enable LOCAL_TRACK_INITIATED
+   enable LOCAL_TRACK_UPDATED
+   print_track_covariance enabled
+end_event_output
+*/
+
+observer
+   //enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable LOCAL_TRACK_UPDATED      LocalTrackUpdated
+   enable SIMULATION_COMPLETE      SimulationComplete
+end_observer
+
+// Time to pass in front of sensor and stabalize filter
+end_time 300.0 sec

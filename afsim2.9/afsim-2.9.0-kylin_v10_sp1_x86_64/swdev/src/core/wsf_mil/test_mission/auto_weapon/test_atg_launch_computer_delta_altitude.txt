@@ -1,0 +1,133 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test is checking the selection of the nearest LAR using delta altitude.
+# Speed of launcher is matched to speeds in pre-built LARs.
+
+# Four LARs have been generated for altitudes of 20 kft, 21 kft, 22 kft, and 30 kft.
+
+# A launcher is placed at an altitude of 21.5 kft. For this case, the LAR
+# at 21 kft will be selected. This can be verified by turning on debug info in the LAR.
+
+# A second launcher is placed at an altitude of 29 kft. For this case, the LAR 
+# at 30 kft will be selected.
+
+# Two targets are placed such that only the launcher at the higher altitude will
+# see both targets for the duration of this test.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once ../auto_script/test_functions.txt
+include_once ../auto_script/test_pass.txt
+
+script_debug_writes off
+
+script_variables
+   PassTestCount = 9;   
+end_script_variables
+
+# This can be generated using weapon_tools and the following file: 
+#    weapon_tools/test/auto_lar/test_atg_lar_and_lc_generator_full_multi.txt 
+include_once BOMB_ATG_LAUNCH_COMPUTER.txt
+
+weapon_effects WEAPON_TOOL_LETHALITY WSF_GRADUATED_LETHALITY
+   radius_and_pk 15.0 ft 1.00
+end_weapon_effects
+
+aero myaero WSF_AERO
+   cd_zero_subsonic     0.100
+   cd_zero_supersonic   0.40
+   mach_begin_cd_rise   0.800
+   mach_end_cd_rise     1.200
+   mach_max_supersonic  2.000
+   reference_area       0.059 m2
+   cl_max              10.400
+   aspect_ratio         4.000
+end_aero
+
+platform_type BOMB WSF_PLATFORM
+   mover WSF_GUIDED_MOVER
+      aero myaero
+      mass 500 lbs
+      update_interval 0.5 s
+   end_mover
+   processor guidance_computer WSF_GUIDANCE_COMPUTER
+      proportional_navigation_gain 10.0
+      velocity_pursuit_gain        10.0
+      g_bias                        1.0
+      maximum_commanded_g          25.0 g
+      guidance_delay                0.0 sec
+   end_processor      
+   processor fuse WSF_GROUND_TARGET_FUSE 
+   end_processor
+end_platform_type
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   icon bullseye
+end_platform_type
+
+platform_type LAUNCH_PLATFORM_TYPE WSF_PLATFORM
+   icon bomber
+   mover WSF_AIR_MOVER
+      maximum_speed 500 kts
+   end_mover
+   weapon launcher WSF_EXPLICIT_WEAPON
+      launched_platform_type BOMB 
+      weapon_effects WEAPON_TOOL_LETHALITY
+      update_interval .5 s
+      launch_computer BOMB_ATG_LAUNCH_COMPUTER
+#          debug
+      end_launch_computer      
+   end_weapon
+   processor data_mgr WSF_TRACK_PROCESSOR 
+   end_processor
+   processor lc WSF_SCRIPT_PROCESSOR
+      update_interval 1 s
+      on_update 
+         // Get the ATG launch computer
+         WsfLaunchComputer lc = PLATFORM.Weapon("launcher").LaunchComputer();
+         foreach(WsfLocalTrack lt in PLATFORM.MasterTrackList())
+         {
+            writeln_d("T=", TIME_NOW, " ", PLATFORM.Name(), " ", lc.CanIntercept(lt), " ", PLATFORM.GroundRangeTo(lt));
+            if (lc.CanIntercept(lt)) pass();    
+         }         
+      end_on_update
+   end_processor
+end_platform_type
+
+platform tgt_1 TARGET_PLATFORM_TYPE
+   side red
+   position 0.98n 1w altitude .1 ft
+end_platform
+
+platform tgt_2 TARGET_PLATFORM_TYPE
+   side red
+   position 0.94n 1w altitude .1 ft
+end_platform
+
+platform bomber_low LAUNCH_PLATFORM_TYPE
+   side blue
+   route
+      position 1n 1w altitude 21.5 kft speed 251 m/s
+   end_route
+   track platform tgt_1 end_track
+   track platform tgt_2 end_track     
+end_platform
+
+platform bomber_high LAUNCH_PLATFORM_TYPE
+   side blue
+   route
+      position 1n 1w altitude 29 kft speed 242 m/s
+   end_route
+   track platform tgt_1 end_track
+   track platform tgt_2 end_track 
+end_platform
+
+end_time 2 s

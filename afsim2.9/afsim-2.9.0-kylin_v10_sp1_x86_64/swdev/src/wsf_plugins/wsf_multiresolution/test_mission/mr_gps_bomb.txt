@@ -1,0 +1,94 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+aero GPS_BOMB_AERO WSF_AERO
+   // Note:  Values from Floridistan training demo
+   cd_zero_subsonic     0.100
+   cd_zero_supersonic   0.40
+   mach_begin_cd_rise   0.800
+   mach_end_cd_rise     1.200
+   mach_max_supersonic  2.000
+   reference_area       0.059 m2
+   cl_max              10.400
+   aspect_ratio         4.000
+end_aero
+
+platform_type MR_GPS_BOMB WSF_PLATFORM
+   icon jdam
+   
+   multiresolution_mover WSF_MULTIRESOLUTION_MOVER
+      fidelity 1
+      model guided_with_trapezoidal 
+         fidelity_range 0 0.5
+         mover WSF_GUIDED_MOVER
+            compute_all_forces_each_substep false
+            integration_method trapezoidal
+            update_interval 5 s
+         end_mover
+      end_model
+      
+      model guided_with_rk4 
+         fidelity_range 0.5 1.0
+         mover WSF_GUIDED_MOVER
+            compute_all_forces_each_substep true
+            integration_method rk4
+            update_interval 0.5 s
+         end_mover
+      end_model
+      
+      common
+         aero GPS_BOMB_AERO
+         mass 500 lbs
+      end_common
+   end_multiresolution_mover
+
+   processor guidance_computer WSF_GUIDANCE_COMPUTER
+      proportional_navigation_gain 10.0
+      velocity_pursuit_gain        10.0
+      g_bias                        1.0
+      maximum_commanded_g          25.0 g
+      guidance_delay                0.0 sec
+   end_processor
+
+   processor fuse WSF_GROUND_TARGET_FUSE
+      maximum_time_of_flight 900 seconds
+   end_processor
+   
+   # Check we have the expected mover on initialization
+   on_initialize2
+      WsfMover mover = PLATFORM.Mover();
+      if(mover != NULL){
+         if(mover.UpdateInterval() == 0.5 && mover.IsA_TypeOf("WSF_GUIDED_MOVER")){
+            writeln("Checking mover type");
+            writeln("-PASS-");
+         } else {
+            writeln("Wrong mover. Expected WSF_GUIDED_MOVER, got ", mover.Type());
+            writeln("-FAIL-");
+         }
+      } else {
+         writeln("No mover");
+         writeln("-FAIL-");
+      }
+   end_on_initialize2
+   on_update
+      
+   end_on_update
+end_platform_type
+
+weapon_effects GPS_BOMB_EFFECTS WSF_SPHERICAL_LETHALITY
+   minimum_radius   25.0 m
+   maximum_radius   30.0 m
+end_weapon_effects
+
+weapon MR_GPS_BOMB WSF_EXPLICIT_WEAPON
+   launched_platform_type MR_GPS_BOMB
+   weapon_effects GPS_BOMB_EFFECTS
+end_weapon

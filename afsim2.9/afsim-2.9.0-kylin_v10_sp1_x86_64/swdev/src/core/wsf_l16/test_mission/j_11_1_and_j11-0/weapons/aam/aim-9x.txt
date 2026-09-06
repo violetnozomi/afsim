@@ -1,0 +1,168 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+#                          ------ UNCLASSIFIED ------
+#          AIM-9X (Sidewinder) Short-Range Infrared Air-To-Air Missile
+#
+# All information below is representative only, and is estimated or obtained
+# from open sources.
+################################################################################
+
+# *******************************************************************************************
+# File Log
+# 11/11/15 - J.Iffrig - This models is intended to be a template for a IR guided weapon. This 
+#   model currently uses the defined IR seeker to track targets after launch.
+# ******************************************************************************************
+
+include_once ../../sensor/generic_eoir.txt
+
+aero AIM-9X_AERO WSF_AERO
+   
+   mach_and_cd    0.0 1.35 # ref AIAA 79-0091
+   mach_and_cd    0.8 1.35 # ref AIAA 79-0091
+   mach_and_cd    1.0 1.85 # ref AIAA 79-0091
+   mach_and_cd    1.2 2.0  # ref AIAA 79-0091
+   mach_and_cd    1.5 1.8  # ref AIAA 79-0091
+   mach_and_cd    2.0 1.65 # ref AIAA 79-0091
+   mach_and_cd    3.0 1.2  # ref AIAA 79-0091
+   mach_and_cd    4.0 1.0  # ref AIAA 79-0091
+
+   reference_area 0.13635 ft2 # 5.0 in body dia
+   
+   cl_max 10.0 # Experimentally set, to cause approx 30G max turn rate
+   
+   # Note:  Pi * AR * e = 50 => AR = 50 / Pi / e = 17.7 # ref Steve Knapp
+   aspect_ratio   27.7
+   oswalds_factor  0.9 # Approximate Guess
+
+end_aero
+
+platform_type AIM-9X_BASE WSF_PLATFORM
+
+  icon AIM-9X
+
+  mover WSF_GUIDED_MOVER
+    total_mass       188.0 lbm # init=188, bo=127
+    fuel_mass         61.0 lbm
+    # Isp values of 250 are typical of solid rocket motors of
+    # today, but that value would not close, so was reduced.
+    specific_impulse 222.0 sec
+    thrust          2700.0 lbf
+    thrust_duration    5.1 sec
+    update_interval 0.016 s
+    aero AIM-9X_AERO 
+    #show_status # Turns on some mass properties diagnostic output
+  end_mover
+
+  processor aim-9x_autopilot WSF_GUIDANCE_COMPUTER
+    proportional_navigation_method pure
+    aspect_angle_for_pro_nav_switch 5 deg
+    proportional_navigation_gain  10
+    velocity_pursuit_gain         10.0
+    g_bias                         1.0
+    max_commanded_g               30.0 g
+    update_interval                0.1 s
+  end_processor
+
+   sensor localEOIR_sensor GENERIC_EOIR
+#      on
+      debug 
+      yaw                    0 deg
+      pitch                  0 deg
+      internal_link          track_proc
+      
+      hits_to_establish_track        1 2
+      hits_to_maintain_track         1 4
+   end_sensor   
+
+#   processor image_proc WSF_IMAGE_PROCESSOR
+#      on
+#   end_processor
+     
+   processor track_proc WSF_WEAPON_TRACK_PROCESSOR 
+      on
+      turn_on_sensor localEOIR_sensor at_time 1 sec after_launch
+      uplink_required false      
+   end_processor
+###############################################################################
+
+   processor fuse WSF_WEAPON_FUSE
+      update_interval 0.5 s
+      maximum_time_of_flight 45 s
+      gross_proximity_range 1200 m
+      fine_update_interval 0.1 s
+      hit_proximity_range 100 m
+      do_not_use_current_target
+      
+      detonate_below_height_AGL 0.0 ft
+   end_processor
+
+end_platform_type
+
+weapon_effects AIM-9X_EFFECT WSF_SPHERICAL_LETHALITY
+  # Note:  Does not consider the hardness of any target.  All are treated the same.
+  minimum_radius  1.0 ft # largest blast radius at which damage inflicted is maximum.
+  maximum_damage   1.0    # maximum damage level achievable upon the target.
+  maximum_radius  30.0 ft # blast radius beyond which the damage inflicted is Zero.
+  minimum_damage   0.99    # damage level acheived at the maximum radius.
+  threshold_damage 0.1  # initial damage level which must be acheived
+                          # before effects begin to accumulate upon the target 
+  exponent         1.00   # exponent of proportionality of damage with radius.
+end_weapon_effects
+
+weapon AIM9XC WSF_EXPLICIT_WEAPON
+   launched_platform_type AIM-9X_BASE
+   launch_delta_v 10.0 0.0 0.0 m/s
+   weapon_effects AIM-9X_EFFECT
+   location 0.0 0.0 1.0 meters
+end_weapon
+
+weapon AIM9XL WSF_EXPLICIT_WEAPON
+   launched_platform_type AIM-9X_BASE
+   launch_delta_v 10.0 0.0 0.0 m/s
+   weapon_effects AIM-9X_EFFECT
+   location 0.0 -10.0 1.0 meters
+end_weapon
+
+weapon AIM9XR WSF_EXPLICIT_WEAPON
+   launched_platform_type AIM-9X_BASE
+   launch_delta_v 10.0 0.0 0.0 m/s
+   weapon_effects AIM-9X_EFFECT
+   location 0.0 10.0 1.0 meters
+end_weapon
+
+# Following is an example launch computer for this weapon,
+# valid only at the specified launch altitude and speed.
+#include_once aim-9x_ata_launch_computer_alt10kft_0.6mach.txt
+
+###############################################################################
+#                         START OF EXAMPLE SECTION
+###############################################################################
+
+/* <----- START BLOCK COMMENT
+
+platform_type AIM-9X AIM-9X_BASE
+   comm uplink <comm-type>
+      <comm-data>
+   end_comm
+   sensor seeker <sensor-type>
+      <sensor-data>
+   end_sensor
+end_platform_type
+
+platform_type AIM-9X_LAUNCHER WSF_PLATFORM
+   #icon <unknown>
+   weapon aim-9x AIM-9X
+      launched_platform_type AIM-9X
+   end_weapon
+end_platform_type
+
+-----> END BLOCK COMMENT */
+

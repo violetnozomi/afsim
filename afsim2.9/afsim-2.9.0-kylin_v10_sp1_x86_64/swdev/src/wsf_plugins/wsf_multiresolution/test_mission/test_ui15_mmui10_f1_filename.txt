@@ -1,0 +1,27 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright (C) 2021 Stellar Science; U.S. Government has Unlimited Rights.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+test_feature multiresolution
+
+$define UPDATE_INTERVAL 15
+$define MAXIMUM_MOVER_UPDATE_INTERVAL 10
+$define FIDELITY_VALUE 1
+$define EXPECTED_VALUE 10
+
+event_pipe
+   file temp.aer
+   # The -1 here is to have the lines pass the grammar check; if the -1 value
+   # somehow gets used, the script will fail, as negative
+   # maximum_mover_update_interval values are invalid.
+   maximum_mover_update_interval $<MAXIMUM_MOVER_UPDATE_INTERVAL:-1>$ s
+end_event_pipe
+
+include_once multires_mover_max_update_interval_test_template.txt

@@ -1,0 +1,67 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. This is designed to be included into the (csv_)event_output documentation.
+
+.. =================================================================================================================
+.. Compound Signature Element TODO
+.. The PrintLocationData signatures need to be defined here do to limitations to the .. include:: command in Sphinx.
+.. This can be removed when Compound Signature Elements are applied here.
+
+.. |CSV_LOCATION_LLA| replace:: <latitude>,<longitude>,<altitude>
+
+.. |EVT_LOCATION_LLA| replace:: LLA: <latitude> <longitude> <altitude> m
+
+.. |CSV_LOCATION_ECI| replace:: <\|\ L\ \|\ :sub:`ECI`\ >,<u\ :sub:`Lx`\ >,<u\ :sub:`Ly`\ >,<u\ :sub:`Lz`\ >
+
+.. |EVT_LOCATION_ECI| replace:: ECI Location: <\|\ L\ \|\ :sub:`ECI`\ > * m [ <u\ :sub:`Lx`\ > <u\ :sub:`Ly`\ > <u\ :sub:`Lz`\ > ]
+
+.. |CSV_LOCATION_DATA| replace:: <**location**\ :sub:`LLA`\ >,
+   | <**location**\ :sub:`eci`\ >
+
+.. |EVT_LOCATION_DATA| replace:: { <**location**\ :sub:`LLA`\ > | <**location**\ :sub:`eci`\ > }
+.. =================================================================================================================
+
+.. |CSV_TRACK_COVARIANCE_DATA| replace:: <major-axis>,<minor-axis>,<brg>
+
+.. |EVT_TRACK_COVARIANCE_DATA| replace:: Major Axis: <major-axis> m Minor Axis: <minor-axis> m Bearing: <brg> deg
+
+.. |CSV_TRACK_DATA_BRIEF| replace:: <time\ :sub:`start`\ >,<time\ :sub:`update`\ >,<count\ :sub:`update`>,<track\ :sub:`quality`\ >,<domain\ :sub:`spatial`\ >,<flag\ :sub:`type`\ >,<flag\ :sub:`candidate`\ >,<flag\ :sub:`false target`\ >
+
+.. |EVT_TRACK_DATA_BRIEF| replace:: Start_Time: <time\ :sub:`start`\ > Update_Time: <time\ :sub:`update`\ > Update_Count: <count\ :sub:`update`> Quality: <track\ :sub:`quality`\ > Domain: <domain\ :sub:`spatial`\ > Type: <flag\ :sub:`type`\ ><flag\ :sub:`candidate`\ ><flag\ :sub:`false target`\ >
+
+.. |CSV_TRACK_DATA| replace:: |CSV_TRACK_DATA_BRIEF|
+   { ,<platform\ :sub:`name`\ >,<platform\ :sub:`type`\ >,<platform\ :sub:`side`\ > | ,,, },
+   (originator)\ |CSV_LOCATION_DATA|
+   { ,\ (perceived)\ |CSV_LOCATION_DATA|,
+   { <flag\ :sub:`LV` >}.{ <flag\ :sub:`3D`> },{ <flag\ :sub:`RV`> },{ <flag\ :sub:`BV`> },{ <flag\ :sub:`EV`> }
+   { ,\ (actual)\ |CSV_LOCATION_DATA|,<\|\ **r**\ \|\ :sub:`perceived - actual`\ > | ,,,,,,, } | ,,,,,,,,,,,,,,,,,, }
+   { ,{ <\|\ **v**\ \|\ :sub:`perceived`\ >,{ <hdg\ :sub:`perceived`\ > },{ <\|\ **v**\ \|\ :sub:`actual`\ >,<heading\ :sub:`actual`\ > | , } | ,,, }
+   { ,{ <range\ :sub:`perceived`\ > },{ <brg\ :sub:`perceived`\ > },{ <el\ :sub:`perceived`\ > }
+   { ,{ <range\ :sub:`actual`\ > },{ <brg\ :sub:`actual`\ > },{ <el\ :sub:`actual`\ > } | ,,, }
+   { ,{ <SE\ :sub:`range`\ > },{ <<SE\ :sub:`brg`\ > },{ <<SE\ :sub:`el`\ >> } | ,,, } | ,,,,,,,,, },
+   { <type\ :sub:`id`\ > },{ <side\ :sub:`id`\ > },{ <log(S/N)> },{ <pixel-count> },
+   { <signal-count>,{ { <f\ :sub:`lower`\ >,<f\ :sub:`upper`\ > } | , } | 0,, }
+   { ,<aux-data> | , }
+
+.. |EVT_TRACK_DATA| replace:: |EVT_TRACK_DATA_BRIEF|
+   { Target_Truth: Name: <platform\ :sub:`name`\ > Type: <platform\ :sub:`type`\ > Side: <platform\ :sub:`side`\ > }
+   Originator: |EVT_LOCATION_DATA|
+   { Track: |EVT_LOCATION_DATA| Flags: { <flag\ :sub:`LV` > }{ <flag\ :sub:`3D`> }{ <flag\ :sub:`RV`> }{ <flag\ :sub:`BV`> }{ <flag\ :sub:`EV`> } }
+   { Truth: |EVT_LOCATION_DATA| Difference: <\|\ **r**\ \|\ :sub:`perceived - actual`\ > }
+   { { Track: Vel: <\|\ **v**\ \|\ :sub:`perceived`\ > m/s Hdg: <hdg\ :sub:`perceived`\ > deg } { Truth: Vel: <\|\ **v**\ \|\ :sub:`actual`\ > m/s Hdg: <hdg\ :sub:`actual`\ > deg } }
+   { Track: { Range: <range\ :sub:`perceived`\ > m } { Bearing: <brg\ :sub:`perceived`\ > deg } { Elevation: <el\ :sub:`perceived`\ > deg } }
+   { { Truth: Range: <range\ :sub:`actual`\ > m } { Bearing: <brg\ :sub:`actual`\ > deg } { Elevation: <el\ :sub:`actual`\ > deg } }
+   { Measurement_Error_Sigma: { Range: <SE\ :sub:`range`\ > m } { Bearing: <SE\ :sub:`brg`\ >> deg } { Elevation: <SE\ :sub:`el`\ > deg } }
+   { Type_IDs: [{ <type\ :sub:`id`\ > (<type\ :sub:`quality`\ >) }] | Type_ID: <type\ :sub:`id`\ > } { Side_ID: <side\ :sub:`id`\ > } { Signal-To-Noise: <log(S/N)> } { Pixel_Count: <pixel-count> }
+   { Frequency: [{ (<f\ :sub:`lower`\ > <f\ :sub:`upper`\ >) }] }
+   { Aux_Data: <aux-data> }
+   { Measurement_Covariance: |EVT_TRACK_COVARIANCE_DATA| \\ }
+   { State_Covariance: |EVT_TRACK_COVARIANCE_DATA| }
+   { Residual_Covariance: |EVT_TRACK_COVARIANCE_DATA| }

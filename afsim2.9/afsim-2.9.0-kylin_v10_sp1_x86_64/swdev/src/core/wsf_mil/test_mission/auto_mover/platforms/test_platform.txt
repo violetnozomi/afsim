@@ -1,0 +1,96 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Platform type definition to be used in tests
+
+$define totalMass1 200
+$define fuelMass1 120
+$define emptyMass1 80
+
+$define totalMass2 150
+$define fuelMass2 100
+$define emptyMass2 50
+
+aero  TEST_AERO  WSF_AERO
+   reference_area 0.352565 ft2
+   aspect_ratio   2.664793
+   cl_max         10.493880
+   mach_and_cd    0.100000 0.520054
+   mach_and_cd    0.500000 0.544862
+   mach_and_cd    0.700000 0.540851
+   mach_and_cd    0.750000 0.540778
+   mach_and_cd    0.800000 0.547615
+   mach_and_cd    0.850000 0.615383
+   mach_and_cd    0.900000 0.892723
+   mach_and_cd    0.920000 1.000904
+   mach_and_cd    0.940000 1.063639
+   mach_and_cd    0.960000 1.092821
+   mach_and_cd    0.980000 1.104496
+   mach_and_cd    1.000000 1.107686
+   mach_and_cd    1.020000 1.105361
+   mach_and_cd    1.040000 1.096765
+   mach_and_cd    1.060000 1.089340
+   mach_and_cd    1.080000 1.071959
+   mach_and_cd    1.100000 1.028430
+   mach_and_cd    1.200000 0.954541
+   mach_and_cd    1.300000 0.951495
+   mach_and_cd    1.400000 0.949697
+   mach_and_cd    1.500000 0.948065
+   mach_and_cd    1.750000 0.944563
+   mach_and_cd    2.000000 0.941723
+   mach_and_cd    2.500000 0.937452
+   mach_and_cd    3.000000 0.934442
+   mach_and_cd    3.500000 0.932226
+   mach_and_cd    4.000000 0.930527
+   mach_and_cd    5.000000 0.928055
+   mach_and_cd    6.000000 0.926280
+end_aero
+
+# Setup the Guided Mover
+mover TEST_MOVER WSF_GUIDED_MOVER
+   update_interval   0.01 s
+   
+   stage 1
+      aero                       TEST_AERO
+      total_mass                 $<totalMass1:0>$ kg
+      fuel_mass                  $<fuelMass1:0>$ kg
+
+      thrust_table
+         0.00 sec     0 Nt
+         0.10 sec 17760 Nt
+         17.8 sec  6660 Nt
+         18.0 sec     0 Nt
+      end_thrust_table
+   end_stage
+   
+   stage 2
+      aero                       TEST_AERO
+      total_mass                 $<totalMass2:0>$ kg
+      fuel_mass                  $<fuelMass2:0>$ kg
+      
+      thrust_table
+         0.00 s     0 Nt
+         0.1 s     0 Nt
+         0.15 s 15000 Nt
+         14.9 s 15000 Nt
+         15.0 s    0  Nt
+      end_thrust_table
+   end_stage
+   
+end_mover
+
+platform_type  TEST_PLATFORM_BASE  WSF_PLATFORM
+
+   spatial_domain  air                                # This vehicle operates in the air domain
+   side            green                              # Neutral force color
+   icon            aim-mr                             # Icon based on geometry
+
+mover TEST_MOVER
+end_mover
+end_platform_type

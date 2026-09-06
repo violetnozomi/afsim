@@ -1,0 +1,68 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Filename: test_ripr_behavior_tree_1.txt
+# This file will validate the basic input commands for defining behavior trees on a RIPR processor.
+
+test_feature ripr
+
+script_variables
+   int should_run_count = 0;
+   int not_run_count = 0;
+end_script_variables
+
+behavior should_run
+   precondition
+      return true;
+   end_precondition
+   execute
+      extern int should_run_count;
+      should_run_count = should_run_count + 1;
+   end_execute
+end_behavior
+
+behavior not_run
+   precondition
+      return false;
+   end_precondition
+   execute
+      extern int not_run_count;
+      not_run_count = not_run_count + 1;
+   end_execute
+end_behavior
+
+processor test_proc WSF_RIPR_PROCESSOR
+   update_interval 10 seconds
+   behavior_tree
+      behavior_node should_run 
+      behavior_node not_run   
+   end_behavior_tree
+end_processor
+
+platform test_plat WSF_PLATFORM
+   add processor test test_proc end_processor
+   position 0n 0e altitude 100 m
+end_platform
+
+script void SimulationComplete()
+   if (!(should_run_count>0))
+   {
+      writeln("-FAIL- A behavior that succeeded precondition did not execute!");
+   }
+   if (!(not_run_count==0))
+   {
+      writeln("-FAIL- A behavior that failed precondition executed anyways!");
+   }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+end_time 15 seconds

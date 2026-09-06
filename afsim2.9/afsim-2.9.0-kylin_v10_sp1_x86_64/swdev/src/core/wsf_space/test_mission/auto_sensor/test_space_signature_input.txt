@@ -1,0 +1,57 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test all of the inputs for WSF_SPACE_OPTICAL_SIGNATURE
+
+# Test of an implicitly defined 'default' state.
+optical_signature SPACE_OPTICAL_SIG_1 WSF_SPACE_OPTICAL_SIGNATURE
+   surface sphere
+      radius 10 m
+   end_surface
+end_optical_signature
+
+optical_signature SPACE_OPTICAL_SIG_2 WSF_SPACE_OPTICAL_SIGNATURE
+   reflectance 1.0
+   minimum_temperature 173.15 k
+   maximum_temperature 393.15 k
+   temperature_change_rate 0.1 k/sec
+   debug
+   debug_level 1
+
+   state default
+      surface box
+         size 1 m 1 m 1 m
+         yaw   0 deg
+         pitch 0 deg
+         roll  0 deg
+         cue_to sun
+         azimuth_cue_limits   -180 deg 180 deg
+         elevation_cue_limits  -90 deg  90 deg
+         azimuth_cue_limits      0 deg   0 deg
+         elevation_cue_limits    0 deg   0 deg
+      end_surface
+      
+      surface plane
+         area 10 m^2
+      end_surface
+
+      surface sphere
+         radius 10 m
+      end_surface
+end_optical_signature
+
+# Miscellaneous commands
+optical_signature SPACE_OPTICAL_SIG_3 WSF_SPACE_OPTICAL_SIGNATURE
+   plot_file test.plt        # Not documented
+   print_computed_data       # Not documented
+   
+   surface sphere
+      radius 10 m
+   end_surface
+end_optical_signature

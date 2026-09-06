@@ -1,0 +1,236 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../utils.txt
+
+script_variables
+   double earth_mean_radius = 6371000.79; // Note: not the same as Earth.MEAN_RADIUS()
+   double gravitational_parameter = Earth.GRAVITATIONAL_PARAMETER();
+   double sec_per_day = 86400;
+   double tol = 1.0e-12;
+end_script_variables
+
+platform_type TEST_PLATFORM WSF_PLATFORM
+
+   script_variables   
+      double eccentricity = 0.0;
+      double semi_major_axis = 9000000; // meters
+
+      double revs_per_day = sec_per_day * Math.Sqrt(gravitational_parameter/(Math.Pow(semi_major_axis, 3))) / Math.TWO_PI();
+      double periapsis_radius = semi_major_axis * (1 - eccentricity); // meters
+      double periapsis_altitude = periapsis_radius - earth_mean_radius; // meters
+      double apoapsis_radius = semi_major_axis * (1 + eccentricity); // meters
+      double apoapsis_altitude = apoapsis_radius - earth_mean_radius; // meters
+   end_script_variables
+
+
+   on_initialize2     
+      WsfSpaceMover spaceMover = (WsfSpaceMover)Mover(); 
+      ExpectDouble(spaceMover.Eccentricity(), eccentricity, eccentricity * tol + tol, "Eccentricity does not match");
+      ExpectDouble(spaceMover.SemiMajorAxis(), semi_major_axis, semi_major_axis * tol + tol, "Semi-major axis does not match");
+      ExpectDouble(spaceMover.RevolutionsPerDay(), revs_per_day, revs_per_day * tol + tol, "Revs per day does not match");
+      ExpectDouble(spaceMover.PeriapsisRadius(), periapsis_radius, periapsis_radius * tol + tol, "Periapsis Radius does not match");
+      ExpectDouble(spaceMover.PeriapsisAltitude(), periapsis_altitude, periapsis_altitude * tol + tol, "Periapsis Altitude does not match");
+      ExpectDouble(spaceMover.ApoapsisRadius(), apoapsis_radius, apoapsis_radius * tol + tol, "Apoapsis Radius does not match");
+      ExpectDouble(spaceMover.ApoapsisAltitude(), apoapsis_altitude, apoapsis_altitude * tol + tol, "Apoapsis Altitude does not match");
+   end_on_initialize2
+end_platform_type
+
+platform_type TEST_PLATFORM_ECC TEST_PLATFORM
+   mover WSF_SPACE_MOVER 
+      eccentricity 0.1
+   end_mover
+   
+   script_variables 
+      eccentricity = 0.1;
+      semi_major_axis = 9000000; // meters
+
+      revs_per_day = sec_per_day * Math.Sqrt(gravitational_parameter/(Math.Pow(semi_major_axis, 3))) / Math.TWO_PI();
+      periapsis_radius = semi_major_axis * (1 - eccentricity); // meters
+      periapsis_altitude = periapsis_radius - earth_mean_radius; // meters
+      apoapsis_radius = semi_major_axis * (1 + eccentricity); // meters
+      apoapsis_altitude = apoapsis_radius - earth_mean_radius; // meters
+   end_script_variables
+end_platform_type
+
+// Eccentricty not specified
+// -------------------------------------------------------------------------
+platform p TEST_PLATFORM 
+   add mover WSF_SPACE_MOVER 
+      semi_major_axis 9000000 m
+   end_mover
+end_platform
+// -------------------------------------------------------------------------
+
+// Eccentricity and one other shape parameter specified
+// -------------------------------------------------------------------------
+platform p_sma TEST_PLATFORM_ECC 
+   edit mover
+      semi_major_axis 9000000 m
+   end_mover
+end_platform
+
+platform p_rpd TEST_PLATFORM_ECC 
+   edit mover
+      revolutions_per_day 10.1680810147564
+   end_mover
+end_platform
+
+platform p_rp TEST_PLATFORM_ECC 
+   edit mover
+      periapsis_radius 8100000 m
+   end_mover
+end_platform
+
+platform p_ra TEST_PLATFORM_ECC 
+   edit mover
+      apoapsis_radius 9900000 m
+   end_mover
+end_platform
+
+platform p_zp TEST_PLATFORM_ECC 
+   edit mover
+      periapsis_altitude 1728999.21 m
+   end_mover
+end_platform
+
+platform p_za TEST_PLATFORM_ECC 
+   edit mover
+      apoapsis_altitude 3528999.21 m
+   end_mover
+end_platform
+// -------------------------------------------------------------------------
+
+// Periapsis Radius and Apoapsis Radius specified
+// -------------------------------------------------------------------------
+platform p_rp_ra TEST_PLATFORM
+
+   script_variables 
+      periapsis_radius = 8000000; // meters
+      apoapsis_radius = 9500000; // meters
+   
+      eccentricity = (apoapsis_radius - periapsis_radius)/(apoapsis_radius + periapsis_radius);
+      semi_major_axis = (apoapsis_radius + periapsis_radius)/2.0; // meters
+      revs_per_day = sec_per_day * Math.Sqrt(gravitational_parameter/(Math.Pow(semi_major_axis, 3))) / Math.TWO_PI();
+      periapsis_altitude = periapsis_radius - earth_mean_radius; // meters
+      apoapsis_altitude = apoapsis_radius - earth_mean_radius; // meters
+   end_script_variables
+
+   add mover WSF_SPACE_MOVER
+      periapsis_radius 8000000 m
+      apoapsis_radius 9500000 m
+   end_mover
+end_platform
+// -------------------------------------------------------------------------
+
+// Apoapsis Altitude and Semi-Major Axis specified
+// -------------------------------------------------------------------------
+platform p_aa_sma TEST_PLATFORM
+
+   script_variables 
+      apoapsis_altitude = 3500000; // meters
+      semi_major_axis = 8500000; // meters
+   
+      apoapsis_radius = apoapsis_altitude + earth_mean_radius;
+      eccentricity = apoapsis_radius / semi_major_axis - 1;
+      revs_per_day = sec_per_day * Math.Sqrt(gravitational_parameter/(Math.Pow(semi_major_axis, 3))) / Math.TWO_PI();
+      periapsis_radius = semi_major_axis * (1 - eccentricity); // meters
+      periapsis_altitude = periapsis_radius - earth_mean_radius; // meters
+   end_script_variables
+
+   add mover WSF_SPACE_MOVER
+      apoapsis_altitude 3500000 m
+      semi_major_axis 8500000 m
+   end_mover
+end_platform
+// -------------------------------------------------------------------------
+
+// Tests to ensure that the "last one wins" in over-constrained situations
+// -------------------------------------------------------------------------
+platform p_overconstrained_1 TEST_PLATFORM
+
+   script_variables 
+      revs_per_day = 10;
+      
+      semi_major_axis = Math.Pow(gravitational_parameter/(Math.Pow(Math.TWO_PI() * revs_per_day / sec_per_day,2)), 1.0/3.0);
+      periapsis_radius = semi_major_axis * (1 - eccentricity); // meters
+      periapsis_altitude = periapsis_radius - earth_mean_radius; // meters
+      apoapsis_radius = semi_major_axis * (1 + eccentricity); // meters
+      apoapsis_altitude = apoapsis_radius - earth_mean_radius; // meters
+   end_script_variables
+
+   add mover WSF_SPACE_MOVER 
+      semi_major_axis 9000000 m // should be ignored
+      revolutions_per_day 10 // should use this and ignore semi_major_axis
+   end_mover
+
+end_platform
+
+platform p_overconstrained_2 TEST_PLATFORM
+
+   script_variables 
+      periapsis_altitude = 2500000; // meters
+      apoapsis_radius = 9500000; // meters
+
+      periapsis_radius = periapsis_altitude + earth_mean_radius; // meters   
+      eccentricity = (apoapsis_radius - periapsis_radius)/(apoapsis_radius + periapsis_radius);
+      semi_major_axis = (apoapsis_radius + periapsis_radius)/2.0; // meters
+      revs_per_day = sec_per_day * Math.Sqrt(gravitational_parameter/(Math.Pow(semi_major_axis, 3))) / Math.TWO_PI();
+      apoapsis_altitude = apoapsis_radius - earth_mean_radius; // meters
+   end_script_variables
+
+   add mover WSF_SPACE_MOVER
+      periapsis_radius 8000000 m // should be ignored
+      apoapsis_radius 9500000 m
+      periapsis_altitude 2500000 m // should use this and ignore periapsis_radius
+   end_mover
+end_platform
+
+platform p_overconstrained_3 TEST_PLATFORM
+
+   script_variables 
+      eccentricity = 0.1; // meters
+      periapsis_radius = 8000000; // meters
+
+      apoapsis_radius = periapsis_radius * (1 + eccentricity)/(1 - eccentricity);
+      semi_major_axis = (apoapsis_radius + periapsis_radius)/2.0; // meters
+      revs_per_day = sec_per_day * Math.Sqrt(gravitational_parameter/(Math.Pow(semi_major_axis, 3))) / Math.TWO_PI();
+      periapsis_altitude = periapsis_radius - earth_mean_radius; 
+      apoapsis_altitude = apoapsis_radius - earth_mean_radius; // meters
+   end_script_variables
+
+   add mover WSF_SPACE_MOVER
+      apoapsis_radius 9500000 m // should be ignored
+      periapsis_radius 8000000 m    
+      eccentricity 0.1 // should use this and ignore periapsis_radius
+   end_mover
+end_platform
+
+platform p_overconstrained_4 TEST_PLATFORM
+
+   script_variables 
+      periapsis_radius = 8000000; // meters
+      apoapsis_altitude = 6600000; // meters
+
+      apoapsis_radius = apoapsis_altitude + earth_mean_radius; // meters
+      periapsis_altitude = periapsis_radius - earth_mean_radius; // meters   
+      eccentricity = (apoapsis_radius - periapsis_radius)/(apoapsis_radius + periapsis_radius);
+      semi_major_axis = (apoapsis_radius + periapsis_radius)/2.0; // meters
+      revs_per_day = sec_per_day * Math.Sqrt(gravitational_parameter/(Math.Pow(semi_major_axis, 3))) / Math.TWO_PI();
+      
+   end_script_variables
+
+   add mover WSF_SPACE_MOVER
+      periapsis_radius 8000000 m 
+      apoapsis_radius 9500000 m // should be ignored
+      apoapsis_altitude 6600000 m // should use this and ignore apoapsis_radius
+   end_mover
+end_platform
+
+// -------------------------------------------------------------------------

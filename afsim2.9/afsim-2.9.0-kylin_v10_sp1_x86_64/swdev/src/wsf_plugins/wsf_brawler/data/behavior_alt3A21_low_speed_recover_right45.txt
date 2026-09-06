@@ -1,0 +1,135 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt3a.f
+// Replicates the low speed recover right 45 deg 3,A,2,1 alternative behavior
+
+behavior alt3A21_low_speed_recover_right45
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3A21Enabled = false;
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 10;
+      int icall  = 2;
+      int lcall  = 1;
+
+      // Maneuver Alternative flight values
+      Vec3 mDir0 = Vec3();
+      double mGMX = 1.0;
+      double mSpd0 = 3.0;
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+
+      // Magic numbers from alt3a.f
+      double sd45 = 0.7071068;
+      double cd45 = 0.7071068;
+
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt3411_straight_flight, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3A21Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      if (!BRAWLER.SlowFlight())
+      {
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " not in slow flight");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+
+      // ALL CONDITIONS PASS
+      ### Generate Maneuver Alternative
+#C   ALTERNATIVE 2: ROLL +45 DEGREES
+#40    continue
+#      dir0(1) = 0.
+#      dir0(2) = sd45
+#      dir0(3) = -cd45
+#      call vxfrmc(rbep,dir0,dir0,2)
+#      go to 990
+#990   submor = .true.
+#      iactn = 4
+#      lenalt = lactn(iactn)
+#      altdsc = altpk(3,10,icall,1,0,0)
+#C     --SET TO HIGHEST THROTTLE SETTING FOR MAX SPEED
+#      spd0 = 3.
+#      spdmod = thrttl
+#      call srch(dragvl,ndatbl,acmasp*grav,index,xx)
+#      if(index.ne.0) go to 995
+#         index = ndatbl
+#         xx = 0.0
+#995   continue
+#      gmx = gmxin*(index-xx-1.0)/(ndatbl-1.0)
+#      gmx = amax1(gmx,1.5)
+#      gmx = 1.5+(gmx-1.5)*ramp(.5,vp(3,me)/spdnow(me),0.)
+
+      mDir0 = Vec3.Construct(0.0, sd45, -cd45);
+      //TODO convert from earth to body coordinates
+
+      mSpd0 = 3;
+
+      mGMX = BRAWLER.MaxAvailableGs(); // TODO add drag v lift
+      mGMX = Math.Max(mGMX, 1.5);
+      Vec3 vp = PLATFORM.VelocityNED();
+      double speed = PLATFORM.Speed() * Math.FT_PER_M(); // Speed in f/sec
+      mGMX = 1.5 + (mGMX - 1.5) * ramp(0.5, (vp[2] * Math.FT_PER_M()/speed), 0.0);
+
+      ### Evaluate [Projected] Maneuver Alternative
+      double score = BRAWLER.EvaluateVectorWithThrottle(mDir0, mGMX, mSpd0, ilevel, kalt, icall, lcall);
+      return score;
+
+   end_precondition
+
+
+   execute
+      ## what was evaluated should be actually performed now
+      PLATFORM.FlyVectorWithThrottle(mDir0, mGMX, mSpd0);
+   end_execute
+
+end_behavior
+

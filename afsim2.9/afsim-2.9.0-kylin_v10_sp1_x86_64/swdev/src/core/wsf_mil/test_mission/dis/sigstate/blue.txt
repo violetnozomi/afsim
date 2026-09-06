@@ -1,0 +1,35 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2003-2015 The Boeing Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+include types.txt
+
+dis_interface
+   application 2
+end_dis_interface
+
+event_output
+   file blue.evt
+end_event_output
+
+platform bomber-1 BOMBER
+   side blue
+   route
+      position 40n 88w altitude 40000 ft speed 450 kts heading 270 deg
+   end_route
+
+   execute at_time  10 secs relative  OpenDoor("left_bay_door");    end_execute
+   execute at_time  12 secs relative  OpenDoor("right_bay_door");   end_execute
+   execute at_time  14 secs relative  OpenDoor("aft_bay_door");     end_execute
+   
+   execute at_time  20 secs relative  CloseDoor("left_bay_door");   end_execute
+   execute at_time  22 secs relative  CloseDoor("aft_bay_door");    end_execute
+   execute at_time  24 secs relative  CloseDoor("right_bay_door");  end_execute
+
+end_platform

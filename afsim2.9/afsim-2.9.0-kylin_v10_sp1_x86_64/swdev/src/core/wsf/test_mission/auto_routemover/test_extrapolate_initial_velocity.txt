@@ -1,0 +1,51 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Verify that the route mover will extrapolate on initial
+# velocity when not given a route
+include ../auto_script/test_pass.txt
+script_variables
+  PassTestCount = 2;
+end_script_variables
+platform_type AIRCRAFT WSF_PLATFORM
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+platform aircraft AIRCRAFT
+   heading 90 deg
+   execute at_time 0.01 s relative
+      GoToSpeed(100);  // m/s
+   end_execute
+   execute at_time 5 s relative
+
+      # Time cutoff for checking on SAR mappers
+      double CheckTime = 300.0; # sec
+      bool NoSARs = false;
+      WsfPlatform sar_mapper_1 = WsfSimulation.FindPlatform("SAR_1");
+      WsfPlatform sar_mapper_2 = WsfSimulation.FindPlatform("SAR_2");
+      if (TIME_NOW < CheckTime &&
+          (!sar_mapper_1.IsValid() || sar_mapper_1.DamageFactor() >= 1) &&
+          (!sar_mapper_2.IsValid() || sar_mapper_2.DamageFactor() >= 1))
+      {
+          NoSARs = true;
+      }
+      if (NoSARs)
+      {
+         # Go Home
+      }
+
+      extern void pass();
+      if (Math.Fabs(Speed() - 100) < .5) pass();
+      else writeln("-FAIL- Bad speed - ", Speed());
+      if (Math.Fabs(Heading() - 90) < .5) pass();
+      else writeln("-FAIL- Bad heading - ", Heading());
+   end_execute
+end_platform
+
+end_time 6 s

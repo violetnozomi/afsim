@@ -1,0 +1,233 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# --------------------------------------------------------------------------------------------------
+# This is a test to confirm that on_initialize and on_initialize2 
+# produce the correct kinematic states for P6DOF movers
+# --------------------------------------------------------------------------------------------------
+
+end_time 0.15 sec
+
+include_once ../p6dof_types/environment/p6dof_environment.txt
+include_once ../p6dof_types/aircraft/fa-lgt/fa-lgt.txt
+
+script_variables
+   bool allPassed    = true;
+   double onePercent = 0.01;
+end_script_variables
+
+script bool CheckValue(string aPlatformName, 
+                       double aValue, 
+                       double aTargetValue, 
+                       double aTolerance, 
+                       string aAttributeName, 
+                       string aValueUnits, 
+                       string aTime)
+                       
+   double delta = MATH.Fabs(aValue - aTargetValue);
+   bool passed = true;
+   if (delta >= aTolerance)
+   {
+      writeln("-FAIL- ", aAttributeName, " = ", aValue, " ", aValueUnits, " is not within tolerance of (", aTolerance, ") from the target of ", aTargetValue, " ", aValueUnits, " for platform ", aPlatformName, " at time = ", aTime);
+      passed = false;
+   }
+   return passed;
+   
+end_script
+
+route level
+   position 01:00:00n 01:00:00w 
+   altitude 20000 ft
+   speed 300 kts
+   position 01:00:00n 02:00:00w
+   altitude 20000 ft
+end_route 
+
+route climb
+   position 01:00:00n 01:00:00w 
+   altitude 20000 ft
+   speed 300 kts
+   position 01:00:00n 02:00:00w
+   altitude 30000 ft
+end_route 
+
+platform_type p6dof WSF_PLATFORM
+   script_variables 
+      double targetLatitude;
+      double targetLongitude;
+      double targetAltitude;
+      double targetHeading;
+      double targetPitch;
+      double targetRoll;
+      double targetSpeed;
+
+      double toleranceLatitude;
+      double toleranceLongitude;
+      double toleranceAltitude;
+      double toleranceHeading;
+      double tolerancePitch;
+      double toleranceRoll;
+      double toleranceSpeed;
+      
+   end_script_variables    
+
+   script bool CheckAllValues(string aTime, string aTimeUnits)
+
+      bool passed = true;
+      passed = CheckValue(Name(), Latitude(), targetLatitude, toleranceLatitude, "Latitude", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Longitude(), targetLongitude, toleranceLongitude, "Longitude", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Altitude(), targetAltitude, toleranceAltitude, "Altitude", "meters", aTime) && passed;
+      passed = CheckValue(Name(), Heading(), targetHeading, toleranceHeading, "Heading", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Pitch(), targetPitch, tolerancePitch, "Pitch", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Roll(), targetRoll, toleranceRoll, "Roll", "deg", aTime) && passed;
+      passed = CheckValue(Name(), Speed(), targetSpeed, toleranceSpeed, "Speed", "m/s", aTime) && passed;
+      return passed;
+   end_script
+
+   on_initialize    
+      targetLatitude  = 0.0;
+      targetLongitude = 0.0;
+      targetAltitude  = 0.0;
+      targetHeading   = 0.0;
+      targetPitch     = 0.0;
+      targetRoll      = 0.0;
+      targetSpeed     = 0.0;
+      
+      toleranceLatitude  = 0.001;
+      toleranceLongitude = 0.001;
+      toleranceAltitude  = 0.01;
+      toleranceHeading   = 0.01;
+      tolerancePitch     = 0.01;
+      toleranceRoll      = 0.01;
+      toleranceSpeed     = 0.01;
+      
+      allPassed =  CheckAllValues("on_initialize", "") && allPassed;
+      
+   end_on_initialize
+
+   on_initialize2
+      if (Name() == "p6dof_level")
+      {
+         targetLatitude  = 1.0;
+         targetLongitude = -1.0;
+         targetAltitude  = 20000 * MATH.M_PER_FT();
+         targetHeading   = -90.0;
+         targetPitch     = 0.0;
+         targetRoll      = 0.0;
+         targetSpeed     = 300 * MATH.MPS_PER_NMPH();
+      
+         toleranceLatitude  = MATH.Fabs(targetLatitude * onePercent);
+         toleranceLongitude = MATH.Fabs(targetLongitude * onePercent);
+         toleranceAltitude  = MATH.Fabs(targetAltitude * onePercent);
+         toleranceHeading   = MATH.Fabs(targetHeading * onePercent);
+         tolerancePitch     = 0.05;
+         toleranceRoll      = 0.1;
+         toleranceSpeed     = MATH.Fabs(targetSpeed * onePercent);
+         
+         allPassed = allPassed && CheckAllValues("on_initialize2", "");
+      }
+      else if (Name() == "p6dof_level_wash_in")
+      {
+         targetLatitude  = 1.0;
+         targetLongitude = -1.0;
+         targetAltitude  = 20000 * MATH.M_PER_FT();
+         targetHeading   = -90.0;
+         targetPitch     = 1.6681;
+         targetRoll      = 0.0;
+         targetSpeed     = 205.778;
+      
+         toleranceLatitude  = MATH.Fabs(targetLatitude * onePercent);
+         toleranceLongitude = MATH.Fabs(targetLongitude * onePercent);
+         toleranceAltitude  = MATH.Fabs(targetAltitude * onePercent);
+         toleranceHeading   = MATH.Fabs(targetHeading * onePercent);
+         tolerancePitch     = MATH.Fabs(targetPitch * onePercent);
+         toleranceRoll      = 0.15;
+         toleranceSpeed     = MATH.Fabs(targetSpeed * onePercent);
+
+         allPassed =  CheckAllValues("on_initialize2", "") && allPassed;
+      }
+      else if (Name() == "p6dof_climb")
+      {
+         targetLatitude  = 1.0;
+         targetLongitude = -1.0;
+         targetAltitude  = 20000 * MATH.M_PER_FT();
+         targetHeading   = -90.0;
+         targetPitch     = 1.57;
+         targetRoll      = 0.0;
+         targetSpeed     = 300 * MATH.MPS_PER_NMPH();
+      
+         toleranceLatitude  = MATH.Fabs(targetLatitude * onePercent);
+         toleranceLongitude = MATH.Fabs(targetLongitude * onePercent);
+         toleranceAltitude  = MATH.Fabs(targetAltitude * onePercent);
+         toleranceHeading   = MATH.Fabs(targetHeading * onePercent);
+         tolerancePitch     = MATH.Fabs(targetPitch * onePercent);
+         toleranceRoll      = 0.1;
+         toleranceSpeed     = MATH.Fabs(targetSpeed * onePercent);
+
+         allPassed =  CheckAllValues("on_initialize2", "") && allPassed;
+      }
+      else if (Name() == "p6dof_climb_wash_in")
+      {
+         targetLatitude  = 1.0;
+         targetLongitude = -1.0;
+         targetAltitude  = 21850 * MATH.M_PER_FT();
+         targetHeading   = -90.0;
+         targetPitch     = 3.12;
+         targetRoll      = 0.0;
+         targetSpeed     = 205.778;
+      
+         toleranceLatitude  = MATH.Fabs(targetLatitude * onePercent);
+         toleranceLongitude = MATH.Fabs(targetLongitude * onePercent);
+         toleranceAltitude  = MATH.Fabs(targetAltitude * onePercent);
+         toleranceHeading   = MATH.Fabs(targetHeading * onePercent);
+         tolerancePitch     = MATH.Fabs(targetPitch * onePercent);
+         toleranceRoll      = 0.1;
+         toleranceSpeed     = MATH.Fabs(targetSpeed * onePercent);
+
+         allPassed = CheckAllValues("on_initialize2", "") && allPassed;
+      }
+      
+   end_on_initialize2
+  
+   add mover WSF_P6DOF_MOVER
+      p6dof_object_type FA-LGT
+      update_interval 0.01 s
+   end_mover
+   
+   follow_vertical_track
+end_platform_type 
+ 
+platform p6dof_level p6dof
+   use_route level
+end_platform
+ 
+platform p6dof_level_wash_in p6dof
+   use_route level
+   wash_in_conditions true
+end_platform
+
+platform p6dof_climb p6dof
+   use_route climb
+end_platform
+
+platform p6dof_climb_wash_in p6dof
+   use_route climb
+   wash_in_conditions true
+end_platform   
+
+execute at_time 0.01 sec absolute
+   if(allPassed)
+   {
+      writeln("-PASS-");
+   }     
+   else
+   {
+      writeln("-FAIL- One or more tests failed.");
+   }
+end_execute

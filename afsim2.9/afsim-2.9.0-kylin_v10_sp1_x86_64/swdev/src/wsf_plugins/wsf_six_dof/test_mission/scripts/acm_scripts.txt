@@ -1,0 +1,1074 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script void SetPitchRate(WsfPlatform aPlatform, double pitchRate_dps)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotPitchRate(pitchRate_dps);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetDeltaPitch(WsfPlatform aPlatform, double deltaPitch_deg)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotDeltaPitch(deltaPitch_deg);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetDeltaRoll(WsfPlatform aPlatform, double deltaRoll_deg)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotDeltaRoll(deltaRoll_deg);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetKIAS(WsfPlatform aPlatform, double kias)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotSpeedKCAS(kias);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetKTAS(WsfPlatform aPlatform, double ktas)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotSpeedKTAS(ktas);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script void SetBankAngle(WsfPlatform aPlatform, double angle_deg)
+   WsfMover mover = aPlatform.Mover();
+   if(mover.IsA_TypeOf("WSF_P6DOF_MOVER"))
+   {
+      WsfP6DOF_Mover p6dofMover = (WsfP6DOF_Mover)mover;
+      p6dofMover.SetAutopilotRollAngle(angle_deg);
+   }
+   else
+   {
+      writeln("--ERROR-- Not a P6DOF Mover.");
+   }
+end_script
+
+script_variables
+#  static double targetBankAngle_deg = 0.0;
+#  static double targetGLoad = 0.0;
+#  static bool   diving = true;
+#  static string mode = "NONE";
+   double targetBankAngle_deg = 0.0;
+   double targetGLoad = 0.0;
+   bool   diving = true;
+   string mode = "NONE";
+   bool   thinking = true;
+
+end_script_variables
+
+script bool SlicebackRollAchieved(WsfPlatform aPlatform)
+
+   double currentRoll_deg = aPlatform.Roll();
+   bool angleMet = false;
+
+   if( targetBankAngle_deg < 0.0 )
+   {
+      if( currentRoll_deg <= (targetBankAngle_deg + 1) )
+      {
+         angleMet = true;
+      }
+   }
+   else
+   {
+      if( currentRoll_deg >= (targetBankAngle_deg - 1) )
+      {
+         angleMet = true;
+      }
+   }
+
+   return angleMet;
+
+end_script
+
+script bool SlicebackPitchAchieved(WsfPlatform aPlatform)
+
+   double currentRoll_deg = aPlatform.Roll();
+   double currentPitch_deg = aPlatform.Pitch();
+   bool angleMet = false;
+
+   if( diving )
+   {
+      if( (currentRoll_deg >= -90.0)&&(currentRoll_deg <= 90.0) )
+      {
+         if(currentPitch_deg >= 0.0)
+         {
+            angleMet = true;
+         }
+      }
+   }
+   else
+   {
+      if( (currentRoll_deg <= -90.0)||(currentRoll_deg >= 90.0) )
+      {
+         if(currentPitch_deg <= 0.0)
+         {
+            angleMet = true;
+         }
+      }
+   }
+
+   return angleMet;
+
+end_script
+
+script bool SlicebackRolloutAchieved(WsfPlatform aPlatform)
+
+   double currentRoll_deg = aPlatform.Roll();
+   double currentPitch_deg = aPlatform.Pitch();
+
+   bool angleMet = false;
+
+   if( diving )
+   {
+      if( (currentRoll_deg >= -0.1)&&(currentRoll_deg <= 0.1) )
+      {
+         if(currentPitch_deg >= 0.0)
+         {
+            angleMet = true;
+         }
+      }
+   }
+   else
+   {
+      if( (currentRoll_deg >= -0.1)&&(currentRoll_deg <= 0.1) )
+      {
+         if(currentPitch_deg >= 0.0)
+         {
+            angleMet = true;
+         }
+      }
+   }
+
+   return angleMet;
+
+end_script
+
+script void PerformSlicebackRoll(WsfPlatform aPlatform, string aCallbackName)
+   RollToBankAngle(aPlatform, targetBankAngle_deg);  // Roll to the target bank angle
+   if( diving )
+   {
+      SetPitchGLoad(aPlatform, 0.0);
+   }
+   else
+   {
+      SetPitchGLoad(aPlatform, 1.0);
+   }
+   mode = "PERFORMING_SLICEBACK_ROLL";
+   writeln("*** PerformSlicebackRoll ***");
+end_script
+
+script void PerformSlicebackPitch(WsfPlatform aPlatform, string aCallbackName)
+   SetRollRate(aPlatform, 0.0);
+   SetPitchGLoad(PLATFORM, targetGLoad);
+   mode = "PERFORMING_SLICEBACK_PITCH";
+   writeln("*** PerformSlicebackPitch ***");
+end_script
+
+script void PerformSlicebackRollout(WsfPlatform aPlatform, string aCallbackName)
+   RollToBankAngle(aPlatform, 0.0);
+   SetGamma(PLATFORM, 0.0);
+   mode = "PERFORMING_SLICEBACK_ROLLOUT";
+   writeln("*** PerformSlicebackRollout ***");
+end_script
+
+script void CompleteSliceback(WsfPlatform aPlatform, string aCallbackName)
+   RollToBankAngle(aPlatform, 0.0);
+   SetGamma(PLATFORM, 0.0);
+   mode = "IDLE";
+   writeln("*** CompleteSliceback ***");
+end_script
+
+script void Sliceback(WsfPlatform aPlatform, double aRollAngle_deg, double aGload, string aCallbackName)
+   // Allow any bank angle
+   SetMaxBankAngle(aPlatform, 180.0);
+
+   // Set bank angle and g-load
+   targetBankAngle_deg = aRollAngle_deg;
+   targetGLoad = aGload;
+
+   // Set the diving flag, based on roll/bank angle (up or inverted)
+   if( (aRollAngle_deg >= -90.0)&&(aRollAngle_deg <= 90.0))
+   {
+      diving = false;
+   }
+   else
+   {
+      diving = true;
+   }
+
+   // Foo
+   PerformSlicebackRoll(PLATFORM,"SlicebackRollComplete");
+
+   // Call ProcessSliceback to perform the sliceback
+   aPlatform.ExecuteAtTime(TIME_NOW + 0.01, "ProcessSliceback", {aPlatform,aCallbackName});
+
+end_script
+
+script void SlicebackComplete()
+   writeln("*** SlicebackComplete ***");
+end_script
+
+script void ProcessSliceback(WsfPlatform aPlatform, string aCallbackName)
+
+   bool modeAchieved = false;
+
+   if( mode == "PERFORMING_SLICEBACK_ROLL" )
+   {
+      modeAchieved = SlicebackRollAchieved(aPlatform);
+      if(modeAchieved)
+      {
+         writeln("  SlicebackRoll achieved...");
+         PerformSlicebackPitch(aPlatform,aCallbackName);
+      }
+   }
+   else if( mode == "PERFORMING_SLICEBACK_PITCH" )
+   {
+      modeAchieved = SlicebackPitchAchieved(aPlatform);
+      if(modeAchieved)
+      {
+         writeln("  SlicebackPitch achieved...");
+         PerformSlicebackRollout(aPlatform,aCallbackName);
+      }
+   }
+   else if( mode == "PERFORMING_SLICEBACK_ROLLOUT" )
+   {
+      modeAchieved = SlicebackRolloutAchieved(aPlatform);
+      if(modeAchieved)
+      {
+         writeln("  SlicebackRollout achieved...");
+         CompleteSliceback(aPlatform,aCallbackName);
+      }
+   }
+
+   if( mode != "IDLE" )
+   {
+      aPlatform.ExecuteAtTime(TIME_NOW + 0.01, "ProcessSliceback", {aPlatform,aCallbackName});
+   }
+
+end_script
+
+# ------------------------------------------------------------------------------
+
+// The goal of this maneuver set is to always roll to put the target "on the canopy"
+// and to pull-g to keep the target in the sweet-spot (within 10 deg).
+
+script_variables
+   double rollAndPull_BankAngle_deg  = 0.0;
+   double rollAndPull_targetGLoad    = 0.0;
+   bool   rollAndPull_diving         = true;
+   string rollAndPull_mode           = "NONE";
+   double rollAndPull_TgtRoll_deg    = 0.0;
+   double rollAndPull_TotalAngle_deg = 0.0;
+
+   // new 10-30
+   double maneuverGLoadFactor = 1.0;
+end_script_variables
+
+script void DetermineRollAndPull(WsfPlatform aAttackingPlatform, WsfPlatform aTargetPlatform)
+
+   WsfGeoPoint tgtPt = aTargetPlatform.Location();
+   double az_deg = aAttackingPlatform.RelativeAzimuthOf(tgtPt);
+   double el_deg = aAttackingPlatform.RelativeElevationOf(tgtPt);
+   double CosEl = Math.Cos(el_deg*Math.RAD_PER_DEG());
+   double SinEl = Math.Sin(el_deg*Math.RAD_PER_DEG());
+   double x  = Math.Cos(az_deg*Math.RAD_PER_DEG());
+   double y  = Math.Sin(az_deg*Math.RAD_PER_DEG());
+   double xy = Math.Sqrt( x*x + y*y );
+   double z  = 0.0;
+   if( Math.Fabs(CosEl) > 0.0000001 )
+   {
+      z  = (xy/CosEl) * SinEl;
+   }
+   double yz = Math.Sqrt( y*y + z*z );
+   double ang_deg = Math.DEG_PER_RAD() * Math.ATan2(yz,x);
+
+   rollAndPull_TgtRoll_deg    = 90.0 - Math.ATan2(z,y);
+   rollAndPull_TotalAngle_deg = ang_deg;
+
+#  writeln("Tgt Az = ", az_deg, "   Tgt El = ", el_deg, "   Tgt Roll = ", rollAndPull_TgtRoll_deg);
+#  writeln("Tgt Roll = ", rollAndPull_TgtRoll_deg, "  Tgt Total Angle = ", rollAndPull_TotalAngle_deg );
+
+end_script
+
+script void DetermineRollAndPull3(WsfPlatform aPlatform, string aCallbackName)
+
+   bool modeAchieved = false;
+
+   if( mode == "PERFORMING_SLICEBACK_ROLL" )
+   {
+      modeAchieved = SlicebackRollAchieved(aPlatform);
+      if(modeAchieved)
+      {
+         writeln("  SlicebackRoll achieved...");
+         PerformSlicebackPitch(aPlatform,aCallbackName);
+      }
+   }
+   else if( mode == "PERFORMING_SLICEBACK_PITCH" )
+   {
+      modeAchieved = SlicebackPitchAchieved(aPlatform);
+      if(modeAchieved)
+      {
+         writeln("  SlicebackPitch achieved...");
+         PerformSlicebackRollout(aPlatform,aCallbackName);
+      }
+   }
+   else if( mode == "PERFORMING_SLICEBACK_ROLLOUT" )
+   {
+      modeAchieved = SlicebackRolloutAchieved(aPlatform);
+      if(modeAchieved)
+      {
+         writeln("  SlicebackRollout achieved...");
+         CompleteSliceback(aPlatform,aCallbackName);
+      }
+   }
+
+   if( mode != "IDLE" )
+   {
+      aPlatform.ExecuteAtTime(TIME_NOW + 0.01, "ProcessSliceback", {aPlatform,aCallbackName});
+   }
+
+end_script
+
+script void RedFighterThinker(string aTgtPlatformName, double aDeltaT_sec)
+
+   if(!thinking)
+   {
+      return;
+   }
+
+// WsfPlatform tgtPlatform = WsfPlatform.FindPlatform("BlueFighter1");
+// WsfPlatform tgtPlatform = WsfPlatform.FindPlatform("GreenFighter");
+// WsfPlatform tgtPlatform = WsfPlatform.FindPlatform("RedTestFighter");
+   WsfPlatform tgtPlatform = WsfPlatform.FindPlatform(aTgtPlatformName);
+
+   if( !tgtPlatform.IsValid() )
+   {
+      PLATFORM.ExecuteAtTime(TIME_NOW + aDeltaT_sec, "RedFighterThinker", {aTgtPlatformName,aDeltaT_sec});
+      return;
+   }
+
+   DetermineRollAndPull(PLATFORM, tgtPlatform);
+
+   double rollRate_dps = 0.01 * rollAndPull_TgtRoll_deg * Math.Fabs(rollAndPull_TgtRoll_deg);
+   if( rollRate_dps > 360.0 )
+   {
+      rollRate_dps = 360.0;
+   }
+   if( rollRate_dps < -360.0 )
+   {
+      rollRate_dps = -360.0;
+   }
+   SetRollRate(PLATFORM,rollRate_dps);
+
+   double gLoad = 1.0;
+   if( rollAndPull_TotalAngle_deg > 90.0 )
+   {
+      rollAndPull_TotalAngle_deg = 90.0;
+   }
+
+   if( rollAndPull_TotalAngle_deg < 5.0 )
+   {
+      gLoad = 0.25;
+   }
+   else
+   {
+      if( rollAndPull_TotalAngle_deg > 45.0 )
+      {
+         gLoad = 6.5 * maneuverGLoadFactor;
+      }
+      else if( rollAndPull_TotalAngle_deg > 30.0 )
+      {
+         gLoad = 4.5 * maneuverGLoadFactor;
+      }
+      else if( rollAndPull_TotalAngle_deg > 20.0 )
+      {
+         gLoad = 3.0 * maneuverGLoadFactor;
+      }
+      else if( rollAndPull_TotalAngle_deg > 10.0 )
+      {
+         gLoad = 2.0 * maneuverGLoadFactor;
+      }
+      else // > 5 deg
+      {
+         gLoad = 1.0;
+      }
+   }
+
+   SetPitchGLoad(PLATFORM, gLoad);
+
+#   double foo;
+
+#  PLATFORM.ExecuteAtTime(TIME_NOW + 0.01, "RedFighterThinker", {aPlatform,aCallbackName});
+#  PLATFORM.ExecuteAtTime(TIME_NOW + 0.01, "RedFighterThinker", {aTgtPlatformName,aDeltaT_sec});
+   PLATFORM.ExecuteAtTime(TIME_NOW + aDeltaT_sec, "RedFighterThinker", {aTgtPlatformName,aDeltaT_sec});
+
+end_script
+
+
+script_variables
+   bool   validTarget = false;
+   double nextTargetEvalTime_Sec = 0.0;
+   double stdTargetEvalDeltaTime_Sec = 2.0;
+   string currentTargetPlatformName = "NONE";
+   string offensiveTargetPlatformName = "NONE";
+   string defensiveTargetPlatformName = "NONE";
+   double offensiveScore = 0.0;
+   double defensiveScore = 0.0;
+   int    UNDEFINED_MODE = 0;
+   int    OFFENSIVE_MODE = 1;
+   int    DEFENSIVE_MODE = 2;
+   int    PULL_UP_MODE   = 3;
+   int    currentTacticalMode = 0;
+   double lastShotTakenTime_sec = -1000.0;
+   bool   dispenseFlares = false;
+   double startDispenseTime_sec = -1;
+   double lastDispenseTime_sec = -1;
+end_script_variables
+
+script void FireFlare()
+
+   // Select the weapon
+   WsfWeapon weapon = PLATFORM.Weapon("flare");
+
+   if( !weapon.IsValid() )
+   {
+      // Flare is invalid...
+      return;
+   }
+
+   if( weapon.QuantityRemaining() <= 0 )
+   {
+      // No flares remaining...
+      return;
+   }
+
+   weapon.Fire();
+
+end_script
+
+script bool LaunchAgainstTarget()
+
+   if( currentTacticalMode != OFFENSIVE_MODE )
+   {
+      return false;
+   }
+
+   if( offensiveTargetPlatformName == "NONE" )
+   {
+      return false;
+   }
+
+   WsfPlatform tgtPlatform = WsfSimulation.FindPlatform(offensiveTargetPlatformName);
+
+   if( !tgtPlatform.IsValid() )
+   {
+      return false;
+   }
+
+   // Wait at least 5 sec between shots
+   if( (lastShotTakenTime_sec + 5.0) > TIME_NOW )
+   {
+      return false;
+   }
+
+   WsfGeoPoint tgtLocation = tgtPlatform.Location();
+
+   bool tgtInEnvelope = false;
+   double az_deg = PLATFORM.RelativeAzimuthOf(tgtLocation);
+   double el_deg = PLATFORM.RelativeElevationOf(tgtLocation);
+   double rng_nm = PLATFORM.SlantRangeTo(tgtLocation) / MATH.M_PER_NM();
+
+   if( MATH.Fabs(az_deg) < 30.0 )
+   {
+      if( MATH.Fabs(el_deg) < 30.0 )
+      {
+         if( rng_nm < 5.0 )
+         {
+            tgtInEnvelope = true;
+         }
+      }
+   }
+
+   if( !tgtInEnvelope )
+   {
+      return false;
+   }
+
+   // We want a tail shot, so confirm aspect
+
+   WsfGeoPoint ownshipLocation = PLATFORM.Location();
+
+   bool tgtAspectOkay = false;
+   double aspectAz_deg = tgtPlatform.RelativeAzimuthOf(ownshipLocation);
+   double aspectEl_deg = tgtPlatform.RelativeElevationOf(ownshipLocation);
+
+   if( MATH.Fabs(aspectEl_deg) < 60.0 )
+   {
+      if( MATH.Fabs(aspectAz_deg) > 120.0 )
+      {
+         tgtAspectOkay = true;
+      }
+   }
+
+   if( !tgtAspectOkay )
+   {
+      return false;
+   }
+
+   // Confirm that target is not a weapon
+   if( tgtPlatform.CategoryMemberOf("weapon") )
+   {
+      return false;
+   }
+
+   // Select the weapon
+   WsfWeapon weapon = PLATFORM.Weapon("aam_sr_weapon");
+
+   if( !weapon.IsValid() )
+   {
+      return false;
+   }
+
+   if( weapon.QuantityRemaining() <= 0 )
+   {
+      return false;
+   }
+
+   // At this point, we have a valid target, the target is
+   // within the launch envelope, and we have a valid weapon
+
+   // Create a track for the weapon
+   WsfTrack track = WsfTrack();
+   track.Initialize();
+   track.SetTarget(offensiveTargetPlatformName);
+   track.SetAirDomain();
+   track.SetCurrentLocation(tgtLocation);
+   track.SetLocation(tgtLocation);
+   track.SetIFF_Foe();
+   Vec3 tgtVelNED = tgtPlatform.VelocityNED();
+   track.SetVelocityNED(tgtVelNED[0],tgtVelNED[1],tgtVelNED[2]);
+
+   weapon.Fire(track);
+   lastShotTakenTime_sec = TIME_NOW;
+
+   // For now, we fire a flare every time we fire a missile
+//   FireFlare();
+//   PLATFORM.dispenseFlares = true;
+   dispenseFlares = true;
+
+   return true;
+
+end_script
+
+script bool CheckForGroundClobber(double floor_m)
+
+   Vec3 velNED = PLATFORM.VelocityNED();
+
+   double vertSpd_mps = velNED[2];
+   vertSpd_mps *= -1.0; // Invert to get positive up
+
+   if(vertSpd_mps > 0.0)
+   {
+      return false;
+   }
+
+   double spd_mps = PLATFORM.Speed();
+   double radiusForFiveG_m = MATH.Sqrt( (spd_mps*spd_mps)/(5.0*9.81) );
+   double circumference_m = 2.0*3.1415927*radiusForFiveG_m;
+   double timeForQuarterTurn_sec = (circumference_m/4.0)/spd_mps;
+   double velNE_mps = MATH.Sqrt( velNED[0]*velNED[0] + velNED[1]*velNED[1] );
+   double angle_deg = MATH.ATan2(vertSpd_mps,-velNE_mps);
+   double fraction = angle_deg/90.0;
+   double effectivePullup_m = radiusForFiveG_m - (radiusForFiveG_m * MATH.Cos(angle_deg));
+
+   double alt_m = PLATFORM.Altitude();
+
+   if( alt_m < (effectivePullup_m+floor_m) )
+   {
+      return true;
+   }
+
+   return false;
+
+end_script
+
+script void DetermineBestTargetToAttack()
+
+   string goodSide = PLATFORM.Side();
+   string badSide = "red";
+
+   if(goodSide == "blue")
+   {
+      badSide = "red";
+   }
+   else if(goodSide == "red")
+   {
+      badSide = "blue";
+   }
+   else
+   {
+      // Neutral
+      offensiveTargetPlatformName = "NONE";
+      offensiveScore = 0.0;
+      return;
+   }
+
+   string bestTargetName = "NONE";
+   double bestTargetRange_m = 1000000000.0;
+
+   // Loop through targets
+   int numPlatforms = WsfSimulation.PlatformCount();
+   for( int i = 0 ; i < numPlatforms ; i += 1 )
+   {
+       WsfPlatform platform = WsfSimulation.PlatformEntry(i);
+
+       if( platform.Side() == badSide )
+       {
+          double closingSpeed_mps = PLATFORM.ClosingSpeedOf(platform);
+          double range_m = PLATFORM.SlantRangeTo(platform);
+          double relBearing_deg = PLATFORM.RelativeBearingTo(platform);
+          double aspectToTarget_deg = platform.RelativeBearingTo(PLATFORM);
+          double tgtSpeed_mps = platform.Speed();
+          double ownshipSpeed_mps = PLATFORM.Speed();
+
+          // Confirm not dead
+          double damage = platform.DamageFactor();
+          bool validTgt = platform.IsValid();
+
+          if( !validTgt || (damage > 99.0))
+          {
+             writeln("!!! T=", TIME_NOW, " Missile dropped track (WSF_DROP_TRACK_MESSAGE)");
+             continue;
+          }
+
+          if(range_m < bestTargetRange_m)
+          {
+             bestTargetName = platform.Name();
+             bestTargetRange_m = range_m;
+          }
+       }
+   }
+
+   if(bestTargetName != "NONE")
+   {
+      offensiveTargetPlatformName = bestTargetName;
+      if(bestTargetRange_m < 200000.0)
+      {
+         // Very long range
+         offensiveScore = 10.0;
+      }
+      else if(bestTargetRange_m < 100000.0)
+      {
+         // Long range
+         offensiveScore = 100.0;
+      }
+      else if(bestTargetRange_m < 30000.0)
+      {
+         // Medium range
+         offensiveScore = 200.0;
+      }
+      else if(bestTargetRange_m < 10000.0)
+      {
+         // Short range
+         offensiveScore = 500.0;
+      }
+      else if(bestTargetRange_m < 2000.0)
+      {
+         // Gun range
+         offensiveScore = 1000.0;
+      }
+   }
+
+end_script
+
+script void DetermineMostThreateningTarget()
+
+   string goodSide = PLATFORM.Side();
+   string badSide = "red";
+
+   if(goodSide == "blue")
+   {
+      badSide = "red";
+   }
+   else if(goodSide == "red")
+   {
+      badSide = "blue";
+   }
+   else
+   {
+      // Neutral
+      defensiveTargetPlatformName = "NONE";
+      defensiveScore = 0.0;
+      return;
+   }
+
+   string biggestThreatName = "NONE";
+   double biggestThreatRange_m = 1000000000.0;
+
+   // Loop through threats
+   int numPlatforms = WsfSimulation.PlatformCount();
+   for( int i = 0 ; i < numPlatforms ; i += 1 )
+   {
+      WsfPlatform platform = WsfSimulation.PlatformEntry(i);
+
+      if( platform.Side() == badSide )
+      {
+         double closingSpeed_mps = PLATFORM.ClosingSpeedOf(platform);
+         double range_m = PLATFORM.SlantRangeTo(platform);
+         double relBearing_deg = PLATFORM.RelativeBearingTo(platform);
+         double aspectToTarget_deg = platform.RelativeBearingTo(PLATFORM);
+         double tgtSpeed_mps = platform.Speed();
+         double ownshipSpeed_mps = PLATFORM.Speed();
+
+         // **********************************************************************
+         //
+         bool valid = platform.IsValid();
+         double damage = platform.DamageFactor();
+         if( !valid || (damage > 99.0) )
+         {
+            if( !valid )
+            {
+               writeln("!!! T=", TIME_NOW, " (", platform.Name(), " is not valid");
+            }
+            if( damage > 99.0 )
+            {
+               writeln("!!! T=", TIME_NOW, " (", platform.Name(), " is very damaged");
+            }
+         }
+         else if(range_m < biggestThreatRange_m)
+         {
+            biggestThreatName = platform.Name();
+            biggestThreatRange_m = range_m;
+         }
+      }
+   }
+
+   if(biggestThreatName != "NONE")
+   {
+      defensiveTargetPlatformName = biggestThreatName;
+      if(biggestThreatRange_m < 200000.0)
+      {
+         // Very long range
+         defensiveScore = 10.0;
+      }
+      else if(biggestThreatRange_m < 100000.0)
+      {
+         // Long range
+         defensiveScore = 100.0;
+      }
+      else if(biggestThreatRange_m < 30000.0)
+      {
+         // Medium range
+         defensiveScore = 200.0;
+      }
+      else if(biggestThreatRange_m < 10000.0)
+      {
+         // Short range
+         defensiveScore = 500.0;
+      }
+      else if(biggestThreatRange_m < 2000.0)
+      {
+         // Gun range
+         defensiveScore = 1000.0;
+      }
+   }
+
+end_script
+
+script void SimpleFighterThinker(string aTgtPlatformName, double aDeltaT_sec)
+
+   if(!thinking)
+   {
+      return;
+   }
+
+   double currentTime_sec = TIME_NOW;
+
+   bool groundClobberWarning = CheckForGroundClobber(2000.0); // Don't go below 2,000 meters
+
+   if(groundClobberWarning)
+   {
+      //writeln(PLATFORM.Name(), " is pulling up at T=", TIME_NOW, " with Pitch=", PLATFORM.Pitch(),
+      //" and Roll=", PLATFORM.Roll(), " at Alt=", PLATFORM.Altitude()*MATH.FT_PER_M());
+
+      // Pull up to prevent crash
+      RollToBankAngle(PLATFORM, 0.0);
+
+      double gLoad = 0.0;
+      if( MATH.Fabs(PLATFORM.Roll()) > 90.0 )
+      {
+         // writeln("*** INVERTED -- Roll = ", PLATFORM.Roll());
+      }
+      else
+      {
+         gLoad = 8.0;
+      }
+      SetPitchGLoad(PLATFORM, gLoad);
+
+      currentTacticalMode = PULL_UP_MODE;
+      currentTargetPlatformName = "NONE";
+
+      PLATFORM.ExecuteAtTime(TIME_NOW + aDeltaT_sec, "SimpleFighterThinker", {aTgtPlatformName,aDeltaT_sec});
+      return;
+   }
+
+   if( currentTime_sec > nextTargetEvalTime_Sec )
+   {
+      // Set new time
+      nextTargetEvalTime_Sec = currentTime_sec + stdTargetEvalDeltaTime_Sec;
+
+      // Reset values
+      offensiveScore = 0.0;
+      defensiveScore = 0.0;
+      offensiveTargetPlatformName = "NONE";
+      defensiveTargetPlatformName = "NONE";
+
+      // Determine the best target to attack
+      DetermineBestTargetToAttack();
+
+      // Determine the most threatening target
+      DetermineMostThreateningTarget();
+
+      /*
+      bool groundClobberWarning = CheckForGroundClobber(1000.0); // Don't go below 1,000 meters
+
+      if(groundClobberWarning)
+      {
+         writeln(PLATFORM.Name(), " is pulling up at T=", TIME_NOW, " with Pitch=", PLATFORM.Pitch(),
+         " and Roll=", PLATFORM.Roll(), " at Alt=", PLATFORM.Altitude()*MATH.FT_PER_M());
+
+         // Pull up to prevent crash
+         RollToBankAngle(PLATFORM, 0.0);
+
+         double gLoad = 0.0;
+         if( MATH.Fabs(PLATFORM.Roll()) > 90.0 )
+         {
+            writeln("*** INVERTED -- Roll = ", PLATFORM.Roll());
+         }
+         else
+         {
+            gLoad = 5.0;
+         }
+         SetPitchGLoad(PLATFORM, gLoad);
+
+         currentTacticalMode = PULL_UP_MODE;
+         currentTargetPlatformName = "NONE";
+
+         PLATFORM.ExecuteAtTime(TIME_NOW + aDeltaT_sec, "SimpleFighterThinker", {aTgtPlatformName,aDeltaT_sec});
+         return;
+      }
+      */
+
+      // Should we attack or defend?
+      if( offensiveScore >= defensiveScore )
+      {
+         if( offensiveScore > 0.0 )
+         {
+            currentTacticalMode = OFFENSIVE_MODE;
+            currentTargetPlatformName = offensiveTargetPlatformName;
+         }
+         else
+         {
+            currentTacticalMode = UNDEFINED_MODE;
+            currentTargetPlatformName = "NONE";
+         }
+      }
+      else
+      {
+         if( defensiveScore > 0.0 )
+         {
+            currentTacticalMode = DEFENSIVE_MODE;
+            currentTargetPlatformName = defensiveTargetPlatformName;
+         }
+         else
+         {
+            currentTacticalMode = UNDEFINED_MODE;
+            currentTargetPlatformName = "NONE";
+         }
+      }
+
+      bool launched = LaunchAgainstTarget();
+
+      if( launched )
+      {
+         writeln("Fox Two! -- ", PLATFORM.Name(), " launched a missile against ", offensiveTargetPlatformName);
+
+         WsfPlatform tgtPlat = WsfSimulation.FindPlatform(offensiveTargetPlatformName);
+         if(tgtPlat.IsValid())
+         {
+            WsfDraw draw = WsfDraw();
+            draw.SetDuration(10.0);
+            draw.SetColor(250.0,50.0,50.0,1.0);
+            draw.BeginLines();
+            draw.Vertex(PLATFORM);
+            draw.Vertex(tgtPlat);
+            draw.End();
+         }
+      }
+      else
+      {
+      }
+   }
+
+
+   WsfPlatform tgtPlatform;
+
+   if(currentTacticalMode == OFFENSIVE_MODE)
+   {
+      tgtPlatform = WsfPlatform.FindPlatform(currentTargetPlatformName);
+   }
+   else
+   if(currentTacticalMode == DEFENSIVE_MODE)
+   {
+      tgtPlatform = WsfPlatform.FindPlatform(currentTargetPlatformName);
+   }
+   else
+   {
+      double alt_m = PLATFORM.Altitude();
+      double hdg_deg = PLATFORM.Heading();
+      PLATFORM.GoToAltitude(alt_m);
+      PLATFORM.TurnToHeading(hdg_deg);
+
+      PLATFORM.ExecuteAtTime(TIME_NOW + aDeltaT_sec, "SimpleFighterThinker", {aTgtPlatformName,aDeltaT_sec});
+      return;
+   }
+
+
+//   WsfPlatform tgtPlatform = WsfPlatform.FindPlatform(aTgtPlatformName);
+
+   if( !tgtPlatform.IsValid() )
+   {
+      PLATFORM.ExecuteAtTime(TIME_NOW + aDeltaT_sec, "SimpleFighterThinker", {aTgtPlatformName,aDeltaT_sec});
+      return;
+   }
+
+   DetermineRollAndPull(PLATFORM, tgtPlatform);
+
+   double rollRate_dps = 0.01 * rollAndPull_TgtRoll_deg * Math.Fabs(rollAndPull_TgtRoll_deg);
+   if( rollRate_dps > 360.0 )
+   {
+      rollRate_dps = 360.0;
+   }
+   if( rollRate_dps < -360.0 )
+   {
+      rollRate_dps = -360.0;
+   }
+   SetRollRate(PLATFORM,rollRate_dps);
+
+   double gLoad = 1.0;
+   if( rollAndPull_TotalAngle_deg > 90.0 )
+   {
+      rollAndPull_TotalAngle_deg = 90.0;
+   }
+
+   if( rollAndPull_TotalAngle_deg < 5.0 )
+   {
+      gLoad = 0.25;
+   }
+   else
+   {
+      if( rollAndPull_TotalAngle_deg > 45.0 )
+      {
+         gLoad = 6.5 * maneuverGLoadFactor;
+      }
+      else if( rollAndPull_TotalAngle_deg > 30.0 )
+      {
+         gLoad = 4.5 * maneuverGLoadFactor;
+      }
+      else if( rollAndPull_TotalAngle_deg > 20.0 )
+      {
+         gLoad = 3.0 * maneuverGLoadFactor;
+      }
+      else if( rollAndPull_TotalAngle_deg > 10.0 )
+      {
+         gLoad = 2.0 * maneuverGLoadFactor;
+      }
+      else // > 5 deg
+      {
+         gLoad = 1.0;
+      }
+   }
+
+   SetPitchGLoad(PLATFORM, gLoad);
+
+   PLATFORM.ExecuteAtTime(TIME_NOW + aDeltaT_sec, "SimpleFighterThinker", {aTgtPlatformName,aDeltaT_sec});
+
+end_script
+
+script void FlareDispenser(double aDeltaT_sec)
+
+   if( dispenseFlares )
+   {
+      if( startDispenseTime_sec < 0.0 )
+      {
+         startDispenseTime_sec = TIME_NOW;
+      }
+
+      if( lastDispenseTime_sec < 0.0 )
+      {
+         lastDispenseTime_sec = TIME_NOW;
+         FireFlare();
+      }
+      else
+      {
+         if( TIME_NOW >= (lastDispenseTime_sec + 0.1) )
+         {
+            FireFlare();
+            lastDispenseTime_sec = TIME_NOW;
+         }
+
+         if( TIME_NOW >= (startDispenseTime_sec + 3.0) )
+         {
+            dispenseFlares = false;
+            startDispenseTime_sec = -1.0;
+            lastDispenseTime_sec = -1.0;
+         }
+      }
+   }
+
+   PLATFORM.ExecuteAtTime(TIME_NOW + aDeltaT_sec, "FlareDispenser", {aDeltaT_sec});
+
+end_script
+

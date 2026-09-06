@@ -1,0 +1,433 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+#####################
+# WSF_ASSET_MANAGER #
+#####################
+(struct WSF_ASSET_MANAGER :symbol (type processorType WSF_ASSET_MANAGER)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WSF_ASSET_MANAGER PROCESSOR :this 1)
+
+   (var Bool CommitAuthority :default false)
+   (rule status_settings-command {
+        subord_yellow_timeout  <Time>
+      | subord_red_timeout     <Time>
+      | report_position_every  <Length>
+      | or_every               <Time>
+      | report_status_every    <Time>
+      | aggregate_unit_status  <Bool>
+      | stationary_opns_only   <Bool>
+      | weapon_required        <Bool>
+      | require_all_weapons    <Bool>
+      | ew_required            <Bool>
+      | tar_required           <Bool>
+      | ttr_required           <Bool>
+   })
+{
+   status_settings <status_settings-command>* end_status_settings
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+(struct WSF_UNCLASS_ASSET_MANAGER :symbol (type processorType WSF_UNCLASS_ASSET_MANAGER)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WSF_ASSET_MANAGER PROCESSOR :this 1)
+
+   (var Bool CommitAuthority :default false)
+   (rule status_settings-command {
+        subord_yellow_timeout  <Time>
+      | subord_red_timeout     <Time>
+      | report_position_every  <Length>
+      | or_every               <Time>
+      | report_status_every    <Time>
+      | aggregate_unit_status  <Bool>
+      | stationary_opns_only   <Bool>
+      | weapon_required        <Bool>
+      | require_all_weapons    <Bool>
+      | ew_required            <Bool>
+      | tar_required           <Bool>
+      | ttr_required           <Bool>
+   })
+{
+   max_assignments <integer>
+ | filter_dead_tracks <Bool>
+ | status_settings <status_settings-command>* end_status_settings
+ | assignment_delay <Time>
+ | decision_update_delay <Time>
+ | log_status <Bool>
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+(struct AuxData
+{
+   WsfBMAuxDataZoneAttachment <string>   [mapSet(vals,$1)]
+})
+
+######################
+# WSF_BATTLE_MANAGER #
+######################
+(struct WSF_BATTLE_MANAGER :symbol (type processorType WSF_BATTLE_MANAGER)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WSF_BATTLE_MANAGER PROCESSOR :this 1)
+
+   (var Bool CommitAuthority :default false)
+
+   (rule asset_management-command {
+        commit_authority <$CommitAuthority>
+      | project_tracks_by_delays <Bool>
+      | projection-command
+
+      (rule engage_iff-command {
+           unknowns <Bool>
+         | neutrals <Bool>
+         | friendlies <Bool>
+         | hostiles <Bool>
+      })
+
+      (rule target_projection-command {
+           project_targets_forward <Time> by <Time>
+      })
+      | engage_iff_permissions <engage_iff-command>* end_engage_iff_permissions
+      | <target_projection-command>
+   })
+{
+   asset_management <asset_management-command>* end_asset_management
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+##################
+# WSF_UNCLASS_BM #
+##################
+(struct WSF_UNCLASS_BM :symbol (type processorType WSF_UNCLASS_BM)
+   :base_type WSF_BATTLE_MANAGER
+   :symbol (type processorType WSF_UNCLASS_BM)
+   (script-var WSF_UNCLASS_BM PROCESSOR :this 1)
+
+   (var Time stale_asset_time :default "60 seconds")
+   (rule shot_doctrine-type { Shoot-1 | Shoot-2 | Shoot-Look-Shoot })
+   (var Time max_firing_time  :default "360 seconds")
+   (rule print_settings-command {
+        valid_units <Bool>
+      | valid_unit_details <Bool>
+      | invalid_unit_details <Bool>
+   })
+   (rule scoring_factors-command {
+        weapon_type <integer>
+      | weapon_subtype <integer>
+      | intercept_range <integer>
+      | intercept_time <integer>
+      | pk <integer>
+      | workload <integer>
+   })
+   (rule weapon_table-command {
+      (rule attribute_name { <string> })
+      (rule arithmetic_op-type { "<" | "<=" })
+      (rule speed_attributes-command {
+         attrib <attribute_name> <Speed> <arithmetic_op-type> <Speed>
+      })
+      (rule altitude_attributes-command {
+         attrib <attribute_name> <Length> <arithmetic_op-type> <Length>
+      })
+      (rule weapon_rows-command {
+         (rule ai_subtype_prefs-command {
+            subtype_pref <string> <integer>
+         })
+         (rule sam_subtype_prefs-command {
+            subtype_pref <string> <integer>
+         })
+           target_pref priority <integer> <string> <string> <string> <string> <real> <integer> <integer> <integer>
+         | ai_subtype_prefs <ai_subtype_prefs-command>* end_ai_subtype_prefs
+         | sam_subtype_prefs <sam_subtype_prefs-command>* end_sam_subtype_prefs
+      })
+        speed_attributes <speed_attributes-command>* end_speed_attributes
+      | altitude_attributes <altitude_attributes-command>* end_altitude_attributes
+      | weapon_rows <weapon_rows-command>* end_weapon_rows
+   })
+   (rule engage_iff_permissions-command {
+        unknowns <Bool>
+      | neutrals <Bool>
+      | friendlies <Bool>
+      | hostiles <Bool>
+   })
+   (rule target_projection-command {
+        project_targets_forward <Time> by <Time>
+   })
+{
+   commit_authority <Bool>
+ | project_tracks_by_delays <Bool>
+ | stale_asset_time <$stale_asset_time>
+ | shot_doctrine <shot_doctrine-type>
+ | max_firing_time <$max_firing_time>
+ | print_settings <print_settings-command>* end_print_settings
+ | scoring_factors <scoring_factors-command>* end_scoring_factors
+ | weapon_table <weapon_table-command>* end_weapon_table
+ | engage_iff_permissions <engage_iff_permissions-command>* end_engage_iff_permissions
+ | <target_projection-command>
+ | <WSF_BATTLE_MANAGER>
+})
+
+######################
+# WSF_DISSEMINATE_C2 #
+######################
+(struct WSF_DISSEMINATE_C2 :symbol (type processorType WSF_DISSEMINATE_C2)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WSF_DISSEMINATE_C2 PROCESSOR :this 1)
+
+   (rule routing_style-type { next_unit | next_c2 | direct })
+   (rule route_msg-type { subordinate | peer | commander | dynamic | none })
+   (rule routing_table-command {
+        track_updates <route_msg-type>
+      | assign_track_updates <route_msg-type>
+      | assignments <route_msg-type>
+      | assignment_status <route_msg-type>
+      | assignment_cancel <route_msg-type>
+      | status <route_msg-type>
+   })
+{
+   routing_style <routing_style-type>
+ | send_direct_assignment_to_weapon_plat <string>
+ | routing_table <routing_table-command>* end_routing_table
+ | <WSF_SCRIPT_PROCESSOR>
+})
+
+##############################
+# WSF_UNCLASS_DISSEMINATE_C2 #
+##############################
+(struct WSF_UNCLASS_DISSEMINATE_C2 :symbol (type processorType WSF_UNCLASS_DISSEMINATE_C2)
+   :base_type WSF_DISSEMINATE_C2
+   (script-var WSF_UNCLASS_DISSEMINATE_C2 PROCESSOR :this 1)
+{
+   <WSF_DISSEMINATE_C2>
+})
+
+#######################
+# WSF_SENSORS_MANAGER #
+#######################
+(struct WSF_SENSORS_MANAGER :symbol (type processorType WSF_SENSORS_MANAGER)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WSF_SENSORS_MANAGER PROCESSOR :this 1)
+{
+    max_tar_acquisition_time <Time>
+  | max_ttr_acquisition_time <Time>
+  | turn_off_tar_if_no_tracks <Bool>
+  | turn_off_ttr_if_no_tracks <Bool>
+  | ttr_tracking_mode_name <string>
+  | <WSF_SCRIPT_PROCESSOR>
+})
+
+###########################
+# WSF_SENSORS_MANAGER_FOV #
+###########################
+(struct WSF_SENSORS_MANAGER_FOV :symbol (type processorType WSF_SENSORS_MANAGER_FOV)
+   :base_type WSF_SIMPLE_SENSORS_MANAGER
+   (script-var WSF_SENSORS_MANAGER_FOV PROCESSOR :this 1)
+   {
+      <WSF_SIMPLE_SENSORS_MANAGER>
+   })
+
+(aux-script-class "WsfSensorsManagerFOV"
+   :base_class "WSF_SIMPLE_SENSORS_MANAGER"
+)
+
+##############################
+# WSF_SIMPLE_SENSORS_MANAGER #
+##############################
+(struct WSF_SIMPLE_SENSORS_MANAGER :symbol (type processorType WSF_SIMPLE_SENSORS_MANAGER)
+   :base_type WSF_SENSORS_MANAGER
+   (script-var WSF_SIMPLE_SENSORS_MANAGER PROCESSOR :this 1)
+{
+   <WSF_SENSORS_MANAGER>
+})
+
+#######################
+# WSF_WEAPONS_MANAGER #
+#######################
+(struct WSF_WEAPONS_MANAGER :symbol (type processorType WSF_WEAPONS_MANAGER)
+   :base_type WSF_SCRIPT_PROCESSOR
+   (script-var WSF_WEAPONS_MANAGER PROCESSOR :this 1)
+
+{
+   <WSF_SCRIPT_PROCESSOR>
+})
+
+##############################
+# WSF_WEAPONS_MANAGER_SAM #
+##############################
+(struct WSF_WEAPONS_MANAGER_SAM :symbol (type processorType WSF_WEAPONS_MANAGER_SAM)
+   :base_type WSF_WEAPONS_MANAGER
+   (script-var WSF_WEAPONS_MANAGER_SAM PROCESSOR :this 1)
+
+   (rule string_with_spaces-command {
+        <string> <string_with_spaces-command>
+      | <string> })
+   (rule self_defense-command {
+        enable
+      | disable})
+   (rule engagement_settings-command {
+        ew_targets <Bool>
+      | tar_targets <Bool>
+      | ttr_targets <Bool>
+      | engage_local_ttr_targets_only <Bool>
+      | track_quality <real>})
+   (rule delays-command {
+        time_between_engagements <Time>
+      | expected_sensor_acquisition <Time>})
+   (rule wez-library-command {
+        none
+      | <string_with_spaces-command> })
+   (rule tactical-range-command {
+        aero
+      | max1
+      | max2 })
+   (rule wez-command {
+        library <wez-library-command>
+      | tactical_range <tactical-range-command> })
+   (rule havecostrategy-command {
+        on_launch
+      | on_detonate
+      | on_kill })
+{
+    self_defense <self_defense-command>* end_self_defense
+  | engagement_settings <engagement_settings-command>* end_engagement_settings
+  | delays <delays-command>* end_delays
+  | wez <wez-command>* end_wez
+  | haveco_reporting_strategy <havecostrategy-command>
+  | <WSF_WEAPONS_MANAGER>
+})
+
+##############################
+# WSF_WEAPONS_MANAGER_AI #
+##############################
+(struct WSF_WEAPONS_MANAGER_AI :symbol (type processorType WSF_WEAPONS_MANAGER_AI)
+   :base_type WSF_WEAPONS_MANAGER
+   (script-var WSF_WEAPONS_MANAGER_AI PROCESSOR :this 1)
+
+   (rule string_with_spaces-command {
+        <string> <string_with_spaces-command>
+      | <string> })
+   (rule self_defense-command {
+        enable
+      | disable})
+   (rule take_action-command {
+         Straight
+      | Break-Left
+      | Break-Right})
+   (rule take_action_settings-command {
+        enable
+      | disable
+      | action_distance <Length>
+      | ai_action_1 <take_action-command>
+      | duration_1 <Time>
+      | ai_action_2 <take_action-command>
+      | duration_2 <Time>
+      | ai_action_3 <take_action-command>
+      | duration_3 <Time>
+      | ai_action_4 <take_action-command>
+      | duration_4 <Time>})
+   (rule rwr_priority-command {
+        Default
+      | Choose-Closest-Threat })
+   (rule rwr_response-command {
+        enable
+      | disable
+      | beam_duration <Time>
+      | sam_response_range <Length>
+      | ai_response_range <Length>
+      | restore_after_break_lock <Time>
+      | priority <rwr_priority-command> })
+   (rule assess_engage_via-command {
+        Collision-Intercept-PT-Inside-Zone
+      | Munition-Intercept-PT-Inside-Zone
+      | Munition-Intercept-PT-Ignore-Zone })
+   (rule escort-command <Bool>)
+   (rule intercept_speed-command <Speed>)
+   (rule pursuit_range-command <Length>)
+   (rule salvo_delay-command <Time>)
+   (rule engagement_settings-command {
+        ew_targets <Bool>
+      | tar_targets <Bool>
+      | ttr_targets <Bool>
+      | engage_local_ttr_targets_only <Bool>
+      | track_quality <real>})
+   (rule delays-command {
+        time_between_engagements <Time>})
+   (rule wez-library-command {
+        none
+      | <string_with_spaces-command> })
+   (rule tactical-range-command {
+        aero
+      | max1
+      | max2 })
+   (rule wez-command {
+        library <wez-library-command>
+      | tactical_range <tactical-range-command> })
+   (rule havecostrategy-command {
+        on_launch
+      | on_detonate
+      | on_kill})
+   (rule my_place_in_formation-command <integer>)
+{
+     self_defense <self_defense-command>* end_self_defense
+   | intercept_speed <intercept_speed-command>
+   | escort <escort-command>
+   | pursuit_range <pursuit_range-command>
+   | salvo_delay <salvo_delay-command>
+   | assess_engage_via <assess_engage_via-command>
+   | engagement_settings <engagement_settings-command>* end_engagement_settings
+   | delays <delays-command>* end_delays
+   | wez <wez-command>* end_wez
+   | haveco_reporting_strategy <havecostrategy-command>
+   | take_action <take_action_settings-command>* end_take_action
+   | rwr_response <rwr_response-command>* end_rwr_response
+   | my_place_in_formation <my_place_in_formation-command>
+   | <WSF_WEAPONS_MANAGER>
+})
+
+#WsfBMEventOutput.cpp
+(rule event_output-event-type {
+   BM_ASSIGNMENT_CREATION
+ | BM_ASSIGNMENT_STATUS
+ | BM_ASSIGNMENT_CANCEL
+ | BM_CANTCO_ASSIGNMENT
+ | BM_ALLOCATE
+ | BM_SENSOR_CUE
+ | BM_SENSOR_DROP_CUE
+ | BM_SENSOR_TRACKING
+ | BM_AI_ADD_BEHAVIOR
+ | BM_AI_TAKE_ACTION
+ | BM_AI_EGRESS
+})
+
+#WsfBMCSV_EventOutput.cpp
+(rule csv_event_output-event-type {
+   BM_ASSIGNMENT_CREATION
+ | BM_ASSIGNMENT_STATUS
+ | BM_ASSIGNMENT_CANCEL
+ | BM_CANTCO_ASSIGNMENT
+ | BM_ALLOCATE
+ | BM_SENSOR_CUE
+ | BM_SENSOR_DROP_CUE
+ | BM_SENSOR_TRACKING
+ | BM_AI_ADD_BEHAVIOR
+ | BM_AI_TAKE_ACTION
+ | BM_AI_EGRESS
+})
+
+#WsfBMMOELogger.cpp
+(rule observer-event-type {
+   BM_ASSIGNMENT_CREATION
+ | BM_ASSIGNMENT_STATUS
+ | BM_ASSIGNMENT_CANCEL
+ | BM_CANTCO_ASSIGNMENT
+ | BM_ALLOCATE
+ | BM_SENSOR_CUE
+ | BM_SENSOR_DROP_CUE
+ | BM_SENSOR_TRACKING
+ | BM_AI_ADD_BEHAVIOR
+ | BM_AI_TAKE_ACTION
+ | BM_AI_EGRESS
+})

@@ -1,0 +1,76 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+start_date Oct 1 2021
+start_time 17:00:00
+
+end_time 9 hrs
+
+include ../utils.txt
+
+$define posX  14000000.0
+$define posY  -65000.0
+$define posZ  -28500.0
+$define velX  31.0
+$define velY  5300.0
+$define velZ  3000.0
+$define epoch 23200.5
+
+platform space-platform-input WSF_PLATFORM 
+   add mover WSF_SPACE_MOVER
+       initial_state_eci  $<posX:0>$ m
+                          $<posY:0>$ m
+                          $<posZ:0>$ m
+                          $<velX:0>$ m/s
+                          $<velY:0>$ m/s
+                          $<velZ:0>$ m/s
+        epoch             $<epoch:0>$
+   end_mover
+   
+   on_initialize2 
+      WsfSpaceMover mv = (WsfSpaceMover)Mover();
+      writeln(Format.General(mv.InitialPositionECI(), 9));
+      writeln(Format.General(mv.InitialVelocityECI(), 9));
+      writeln(mv.InitialEpoch());
+   end_on_initialize2
+   
+end_platform
+
+platform_type SPACE_PLATFORM WSF_PLATFORM 
+   mover WSF_SPACE_MOVER
+   end_mover
+
+end_platform_type
+
+script void SimulationInitializing()
+      WsfPlatform plat = WsfSimulation.CreatePlatform("SPACE_PLATFORM");
+      WsfSpaceMover mv = (WsfSpaceMover)plat.Mover();
+      
+      Vec3 pos = Vec3.Construct($<posX:0>$, $<posY:0>$, $<posZ:0>$);
+      Vec3 vel = Vec3.Construct($<velX:0>$, $<velY:0>$, $<velZ:0>$);
+      Calendar calendar = Calendar.Construct($<epoch:0>$);
+      
+      mv.SetOrbit(pos, vel, calendar); 
+
+      WsfSimulation.AddPlatform(plat, "space-platform-script");
+end_script
+
+script void ComparePlatforms(WsfPlatform aPlatform1, WsfPlatform aPlatform2)
+   ExpectVec(aPlatform1.LocationECI(), aPlatform2.LocationECI(), 1.0E-12, "ECI Locations do not match");
+   ExpectVec(aPlatform1.VelocityECI(), aPlatform2.VelocityECI(), 1.0E-12, "ECI Velocities do not match");
+end_script
+
+execute at_interval_of 30 min 
+   ComparePlatforms(WsfSimulation.FindPlatform("space-platform-input"),
+                    WsfSimulation.FindPlatform("space-platform-script"));
+end_execute
+
+observer 
+enable SIMULATION_INITIALIZING 
+end_observer

@@ -1,0 +1,134 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+   #Each sensor sector in ESAMS = sensor in AFSIM
+   #due to ESAMS allowing variable input per each sector
+   #The following variables are exposed per each sensor to
+   #allow customization based on typical ESAMS input parameters
+
+   #The number of sensors in ESAMS input (SECTRS) = # MAR sensors
+   #Example below, SECTRS = 4 (in ESAMS, must be <= 8)
+   sensor mar1 MAR
+      on
+      internal_link mar_track_list
+
+      #The following values are determined by ESAMS input
+      one_m2_detect_range 50 km   #Detection range (DRANGE)
+      yaw 0 deg                  #Azimuth boresight of sector (AZBORE)
+      pitch 0 deg                #Elevation boresight of sector (ELBORE)
+
+      #Note that elevation limts are not defined by ESAMS, but can modified
+      #if necessary. Avoid full 90 degree sectors as it causes issues
+      elevation_field_of_view -89.99 deg 89.99 deg
+
+      #Cosine rolloff exponent values
+      electronic_beam_steering_loss_exponent_azimuth .75    #(AZFAC)
+      electronic_beam_steering_loss_exponent_elevation .75  #(ELFAC)
+
+      #The following values correspond to AZMIN and AZMAX,
+      #however in AFSIM, they are relative to the boresight,
+      #where these values are relative to the platform in ESAMS
+      azimuth_scan_limits -45 deg 45 deg
+      azimuth_field_of_view -45 deg 45 deg
+   end_sensor
+
+   sensor mar2 MAR
+      on
+      internal_link mar_track_list
+
+      #The following values are determined by ESAMS input
+      one_m2_detect_range 50 km   #Detection range (DRANGE)
+      yaw 90 deg                 #Azimuth boresight of sector (AZBORE)
+      pitch 0 deg                #Elevation boresight of sector (ELBORE)
+
+      #Note that elevation limts are not defined by ESAMS, but can modified
+      #if necessary. Avoid full 90 degree sectors as it causes issues
+      elevation_field_of_view -89.99 deg 89.99 deg
+
+      #Cosine rolloff exponent values
+      electronic_beam_steering_loss_exponent_azimuth .75    #(AZFAC)
+      electronic_beam_steering_loss_exponent_elevation .75  #(ELFAC)
+
+      #The following values correspond to AZMIN and AZMAX,
+      #however in AFSIM, they are relative to the boresight,
+      #where these values are relative to the platform in ESAMS
+      azimuth_scan_limits -45 deg 45 deg
+      azimuth_field_of_view -45 deg 45 deg
+   end_sensor
+
+   sensor mar3 MAR
+      on
+      internal_link mar_track_list
+
+      #The following values are determined by ESAMS input
+      one_m2_detect_range 50 km   #Detection range (DRANGE)
+      yaw 180 deg                #Azimuth boresight of sector (AZBORE)
+      pitch 0 deg                #Elevation boresight of sector (ELBORE)
+
+      #Note that elevation limts are not defined by ESAMS, but can modified
+      #if necessary. Avoid full 90 degree sectors as it causes issues
+      elevation_field_of_view -89.99 deg 89.99 deg
+
+      #Cosine rolloff exponent values
+      electronic_beam_steering_loss_exponent_azimuth .75   #(AZFAC)
+      electronic_beam_steering_loss_exponent_elevation .75 #(ELFAC)
+
+      #The following values correspond to AZMIN and AZMAX,
+      #however in AFSIM, they are relative to the boresight,
+      #where these values are relative to the platform in ESAMS
+      azimuth_scan_limits -45 deg 45 deg
+      azimuth_field_of_view -45 deg 45 deg
+   end_sensor
+
+   sensor mar4 MAR
+      on
+      internal_link mar_track_list
+
+      #The following values are determined by ESAMS input
+      one_m2_detect_range 50 km   #Detection range (DRANGE)
+      yaw -90 deg                #Azimuth boresight of sector (AZBORE)
+      pitch 0 deg                #Elevation boresight of sector (ELBORE)
+
+      #Note that elevation limts are not defined by ESAMS, but can modified
+      #if necessary. Avoid full 90 degree sectors as it causes issues
+      elevation_field_of_view -89.99 deg 89.99 deg
+
+      #Cosine rolloff exponent values
+      electronic_beam_steering_loss_exponent_azimuth .75    #(AZFAC)
+      electronic_beam_steering_loss_exponent_elevation .75  #(ELFAC)
+
+      #The following values correspond to AZMIN and AZMAX,
+      #however in AFSIM, they are relative to the boresight,
+      #where these values are relative to the platform in ESAMS
+      azimuth_scan_limits -45 deg 45 deg
+      azimuth_field_of_view -45 deg 45 deg
+   end_sensor
+
+
+   #If SECTRS differs from 4, simply comment out the sectors above for less
+   #or uncomment the following sensors and replicate the functionality present
+   #in the above sensor declarations in those below.
+#   sensor mar5 MAR
+#      on
+#      internal_link mar_track_list
+#   end_sensor
+#
+#   sensor mar6 MAR
+#      on
+#      internal_link mar_track_list
+#   end_sensor
+#
+#   sensor mar7 MAR
+#      on
+#      internal_link mar_track_list
+#   end_sensor
+#
+#   sensor mar8 MAR
+#      on
+#      internal_link mar_track_list
+#   end_sensor

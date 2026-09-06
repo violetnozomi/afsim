@@ -1,0 +1,22 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+* **(2.6.3)** :method:`WsfPlatform.FutureLocation` is now valid for platforms with a :model:`WSF_INTEGRATING_SPACE_MOVER`. *(AFSIM-640)*
+* **(2.6.3)** Corrected problems with special cases of :doc:`change_inclination<../change_inclination>` maneuvers. This issue caused the :model:`WSF_NORAD_SPACE_MOVER` to enter an infinite loop when attempting to change to an equatorial, non-circular orbit. *(AFSIM-315)*
+* **(2.6.2)** Corrected a problem where the :model:`WSF_ORBIT_DETERMINATION_FILTER` was not working properly due to incorrect initialization.
+* **(2.6.2)** Corrected an issue where the :model:`WSF_SPACE_OPTICAL_SIGNATURE` was providing incorrect values in the special case where the target platform has no mover, due to eclipsing.
+* **(2.6.2)** Corrected an issue where the *EclipseExit* script method was being called on the :ref:`ECLIPSE_ENTRY` :command:`observer` callback.
+* **(2.6.2)** Corrected a problem where an :command:`inherent_contrast` warning would be displayed on :model:`WSF_SPACE_OPTICAL_SIGNATURE`, which does not require it.
+* **(2.6.2)** Fixed an issue where :method:`WsfSpaceMover.EclipsedState` would never return the penumbral state. *(Issue #2530)*
+* **(2.6.1)** Corrected a problem where :method:`WsfSpaceMover.SetOrbit` could fail on a platform with an insufficiently defined space mover.
+* Corrected a problem where Wizard incorrectly recognized :command:`WSF_SPACE_MOVER.oblate_earth` as grammatical for :model:`WSF_NORAD_SPACE_MOVER`. *(Issue #1501)*
+* Corrected a problem where targeting solutions for some orbital propagators could fail, leading to a crash. *(Issue #1852)*
+* Corrected an issue where :doc:`../orbit_determination_fusion` was not providing orbit determination updates as accurately as in previous versions. *(Issue #2027)*
+* Corrected a problem where :model:`WSF_ORBITAL_CONJUNCTION_PROCESSOR` would attempt to analyze tracks with incomplete kinematics. *(Issue #1997)*
+* Corrected an issue where the earth gravitational parameter attributed to the WGS-84 standard (3.986004418e+14) was actually the GPS recommended value (3.986005e+14). *(Issue #2056)*

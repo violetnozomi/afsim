@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once ../auto_script/test_functions.txt
+
+#script_listing on
+
+platform test WSF_PLATFORM
+   track
+      platform target
+      position 10n 10w
+      altitude 100 m agl
+      speed 10 m/s
+      heading 45 deg
+      type target_type
+      side red
+      spatial_domain space
+      frequency 10 hz
+   end_track
+   
+   # second track to test MGRS input
+   track
+      mgrs_coordinate 29PLM9039905578
+   end_track
+
+   script void on_platform_deleted()
+      extern bool AssertDoubleEqualsMessage(double, double, string);
+      extern bool AssertStringEqualsMessage(string, string, string);
+      extern bool AssertTrueMessage(bool, string);
+      extern bool AssertFalseMessage(bool, string);
+      extern void writePass(bool);
+
+      bool pass = true;
+      pass = AssertDoubleEqualsMessage(2, PLATFORM.MasterTrackList().Count(), "MasterTrackListCount") && pass;
+      if (PLATFORM.MasterTrackList().Count() > 0)
+      {
+         WsfTrack track = PLATFORM.MasterTrackList().Entry(0);
+         pass = AssertTrueMessage(track.IsValid(), "track invalid");
+         if (pass)
+         {
+            pass = AssertTrueMessage(track.IsPredefined(), "Predefined") && pass;
+            pass = AssertStringEqualsMessage("test", track.OriginatorName(), "Originator") && pass;
+            pass = AssertDoubleEqualsMessage(10, track.Latitude(), "Latitude") && pass;
+            pass = AssertDoubleEqualsMessage(-10, track.Longitude(), "Longitude") && pass;
+            pass = AssertDoubleEqualsMessage(100, track.Altitude(), "Altitude") && pass;
+            pass = AssertDoubleEqualsMessage(45, track.Heading(), "Heading") && pass;
+            pass = AssertTrueMessage(track.TypeValid(), "Type Valid") && pass;
+            pass = AssertStringEqualsMessage("target_type", track.Type(), "Type") && pass;
+            pass = AssertStringEqualsMessage("red", track.Side(), "Side") && pass;
+            pass = AssertFalseMessage(track.LandDomain(), "Land Domain") && pass;
+            pass = AssertFalseMessage(track.AirDomain(), "Air Domain") && pass;
+            pass = AssertFalseMessage(track.SurfaceDomain(), "Surface Domain") && pass;
+            pass = AssertFalseMessage(track.SubsurfaceDomain(), "Subsurface Domain") && pass;
+            pass = AssertTrueMessage(track.SpaceDomain(), "Space Domain") && pass;
+            pass = AssertDoubleEqualsMessage(10, track.Frequency(), "Frequency") && pass;
+            # Test the 'truth data"
+            pass = AssertStringEqualsMessage("target", track.TargetName(), "TargetName") && pass;
+            pass = AssertStringEqualsMessage("WSF_PLATFORM", track.TargetType(), "TargetType") && pass;
+         }
+		 
+         track = PLATFORM.MasterTrackList().Entry(1);
+         pass = AssertTrueMessage(track.IsValid(), "track invalid");
+         if (pass)
+         {
+            pass = AssertWithinToleranceMessage(10, track.Latitude(), 1.0e-5, "Latitude") && pass;
+            pass = AssertWithinToleranceMessage(-10, track.Longitude(), 1.0e-5, "Longitude") && pass;
+         }
+      }
+      writePass(pass);
+   end_script
+end_platform
+
+# Used for truth data...
+platform target WSF_PLATFORM
+end_platform
+
+
+end_time 5 s
+

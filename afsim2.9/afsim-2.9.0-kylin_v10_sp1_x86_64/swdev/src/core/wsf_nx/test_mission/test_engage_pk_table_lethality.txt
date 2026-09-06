@@ -1,0 +1,115 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+####################################################################################################
+# Test WSF_ENGAGE_LAUNCH_PK_TABLE_LETHALITY
+####################################################################################################
+
+# Requires the wsf_nx extension
+test_feature non_exportable
+
+include_once bomber.txt
+
+weapon_effects ENGAGE_PK_TABLE_LETHALITY WSF_ENGAGE_LAUNCH_PK_TABLE_LETHALITY 
+   pk_tables_path ./engage_pk_tables
+   default_pk 0.7
+   file_filter *.pkt 
+   #debug 
+   
+   script void on_weapon_target_engagement(WsfPlatform aTarget)
+      extern double pkSmall;
+      extern double pkMedium;
+      extern double pkLarge;
+      writeln("T=", TIME_NOW, " Target Type: ", aTarget.Type(), ", Miss Distance: ", MissDistance(), ", Pk: ", Pk());
+      if (aTarget.Type() == "SMALL_VEHICLE")
+      {
+         pkSmall = Pk();
+      }
+      else if (aTarget.Type() == "MEDIUM_VEHICLE")
+      {
+         pkMedium = Pk();
+      }
+      else if (aTarget.Type() == "LARGE_VEHICLE")
+      {
+         pkLarge = Pk();
+      }
+      else
+      {
+         writeln("-FAIL- Unexpected target type ", aTarget.Type());
+      }
+   end_script
+end_weapon_effects 
+
+
+script_variables
+   double pkSmall  = -1.0;
+   double pkMedium = -1.0;
+   double pkLarge  = -1.0;
+   
+   SDB_WEAPON_EFFECTS = "ENGAGE_PK_TABLE_LETHALITY";
+end_script_variables
+
+# --------------------------------------------------------------------------------------------------
+
+radar_signature VEHICLE_RADAR_SIG
+   constant 10 m^2
+end_radar_signature
+
+platform_type VEHICLE WSF_PLATFORM
+   icon Pickup_Truck
+   radar_signature VEHICLE_RADAR_SIG
+   mover WSF_GROUND_MOVER
+   end_mover
+end_platform_type
+
+platform_type SMALL_VEHICLE  VEHICLE end_platform_type
+platform_type MEDIUM_VEHICLE VEHICLE end_platform_type
+platform_type LARGE_VEHICLE  VEHICLE end_platform_type
+
+# --------------------------------------------------------------------------------------------------
+
+platform bomber BOMBER
+   side blue
+   route
+      position 40.25n 89w altitude 30000 ft heading 270 deg speed 400 kts
+   end_route
+   weapon sdb
+      quantity 6
+      maximum_request_count 3
+   end_weapon
+end_platform
+
+platform <default> SMALL_VEHICLE
+   side red
+   route
+      position 40n 90w altitude 35000 ft heading 90 deg speed 200 kts
+   end_route
+end_platform
+
+platform <default> MEDIUM_VEHICLE
+   side red
+   route
+      position 40.1n 90w altitude 35000 ft heading 90 deg speed 200 kts
+   end_route
+end_platform
+
+platform <default> LARGE_VEHICLE
+   side red
+   route
+      position 40.2n 90w altitude 35000 ft heading 90 deg speed 200 kts
+   end_route
+end_platform
+
+execute at_time 1799.0 sec absolute
+   if ((pkSmall  < 0.69) || (pkSmall  > 0.71)) writeln("-FAIL- Small  Pk not 0.7: ", pkSmall); // Test default pk (Table not available)
+   if ((pkMedium < 0.59) || (pkMedium > 0.61)) writeln("-FAIL- Medium Pk not 0.6: ", pkMedium);
+   if ((pkLarge  < 0.49) || (pkLarge  > 0.51)) writeln("-FAIL- Large  Pk not 0.5: ", pkLarge);
+end_execute
+
+end_time 1800 sec

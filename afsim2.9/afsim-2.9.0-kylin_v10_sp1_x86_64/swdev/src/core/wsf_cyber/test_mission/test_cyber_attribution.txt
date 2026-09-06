@@ -1,0 +1,114 @@
+// ****************************************************************************
+// CUI
+//
+// The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+//
+// Copyright 2021 Radiance Technologies. All rights reserved.
+//
+// The use, dissemination or disclosure of data in this file is subject to
+// limitation or restriction. See accompanying README and LICENSE for details.
+// ****************************************************************************
+
+cyber_attack TEST_ATTACK WSF_CYBER_ATTACK
+    probability_of_attack_attribution 1.0
+    probability_of_attack_detection 1.0
+end_cyber_attack
+
+cyber_attack TEST_ATTACK2 WSF_CYBER_ATTACK
+    probability_of_attack_attribution 0.0
+    probability_of_attack_detection 0.0
+end_cyber_attack
+
+cyber_protect TEST_PROTECT_AGAINST_ATTACK2 WSF_CYBER_PROTECT
+    attack_response TEST_ATTACK2
+        probability_of_attack_attribution 1.0
+        probability_of_attack_detection 1.0
+    end_attack_response
+end_cyber_protect
+
+platform victim WSF_PLATFORM
+end_platform
+
+platform victim2 WSF_PLATFORM
+end_platform
+
+platform victim3 WSF_PLATFORM
+    add cyber_protect TEST_PROTECT_AGAINST_ATTACK2
+    end_cyber_protect
+end_platform
+
+platform attacker WSF_PLATFORM
+execute at_time 1 s absolute
+        WsfPlatform tgt = WsfSimulation.FindPlatform("victim");
+        bool success = PLATFORM.CyberAttack(tgt, "TEST_ATTACK");
+
+        if(!success) {
+            writeln("Failed to perform cyber attack on victim");
+            writeln("-FAIL-");
+        }
+
+        tgt = WsfSimulation.FindPlatform("victim2");
+        success = PLATFORM.CyberAttack(tgt, "TEST_ATTACK2");
+
+        if(!success) {
+            writeln("Failed to perform cyber attack on victim2");
+            writeln("-FAIL-");
+        }
+
+        tgt = WsfSimulation.FindPlatform("victim3");
+        success = PLATFORM.CyberAttack(tgt, "TEST_ATTACK2");
+
+        if(!success) {
+            writeln("Failed to perform cyber attack on victim3");
+            writeln("-FAIL-");
+        }
+    end_execute
+end_platform
+
+script_variables
+    Set<string> attributed = Set<string>();
+    Set<string> detected = Set<string>();
+end_script_variables
+
+script void CyberAttackDetected(WsfCyberEngagement eng)
+    detected.Insert(eng.Victim());
+end_script
+
+script void CyberAttackAttributed(WsfCyberEngagement eng)
+    attributed.Insert(eng.Victim());
+end_script
+
+script void SimulationComplete()
+    if(!detected.Exists("victim")) {
+        writeln("Failed to detect cyber attack");
+        writeln("-FAIL-");
+    }
+    else if(!attributed.Exists("victim")) {
+        writeln("Failed to attribute cyber attack");
+        writeln("-FAIL-");
+    }
+
+    if(detected.Exists("victim2")) {
+        writeln("Detected cyber attack when it shouldn't have been detectable");
+        writeln("-FAIL-");
+    }
+    else if(attributed.Exists("victim2")) {
+        writeln("Attributed cyber attack when it shouldn't have been attributable");
+        writeln("-FAIL-");
+    }
+
+    if(!detected.Exists("victim3")) {
+        writeln("Failed to detect cyber attack on victim3");
+        writeln("-FAIL-");
+    }
+    else if(!attributed.Exists("victim3")) {
+        writeln("Failed to attribute cyber attack on victim3");
+        writeln("-FAIL-");
+    }
+end_script
+
+observer
+    enable CYBER_ATTACK_DETECTED
+    enable CYBER_ATTACK_ATTRIBUTED
+    enable SIMULATION_COMPLETE
+end_observer

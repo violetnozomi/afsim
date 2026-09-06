@@ -1,0 +1,75 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+The Route Browser can be enabled from the 'View' menu. Selecting a platform will show its route, if it has one, in the Route Browser. If routes are enabled in the Platform Options, a route can be selected by clicking on one of its waypoints in the Map Display. Selecting a route will also populate the Route Browser with the route information.
+
+.. image:: ../images/wkf_route_browser.png
+
+.. image:: ../images/wkf_route.png
+
+The Route Browser also provides a way to edit and create routes.
+
+A user can edit a route by either selecting a route and then clicking the "Edit Route" button at the top of the browser or by right-clicking on the route and selecting the edit option from the menu. This will show a dialog where the properties of each waypoint can be modified. Waypoints can also be added to or removed from the route. To add a waypoint, right-click on the desired adjacent waypoint on the left side of the dialog and select either "Insert Waypoint Prior" or "Insert Waypoint After" from the menu. To delete a waypoint, select "Remove Waypoint" from that same menu. Waypoints can also be added using the location selector button at the top of the dialog. This allows a user to select a location on the Map Display, and a waypoint with that latitude/longitude will be appended to the route. The altitude of the new waypoint defaults to the previous waypoint's altitude, or 25000 feet if no previous altitude is available. All other waypoint properties are set to Mover Default or remain unset, as applicable.
+
+.. image:: ../images/wkf_route_browser_edit_create_dialog.png
+
+Waypoint properties that are relevant to the Route Browser include:
+
+.. list-table::
+   :widths: 20 80
+
+   * - Label
+     - The :command:`route.label` that appears next to the waypoint in the Map Display. This is also used as the target of a :command:`route.goto` command.
+   * - Latitude
+     - The latitudinal :command:`route.position` of the waypoint.
+   * - Longitude
+     - The longitudinal :command:`route.position` of the waypoint.
+   * - Altitude
+     - The :command:`route.altitude` of the waypoint. If no altitude is specified, the altitude of the previous waypoint will be used.
+   * - Altitude Reference
+     - The reference for the :command:`route.altitude`. Options for this property are MSL, AGL, and Mover Default.
+   * - Go To
+     - The :command:`route.label` of the waypoint to :command:`route.goto` next in the route. Options for this property include all waypoint labels defined for the current route.
+   * - Speed
+     - The :command:`route.speed` of the waypoint. If no speed is specified, the speed of the previous waypoint will be used.
+   * - Climb Rate
+     - The :command:`climb rate <route.climb_rate>` of the waypoint. If no climb rate is specified, the climb rate of the previous waypoint will be used.
+   * - Linear Acceleration
+     - The :command:`linear acceleration <route.linear_acceleration>` of the waypoint. If no linear acceleration is specified, the linear acceleration of the previous waypoint will be used.
+   * - Radial Acceleration
+     - The :command:`radial acceleration <route.radial_acceleration>` of the waypoint. If no radial acceleration is specified, the radial acceleration of the previous waypoint will be used.
+       The radial acceleration may be specified in one of three ways: radial acceleration, bank angle, or maximum g's. The desired radial acceleration specification can be selected from the drop-down list.
+   * - Turn Direction
+     - The :command:`turn direction <route.turn>` of the waypoint. Options for this property are Left, Right, and Shortest.
+   * - Switch Type
+     - The switch type of the waypoint. Options for this property are :command:`On Passing<route.switch_on_passing>`, :command:`On Approach<route.switch_on_approach>`, and Mover Default.
+   * - End Of Path Option
+     - The property that specifies what happens to the platform when it reaches the last waypoint in its route. Options include :command:`Extrapolate<route.extrapolate>`,
+       :command:`Stop<route.stop>`, :command:`Remove<route.remove>`, and Mover Default.
+
+While editing a route, any change to a waypoint will be reflected immediately in the Map Display (if routes are enabled).
+However, to take effect in the simulation, the change must be applied by clicking "Apply" or "OK".
+
+.. note::
+   Route changes will not be applied to the simulation until "Apply" or "OK" is clicked.
+
+The Route Browser also allows a user to create a new global route. The route is considered "global" until it is assigned to a platform.
+
+A new route can be created by clicking on the "New Route" button in the Route Browser. A dialog very similar to the edit dialog will appear, with the addition of a "Route Name" field and a drop-down list to assign the route to a platform, if desired. To add waypoints, use the location selector to select locations on the Map Display. Once at least waypoint is added, additional waypoints can be added by right-clicking on a waypoint and then selecting either "Insert Waypoint Prior" or "Insert Waypoint After". Waypoints can be removed by selecting the "Remove Waypoint" option. Once the global route is created, it can be selected from the drop-down list in the "Follow Route" section of the Platform Movement window.
+
+.. image:: ../images/wkf_create_dialog_add_remove.png
+
+A route my be deleted by right-clicking on the route in the Route Browser dock widget and selecting the delete option from the menu.
+
+Platform Options
+----------------
+
+Routes can be shown/hidden from the Map Display through the Platform Options.
+
+.. image:: ../images/wkf_routes_platform_options.png

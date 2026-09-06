@@ -1,0 +1,77 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+behavior fail
+   precondition   return false;   end_precondition
+end_behavior
+
+behavior pass
+   precondition   return true;              end_precondition
+   execute        extern int z;   z += 1;   end_execute
+end_behavior
+
+behavior one
+   script_variables   int a = 0;   int z = 0;   end_script_variables
+   state FIRST
+      on_entry   a += 1;   end_on_entry
+      on_exit
+         if (z <= 0) {
+            writeln("-FAIL- behavior 'pass' failed to update variable 'z'");
+         }
+      end_on_exit
+      next_state SECOND   return (TIME_NOW > 100);   end_next_state
+      behavior_tree
+         selector
+            behavior_node fail
+            behavior_node pass
+         end_selector
+      end_behavior_tree
+   end_state
+   state SECOND
+      on_entry   a += 1;   end_on_entry
+   end_state
+   precondition   return (TIME_NOW < 150);   end_precondition
+   execute        a = a;                     end_execute
+end_behavior
+
+behavior two
+   script_variables   int b = 0;     end_script_variables
+   precondition       return true;   end_precondition
+   execute            b += 1;        end_execute
+end_behavior
+
+
+platform tester WSF_PLATFORM
+   add processor test_proc WSF_SCRIPT_PROCESSOR
+      update_interval 1 sec
+      script_variables
+         int x = 0;
+      end_script_variables
+      behavior_tree
+         selector
+            behavior_node one
+            behavior_node two
+         end_selector
+      end_behavior_tree
+      on_update
+         if (TIME_NOW > 105) {
+            WsfBehaviorTreeNode node = PROCESSOR.FindBehavior("one");
+            if (node.IsValid()) {
+               if (node->a != 2) {
+                  writeln("-FAIL- states in behavior 'one' did not update variable 'a'");
+               }
+            } else {
+               writeln("-FAIL- processor could not access behavior node 'one'");
+            }
+         }
+      end_on_update
+   end_processor
+end_platform
+
+end_time 200 sec

@@ -1,0 +1,86 @@
+.. ****************************************************************************
+.. CUI//REL TO USA ONLY
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. _signal_processor.pulse_doppler:
+
+pulse_doppler
+*************
+
+.. block:: signal_processor.pulse_doppler
+
+.. parsed-literal::
+
+   signal_processor pulse_doppler
+      pd_num_filters_
+      pd_filter_bandwidth_
+      pd_num_filter_poles_
+      pd_filter_slr_
+      filtered_doppler_speed_
+      unfiltered_doppler_speed_
+      debug_
+   end_signal_processor
+
+Overview
+~~~~~~~~
+
+This document provides a basic description of the moving target indication (MTI) implementation in WSF for a :model:`WSF_RADAR_SENSOR`. It was largely based on an existing implementation in ALARM.
+
+The MTI signal processor block can be defined as part of a :model:`WSF_RADAR_SENSOR`. Note that the radar must have PRF (or PRI) specified. The input names and types are set up to mimic the ALARM inputs.
+
+PD Response
+~~~~~~~~~~~
+
+Applied to a Sensor Interaction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the :command:`sensor` detection result has a transmitter and a PD signal processor the PD response will be computed. The PD response then applied to the result's received power, clutter power, noise/pulse/coherent jammer power:
+
+* Result received power = Result received power * PD target response
+* Result clutter power = Result clutter power * PD clutter response
+* Result noise jammer power = Result noise jammer power * PD noise jamming response
+* Result pulse jammer power = Result pulse jammer power * PD noise jamming response
+* Result coherent jammer power = Result coherent jammer power * PD coherent jamming response
+
+PD Commands
+~~~~~~~~~~~
+
+.. command:: pd_num_filters <integer-value>
+
+   Specifies the number of Doppler filters in the filter bank.
+
+.. command:: pd_filter_bandwidth <integer-value> <frequency-value>
+
+   Specifies the Radar Doppler filter bandwidth corresponding to PRF(I), where i is the input integer value.
+   Input 0.0 for each for matched filter.
+
+  .. note::
+
+     For matched filter the Doppler filter bandwidth equals one over the integration time. If PD_BANDWIDTH (I) = 0.0,
+     it will be reset to PRF (I)/PD_FILTERS. Input for I = 1 to NPRFS.
+
+.. command:: pd_num_filter_poles <integer-value>
+
+   Specifies the number of poles (the order) of the Chebyshev filter. Must be in the range 1 to 7.
+
+.. command:: pd_filter_slr <dbratio-value>
+
+   Specifies the mainlobe-to-peak sidelobe difference of the Chebyshev filters. Must be greater than 0.0 dB.
+
+.. command:: filtered_doppler_speed
+.. command:: unfiltered_doppler_speed
+
+   Specifies if the ownship velocity is removed from the Doppler speed computation. A MTI sensor would typically employ **filtered_doppler_speed**.
+
+   Default: filtered_doppler_speed
+
+.. command:: debug
+
+   Presence of this flag indicates the MTI Signal Processor will output additional operational messages to the system console.
+
+.. NonExportable

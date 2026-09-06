@@ -1,0 +1,129 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Setup file for the 'test_gm_*' auto tests
+
+include ssm_base.txt
+include agm_base.txt
+
+###############################################################################
+
+platform_type SSM_LAUNCHER WSF_PLATFORM
+   icon C4I
+   side blue
+   position 38:44:50n 90:21:41w altitude 184.4 m msl heading 301.05 deg   # Lambert STL (Wiki)
+   position 38:44:50n 90:21:41w altitude 184.4 m msl heading 310 deg   # Lambert STL (Wiki)
+   
+   add weapon ssm WSF_EXPLICIT_WEAPON
+      launched_platform_type SSM
+      location 0.0 0.0 -5.15 m                      # Ref 1, length = 12.3 m    
+      tilt 89.9 degrees
+      quantity 10
+      
+      launch_computer WSF_LAUNCH_COMPUTER
+         commanded_loft_angle 85.78 deg
+      end_launch_computer
+      
+      #cue_to_predicted_intercept true
+      #automatic_target_cueing true
+      slew_mode azimuth
+      azimuth_slew_limits -180 deg 180 deg
+      
+      #require_loft_angle   # Abort the launch if the launch computer didn't provide the required data
+   end_weapon
+   
+   script void Launch()
+      WsfTrack t = MasterTrackList().Entry(0);
+      WsfWeapon w = WeaponEntry(0);
+      # Cue to the target if the platform is defined in the scenario...
+      # Note that the t.LocationValid seems to always return false with this sort of prebrief track.
+      # ... but the actual location seems to be good.
+      if (t.IsValid() && t.Target().IsValid())
+      {
+         w.CueToPoint(t.Target().Location());
+         #w.CueToTrack(t);
+      }
+      WeaponEntry(0).Fire();
+  end_script
+end_platform_type
+
+platform_type SSM_TARGET WSF_PLATFORM
+   icon bullseye
+   on_broken disable         # Needed so if one shot hits, others will complete
+   side red
+   position 47:26:56n 122:18:34w altitude 132 m msl # Seattle-Tacoma SEA (Wiki)
+end_platform_type
+
+###############################################################################
+
+platform_type AGM_LAUNCHER WSF_PLATFORM
+   icon B-52
+   side blue
+   
+   add mover WSF_AIR_MOVER
+   end_mover
+   
+   add weapon agm WSF_EXPLICIT_WEAPON
+      launched_platform_type AGM
+      quantity 10
+   end_weapon
+   
+   script void Launch()
+      WsfTrack t = MasterTrackList().Entry(0);
+      WeaponEntry(0).Fire(t);
+   end_script
+end_platform_type
+
+platform_type AGM_TARGET WSF_PLATFORM
+   icon bullseye
+   on_broken disable         # Needed so if one shot hits, others will complete
+   side red
+   position 38:44:50n 90:21:41w altitude 184.4 m msl heading 310 deg   # Lambert STL (Wiki)
+end_platform_type
+
+###############################################################################
+
+# The tests default to FAIL until proven true.
+script_variables
+  int gShotCount = 0;
+  int gPassCount = 0;
+  int gExpectedPassCount = 0;   # Must be assigned by the test case.
+end_script_variables
+
+script void SimulationComplete()
+  if (gPassCount == gExpectedPassCount)
+  {
+     writeln("-PASS-");
+  }
+  else
+  {
+     writeln("-FAIL- Not all tests were run and passed");
+  }
+end_script
+
+observer
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+
+# caller must specify another event_output block with the 'file' command
+event_output
+   file NULL
+   enable MOVER_TURNED_ON
+   #enable MOVER_GUIDANCE_PHASE_CHANGE
+   #enable MOVER_GUIDANCE_PHASE_CHANGE
+   enable MOVER_STAGED
+   enable MOVER_BURNED_OUT
+   enable PLATFORM_ADDED
+   enable PLATFORM_DELETED
+   enable WEAPON_FIRED
+   enable WEAPON_HIT
+   enable WEAPON_MISSED
+   enable WEAPON_TERMINATED
+end_event_output
+

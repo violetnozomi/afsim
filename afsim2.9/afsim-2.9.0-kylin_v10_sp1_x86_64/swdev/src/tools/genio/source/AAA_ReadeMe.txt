@@ -1,0 +1,37 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+The genio directory contains the framework necessary to perform I/O using ethernet
+(via UMP), files, and memory.  The interface is defined in GenI.hpp and
+GenO.hpp and is the same regardless of whether you are using ethernet, files, or
+memory medium.  Typically users instantiate one of the following classes depending
+on the desired I/O medium:
+
+Ethernet, broadcast or unicast:         GenUmpIO
+Ehternet, server:                       GenUmpIOServer and GenUmpIOServerCB
+File:                                   GenFileI, GenFileO, or GenFileIO
+Memory:                                 GenMemI,  GenMemO,  or GenMemIO
+Null device:                            GenNullI, GenNullO, or GenNullIO
+
+
+These helper templates are available and may reduce your coding:
+
+Server call back helper:                GenUmpIOServerCBHelper
+Input  helper (handy for dis classes):  GenIHelper
+Output helper (handy for dis classes):  GenOHelper
+
+
+The genio framework recognizes the type of computer it is running on and performs
+byte swapping as needed.  The GenFile family and GenMem family allow you to
+control the endian type.  GenUmpIO and GenUmpIOServer use big endian.  User control
+of endian type could be added to GenUmpIO and GenUmpIOServer if needed someday.
+
+The remaining files is this directory provide support of the above classes and
+typically are of little use to the end user.  Of course you are welcome to explore
+these supporting classes at your leisure.
+

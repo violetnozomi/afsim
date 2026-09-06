@@ -1,0 +1,184 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# =============================================================================
+# A simple test of the signal processing interface.
+#
+# This uses the predefined 'scale_factor' signal processor to test the basic
+# operation of the signal processing interface.
+# =============================================================================
+
+# The sensor is defined so that 1 m^2 at 100 km will produce a S/N of 20 dB when
+# no scale factor is applied.
+#
+# In the radar range equation:
+#
+# a) A 1 m^2 at 100km gives 200 db in the denominator.
+# b) No antenna pattern is defined, so the antenna gain in unitary.
+# c) The frequency is defined using the wavelength so lambda^2 / (4pi)^3 = 1.
+# d) The receiver noise is fixed at -140 dbW
+#
+# This results in the power being defined as 80 dbW
+
+sensor SIMPLE_RADAR WSF_RADAR_SENSOR
+   frame_time 10 sec
+
+   transmitter
+      power                            80 dbW
+      wavelength                       44.54662397 m  # sqrt((4pi)^3)
+      # so we can easily put the target exactly 100 km away.
+      earth_radius_multiplier          1.0
+   end_transmitter
+
+   receiver
+      noise_power                      -140 dbw
+   end_receiver
+
+   # This gets overridden
+   signal_processor scale_factor
+      constant 2.0
+   end_signal_processor
+
+   reports_location
+end_sensor
+
+sensor SIMPLE_RADAR_1 SIMPLE_RADAR
+   # revert back to no signal processor
+   delete_signal_processor scale_factor
+end_sensor
+
+sensor SIMPLE_RADAR_2 SIMPLE_RADAR
+   signal_processor scale_factor
+      constant 0.5
+   end_signal_processor
+end_sensor
+
+sensor SIMPLE_RADAR_3 SIMPLE_RADAR
+   signal_processor scale_factor
+      constant 0.25
+   end_signal_processor
+end_sensor
+
+radar_signature TARGET_RADAR_SIG
+   constant 1 m^2
+end_radar_signature
+
+platform_type TARGET WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+end_platform_type
+
+# =============================================================================
+
+platform looker WSF_PLATFORM
+   side blue
+   position 39n 90w altitude 30000 ft heading 0 deg
+   add sensor radar_1 SIMPLE_RADAR_1 end_sensor
+   add sensor radar_2 SIMPLE_RADAR_2 end_sensor
+   add sensor radar_3 SIMPLE_RADAR_3 end_sensor
+
+   # Set the target location so it is exactly 100 km horizontal
+   execute at_time 0.01 sec absolute
+      WsfGeoPoint tgtLoc = Location();
+      tgtLoc.OffsetNED(100000.0, 0.0, 0.0);
+      WsfPlatform tgt = WsfSimulation.FindPlatform("target");
+      tgt.SetLocation(tgtLoc);
+   end_execute
+
+   execute at_time 1 sec absolute Sensor("radar_1").TurnOn(); end_execute
+   execute at_time 2 sec absolute Sensor("radar_2").TurnOn(); end_execute
+   execute at_time 3 sec absolute Sensor("radar_3").TurnOn(); end_execute
+end_platform
+
+platform target TARGET
+   side red
+   # The position gets set dynamically by the sensing platform
+end_platform
+
+# =============================================================================
+
+end_time 5 sec
+
+event_output
+   file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+script_variables
+   bool gFail = false;
+   bool gAttempt1 = false;
+   bool gAttempt2 = false;
+   bool gAttempt3 = false;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aSensorHost,
+                                   WsfSensor   aSensor,
+                                   WsfPlatform aTarget,
+                                   WsfSensorInteraction aResult)
+   if ((aSensorHost.Name() != "looker") ||
+       (aTarget.Name()     != "target"))
+   {
+      writeln("-FAIL- Unexpected detection attempt: ", aSensorHost.Name(),
+              " vs. ", aTarget.Name());
+      gFail = true;
+   }
+   else if (aSensor.Name() == "radar_1")
+   {
+      gAttempt1 = true;
+      double gotSNDB = aResult.SignalToNoise();
+      double expSNDB = 20.0;
+      if (MATH.Fabs(gotSNDB - expSNDB) > 0.001)
+      {
+         writeln("-FAIL- radar_1 got ", gotSNDB, " db, expected ", expSNDB, " db");
+         gFail = true;
+      }
+   }
+   else if (aSensor.Name() == "radar_2")
+   {
+      gAttempt2 = true;
+      double gotSNDB = aResult.SignalToNoise();
+      double expSNDB = 20.0 + Math.LinearToDB(0.5);
+      if (MATH.Fabs(gotSNDB - expSNDB) > 0.001)
+      {
+         writeln("-FAIL- radar_2 got ", gotSNDB, " db, expected ", expSNDB, " db");
+         gFail = true;
+      }
+   }
+   else if (aSensor.Name() == "radar_3")
+   {
+      gAttempt3 = true;
+      double gotSNDB = aResult.SignalToNoise();
+      double expSNDB = 20.0 + Math.LinearToDB(0.25);
+      if (MATH.Fabs(gotSNDB - expSNDB) > 0.001)
+      {
+         writeln("-FAIL- radar_3 got ", gotSNDB, " db, expected ", expSNDB, " db");
+         gFail = true;
+      }
+   }
+   else
+   {
+      writeln("-FAIL- Unexpected detection attempt by sensor ", aSensor.Name());
+      gFail = true;
+   }
+end_script
+
+script void SimulationComplete()
+   if (! gAttempt1) { writeln("-FAIL- No detection attempt by radar_1"); gFail = true; }
+   if (! gAttempt2) { writeln("-FAIL- No detection attempt by radar_2"); gFail = true; }
+   if (! gAttempt3) { writeln("-FAIL- No detection attempt by radar_3"); gFail = true; }
+   if (gFail) writeln("-FAIL- one or more failures");
+   if (! gFail) writeln("-PASS-");
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable SIMULATION_COMPLETE      SimulationComplete
+end_observer
+
+
+

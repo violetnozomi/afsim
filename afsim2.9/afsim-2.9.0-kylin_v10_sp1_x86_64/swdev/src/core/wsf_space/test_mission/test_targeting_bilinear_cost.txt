@@ -1,0 +1,214 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# This test case uses the blended cost optimization for a set of rendezvous.
+# The integrating space mover is used so that we can test the optimization
+# against a problem where the solution is easy to derive.
+
+include_once utils.txt
+
+start_date aug 11 2021
+start_time 12:00:00.000
+end_time 3 min
+
+script_variables
+   int gTargetCount = 0;
+   int gRendezvousCount = 0;
+end_script_variables
+
+platform_type TEST WSF_PLATFORM
+   icon cubesat
+   
+   empty_mass 1.0 kg
+   
+   mover WSF_INTEGRATING_SPACE_MOVER
+      integrator prince_dormand_78
+         error_criterion L_infinity
+         tolerance 1.0e-8
+      end_integrator
+      
+      dynamics
+      end_dynamics
+   end_mover
+   
+   script_variables
+      // Kinematic data for the various platforms
+      double mInitialSpeed;
+      double mTargetSpeed = 30.0;
+      double mInitialPosition = 0.0;
+      double mTargetPosition = 9000.0;
+      
+      // The coefficients in the cost function
+      double mA_Value;
+      double mB_Value;
+      double mC_Value;
+   end_script_variables
+   
+   script double ExpectedDeltaT()
+      // The non-accelerated linear motion of the platforms is easy to solve for. This expression is the result of
+      // minimizing g(delta-t) = A * delta-t + B * DeltaV(delta-t) + C * delta-t * DeltaV(delta-t), where 
+      // DeltaV is a function of delta-t.
+      return Math.Sqrt(2.0 * mB_Value * (mTargetPosition - mInitialPosition) / (mA_Value + mC_Value * (mTargetSpeed - mInitialSpeed)));
+   end_script
+   
+   script double ExpectedTransferVelocity()
+      // This is the typical computation for the speed needed to cover a certain distance in
+      // a given time, with the expected delta-t used as the given time.
+      return mTargetSpeed + (mTargetPosition - mInitialPosition) / ExpectedDeltaT();
+   end_script
+   
+   script void AfterTargetTests()
+      double expected = ExpectedTransferVelocity();
+      double measured = PLATFORM.VelocityECI().X();
+      ExpectDouble(expected, measured, 1.0e-3, "Transfer speed for " + PLATFORM.Name());
+   end_script
+   
+   script void AfterRendezvousTests()
+      double expected = ExpectedDeltaT();
+      double measured = TIME_NOW;
+      ExpectDouble(expected, TIME_NOW, 1.0e-4, "Transfer time for " + PLATFORM.Name());
+   end_script
+end_platform_type
+
+platform target TEST
+   side red
+   
+   edit mover
+      initial_state
+         position 9.0 km 10000.0 km 0.0 m
+         velocity 30 m/s 0.0 m/s 0.0 m/s
+         epoch_date_time aug 11 2021 12:00:00.000
+      end_initial_state      
+   end_mover
+end_platform
+
+platform chaserAB TEST
+   side blue
+   
+   script_variables
+      mA_Value = 1.0;
+      mB_Value = 1.0;
+      mC_Value = 0.0;
+      
+      mInitialSpeed = 10.0;
+   end_script_variables
+   
+   edit mover
+      initial_state
+         position 0.0 km 10000.0 km 0.0 m
+         velocity 10 m/s 0.0 m/s 0.0 m/s
+         epoch_date_time aug 11 2021 12:00:00.000
+      end_initial_state
+      
+      mission_sequence
+         maneuver rendezvous
+            execute_at relative_time 0 seconds
+            maximum_delta_time 170 s
+            maximum_delta_v 1000 kilometers/seconds
+            optimize_cost blended 1.0 1.0 0.0
+            tolerance 1e-09
+            target
+               platform target
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform chaserBC TEST
+   side blue
+   
+   script_variables
+      mA_Value = 0.0;
+      mB_Value = 1.0;
+      mC_Value = 1.0;
+      
+      mInitialSpeed = 10.0;
+   end_script_variables
+   
+   edit mover
+      initial_state
+         position 0.0 km 10000.0 km 0.0 m
+         velocity 10 m/s 0.0 m/s 0.0 m/s
+         epoch_date_time aug 11 2021 12:00:00.000
+      end_initial_state
+      
+      mission_sequence
+         maneuver rendezvous
+            execute_at relative_time 0 seconds
+            maximum_delta_time 300 s
+            maximum_delta_v 1000 kilometers/seconds
+            optimize_cost blended 0.0 1.0 1.0
+            tolerance 1e-09
+            target
+               platform target
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover
+end_platform
+
+platform chaserABC TEST
+   side blue
+   
+   script_variables
+      mA_Value = 1.0;
+      mB_Value = 1.0;
+      mC_Value = 1.0;
+      
+      mInitialSpeed = 10.0;
+   end_script_variables
+   
+   edit mover
+      initial_state
+         position 0.0 km 10000.0 km 0.0 m
+         velocity 10 m/s 0.0 m/s 0.0 m/s
+         epoch_date_time aug 11 2021 12:00:00.000
+      end_initial_state
+      
+      mission_sequence
+         maneuver rendezvous
+            execute_at relative_time 0 seconds
+            maximum_delta_time 300 s
+            maximum_delta_v 1000 kilometers/seconds
+            optimize_cost blended 1.0 1.0 1.0
+            tolerance 1e-09
+            target
+               platform target
+            end_target
+         end_maneuver
+      end_mission_sequence
+   end_mover
+end_platform
+
+script void Report(WsfPlatform aPlatform, WsfSpaceMover aMover, WsfOrbitalManeuver aManeuver)
+   if (aManeuver.ManeuverType() == "TARGET")
+   {
+      aPlatform->AfterTargetTests();
+      gTargetCount += 1;
+   }
+   if (aManeuver.ManeuverType() == "RENDEZVOUS")
+   {
+      aPlatform->AfterRendezvousTests();
+      gRendezvousCount += 1;
+   }
+end_script
+
+script void CheckManeuverCounts()
+   ExpectInt(gTargetCount, 3, "Should have had three Target maneuvers complete.");
+   ExpectInt(gRendezvousCount, 3, "Should have had three Rendezvous maneuvers complete.");
+end_script
+
+script void SetupFinalTests()
+   SetFinalTestMethodName("CheckManeuverCounts");
+end_script
+
+observer
+   enable SIMULATION_STARTING SetupFinalTests
+   enable ORBITAL_MANEUVER_COMPLETED Report
+end_observer

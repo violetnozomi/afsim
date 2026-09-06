@@ -1,0 +1,207 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt35.f
+// Replicates the 1v1 Defensive Maneuver 3,5,3,1 alternative behavior
+// Defensive left break turn
+// Operates on nearest perceived threat to generate maneuver alternative
+
+include_once BrawlerScriptUtil.txt
+
+behavior alt3531_break_left
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3531Enabled = true;
+      bool mCheckRange        = true;
+      bool mCheckBoresight    = true;
+      bool mCheckClosingSpeed = true;
+
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 5;
+      int icall  = 3;
+      int lcall  = 1;
+
+      // Maneuver Alternative flight values
+      Vec3 mDir0;
+      double mGMX = 1.0;
+      double mSpd0 = 3.0;
+
+      // ALSO NEED:
+      // randomization to simulate imperfect desision making, valsig, read from MIND file, typically ~0.01
+      // Production rule bias, used in socring of alternative
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+
+   end_script_variables
+
+   on_init
+
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition behavior_alt3531_break_left, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3531Enabled)
+      {
+         return Failure("behavior alternative not enabled");
+      }
+
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         return Failure("no weapon (hostile) tasks!");
+      }
+      WsfTask targetTask = tasks.Entry(0);
+      WsfLocalTrack hostile = PLATFORM.MasterTrackList().Find(targetTask.LocalTrackId());
+      if (!hostile.IsValid())
+      {
+         return Failure("no hostile track!");
+      }
+
+      //TODO - change this script so it doesn't use a truth method?
+      if (hostile.TargetKilled())
+      {
+         return Failure("hostile was destroyed!");
+      }
+
+      // alt35.f line 184 - 188
+#      if(rngun(iac)*ftnmi .gt. 2.) go to 205
+#      if(obang(iac,me) .gt. hafpi) go to 205
+#      if(obang(me,iac).gt.hafpi) go to 232
+#      if(rngrun(iac) .gt. 0.) go to 205
+#      if(rngun(iac)-rngrun(iac)*2. .gt. 3000.) go to 205
+      //if the predicted range (rngun) between me and threat greater then 2 nautical miles, skip
+      double projectionTime = TIME_NOW + BRAWLER.ProjectedTimeDelta();
+      WsfGeoPoint projectedHostileLocation = hostile.LocationAtTime(projectionTime);
+      double rangeToHostile = PLATFORM.SlantRangeTo(projectedHostileLocation);
+      if (mCheckRange == true && rangeToHostile > 2.0 * Math.M_PER_NM())
+      {
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " nearest hostile further than 2 nautical miles");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+
+      //if the off-bore angle between threat and me is greater than pi/2, skip
+      if (mCheckBoresight == true && BRAWLER.OffBoresightAngle(hostile.Target(), PLATFORM) > Math.PI_OVER_2())
+      {
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " Boresight angle between hostile and me greater than Pi/2");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+
+      //if the off-bore angle between me and the threat is less than pi/2 check more conditions
+      if (mCheckBoresight == true && BRAWLER.OffBoresightAngle(PLATFORM, hostile.Target()) < Math.PI_OVER_2())
+      {
+         //if the predicted range rate (rngrun) of the threat is greater then zero, skip
+         if (mCheckClosingSpeed == true && PLATFORM.ClosingSpeedOf(hostile) > 0)
+         {
+            string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " Hostile is not closing");
+            writeln_d(msg);
+            return Failure(msg);
+         }
+
+         //if the predicted range minus the range rate * 2 is greater than 3000, skip
+         if (mCheckRange == true && rangeToHostile * Math.FT_PER_M() - (PLATFORM.ClosingSpeedOf(hostile) * 3.28084 * 2.0) > 3000.0)
+         {
+            string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " Hostile further than 3000 ft within 2 seconds");
+            writeln_d(msg);
+            return Failure(msg);
+         }
+      }
+
+      // ALL CONDITIONS PASS
+      ### Generate Maneuver Alternative
+      // alt35.f line 189 - 201
+#232   continue
+#      call xmit(3,dxp(1,me,iac),dir0)
+#      call vxfrmc(rwep,dir0,dir0,1)
+#      dir0(1) = 0.
+#      call vxfrmc(rwep,dir0,dir0,2)
+#      if(-xp(3,me).lt.5000.) dir0(3) = amin1(0.,dir0(3))
+#      call vnorm(dir0,dir0)
+#      gmx = gmxin+(2.-gmxin)*ramp(1.,rngun(iac)*ftnmi,2.)
+#      iactn = 4
+#      lenalt = lactn(iactn)
+#      altdsc = altpk(3,5,icall,1,iacidt(iac),0)
+#      spd0 = 3.
+#      spdmod = thrttl
+      mDir0 = RelativePositionNED(PLATFORM.Location(), projectedHostileLocation);
+      mDir0 = BRAWLER.ConvertNEDtoWind(mDir0);
+      mDir0.SetX(0.0);
+      mDir0 = BRAWLER.ConvertWindtoNED(mDir0);
+      if (PLATFORM.Altitude() < 5000.0 * Math.M_PER_FT())
+      {
+         mDir0.SetZ( Math.Min(0.0, mDir0.Z()) );
+      }
+      mDir0.Normalize();
+      mGMX = BRAWLER.MaxAvailableGs() + (2.0 - BRAWLER.MaxAvailableGs()) *
+             ramp(1.0, rangeToHostile * Math.M_PER_NM(), 2.0);
+      mSpd0 = 3.0;
+
+      ### Evaluate (Score) Maneuver Alternative
+      double alternativeScore = BRAWLER.EvaluateVectorWithThrottle(mDir0, mGMX, mSpd0, ilevel, kalt, icall, lcall);
+
+      ### Return Maneuver Alternative Score
+      return alternativeScore;
+
+   end_precondition
+
+
+   execute
+      writeln_d(PLATFORM.Name(), " executing behavior_alt3531_break_left, T=", TIME_NOW);
+      // Fly this alternative
+      PLATFORM.FlyVectorWithThrottle(mDir0, mGMX, mSpd0);
+
+#      if (mDrawSteering == true)
+#      {
+#         mDraw.SetLayer("behavior_pursue_target");
+#         mDraw.SetDuration(processor.UpdateInterval());
+#         mDraw.SetColor(1.0, 0.5, 0.0);
+#         mDraw.SetLineSize(1);
+#         mDraw.BeginLines();
+#            mDraw.Vertex(PLATFORM.Location());
+#            mDraw.Vertex(mTargetPoint);
+#         mDraw.End();
+#      }
+#
+#      string msg = write_str("pursue-target: ", targetTrack.TargetName(), " at speed ", (string)mTargetSpeed);
+#      writeln_d("    T=", TIME_NOW, " ", PLATFORM.Name(), " ", msg);
+#      FlyTarget( PLATFORM, mTargetPoint, mTargetSpeed);
+   end_execute
+
+end_behavior
+

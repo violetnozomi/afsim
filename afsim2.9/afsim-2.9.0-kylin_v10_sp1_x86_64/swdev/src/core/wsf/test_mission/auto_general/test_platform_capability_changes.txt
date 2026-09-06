@@ -1,0 +1,228 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#stream_debug_on
+
+// Daily test for platform capability change callback response.
+// DESCRIPTION:  Lay down four platforms, each with the ability to provide a service or commodity
+// corresponding to a WsfExchange-enumerated capability, and that also corresponds to a DIS capability
+// (A fifth cSUPPLY_ADS_B is shown in the DIS Specs, but implementation is unknown, so not tested here.)
+// Each platform has a WsfExchangeProcessor embedded which is scripted to Reserve() and then
+// Cancel() an ability to provide.  A script is to capture the callback for each capability addition
+// and removal.  If the correct number of callbacks is observed (2 X 4 = 8), then the test passes,
+// else fails.
+
+include_once ../auto_script/test_functions.txt
+
+end_time 22 s
+
+script_variables
+   int numberCallbacks = 0;
+end_script_variables
+
+platform_type SUPPLIER WSF_PLATFORM
+
+   position 1n 1e
+
+   processor exchange_proc WSF_EXCHANGE_PROCESSOR
+
+      script_variables
+         int counter          = 0;
+         bool offered         = false;
+         bool withdrawn       = false;
+         # The four items below are modified during Initialize();
+         int whenToReserve    = 10;
+         int whenToWithdraw   = 15;
+         string whatToReserve = "";
+         bool isService       = false;
+         bool runVerbosely    = true;
+      end_script_variables
+
+      update_interval  1 sec
+
+      commodity_and_capability_pairing FOOD_SUPPLY       SUPPLY_PAYLOAD
+      commodity_and_capability_pairing JP8_FUEL          SUPPLY_FUEL
+      service_and_capability_pairing   ENGINE_REPAIR     VEHICLE_REPAIR
+      service_and_capability_pairing   BOBS_TOWING       VEHICLE_RECOVERY
+      #service_and_capability_pairing   ADS_B_BROADCAST  SUPPLY_ADS_B    # Not tested here.
+
+      transactor supplier
+         is_offeror
+         #response_time_out_interval 5 sec
+         #maximum_time_per_exchange 2 min
+         container_name CONTAINER
+         #proximity_limit   1000000 m       # Defaults to zero, or not used.
+      end_transactor
+
+      script void Say(string aMsg)
+         if (runVerbosely)
+         {
+            writeln("At t = ", TIME_NOW, " ", PLATFORM.Name(), " ", aMsg);
+         }
+      end_script
+
+      on_update
+         counter = counter + 1;
+         if (counter == whenToReserve)
+         {
+            WsfProcessor proc = PLATFORM.Processor("exchange_proc");
+            WsfExchangeProcessor exProc = (WsfExchangeProcessor)proc;
+            if (exProc.IsValid())
+            {
+               Transactor trans = exProc.FindTransactor("supplier");
+               if (trans.IsValid())
+               {
+                  Tender reservation = Tender.Construct(whatToReserve, 100.0, 0.0, isService);
+                  offered = trans.ReserveTender(reservation);
+                  if (offered)
+                  {
+                     Say("Offer successful.");
+                  }
+                  else
+                  {
+                     Say("Offer not successful.");
+                  }
+               }
+            }
+            else
+            {
+               Say("Exchange processor not valid.");
+            }
+         }
+         else if (offered && counter == whenToWithdraw)
+         {
+            WsfProcessor proc = PLATFORM.Processor("exchange_proc");
+            WsfExchangeProcessor exProc = (WsfExchangeProcessor)proc;
+            if (exProc.IsValid())
+            {
+               Transactor trans = exProc.FindTransactor("supplier");
+               if (trans.IsValid())
+               {
+                  trans.Disable();
+                  writeln("Transaction Cancelled.");
+               }
+            }
+         }
+      end_on_update
+
+   end_processor
+
+end_platform_type
+
+# =================================== Start Platform Instances =================
+platform SupplierOne SUPPLIER
+   position 1.1n 1.1e
+   edit processor exchange_proc
+      container CONTAINER
+         commodity FOOD_SUPPLY
+           #mass_rate 50 kg/min  # if not supplied = "immediately"
+           mass_quantity 3000 kg  # Top limited capacity of container
+         end_commodity
+         initial_mass_quantity 1000 kg
+      end_container
+      on_initialize
+         whenToReserve  = 10;
+         whenToWithdraw = 15;
+         whatToReserve  = "FOOD_SUPPLY";
+         isService      = false;
+      end_on_initialize
+   end_processor
+end_platform
+
+platform SupplierTwo SUPPLIER
+   position 1.2n 1.2e
+   edit processor exchange_proc
+      container CONTAINER
+         commodity JP8_FUEL
+           #mass_rate 50 kg/min  # if not supplied = "immediately"
+           mass_quantity 3000 kg  # Top limited capacity of container
+         end_commodity
+         initial_mass_quantity 1000 kg
+      end_container
+      on_initialize
+         whenToReserve  = 11;
+         whenToWithdraw = 16;
+         whatToReserve  = "JP8_FUEL";
+         isService      = false;
+      end_on_initialize
+   end_processor
+end_platform
+
+platform SupplierThree SUPPLIER
+   position 1.3n 1.3e
+   edit processor exchange_proc
+      container CONTAINER
+         service ENGINE_REPAIR
+           quantity 3000 # Top limited capacity of container
+         end_service
+         initial_quantity 1000
+      end_container
+      on_initialize
+         whenToReserve  = 12;
+         whenToWithdraw = 17;
+         whatToReserve  = "ENGINE_REPAIR";
+         isService      = true;
+      end_on_initialize
+   end_processor
+end_platform
+
+platform SupplierFour SUPPLIER
+   position 1.4n 1.4e
+   edit processor exchange_proc
+      container CONTAINER
+         service BOBS_TOWING
+           quantity 300 # Top limited capacity of container
+         end_service
+         initial_quantity 100
+      end_container
+      on_initialize
+         whenToReserve  = 13;
+         whenToWithdraw = 18;
+         whatToReserve  = "BOBS_TOWING";
+         isService      = true;
+      end_on_initialize
+   end_processor
+end_platform
+
+# =================================== End Platform Instances =================
+
+script void SimulationComplete()
+   extern void writePass(bool);
+   writeln("=== SIMULATION COMPLETE, with N-Callbacks === ", numberCallbacks);
+   bool pass = numberCallbacks == 8;
+   if (pass)
+   {
+      writeln(TEST_PASS_STATEMENT);
+   }
+   else
+   {
+      writeln(TEST_FAIL_STATEMENT);
+   }
+end_script
+
+script void PlatformCapabilityChanged(WsfPlatform aPlatform,
+                                      string      aCapabilityName,
+                                      bool        aIsGained)
+   extern int numberCallbacks;
+   numberCallbacks = numberCallbacks + 1;
+   writeln("Incrementing number of callbacks.");
+end_script
+
+observer
+   enable SIMULATION_COMPLETE         SimulationComplete
+   enable PLATFORM_CAPABILITY_CHANGED PlatformCapabilityChanged
+end_observer
+
+/*event_output
+   file test_platform_capability_changes_output.evt
+   enable EXCHANGE_COMPLETED
+   enable EXCHANGE_QUERIED  # Warning:  This output can be quite extensive !!!
+   enable PLATFORM_CAPABILITY_CHANGED
+end_event_output*/
+

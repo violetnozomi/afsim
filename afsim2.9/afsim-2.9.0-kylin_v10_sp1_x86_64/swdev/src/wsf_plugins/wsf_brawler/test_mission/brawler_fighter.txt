@@ -1,0 +1,208 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once aim-9x.txt   #TODO - give it limited IR seekers, not perfect trackers
+include_once gun.txt
+
+# BRAWLER Behaviors
+# "CONTEXT-FREE" Maneuvers
+include_once behavior_alt3111_straight_level_max_speed.txt
+include_once behavior_alt3121_straight_level.txt
+
+include_once behavior_alt3211_route_maneuver.txt
+
+# Offensive 1v1 Maneuvers
+include_once behavior_alt3411_straight_flight.txt
+include_once behavior_alt3421_roll_+15_pull.txt
+include_once behavior_alt3431_roll-15_pull.txt
+include_once behavior_alt3441_tail_attack.txt
+include_once behavior_alt3451_pull_gmax_sust.txt
+include_once behavior_alt3471_slow_current_dir.txt
+include_once behavior_alt3472_slow_pull_right.txt
+include_once behavior_alt3473_slow_pull_left.txt
+include_once behavior_alt3474_slow_pull_current_plane.txt
+
+# Defensive 1v1 Maneuvers
+include_once behavior_alt3511_break_right.txt
+include_once behavior_alt3531_break_left.txt
+include_once behavior_alt3551_run_away.txt
+include_once behavior_alt3561_force_overshoot.txt
+include_once behavior_alt3581_negative_velocity.txt
+
+#missile aiming maneuever
+include_once behavior_alt3841_aim_missile_typ4.txt
+
+include_once behavior_alt3911_evade_missile.txt 
+include_once behavior_alt3A11_low_speed_recover.txt 
+include_once behavior_alt3A21_low_speed_recover_right45.txt 
+include_once behavior_alt3A31_low_speed_recover_left45.txt
+#include_once behavior_alt3B11_illuminate.txt
+include_once behavior_alt3G11_barrel_roll.txt
+
+# Weapon employment decision alternatives
+include_once behavior_weapon_decision_gun.txt
+include_once behavior_weapon_decision_missile.txt
+
+#include_once behavior_alt1514_point.txt
+#include_once behavior_alt1516_bvr_end_run_left.txt
+#include_once behavior_alt1517_bvr_end_run_right.txt
+#include_once behavior_pilot_posture.txt
+#
+##direct maneuver
+##
+##fly vector
+#include_once behavior_alt3611_fly_vector.txt
+
+
+#include_once behavior_debug_data.txt
+
+# A WSF_PLATFORM must have the following defined:
+# 1. A WSF_BRAWLER_MOVER or WSF_P6DOF_MOVER
+# 2. A WSF_BRAWLER_PROCESSOR (typically named task_mgr)
+# 3. A WSF_PERCEPTION_PROCESSOR (typically named perception)
+# 4. A WSF_THREAT_PROCESSOR (typically named incoming_threats)
+platform_type  BRAWLER_FIGHTER  WSF_PLATFORM
+
+   side blue
+   icon F-15
+   commander blue_cmdr
+   
+   indestructible
+
+   mover WSF_BRAWLER_MOVER
+      aero_file ../data/ACFT_BD.FXW
+     #draw_projection
+   end_mover
+
+   weapon srm AIM-9X
+      quantity 2
+   end_weapon
+   
+   weapon gun BULLET
+      quantity 12   #each "bullet" represents a 1-sec burst of gunfire
+   end_weapon
+
+   comm datalink WSF_COMM_TRANSCEIVER
+      network_name blue_net
+      internal_link data_mgr
+      internal_link task_mgr
+      internal_link perception
+   end_comm
+
+   sensor simple_sensor WSF_GEOMETRIC_SENSOR
+      on
+      #azimuth_field_of_view   -45.0 degrees  45.0 degrees
+      #elevation_field_of_view  -20.0 degrees   20.0 degrees
+      azimuth_field_of_view   -180.0 degrees  180.0 degrees
+      elevation_field_of_view  -90.0 degrees   90.0 degrees
+      maximum_range 150 km
+      frame_time    0.5 sec
+      reports_location
+      reports_velocity
+      reports_range
+      reports_iff
+      track_quality 1.0
+      internal_link data_mgr
+      ignore_same_side
+   end_sensor
+
+   processor data_mgr WSF_TRACK_PROCESSOR
+      purge_interval  60 sec
+      report_interval 1.0 sec
+      report_to commander via datalink
+      fused_track_reporting on
+      raw_track_reporting off
+   end_processor
+   
+   processor perception WSF_PERCEPTION_PROCESSOR
+      threat_update_interval 2 sec
+      max_threat_load 5
+      reports_self on
+      report_interval 1.0 sec
+      report_to commander via datalink
+   end_processor
+
+   processor incoming_threats WSF_THREAT_PROCESSOR
+      threat_time_to_intercept 120 sec   #default: 60 sec
+   end_processor
+
+   processor task_mgr WSF_BRAWLER_PROCESSOR
+      mind_file ../data/MIND.txt
+      #draw_alternatives
+      #draw_nominal_states
+      #debug
+      #show_task_messages
+     
+#      script_variables
+#         int kturn = 0;            //turn type for BVR flight tactics
+#         Vec3   vecfpp = Vec3();   //vectored flight, direction
+#         double valfpp = 0.0;      //vectored flight, value
+#         double sflypp = 0.0;      //vectored flight, speed
+#      end_script_variables
+      
+      behavior_tree
+        #behavior_node debug_data
+
+#         #FLIGHT TACTIC DECISION
+#         priority_selector
+#            behavior_node  alt1516_bvr_end_run_left
+#            behavior_node  alt1517_bvr_end_run_right
+#            behavior_node  alt1514_point
+#         end_priority_selector
+
+#         #FLIGHT POSTURE DECISION
+#         selector
+#            #behavior_node  altWXYZ_blah_blah
+#         end_selector
+
+#         #PILOT POSTURE DECISION
+#         selector
+#            behavior_node  pilot_posture
+#         end_selector
+
+         #PILOT MANEUVERING DECISION
+         priority_selector
+            #when debug: prints precondition score of each selector child behavior
+            #debug
+            behavior_node  alt3111_straight_level_max_speed
+            behavior_node  alt3121_straight_level
+            behavior_node  alt3411_straight_flight
+            behavior_node  alt3421_roll_15_pull
+            behavior_node  alt3431_roll-15_pull
+            behavior_node  alt3441_tail_attack
+            behavior_node  alt3451_pull_gmax_sust
+            behavior_node  alt3471_slow_current_dir
+            behavior_node  alt3472_slow_pull_right
+            behavior_node  alt3473_slow_pull_left
+            behavior_node  alt3474_slow_pull_current_plane
+            behavior_node  alt3511_break_right
+            behavior_node  alt3531_break_left
+            behavior_node  alt3551_run_away
+            behavior_node  alt3561_force_overshoot
+            behavior_node  alt3581_negative_velocity
+           #behavior_node  alt3611_fly_vector
+            behavior_node  alt3841_aim_missile_typ4
+           #behavior_node  alt3211_route_maneuver
+            behavior_node  alt3911_evade_missile
+           #behavior_node  alt3A11_low_speed_recover
+           #behavior_node  alt3A21_low_speed_recover_right45
+           #behavior_node  alt3A31_low_speed_recover_left45
+           #behavior_node  alt3B11_illuminate
+            behavior_node  alt3G11_barrel_roll
+         end_priority_selector
+         
+         #WEAPON EMPLOYMENT DECISION
+         selector
+           behavior_node weapon_decision_gun
+           behavior_node weapon_decision_missile
+         end_selector
+         
+      end_behavior_tree
+   end_processor
+end_platform_type

@@ -1,0 +1,293 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# =============================================================================
+# A simple test of the STC signal processing interface.
+#
+# This test is based on the test_signal_processor 
+# Radar parameters are borrowed from the aea_demo / sensors / ew_radar
+# =============================================================================
+
+test_feature non_exportable
+
+sensor SIMPLE_EW_RADAR WSF_RADAR_SENSOR
+   frame_time 10 sec
+   
+   transmitter
+      power                       1000.0 kw
+      frequency                   200 mhz
+      pulse_width                 5 usec
+      pulse_repetition_interval   1250 usec # STC needs PRI (or PRF) specified
+      internal_loss               2 db
+   end_transmitter
+
+   receiver
+      bandwidth                   2.0 mhz
+      noise_power                 -160 dBw 
+      internal_loss               7 dB
+   end_receiver
+   
+   reports_location
+end_sensor
+
+# Radar with STC processor using default parameters
+sensor STC_RADAR_0 SIMPLE_EW_RADAR
+   signal_processor sensitivity_time_control
+      debug
+   end_signal_processor
+end_sensor
+
+# Radar with STC processor, MIN RANGE type
+sensor STC_RADAR_1 SIMPLE_EW_RADAR
+   signal_processor sensitivity_time_control
+      stc_type                    min_range
+      stc_min_response            0.1 absolute # -10 dB
+      stc_min_range               1000 m
+      stc_order                   4
+      debug
+   end_signal_processor
+end_sensor
+
+# Radar with STC processor, MAX RANGE type
+sensor STC_RADAR_2 SIMPLE_EW_RADAR
+   signal_processor sensitivity_time_control
+      stc_type                    max_range
+      stc_min_response            -10.0 dB
+      stc_max_range               40000 m
+      stc_order                   4
+      debug
+   end_signal_processor
+end_sensor
+
+# Radar with STC processor, MIN/MAX RANGE type
+sensor STC_RADAR_3 SIMPLE_EW_RADAR
+   signal_processor sensitivity_time_control
+      stc_type                    min_max_range
+      stc_min_response            -10.0 dB
+      stc_min_range               1000 m
+      stc_max_range               40000 m
+      stc_order                   4
+      debug
+   end_signal_processor
+end_sensor
+
+# Radar with STC processor, DATA TABLE type
+sensor STC_RADAR_4 SIMPLE_EW_RADAR
+   signal_processor sensitivity_time_control
+      stc_type  data_table
+      stc_min_response  -20 dB
+      stc_data_table
+        #independent_variable extrapolate units meters
+        #dependent_variable units dB
+        0     0
+        1852  -2
+        3704  -4
+        5556  -6
+        7408  -8
+        9260  -10
+        11112 -10
+        62968 -10
+        64820 -10
+        66672 -9.5
+        68524 -9
+        70376 -8.5
+        72228 -8
+        74080 -7.5
+        75932 -7
+        77784 -6.5
+        79636 -6
+        81488 -5.5
+        83340 -5
+        85192 -4.5
+        87044 -4
+        88896 -3.7
+        90748 -3.4
+        92600 -2.9
+        94452 -2.5
+        96304 -2
+        98156 -1.8
+        100008 -1.5
+        101860 -1.2
+        103712 -1
+        105564 -0.8
+        107416 -0.7
+        109268 -0.6
+        111120 -0.5
+        112972 -0.4
+        114824 -0.3
+        116676 -0.2
+        118528 -0.1
+        120380 0
+      end_stc_data_table
+      debug
+   end_signal_processor
+end_sensor
+   
+radar_signature TARGET_RADAR_SIG
+   constant 10 m^2
+end_radar_signature
+
+platform_type TARGET WSF_PLATFORM
+   radar_signature TARGET_RADAR_SIG
+end_platform_type
+
+# =============================================================================
+
+platform looker WSF_PLATFORM
+   side blue
+   position 39n 90w altitude 30000 ft heading 0 deg
+   add sensor radar SIMPLE_EW_RADAR end_sensor
+   add sensor stc_radar_0 STC_RADAR_0 end_sensor  # Default values
+   add sensor stc_radar_1 STC_RADAR_1 end_sensor  # Min
+   add sensor stc_radar_2 STC_RADAR_2 end_sensor  # Max
+   add sensor stc_radar_3 STC_RADAR_3 end_sensor  # Min/Max
+   add sensor stc_radar_4 STC_RADAR_4 end_sensor  # Data table
+   
+   # Set the target location so it gives a 10 dB SNR before STC processing
+   execute at_time 0.01 sec absolute
+      WsfGeoPoint tgtLoc = Location();
+      tgtLoc.OffsetNED(34553.0, 0.0, 0.0);
+      WsfPlatform tgt = WsfSimulation.FindPlatform("target");
+      tgt.SetLocation(tgtLoc);
+   end_execute
+      
+   execute at_time 1 sec absolute Sensor("radar").TurnOn(); end_execute
+   execute at_time 2 sec absolute Sensor("stc_radar_0").TurnOn(); end_execute
+   execute at_time 3 sec absolute Sensor("stc_radar_1").TurnOn(); end_execute
+   execute at_time 4 sec absolute Sensor("stc_radar_2").TurnOn(); end_execute
+   execute at_time 5 sec absolute Sensor("stc_radar_3").TurnOn(); end_execute
+   execute at_time 6 sec absolute Sensor("stc_radar_4").TurnOn(); end_execute
+end_platform
+
+platform target TARGET
+   side red
+   # The position gets set dynamically by the sensing platform
+end_platform
+
+# =============================================================================
+
+end_time 7 sec
+
+event_output
+   file STDOUT
+   enable SENSOR_DETECTION_ATTEMPT
+end_event_output
+
+script_variables
+   bool gFail = false;
+   bool gAttempt1 = false;
+   bool gAttempt2 = false;
+   bool gAttempt3 = false;
+   bool gAttempt4 = false;
+   bool gAttempt5 = false;
+   bool gAttempt6 = false;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aSensorHost,
+                                   WsfSensor   aSensor,
+                                   WsfPlatform aTarget,
+                                   WsfSensorInteraction aResult)
+   if ((aSensorHost.Name() != "looker") ||
+       (aTarget.Name()     != "target"))
+   {
+      writeln("-FAIL- Unexpected detection attempt: ", aSensorHost.Name(),
+              " vs. ", aTarget.Name());
+      gFail = true;
+   }
+   else if (aSensor.Name() == "radar")
+   {
+      gAttempt1 = true;
+      double gotSNDB = aResult.SignalToNoise();
+      double expSNDB = 10.0;
+      if (MATH.Fabs(gotSNDB - expSNDB) > 0.001)
+      {
+         writeln("-FAIL- radar_1 got ", gotSNDB, " db, expected ", expSNDB, " db");
+         gFail = true;
+      }
+   }
+   else if (aSensor.Name() == "stc_radar_0")
+   {
+      gAttempt2 = true;
+      double gotSNDB = aResult.SignalToNoise();
+      double expSNDB = 10.0;
+      if (MATH.Fabs(gotSNDB - expSNDB) > 0.001)
+      {
+         writeln("-FAIL- stc_radar_0 got ", gotSNDB, " db, expected ", expSNDB, " db");
+         gFail = true;
+      }
+   }
+   else if (aSensor.Name() == "stc_radar_1")
+   {
+      gAttempt3 = true;
+      double gotSNDB = aResult.SignalToNoise();
+      double expSNDB = 10.0;
+      if (MATH.Fabs(gotSNDB - expSNDB) > 0.001)
+      {
+         writeln("-FAIL- stc_radar_1 got ", gotSNDB, " db, expected ", expSNDB, " db");
+         gFail = true;
+      }
+   }
+   else if (aSensor.Name() == "stc_radar_2")
+   {
+      gAttempt4 = true;
+      double gotSNDB = aResult.SignalToNoise();
+      double expSNDB = 7.457;
+      if (MATH.Fabs(gotSNDB - expSNDB) > 0.001)
+      {
+         writeln("-FAIL- stc_radar_2 got ", gotSNDB, " db, expected ", expSNDB, " db");
+         gFail = true;
+      }
+   }
+   else if (aSensor.Name() == "stc_radar_3")
+   {
+      gAttempt5 = true;
+      double gotSNDB = aResult.SignalToNoise();
+      double expSNDB = 7.457;
+      if (MATH.Fabs(gotSNDB - expSNDB) > 0.001)
+      {
+         writeln("-FAIL- stc_radar_3 got ", gotSNDB, " db, expected ", expSNDB, " db");
+         gFail = true;
+      }
+   }
+   else if (aSensor.Name() == "stc_radar_4")
+   {
+      gAttempt6 = true;
+      double gotSNDB = aResult.SignalToNoise();
+      double expSNDB = 0.0;
+      if (MATH.Fabs(gotSNDB - expSNDB) > 0.001)
+      {
+         writeln("-FAIL- stc_radar_4 got ", gotSNDB, " db, expected ", expSNDB, " db");
+         gFail = true;
+      }
+   }
+   else
+   {
+      writeln("-FAIL- Unexpected detection attempt by sensor ", aSensor.Name());
+      gFail = true;
+   }
+end_script
+
+script void SimulationComplete()
+   if (! gAttempt1) { writeln("-FAIL- No detection attempt by radar"); gFail = true; }
+   if (! gAttempt2) { writeln("-FAIL- No detection attempt by stc_radar_0"); gFail = true; }
+   if (! gAttempt3) { writeln("-FAIL- No detection attempt by stc_radar_1"); gFail = true; }
+   if (! gAttempt4) { writeln("-FAIL- No detection attempt by stc_radar_2"); gFail = true; }
+   if (! gAttempt5) { writeln("-FAIL- No detection attempt by stc_radar_3"); gFail = true; }
+   if (! gAttempt6) { writeln("-FAIL- No detection attempt by stc_radar_4"); gFail = true; }
+   if (gFail) writeln("-FAIL- one or more failures");
+   if (! gFail) writeln("-PASS-");
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable SIMULATION_COMPLETE      SimulationComplete
+end_observer
+
+
+   

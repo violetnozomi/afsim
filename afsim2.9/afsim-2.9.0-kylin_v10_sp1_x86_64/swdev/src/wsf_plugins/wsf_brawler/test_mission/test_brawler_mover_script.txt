@@ -1,0 +1,212 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Testing several Brawler mover script methods
+# See individual sections for test descriptions
+define_path_variable CASE test_brawler_mover_script
+test_feature brawler
+
+script bool WithinTolerance(double aTestValue, double aNominal, double aTolerance)
+   double diff = aTestValue - aNominal;
+   if (diff < 0)
+   {
+      diff = -diff;
+   }
+   return (diff <= aTolerance);
+end_script
+
+route left_turn
+   position 00:00:00.00s 00:00:00.00w  altitude 35000.00 ft speed 500 kts
+   position 01:00:00.00n 00:00:00.00w  altitude 35000.00 ft speed 500 kts
+   position 03:00:00.00n 03:00:00.00w  altitude 35000.00 ft speed 500 kts
+end_route
+
+mover BRAWLER_MOVER WSF_BRAWLER_MOVER
+#   draw_projection
+   aero_file ACFT_BAC1.FXW
+   update_interval 1 s
+end_mover
+
+# Definition of Brawler platform type 
+# Starts in route following mode
+platform_type BRAWLER_PLATFORM WSF_PLATFORM
+   icon F-15
+   mover BRAWLER_MOVER end_mover
+end_platform_type
+
+# --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---  
+# Test TurnToRelativeHeading
+# Start in route following mode then execute turn
+platform turn_180 BRAWLER_PLATFORM 
+   side orange
+   altitude 35000.0 ft
+   execute at_time 0.1 second absolute
+      PLATFORM.FollowRoute("left_turn");
+   end_execute
+   execute at_time 2 min absolute
+      PLATFORM.TurnToRelativeHeading(180.0);
+   end_execute
+   execute at_time 5 min absolute
+      # Mover should be turned by now
+      if (WithinTolerance(PLATFORM.Heading(), -180.0, 0.001))
+      {
+         writeln("-PASS- TurnToRelativeHeading ", PLATFORM.Heading());
+      }
+      else
+      {
+         writeln("-FAIL- TurnToRelativeHeading ", PLATFORM.Heading());
+      }   
+   end_execute
+end_platform
+
+# --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+# Test swap mover, getting a route, and the route point index 
+# Start as air mover; swap to Brawler mover; then swap back to air mover 
+platform swap_mover WSF_PLATFORM
+   side blue
+   icon F-15
+
+   add mover WSF_AIR_MOVER 
+      use_route left_turn
+   end_mover
+
+   script_variables 
+      int idx = -1;
+      WsfMover myAirMover;
+   end_script_variables
+   execute at_time 1 min absolute
+      // Starts out as air mover; swap to Brawler mover
+      idx = PLATFORM.RoutePointIndex();
+      WsfRoute myRoute = PLATFORM.Route();
+      PLATFORM.Comment("Swap to Brawler");
+      myAirMover = PLATFORM.SwapMover("BRAWLER_MOVER");
+      PLATFORM.FollowRoute(myRoute, idx);
+  end_execute
+
+# Can't swap back right now
+#  execute at_time 10 min absolute 
+#      // Swap back to air mover
+#      idx = PLATFORM.RoutePointIndex();
+#      WsfRoute myRoute = PLATFORM.Route();
+#      PLATFORM.Comment("Swap to Air Mover");
+#      PLATFORM.SwapMover(myAirMover);
+#      PLATFORM.FollowRoute("left_turn", idx-1);
+#  end_execute
+
+end_platform
+
+# --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+# Test creation time
+platform fighter_01 BRAWLER_PLATFORM
+   heading 0 deg
+   position 0n 1e altitude 10 kft
+end_platform
+
+platform fighter_02 BRAWLER_PLATFORM
+   creation_time 2 min
+   position 0n 1e altitude 10 kft
+   heading 0 deg
+   execute at_time 5 min absolute
+      # Mover should NOT be close to the reference platform
+      # It should lag as it was created 2 minute later
+      WsfPlatform refPlatform = WsfSimulation.FindPlatform("fighter_01");
+      if (WithinTolerance(PLATFORM.Latitude(), refPlatform.Latitude(), 0.1))
+      {
+         writeln("-FAIL- Creation time #1 ", PLATFORM.Latitude(), " ", refPlatform.Latitude());
+      }
+      else
+      {
+         writeln("-PASS- Creation time #1 ", PLATFORM.Latitude(), " ", refPlatform.Latitude());
+      }   
+   end_execute   
+end_platform
+
+platform fighter_03 BRAWLER_PLATFORM
+   position 0n 1e altitude 10 kft
+   heading 180 deg
+end_platform
+
+platform fighter_04 BRAWLER_PLATFORM
+   creation_time 2 min
+   position 0n 1e altitude 10 kft
+   heading 180 deg
+   execute at_time 5 min absolute
+      # Mover should NOT be close to the reference platform
+      # It should lag as it was created 2 minute later
+      WsfPlatform refPlatform = WsfSimulation.FindPlatform("fighter_03");
+      if (WithinTolerance(PLATFORM.Latitude(), refPlatform.Latitude(), 0.1))
+      {
+         writeln("-FAIL- Creation time #2 ", PLATFORM.Latitude(), " ", refPlatform.Latitude());
+      }
+      else
+      {
+         writeln("-PASS- Creation time #2 ", PLATFORM.Latitude(), " ", refPlatform.Latitude());
+      }   
+   end_execute   
+end_platform
+
+# --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+# Test turning mover off and on 
+platform turn_off_on BRAWLER_PLATFORM
+   side green
+   altitude 35000.0 ft
+   execute at_time 0.1 second absolute
+      PLATFORM.FollowRoute("left_turn");
+   end_execute
+   execute at_time 2 min absolute
+      PLATFORM.Mover().TurnOff();
+   end_execute
+   execute at_time 3 min absolute
+      PLATFORM.Mover().TurnOn();
+   end_execute
+   execute at_time 5 min absolute
+      # Mover should NOT be close to the reference platform
+      # It should lag as it was turn off for a minute
+      WsfPlatform refPlatform = WsfSimulation.FindPlatform("fighter_01");
+      if (WithinTolerance(PLATFORM.Latitude(), refPlatform.Latitude(), 0.1))
+      {
+         writeln("-FAIL- Turn off ", PLATFORM.Latitude(), " ", refPlatform.Latitude());
+      }
+      else
+      {
+         writeln("-PASS- Turn off ", PLATFORM.Latitude(), " ", refPlatform.Latitude());
+      }   
+   end_execute    
+end_platform
+
+# --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+platform launcher BRAWLER_PLATFORM
+   side yellow
+   position 0n 1e altitude 10 kft
+   add weapon brawler WSF_EXPLICIT_WEAPON
+      launched_platform_type BRAWLER_PLATFORM
+      quantity 1 
+   end_weapon
+   execute at_time 2 min absolute
+      PLATFORM.Weapon("brawler").Fire();
+   end_execute
+   execute at_time 5 min absolute
+      # Mover should be close to the reference platform
+      # It should lag as it was turn off for a minute
+      WsfPlatform refPlatform = WsfSimulation.FindPlatform("launcher");
+      if (WithinTolerance(PLATFORM.Latitude(), refPlatform.Latitude(), 0.1))
+      {
+         writeln("-PASS- Turn off ", PLATFORM.Latitude(), " ", refPlatform.Latitude());
+      }
+      else
+      {
+         writeln("-FAIL- Turn off ", PLATFORM.Latitude(), " ", refPlatform.Latitude());
+      }   
+   end_execute       
+end_platform
+
+# Long enough to make turn on route
+end_time 12 minutes
+
+#dis_interface record $(CASE).rep end_dis_interface

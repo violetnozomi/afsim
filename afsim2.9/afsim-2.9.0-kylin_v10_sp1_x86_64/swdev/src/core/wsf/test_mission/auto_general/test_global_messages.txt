@@ -1,0 +1,96 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// The following tests the capability to create message types globally or
+// at the simulation scope and then use/send those messages later in a script.
+// The "gotcha" is that on construction each global message gets a unique
+// serial number. If the message has been queued up to send and is still
+// waiting in the transmit queue, a subsequent request to send will
+// replace the old entry in the queue.
+
+define_path_variable CASE test_global_messages
+
+script_variables
+
+   // Specific message types that are constructible in script
+
+   WsfAssociationMessage associationMsg = WsfAssociationMessage();
+   WsfControlMessage controlMsg = WsfControlMessage();
+
+   WsfStatusMessage statusMsg = WsfStatusMessage();
+   WsfTrackDropMessage trackDropMsg = WsfTrackDropMessage();
+   WsfTrackMessage trackMsg = WsfTrackMessage();
+
+   // Specific message types that are NOT constructible in script; uncomment out to test
+
+#   WsfImageMessage imageMsg = WsfImageMessage();
+#   WsfTrackNotifyMessage trackNotifyMsg = WsfTrackNotifyMessage();
+#   WsfVideoMessage videoMsg = WsfVideoMessage();
+
+   // General message
+
+   WsfMessage msg = WsfMessage();
+
+end_script_variables
+
+// Platform type with simple comm device to test transmission of all global messages
+platform_type MY_TYPE WSF_PLATFORM
+   comm myComm WSF_COMM_TRANSCEIVER
+      internal_link msgProc
+   end_comm
+   processor msgProc WSF_SCRIPT_PROCESSOR
+      on_message
+         type WSF_ASSOCIATION_MESSAGE script writeln("-PASS- Received WSF_ASSOCIATION_MESSAGE"); end_script
+         type WSF_CONTROL_MESSAGE     script writeln("-PASS- Received WSF_CONTROL_MESSAGE"); end_script
+         type WSF_STATUS_MESSAGE      script writeln("-PASS- Received WSF_STATUS_MESSAGE");  end_script
+         type WSF_TRACK_DROP_MESSAGE  script writeln("-PASS- Received WSF_TRACK_DROP_MESSAGE"); end_script
+         type WSF_TRACK_MESSAGE       script writeln("-PASS- Received WSF_TRACK_MESSAGE"); end_script
+         type WSF_MESSAGE             script writeln("-PASS- Received WSF_MESSAGE"); end_script
+         default                      script writeln("-FAIL- Received unexpected message"); end_script
+      end_on_message
+   end_processor
+end_platform_type
+
+// Sending and receiving platforms
+platform sender MY_TYPE
+   execute at_time 1 s absolute
+      PLATFORM.Comm("myComm").SendMessage(associationMsg, "listener", "myComm");
+      PLATFORM.Comm("myComm").SendMessage(controlMsg,     "listener", "myComm");
+      PLATFORM.Comm("myComm").SendMessage(statusMsg,      "listener", "myComm");
+      PLATFORM.Comm("myComm").SendMessage(trackDropMsg,   "listener", "myComm");
+      PLATFORM.Comm("myComm").SendMessage(trackMsg,       "listener", "myComm");
+      PLATFORM.Comm("myComm").SendMessage(msg,            "listener", "myComm");
+   end_execute
+end_platform
+
+platform listener MY_TYPE end_platform
+
+end_time 2 s
+/*
+// Testing all of the message related events
+event_output
+   file $(CASE).evt
+   enable MESSAGE_DELIVERY_ATTEMPT
+   enable MESSAGE_DISCARDED
+   enable MESSAGE_QUEUED
+   enable MESSAGE_RECEIVED
+   enable MESSAGE_TRANSMITTED
+   enable MESSAGE_UPDATED
+end_event_output
+
+csv_event_output
+   file $(CASE)_csv.evt
+   enable MESSAGE_DELIVERY_ATTEMPT
+   enable MESSAGE_DISCARDED
+   enable MESSAGE_QUEUED
+   enable MESSAGE_RECEIVED
+   enable MESSAGE_TRANSMITTED
+   enable MESSAGE_UPDATED
+end_csv_event_output
+*/

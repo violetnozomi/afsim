@@ -1,0 +1,34 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# New file created by AFSIM Wizard
+// Test case documented in Meeus' Astronomical Algorithms v.2, p.165
+// Note that the actual algorithm implemented is different from that in Meeus.
+// Accuracy is only good to about 0.01 degree.
+start_date oct 13 1992
+start_time 00:00:00
+
+test_date_time 
+
+execute at_time 0.00001 s absolute
+   Calendar cal = WsfDateTime.CurrentTime();
+   writeln((string)cal.JulianDate());
+   Array<double> ra_dec = Sun.LocationRA_Dec(cal);
+   double ra = ra_dec[0];
+   double dec = ra_dec[1];
+   writeln("RA: ", ra, " Dec: ", dec);
+   if ((ra <= 198.37) || (ra >= 198.39))
+   {
+      writeln("-FAIL-");
+   }
+   if ((dec <= -7.79) || (dec >= -7.77)) 
+   {
+      writeln("-FAIL-");
+   }
+end_execute

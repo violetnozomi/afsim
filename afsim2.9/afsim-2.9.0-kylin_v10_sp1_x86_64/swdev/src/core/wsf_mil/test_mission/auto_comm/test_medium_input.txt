@@ -1,0 +1,301 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Performs basic input tests for mediums, and the various
+// objects that utilize them in the AFSIM core.
+
+# Medium types
+medium TEST_MEDIUM WSF_COMM_MEDIUM_GUIDED
+   channels 16
+   mode default
+      propagation_speed 200000000 m/s
+      transfer_rate 5120 bytes/s
+      packet_loss_time 0.001 s
+   end_mode
+   mode alternate
+      propagation_speed 200000005 m/s
+      transfer_rate 1024 bytes/s
+      packet_loss_time 0.005 s
+   end_mode
+   mode just_default_settings_mode
+   end_mode
+   default_mode_name alternate
+end_medium
+
+medium TEST_MEDIUM_RF WSF_COMM_MEDIUM_UNGUIDED
+   channels 128
+   mode default
+      propagation_speed 200000000 m/s
+      transfer_rate 5120 bytes/s
+      packet_loss_time 0.001 s
+      bit_error_probability 0.000001
+      bit_error_rate_ebno_table
+        0.00000001 12
+        0.0000001  11.3
+        0.000001   10.3
+        0.00001    9.5
+        0.0001     8.3
+        0.001      6.5
+        0.01       4.3
+        0.1        0
+      end_bit_error_rate_ebno_table
+      error_correction 0.5
+   end_mode
+   mode alternate
+      propagation_speed 200000005 m/s
+      transfer_rate 1024 bytes/s
+      packet_loss_time 0.005 s
+      snr_transfer_rate_table
+         dB bit/s
+         0  100
+         1  100
+         2  90
+         3  80
+         4  40
+         5  20
+         55 10
+         70 1
+      end_snr_transfer_rate_table
+   end_mode
+   mode just_default_settings_mode
+   end_mode
+   default_mode_name default
+end_medium
+
+
+# One of each core comm models
+
+#Derived from radio comm - can use only unguided mediums
+comm SUB_RADIO_LEGACY_RF WSF_SUBSURFACE_RADIO_TRANSCEIVER
+   add medium TEST_MEDIUM_RF end_medium
+   transmitter
+      power 500 w
+      frequency 1 mhz
+   end_transmitter
+   receiver
+      frequency 1 mhz
+   end_receiver
+end_comm
+
+comm LASER_COMM_LEGACY_RF WSF_LASER_TRANSCEIVER
+   add medium TEST_MEDIUM_RF end_medium
+   transmitter
+      frequency 750000 ghz
+      power 5 w
+      aperture_diameter 0.7 um
+      pulse_width 1e-9 ms 
+   end_transmitter
+   receiver
+      aperture_diameter 2.0 um
+   end_receiver
+end_comm
+
+#Derived from comm - can only use legacy guided
+comm JTIDS_LEGACY WSF_JTIDS_TERMINAL
+   add medium TEST_MEDIUM end_medium
+end_comm
+
+
+// Platform instances
+platform test1 WSF_PLATFORM
+   add comm comm SUB_RADIO_LEGACY_RF
+   end_comm
+end_platform
+
+platform test2 WSF_PLATFORM
+   add comm comm LASER_COMM_LEGACY_RF end_comm
+end_platform
+
+platform test3 WSF_PLATFORM
+   add comm comm JTIDS_LEGACY end_comm
+end_platform
+
+platform test4 WSF_PLATFORM
+   add comm comm SUB_RADIO_LEGACY_RF
+      edit medium TEST_MEDIUM_RF
+         #implied default mode edit
+         transfer_rate 2048 bytes/s
+      
+         #If naming a mode that exists, the values
+         #provided are updated. Previously, the medium used a
+         #snr table. The snr table is overridden by the
+         #provided values. Then a new ebno table is
+         #provided, which becomes the default usage
+         #for this medium and everyone else using it.
+         mode alternate
+            propagation_speed 200000005 m/s
+            transfer_rate 1024 bytes/s
+            packet_loss_time 0.005 s
+            snr_transfer_rate_table
+               dB bit/s
+               0  101
+               1  101
+               2  91
+               3  81
+               4  41
+               5  21
+               55 11
+               70 1
+            end_snr_transfer_rate_table
+            bit_error_probability 0.000001
+            bit_error_rate_ebno_table
+              0.00000001 12.1
+              0.0000001  11.4
+              0.000001   10.4
+              0.00001    9.5
+              0.0001     8.4
+              0.001      6.5
+              0.01       4.4
+              0.1        0
+            end_bit_error_rate_ebno_table
+            error_correction 0.5
+         end_mode
+      
+         #If naming a non-existent mode, that mode is
+         #created with default values, and updated with
+         #those provided by the user at this time.
+         mode edit_add_mode
+            propagation_speed 200000005 m/s
+            transfer_rate 1024 bytes/s
+            packet_loss_time 0.005 s
+            snr_transfer_rate_table
+               dB bit/s
+               0  102
+               1  102
+               2  92
+               3  82
+               4  42
+               5  22
+               55 12
+               70 2
+            end_snr_transfer_rate_table
+            bit_error_probability 0.000001
+            bit_error_rate_ebno_table
+              0.00000001 12.2
+              0.0000001  11.5
+              0.000001   10.5
+              0.00001    9.6
+              0.0001     8.5
+              0.001      6.6
+              0.01       4.5
+              0.1        0
+            end_bit_error_rate_ebno_table
+            error_correction 0.4      
+         end_mode     
+      end_medium
+   end_comm
+end_platform
+
+platform test5 WSF_PLATFORM
+   add comm comm LASER_COMM_LEGACY_RF
+      edit medium TEST_MEDIUM_RF
+         #implied default mode edit
+         transfer_rate 2048 bytes/s
+      
+         #If naming a mode that exists, the values
+         #provided are updated. Previously, the medium used a
+         #snr table. The snr table is overridden by the
+         #provided values. Then a new ebno table is
+         #provided, which becomes the default usage
+         #for this medium and everyone else using it.
+         mode alternate
+            propagation_speed 200000005 m/s
+            transfer_rate 1024 bytes/s
+            packet_loss_time 0.005 s
+            snr_transfer_rate_table
+               dB bit/s
+               0  101
+               1  101
+               2  91
+               3  81
+               4  41
+               5  21
+               55 11
+               70 1
+            end_snr_transfer_rate_table
+            bit_error_probability 0.000001
+            bit_error_rate_ebno_table
+              0.00000001 12.1
+              0.0000001  11.4
+              0.000001   10.4
+              0.00001    9.5
+              0.0001     8.4
+              0.001      6.5
+              0.01       4.4
+              0.1        0
+            end_bit_error_rate_ebno_table
+            error_correction 0.5
+         end_mode
+      
+         #If naming a non-existent mode, that mode is
+         #created with default values, and updated with
+         #those provided by the user at this time.
+         mode edit_add_mode
+            propagation_speed 200000005 m/s
+            transfer_rate 1024 bytes/s
+            packet_loss_time 0.005 s
+            snr_transfer_rate_table
+               dB bit/s
+               0  102
+               1  102
+               2  92
+               3  82
+               4  42
+               5  22
+               55 12
+               70 2
+            end_snr_transfer_rate_table
+            bit_error_probability 0.000001
+            bit_error_rate_ebno_table
+              0.00000001 12.2
+              0.0000001  11.5
+              0.000001   10.5
+              0.00001    9.6
+              0.0001     8.5
+              0.001      6.6
+              0.01       4.5
+              0.1        0
+            end_bit_error_rate_ebno_table
+            error_correction 0.4      
+         end_mode     
+      end_medium
+   end_comm
+end_platform
+
+platform test6 WSF_PLATFORM
+   add comm comm JTIDS_LEGACY
+      edit medium TEST_MEDIUM
+         #implied default mode edit
+         transfer_rate 2048 bytes/s
+      
+         #If naming a mode that exists, the values
+         #provided are updated. Previously, the medium used a
+         #snr table. The snr table is overridden by the
+         #provided values. Then a new ebno table is
+         #provided, which becomes the default usage
+         #for this medium and everyone else using it.
+         mode alternate
+            propagation_speed 200000005 m/s
+            transfer_rate 1024 bytes/s
+            packet_loss_time 0.005 s
+         end_mode
+      
+         #If naming a non-existent mode, that mode is
+         #created with default values, and updated with
+         #those provided by the user at this time.
+         mode edit_add_mode
+            propagation_speed 200000005 m/s
+            transfer_rate 1024 bytes/s
+            packet_loss_time 0.005 s    
+         end_mode     
+      end_medium
+   end_comm
+end_platform
+
+end_time 1 s

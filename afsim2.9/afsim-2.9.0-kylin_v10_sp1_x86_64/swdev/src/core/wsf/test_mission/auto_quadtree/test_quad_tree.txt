@@ -1,0 +1,93 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// Test script QuadTree functionality
+//   Initialize
+//   Add Object
+//   InRange method
+//
+
+script void InitGlobalQuadTree()
+   static bool set = false;
+   if (!set)
+   {
+   }
+end_script
+
+platform test_plat WSF_PLATFORM
+   script_variables
+      bool pass = false;
+      Array<WsfTrack>  toTrack = {};
+   end_script_variables
+   on_initialize
+      QuadTree footprints = QuadTree();
+      Array<int> array;
+      array = footprints.InRange(0, 0, 50);
+
+      bool passingInit = true;
+
+      if (array.Size() != 0)
+      {
+         passingInit = false;
+         writeln("-FAIL- QuadTree initialized size != 0");
+      }
+      toTrack.PushBack(PLATFORM.MakeTrack());
+      footprints.Add(0, 0, toTrack.Size() - 1);
+      array = footprints.InRange(0, 0, 50);
+
+      if (array.Size() != 1)
+      {
+         passingInit = false;
+         writeln("-FAIL- QuadTree Add one - size != 1");
+      }
+
+      Array<int> toRemove = {};
+      foreach(int objId in array)
+      {
+         WsfTrack track = (WsfTrack)toTrack[objId];
+         if (track.IsValid())
+         {
+            if (track.TargetName() != "test_plat")
+            {
+               passingInit = false;
+               writeln("-FAIL- QuadTree returned object with incorrect name");
+            }
+         }
+         else
+         {
+            passingInit = false;
+            writeln("-FAIL- QuadTree did not return valid object");
+         }
+         toRemove.PushBack(objId);
+      }
+      foreach(int objId in toRemove)
+      {
+         footprints.Remove(objId);
+      }
+      array = footprints.InRange(0, 0, 50);
+
+      if (array.Size() != 0)
+      {
+         passingInit = false;
+         writeln("-FAIL- QuadTree Remove failed to remove Object");
+      }
+
+      pass = passingInit;
+   end_on_initialize
+   script void on_platform_deleted()
+      if (pass)
+      {
+         writeln("-PASS-");
+      }
+      else
+      {
+         writeln("-FAIL-");
+      }
+   end_script
+end_platform

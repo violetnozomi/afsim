@@ -1,0 +1,328 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// converted BRAWLER v7.5 alt34.f -> alt344.f
+// Replicates the 3,4,4,1 alternative behavior
+// alt3441_tail_attack
+
+include_once BrawlerScriptUtil.txt
+
+behavior alt3441_tail_attack
+
+   script_debug_writes off
+
+   script_variables
+
+      WsfBrawlerProcessor BRAWLER;
+      WsfPerceptionProcessor    perception;
+      WsfLocalTrack             targetTrack;
+
+      //**********************************************************************//
+      //** debugging parameters                                             **//
+      //**********************************************************************//
+      bool     mDrawSteering     = false;
+
+      //**********************************************************************//
+      //** alternative parameters                                           **//
+      //**********************************************************************//
+      // Flag used to enable/disable this alternative
+      bool mAlternative3441Enabled = true;
+      // Alternative ID
+      int ilevel = 3;
+      int kalt   = 4;
+      int icall  = 4;
+      int lcall  = 1;
+
+      Vec3 a0;      # maneuver plane
+      Vec3 dir0;    # direction vector
+      double gmx;   # max Gs
+      double spd0;  # speed or throttle setting (depending on spdmod)
+      int spdmod;
+
+      //**********************************************************************//
+      //********* VARIABLES BELOW THIS LINE ARE NOT FOR USER EDITING *********//
+      //**********************************************************************//
+      WsfDraw  mDraw             = WsfDraw();
+      double   mLastTime         = 0.0;
+      double   grav              = 32.17405;
+
+   end_script_variables
+
+   on_init
+
+      perception = (WsfPerceptionProcessor)PLATFORM.Processor("perception");
+      BRAWLER = (WsfBrawlerProcessor)PROCESSOR;
+   end_on_init
+
+
+   #when talatk() is done:
+   #   dir0 is normalized
+   #   spd0 is in units of ft/sec (or set to 3.0 for throttle mode)
+   script void talatk()
+      writeln_d("alt3441 tail attack: talatk");
+#      # local declarations
+#      integer jacid
+#      real t,pres,dens,vs,pr,dr,xcarot(3),vcarot(3)
+#      real xprj(3),vprj(3),rhprj(3,3),dlag,dlagn,dlagun,vtemp(3)
+#      real dxtail(3),aprj(3),ause(3),dt,spdwtd,x_tgt(3)
+#      data dlagn/5000./,dlagun/1000./
+#      # ENDDEC
+#      # SET TARGET POSITION BEHIND TARGET A/C A DISTANCE DLAG
+#      jacid = iacidt(iac)
+#      dlag=dlagn
+#      if(.not.noaim) dlag= (ppmrmn+ppmrmx)/2.
+#      if(mslpp.eq.nummis+1) dlag= dlagun
+#      # GET POSITION OF AC 5 SECONDS IN FUTURE:
+#      dt = 5.
+#      #if (xp(3,iac).ge.trkr_neg_alt) call nabort('talatk...tgt more than /par/trkr_neg_alt feet below ground')
+#      call xmit3(xp(1,iac),x_tgt)
+#      if (x_tgt(3).ge.0.) x_tgt(3) = -1.0
+#      call atmos(-x_tgt(3),t,pres,dens,vs,pr,dr)
+#      call a_lim(x_tgt,vp(1,iac),ap(1,iac),dt,casmin(iac)/sqrt(dr),ause)
+#      call projw(x_tgt,vp(1,iac),ause,dt,xprj,vprj,aprj,rhprj)
+#      call vmake(-dlag,vprj,vtemp)
+#      call vsum(x_tgt,vtemp,dxtail)
+#      call vsub(dxtail,xp(1,me),dxtail)
+#      call vecinc(vp(1,iac),0.5/tproj3,dxtail,dir0)
+#      spd0 = xmag(dir0)
+#      spdmod = desspd
+#      spdwtd = spdnow(me)+almax*tproj3*1.1
+#      if (spd0 .gt. spdwtd)
+#      {
+#          spd0 = 3.
+#          spdmod = thrttl
+#      }
+#      call vnorm(dir0,dir0)
+
+
+
+
+      double dlagn  = 5000.0;
+      double dlagun = 1000.0;
+      double dlag = dlagn;
+
+      ## check if we have a weapon task - it shouldn't reach this point if we didn't
+      #if(.not.noaim) dlag= (ppmrmn+ppmrmx)/2.
+      ## check if we have a weapon, otherwise close at gun range
+      #if(mslpp.eq.nummis+1) dlag= dlagun
+      if (!HaveWeapon(PLATFORM))
+      {
+         dlag = dlagun;
+      }
+
+      # GET POSITION OF AC 5 SECONDS IN FUTURE:
+      double dt = 5.0;
+      #if (xp(3,iac).ge.trkr_neg_alt) call nabort('talatk...tgt more than /par/trkr_neg_alt feet below ground')
+
+#      call xmit3(xp(1,iac),x_tgt)
+
+#      ##LBM - dont do projection for now
+#      if (x_tgt(3).ge.0.) x_tgt(3) = -1.0
+#      call atmos(-x_tgt(3),t,pres,dens,vs,pr,dr)
+#      call a_lim(x_tgt,vp(1,iac),ap(1,iac),dt,casmin(iac)/sqrt(dr),ause)
+#      call projw(x_tgt,vp(1,iac),ause,dt,xprj,vprj,aprj,rhprj)
+
+      //LBM - not able to perceive target's acceleration
+      //assume target's velocity after dt is same as now
+
+      //LBM - convert everything to feet when calculating against BRAWLER constants
+      //      convert back to meters to call WSF commands
+      Vec3 vprj = targetTrack.VelocityNED();
+      Vec3 vtemp = vprj.Normal();
+      vtemp.Scale(-dlag);
+#      Vec3 x_tgt;   //target position
+#      Vec3 xp;   //my position
+#      Vec3 dxtail = Vec3.Add(x_tgt,vtemp);   #adding vtemp is not accounted for in the line below
+#      dxtail = Vec3.Subtract(dxtail,xp);
+      Vec3 dx = RelativePositionNED(PLATFORM.Location(), targetTrack.CurrentLocation());
+      dx.Scale(MATH.FT_PER_M());
+      Vec3 dxtail = Vec3.Add(dx,vtemp);
+
+      Vec3 vpt = targetTrack.VelocityNED();
+      vpt.Scale(MATH.FT_PER_M());
+      dxtail.Scale(0.5/BRAWLER.ProjectedTimeDelta());
+      dir0 = Vec3.Add(vpt,dxtail);
+      spd0 = dir0.Magnitude();   #ft/sec
+      spdmod = 1;   //(desspd = 1, thrttl = 2, desacc = 3)
+     #double almax = PLATFORM.MaxForwardAccelWithGravity() * MATH.M_PER_FT();
+      double almax = BRAWLER.MaxForwardAccelWithGravity();   #ft/sec^2
+      double spdwtd = PLATFORM.Speed()*MATH.FT_PER_M() + almax * BRAWLER.ProjectedTimeDelta() * 1.1;
+      if (spd0 > spdwtd)
+      {
+          spd0 = 3.0;
+          spdmod = 2;   //(desspd = 1, thrttl = 2, desacc = 3)
+      }
+      dir0.Normalize();
+   end_script
+
+
+   precondition
+      #writeln_d(PLATFORM.Name(), " precondition alt3441 tail_attack, T=", TIME_NOW);
+
+      ### Evaluate conditions that would prevent behavior alternative from running
+
+      if (!PROCESSOR.IsA_TypeOf("WSF_BRAWLER_PROCESSOR"))
+      {
+         writeln_d("not a brawler processor!");
+         return Failure("behavior not attached to a WSF_BRAWLER_PROCESSOR");
+      }
+
+      if (!mAlternative3441Enabled)
+      {
+         writeln_d("behavior not enabled!");
+         return Failure("behavior alternative not enabled");
+      }
+
+      WsfTaskList tasks = BRAWLER.TasksReceivedOfType("WEAPON");
+      if(tasks.Count() <= 0)
+      {
+         writeln_d("no weapon (target) tasks!");
+         return Failure("no weapon (target) tasks!");
+      }
+      WsfTask targetTask = tasks.Entry(0);
+      targetTrack = PLATFORM.MasterTrackList().Find(targetTask.LocalTrackId());
+      if (!targetTrack.IsValid())
+      {
+         writeln_d("no target track!");
+         return Failure("no target track!");
+      }
+      if (!targetTrack.VelocityValid())
+      {
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " target track does not have valid velocity!");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+
+      ##alt344.f line 172 - 224
+      int iactn = 4;
+      # GENERATE TURNS IN MANEUVER PLANE CONTAINING LOS TO OPPONENT
+      Vec3 dxpme = RelativePositionNED(PLATFORM.Location(),targetTrack.CurrentLocation());
+      Vec3 vp = PLATFORM.VelocityNED();
+      Vec3 vp_iac =  targetTrack.VelocityNED();
+      bool bhndme = (Vec3.Dot(dxpme,vp) < 0.0);
+      bool bhndhm = (Vec3.Dot(dxpme,vp_iac) > 0.0);
+
+      if (bhndme && bhndhm)
+      {
+         # BEHIND EACH OTHER: WANT COURSE REVERSAL
+         # USE TAIL ATTACK FOR NOW
+         talatk();
+      }
+      else if (bhndme && !bhndhm)
+      {
+         # HE'S ON MY TAIL!: NO TAIL ATTACK ALTERNATIVE GENERATED
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " HE IS ON MY TAIL! NO TAIL ATTACK!");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+      else if (!bhndme && bhndhm)
+      {
+         # I'M ON HIS TAIL!: GENERATE TAIL ATTACK
+         talatk();
+      }
+      else if (!bhndme && !bhndhm)
+      {
+         # NOSE TO NOSE: PLAN INTERCEPT
+         #call aimpt(xp(1,me),spdnow(me),xp(1,iac),vp(1,iac),spdnow(iac),daimpt,lsoln);
+         WsfWaypoint aimptWP = WsfWaypoint();
+         double intTime = PLATFORM.InterceptLocation3D(targetTrack, aimptWP);
+         #if (lsoln)
+         if (intTime > 0)
+         {
+            WsfGeoPoint daimpt = aimptWP.Location();
+            #call vsub(daimpt,xp(1,me),dxaim);
+            Vec3 dxaim = RelativePositionNED(PLATFORM.Location(), daimpt);   #NED coordinates
+            dir0 = dxaim.Normal();
+            spd0 = 3.0;
+            spdmod = 2;   //(desspd = 1, thrttl = 2, desacc = 3)
+         }
+         else
+         {
+            //return Failure("ERROR: intercept somehow not possible, even though head to head with target!");
+            # ASSUME OVERSHOOT, SO TRY A TAIL ATTACK
+            talatk();
+         }
+      }
+      else
+      {
+         //call nabort('AL344...UNKNOWN GEOMETRY');
+         string msg = write_str("T=",TIME_NOW,", alt ", ilevel, kalt, icall, lcall, " ...UNKNOWN GEOMETRY");
+         writeln_d(msg);
+         return Failure(msg);
+      }
+
+      //lmore = .true.
+      double gmxsu = BRAWLER.MaxTacticalGs();
+      gmx = gmxsu;
+
+      ### Project and Evaluate (Score) Maneuver Alternative
+      double score = 0;
+      if (spdmod == 2)
+      {
+         score = BRAWLER.EvaluateVectorWithThrottle(dir0, gmx, spd0, ilevel, kalt, icall, lcall);
+      }
+      else
+      {
+         score = BRAWLER.EvaluateVectorWithSpeed(dir0, gmx, spd0 * MATH.M_PER_FT(), ilevel, kalt, icall, lcall);
+      }
+      writeln_d("T=", TIME_NOW, ", 3441_tail_attack       = ", score);
+
+      writeln_d("raw = ", BRAWLER.RawManeuverValueComponent("offensive"),
+                    ", ", BRAWLER.RawManeuverValueComponent("low speed recovery"),
+                    ", ", BRAWLER.RawManeuverValueComponent("defensive"),
+                    ", ", BRAWLER.RawManeuverValueComponent("illumination"),
+                    ", ", BRAWLER.RawManeuverValueComponent("missile evasion"),
+                    ", ", BRAWLER.RawManeuverValueComponent("missile aiming"));
+
+      writeln_d("component = ", BRAWLER.ManeuverValueComponent("offensive"),
+                          ", ", BRAWLER.ManeuverValueComponent("low speed recovery"),
+                          ", ", BRAWLER.ManeuverValueComponent("defensive"),
+                          ", ", BRAWLER.ManeuverValueComponent("illumination"),
+                          ", ", BRAWLER.ManeuverValueComponent("missile evasion"),
+                          ", ", BRAWLER.ManeuverValueComponent("missile aiming"));
+
+      writeln_d("tunnel = ", BRAWLER.TunnelVisionMultiplier("offensive"),
+                       ", ", BRAWLER.TunnelVisionMultiplier("low speed recovery"),
+                       ", ", BRAWLER.TunnelVisionMultiplier("defensive"),
+                       ", ", BRAWLER.TunnelVisionMultiplier("illumination"),
+                       ", ", BRAWLER.TunnelVisionMultiplier("missile evasion"),
+                       ", ", BRAWLER.TunnelVisionMultiplier("missile aiming"));
+
+      writeln_d("bias = ", BRAWLER.InherentBiasFaults("aggressiveness"),
+                     ", ", BRAWLER.InherentBiasFaults("mutual support"),
+                     ", ", BRAWLER.InherentBiasFaults("airspeed maintenance"));
+
+      writeln_d("mult = ", BRAWLER.OffensiveMultiplier(),
+                   ", ", BRAWLER.DefensiveMultiplier());
+
+      if (targetTrack.IsValid() && targetTrack.Target().IsValid())
+      {
+         writeln_d("engage = ", BRAWLER.LastEngagementValue(targetTrack.Target()));
+      }
+
+
+      return score;
+
+   end_precondition
+
+   execute
+      writeln_d("3441_tail_attack");
+      ## what was evaluated should be actually performed now
+      if (spdmod == 2)
+      {
+         PLATFORM.FlyVectorWithThrottle(dir0, gmx, spd0);
+      }
+      else
+      {
+         PLATFORM.FlyVectorWithSpeed(dir0, gmx, spd0 * MATH.M_PER_FT());
+      }
+   end_execute
+
+end_behavior
+

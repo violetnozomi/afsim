@@ -1,0 +1,67 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Verify the MIL-only 'event_output' event names.
+
+script void directedEnergyWeaponBeginShot(WsfDirectedEnergyWeapon aWeapon, WsfWeaponEngagement aEngagement) end_script
+script void directedEnergyWeaponUpdateShot(WsfDirectedEnergyWeapon aWeapon, WsfWeaponEngagement aEngagement) end_script
+script void directedEnergyWeaponAbortShot(WsfDirectedEnergyWeapon aWeapon, WsfWeaponEngagement aEngagement) end_script
+script void directedEnergyWeaponCooldownComplete(WsfWeapon aWeapon) end_script
+script void directedEnergyWeaponEndShot(WsfDirectedEnergyWeapon aWeapon, WsfWeaponEngagement aEngagement) end_script
+script void implicitWeaponBeginEngagement(WsfImplicitWeapon aWeapon, WsfWeaponEngagement aWeaponEngagement) end_script
+script void implicitWeaponEndEngagement(WsfImplicitWeapon aWeapon, WsfWeaponEngagement aWeaponEngagement) end_script
+script void jammingAttempt(WsfPlatform aXmtr, WsfPlatform aRcvr, WsfEM_Interaction aResult) end_script
+script void jammingRequestCanceled(WsfPlatform aPlatform, WsfWeapon aWeapon, double aFreq, double aBW, int aTgtIdx) end_script
+script void jammingRequestInitiated(WsfPlatform aPlatform, WsfWeapon aWeapon, double aFreq, double aBW, string aTechnique, int aTgtIdx) end_script
+script void jammingRequestUpdated(WsfPlatform aPlatform, WsfWeapon aWeapon, double aFreq, double aBW, string aTechnique, int aTgtIdx) end_script
+script void messageDeliveryAttempt(WsfPlatform aPlatformXmtr, WsfComm aXmtr, WsfPlatform aPlatformRcvr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult) end_script
+script void uplinkDropped(WsfPlatform aSendingPlatform, WsfPlatform aWeaponPlatform, WsfTrack aTargetTrack) end_script
+script void uplinkInitiated(WsfPlatform aSendingPlatform, WsfPlatform aWeaponPlatform, WsfTrack aTargetTrack) end_script
+script void weaponFireAborted(WsfWeapon aWeapon, WsfTrack aTrack, double aQuantity) end_script
+script void weaponFireRequested(WsfWeapon aWeapon, WsfTrack aTrack, double aQuantity) end_script
+script void weaponFired(WsfWeaponEngagement aWeaponEngagement, WsfTrack aTargetTrack) end_script
+script void weaponHit(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform) end_script
+script void weaponKilled(WsfWeapon aWeapon) end_script
+script void weaponMissed(WsfWeaponEngagement aWeaponEngagement, WsfPlatform aTargetPlatform) end_script
+script void weaponModeActivated(WsfPlatform aPlatform, WsfWeapon aWeapon) end_script
+script void weaponModeDeactivated(WsfPlatform aPlatform, WsfWeapon aWeapon) end_script
+script void weaponReloadStarted(WsfWeapon aWeapon) end_script
+script void weaponReloadEnded(WsfWeapon aWeapon) end_script
+script void weaponTerminated(WsfWeaponEngagement aWeaponEngagement) end_script
+script void weaponTurnedOff(WsfPlatform aPlatform, WsfWeapon aWeapon) end_script
+script void weaponTurnedOn(WsfPlatform aPlatform, WsfWeapon aWeapon) end_script 
+
+observer
+   enable DIRECTED_ENERGY_WEAPON_BEGIN_SHOT directedEnergyWeaponBeginShot
+   enable DIRECTED_ENERGY_WEAPON_UPDATE_SHOT directedEnergyWeaponUpdateShot
+   enable DIRECTED_ENERGY_WEAPON_ABORT_SHOT directedEnergyWeaponAbortShot
+   enable DIRECTED_ENERGY_WEAPON_COOLDOWN_COMPLETE directedEnergyWeaponCooldownComplete
+   enable DIRECTED_ENERGY_WEAPON_END_SHOT directedEnergyWeaponEndShot
+   enable IMPLICIT_WEAPON_BEGIN_ENGAGEMENT implicitWeaponBeginEngagement
+   enable IMPLICIT_WEAPON_END_ENGAGEMENT implicitWeaponEndEngagement
+   enable JAMMING_ATTEMPT jammingAttempt
+   enable JAMMING_REQUEST_CANCELED jammingRequestCanceled
+   enable JAMMING_REQUEST_INITIATED jammingRequestInitiated
+   enable JAMMING_REQUEST_UPDATED jammingRequestUpdated
+   enable UPLINK_DROPPED uplinkDropped
+   enable UPLINK_INITIATED uplinkInitiated
+   enable WEAPON_FIRE_ABORTED weaponFireAborted
+   enable WEAPON_FIRE_REQUESTED weaponFireRequested
+   enable WEAPON_FIRED weaponFired
+   enable WEAPON_HIT weaponHit
+   enable WEAPON_KILLED weaponKilled
+   enable WEAPON_MISSED weaponMissed
+   enable WEAPON_MODE_ACTIVATED weaponModeActivated
+   enable WEAPON_MODE_DEACTIVATED weaponModeDeactivated
+   enable WEAPON_RELOAD_STARTED weaponReloadStarted
+   enable WEAPON_RELOAD_ENDED weaponReloadEnded
+   enable WEAPON_TERMINATED weaponTerminated
+   enable WEAPON_TURNED_OFF weaponTurnedOff
+   enable WEAPON_TURNED_ON weaponTurnedOn
+end_observer

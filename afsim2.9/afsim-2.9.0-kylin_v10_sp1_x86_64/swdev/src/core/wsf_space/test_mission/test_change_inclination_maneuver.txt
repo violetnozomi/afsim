@@ -1,0 +1,93 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+end_time 2 hrs
+
+start_epoch 2003152.5
+
+script_variables
+   int passCount = 0;
+   double tol = MATH.Pow(10, -6);
+end_script_variables
+
+script void SimulationComplete()
+   int numTests = WsfSimulation.PlatformCount() * 2;
+   
+   if (passCount == numTests)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln("-FAIL- One or more tests failed");
+      writeln("       Passed: ", passCount);
+      writeln("       Failed: ", numTests-passCount);
+   }
+end_script
+
+script void OrbitalManeuverCompleted(WsfPlatform aPlatform, WsfSpaceMover aSpaceMover, WsfOrbitalManeuver aOrbitalManeuver)
+   
+   bool inclinationPassed = (MATH.Fabs(aSpaceMover.Inclination() - aPlatform->inclination) < tol);
+   bool eccentricityPassed = (MATH.Fabs(aSpaceMover.Eccentricity() - aPlatform->eccentricity) < tol);
+   
+   if (!inclinationPassed)
+   {
+      writeln("-FAIL- Inclination not achieved for ", aPlatform.Name(), ". Desired: ", aPlatform->inclination, ". Actual: ", aSpaceMover.Inclination());
+   }
+   else
+   {
+      passCount += 1;
+   }
+   
+   if (!eccentricityPassed)
+   {
+      writeln("-FAIL- Eccentricity incorrect for ", aPlatform.Name(), ". Desired: ", aPlatform->eccentricity, ". Actual: ", aSpaceMover.Eccentricity());
+   }
+   else
+   {
+      passCount += 1;
+   }
+end_script
+
+observer 
+   enable ORBITAL_MANEUVER_COMPLETED
+   enable SIMULATION_COMPLETE
+end_observer
+
+platform_type SPACE_PLATFORM WSF_PLATFORM 
+   
+   script_variables
+      // These script variables represent the desired 
+      //    inclination and eccentricity of the final orbit.
+      //    They are set on the platform instantiations
+      double inclination = 0;
+      double eccentricity = 0; 
+   end_script_variables
+   
+   icon satellite
+   
+   mover WSF_SPACE_MOVER 
+      semi_major_axis 9e6 m
+      eccentricity 0.1
+      inclination 20 deg
+      argument_of_periapsis 80 deg
+      raan 275 deg
+      true_anomaly 35 deg
+      
+   end_mover
+end_platform_type
+
+include_once common/neq-eq-ncirc.txt // non-equatorial to equatorial, non-circular
+include_once common/neq-eq-circ.txt // non-equatorial to equatorial, circular
+include_once common/eq-neq-ncirc.txt // equatorial to non-equatorial, non-circ#ular
+include_once common/eq-neq-circ.txt // equatorial to non-equatorial, circular
+include_once common/eq-eq-circ.txt // equatorial to equatorial, circular
+include_once common/eq-eq-ncirc.txt // equatorial to equatorial, non-circular
+include_once common/neq-neq-ncirc.txt // non-equatorial to non-equatorial, non-circular
+include_once common/neq-neq-circ.txt // non-equatorial to non-equatorial, circular

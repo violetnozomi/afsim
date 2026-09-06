@@ -1,0 +1,77 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test Implicit Weapon
+# WeaponFireAt and WeaponsActiveFor script methods
+define_path_variable CASE test_implict_weapon
+
+test_feature wsf_mil
+
+platform tgt WSF_PLATFORM
+end_platform
+
+platform p1 WSF_PLATFORM
+
+   track platform tgt end_track
+
+   add weapon iw WSF_IMPLICIT_WEAPON
+      update_interval 1 s
+      quantity 1
+   end_weapon
+
+   add processor task_mgr WSF_TASK_PROCESSOR
+      #show_state_transitions
+      evaluation_interval DETECTED 1 s
+      state DETECTED
+         next_state ENGAGING
+            // Fire the implicit weapon at the only target
+            return Fire(PLATFORM.MasterTrackList().Entry(0), "ENGAGE", PLATFORM.Weapon("iw"), 1);
+         end_next_state 
+         on_exit
+            TRACK.SetAuxData("time_fired", TIME_NOW);
+         end_on_exit
+      end_state
+      evaluation_interval ENGAGING 1 s
+      state ENGAGING
+         next_state COMPLETE
+            if (WeaponsFiredAt(TRACK.TrackId()) != 1)
+            {
+               // The number of weapons fired at the track should alway be one 
+               // because the fire command only get called once during this test
+               writeln("-FAIL- WeaponsFiredAt ", WeaponsFiredAt(TRACK.TrackId()));
+            }
+            if ((TRACK.AuxDataDouble("time_fired") + 1 < TIME_NOW) && 
+                (WeaponsActiveFor(TRACK.TrackId()) != 0))
+            {
+               // one second after the implicit weapon is fired it should not be "active" anymore 
+               writeln("-FAIL- WeaponsActiveFor ", WeaponsActiveFor(TRACK.TrackId()));
+            }
+         
+            return (WeaponsActiveFor(TRACK.TrackId()) == 0);
+         end_next_state 
+      end_state  
+      evaluation_interval COMPLETE 99 s
+      state COMPLETE 
+         on_entry
+            writeln("-PASS-");
+         end_on_entry
+      end_state       
+   end_processor
+
+end_platform
+
+end_time 3 s
+
+#event_output
+#   file STDOUT
+#   enable WEAPON_FIRED
+#   enable WEAPON_TERMINATED
+#   enable WEAPON_MISSED
+#   enable WEAPON_HIT
+#end_event_output

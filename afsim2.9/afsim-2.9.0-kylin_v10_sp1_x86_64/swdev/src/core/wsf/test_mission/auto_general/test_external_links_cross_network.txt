@@ -1,0 +1,191 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This scenario tests the expected basic capability of external linkage to send messages
+# to a receiving comm not within the same network. If a user has correctly modelled a
+# communication laydown, external_linkage should implicitly use comm capabilities to
+# enable transfer of messages in remote networks. Command chains will be used in this test
+# to show (and test) the decoupling of the command chain with comms (unlike previous iterations).
+#
+# Network A <-> Network B <-> Network C
+# External linkage from B to C, and A to C (via B)
+#
+# Each network has three members, and there are three command chains.
+# Unlike what would previously be expected, each command chain is spread out over
+# all three networks, s.t. each network has a single commander for each chain, and
+# each subordinate in a network is not of the same chain.
+# -----NETWORK A-----        -----NETWORK B-----        -----NETWORK C-----
+# Commander, Chain Whiskey   Commander, Chain Tango     Commander, Chain Foxtrot
+# Sub, Chain Foxtrot         Sub, Chain Whiskey         Sub, Chain Tango
+# Sub, Chain Tango           Sub, Chain Foxtrot         Sub, Chain Whiskey
+#
+# In addition, the gateways for cross-network communication will never be in the same
+# command chain, and will not be the same for each direction. As such, messages will
+# have to often travel within the network to reach their destination.
+
+end_time 1 s
+
+#event_output
+#   file replay.evt
+#   enable all
+#end_event_output
+
+script_variables
+   int num_messages = 0;
+end_script_variables
+
+processor SEND_PROC WSF_SCRIPT_PROCESSOR
+   #Make the update interval very large, as we only want
+   #a single update at time 0.0
+   update_interval 100 hours
+   on_update
+      WsfMessage message = {};
+      message.SetType("TEST_MESSAGE");
+      PROCESSOR.SendMessage(message);
+   end_on_update
+end_processor
+
+processor RECEIVE_PROC WSF_SCRIPT_PROCESSOR
+   on_message type TEST_MESSAGE
+      script
+         num_messages = num_messages + 1;
+      end_script
+   end_on_message
+end_processor
+
+platform_type TEST_PLAT WSF_PLATFORM
+   comm test_comm WSF_COMM_TRANSCEIVER
+      internal_link rcvr
+   end_comm
+   processor send SEND_PROC
+   end_processor
+   processor rcvr RECEIVE_PROC
+   end_processor
+end_platform_type
+
+
+#======================================================
+#NETWORK A
+#======================================================
+platform net_A-1 TEST_PLAT
+   command_chain WHISKEY net_A-1
+   edit comm test_comm
+      network_name A
+      link net_B-3 test_comm
+   end_comm
+   edit processor send
+      # Send to all subs (2 messages)
+      report_to command_chain WHISKEY subordinates via test_comm
+   end_processor
+end_platform
+
+platform net_A-2 TEST_PLAT
+   command_chain FOXTROT net_C-1
+   edit comm test_comm
+      network_name A
+   end_comm
+   edit processor send
+      # Send to all peers (1 message)
+      report_to command_chain FOXTROT peers via test_comm
+   end_processor
+end_platform
+
+platform net_A-3 TEST_PLAT
+   command_chain TANGO net_B-1
+   edit comm test_comm
+      network_name A
+   end_comm
+   edit processor send
+      # 1 message
+      report_to command_chain TANGO commander via test_comm
+   end_processor
+end_platform
+
+#======================================================
+#NETWORK B
+#======================================================
+platform net_B-1 TEST_PLAT
+   command_chain TANGO net_B-1
+   edit comm test_comm
+      network_name B
+   end_comm
+   edit processor send
+      # 2 messages
+      report_to command_chain TANGO subordinates via test_comm
+   end_processor
+end_platform
+
+platform net_B-2 TEST_PLAT
+   command_chain WHISKEY net_A-1
+   edit comm test_comm
+      network_name B
+      link net_C-2 test_comm
+   end_comm
+   edit processor send
+      # Send to all peers (1 message)
+      report_to command_chain WHISKEY peers via test_comm
+   end_processor   
+end_platform
+
+platform net_B-3 TEST_PLAT
+   command_chain FOXTROT net_C-1
+   edit comm test_comm
+      network_name B
+      link net_A-3 test_comm
+   end_comm
+   edit processor send
+      # 1 message
+      report_to command_chain FOXTROT commander via test_comm
+   end_processor   
+end_platform
+
+#======================================================
+#NETWORK C
+#======================================================
+platform net_C-1 TEST_PLAT
+   command_chain FOXTROT net_C-1
+   edit comm test_comm
+      network_name C
+      link net_B-2 test_comm
+   end_comm
+   edit processor send
+      # 2 messages
+      report_to command_chain FOXTROT subordinates via test_comm
+   end_processor   
+end_platform
+
+platform net_C-2 TEST_PLAT
+   command_chain TANGO net_B-1
+   edit comm test_comm
+      network_name C
+   end_comm
+   edit processor send
+      # Send to all peers (1 message)
+      report_to command_chain TANGO peers via test_comm
+   end_processor      
+end_platform
+
+platform net_C-3 TEST_PLAT
+   command_chain WHISKEY net_A-1
+   edit comm test_comm
+      network_name C
+   end_comm
+   edit processor send
+      # 1 message
+      report_to command_chain WHISKEY commander via test_comm
+   end_processor    
+end_platform
+
+execute at_time 0.9 s absolute
+   if(num_messages != 12)
+   {
+      writeln("-FAIL-");
+      writeln("Num messages received should be 12, received: " + (string)num_messages);
+   }
+end_execute

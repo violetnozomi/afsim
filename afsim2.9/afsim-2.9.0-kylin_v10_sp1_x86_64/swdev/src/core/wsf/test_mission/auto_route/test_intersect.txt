@@ -1,0 +1,88 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform_type B-737 WSF_PLATFORM
+   icon B-737
+   side green
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+   route rectangle
+      label start
+      position 30n 91w
+      position 31n 91w
+      position 31n 89w
+      position 30n 89w
+      position 30n 91w
+      goto start
+   end_route
+
+   route horizontal
+      position 30n 89w altitude 30000 ft heading 270 deg speed 500 mi/h
+      position 30n 91w altitude 30000 ft
+   end_route
+
+   route parallel
+      position 28n 91w altitude 30000 ft heading 0 deg speed 500 mi/h
+      position 32n 91w altitude 30000 ft
+   end_route
+
+platform sw-1001 B-737
+   zone rectangle
+      polygonal
+      lat_lon
+      point 30n 91w
+      point 31n 91w
+      point 31n 89w
+      point 30n 89w
+   end_zone
+
+   route
+      position 27n 90w altitude 30000 ft heading 0 deg speed 500 mi/h
+      position 28n 90w altitude 30000 ft heading 0 deg speed 500 mi/h
+      position 32n 90w altitude 30000 ft
+   end_route
+
+   script void WriteAO(Array<Object> aAO)
+      for (int i = 0; i < aAO.Size(); i=i+1)
+      {
+         writeln(aAO[i]);
+      }
+
+   end_script
+
+   on_initialize2
+      writeln("Initializing");
+      WsfDraw draw = {};
+      draw.SetLineSize(8);
+      PLATFORM.Zone("rectangle").Draw(draw);
+      WsfRoute horizontal = WsfRoute.CopyGlobal("horizontal");
+      WsfRoute current = PLATFORM.Route().Copy();
+      WsfRoute rectangle = WsfRoute.CopyGlobal("rectangle");
+      WsfRoute parallel = WsfRoute.CopyGlobal("parallel");
+      Array<Object> ao = current.Intersect(rectangle);
+      if (ao.Size() != 6) writeln("-FAIL-");
+      if ((ao[0] == 1) &&
+          (ao[1] == 3) &&
+          (ao[3] == 1) &&
+          (ao[4] == 1)) {} else writeln("-FAIL-");
+      WriteAO(ao);
+      ao = current.Intersect(horizontal);
+      if (ao.Size() != 3) writeln("-FAIL-");
+      if ((ao[0] == 1)  &&
+          (ao[1] == 0)) {} else writeln("-FAIL-");
+      WriteAO(ao);
+      ao = current.Intersect(parallel);
+      if (ao.Size() != 0) writeln("-FAIL-");
+   end_on_initialize2
+
+end_platform
+
+end_time 2 hr

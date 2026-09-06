@@ -1,0 +1,192 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+###############################################################################
+# A simple test of the event-pipe's maximum_mover_update_interval overwrite
+# This first checks that the overwrite applies, and then compares the
+# applied interval with a calculated update interval
+# NOTE: TSPI movers do not respect update_intervals, and are blocked from
+# the test until that is resolved
+###############################################################################
+
+script_variables
+   double update_interval_value = 10; # sec
+   Map<string,Array<double>> update_map = Map<string,Array<double>>();
+end_script_variables
+
+event_pipe
+   # Execute the affects event_pipe has on the sim without creating a file.
+   test_without_file
+   maximum_mover_update_interval 2 s
+end_event_pipe
+
+platform air_mover_fixed WSF_PLATFORM
+   add mover WSF_AIR_MOVER 
+      update_interval 10 s
+   end_mover
+end_platform
+
+platform air_mover_variable WSF_PLATFORM
+   add mover WSF_AIR_MOVER 
+      update_interval /variable update_interval_value
+   end_mover
+end_platform
+
+platform ground_mover_fixed WSF_PLATFORM
+   add mover WSF_GROUND_MOVER 
+      update_interval 10 s
+   end_mover
+end_platform
+
+platform ground_mover_variable WSF_PLATFORM
+   add mover WSF_GROUND_MOVER 
+      update_interval /variable update_interval_value
+   end_mover
+end_platform
+
+platform kinematic_mover_fixed WSF_PLATFORM
+   add mover WSF_KINEMATIC_MOVER 
+      update_interval 10 s
+   end_mover
+end_platform
+
+platform kinematic_mover_variable WSF_PLATFORM
+   add mover WSF_KINEMATIC_MOVER 
+      update_interval /variable update_interval_value
+   end_mover
+end_platform
+
+platform offset_mover_fixed WSF_PLATFORM
+   add mover WSF_OFFSET_MOVER 
+      reference_platform air_mover_fixed
+      update_interval 10 s
+   end_mover
+end_platform
+
+platform offset_mover_variable WSF_PLATFORM
+   add mover WSF_OFFSET_MOVER 
+      reference_platform air_mover_fixed
+      update_interval /variable update_interval_value
+   end_mover
+end_platform
+
+platform rotorcraft_mover_fixed WSF_PLATFORM
+   add mover WSF_ROTORCRAFT_MOVER 
+      update_interval 10 s
+   end_mover
+end_platform
+
+platform rotorcraft_mover_variable WSF_PLATFORM
+   add mover WSF_ROTORCRAFT_MOVER 
+      update_interval /variable update_interval_value
+   end_mover
+end_platform
+
+platform surface_mover_fixed WSF_PLATFORM
+   add mover WSF_SURFACE_MOVER 
+      update_interval 10 s
+   end_mover
+end_platform
+
+platform surface_mover_variable WSF_PLATFORM
+   add mover WSF_SURFACE_MOVER 
+      update_interval /variable update_interval_value
+   end_mover
+end_platform
+
+platform tspi_mover_fixed WSF_PLATFORM
+   add mover WSF_TSPI_MOVER 
+      tspi_filename tspi_data.tspi
+      update_interval 10 s
+   end_mover
+end_platform
+
+platform tspi_mover_variable WSF_PLATFORM
+   add mover WSF_TSPI_MOVER 
+      tspi_filename tspi_data.tspi
+      update_interval /variable update_interval_value
+   end_mover
+end_platform
+
+script void CheckMover(string aPlatform)
+   WsfMover mover = WsfSimulation.FindPlatform(aPlatform).Mover();
+   if (mover.UpdateInterval() == 2)
+   {
+      writeln("-PASS-");
+   }
+   else
+   {
+      writeln(aPlatform, "'s update interval is ", mover.UpdateInterval(), ", should be 2.");
+      writeln("-FAIL-");
+   }
+end_script
+
+# TEST 1: Confirm that event-pipe's maximum_mover_update_interval overwrites movers update intervals
+# This looks at many movers, and setting the update_interval directly and from a script variable.
+execute at_time 1 s absolute
+   CheckMover("air_mover_fixed");
+   CheckMover("air_mover_variable");
+   CheckMover("ground_mover_fixed");
+   CheckMover("ground_mover_variable");
+   CheckMover("kinematic_mover_fixed");
+   CheckMover("kinematic_mover_variable");
+   CheckMover("offset_mover_fixed");
+   CheckMover("offset_mover_variable");
+   CheckMover("rotorcraft_mover_fixed");
+   CheckMover("rotorcraft_mover_variable");
+   CheckMover("surface_mover_fixed");
+   CheckMover("surface_mover_variable");
+#   CheckMover("tspi_mover_fixed");
+#   CheckMover("tspi_mover_variable");
+end_execute
+
+script void MoverUpdated(WsfPlatform aPlatform, WsfMover aMover)
+   if (update_map[aPlatform.Name()].IsNull())
+   {
+      update_map[aPlatform.Name()] = Array<double>();
+   }
+   update_map[aPlatform.Name()].PushBack(TIME_NOW);
+end_script
+
+# TEST 2: Confirm that movers are actually updating at the requested interval
+# in an actual sim, a mover could updated at a higher interval, but this sim
+# is simple enough that nothing else should be stimulating those actions
+script void SimulationComplete()
+   foreach (string aKey : Array<double> aData in update_map)
+   {
+      double maxupd = 0;
+      double lastval = -1;
+      foreach (double time in aData)
+      {
+         if (lastval > -1)
+         {
+            maxupd = MATH.Max(maxupd, (time - lastval));
+         }
+         lastval = time;
+      }
+      WsfMover mover = WsfSimulation.FindPlatform(aKey).Mover();
+      double updateInterval = mover.UpdateInterval();
+
+      if (updateInterval - maxupd != 0)
+      {
+         writeln(aKey, " updated at ", maxupd, " s expected less than or equal to ", updateInterval);
+         writeln("-FAIL-");
+      }
+      else
+      {
+         writeln("-PASS-");
+      }
+   }
+end_script
+
+observer
+   enable MOVER_UPDATED MoverUpdated
+   enable SIMULATION_COMPLETE SimulationComplete
+end_observer
+

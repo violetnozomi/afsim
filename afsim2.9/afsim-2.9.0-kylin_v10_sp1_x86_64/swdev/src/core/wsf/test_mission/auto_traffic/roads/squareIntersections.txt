@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#A test network for vehicle speeds and intersection behavior
+
+route_network eightNetwork 
+   //Roads one and two are vertical routes.
+   //Roads three-five are horizontal routes that connect one and two.
+   route
+      name roadOne
+      navigation
+         position 39n 86w
+            node_id roadOne_roadThree
+            aux_data
+               bool stop = true
+            end_aux_data
+         position 39.01n 86w
+            node_id roadOne_roadFour
+            aux_data
+               bool traffic_signals = true
+            end_aux_data
+         position 39.02n 86w
+            node_id roadOne_roadFive
+            aux_data
+               bool stop = true
+            end_aux_data
+      end_navigation
+   end_route
+   route
+      name roadTwo
+      navigation
+         position 39n 86.02w
+            node_id roadTwo_roadThree
+            aux_data
+               bool stop = true
+            end_aux_data
+         position 39.01n 86.02w
+            node_id roadTwo_roadFour
+            aux_data
+               bool traffic_signals = true
+            end_aux_data
+         position 39.02n 86.02w
+            node_id roadTwo_roadFive
+            aux_data
+               bool stop = true
+            end_aux_data
+      end_navigation
+   end_route
+   route
+      name roadThree
+      navigation
+         position 39n 86w
+            node_id roadOne_roadThree
+         position 39n 86.02w
+            node_id roadTwo_roadThree 
+      end_navigation
+      aux_data
+         unitary maxspeed = 40 mph
+      end_aux_data
+   end_route
+   route
+      name roadFour
+      navigation
+         position 39.01n 86w
+            node_id roadOne_roadFour
+         position 39.01n 86.02w
+            node_id roadTwo_roadFour
+      end_navigation
+   end_route
+   route
+      name roadFive
+      navigation
+         position 39.02n 86w
+            node_id roadOne_roadFive
+         position 39.02n 86.02w
+            node_id roadTwo_roadFive
+      end_navigation
+   end_route
+end_route_network

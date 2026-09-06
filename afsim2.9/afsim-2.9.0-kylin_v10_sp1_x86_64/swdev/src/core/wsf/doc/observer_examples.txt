@@ -1,0 +1,121 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+
+This is an example of enabling PlatformBroken and writing information.  The script is named platformBroken instead of PlatformBroken (case difference) so the name had to be supplied after the "enable PLATFORM_BROKEN". The writes will only result if the platform broken was "my_jet" in the simulation.::
+
+ script void platformBroken(WsfPlatform aPlatform)
+   double platformalt = aPlatform.Altitude();
+   WsfGeoPoint location = aPlatform.Location();
+   if (aPlatform.Name() == "my_jet")
+   {
+      writeln("*T=,", TIME_NOW,
+                     ",Platform=,", aPlatform.Name(),
+                     ",PlatformAlt=,", platformalt,
+                     ",PlatformSpeed=,", aPlatform.Speed(),
+                     ",PlatformHeading=,", aPlatform.Heading(),
+                     ",PlatformLat=,", location.Latitude(),
+                     ",PlatformLon=,", location.Longitude(),
+                     ",PlatformXpos,", aPlatform.X(),
+                     ",PlatformYpos,", aPlatform.Y(),
+                     ",PlatformZpos,", aPlatform.Z());
+   }
+ end_script
+ observer
+   enable PLATFORM_BROKEN platformBroken
+ end_observer
+
+This is another example of using the observer block to update a global variable used in the simulation as well as writing information::
+
+ script_variables
+   global Map< int, double > mMessages = Map< int, double >();
+ end_script_variables
+
+ script void MessageReceived(WsfMessage aMsg)
+   extern Map< int, double > mMessages;
+   mMessages[GetPlatformIndex()] = GetMessageTime(aMsg);
+ end_script
+ observer
+   enable MESSAGE_RECEIVED
+ end_observer
+
+This example prints out comma delimited information from all sensors that tracked a platform name "300_drone" or "301_drone". The information is limited to when a track was initiated and when a track got updated. Two observers are enabled which call a single user defined script called sensorinfo()::
+
+ script void sensorinfo(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+   WsfPlatform target = aTrack.Target();
+   WsfGeoPoint sensorpoint = aPlatform.Location();
+   double RelativeAzimuthAspectAngle = target.RelativeAzimuthOf(sensorpoint); # target to sensor az aspect angle
+   double RelativeElevationAspectAngle = target.RelativeElevationOf(sensorpoint); # target to sensor el aspect angle
+   if ((aTrack.TargetName() == "300_drone") || (aTrack.TargetName() == "301_drone"))
+   {
+      writeln(TIME_NOW,",",
+      aTrack.StartTime(),",",
+      aTrack.SensorName(),",",
+      aTrack.TargetName(),",",
+      RelativeAzimuthAspectAngle,",",
+      RelativeElevationAspectAngle,",",
+      aTrack.Range());
+   }
+ end_script
+
+ observer
+    enable SENSOR_TRACK_INITIATED sensorinfo
+    enable SENSOR_TRACK_UPDATED sensorinfo
+ end_observer
+
+This example writes out comma delimited information to a **file** instead of to standard (**screen**) output.::
+
+ script void sensorinfo(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+   if (aTrack.TargetName() == "300_drone")
+   {
+   string mystring =  write_str(TIME_NOW, ",", aTrack.StartTime(), ",", aTrack.SensorName(), ",", aTrack.TargetName(),
+   ",", aTrack.Range());
+   string outputfilename = "output.txt";
+   FileIO myfile = FileIO();
+   myfile.Open(outputfilename, "append");
+   myfile.Writeln(mystring);
+   }
+ end_script
+
+ observer
+   enable SENSOR_TRACK_INITIATED sensorinfo
+   enable SENSOR_TRACK_DROPPED sensorinfo
+ end_observer
+
+This example writes out information for every successful message receipt.::
+
+ script void MessageReceived(WsfMessage aMsg)
+    writeln(GetMessageTime(aMsg));
+ end_script
+ observer
+    enable MESSAGE_RECEIVED
+ end_observer
+
+This example writes out information for every successful sensor detection, and accesses the bandwidth and frequency of the transmitter involved in the interaction, if it is valid.::
+
+ script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult)
+    if(aResult.Detected())
+    {
+       writeln(aSensor.Name(), " ", aResult.ModeName(), " ", aResult.SignalToNoise());
+    }
+
+    WsfEM_Xmtr xmtr = aResult.Xmtr();
+    if (xmtr.IsValid())
+    {
+       double freq = xmtr.Frequency();
+       double bw = xmtr.Bandwidth();
+    }
+    else
+    {
+       writeln("Invalid Xmtr in SensorDetectionAttempt");
+    }
+ end_script
+ observer
+    enable SENSOR_DETECTION_ATTEMPT
+ end_observer

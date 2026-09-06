@@ -1,0 +1,75 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include_once roads/osm_roads.txt
+
+include platforms/road_platforms.txt
+include_once ../auto_script/collect_stats.txt
+
+osm_traffic
+  network osm_network
+    vehicle_count 50
+    maximum_speed  80 mi/h
+
+    vehicle CAR
+      fraction      0.80
+      mean_speed   60 mi/h
+      sigma_speed   5 mi/h
+    end_vehicle
+
+    vehicle PICKUP_TRUCK
+      fraction      0.15
+      mean_speed   60 mi/h
+      sigma_speed  10 mi/h
+    end_vehicle
+
+    vehicle SCHOOL_BUS
+      fraction      0.05
+      mean_speed   50 mi/h
+      sigma_speed  10 mi/h
+    end_vehicle
+  end_network
+end_osm_traffic
+
+execute at_time 10 sec absolute
+   WsfOSM_Traffic traffic = WsfOSM_Traffic.Traffic();
+   if (traffic.IsValid())
+   {
+      Array<WsfRoute> routes = traffic.TrafficRoutes("osm_network");
+       if (routes.Size() != 27)
+      {
+         writeln("-FAIL- route size is", routes.Size(), " when it should be 27");
+      }
+   }
+   else
+   {
+      writeln("-FAIL- couldn't locate OSM traffic");
+   }
+end_execute
+
+observer
+   enable SIMULATION_COMPLETE simComplete
+end_observer
+
+script void simComplete()
+   struct sum = collect_Summarize("");
+   sum->Print();
+#Samples: 50
+#Alive Time: 30000.1
+#Distance Traveled: 43958.9
+
+   # Tolerance necessary for handling small precision issues
+   if (!sum->ExpectedAliveTime(30000.1, 0.5) ||
+       !sum->ExpectedDistanceTravelled(43958.9, 0.5))
+      writeln("-FAIL-");
+   else
+      writeln("-PASS-");
+end_script
+
+end_time 10 min

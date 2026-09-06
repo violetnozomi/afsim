@@ -1,0 +1,347 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+Orbital State Commands
+======================
+
+.. command:: orbital_state ... end_orbital_state
+
+   Specify the orbital state in the form of an `epoch`_ or `epoch_date_time`_, and one of the following: 
+   
+   * Sufficient `orbital element commands`_
+   * Both a position_ and velocity_ vector
+   * An orbit ... end_orbit command block containing a Two-Line Element (TLE) (when using a :model:`WSF_NORAD_SPACE_MOVER`).
+
+   .. command:: position <real> <real> <real> <length-units>
+
+      Sets the initial location of the space mover. This command must be used in conjunction with the velocity_ command.
+
+   .. command:: velocity <real> <real> <real> <speed-units>
+
+      Sets the initial velocity of the space mover. This command must be used in conjunction with the position_ command.
+
+   .. note:: The Position_ and velocity_ inputs must be provided sequentially, with the velocity_ input immediately following position_.
+
+   ::
+   
+    //Example: Orbital elements declaration
+
+    platform test-oe WSF_PLATFORM
+      add mover WSF_SPACE_MOVER
+        orbital_state
+          epoch 2021245.18563
+          semi_major_axis 10000 km
+          eccentricity 0.2
+          mean_anomaly 255 deg
+          inclination 30 deg
+          raan 120 deg
+          argument_of_periapsis 80 deg
+        end_orbital_state
+      end_mover
+    end_platform
+
+    //Example: Position/velocity declaration
+
+    platform test-rv WSF_PLATFORM
+      add mover WSF_SPACE_MOVER
+        orbital_state
+          epoch 2021245.18563
+          position 800 0 0 km
+          velocity 100 3000 -50 m/s
+        end_orbital_state
+      end_mover
+    end_platform
+
+    //Example: TLE declaration
+    //Note: TLE declaration is only allowed within a WSF_NORAD_SPACE_MOVER
+
+    platform test-tle WSF_PLATFORM
+      add mover WSF_NORAD_SPACE_MOVER
+        orbital_state
+          orbit
+            0 HST
+            1 20580U 90037B   20216.30423610  .00000333  00000-0  92680-5 0  9996
+            2 20580  28.4681 168.2117 0002666 190.3324 294.3699 15.09238375401891
+          end_orbit
+        end_orbital_state
+      end_mover
+    end_platform
+
+.. command:: epoch [<epoch-value> | platform_creation_epoch]
+
+   Specify the epoch that corresponds with the reference epoch at which the orbital elements are valid.
+
+   If **platform_creation_epoch** is specified, initial epoch will be set to the platform's creation time.
+
+   ::
+
+    //Example: platform_creation_epoch usage
+    //In this case, initial epoch will be set to 1 hour after simulation start
+
+    platform test-oe WSF_PLATFORM
+      creation_time 1 hour
+      add mover WSF_SPACE_MOVER
+        orbital_state
+          epoch platform_creation_epoch
+          semi_major_axis 10000 km
+          eccentricity 0.2
+          mean_anomaly 255 deg
+          inclination 30 deg
+          raan 120 deg
+          argument_of_periapsis 80 deg
+        end_orbital_state
+      end_mover
+    end_platform
+
+.. command:: epoch_date_time <month> <day-of-month> <year> <hh:mm:ss>
+
+   Specify the date and time that corresponds with the reference epoch at which the orbital elements are valid.
+
+   .. note::
+
+      The month is expressed in a three character format as follows:
+
+      jan | feb | mar | apr | may | jun | jul | aug | sep | oct | nov | dec
+
+   The time of day is referenced to UT midnight and using a 24 hour clock.
+
+Orbital Element Commands
+========================
+
+.. command:: designator <string-value>
+
+   Specify the designator for the space mover.
+
+   **Default** "00001A"
+
+   .. note:: If a TLE is being used, the designator is provided by the TLE satellite international designator in line one.
+
+.. command:: eccentricity <real-value>
+
+   Specify the eccentricity of the orbit.  The specified value must be greater than or equal to zero (circular orbit).
+
+   **Default:** 0
+
+   .. note:: eccentricity_ must also be less than 1.0 (parabolic orbit) for the :model:`WSF_SPACE_MOVER` and :model:`WSF_NORAD_SPACE_MOVER`.
+
+.. command:: semi_major_axis <length-value>
+
+   Specify the semi-major axis of the ellipse defining the orbit.
+
+   **Default:** None. This must be provided or derivable from other commands. See `Derivation of Orbital Element Input Values`_.
+
+   .. note:: For an eccentricity_ of zero, the semi-major axis becomes the radius of a circle.
+
+   .. note:: This input is equivalent with revolutions_per_day_, as the two are related by Kepler's 3rd law. If both are specified, the last one specified is used.
+
+.. command:: revolutions_per_day <real-value>
+
+   Specify the number revolutions per day the satellite orbits the Earth.
+
+   **Default:** None. This must be provided or derivable from other commands. See `Derivation of Orbital Element Input Values`_.
+
+   .. note:: This input is equivalent with semi_major_axis_, as the two are related by Kepler's 3rd law. If both are specified, the last one specified is used.
+
+.. command:: periapsis_radius <length-value>
+
+   Specify the periapsis radius of the ellipse defining the orbit. This is the smallest distance between the satellite and the center of the central body.
+
+   **Default:** None. This must be provided or derivable from other commands. See `Derivation of Orbital Element Input Values`_.
+
+   .. note:: For an eccentricity_ of zero, the periapsis radius is equal to both the apoapsis radius and the semi-major axis.
+
+   .. note:: This input is equivalent with periapsis_altitude_, as the two are related by the mean radius of the :ref:`central_body<central_body_commands>`. If both are specified, the last one specified is used.
+
+.. command:: apoapsis_radius <length-value>
+
+   Specify the apoapsis radius of the ellipse defining the orbit. This is the largest distance between the satellite and the center of the central body.
+
+   **Default:** None. This must be provided or derivable from other commands. See `Derivation of Orbital Element Input Values`_.
+
+   .. note:: For an eccentricity_ of zero, the apoapsis radius is equal to both the periapsis radius and the semi-major axis.
+
+   .. note:: This input is equivalent with apoapsis_altitude_, as the two are related by the mean radius of the :ref:`central_body<central_body_commands>`. If both are specified, the last one specified is used.
+
+.. command:: periapsis_altitude <length-value>
+
+   Specify the periapsis altitude of the ellipse defining the orbit. This is the smallest distance between the satellite and the surface of the central body.
+
+   **Default:** None. This must be provided or derivable from other commands. See `Derivation of Orbital Element Input Values`_.
+
+   .. note:: For an eccentricity_ of zero, the periapsis altitude is equal to the apoapsis altitude.
+
+   .. note:: This input is equivalent with periapsis_radius_, as the two are related by the mean radius of the :ref:`central_body<central_body_commands>`. If both are specified, the last one specified is used.
+
+.. command:: apoapsis_altitude <length-value>
+
+   Specify the apoapsis altitude of the ellipse defining the orbit. This is the largest distance between the satellite and the surface of the central body.
+
+   **Default:** None. This must be provided or derivable from other commands. See `Derivation of Orbital Element Input Values`_.
+
+   .. note:: For an eccentricity_ of zero, the apoapsis altitude is equal to the periapsis altitude.
+
+   .. note:: This input is equivalent with apoapsis_radius_, as the two are related by the mean radius of the :ref:`central_body<central_body_commands>`. If both are specified, the last one specified is used.
+
+.. command:: raan | right_ascension_of_ascending_node <angle-value>
+
+   Specify the right ascension of the ascending node ("raan").  This is the angle, measured counterclockwise along the
+   celestial equator from the vernal equinox (the angle of right ascension) that the satellite crosses the equator from
+   south to north (the ascending node).
+
+   **Default:** 0 deg
+
+   .. note:: raan_ values must be greater than or equal to zero and less than 360 degrees (:math:`2\pi` radians).
+
+   .. note:: raan_ is referenced to the :ref:`True of Date<TOD>` coordinate system.
+
+.. command:: inclination <angle-value>
+
+   Specify the separation angle of the tangent to the orbital plane with the Earth's axis of rotation.
+
+   **Default:** 0 deg
+
+   .. note:: inclination_ values must be greater than or equal to zero (equatorial orbit) and less than or equal to 180 degrees (:math:`\pi` radians; retrograde equatorial orbit).
+
+   .. note:: inclination_ is referenced to the :ref:`True of Date<TOD>` coordinate system.
+
+.. command:: mean_anomaly <angle-value>
+
+   Specify the angular location of the satellite in its orbit at the epoch_ time.
+   This angle is measured from the periapsis and represents the angle the satellite would traverse at a constant angular
+   rate.
+
+   **Default:** 0 deg
+
+   .. note:: mean_anomaly_ values must be greater than or equal to zero and less than 360 degrees (:math:`2\pi` radians).
+
+   .. note:: This input is equivalent with true_anomaly_. See `Derivation of Orbital Element Input Values`_.
+
+.. command:: true_anomaly <angle-value>
+
+   Specify the angular location of the satellite in its orbit at the epoch_ time.
+   This angle is measured from the periapsis and represents the true angular location of the satellite.
+
+   **Default:** 0 deg
+
+   .. note:: true_anomaly_ values must be greater than or equal to zero and less than 360 degrees (:math:`2\pi` radians).
+
+   .. note:: This input is equivalent with mean_anomaly_. See `Derivation of Orbital Element Input Values`_.
+
+.. command:: argument_of_periapsis <angle-value>
+
+   Specify the angle of the perigee (periapsis) with respect to the Earth's surface.  This angle is measured from the
+   ascending node.
+
+   **Default:** 0 deg
+
+   .. note:: argument_of_periapsis_ values must be greater than or equal to zero and less than 360 degrees (:math:`2\pi` radians).
+
+.. command:: descriptor <string-value>
+
+   Specify an arbitrary descriptor (tag) for the space vehicle.
+
+   .. note:: If a TLE is being used, the descriptor is provided in line 0.
+
+Derivation of Orbital Element Input Values
+******************************************
+
+For some orbital elements, there are multiple ways to specify a particular characteristic of the orbit.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+   :align: left
+
+   * - Symbol
+     - Command
+   * - :math:`N`
+     - revolutions_per_day_
+   * - :math:`a`
+     - semi_major_axis_
+   * - :math:`e`
+     - eccentricity_
+   * - :math:`r_p`
+     - periapsis_radius_
+   * - :math:`r_a`
+     - apoapsis_radius_
+   * - :math:`z_p`
+     - periapsis_altitude_
+   * - :math:`z_a`
+     - apoapsis_altitude_
+   * - :math:`M`
+     - mean_anomaly_
+   * - :math:`f`
+     - true_anomaly_
+
+
+*Orbit Size/Shape*
+""""""""""""""""""
+
+The commands semi_major_axis_ and revolutions_per_day_ are equivalent inputs, as they are related by Kepler's Third Law:
+
+.. math::
+
+  N = \frac{d}{2\pi}\sqrt{\frac{\mu}{a^3}}
+
+where:
+
+* :math:`d` is the number of seconds in a day (86400)
+* :math:`\mu` is the gravitational constant of the :ref:`central_body<central_body_commands>`
+
+.. figure:: images/periapsis_apoapsis.png
+   :align: left
+   :figwidth: 100%
+
+   Note: Not to scale.
+
+|
+
+The commands periapsis_radius_ and periapsis_altitude_ are equivalent inputs because they are related by the central body radius. The same is true of apoapsis_radius_ and apoapsis_altitude_. See the diagram above and the equations below:
+
+.. math::
+
+   r_p &= R + z_p
+
+   r_a &= R + z_a
+
+where :math:`R` is the mean radius of the :ref:`central_body<central_body_commands>`.
+
+The periapsis_radius_, apoapsis_radius_, eccentricity_, and semi_major_axis_ are related by the following two equations:
+
+.. math::
+
+   r_p &= a(1 - e)
+
+   r_a &= a(1 + e)
+
+There are two equations with four unknowns; If two are specified, the other two can be determined. If only one of the parameters is specified, :math:`e` (eccentricity_) is assumed to be zero, and all four parameters can still be determined.
+
+
+*Mean/True Anomaly*
+"""""""""""""""""""
+
+The commands mean_anomaly_ and true_anomaly_ are equivalent inputs, related by the following equations:
+
+.. math::
+
+   M &= E - e\sin{E}
+
+   \cos{E} &= \frac{e + \cos{f}}{1 + e\cos{f}}
+
+where:
+
+* :math:`E` is the eccentric anomaly, shown in the figure below.
+* :math:`f` is the true anomaly, shown in the figure below.
+* :math:`M` is the mean anomaly, which is measured from the periapsis and represents the angle the satellite would traverse at a constant angular rate
+
+.. figure:: images/eccentric_true_anomaly.png
+   :align: left
+   :figwidth: 100%
+
+   This file was derived from:  Eccentric and true anomaly.PNG:, CC BY-SA 4.0, https://commons.wikimedia.org/w/index.php?curid=48384905

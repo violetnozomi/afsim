@@ -1,0 +1,48 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test that classification command is parsed and aggregated correctly, including caveats and trigraphs
+
+classification_levels
+   level ONE end_level
+   level "TWO WITH SPACES" end_level
+   level "THREE WITH SPACES"
+      color float 0.2 0.4 0.6
+   end_level 
+end_classification_levels
+
+classification
+   level ONE
+   caveats CV1 CV2 end_caveats
+   trigraphs TG1 TG2 end_trigraphs
+end_classification
+
+classification
+   level "THREE WITH SPACES"
+end_classification
+
+classification
+   level "TWO WITH SPACES"
+   caveats CV2 CV3 end_caveats
+   trigraphs TG2 TG3 end_trigraphs
+end_classification
+
+execute at_time 1 s absolute
+   string classString = WsfSimulation.ClassificationString();
+   if (classString != "THREE WITH SPACES//TG1//TG2//TG3 - CV1//CV2//CV3")
+   {
+      writeln("-FAIL- Unexpected classification string: ", classString);
+   }
+   
+   Color classColor = WsfSimulation.ClassificationColor();
+   if (classColor != Color.Construct(51, 102, 153))
+   {
+      writeln("-FAIL- Unexpected classification color: ", classColor.GetRGBA_String());
+   }
+end_execute

@@ -1,0 +1,95 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+test_feature brawler
+
+file_path .
+file_path ../data
+
+#end_time 10 min
+end_time 1 min
+
+#event_output
+#   file   test_brawler_knife_fight.evt
+#   enable BTREE_NODE_CHILDREN
+#   enable BTREE_NODE_EXEC
+#   enable PLATFORM_ADDED
+#   enable PLATFORM_DELETED
+#end_event_output
+
+#dis_interface
+#   record                      test_brawler_knife_fight.rep
+#   mover_update_timer          1.0 sec
+#   entity_position_threshold   0.03 m
+#end_dis_interface
+
+include_once brawler_fighter.txt
+include_once brawler_commander.txt
+
+
+platform blue_cmdr BRAWLER_COMMANDER
+   position 00:01:00.00s  00:01:00.00e
+end_platform
+
+
+platform blue_1 BRAWLER_FIGHTER
+   heading 360 deg
+   position 00:01:50.00s 00:00:25.00w  altitude 10000.00 ft
+end_platform
+
+
+platform red_cmdr BRAWLER_COMMANDER
+   side red
+   edit comm datalink 
+      network_name red_net
+   end_comm
+   position 00:01:00.00s  00:01:00.00e
+end_platform
+
+
+platform_type    RED_BRAWLER_FIGHTER      BRAWLER_FIGHTER
+   side red
+   icon SU-27
+   commander red_cmdr
+   edit mover
+      aero_file ../data/ACFT_RAC1.FXW
+   end_mover
+   edit comm datalink 
+      network_name red_net
+   end_comm
+end_platform_type
+
+
+platform red_1 RED_BRAWLER_FIGHTER
+   position 00:01:50.00n 00:00:25.00e altitude 10000.00 ft
+#   route
+#      position 00:01:50.00n 00:00:25.00e altitude 10000.00 ft speed 350.0 kts
+#      position 00:00:50.02s 00:00:24.97e altitude 10000.00 ft speed 350.0 kts
+#      position 00:02:31.69s 00:02:28.74e altitude 10000.00 ft
+#      position 00:05:13.85s 00:02:29.85e altitude 10000.00 ft
+#      position 00:06:46.37s 00:00:33.45e altitude 10000.00 ft
+#      position 00:11:03.64s 00:00:35.73e altitude 10000.00 ft
+#   end_route
+   heading 180 deg
+
+### FOR TESTING
+#   execute at_time 35 sec absolute 
+#      PLATFORM.GoToAltitude(5000);
+#     #PLATFORM.GoToSpeed(400);   //400mps, pretty fast
+#   end_execute
+##   execute at_time 60 sec absolute 
+##      PLATFORM.TurnToHeading(90);
+##     #PLATFORM.GoToLocation(WsfGeoPoint.Construct(0.0,-1.0, 3048));
+##   end_execute
+#   execute at_time 120 sec absolute 
+#      PLATFORM.ReturnToRoute();
+#   end_execute
+end_platform
+
+

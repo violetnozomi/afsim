@@ -1,0 +1,145 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This is a basic test of functionality for cyber composite triggers.
+# The triggers should attempt to evaluate for a specific number
+# of times until they execute, which is tracked by global variables.
+# This tests the AND policy for a global and platform composite trigger.
+#
+# Note the order of the triggers declared in the composite trigger
+# test_trigger2
+# test_trigger1
+# not test_trigger3
+#
+# Evaluations short-circuit in a Composite Trigger.
+# If a Composite trigger 'A' with a policy of "or" has triggers 'B' and
+# 'C', then during A's evaluation, if 'B' evaluates to true, then 'C'
+# will not evaluate. If 'B' is false, 'C' will evaluate.
+# If a Composite trigger 'A' with a policy of "and" has triggers 'B' and
+# 'C', then during A's evaluation, if 'B' evaluates to false, then 'C'
+# will not evaluate. If 'B' is true, then 'C' will evaluate.
+#
+# Timeline (2 triggers, 1 global, 1 platform)
+# Note that the actions taken are the same for both the platform and global trigger.
+# 30s - trigger1 evaluates false, trigger2 evaluates false
+#       test_trigger2 = false, all others short-circuit (+2 total evaluates)
+# 60s - trigger1 evaluate false, trigger2 evaluate false
+#       test_trigger2 = false, all others short-circuit (+2 total evaluates)
+# 90s - trigger1 evaluates false, trigger2 evaluates false
+#       test_trigger2 = true, test_trigger1 = false, short-circuit any evals for not test_trigger3 (+4 total evaluates)
+# 120s - trigger1 evaluates false, trigger2 evaluates false
+#        test_trigger2 evaluates true, test_trigger1 evaluates true, not test_trigger3 evaluates false (+6 total evaluates)
+# 150s - trigger1 evaluates true, trigger2 evaluates true (+2 executions)
+#        test_trigger2, test_trigger1, and not test_trigger3 evaluate true (+6 total evaluates)
+#
+# Total 20 evaluations, 2 executions
+
+script_variables
+   bool triggered = false;
+   int executed = 0;
+   int evals = 0;
+end_script_variables
+
+cyber_trigger test_trigger1 WSF_CYBER_TRIGGER
+   debug
+   execute_trigger false
+   script bool OnEvaluate()
+      evals = (evals + 1);
+      #writeln("test_trigger1 evaluating at t = " + (string)TIME_NOW);
+      if (TIME_NOW < 91.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+
+end_cyber_trigger
+
+cyber_trigger test_trigger2 WSF_CYBER_TRIGGER
+   debug
+   execute_trigger false
+   script bool OnEvaluate()
+      evals = evals + 1;
+      #writeln("test_trigger2 evaluating at t = " + (string)TIME_NOW);
+      if (TIME_NOW < 61.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+
+end_cyber_trigger
+
+cyber_trigger test_trigger3 WSF_CYBER_TRIGGER
+   execute_trigger false
+   script bool OnEvaluate()
+      evals = evals + 1;
+      #writeln("test_trigger3 evaluating at t = " + (string)TIME_NOW);
+      if (TIME_NOW > 120.0)
+      {
+         return false;
+      }
+      
+      return true;
+   end_script
+end_cyber_trigger
+
+cyber_trigger trigger1 WSF_CYBER_COMPOSITE_TRIGGER
+   debug
+   policy and
+   extrapolated_trigger true
+   execute_trigger true
+   triggers
+      test_trigger2
+      test_trigger1     
+      not test_trigger3
+   end_triggers
+   
+   update_interval
+      to 3 min every 30.0 s
+   end_update_interval
+   
+   script void OnExecute()
+      triggered = true;
+      #writeln("trigger evaluating at t = " + (string)TIME_NOW);
+      executed = executed + 1;
+   end_script
+
+end_cyber_trigger
+
+platform test1 WSF_PLATFORM
+   side blue
+   commander SELF
+   add cyber_trigger trigger2 trigger1
+   end_cyber_trigger
+end_platform
+
+execute at_time 151 s absolute
+   if(evals != 20)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of evals.");
+      writeln("Evals counted: " + (string)evals);
+   }
+   if(!triggered)
+   {
+      writeln("-FAIL-");
+      writeln("Not triggered.");
+   }
+   if(executed != 2)
+   {
+      writeln("-FAIL-");
+      writeln("Wrong number of executions.");
+      writeln("Executes counted: " + (string)executed);
+   }
+end_execute
+
+end_time 152 s

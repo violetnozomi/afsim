@@ -1,0 +1,292 @@
+.. ****************************************************************************
+.. CUI
+..
+.. The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+..
+.. The use, dissemination or disclosure of data in this file is subject to
+.. limitation or restriction. See accompanying README and LICENSE for details.
+.. ****************************************************************************
+
+.. to be included
+
+.. command:: variable <variable-name>
+
+
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**<variable-name>**                 |**Description**                              |**Notes**                                                          |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**pd**                              |The probability of detection.                |If multiple sensors are provided, the result will be the maximum   |
+|                                    |                                             |probability of detection by any sensor.                            |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**detection_threshold**             |The detection threshold in dB.               |If multiple sensors are provided, the result will be the minimum   |
+|                                    |                                             |detection threshold by any sensor. For :model:`WSF_ESM_SENSOR`     |
+|                                    |                                             |types the detection threshold is only valid when a successful      |
+|                                    |                                             |interaction happens between the transmitter and receiver.          |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**required_rcs**or                  |The radar cross section required for the     |If multiple sensors are provided the result will be the minimum    |
+|**rcs_required**                    |sensor to detect the target in dBsm.         |value determined for any sensor. Selecting this may also require   |
+|                                    |                                             |the specification of detection_reference_                          |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**required_jamming_power** or       |The jamming power required to overcome the   |If multiple sensors are provided the result will be the maximum    |
+|**jamming_power_required** or       |target signal by in dBsm.                    |value determined for any sensor. Selecting this may also require   |
+|**required_jammer_power** or        |                                             |the specification of jammer_to_signal_reference_.                  |
+|**jammer_power_required**           |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**radar_signature**                 |The radar signature of the target presented  |If multiple sensors are provided, the result will be the maximum   |
+|                                    |to the sensor in dBsm.                       |value presented to any sensor.                                     |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**optical_signature**               |The optical signature of the target presented|If multiple sensors are provided, the result will be the maximum   |
+|                                    |to the sensor in dB.                         |value presented to any sensor.                                     |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**infrared_signature**              |The infrared signal of the target presented  |If multiple sensors are provided, the result will be the maximum   |
+|                                    |to the sensor in w/sr.                       |value presented to any sensor.                                     |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**signal_power**                    |The received signal power in dBW.            |If multiple sensors are provided, the result will be the maximum   |
+|                                    |                                             |value seen to any sensor.                                          |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**clutter_power**                   |The received clutter power in dBW.           |If multiple sensors are provided, the result will be the maximum   |
+|                                    |                                             |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**noise_power**                     |The receiver noise power in dBW.             |If multiple sensors are provided, the result will be the maximum   |
+|                                    |                                             |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**jammer_power**                    |The received jammer power, to include noise  |If multiple sensors are provided, the result will be the maximum   |
+|                                    |and pulsed-noise, in dBW.                    |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**noise_jammer_power**              |The received noise only jammer power in dBW. |If multiple sensors are provided, the result will be the maximum   |
+|                                    |                                             |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**pulse_jammer_power**              |The received non-coherent pulse (pulsed      |If multiple sensors are provided, the result will be the maximum   |
+|                                    |noise) jammer power in dBW.                  |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**coherent_jammer_power**           |The received coherent (coherent pulse and    |If multiple sensors are provided, the result will be the maximum   |
+|                                    |false-target) jammer power in dBW.           |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**jammer_to_mds**                   |The jammer (noise and pulsed noise) to       |If multiple sensors are provided, the result will be the maximum   |
+|                                    |minimum detectable signal                    |value seen to any sensor.                                          |
+|                                    |(detection_threshold + noise_power) in dB.   |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**jammer_to_signal**                |The jammer (noise and pulsed noise) to signal|If multiple sensors are provided, the result will be the maximum   |
+|                                    |ratio in dB.                                 |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**noise_jammer_to_signal**          |The jammer (noise power only) to signal ratio|If multiple sensors are provided, the result will be the maximum   |
+|                                    |in dB.                                       |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**pulse_jammer_to_signal**          |The jammer (pulsed noise power only) to      |If multiple sensors are provided, the result will be the maximum   |
+|                                    |signal ratio in dB.                          |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**coherent_jammer_to_signal**       |The jammer (coherent jammer power only) to   |If multiple sensors are provided, the result will be the maximum   |
+|                                    |signal ratio in dB.                          |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**coherent_jammer_to_noise**        |The jammer (coherent jammer power only) to   |If multiple sensors are provided, the result will be the maximum   |
+|                                    |receiver noise power in dB.                  |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**signal_to_noise**                 |The signal to noise ratio in dB. Only the    |If multiple sensors are provided, the result will be the maximum   |
+|                                    |receiver thermal noise is accounted for.     |value seen to any sensor.                                          |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**signal_to_interference**          |The signal to interference ratio in dB.      |Includes the interference power due to receiver thermal noise,     |
+|                                    |                                             |clutter, and jamming (if present). If multiple sensors are         |
+|                                    |                                             |provided, the result will be the maximum value seen to any sensor. |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**signal_at_target**                |The signal power density present at the      |If multiple sensors are provided, the result will be the maximum   |
+|                                    |target in dBW/m^2.                           |value seen to any sensor.                                          |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**background_radiant_intensity**    |The background radiant intensity as seen by  |If multiple sensors are provided, the result will be the maximum   |
+|                                    |the sensor.                                  |value seen to any sensor.                                          |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**contrast_radiant_intensity**      |The contrast radiant intensity as seen by the|If multiple sensors are provided, the result will be the maximum   |
+|                                    |sensor.                                      |value seen to any sensor.                                          |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**attenuation_factor**              |The atmospheric attenuation factor of the    |If multiple sensors are provided, the result will be the maximum   |
+|                                    |signal as seen by the sensor in dB.          |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**propagation_factor**              |The propagation factor of the signal as seen |If multiple sensors are provided, the result will be the maximum   |
+|                                    |by the sensor in dB.                         |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**transmit_antenna_gain**           |The transmit antenna gain in dB.             |If multiple sensors are provided, the result will be the maximum   |
+|                                    |                                             |value for any sensor.                                              |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**receive_antenna_gain**            |The receive antenna gain in dB.              |If multiple sensors are provided, the result will be the maximum   |
+|                                    |                                             |value for any sensor.                                              |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**transmit_gain_propagation_factor**|The transmit antenna gain multiplied by      |If multiple sensors are provided, the result will be the maximum   |
+|                                    |the one-way propagation factor, in dB.       |value for any sensor.                                              |
+|                                    |                                             |                                                                   |
+|                                    |                                             |This variable is only valid for monostatic radars.                 |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**receive_gain_propagation_factor** |The receive antenna gain multiplied by       |If multiple sensors are provided, the result will be the maximum   |
+|                                    |the one-way propagation factor, in dB.       |value for any sensor.                                              |
+|                                    |                                             |                                                                   |
+|                                    |                                             |This variable is only valid for monostatic radars.                 |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**slant_range**                     |The slant range from the sensor to the target|If multiple sensors are provided, the result will be maximum the   |
+|                                    |in meters.                                   |value seen to any sensor.                                          |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**ground_range**                    |The ground range from the sensor to the      |If multiple sensors are provided, the result will be the value seen|
+|                                    |target in meters.                            |by the last sensor processed, since this variable is only          |
+|                                    |                                             |applicable to single-sensor plots.                                 |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**azimuth_angle**                   |The azimuth angle from the sensor to the     |If multiple sensors are provided, the result will be the value seen|
+|                                    |target in degrees.                           |by the last sensor processed, since this variable is only          |
+|                                    |                                             |applicable to single-sensor plots.                                 |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**elevation_angle**                 |The elevation angle from the sensor to the   |If multiple sensors are provided, the result will be the value seen|
+|                                    |target in degrees.                           |by the last sensor processed, since this variable is only          |
+|                                    |                                             |applicable to single-sensor plots.                                 |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**angle**                           |The angle between the sensor boresight and   |This is typically used to deterimine the beam steering angle for   |
+|                                    |the beam center.                             |electronically scanned sensor. If multiple sensors are provided,   |
+|                                    |                                             |the result will be the value seen by the last sensor processed,    |
+|                                    |                                             |since this variable is only applicable to single-sensor plots.     |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**grazing_angle**                   |The angle between the sensor antenna location|If multiple sensors are provided, the result will be the value seen|
+|                                    |(NOT boresight) to the target in degrees.    |by the last sensor processed, since this variable is only          |
+|                                    |                                             |applicable to single-sensor plots.                                 |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_to_sensor_slant_range**    |The slant range from the target to the sensor|If multiple sensors are provided, the result will be maximum the   |
+|                                    |in meters.                                   |value seen to any sensor.                                          |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_to_sensor_ground_range**   |The ground range from the target to the      |If multiple sensors are provided, the result will be the value seen|
+|                                    |sensor in meters.                            |by the last sensor processed, since this variable is only          |
+|                                    |                                             |applicable to single-sensor plots.                                 |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_to_sensor_azimuth_angle**  |The azimuth angle from the target to the     |If multiple sensors are provided, the result will be the value seen|
+|                                    |sensor in degrees.                           |by the last sensor processed, since this variable is only          |
+|                                    |                                             |applicable to single-sensor plots.                                 |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_to_sensor_elevation_angle**|The elevation angle from the target to the   |If multiple sensors are provided, the result will be the value seen|
+|                                    |sensor in degrees.                           |by the last sensor processed, since this variable is only          |
+|                                    |                                             |applicable to single-sensor plots.                                 |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sensor_latitude**                 |The latitude of the sensor platform in       |                                                                   |
+|                                    |decimal degrees.                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sensor_longitude**                |The longitude of the sensor platform in      |                                                                   |
+|                                    |decimal degrees.                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sensor_altitude**                 |The altitude of the sensor platform in       |                                                                   |
+|                                    |meters.                                      |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sensor_speed**                    |The speed of the sensor platform in          |                                                                   |
+|                                    |meters/second.                               |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sensor_heading**                  |The heading of the sensor platform measured  |                                                                   |
+|                                    |clockwise from north.                        |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sensor_pitch**                    |The pitch angle of the sensor platform in    |                                                                   |
+|                                    |degrees.                                     |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sensor_roll**                     |The roll angle of the sensor platform in     |                                                                   |
+|                                    |degrees.                                     |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_latitude**                 |The latitude of the target in platform       |                                                                   |
+|                                    |decimal degrees.                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_longitude**                |The longitude of the target in platform      |                                                                   |
+|                                    |decimal degrees.                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_altitude**                 |The altitude of the target platform in       |                                                                   |
+|                                    |meters.                                      |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_speed**                    |The speed of the target platform in          |                                                                   |
+|                                    |meters/second.                               |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_heading**                  |The heading of the target platform measured  |                                                                   |
+|                                    |clockwise from north.                        |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_pitch**                    |The pitch angle of the platform target in    |                                                                   |
+|                                    |degrees.                                     |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**target_roll**                     |The roll angle of the platform target in     |                                                                   |
+|                                    |degrees.                                     |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sar_dwell_time**                  |The dwell time (in seconds) needed to produce|The sensor being tested must be of type :model:`WSF_SAR_SENSOR`.   |
+|                                    |an image of the desired resolution specified |                                                                   |
+|                                    |in the sensor definition.                    |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sar_resolution**                  |The resolution (in meters) of an image that  |The sensor being tested must be of type :model:`WSF_SAR_SENSOR`.   |
+|                                    |can be produced with the dwell time specified|                                                                   |
+|                                    |in the sensor definition.                    |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sar_clutter_to_noise**            |The SAR clutter-to-noise ratio (in dB).      |The sensor being tested must be of type :model:`WSF_SAR_SENSOR`.   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**sar_doppler_foldover**            |The difference between the PRF and the       |The sensor being tested must be of type :model:`WSF_SAR_SENSOR`.   |
+|                                    |minimum PRF that could be used without       |                                                                   |
+|                                    |causing 'doppler foldover'.                  |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**pixel_count**                     |The number of pixels the target occupies in  |Available for :model:`WSF_EOIR_SENSOR` and :model:`WSF_SAR_SENSOR`.|
+|                                    |the image.                                   |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**masking_status**                  |The masking status at the point.             |The value will be 0 if the target is not masked, 1 if masked by the|
+|                                    |                                             |horizon and 2 if masked by the terrain.                            |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+|**terrain_elevation**               |The terrain elevation in meters.             |Use with horizontal_map.                                           |
+|                                    |                                             |                                                                   |
++------------------------------------+---------------------------------------------+-------------------------------------------------------------------+
+
+    
+    ..
+      Local Variables:
+      mode: rst
+      End:

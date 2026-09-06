@@ -1,0 +1,85 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that string.Split(), string.Join(), string.Strip(),
+# string.Upper(), and string.Lower(), string concatenation, and string literal 
+# equality checks work
+include_once test_pass.txt
+include_once test_functions.txt
+
+script_variables
+   PassTestCount = 8;
+   # global to prevent constant value evaluation at compile-time
+   string gStr = "ab";
+end_script_variables
+
+#script_listing on
+execute at_time 1 s absolute
+   extern void pass();
+   Array<string> splitString = "   1,-2,-3,-   ".Strip().Split(",-");
+   if (splitString == {"1","2","3",""})
+   {
+      pass();
+   }
+   if (":".Join(splitString) == "1:2:3:")
+   {
+      pass();
+   }
+   if ( (":,a,:b,c:d,:".Strip(":,") == "a,:b,c:d") &&
+       (":,,:".Strip(":,") == "") &&
+       (":::::a".Strip(":,") == "a"))
+   {
+      pass();
+   }
+
+   string abc = "abcdefg";
+   if (abc.Substring(-10000, 10000) == "abcdefg"
+      && abc.Substring(1) == "bcdefg"
+      && abc.Substring(1, -1) == "bcdef"
+      && abc.Substring(0, -2) == "abcde"
+      && abc.Substring(3, 3) == "d"
+      && abc.Substring(-2) == "fg"
+      && abc.Substring(3, 1) == "")
+   {
+      pass();
+   }
+
+   if (abc.Upper() == "ABCDEFG"
+      && abc.Upper().Lower() == abc)
+   {
+      pass();
+   }
+
+   string concat = gStr; // := "ab"
+   concat += concat + concat; // "ab" += "ab" + "ab" := "ababab"
+   concat += concat; // "ababab" += "ababab" := "abababababab"
+   concat += "cd";
+   concat += "r" + concat;
+   concat = "xz" + concat + "ef";
+   concat = "q" + concat;  // self concatenation using constant value on LHS
+   concat = concat + gStr; // self concatenation using global value on RHS
+   concat = concat + "w";  // self concatenation using constant value on RHS
+   concat = gStr + concat; // self concatenation using global value on LHS
+   string lStr = gStr;     // create local variable with nonconstant value to avoid const value propagation in compiler
+   concat = lStr + concat; // self concatenation using local value on LHS
+   concat = concat + lStr; // self concatenation using local value on RHS
+   if("ababqxzababababababcdrababababababcdefabwab" == concat)
+   {
+      pass();
+   }
+
+   string bar = "meow";
+   if (AssertTrueMessage("meow" == "meow", "String literal check failed")) {
+      pass();
+   }
+   if (AssertTrueMessage(bar == "meow", "String literal check failed")) {
+      pass();
+   }
+end_execute
+

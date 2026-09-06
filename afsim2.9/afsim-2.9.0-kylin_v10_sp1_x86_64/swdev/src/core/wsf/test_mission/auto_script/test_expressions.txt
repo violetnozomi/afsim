@@ -1,0 +1,150 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Test_expressions.txt
+# Test the handling of the expressions with a negative number on both sides of the expression.
+# The negative number in itself must be evaluated correctly as an expression.
+
+include_once test_functions.txt
+
+on_initialize
+   bool pass = true;
+   double number = 10.0;
+   double result = 0;
+
+   # - constant * constant
+   result = -1 * 5;
+   if (! (result == -5.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant * constant");
+   }
+
+   # - constant / constant
+   result = -1.0 / 5.0;
+   if (! (result == -.2))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant / constant");
+   }
+
+   # - constant + constant
+   result = -1 + 5;
+   if (! (result == 4.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant + constant");
+   }
+
+   # - constant - constant
+   result = -1 - 5;
+   if (! (result == -6.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant - constant");
+   }
+
+   # - constant * - constant
+   result = -5 * -1;
+   if (! (result == 5.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant * - constant");
+   }
+
+   # - constant / - constant
+   result = -5 / - 5;
+   if (! (result == 1.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant / - constant");
+   }
+
+   # - constant + - constant
+   result = -5 + - 5;
+   if (! (result == -10.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant + - constant");
+   }
+
+   # - constant - - constant
+   result = -5 - - 5;
+   if (! (result == 0.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant - - constant");
+   }
+
+   # - constant * constant
+   result = -number * 5;
+   if (! (result == -50.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - variable * constant");
+   }
+
+   # - constant / constant
+   result = -number / 5;
+   if (! (result == -2))
+   {
+      pass = false;
+      writeln("-FAIL- : - variable / constant");
+   }
+
+   # - constant + constant
+   result = -number + 5;
+   if (! (result == -5.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - variable + constant");
+   }
+
+   # - constant - constant
+   result = -number - 5;
+   if (! (result == -15.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - variable - constant");
+   }
+
+   # - constant * - constant
+   result = -5 * -number;
+   if (! (result == 50.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant * - variable");
+   }
+
+   # - constant / - constant
+   result = -5 / - number;
+   if (! (result == 0.5))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant / - variable");
+   }
+
+   # - constant + - constant
+   result = -5 + - number;
+   if (! (result == -15.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant + - variable");
+   }
+
+   # - constant - - constant
+   result = -5 - - number;
+   if (! (result == 5.0))
+   {
+      pass = false;
+      writeln("-FAIL- : - constant - - variable");
+   }
+
+   writePass(pass);
+end_on_initialize

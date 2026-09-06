@@ -1,0 +1,169 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# Copyright 2017 Infoscitex, a DCS Company. All rights reserved.
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+# Automated test for rate limited attitude controller
+platform_type SATELLITE WSF_PLATFORM
+   side blue
+   icon satellite
+end_platform_type
+
+script void CheckNadir(WsfPlatform aPlatform)
+   Vec3 ecsUp = Vec3.Construct(0.0, 0.0, -1.0);
+   Vec3 wcsUp = aPlatform.ConvertECSToWCS(ecsUp);
+   Vec3 unitVecWCS = aPlatform.LocationWCS();
+   unitVecWCS.Normalize();
+   double dot = Vec3.Dot(wcsUp, unitVecWCS);
+   if (dot < 0.99)
+   {
+      writeln(aPlatform.Name(), "-FAIL-");
+   }
+end_script
+
+script void CheckECI_VelocityConstraint(WsfPlatform aPlatform)
+   Vec3 velECI = aPlatform.VelocityECI();
+   Vec3 r1 = aPlatform.LocationECI();
+   Vec3 r2 = Vec3.Add(r1,velECI);
+   Vec3 r2WCS = aPlatform.ConvertECIToWCS(r2);
+   Vec3 r2ECS = aPlatform.ConvertWCSToECS(r2WCS);
+   Vec3 ecsY = Vec3.Construct(0.0, 1.0, 0.0);
+   if (Vec3.Dot(ecsY, r2ECS) > 0.01)
+   {
+      writeln(aPlatform.Name(), "-FAIL-");
+   }
+end_script
+
+script bool CompareAngles(double aPsi, double aTheta, double aPhi,
+                          double aTargetPsi, double aTargetTheta, double aTargetPhi)
+   return MATH.AngleWithinTolerance(aPsi - aTargetPsi, 1.0e-6)
+          && MATH.AngleWithinTolerance(aTheta - aTargetTheta, 1.0e-6)
+          && MATH.AngleWithinTolerance(aPhi - aTargetPhi, 1.0e-6);
+end_script
+
+# Test an effectively instant attitude controller
+platform sat-inst-eff SATELLITE
+   add mover WSF_SPACE_MOVER
+      position 40n 90w altitude 800 km heading 60 degrees
+      
+      attitude_controller
+         rate_limited
+         maximum_yaw_rate   1.0e12 radians/sec
+         maximum_pitch_rate 1.0e12 radians/sec
+         maximum_roll_rate  1.0e12 radians/sec
+         orientation nadir_with_eci_velocity_constraint
+      end_attitude_controller
+   end_mover
+
+   execute at_interval_of 1 minute
+      CheckNadir(PLATFORM);
+      CheckECI_VelocityConstraint(PLATFORM);
+   end_execute
+
+end_platform
+
+# Test a satellite that has zero rate
+platform sat-fixed SATELLITE
+   add mover WSF_SPACE_MOVER
+      position 0n 0w altitude 500 km heading 0 degrees
+      
+      attitude_controller
+         rate_limited
+         maximum_yaw_rate   0 radians/sec
+         maximum_pitch_rate 0 radians/sec
+         maximum_roll_rate  0 radians/sec
+         orientation none
+      end_attitude_controller
+   end_mover
+   
+   script_variables
+      double initPsi     = 0.0;
+      double initTheta   = 0.0;
+      double initPhi     = 0.0;
+      double targetPsi   = 90.0;
+      double targetTheta = 30.0;
+      double targetPhi   = 45.0;
+   end_script_variables
+   
+   on_initialize
+      PLATFORM.SetOrientationECI(initPsi, initTheta, initPhi);
+      ((WsfSpaceMover)PLATFORM.Mover()).SetOrientation(Quaternion.Construct(initPsi, initTheta, initPhi));
+   end_on_initialize
+   
+   execute at_time 1 sec absolute
+      ((WsfSpaceMover)PLATFORM.Mover()).SetOrientation(Quaternion.Construct(targetPsi, targetTheta, targetPhi));
+   end_execute
+   
+   execute at_interval_of 1.0 minute
+      Vec3 orientation = OrientationECI();
+      double psi   = orientation[0];
+      double theta = orientation[1];
+      double phi   = orientation[2];
+      if (CompareAngles(psi, theta, phi, targetPsi, targetTheta, targetPhi))
+      {
+         writeln("-FAIL-");
+      }
+   end_execute
+   
+end_platform
+
+# Test a satellite that has a simple turn and a known rate
+platform sat-simple-turn SATELLITE
+   add mover WSF_SPACE_MOVER
+      position 0n 90e altitude 500 km heading 0 degrees
+      
+      attitude_controller
+         rate_limited
+         maximum_yaw_rate   10.0 degrees/min
+         maximum_pitch_rate 10.0 degrees/min
+         maximum_roll_rate  10.0 degrees/min
+         orientation none
+      end_attitude_controller
+   end_mover
+   
+   script_variables
+      double initPsi     = 0.0;
+      double initTheta   = 0.0;
+      double initPhi     = 0.0;
+      double targetPsi   = 90.0;
+      double targetTheta = 0.0;
+      double targetPhi   = 0.0;
+      double setTime     = 60.0;
+   end_script_variables
+   
+   script double ComputeAdvancedAngle(double aInit, double aTarget, double aRate, double aTime)
+      return Math.Max(Math.Min((aInit + (aTime) * aRate), aTarget), 0.0);
+   end_script
+   
+   on_initialize
+      PLATFORM.SetOrientationECI(initPsi, initTheta, initPhi);
+      ((WsfSpaceMover)PLATFORM.Mover()).SetOrientation(Quaternion.Construct(initPsi, initTheta, initPhi));
+   end_on_initialize
+   
+   execute at_time 1.0 min absolute
+     ((WsfSpaceMover)PLATFORM.Mover()).SetOrientation(Quaternion.Construct(targetPsi, targetTheta, targetPhi));
+   end_execute
+   
+   execute at_interval_of 1.0 minute
+      Vec3 orientation = OrientationECI();
+      double psi   = orientation[0];
+      double theta = orientation[1];
+      double phi   = orientation[2];
+      double deltaT = TIME_NOW - setTime;
+      double advancedPsi   = ComputeAdvancedAngle(initPsi,   targetPsi,   1.0 / 6.0, deltaT);
+      double advancedTheta = ComputeAdvancedAngle(initTheta, targetTheta, 1.0 / 6.0, deltaT);
+      double advancedPhi   = ComputeAdvancedAngle(initPhi,   targetPhi,   1.0 / 6.0, deltaT);
+      if (!CompareAngles(psi, theta, phi, advancedPsi, advancedTheta, advancedPhi))
+      {
+         writeln("-FAIL-");
+      }
+   end_execute
+   
+end_platform
+
+end_time 11 minutes

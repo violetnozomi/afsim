@@ -1,0 +1,59 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+include ../auto_script/test_functions.txt
+
+#log_file replay.log
+
+# Some of the parameters are configured by script variables to test the variable
+# references.
+
+script_variables
+   double QUEUED_DELAY_TIME = 3.0;     # Should override the default
+   #int    NUMBER_OF_SERVERS = 2;      # Commented out, let the default of 1 be used
+end_script_variables
+
+platform tester WSF_PLATFORM
+
+   add processor queued_delay WSF_DELAY_PROCESSOR
+      number_of_servers /variable NUMBER_OF_SERVERS /default 1
+      time_distribution uniform    minimum_time 5.0 sec maximum_time 20.0 sec
+
+      internal_link queued_delay_test
+   end_processor
+
+
+   add processor queued_delay_test WSF_SCRIPT_PROCESSOR
+      on_message
+         type TEST_MESSAGE
+            script
+               writeln("T=", TIME_NOW, " ", Name(), " Received message");
+               if (Math.Fabs(TIME_NOW) < 19.0 || Math.Fabs(TIME_NOW) > 34.0)
+               {
+                  writeln("-FAIL-", Name(), " Out of bounds");
+               }
+            end_script
+      end_on_message
+   end_processor
+
+   add processor sender WSF_SCRIPT_PROCESSOR
+
+      script void SendTestMessage()
+         WsfMessage message = WsfMessage();
+         message.SetType("TEST_MESSAGE");
+         SendMessage(message);
+      end_script
+
+      internal_link queued_delay
+
+      execute at_time 14.0 sec absolute SendTestMessage(); end_execute
+   end_processor
+end_platform
+
+end_time 25 sec

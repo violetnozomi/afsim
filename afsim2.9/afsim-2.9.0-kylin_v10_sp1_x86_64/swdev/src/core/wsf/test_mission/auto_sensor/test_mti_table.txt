@@ -1,0 +1,306 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# =============================================================================
+#
+# This test loads some mti attenuation tables.  An mti
+# table is attenuation as a function of range-rate not simple speed.
+# The table should be located in a CSV file.  A 2nd format,
+# compound table was added to allow multiple columns to map
+# to the same attenuation column.
+#   A maximum mti range parameter was added and is tested here.
+#   The test creates target with speed and orientation to exercise the
+#   mti tables
+#
+# =============================================================================
+
+radar_signature  RADAR_SIG_OMNI
+   constant 100 m^2
+end_radar_signature
+
+platform_type TARGET_PLATFORM_TYPE WSF_PLATFORM
+   radar_signature  RADAR_SIG_OMNI
+   //mover WSF_GROUND_MOVER
+   mover WSF_AIR_MOVER
+   end_mover
+end_platform_type
+
+antenna_pattern RADAR_ANTENNA
+   cosecant_squared_pattern
+     peak_gain              30 dB
+     minimum_gain           -10.0 db
+     azimuth_beamwidth      5 deg
+     elevation_beamwidth    5 deg
+     minimum_elevation_for_peak_gain 2 deg
+     maximum_elevation_for_csc2      10 deg
+end_antenna_pattern
+
+sensor RADAR WSF_RADAR_SENSOR
+   antenna_height                 5.0 m
+
+   frame_time                     1 sec
+
+   scan_mode                      azimuth_and_elevation
+   azimuth_scan_limits            -180 deg 180 deg
+   elevation_scan_limits          0.0 deg 50.0 deg
+
+   transmitter
+      antenna_pattern             RADAR_ANTENNA
+      power                       1000.0 kw
+      internal_loss               2   db
+      // the simple table has no dependency on frequency
+      frequency                   100 mhz
+      beam_tilt                   0   deg
+      pulse_repetition_interval   1000 usec
+   end_transmitter
+
+   signal_processor gmti_adjustment
+      mti_maximum_range           40 km
+      mti_adjustment_file         ./test_mti_attentuation_table.csv
+   end_signal_processor
+
+   receiver
+      antenna_pattern             RADAR_ANTENNA
+      bandwidth                   2.0 mhz
+      noise_power                 -123.929 dBw
+      internal_loss               7 dB
+   end_receiver
+
+   probability_of_false_alarm     1.0e-6
+   required_pd                    0.5
+   swerling_case                  1
+
+   hits_to_establish_track        3 5
+   hits_to_maintain_track         1 3
+
+   track_quality                  0.8      # 'high' quality
+
+   reports_range_rate
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_iff
+end_sensor
+
+sensor RADAR_CMPND  WSF_RADAR_SENSOR
+   antenna_height                 5.0 m
+
+   frame_time                     1 sec
+
+   scan_mode                      azimuth_and_elevation
+   azimuth_scan_limits            -180 deg 180 deg
+   elevation_scan_limits          0.0 deg 50.0 deg
+
+   transmitter
+      antenna_pattern             RADAR_ANTENNA
+      power                       1000.0 kw
+      internal_loss               2 db
+      // 150 mhz has attn, 200 mhz has none
+      frequency                   149 mhz // ceiling to 150 mhz
+      beam_tilt                   0 deg
+   end_transmitter
+
+   receiver
+      antenna_pattern             RADAR_ANTENNA
+      bandwidth                   2.0 mhz
+      noise_power                 -129 dBw
+      internal_loss               7 dB
+   end_receiver
+
+   signal_processor gmti_adjustment
+      mti_maximum_range              40 km
+      mti_adjustment_compound_file   ./test_mti_attentuation_table_compound.csv
+   end_signal_processor
+
+   probability_of_false_alarm     1.0e-6
+   required_pd                    0.5
+   swerling_case                  1
+
+   hits_to_establish_track        3 5
+   hits_to_maintain_track         1 3
+
+   track_quality                  0.8      # 'high' quality
+
+   reports_range_rate
+   reports_range
+   reports_bearing
+   reports_elevation
+   reports_iff
+end_sensor
+
+platform ownship WSF_PLATFORM
+   position 0n 0e heading 90 deg
+
+   add sensor radar_mti_smpl RADAR
+     on
+   end_sensor
+
+   add sensor radar_mti_cmpn RADAR_CMPND
+     on
+   end_sensor
+
+   add sensor radar_mti_cmpn2 RADAR_CMPND
+     on
+     transmitter
+       // If you look in the compound table, the 2nd column header is 200 (mHz)
+       // and that column narrows the speed window such that no speed/rate has
+       // any attenuation.  In ht eatble, there HAD to be some window because
+       // both map to some attenuation.
+       frequency    199 mhz
+     end_transmitter
+   end_sensor
+
+   // Load a table below the lowest entry
+   add sensor radar_mti_cmpn_low RADAR_CMPND
+     on
+     transmitter
+       frequency    5 mhz
+     end_transmitter
+   end_sensor
+
+   // Load a table above the highest entry
+   add sensor radar_mti_cmpn_hi RADAR_CMPND
+     on
+     transmitter
+       frequency 300 mhz
+     end_transmitter
+   end_sensor
+end_platform
+
+platform target_radial TARGET_PLATFORM_TYPE
+   side red
+   route
+      position 0.0n 0.05e altitude 500 ft heading 90 deg speed 150 kts
+   end_route
+end_platform
+
+platform  target_tangent TARGET_PLATFORM_TYPE
+   side red
+   route
+      position 0.0n 0.05e altitude 500 ft heading 0 deg speed 150 kts
+   end_route
+end_platform
+
+platform  target_skew TARGET_PLATFORM_TYPE
+   side red
+   route
+      // It only takes 1 deg, with the 2nd col, to go from undetected to detected
+      position 0.0n 0.05e altitude 500 ft heading 1 deg speed 150 kts
+   end_route
+end_platform
+
+platform  target_radial_out_range  TARGET_PLATFORM_TYPE
+   side red
+   position 0.0n 0.5e altitude 20000 ft heading 90 deg
+   route
+      position 0.0n 0.4e altitude 5000 ft heading 90 deg speed 150 kts
+   end_route
+end_platform
+
+# =============================================================================
+
+script_variables
+   bool gFailAutoSensorTestMtiTable = false;
+   int  gCallAutoSensorTestMtiTable = 0;
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aSensorHost,
+                                   WsfSensor   aSensor,
+                                   WsfPlatform aTarget,
+                                   WsfSensorInteraction aResult)
+   bool Succeeded    = aResult.Succeeded();
+   bool Failed       = aResult.Failed();
+   double SNDB       = aResult.SignalToNoise();
+   // See notes at source code Threshold.  A detection
+   // may occur but be thrown away with the roll of die.
+   double RSNDB      = aResult.DetectionThreshold();
+
+   bool detected = ((Failed  == 0) && (SNDB >= RSNDB));
+   bool detectedX = aResult.Detected();
+
+   //writeln(" ");
+   //writeln("@@@@@@ SDE: Succeeded = ", Succeeded, ", Failed = ", Failed, ", SNDB = ", SNDB);
+   //writeln("@@@@@@ SDE2: detected = ", detected, ", detectedX = ", detectedX, ", sensor = ", aSensor.Name(), ", TIME_NOW = ", TIME_NOW);
+
+   if (aSensor.Name() == "radar_det_all")
+   {
+      if (!detected)
+      {
+         writeln("-FAIL- detect-all sensor did NOT detect target", aTarget.Name());
+         gFailAutoSensorTestMtiTable = true;
+      }
+   }
+   else if (aSensor.Name() == "radar_mti_smpl" || aSensor.Name() == "radar_mti_cmpn"  || aSensor.Name() == "radar_mti_cmpn_low")
+   {
+      if (aTarget.Name() == "target_tangent" && detected)
+      {
+         writeln("-FAIL- target_tangent should NOT be detected! Sensor = ", aSensor.Name(), ", target = ", aTarget.Name());
+         gFailAutoSensorTestMtiTable = true;
+      }
+      else if (aTarget.Name() == "target_radial" && !detected)
+      {
+         writeln("-FAIL- target_radial SHOULD be detected but wasn't! Sensor = ", aSensor.Name(), ", target = ", aTarget.Name());
+         gFailAutoSensorTestMtiTable = true;
+      }
+      else if (aTarget.Name() == "target_skew" && detected)
+      {
+         writeln("-FAIL- for these sensors, target_skew should NOT be detected but was! Sensor = ", aSensor.Name(), ", target = ", aTarget.Name());
+         gFailAutoSensorTestMtiTable = true;
+      }
+      else if (aTarget.Name() == "target_radial_out_range" && !detected)
+      {
+         writeln("-FAIL- target_radial_out_range SHOULD be detected, because OUTSIDE MTI! Sensor = ", aSensor.Name(), ", target = ", aTarget.Name());
+         gFailAutoSensorTestMtiTable = true;
+      }
+   }
+   else if (aSensor.Name() == "radar_mti_cmpn2" || aSensor.Name() == "radar_mti_cmpn_hi")
+   {
+      gCallAutoSensorTestMtiTable = gCallAutoSensorTestMtiTable +1;
+      if (gCallAutoSensorTestMtiTable == 0 && aTarget.Name() == "target_tangent" && detected)
+      {
+         // This will fail if the target "moves".  As it moves north, even a little, the rate increases
+         // So keep the end_time below the frame_time to get one hit!
+         writeln("-FAIL- target_tangent should NOT be detected! Sensor = ", aSensor.Name(), ", target = ", aTarget.Name());
+         gFailAutoSensorTestMtiTable = true;
+      }
+      else if (aTarget.Name() == "target_skew" && !detected)
+      {
+         writeln("-FAIL- target_skew SHOULD be detected but wasn't! Sensor = ", aSensor.Name(), ", target = ", aTarget.Name());
+         gFailAutoSensorTestMtiTable = true;
+      }
+      else if (aTarget.Name() == "target_radial" && !detected)
+      {
+         writeln("-FAIL- target_radial SHOULD be detected but wasn't! Sensor = ", aSensor.Name(), ", target = ", aTarget.Name());
+         gFailAutoSensorTestMtiTable = true;
+      }
+   }
+   else
+   {
+      writeln("-FAIL- Unexpected sensor in detection attempt by sensor ", aSensor.Name());
+      gFailAutoSensorTestMtiTable = true;
+   }
+end_script
+
+script void SimulationComplete()
+   if (gFailAutoSensorTestMtiTable) writeln("-FAIL- one or more failures");
+   if (!gFailAutoSensorTestMtiTable) writeln("-PASS-");
+end_script
+
+# Uncomment this to see what's happening. This table has no debug flag because of the format.
+#event_output
+#   file STDOUT
+#   enable SENSOR_DETECTION_ATTEMPT
+#end_event_output
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+   enable SIMULATION_COMPLETE      SimulationComplete
+end_observer
+
+end_time 0.5 sec

@@ -1,0 +1,97 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+
+include ../auto_script/test_functions.txt
+include ../auto_script/test_pass.txt
+
+script_variables
+   PassTestCount = 10;
+end_script_variables
+
+platform_type myPlatType WSF_PLATFORM
+   icon f-15
+   altitude 1000 km agl
+end_platform_type
+
+# platforms arrayed clockwise from 0deg
+platform test0 myPlatType
+   position 20n 0e
+end_platform
+
+platform test1 myPlatType
+   position 0n 20e
+end_platform
+
+platform test2 myPlatType
+   position 20s 0e
+end_platform
+
+platform test3 myPlatType
+   position 0n 20w
+end_platform
+
+platform control myPlatType
+   position 0n 0e
+   altitude 0 m agl
+
+   on_initialize
+      string ctrlPlatName = "control";
+      WsfPlatform ctrlPlat = WsfSimulation.FindPlatform(ctrlPlatName);
+      
+      foreach (int i in {0, 1, 2, 3})
+      {
+         string testPlatName = "test" + (string)i;
+         string nextTestPlat = "test" + (string)MATH.Mod(i+1, 4);
+         WsfPlatform testPlat0 = WsfSimulation.FindPlatform(testPlatName);
+         WsfPlatform testPlat1 = WsfSimulation.FindPlatform(nextTestPlat);
+
+         double slantRange0 = PLATFORM.SlantRangeTo(testPlat0, true);
+         double slantRange1 = PLATFORM.SlantRangeTo(testPlat1, true);
+         // Test: All slant ranges should be equal for a spherical earth
+         if (AssertWithinToleranceMessage(slantRange1, slantRange0, 5.0e-3, "Spherical slant ranges not within tolerance"))
+         {
+            pass();
+         }
+      }
+      
+      foreach (int i in {0, 1})
+      {
+         string testPlatName = "test" + (string)i;
+         string nextTestPlat = "test" + (string)(i+2);
+         WsfPlatform testPlat0 = WsfSimulation.FindPlatform(testPlatName);
+         WsfPlatform testPlat1 = WsfSimulation.FindPlatform(nextTestPlat);
+         
+         double slantRange0 = PLATFORM.SlantRangeTo(testPlat0, false);
+         double slantRange1 = PLATFORM.SlantRangeTo(testPlat1, false);
+         
+         // Test: Opposite slant ranges should be equal for an ellipsoidal earth 
+         if (AssertWithinToleranceMessage(slantRange1, slantRange0, 5.0e-3, "Ellipsoidal slant ranges not within tolerance"))
+         {
+            pass();
+         }
+      }
+      foreach (int i in {0, 1, 2, 3})
+      {
+         string testPlatName = "test" + (string)i;
+         string nextTestPlat = "test" + (string)MATH.Mod(i+1, 4);
+         WsfPlatform testPlat0 = WsfSimulation.FindPlatform(testPlatName);
+         WsfPlatform testPlat1 = WsfSimulation.FindPlatform(nextTestPlat);
+         
+         double slantRange0 = PLATFORM.SlantRangeTo(testPlat0, false);
+         double slantRange1 = PLATFORM.SlantRangeTo(testPlat1, false);
+         
+         // Test: Adjacent slant ranges should be unequal for an ellipsoidal earth
+         if (AssertOutsideToleranceMessage(slantRange1, slantRange0, 5.0e-3, "Slant ranges too close together"))
+         {
+            pass();
+         }
+      }
+   end_on_initialize
+end_platform

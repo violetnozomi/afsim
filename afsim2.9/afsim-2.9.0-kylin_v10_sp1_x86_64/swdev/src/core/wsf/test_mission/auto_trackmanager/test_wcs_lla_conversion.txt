@@ -1,0 +1,65 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+platform test WSF_PLATFORM
+   position 40n 90e altitude 500 m
+end_platform
+
+script_variables
+   int gNUM_PASSED = 0;
+end_script_variables
+
+// Set the track location using LLA; it is retrieved as WCS with the track.CurrentLocation call.
+execute at_time 1 sec absolute
+   WsfPlatform p = WsfSimulation.FindPlatform("test");
+   WsfTrack track = {};
+   track.SetLocationLLA(p.Latitude(), p.Longitude(), p.Altitude());
+   WsfGeoPoint gp = track.CurrentLocation();
+   double eps = 0.000001;
+   if ((gp.Latitude()  < (40.0 - eps))  || (gp.Latitude()  > (40.0 + eps)) ||
+       (gp.Longitude() < (90.0 - eps))  || (gp.Longitude() > (90.0 + eps)) ||
+       (gp.Altitude()  < (500.0 - eps)) || (gp.Altitude()  > (500.0 + eps)))
+   {
+      writeln("-FAIL- (LLA->WCS)");
+   }
+   else
+   {
+      gNUM_PASSED += 1;
+   }
+end_execute
+
+// Set the track location using WCS and retrieve as LLA.
+execute at_time 1 sec absolute
+   WsfPlatform p = WsfSimulation.FindPlatform("test");
+   WsfTrack track = {};
+   Vec3 pLoc = p.LocationWCS();
+   track.SetLocationWCS(pLoc.X(), pLoc.Y(), pLoc.Z());
+   double eps = 0.000001;
+   if ((track.Latitude()  < (40.0 - eps))  || (track.Latitude()  > (40.0 + eps)) ||
+       (track.Longitude() < (90.0 - eps))  || (track.Longitude() > (90.0 + eps)) ||
+       (track.Altitude()  < (500.0 - eps)) || (track.Altitude()  > (500.0 + eps)))
+   {
+      writeln("-FAIL- (WCS->LLA)");
+   }
+   else
+   {
+      gNUM_PASSED += 1;
+   }
+end_execute
+
+observer
+   enable SIMULATION_COMPLETE
+end_observer
+
+script void SimulationComplete()
+   if (gNUM_PASSED == 2)
+   {
+      writeln("-PASS-");
+   }
+end_script

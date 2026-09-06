@@ -1,0 +1,106 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# EZJA test case 2
+# Two targets enter sensor volume from outside while closely spaced together, 
+# not on the same radial, two targets enter search volume while widely spaced,
+# (not on same radial), and two stationary targets  in volume, not on same radial
+
+include_once ../auto_script/test_functions.txt
+include_once spin_scheduler_resources.txt
+end_time 1 min
+
+observer 
+   enable SENSOR_DETECTION_ATTEMPT 
+   enable SIMULATION_COMPLETE
+end_observer
+
+script_variables 
+   Map<int, double> first_encounters = {};
+end_script_variables
+
+script void SensorDetectionAttempt(WsfPlatform aPlatform, WsfSensor aSensor, WsfPlatform aTarget, WsfSensorInteraction aResult) 
+   if (aResult.Succeeded() && !first_encounters.Exists(aTarget.Index())) 
+   {
+      first_encounters[aTarget.Index()] = TIME_NOW;
+   }
+end_script
+
+script void SimulationComplete()
+   bool pass = true;
+   pass = pass && (first_encounters.Size() == 5);
+   pass = pass && first_encounters[4] < first_encounters[3];
+   pass = pass && first_encounters[5] < first_encounters[3];
+   pass = pass && first_encounters[7] < first_encounters[6];
+   AssertTrueMessage(pass, "target detection times incorrect with respect to angular spacing");
+end_script
+
+edit platform sam_1
+   delete weapon sam 
+   delete sensor acq 
+   delete sensor ttr 
+end_platform
+platform bomber_case_2_1 BOMBER 
+   position 30:35n 80:0w
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+  
+   route
+      position 30:35:00.000n 80:00:00.000w altitude 25000.00 ft
+         speed 900 mph
+      position 30:35:26.248n 81:33:26.830w altitude 25000.00 ft
+      position 30:17:09.956n 79:55:00.024w altitude 25000.00 ft
+   end_route
+
+end_platform
+platform bomber_case_2_2 BOMBER 
+   position 30:38n 80:0w
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+
+   route
+      position 30:38:00.000n 80:00:00.000w altitude 25000.00 ft
+         speed 900 mph
+      position 30:35:00.000n 81:30:00.000w altitude 25000.00 ft
+      position 30:10:59.721n 79:51:21.559w altitude 25000.00 ft
+   end_route
+end_platform
+
+#####two targets enter volume widely spaced
+
+platform bomber_case_2_3 BOMBER 
+   position 30:40n 80:0w
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+
+   route
+      position 30:40:00.000n 80:00:00.000w altitude 25000.00 ft
+         speed 900 mph
+      position 30:35:00.000n 81:30:00.000w altitude 25000.00 ft
+      position 30:10:59.721n 79:51:21.559w altitude 25000.00 ft
+   end_route
+end_platform
+
+#### two stationary targets closely spaced
+
+platform bomber_case_2_4 BOMBER 
+   position 30:35n 81:20w
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+end_platform
+platform bomber_case_2_5 BOMBER 
+   position 30:38n 81:20w
+   side red
+   altitude 30000 feet
+   heading 270 degrees
+end_platform

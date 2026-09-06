@@ -1,0 +1,254 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# This test verifies that the weapon_uplink_path command works
+# for either no track source, or a specific sensor track source.
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+#event_pipe 
+#   file test_task_uplinking_3.aer
+#end_event_pipe
+
+script_debug_writes off
+
+script_variables
+   bool uplink_init = false;
+   bool uplink_drop = false;
+   bool gotBadTrack = false;
+end_script_variables
+
+
+comm WPN_COM WSF_COMM_TRANSCEIVER
+   network_name msl-net
+end_comm
+
+comm SAM_COM WSF_COMM_TRANSCEIVER
+   network_name sam-net
+end_comm
+
+platform_type MISSILE_TYPE WSF_PLATFORM
+   comm com-1 WPN_COM
+      internal_link tester
+      internal_link data_mgr
+   end_comm
+   processor data_mgr WSF_TRACK_PROCESSOR 
+      master_track_processor 
+   end_processor
+   processor tester WSF_SCRIPT_PROCESSOR
+      on_message
+         type WSF_TRACK_MESSAGE
+            script
+               WsfTrackMessage msg = (WsfTrackMessage)MESSAGE;
+               if (msg.Track().TargetName() != "target") {
+                  gotBadTrack = true;
+               }
+               writeln_d("T=",TIME_NOW, ", ", PLATFORM.Name(), " received uplink from ", msg.Track().OriginatorName(), " sensor ", msg.Track().SensorName());
+            end_script
+      end_on_message
+   end_processor
+   mover WSF_STRAIGHT_LINE_MOVER
+      maximum_lateral_acceleration 13 g
+      average_speed 1000 kts
+   end_mover
+   
+  processor fuse WSF_AIR_TARGET_FUSE
+    time_of_flight_to_arm  2.0 sec
+    max_time_of_flight_to_detonate 100.0 sec
+    detonate_on_mach_decreasing_to  1.0
+    detonate_below_height_AGL       0.0 ft
+  end_processor
+   
+end_platform_type
+
+
+platform_type TRACKER WSF_PLATFORM
+   side blue
+   add processor task-proc WSF_TASK_PROCESSOR
+      #show_task_messages 
+      weapon_uplink_path sen-1 com-1
+   end_processor
+   add processor track-proc WSF_TRACK_PROCESSOR
+      master_track_processor 
+      on
+      report_fused_tracks on
+      report_raw_tracks   on
+      report_to commander via com
+      report_to peers via com
+      report_interval 1 sec
+      report_method on_update
+      circular_report_rejection on
+   end_processor
+   add comm com SAM_COM
+      internal_link task-proc
+   end_comm
+   add comm com-1 WPN_COM
+   end_comm
+   add sensor sen-1 WSF_GEOMETRIC_SENSOR
+      on
+      reports_location
+      reports_velocity
+      frame_time 1 s
+      internal_link track-proc
+      internal_link task-proc
+      maximum_request_count 10
+   end_sensor
+   add sensor sen-2 WSF_GEOMETRIC_SENSOR
+      on
+      reports_location
+      reports_velocity
+      frame_time 1 s
+      internal_link track-proc
+      internal_link task-proc
+   end_sensor
+   position 0n 0e
+end_platform_type
+
+
+platform_type SHOOTER WSF_PLATFORM
+   side blue
+   add weapon wpn-1 WSF_EXPLICIT_WEAPON
+      quantity 10
+      launched_platform_type MISSILE_TYPE
+      weapon_effects WSF_SPHERICAL_LETHALITY
+   end_weapon
+   add comm com SAM_COM 
+      internal_link track-proc
+      internal_link task-proc
+   end_comm
+   add processor task-proc WSF_TASK_PROCESSOR
+      #show_task_messages 
+      on
+   end_processor
+   add processor track-proc WSF_TRACK_PROCESSOR
+      master_track_processor 
+      on
+   end_processor
+   position 0n 0e
+end_platform_type
+
+
+platform_type BATTALION WSF_PLATFORM
+   side blue
+   add processor task-proc WSF_TASK_PROCESSOR
+      #show_task_messages 
+      script_variables
+         string shooter = "shooter";
+         string tracker = "tracker";
+      end_script_variables
+      execute at_time 5 s relative
+         WsfLocalTrackList tracks = PLATFORM.MasterTrackList();
+         foreach (WsfLocalTrack t in tracks) {
+            if (t.TargetName() == "target") {
+               StartTracking(t, "track_it", "sen-1", "", WsfSimulation.FindPlatform(tracker));
+               return;
+            }
+         }
+         writeln("-FAIL- Can't find track for target");
+      end_execute
+      execute at_time 10 s relative
+         WsfLocalTrackList tracks = PLATFORM.MasterTrackList();
+         foreach (WsfLocalTrack t in tracks) {
+            if (t.TargetName() == "target") {
+               FireAt(t, "shoot_it", "wpn-1", 1, WsfSimulation.FindPlatform(shooter));
+               return;
+            }
+         }
+         writeln("-FAIL- Can't find track for target");
+      end_execute
+   end_processor
+
+   add comm com SAM_COM
+      internal_link track-proc
+      internal_link task-proc
+   end_comm
+
+   add processor track-proc WSF_TRACK_PROCESSOR
+      master_track_processor 
+      on
+   end_processor
+   position 0n 0e
+end_platform_type
+
+platform batallion BATTALION 
+end_platform
+
+platform shooter SHOOTER 
+   commander batallion
+end_platform
+
+platform tracker TRACKER 
+   commander batallion
+end_platform
+
+platform target WSF_PLATFORM
+   side red
+   add mover WSF_AIR_MOVER
+   end_mover
+   route
+      position 0n 0e altitude 3 km
+         speed 300 kts heading 0 deg
+   end_route
+   execute at_time 10 sec absolute 
+      PLATFORM.TurnToHeading(45);
+   end_execute
+end_platform
+
+execute at_time 1 min absolute
+   if (!gotBadTrack && uplink_init && uplink_drop)
+   {
+      writeln("--PASS--");
+   }
+   else
+   {
+      writeln("-FAIL-");
+      if (!uplink_init)
+      {
+         writeln("uplink never initiated!");
+      }
+      if (!uplink_drop)
+      {
+         writeln("uplink never dropped! did weapon terminated?");
+      }
+   }
+end_execute
+
+script void UplinkInitiated(WsfPlatform sender, WsfPlatform receiver, WsfTrack target)
+   if (sender.Name()       == "tracker" &&
+       target.TargetName() == "target"  &&
+       receiver.Name()     == "shooter_wpn-1_1")
+   {
+      uplink_init = true;
+   }
+end_script
+
+script void UplinkDropped(WsfPlatform sender, WsfPlatform receiver, WsfTrack target)
+   if (sender.Name()       == "tracker" &&
+       receiver.Name()     == "shooter_wpn-1_1")
+   {
+      uplink_drop = true;
+      if (target.IsValid())
+      {
+         # Verify WsfTrack sent properly
+         writeln_d("T=",TIME_NOW, ", Uplink from: ", sender.Name(),
+                   ", to: ", receiver.Name(), ", dropped for track: ",
+                   target.TargetName());
+      }
+   }
+end_script
+
+observer 
+   enable UPLINK_INITIATED
+   enable UPLINK_DROPPED
+end_observer
+
+
+end_time 1.5 min
+

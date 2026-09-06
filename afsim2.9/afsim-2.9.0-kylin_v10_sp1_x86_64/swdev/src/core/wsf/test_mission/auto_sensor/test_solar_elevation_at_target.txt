@@ -1,0 +1,145 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+script_variables
+   int testsFailed = 0;
+end_script_variables
+
+route sensorRoute
+   position 10s 0w altitude 5000 ft msl speed 3000 kts
+   position 10n 0w altitude 5000 ft msl
+end_route
+
+route targetRoute
+   position 10s 1w altitude 5000 ft msl speed 3000 kts
+   position 10n 1w altitude 5000 ft msl
+end_route
+
+sensor GEO WSF_GEOMETRIC_SENSOR
+   mode_template
+     track_quality             1.0
+     frame_time                1.0 sec
+     solar_elevation_at_target 50 deg 75 deg
+   end_mode_template
+
+   # Default is a constraint of 50-75 deg
+   mode defaultConstraint end_mode
+
+   # Changes mode to have stronger constraint than the template
+   mode strongConstraint
+      solar_elevation_at_target 60 deg 65 deg
+   end_mode
+end_sensor
+
+platform sensor_plat WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      use_route sensorRoute
+   end_mover
+   add sensor defaultSensor GEO
+      on
+      initial_mode defaultConstraint
+   end_sensor
+   add sensor strongSensor GEO
+      on
+      initial_mode strongConstraint
+   end_sensor
+end_platform
+
+platform target_plat WSF_PLATFORM
+   add mover WSF_AIR_MOVER
+      use_route targetRoute
+   end_mover
+end_platform
+
+# Returns the normal vector at the given platform
+script Vec3 CalculateUnitNormalVector(WsfPlatform aPlatform)
+{
+   WsfGeoPoint location = aPlatform.Location();
+   double lat = location.Latitude();
+   double lon = location.Longitude();
+   
+   double cosLat = MATH.Cos(lat);
+   
+   return Vec3.Construct(cosLat * MATH.Cos(lon),
+                         cosLat * MATH.Sin(lon),
+                         MATH.Sin(lat));
+}
+end_script
+
+# Returns the current solar elevation angle at the target's location.
+script double CalculateSolarElevationAngle(WsfPlatform aTargetPlat)
+{
+   Vec3 targetPos = aTargetPlat.LocationWCS();
+   Vec3 sunPos    = Sun.LocationWCS(WsfDateTime.CurrentTime());
+   Vec3 targToSun = Vec3.Subtract(sunPos, targetPos);
+   
+   double numerator   = Vec3.Dot(targToSun, CalculateUnitNormalVector(aTargetPlat));
+   double denominator = targToSun.Magnitude();
+   double normalAngle = MATH.ACos(numerator/denominator);
+   return 90.0 - normalAngle;
+}
+end_script
+
+# Verifies that detections occur at the right solar elevation angles
+script void SensorDetectionAttempt(WsfPlatform aPlatform,
+                                   WsfSensor   aSensor,
+                                   WsfPlatform aTarget,
+                                   WsfSensorInteraction aResult)
+{
+   extern int testsFailed;
+   double elevationAngle = CalculateSolarElevationAngle(aTarget);
+   
+   writeln_developer("Angle: ", elevationAngle);
+   
+   if (aSensor.Name() == "defaultSensor")
+   {
+      if (!aResult.Detected() && elevationAngle >= 50 && elevationAngle <= 75)
+      {
+         writeln("-FAIL- Target should have been detected by default sensor at: ", elevationAngle);
+         testsFailed += 1;
+      }
+      if (aResult.Detected() && (elevationAngle < 50 || elevationAngle > 75))
+      {
+         writeln("-FAIL- Target should not have been detected by default sensor at: ", elevationAngle);
+         testsFailed += 1;
+      }
+   }
+   else if (aSensor.Name() == "strongSensor")
+   {
+      if (!aResult.Detected() && elevationAngle >= 60 && elevationAngle <= 65)
+      {
+         writeln("-FAIL- Target should have been detected by strong sensor at: ", elevationAngle);
+         testsFailed += 1;
+      }
+      if (aResult.Detected() && (elevationAngle < 60 || elevationAngle > 65))
+      {
+         writeln("-FAIL- Target should not have been detected by strong sensor at: ", elevationAngle);
+         testsFailed += 1;
+      }
+   }
+}
+end_script
+
+observer
+   enable SENSOR_DETECTION_ATTEMPT SensorDetectionAttempt
+end_observer
+
+execute at_time 1499 seconds absolute
+   extern int testsFailed;
+   if(testsFailed > 0)
+   {
+      writeln(testsFailed, " tests were failed.");
+   }
+   else
+   {
+      writeln("-PASS-");
+   }
+end_execute
+
+end_time 1500 seconds

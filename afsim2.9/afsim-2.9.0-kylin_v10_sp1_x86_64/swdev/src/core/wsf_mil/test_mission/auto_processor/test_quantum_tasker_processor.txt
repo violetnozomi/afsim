@@ -1,0 +1,184 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#event_output 
+#   file events.txt
+#   enable TASK_ASSIGNED
+#   enable TASK_CANCELED
+#   enable TASK_COMPLETED
+#end_event_output
+
+platform_type SUBORDINATE WSF_PLATFORM
+   comm comm_1 WSF_COMM_TRANSCEIVER 
+      internal_link tasker
+   end_comm
+   processor brain WSF_PERCEPTION_PROCESSOR 
+      report_to commander via comm_1
+      reporting_self true
+      report_interval 1 sec
+      asset_perception status_messages 
+   end_processor
+   processor tasker WSF_QUANTUM_TASKER_PROCESSOR 
+   end_processor
+   processor tracker WSF_TRACK_PROCESSOR 
+      report_interval 1 sec
+      report_to commander via comm_1
+      report_fused_tracks 
+   end_processor
+   sensor geo WSF_GEOMETRIC_SENSOR 
+      on
+      internal_link tracker
+      frame_time 1 s
+      track_quality 1.0
+      azimuth_field_of_view   -180.0 degrees  180.0 degrees
+      elevation_field_of_view  -90.0 degrees   90.0 degrees
+      minimum_range 0 m
+      maximum_range 277800 m     //about 150 nm
+      reports_location 
+      reports_velocity 
+      reports_side 
+      ignore_same_side 
+   end_sensor
+end_platform_type
+
+
+platform_type COMMANDER WSF_PLATFORM 
+   comm comm_1 WSF_COMM_TRANSCEIVER 
+      internal_link brain
+      internal_link tasker
+      internal_link tracker
+   end_comm
+   processor brain WSF_PERCEPTION_PROCESSOR 
+      asset_perception status_messages 
+   end_processor
+   processor tasker WSF_QUANTUM_TASKER_PROCESSOR 
+      update_interval 1 s
+   end_processor
+   processor tracker WSF_TRACK_PROCESSOR 
+      master_track_processor 
+   end_processor
+end_platform_type
+
+
+#blue tasks should be randomly assigned & switch back & forth frequently
+#blue tasking remains in effect the whole scenario
+platform BLUE_CMDR COMMANDER 
+   side blue
+   position 0:0:0.0n 1:0:0.0w altitude 1000.00 m agl
+   edit processor tasker
+      script double RandomEvaluation ( WsfQuantumTask TASK, WsfAssetPerception ASSET)
+         return RANDOM.Uniform();   //uniform distribution in [0,1]
+      end_script
+      generator simple_weapon 
+      evaluator custom RandomEvaluation
+      allocator greedy_profit
+      allocator_extra_assets greedy_profit   #should not need to be used in this scenario
+      allocator_extra_tasks  greedy_profit   #should not need to be used in this scenario
+      reallocation_strategy dynamic
+   end_processor
+end_platform
+
+
+platform BLUE_1 SUBORDINATE
+   side blue 
+   commander BLUE_CMDR
+   position 1:0:0.0n 1:0:0.0w altitude 1000.00 m agl
+   edit processor tasker 
+      script_variables
+         int count = 0;
+      end_script_variables
+      on_message 
+         type WSF_TASK_ASSIGN_MESSAGE 
+         script
+            count += 1;
+         end_script
+      end_on_message
+      execute at_time 99 s absolute 
+         if (count < 2)
+         {
+            writeln("-FAIL- unlikely that after 100 random draws that task allocation did not change once");
+         }
+         if (PROCESSOR.TasksReceived().Count() <= 0)
+         {
+            writeln("-FAIL- blue subordinates should always have tasks assigned in this scenario");
+         }
+      end_execute
+   end_processor
+end_platform
+
+
+platform BLUE_2 SUBORDINATE 
+   side blue 
+   commander BLUE_CMDR
+   position 2:0:0.0n 1:0:0.0w altitude 1000.00 m agl
+end_platform
+
+
+#red assets should be assigned tasks for their closest track
+#red tasks should be cancelled after 20 seconds
+platform RED_CMDR COMMANDER 
+   side red
+   position 0:0:0.0n 1:0:0.0e altitude 1000.00 m agl
+   edit processor tasker
+      script Array<WsfQuantumTask> TimeLimitedGeneration (Array<WsfLocalTrack> TRACKS, Array<WsfAssetPerception> ASSETS )
+         Array<WsfQuantumTask> tasks = Array<WsfQuantumTask>();
+         if (TIME_NOW < 50) {
+            foreach (WsfLocalTrack track in TRACKS) {
+               tasks.PushBack(WsfQuantumTask.Construct(1.0, "weapon", track));
+            }
+         }
+         return tasks;
+      end_script
+      generator custom TimeLimitedGeneration 
+      evaluator distance 
+      allocator optimal_profit
+      reallocation_strategy static
+   end_processor
+end_platform
+
+
+platform RED_1 SUBORDINATE 
+   side red
+   commander RED_CMDR
+   position 1:0:0.0n 1:0:0.0e altitude 1000.00 m agl
+   
+   edit processor tasker 
+      script_variables
+         int count = 0;
+      end_script_variables
+      on_message 
+         type WSF_TASK_ASSIGN_MESSAGE 
+         script
+            count += 1;
+         end_script
+      end_on_message
+      execute at_time 99 s absolute 
+         if (count != 1)
+         {
+            writeln("-FAIL- red subordinates should only be assigned tasks once in this scenario");
+         }
+         if (PROCESSOR.TasksReceived().Count() > 0)
+         {
+            writeln("-FAIL- red subordinates should not have tasks assigned after 50 seconds in this scenario");
+         }
+      end_execute
+   end_processor
+   
+   
+end_platform
+
+
+platform RED_2 SUBORDINATE 
+   side red
+   commander RED_CMDR
+   position 2:0:0.0n 1:0:0.0e altitude 1000.00 m agl
+end_platform
+
+
+end_time 100 sec

@@ -1,0 +1,118 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+# Platform "sense" is internally moved. IRST (POST) UCI messages are received
+# for platform "sense" in the other simulation.
+# The IRST sensor on platfom sense is run in the other simulation.
+
+include ./test_scenario_common.txt
+
+dis_interface
+   application 1
+
+   // Entity type SIMPLE_SENSE maps to SENSE type in uci-enabled app
+   entity_type SIMPLE_SENSE 1:2:225:1:12:0:0
+
+   entity_id sense 1
+   entity_id target 2
+end_dis_interface
+
+uci_interface
+   service_name ship1
+   service_descriptor SHIP1
+end_uci_interface
+
+platform sense SIMPLE_SENSE
+   position 39:29:54.175n 86:31:49.474w
+
+   route
+      label begin
+      position 39:29:54.175n 86:31:49.474w altitude 10000.00 ft
+         speed 500 mph
+      position 40:31:27.000n 86:31:09.000w
+      goto begin
+   end_route
+
+   edit uci_component computer
+      processor irst_command
+      //debug
+   end_uci_component
+
+   add processor irst_command WSF_SCRIPT_PROCESSOR
+      internal_link computer
+
+      on_message
+         type UCI_POST_CAPABILITY_MESSAGE // post capability message 
+         script
+
+            UCI_POST_CapabilityMessage msg = (UCI_POST_CapabilityMessage)MESSAGE;
+
+            if (msg.IsValid())
+            {
+               writeln_d(TIME_NOW, ": Received UCI post capability message!!");
+               RequestControl(msg);
+            }
+            else
+            {
+               writeln_d("Invalid Post Capability Message");
+            }
+
+         end_script
+
+         type UCI_CONTROL_REQUEST_STATUS_MESSAGE // Control request status
+         script
+            UCI_ControlRequestStatusMessage msg = (UCI_ControlRequestStatusMessage)MESSAGE;
+            if (msg.IsValid() && controlRequests.Exists(msg.UUID()))
+            {
+               if (msg.IsApproved())
+               {
+                  writeln_d("Control request approved");
+               }
+               else if (msg.IsRejected())
+               {
+                  writeln_d("Control request was rejected because ", msg.GetRemarks());
+               }
+               else if (msg.IsDeleted())
+               {
+                  writeln_d("Control request was deleted because ", msg.GetRemarks());
+               }
+               else if (msg.IsPending())
+               {
+                  writeln_d("Control request is pending.");
+               }
+            }
+         end_script
+
+         default
+         script
+            writeln_d("Received message: ", MESSAGE.Type());
+         end_script
+      end_on_message
+
+      execute at_interval_of 10 seconds
+         if (!capabilities.Empty())
+         {
+            UpdateDirection();
+            SendCommand();
+            UpdateMode();
+         }
+         else
+         {
+            writeln_d("Capabilities are empty");
+         }
+      end_execute
+
+   end_processor
+end_platform
+
+platform target TARGET
+   position 39:59:47.400n 86:31:19.560w altitude 1000 ft
+end_platform
+
+realtime

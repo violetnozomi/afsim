@@ -1,0 +1,238 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+#---------------------------------------------
+# Generic static HEL tests
+#---------------------------------------------
+
+# Requires the wsf_mil extension
+test_feature wsf_mil
+
+include_once ./COEFS1000_1.txt
+
+#test that the target track is non-null
+observer
+   enable WEAPON_FIRED WeaponFired
+end_observer
+
+script void WeaponFired(WsfWeaponEngagement aWeaponEngagement, WsfTrack aTargetTrack)
+   if (!aTargetTrack.IsValid())
+   {
+      writeln("-FAIL- Target track invalid in WeaponFired");
+   }
+end_script
+
+platform_type HEL_PLATFORM WSF_PLATFORM
+
+   add processor auto_fire auto_fire_computer
+      on
+   end_processor
+   
+   processor fuser WSF_TRACK_PROCESSOR
+     purge_interval 60.0 seconds
+   end_processor
+
+   sensor all-seeing WSF_GEOMETRIC_SENSOR
+      on
+      processor fuser
+      reports_location
+      reports_velocity
+      frame_time 1.0 second
+   end_sensor
+ 
+end_platform_type
+
+processor auto_fire_computer WSF_SCRIPT_PROCESSOR
+   on
+   update_interval 1.0 s
+   
+   script bool FireAtTarget(string aTarget)
+      WsfLaserWeapon hel = (WsfLaserWeapon)WsfSimulation.FindPlatform("redeye").Weapon("hel");
+      WsfPlatform target = WsfSimulation.FindPlatform(aTarget);
+      bool isValid = target.IsValid();
+      if (isValid)
+      {
+         if (! hel.IsFiring())
+         {
+               WsfTrack track = target.MakeTrack();
+            hel.FireSalvo(track, 2);
+            //hel.Fire(track);
+            writeln("Firing");
+          }
+      }      
+      else
+      {
+         hel.CeaseFire();         
+      }
+      return isValid;
+   end_script
+
+   on_update
+      static bool fireSU37 = true;
+      static bool fireTEL = true;
+      static bool printDone = true;
+      if (fireSU37)
+      {
+         fireSU37 = FireAtTarget("su-37");
+      }
+      else if (fireTEL)
+      {
+         fireTEL = FireAtTarget("tel");
+      }
+      else if (printDone)
+      {
+         writeln("done...");
+         printDone = false;
+      }      
+   end_on_update
+   
+end_processor
+
+weapon_effects HEL_LETHALITY WSF_HEL_LETHALITY  
+   target_type SU-37
+     damage_radius 2 cm
+     minimum_energy_density 7.0 kj/cm^2
+     damage_radius 1.0 cm
+   end_target_type
+
+   category TEL
+      minimum_energy 10 kj
+   end_category   
+   
+end_weapon_effects
+
+weapon HEL WSF_LASER_WEAPON
+
+   aux_data
+      bool auto_mode = false
+   end_aux_data
+      
+   debug
+   comments enabled
+   
+   salvo_interval 2.0 seconds
+   
+   // The firing time per shot.
+   //firing_time 5.0 sec
+
+   // The lethalitiy model used by this HEL.
+   weapon_effects HEL_LETHALITY
+    
+   //-------------------------------------------------------------------
+   //  The following begins the hel-specific block of data.
+   //-------------------------------------------------------------------
+   
+   fluence_model default
+
+      // The aperture for the HEL beam.
+      // The beam diffraction is inversely proportional to the aperture diameter.
+      aperture_diameter 0.2 meters
+
+      // The laser power (typically, expressed in kw).
+      power 20 kw
+
+      // The characteristic wavelength for the measurement.
+      //wavelength 1.064 microns
+
+      wavelength 1000 nanometers  // wavelength in nm for which table is valid
+      atmosphere_model 2 // 1-6; see explanation
+      haze_model  1 // 1-6; see explanation
+
+
+      // The total jitter of the beam on target.
+      // More jitter gives a larger spot size and less power/area.
+      jitter 2e-6 radians
+
+      // A measure of how close the beam is to a perfect gaussian.
+      // Valid values are >= 1.0, where 1.0 is best.
+      beam_quality 1.2
+
+   end_fluence_model
+   
+end_weapon
+ 
+platform_type FA-18EF-HEL HEL_PLATFORM
+
+   spatial_domain air
+   icon F-18E
+   side blue
+   
+   add weapon hel HEL 
+      debug
+   end_weapon
+
+end_platform_type
+
+platform redeye FA-18EF-HEL
+    position 40n 90.0383w altitude 3000 meters // static  
+end_platform
+
+platform_type SU-37 WSF_PLATFORM
+   category AIRCRAFT
+   icon SU-27
+end_platform_type
+
+platform_type TEL-TYPE WSF_PLATFORM
+   category TEL
+   icon SA-17_Launcher
+end_platform_type
+
+platform su-37 SU-37
+   side red
+   category SU-37   
+   position 40:03:00n 90.0383w altitude 2000 meters heading 180 degrees   
+end_platform 
+
+platform tel TEL-TYPE
+   side red
+   position 40:02:00n 90.0383w altitude 1 meters heading 180 degrees   
+end_platform 
+
+execute at_time 10 seconds absolute
+   WsfPlatform target = WsfSimulation.FindPlatform("su-37");
+   if (target.IsValid())
+   {
+      writeln("--FAIL-- target should have been killed.");
+   }
+end_execute
+/*
+event_pipe
+   file test_hel.aer
+end_event_pipe
+
+event_output
+  file test_hel.evt
+  enable DIRECTED_ENERGY_WEAPON_BEGIN_SHOT
+  enable DIRECTED_ENERGY_WEAPON_END_SHOT
+  enable DIRECTED_ENERGY_WEAPON_BEGIN_ENGAGEMENT
+  enable DIRECTED_ENERGY_WEAPON_END_ENGAGEMENT
+  enable DIRECTED_ENERGY_WEAPON_UPDATE_SHOT
+  enable DIRECTED_ENERGY_WEAPON_COOLDOWN_COMPLETE
+  //enable WEAPON_FIRED
+  //enable WEAPON_HIT
+  //enable SENSOR_TRACK_INITIATED
+  enable WEAPON_TERMINATED
+  enable PLATFORM_DELETED
+  //enable COMMENT
+  flush_output enabled
+end_event_output
+*/
+
+execute at_time 99 seconds absolute 
+   if (WsfSimulation.FindPlatform("su-37").IsValid())
+   {
+      writeln("-FAIL-");
+   }
+   if (WsfSimulation.FindPlatform("tel").IsValid())
+   {
+      writeln("-FAIL-");
+   }
+end_execute
+
+end_time 100.0 seconds

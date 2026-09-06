@@ -1,0 +1,114 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+// This scenario tests the correct functionality of a medium
+// that consistes of several modes. The mode can be changed
+// dynamically to alter any later transmission. Platforms
+// are co-located, so propagation time is 0.
+
+medium TEST_MEDIUM WSF_COMM_MEDIUM_GUIDED
+   mode default # optimal
+      transfer_rate 100 bits/s
+   end_mode
+   mode high_congestion
+      transfer_rate 30 bits/s
+   end_mode
+   mode contention
+      transfer_rate 50 bits/s
+   end_mode
+   default_mode_name default
+end_medium
+
+comm NIC WSF_COMM_TRANSCEIVER
+   add medium TEST_MEDIUM end_medium
+end_comm
+
+platform sender WSF_PLATFORM
+   add comm comm NIC end_comm
+end_platform
+
+platform receiver WSF_PLATFORM
+   add comm comm NIC end_comm
+end_platform
+
+execute at_time 1 s absolute
+   // Default medium mode usage - 1 s transmission time
+   WsfMessage message = {};
+   message.SetSizeInBits(100);
+   WsfComm sender = WsfSimulation.FindPlatform("sender").Comm("comm");
+   sender.SendMessage(message, "receiver", "comm");
+end_execute
+
+execute at_time 3 s absolute
+   // contention mode usage - 2 s transmission time
+   WsfMessage message = {};
+   message.SetSizeInBits(100);
+   WsfComm sender = WsfSimulation.FindPlatform("sender").Comm("comm");
+   bool result = sender.GetMedium().SetMode("contention");
+   if(!result)
+   {
+      writeln("-FAIL-");
+   }
+   sender.SendMessage(message, "receiver", "comm");
+end_execute
+
+execute at_time 6 s absolute
+   // high_congestion mode usage - 3.33 s transmission time
+   WsfMessage message = {};
+   message.SetSizeInBits(100);
+   WsfComm sender = WsfSimulation.FindPlatform("sender").Comm("comm");
+   bool result = sender.GetMedium().SetMode("high_congestion");
+   if(!result)
+   {
+      writeln("-FAIL-");
+   }   
+   sender.SendMessage(message, "receiver", "comm");
+end_execute
+
+observer
+   enable MESSAGE_RECEIVED MessageReceived
+end_observer
+
+script_variables
+   Array<double> MsgReceivedTimes = {};
+end_script_variables
+
+script void MessageReceived(WsfComm aXmtr, WsfComm aRcvr, WsfMessage aMsg, WsfCommInteraction aResult)
+   MsgReceivedTimes.PushBack(TIME_NOW);
+end_script
+
+execute at_time 10 s absolute
+   if(MsgReceivedTimes.Size() != 3)
+   {
+      writeln("-FAIL-");
+      WsfSimulation.Terminate();
+   }
+   if(MsgReceivedTimes[0] != 2.0)
+   {
+      writeln("-FAIL-");
+      writeln("Fail message 1 time.");
+   }
+   if(MsgReceivedTimes[1] != 5.0)
+   {
+      writeln("-FAIL-");
+      writeln("Fail message 2 time.");
+   }
+   if(MsgReceivedTimes[2] != (100.0/30.0 + 6.0))
+   {
+      writeln("-FAIL-");
+      writeln("Fail message 3 time.");
+   }
+end_execute
+
+end_time 11 s
+
+#event_output
+#   enable all
+#   file replay.evt
+#end_event_output

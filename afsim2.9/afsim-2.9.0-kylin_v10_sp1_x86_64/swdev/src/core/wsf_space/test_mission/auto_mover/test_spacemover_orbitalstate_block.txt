@@ -1,0 +1,197 @@
+# ****************************************************************************
+# CUI
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+end_time 4 hrs
+include_once ../utils.txt
+
+start_date aug 3 2020
+start_time 00:00:01
+
+script_variables
+   double tol = 1.0e-12;
+   # platform creation time = start_date and start_time + 1 hour creation_time
+   string platform_creation_time = "2020-08-03T01:00:01.000Z";
+end_script_variables
+
+# Test for platform_creation_epoch command, specifying a creation_time
+# of one hour. Thus, correct initial epoch is 2020-08-03, at 01:00:01s
+platform sp_creation_epoch WSF_PLATFORM
+   creation_time 1 hour
+   add mover WSF_SPACE_MOVER
+      epoch platform_creation_epoch
+      semi_major_axis 10000 km
+      eccentricity 0.2
+      mean_anomaly 255 deg
+      inclination 30 deg
+      raan 120 deg
+      argument_of_periapsis 80 deg
+      reference_frame true_of_date
+   end_mover
+end_platform
+
+# OE Test for WSF_SPACE_MOVER
+platform sp_oe_previous WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      epoch 2021245.18563
+      semi_major_axis 10000 km
+      eccentricity 0.2
+      mean_anomaly 255 deg
+      inclination 30 deg
+      raan 120 deg
+      argument_of_periapsis 80 deg
+      reference_frame true_of_date
+   end_mover
+end_platform
+
+platform sp_oe_new WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      orbital_state
+         epoch 2021245.18563
+         semi_major_axis 10000 km
+         eccentricity 0.2
+         mean_anomaly 255 deg
+         inclination 30 deg
+         raan 120 deg
+         argument_of_periapsis 80 deg 
+      end_orbital_state
+   end_mover
+end_platform
+
+# OE Test for WSF_INTEGRATING_SPACE_MOVER
+platform ism_oe_previous WSF_PLATFORM
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      epoch 2021245.18563
+      semi_major_axis 10000 km
+      eccentricity 0.2
+      mean_anomaly 0 deg
+      inclination 30 deg
+      raan 120 deg
+      argument_of_periapsis 80 deg
+      reference_frame true_of_date
+
+      integrator prince_dormand_45
+      end_integrator
+      
+      dynamics
+         term earth_j2
+         end_term
+      end_dynamics
+   end_mover
+   
+   empty_mass 100 kg
+end_platform
+
+platform ism_oe_new WSF_PLATFORM
+   add mover WSF_INTEGRATING_SPACE_MOVER
+      orbital_state
+         epoch 2021245.18563
+         semi_major_axis 10000 km
+         eccentricity 0.2
+         mean_anomaly 0 deg
+         inclination 30 deg
+         raan 120 deg
+         argument_of_periapsis 80 deg
+      end_orbital_state
+
+      integrator prince_dormand_45
+      end_integrator
+      
+      dynamics
+         term earth_j2
+         end_term
+      end_dynamics
+   end_mover
+   
+   empty_mass 100 kg
+end_platform
+
+# RV Test for WSF_SPACE_MOVER
+platform sp_rv_previous WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      initial_state_eci 800 km 0 km 0 km 100 m/s 3 km/s -50 m/s
+      epoch 2021300.18563
+   end_mover
+end_platform
+
+platform sp_rv_new WSF_PLATFORM
+   add mover WSF_SPACE_MOVER
+      orbital_state
+         epoch 2021300.18563
+         position 800 0 0 km
+         velocity 100 3000 -50 m/s
+      end_orbital_state
+   end_mover
+end_platform
+
+# TLE Test for WSF_NORAD_SPACE_MOVER
+platform norad_tle_previous WSF_PLATFORM
+   add mover WSF_NORAD_SPACE_MOVER
+      orbit
+         0 HST
+         1 20580U 90037B   20216.30423610  .00000333  00000-0  92680-5 0  9996
+         2 20580  28.4681 168.2117 0002666 190.3324 294.3699 15.09238375401891
+      end_orbit
+   end_mover
+end_platform
+
+platform norad_tle_new WSF_PLATFORM
+   add mover WSF_NORAD_SPACE_MOVER
+      orbital_state
+      orbit
+         0 HST
+         1 20580U 90037B   20216.30423610  .00000333  00000-0  92680-5 0  9996
+         2 20580  28.4681 168.2117 0002666 190.3324 294.3699 15.09238375401891
+      end_orbit
+      end_orbital_state
+   end_mover
+end_platform
+
+execute at_time 61 min absolute
+   WsfPlatform p9 = WsfSimulation.FindPlatform("sp_creation_epoch");
+   WsfSpaceMover p9m = (WsfSpaceMover)p9.Mover();
+   
+   # Check to make sure initial epoch is start_time plus creation_time
+   # (Aug 3, 2020, 01:00:01) to test platform_creation_epoch functionality
+   if(p9m.InitialEpoch().ToStringIso8601() != platform_creation_time)
+   {
+      writeln("-FAIL- platform_creation_epoch does not match creation time");
+      writeln("Initial Epoch: ", p9m.InitialEpoch().ToStringIso8601());
+      writeln("Creation Time: ", platform_creation_time);
+   }
+end_execute
+
+execute at_interval_of 30 min
+   WsfPlatform p1 = WsfSimulation.FindPlatform("sp_oe_previous");
+   WsfPlatform p2 = WsfSimulation.FindPlatform("sp_oe_new");
+   WsfPlatform p3 = WsfSimulation.FindPlatform("sp_rv_previous");
+   WsfPlatform p4 = WsfSimulation.FindPlatform("sp_rv_new");
+   WsfPlatform p5 = WsfSimulation.FindPlatform("norad_tle_previous");
+   WsfPlatform p6 = WsfSimulation.FindPlatform("norad_tle_new");
+   WsfPlatform p7 = WsfSimulation.FindPlatform("ism_oe_previous");
+   WsfPlatform p8 = WsfSimulation.FindPlatform("ism_oe_new"); 
+   
+   # Check for differences in position for space mover initialization
+   ExpectVec(p2.LocationECI(), p1.LocationECI(), tol, "oe mover pos test");
+   ExpectVec(p4.LocationECI(), p3.LocationECI(), tol, "rv mover pos test");
+   ExpectVec(p6.LocationECI(), p5.LocationECI(), tol, "tle mover pos test");
+   ExpectVec(p8.LocationECI(), p7.LocationECI(), tol, "oe int. mover pos test");
+   
+   # Check for differences in velocity for space mover initialization
+   ExpectVec(p2.VelocityECI(), p1.VelocityECI(), tol, "oe mover vel test");
+   ExpectVec(p4.VelocityECI(), p3.VelocityECI(), tol, "rv mover vel test");
+   ExpectVec(p6.VelocityECI(), p5.VelocityECI(), tol, "tle mover vel test");
+   ExpectVec(p8.VelocityECI(), p7.VelocityECI(), tol, "oe int. mover vel test");
+   
+   # Check for differences in acceleration for space mover initialization
+   ExpectVec(p2.AccelerationECI(), p1.AccelerationECI(), tol, "oe mover acc test");
+   ExpectVec(p4.AccelerationECI(), p3.AccelerationECI(), tol, "rv mover acc test");
+   ExpectVec(p6.AccelerationECI(), p5.AccelerationECI(), tol, "tle mover acc test");
+   ExpectVec(p8.AccelerationECI(), p7.AccelerationECI(), tol, "oe int. mover acc test");
+end_execute
+
+

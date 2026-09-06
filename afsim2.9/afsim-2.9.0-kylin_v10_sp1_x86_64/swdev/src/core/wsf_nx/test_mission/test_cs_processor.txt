@@ -1,0 +1,274 @@
+# ****************************************************************************
+# CUI//REL TO USA ONLY
+#
+# The Advanced Framework for Simulation, Integration, and Modeling (AFSIM)
+#
+# The use, dissemination or disclosure of data in this file is subject to
+# limitation or restriction. See accompanying README and LICENSE for details.
+# ****************************************************************************
+
+radar_signature FIGHTER_RADAR_SIGNATURE
+   constant 10 m^2
+end_radar_signature
+
+antenna_pattern EW_RADAR_ANTENNA
+   rectangular_pattern
+      peak_gain           35 dB
+      minimum_gain       -20 dB
+      azimuth_beamwidth   10 deg
+      elevation_beamwidth 45 deg
+   end_rectangular_pattern
+end_antenna_pattern
+
+sensor EW_RADAR WSF_RADAR_SENSOR
+   frame_time                      10.0 sec
+
+   beam 1
+      one_m2_detect_range          100 nm
+
+      antenna_height               6 m
+
+      scan_mode                    azimuth
+      azimuth_scan_limits         -180 deg 180 deg
+
+      transmitter
+         antenna_pattern           EW_RADAR_ANTENNA
+         beam_tilt                  10 deg
+         power                     750 kw
+         pulse_width                50 usec
+         pulse_repetition_interval 750 usec // max PRI range of 225 km
+         frequency                 920 mhz
+      end_transmitter
+
+      receiver
+         antenna_pattern           EW_RADAR_ANTENNA
+         bandwidth                 2.0 mhz
+      end_receiver
+
+   end_beam
+
+   beam 2
+      transmitter
+         frequency 925 mhz
+      end_transmitter
+   end_beam
+
+   required_pd                     0.5
+
+   hits_to_establish_track         3 5
+   hits_to_maintain_track          1 3
+
+   reports_range
+   reports_bearing
+   reports_iff
+end_sensor
+
+platform_type GROUND_SITE WSF_PLATFORM
+   icon C4I
+
+   add processor track_manager WSF_TRACK_PROCESSOR
+      purge_interval 20 sec
+   end_processor
+
+   processor multi_sensor_detector WSF_COHERENT_SENSOR_PROCESSOR
+      sensors
+         platform_sensor ew-radar-site_1 ew_radar_1
+         platform_sensor ew-radar-site_1 ew_radar_2
+         platform_sensor ew-radar-site_2 ew_radar_1
+         platform_sensor ew-radar-site_2 ew_radar_2
+      end_sensors
+
+      processor track_manager
+   end_processor
+end_platform_type
+
+platform_type EW_RADAR_SITE WSF_PLATFORM
+   icon Ground_Radar
+   mover WSF_GROUND_MOVER end_mover
+
+   add processor track_manager WSF_TRACK_PROCESSOR
+      purge_interval 20 sec
+   end_processor
+
+   sensor ew_radar_1 EW_RADAR
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   sensor ew_radar_2 EW_RADAR
+      processor track_manager
+      ignore_same_side
+   end_sensor
+
+   processor multi_sensor_detector WSF_COHERENT_SENSOR_PROCESSOR
+      update_interval 10 secs
+
+      use_target_result true
+      //result_processing_type RSS_BASED
+      result_processing_type SNR_BASED
+
+      processor track_manager
+      #internal_link track_manager
+
+      sensors
+         sensor ew_radar_1
+         sensor ew_radar_2
+      end_sensors
+   end_processor
+ end_platform_type
+
+platform_type STRIKER_PLATFORM WSF_PLATFORM
+   icon F-18E
+   side blue
+   mover WSF_AIR_MOVER end_mover
+   radar_signature FIGHTER_RADAR_SIGNATURE
+end_platform_type
+
+platform ew-radar-site_1 EW_RADAR_SITE
+   side red
+
+   route
+      position 37:00:00n 116:00:00w
+      altitude 0.0 ft agl
+      heading   90 deg
+    end_route
+
+   sensor ew_radar_1
+      on
+      location 0 -25 0 m
+   end_sensor
+
+   sensor ew_radar_2
+      on
+      location 0 25 0 m
+   end_sensor
+end_platform
+
+platform ew-radar-site_2 EW_RADAR_SITE
+   side red
+
+   position 37:00:00n 116:00:00w
+   altitude 0.0 ft agl
+   heading   90 deg
+
+   sensor ew_radar_1
+      on
+      location 0 -50 0 m
+   end_sensor
+
+   sensor ew_radar_2
+      on
+      location 0 50 0 m
+   end_sensor
+end_platform
+
+platform ground-site GROUND_SITE
+   side red
+
+   position 37:00:00n 116:00:00w
+   altitude 0.0 ft agl
+   heading   90 deg
+end_platform
+
+platform striker-1 STRIKER_PLATFORM
+   side blue
+
+   route
+      position 36:27:36n 115:15:00w
+      altitude 35000 ft
+      speed     450 kts
+      heading     0 deg
+   end_route
+end_platform
+
+end_time 120 sec
+
+
+event_output
+   file STDOUT
+   #enable SENSOR_TRACK_INITIATED
+   #enable LOCAL_TRACK_INITIATED
+end_event_output
+
+script_variables
+   bool gFail = false;
+   bool gSensorTrack1 = false;
+   bool gSensorTrack2 = false;
+   bool gLocalTrack1 = false;
+   bool gLocalTrack2 = false;
+   bool gLocalTrack3 = false;
+end_script_variables
+
+script void SensorTrackInitiated(WsfPlatform aPlatform, WsfSensor aSensor, WsfTrack aTrack)
+   if (aTrack.ProcessorName() == "multi_sensor_detector")
+   {
+      writeln("STI: Site=", aPlatform.Name(), ".", aTrack.ProcessorName(),
+              " Originator=", aTrack.OriginatorName(), ".", aTrack.ProcessorName());
+
+      if (aTrack.OriginatorName() == aPlatform.Name())
+      {
+         if (aPlatform.Name() == "ew-radar-site_1")
+         {
+            gSensorTrack1 = true;
+         }
+         else if (aPlatform.Name() == "ew-radar-site_2")
+         {
+            gSensorTrack2 = true;
+         }
+      }
+   }
+end_script
+
+script void LocalTrackInitiated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack)
+   if (aLocalTrack.ProcessorName() == "multi_sensor_detector")
+   {
+      writeln("LTI: Site=", aPlatform.Name(), ".", aLocalTrack.ProcessorName(),
+              " Originator=", aTrack.OriginatorName(), ".", aTrack.ProcessorName());
+
+      if (aTrack.OriginatorName() == aPlatform.Name())
+      {
+         if (aPlatform.Name() == "ew-radar-site_1")
+         {
+            gLocalTrack1 = true;
+         }
+         else if (aPlatform.Name() == "ew-radar-site_2")
+         {
+            gLocalTrack2 = true;
+         }
+         else if (aPlatform.Name() == "ground-site")
+         {
+            gLocalTrack3 = true;
+         }
+      }
+   }
+end_script
+
+script void LocalTrackUpdated(WsfPlatform aPlatform, WsfLocalTrack aLocalTrack, WsfTrack aTrack)
+   if (aLocalTrack.ProcessorName() == "multi_sensor_detector")
+   {
+      writeln("LTU: Site=", aPlatform.Name(), ".", aLocalTrack.ProcessorName(),
+              " Originator=", aTrack.OriginatorName(), ".", aTrack.ProcessorName(),
+              " NumContributors=", aLocalTrack.NumContributors());
+      for (int i = 0; i < aLocalTrack.RawTrackCount(); i = i + 1)
+      {
+         writeln("      Contributor_", i + 1, "=", aLocalTrack.RawTrack(i).OriginatorName());
+      }
+   }
+end_script
+
+script void SimulationComplete()
+   if (! gSensorTrack1) { writeln("-FAIL- No sensor track by ew-radar-site-1"); gFail = true; }
+   if (! gSensorTrack2) { writeln("-FAIL- No sensor track by ew-radar-site-2"); gFail = true; }
+   if (! gLocalTrack1) { writeln("-FAIL- No local track by ew-radar-site-1"); gFail = true; }
+   if (! gLocalTrack2) { writeln("-FAIL- No local track by ew-radar-site-2"); gFail = true; }
+   if (! gLocalTrack3) { writeln("-FAIL- No local track by ground-site"); gFail = true; }
+   if (gFail) writeln("-FAIL- one or more failures");
+   if (! gFail) writeln("-PASS-");
+end_script
+
+observer
+   enable SENSOR_TRACK_INITIATED
+   enable LOCAL_TRACK_INITIATED
+   enable LOCAL_TRACK_UPDATED
+   enable SIMULATION_COMPLETE
+end_observer
