@@ -741,3 +741,150 @@
 - 验证要求：在本条文档提交后的`main`最终树重新执行静态门禁、40个固定测试、44项CTest、
   差异检查和运行环境动态库检查；通过后删除已合并的旧功能分支。
 - AFSIM核心修改数0；其他已登记工作树和分支不处理。
+
+### 2026-08-21 — Codex fixed-size tactical elements during topology zoom
+
+- 唯一目标：局部缩放只拉开拓扑空间以观察密集连接，不放大节点、网关、标签、路由箭头、
+  选择环或线宽；不改仿真状态、路由算法、跨域网关、JSON合同和右侧资源表单。
+- TDD证据：先增加200%下拓扑点间距翻倍、28×20像素元素尺寸不变的测试；旧实现因缺少
+  `FixedElementRect`按预期编译失败，实现后定向测试转绿。
+- 实现：删除态势图拓扑层的全局`QPainter`缩放，改为逐点调用`ContentToView`；图元全部在
+  屏幕坐标中按固定像素绘制，标签避碰基于放大后位置，节点点击使用固定20像素屏幕命中半径。
+- 自动验证：`NetworkResourceManager`重新编译链接；静态门禁、40/40固定测试、44/44 NRM
+  CTest和差异检查通过。AFSIM核心修改数0。
+- 未执行：未重启用户当前Warlock，也未进行本轮VNC人工复核；运行中的进程不会热加载新库。
+- 下一步唯一动作：用户重启Warlock，在密集区域核对放大后节点间距增加、图标/字号/线宽
+  不变，并复核拖动、详情点击和资源测评选点。
+
+### 2026-08-21 16:39 CST — Codex current multi-hop route priority fix
+
+- 唯一目标：修复当前仿真中可达评估被参数化候选直连边覆盖，导致所有主路由看起来都是
+  一跳的问题；继续使用算法路径，不实现运行时报文轨迹回放。
+- 现场证据：最新37节点运行的6条可达评估均选择一跳`CANDIDATE_LINK`；其中
+  `241.127.177.8 -> 241.127.177.2`在同版本快照中实际只有
+  `.8 -> .7 -> .2`两跳当前链路。两跳链路在线但PDR无样本，因此被归为诊断路径。
+- 根因/修复：`AssessmentEvaluator`原先在当前路径不满足硬约束时先选可行候选路径，再回退
+  当前诊断路径。现改为当前图只要可达就优先使用其算法逐跳路径，并通过完成状态和原因码
+  报告约束失败；只有当前图完全不可达时才搜索候选主路由。
+- TDD证据：新增PDR无样本的两跳当前路径与可行候选直连边竞争用例；旧实现按预期在
+  `!canComplete`断言失败，修复后主路由为`source -> relay -> destination`，两跳均为
+  `CURRENT_LINK`且`primaryRouteUsesCandidate=false`。原候选回退用例继续通过。
+- 自动验证：受影响5项测试和Warlock插件构建通过；静态门禁、40/40固定测试、44/44 NRM
+  CTest通过；`cross_domain_gateway_smoke`完成Link-11→SATCOM→CDL两次转发、最终接收和
+  `Simulation complete`。AFSIM核心、公共JSON合同、路径搜索算法和UI绘制代码未修改。
+- 运行边界：真实当前直连路径仍显示一跳；只有真实拓扑为多跳时才显示逐跳。运行中的
+  Warlock不会热加载新库，需用户重启后在37节点场景执行资源测评并人工复核。
+- 下一步唯一动作：重启Warlock，重新评估此前的一跳候选任务，确认主路由显示当前拓扑的
+  `第1跳/第2跳/...`；不提交、不推送，等待用户验收。
+
+### 2026-08-21 17:03 CST — Codex operational Warlock launcher repair
+
+- 唯一目标：修复用户执行综合场景启动命令后VNC没有可用窗口的问题。
+- 复现证据：失败实例的Warlock和两个NRM插件均已运行，180秒仿真生成344版、约606 MB快照，
+  但主窗口/对话框始终`IsUnMapped`且Openbox客户列表为空；恢复默认四网服务后窗口9秒内正常
+  映射，因此VNC、窗口管理器和插件加载链正常。
+- 根因：`run-operational-strike-warlock.sh`仍绑定面向命令行验证的全速`main.txt`，没有使用
+  仓库已有的实时交互入口；`interactive.txt`又遗漏新增`gateways.txt`，只能形成旧25节点场景。
+- TDD/修复：隔离执行真实启动器的测试先捕获到`main.txt`而失败，改用`interactive.txt`后通过；
+  交互场景组合数测试随后先得到25而失败，补入网关文件后得到37并通过。
+- 实机结果：正式命令启动的窗口标题为`operational_strike_demo/interactive.txt`，状态
+  `IsViewable`；仿真以实时1×推进，资源快照包含53端点、108链路和12网关，当前构建目录的
+  UI/WSF两个NRM插件均已映射；180秒保持点后最后完整快照稳定在179.8秒。
+- 路由实机：最大化37节点窗口后，实际选择`airborne_relay`到`gw_l11_l16_reverse`并点击评估；
+  界面主路由为`airborne_relay -> network_control_center -> gw_l11_l16_reverse`，两跳均显示
+  “当前链路”，一跳直连只在备选路由显示“候选链路”。JSONL同步记录两跳`CURRENT_LINK`、
+  `primary_route_uses_candidate=false`和`can_complete=false`。
+- 清理：临时综合场景已通过`Ctrl+C`退出；默认`nrm-warlock.service`恢复为`active`，默认四网
+  窗口为`IsViewable`。
+- 边界：命令行`main.txt`/`validation.txt`及其180秒正常结束合同未改；不提交、不推送。
+- 下一步唯一动作：用户按文档命令重新打开综合场景并自行复核；不提交、不推送，等待用户验收。
+
+### 2026-08-25 — Codex contract acceptance demo UI
+
+- 唯一目标：为非技术甲方录像增加一个纯前端“合同验收演示”入口，按固定顺序展示已有合同
+  能力；不修改AFSIM核心、领域算法、甲方JSON Schema、网关策略或只读控制边界。
+- TDD证据：先新增真实Qt Widgets行为测试，因缺少`NrmAcceptanceDemoPanel.hpp`按预期编译
+  失败；实现后九个动作信号、中文摘要、失败提示、无任意路径输入和零固定最小尺寸全部通过。
+- 实现：新增可滚动演示页并设为默认标签；固定评估/能力示例为
+  `airborne_relay -> gw_l11_l16_reverse`、`LINK16`、0千比特/秒、1000毫秒、0% PDR；规划步骤
+  自动校验和只读推演。综合场景按钮只调用仓库固定场景、规划和切换脚本；当前场景不同时由
+  用户systemd临时单元重启Warlock并恢复规划，不接受UI路径或命令参数。
+- 自动验证：版本升至`0.12.1`；`NetworkResourceManager`编译链接通过，新增面板测试通过，
+  `scripts/ai_guard.sh static`通过，41/41固定测试通过。仅出现AFSIM上游既有Sphinx缺包提示和
+  虚函数隐藏告警，不影响目标构建。
+- 状态：`IMPLEMENTED / PRE_ACCEPTANCE`。未运行120秒完整预验收，也未在用户VNC中人工点击
+  新页面；运行中的Warlock不会热加载新库，需重启后取证。
+- 下一步唯一动作：用户重启Warlock，在VNC中从“合同验收演示”页按九个步骤连续录像，确认
+  固定两跳路由、规划拒绝建议、导航/环境和预验收摘要的视觉结果。
+
+### 2026-08-28 — Codex pre-acceptance test count alignment
+
+- 唯一目标：修复预验收固定测试数已增至41项、网关场景契约测试仍断言40项导致完整回归
+  45/46的问题。
+- 实际修改：将`OperationalGatewayScenarioTest.sh`中的固定测试数契约从40同步为41；更新
+  当前里程碑的本次回归证据。
+- 未修改但发现：AFSIM核心、业务算法、Warlock界面、甲方JSON Schema和验收场景均未修改。
+- 执行命令：失败脚本`bash -x`复现；目标脚本RED/GREEN；`scripts/ai_guard.sh static`；
+  `scripts/ai_guard.sh test`；完整构建树`ctest --output-on-failure`；`git diff --check`。
+- 测试结果：目标网关场景契约测试通过；静态门禁通过；41/41固定测试通过；45/45 NRM
+  CTest及包含1项AFSIM上游测试的完整46/46 CTest通过。
+- 合同追踪键：无状态变化，继续保持`IMPLEMENTED / PRE_ACCEPTANCE`。
+- 阻塞：本轮未运行需要VNC和用户服务的10场景完整预验收；甲方正式接口、设备参数和目标
+  环境阻塞不变。
+- 下一步唯一动作：用户授权后重跑10场景完整预验收；本测试计数问题无需进一步修改。
+### 2026-08-29 — Codex observed link activity animation
+
+- 唯一目标：增强37节点合同录像场景的真实动态展示；不修改AFSIM核心、公共JSON契约、
+  评估/规划算法、网关策略或RF有效性规则。
+- 根因：原场景最后一条业务在150秒，180秒后低速驻留使1秒/10秒窗口无近期样本；态势图
+  只绘制静态链路，没有把真实链路窗口活动转换为动画。
+- TDD：`nrm_ui_scale_test`先因缺少`NrmTacticalActivity.hpp`编译失败；场景契约测试先因缺少
+  `interactive_traffic.txt`失败。实现后两项均通过。
+- 实现：交互入口8–180秒周期发送四网真实消息；近10秒内存在实际发送、接收、转发或比特
+  记录的在线有向链路加亮，并以80毫秒定时器绘制源到目的流动光点。无消息链路不动画，
+  RSSI/SNR/BER等缺失物理量不补零、不伪造。
+- 验证：活动帮助层测试、场景契约测试、Warlock插件编译、静态门禁和41/41固定测试通过；
+  18秒AFSIM实时短跑观察到Link-11、Link-16、SATCOM、CDL四类`LIVE_TRAFFIC`均送达；
+  `operational_strike_demo`确定性场景保持10次网关转发并正常结束。VNC人工动画取证尚未执行。
+- 下一步唯一动作：重启综合场景，在VNC核对四网链路流动光点方向、断链/恢复和180秒驻留
+  画面，然后再录制合同演示视频。
+
+### 2026-08-29 — Codex operator-facing planning and demand presentation
+
+- 唯一目标：降低资源规划和需求匹配页面的技术门槛，使非开发人员能直接理解“有哪些资源、
+  哪些任务需要调整、为什么、建议怎么做”；不修改规划/需求文件、领域算法、甲方JSON Schema、
+  AFSIM核心或只读建议边界。
+- TDD证据：需求明细页签测试先因旧四页接口和缺少`ShowTechnicalEvidence()`编译失败；操作员
+  展示测试先因缺少`NrmOperatorPresentation.hpp`编译失败；中文平台名断言先捕获到原始英文
+  标识。实现后上述用例全部通过。
+- 实际修改：资源规划新增“资源概览”，以人类可读频率、中文路由策略、成员数量和启用状态
+  展示8组分配，原始可编辑表保留为“配置明细”；需求建议将每个需求的多条候选证据聚合成
+  一行“通信任务/结论/建议资源/建议路由/原因说明”，原始记录移到“技术依据”。顶部摘要只
+  显示录像所需信息，完整ID、路径、快照和历史统计保留在工具提示中。
+- 未修改：资源规划加载/保存/校验/只读推演语义、并发评估、推荐生成、文件格式和接口入口。
+- 自动验证：`NetworkResourceManager`、操作员展示测试和需求页签测试编译通过；静态门禁、
+  固定测试、完整CTest、差异检查及`operational_strike_demo`场景均重新执行。
+- VNC证据：实际37节点Warlock显示8行资源概览，频率按225 MHz/1 GHz/20 GHz/15 GHz显示；
+  实际加载12项合同需求并执行匹配后，调整建议为12行任务摘要，列在当前宽度内完整排布且无
+  横向滚动条，主要平台使用中文名称。
+- 合同追踪键：无状态变化，继续保持`IMPLEMENTED / PRE_ACCEPTANCE`。
+- 阻塞：甲方正式字段、参数和目标环境仍需现场对齐；本轮界面简化不新增外部依赖。
+- 下一步唯一动作：按合同验收演示页流程录像，默认使用资源概览和调整建议；需要追溯时切换
+  配置明细和技术依据。
+
+### 2026-08-29 — Codex customer-facing terminology cleanup
+
+- 唯一目标：清理Warlock录像画面中的开发联调用语，避免向验收人员显示“甲方模块数据”、
+  “甲方规则不可用”等不合适称谓；不改变任何内部数据来源、置信度或接口语义。
+- 根因：展示层直接把内部枚举`CUSTOMER_MODULE`翻译为“甲方模块数据”，相同称谓还散落在
+  规划文件选择、加载错误和导航空状态提示中。
+- TDD证据：先将真实UI词典测试改为期望“系统接口数据、参考级、专项规则待配置、外部导航
+  数据”，旧实现按预期在`AFSIM_INTERNAL`断言失败；修改展示词典后定向测试通过。
+- 实际修改：`AFSIM_INTERNAL/CUSTOMER_MODULE/PARAMETERIZED_MODEL`分别显示为“仿真实时数据、
+  系统接口数据、参数化估算”；`HIGH/MEDIUM/LOW`分别显示为“高可信、一般可信、参考级”。
+  Warlock源码中的可见“甲方”称谓已全部替换为中性接口口径。
+- 保持不变：`DataOrigin`、`Confidence`、JSON Schema、文件内容、Reporter原始码、评估/规划
+  算法和AFSIM核心；技术追踪仍可通过内部枚举和JSONL完成。
+- 验证：Warlock插件重新编译；44项固定测试和完整49项CTest通过；37节点合同场景及规划已
+  重新装入用户态Warlock，服务状态为`active/running`，实际窗口映射正常。
+- 下一步唯一动作：用户重新连接VNC，加载合同需求文件并执行匹配，录像画面使用新口径。

@@ -156,6 +156,7 @@ struct CapabilityRequest
    double occupiedBandwidthHz = 0.0;
    bool directionalAntenna = false;
    double headingToleranceDeg = 30.0;
+   bool allowParameterizedMetricFallback = false;
 };
 
 struct CapabilityResult

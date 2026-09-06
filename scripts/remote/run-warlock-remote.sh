@@ -47,14 +47,19 @@ unset QT_QPA_PLATFORM
 if [[ -f "${NRM_SWITCH_REQUEST_FILE}" ]]
 then
    mapfile -t switch_request <"${NRM_SWITCH_REQUEST_FILE}"
-   if [[ "${#switch_request[@]}" -ne 2 || ! -f "${switch_request[0]}" ||
-         ! -f "${switch_request[1]}" ]]
+   if [[ ("${#switch_request[@]}" -ne 2 && "${#switch_request[@]}" -ne 3) ||
+         ! -f "${switch_request[0]}" || ! -f "${switch_request[1]}" ||
+         ("${#switch_request[@]}" -eq 3 && "${switch_request[2]}" != "acceptance") ]]
    then
       echo "Invalid Warlock plan switch request: ${NRM_SWITCH_REQUEST_FILE}" >&2
       exit 1
    fi
    set -- "${switch_request[0]}"
    export NRM_AUTO_PLAN_FILE="${switch_request[1]}"
+   if [[ "${#switch_request[@]}" -eq 3 ]]
+   then
+      export NRM_AUTO_OPEN_PAGE="${switch_request[2]}"
+   fi
    rm -f "${NRM_SWITCH_REQUEST_FILE}"
 fi
 

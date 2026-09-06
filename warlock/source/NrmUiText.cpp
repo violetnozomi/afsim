@@ -22,13 +22,13 @@ const std::unordered_map<std::string, std::string>& Translations()
       {"UNSATISFIED", "不满足"}, {"AVAILABLE", "可用"},
       {"UNAVAILABLE", "不可用"}, {"ONLINE", "在线"},
       {"OFFLINE", "离线"}, {"DISABLED", "已禁用"},
-      {"AFSIM_INTERNAL", "AFSIM内部数据"},
-      {"CUSTOMER_MODULE", "甲方模块数据"},
-      {"REPLAY", "回放数据"},
-      {"PARAMETERIZED_MODEL", "参数化模型"},
+      {"AFSIM_INTERNAL", "仿真实时数据"},
+      {"CUSTOMER_MODULE", "系统接口数据"},
+      {"REPLAY", "历史回放数据"},
+      {"PARAMETERIZED_MODEL", "参数化估算"},
       {"PARAMETERIZED_CANDIDATE", "参数化候选链路"},
-      {"DERIVED", "推导值"}, {"ESTIMATED", "估算值"},
-      {"HIGH", "高"}, {"MEDIUM", "中"}, {"LOW", "低"},
+      {"DERIVED", "计算结果"}, {"ESTIMATED", "估算结果"},
+      {"HIGH", "高可信"}, {"MEDIUM", "一般可信"}, {"LOW", "参考级"},
       {"L0_TOPOLOGY", "L0 拓扑降级"}, {"L1_LINK", "L1 链路降级"},
       {"L2_QUALITY", "L2 质量降级"}, {"L3_RESOURCE", "L3 资源降级"},
       {"LINK11", "Link-11"}, {"LINK16", "Link-16"},
@@ -161,7 +161,7 @@ const std::unordered_map<std::string, std::string>& Translations()
       {"PLAN_IDENTITY_MISMATCH", "规划标识不匹配"},
       {"PLAN_EVIDENCE_MISMATCH", "规划证据不匹配"},
       {"CONFIG_VERSION_MISMATCH", "配置版本不匹配"},
-      {"CUSTOMER_RULE_UNAVAILABLE", "甲方规则不可用"},
+      {"CUSTOMER_RULE_UNAVAILABLE", "专项规则待配置"},
       {"ADAPTER_UNAVAILABLE", "适配器不可用"},
       {"ATOMIC_RENAME_FAILED", "文件原子改名失败"},
       {"CHANGE_CONFLICT", "规划变更冲突"},
@@ -241,9 +241,20 @@ std::string WkNrm::UiText::TranslateListWithRaw(const std::string& aCodes)
    return output.str();
 }
 
+std::string WkNrm::UiText::FormatPlanPathSource(
+   bool aPathAvailable,
+   bool aUsesCandidate,
+   bool aUsesParameterizedMetrics)
+{
+   if (!aPathAvailable) return "不可用";
+   if (aUsesCandidate) return "参数化候选模型 / 低置信度";
+   if (aUsesParameterizedMetrics) return "当前网络 / 参数补全（低置信度）";
+   return "当前网络";
+}
+
 std::string WkNrm::UiText::NavigationEmptyState()
 {
-   return "当前场景未配置导航误差模型，或尚未收到甲方导航数据。";
+   return "当前场景未配置导航误差模型，或尚未收到外部导航数据。";
 }
 
 std::string WkNrm::UiText::FormatAssessmentRouteHop(const nrm::AssessmentRouteHop& aHop)

@@ -218,6 +218,12 @@ private:
       request.maximumDelayMs = aDemand.maximumDelayMs;
       request.minimumPdrPercent = aDemand.minimumPdrPercent;
       request.allowedNetworks = aDemand.allowedNetworks;
+      // Contract/demo demand files explicitly marked as parameterized models
+      // may use profile capacity/PDR estimates when the current AFSIM window
+      // has no measured traffic yet. Customer and direct-observation inputs
+      // remain strict and never receive this fallback implicitly.
+      request.allowParameterizedMetricFallback =
+         aDemand.source == DataOrigin::cPARAMETERIZED_MODEL;
       return request;
    }
 

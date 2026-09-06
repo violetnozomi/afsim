@@ -3,7 +3,7 @@
 set -euo pipefail
 
 readonly ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-readonly SCENARIO="${ROOT}/test_mission/operational_strike_demo/main.txt"
+readonly SCENARIO="${ROOT}/test_mission/operational_strike_demo/interactive.txt"
 service_was_active=false
 
 restore_default_service() {

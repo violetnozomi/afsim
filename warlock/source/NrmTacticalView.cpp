@@ -17,6 +17,7 @@
 #include <QWheelEvent>
 
 #include "nrm/NetworkTypeUtils.hpp"
+#include "NrmTacticalActivity.hpp"
 #include "NrmUiScale.hpp"
 #include "NrmUiText.hpp"
 
@@ -177,6 +178,16 @@ WkNrm::TacticalView::TacticalView(DataContainer& aData, QWidget* aParentPtr)
    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
    connect(&mData, &DataContainer::SnapshotChanged, this, qOverload<>(&QWidget::update));
    connect(&mData, &DataContainer::AssessmentChanged, this, qOverload<>(&QWidget::update));
+   mAnimationTimer.setInterval(80);
+   connect(&mAnimationTimer, &QTimer::timeout, this, [this]()
+   {
+      ++mAnimationFrame;
+      if (RecentLinkActivityCount(mData.GetSnapshot().links) > 0)
+      {
+         update();
+      }
+   });
+   mAnimationTimer.start();
 }
 
 void WkNrm::TacticalView::BeginAssessmentSelection(int aTarget)
@@ -303,9 +314,8 @@ void WkNrm::TacticalView::HandlePlatformClick(const QPointF& aViewPosition)
       return;
    }
 
-   const QPointF contentPosition = mViewport.ViewToContent(aViewPosition);
    const std::string platformName =
-      HitTestPlatform(mHitRegions, contentPosition.x(), contentPosition.y());
+      HitTestPlatform(mHitRegions, aViewPosition.x(), aViewPosition.y());
    const TacticalSelectionAssignment assignment =
       ApplyPlatformClick(mSelectionState, platformName);
    if (!platformName.empty())
@@ -361,10 +371,12 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
                        .arg(snapshot.snapshotVersion)
                        .arg(snapshot.simTime, 0, 'f', 1));
 
-   const QString summary = QString::fromUtf8("%1 网络   %2 平台   %3 链路   %4 网关能力")
+   const std::size_t activeLinkCount = RecentLinkActivityCount(snapshot.links);
+   const QString summary = QString::fromUtf8("%1 网络   %2 平台   %3 链路   %4 活动   %5 网关能力")
                               .arg(snapshot.networks.size())
                               .arg(platformNames.size())
                               .arg(snapshot.links.size())
+                              .arg(activeLinkCount)
                               .arg(snapshot.gateways.size());
    const qreal summaryWidth = painter.fontMetrics().horizontalAdvance(summary) + 24.0;
    const QRectF summaryRect(viewRect.width() - summaryWidth - 24.0, 16.0, summaryWidth, 30.0);
@@ -408,7 +420,8 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
    const double latSpan = maxLat - minLat;
    const double lonSpan = maxLon - minLon;
 
-   std::map<std::string, QPointF> points;
+   std::map<std::string, QPointF> contentPoints;
+   std::map<std::string, QPointF> viewPoints;
    std::map<std::string, const nrm::EndpointSnapshot*> endpoints;
    for (const auto& endpoint : snapshot.endpoints)
    {
@@ -420,33 +433,39 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
                       (endpoint.longitudeDeg.value - minLon) / lonSpan * plotRect.width();
       const qreal y = plotRect.bottom() -
                       (endpoint.latitudeDeg.value - minLat) / latSpan * plotRect.height();
-      points[endpoint.endpointId] = QPointF(x, y);
+      const QPointF contentPoint(x, y);
+      contentPoints[endpoint.endpointId] = contentPoint;
+      viewPoints[endpoint.endpointId] = mViewport.ContentToView(contentPoint);
       endpoints[endpoint.endpointId] = &endpoint;
    }
 
    painter.save();
    painter.setClipRect(plotRect.adjusted(1.0, 1.0, -1.0, -1.0));
-   painter.setTransform(mViewport.Transform(), true);
    painter.setPen(QPen(QColor(42, 66, 91, 115), 1.0));
    for (int i = 0; i <= 10; ++i)
    {
       const qreal x = plotRect.left() + plotRect.width() * i / 10.0;
       const qreal y = plotRect.top() + plotRect.height() * i / 10.0;
-      painter.drawLine(QPointF(x, plotRect.top()), QPointF(x, plotRect.bottom()));
-      painter.drawLine(QPointF(plotRect.left(), y), QPointF(plotRect.right(), y));
+      painter.drawLine(mViewport.ContentToView(QPointF(x, plotRect.top())),
+                       mViewport.ContentToView(QPointF(x, plotRect.bottom())));
+      painter.drawLine(mViewport.ContentToView(QPointF(plotRect.left(), y)),
+                       mViewport.ContentToView(QPointF(plotRect.right(), y)));
    }
 
+   std::size_t activeLinkOrdinal = 0;
    for (const auto& link : snapshot.links)
    {
-      const auto sourceIt = points.find(link.sourceEndpointId);
-      const auto destinationIt = points.find(link.destinationEndpointId);
-      if (sourceIt == points.end() || destinationIt == points.end())
+      const auto sourceIt = viewPoints.find(link.sourceEndpointId);
+      const auto destinationIt = viewPoints.find(link.destinationEndpointId);
+      if (sourceIt == viewPoints.end() || destinationIt == viewPoints.end())
       {
          continue;
       }
+      const bool active = HasRecentLinkActivity(link);
       QColor linkColor = NetworkColor(link.networkType);
-      linkColor.setAlpha(155);
-      QPen linkPen(linkColor, link.networkType == nrm::NetworkType::cCDL ? 2.8 : 1.8);
+      linkColor.setAlpha(active ? 235 : 125);
+      const qreal baseWidth = link.networkType == nrm::NetworkType::cCDL ? 2.8 : 1.8;
+      QPen linkPen(linkColor, active ? baseWidth + 1.3 : baseWidth);
       linkPen.setCapStyle(Qt::RoundCap);
       if (link.networkType == nrm::NetworkType::cLINK11)
       {
@@ -458,15 +477,37 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
       }
       painter.setPen(linkPen);
       painter.drawLine(sourceIt->second, destinationIt->second);
+
+      if (active)
+      {
+         const QPointF direction = destinationIt->second - sourceIt->second;
+         for (std::size_t particle = 0; particle < 3; ++particle)
+         {
+            const double phase = LinkActivityPhase(
+               mAnimationFrame, activeLinkOrdinal * 3U + particle);
+            const QPointF particlePoint = sourceIt->second + direction * phase;
+            QColor glow = NetworkColor(link.networkType);
+            glow.setAlpha(70);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(glow);
+            painter.drawEllipse(particlePoint, 7.0, 7.0);
+            painter.setBrush(NetworkColor(link.networkType));
+            painter.drawEllipse(particlePoint, 3.0, 3.0);
+         }
+         ++activeLinkOrdinal;
+      }
    }
 
    std::map<std::string, QPointF> platformPoints;
+   std::map<std::string, QPointF> platformContentPoints;
    std::map<std::string, std::vector<nrm::NetworkType>> platformNetworks;
    std::map<std::string, std::vector<const nrm::GatewayResourceState*>>
       platformGateways;
    for (const auto& endpointEntry : endpoints)
    {
-      platformPoints[endpointEntry.second->platformName] = points[endpointEntry.first];
+      platformPoints[endpointEntry.second->platformName] = viewPoints[endpointEntry.first];
+      platformContentPoints[endpointEntry.second->platformName] =
+         contentPoints[endpointEntry.first];
       auto& networkTypes = platformNetworks[endpointEntry.second->platformName];
       if (std::find(networkTypes.begin(), networkTypes.end(), endpointEntry.second->networkType) ==
           networkTypes.end())
@@ -536,6 +577,7 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
    {
       const std::string& platformName = platformEntry.first;
       const QPointF point = platformEntry.second;
+      const QPointF contentPoint = platformContentPoints[platformName];
       mHitRegions.push_back({platformName, point.x(), point.y(), 20.0});
       const std::vector<nrm::NetworkType>& networks = platformNetworks[platformName];
       const nrm::NetworkType primaryType =
@@ -547,24 +589,24 @@ void WkNrm::TacticalView::paintEvent(QPaintEvent*)
       if (platformName == mSelectionState.sourcePlatform)
       {
          painter.setPen(QPen(QColor("#39d98a"), 3.0, Qt::DashLine));
-         painter.drawEllipse(point, 22.0, 22.0);
+         painter.drawEllipse(mViewport.FixedElementRect(contentPoint, QSizeF(44.0, 44.0)));
       }
       if (platformName == mSelectionState.destinationPlatform)
       {
          painter.setPen(QPen(QColor("#ff9f43"), 3.0, Qt::DashLine));
-         painter.drawEllipse(point, 26.0, 26.0);
+         painter.drawEllipse(mViewport.FixedElementRect(contentPoint, QSizeF(52.0, 52.0)));
       }
       if (platformName == mSelectionState.selectedPlatform)
       {
          painter.setPen(QPen(QColor("#f8e16c"), 2.0));
-         painter.drawEllipse(point, 30.0, 30.0);
+         painter.drawEllipse(mViewport.FixedElementRect(contentPoint, QSizeF(60.0, 60.0)));
       }
 
       QColor glowColor = color;
       glowColor.setAlpha(34);
       painter.setPen(Qt::NoPen);
       painter.setBrush(glowColor);
-      painter.drawEllipse(point, 17.0, 17.0);
+      painter.drawEllipse(mViewport.FixedElementRect(contentPoint, QSizeF(34.0, 34.0)));
       painter.setPen(QPen(color, 2.0));
       painter.setBrush(QColor(color.red(), color.green(), color.blue(), 105));
 

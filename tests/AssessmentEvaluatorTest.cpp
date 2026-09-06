@@ -137,6 +137,32 @@ int main()
    assert(passed.reliabilityMarginPercent.value > 0.2);
    assert(passed.reasons.empty());
 
+   // Regression: a reachable current route remains the primary route even
+   // when missing observations make it fail a hard constraint.  A synthetic
+   // direct candidate must not replace the real two-hop topology.
+   nrm::ResourceSnapshot currentPrioritySnapshot = snapshot;
+   for (nrm::LinkSnapshot& link : currentPrioritySnapshot.links)
+   {
+      link.windows.front().pdrPercent.valid = false;
+   }
+   nrm::AssessmentTask currentPriorityTask = task;
+   currentPriorityTask.taskId = "TASK-CURRENT-ROUTE-PRIORITY";
+   currentPriorityTask.requiredBandwidthBps = 0.0;
+   currentPriorityTask.maximumDelayMs = 1000.0;
+   const nrm::AssessmentResult currentPriority =
+      evaluator.Evaluate(currentPrioritySnapshot, currentPriorityTask);
+   assert(currentPriority.reachable);
+   assert(currentPriority.canEstablish);
+   assert(!currentPriority.canComplete);
+   assert(!currentPriority.primaryRouteUsesCandidate);
+   assert((currentPriority.primaryRoute ==
+           std::vector<std::string>{"source", "relay", "destination"}));
+   assert(currentPriority.primaryRouteHops.size() == 2);
+   assert(currentPriority.primaryRouteHops[0].kind ==
+          nrm::AssessmentRouteHopKind::cCURRENT_LINK);
+   assert(currentPriority.primaryRouteHops[1].kind ==
+          nrm::AssessmentRouteHopKind::cCURRENT_LINK);
+
    nrm::ResourceSnapshot delayUnconstrainedSnapshot = snapshot;
    for (nrm::LinkSnapshot& link : delayUnconstrainedSnapshot.links)
       link.windows.front().averageTransportDelayMs.valid = false;

@@ -46,6 +46,10 @@ public:
    bool HasPlanCoordination() const { return mHasPlanCoordination; }
    bool HasResourceDemandSet() const { return mDemandRepository.HasCurrentDemandSet(); }
    bool HasDemandMatching() const { return mHasDemandMatching; }
+   bool HasDemandMatchingHistory() const
+   {
+      return !mDemandMatching.results.empty();
+   }
    const nrm::NetworkPlanDocument* GetNetworkPlan() const
    {
       return mPlanRepository.GetCurrentPlan();
@@ -98,6 +102,10 @@ public:
    const nrm::ModelRegistryResult& GetModelRegistration() const
    {
       return mModelRegistration;
+   }
+   const nrm::NetworkProfileRepository& GetNetworkProfiles() const
+   {
+      return mProfiles;
    }
    nrm::CustomerNrmAdapter& GetCustomerNrmAdapter()
    {

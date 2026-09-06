@@ -22,6 +22,8 @@ public:
 
    QPointF ContentToView(const QPointF& aContentPoint) const;
    QPointF ViewToContent(const QPointF& aViewPoint) const;
+   QRectF FixedElementRect(const QPointF& aContentCenter,
+                           const QSizeF& aViewSize) const;
    QTransform Transform() const;
    int ScalePercent() const;
 

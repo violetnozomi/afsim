@@ -1,6 +1,9 @@
 #ifndef NRM_TACTICAL_VIEW_HPP
 #define NRM_TACTICAL_VIEW_HPP
 
+#include <cstdint>
+
+#include <QTimer>
 #include <QWidget>
 
 #include "NrmDataContainer.hpp"
@@ -45,6 +48,8 @@ private:
    QRectF                         mDetailsRect;
    QPointF                        mPressPosition;
    QPointF                        mLastDragPosition;
+   QTimer                         mAnimationTimer;
+   std::uint64_t                  mAnimationFrame = 0;
    bool                           mLeftButtonPressed = false;
    bool                           mDraggingView = false;
 };

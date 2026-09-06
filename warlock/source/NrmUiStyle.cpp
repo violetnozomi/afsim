@@ -46,6 +46,25 @@ QString StyleSheet()
          color: #8fa8c5;
          font-size: @HERO_SUBTITLE_FONT@pt;
       }
+      QLabel#acceptanceTitle {
+         color: #f5f9ff;
+         font-size: @HERO_TITLE_FONT@pt;
+         font-weight: 700;
+      }
+      QLabel#acceptanceSubtitle,
+      QLabel#AcceptanceStepDescription {
+         color: #8fa8c5;
+      }
+      QLabel#AcceptanceStepTitle {
+         color: #dff3ff;
+         font-weight: 650;
+      }
+      QFrame#AcceptanceSummaryCard,
+      QFrame#AcceptanceStepCard {
+         background: #101a2b;
+         border: 1px solid #22324a;
+         border-radius: @CARD_RADIUS@px;
+      }
       QFrame#NrmMetricCard {
          background: #101a2b;
          border: 1px solid #22324a;

@@ -47,9 +47,64 @@ NRM_TEST_SYSTEMCTL_LOG="${SYSTEMCTL_LOG}" \
 "${SWITCH_SCRIPT}" "${SCENARIO}" "${PLAN}"
 
 mapfile -t REQUEST_LINES <"${REQUEST}"
+[[ "${#REQUEST_LINES[@]}" -eq 2 ]]
 [[ "${REQUEST_LINES[0]}" == "${SCENARIO}" ]]
 [[ "${REQUEST_LINES[1]}" == "${PLAN}" ]]
 grep -qx -- '--user restart nrm-warlock.service' "${SYSTEMCTL_LOG}"
+
+# Acceptance launches still preload the fixed plan, but must restore the
+# acceptance workflow instead of opening the plan page after Warlock restarts.
+rm -f "${REQUEST}"
+NRM_SWITCH_REQUEST_FILE="${REQUEST}" \
+NRM_SYSTEMCTL_COMMAND="${TEMP_ROOT}/systemctl" \
+NRM_TEST_SYSTEMCTL_LOG="${SYSTEMCTL_LOG}" \
+"${SWITCH_SCRIPT}" "${SCENARIO}" "${PLAN}" acceptance
+
+mapfile -t REQUEST_LINES <"${REQUEST}"
+[[ "${#REQUEST_LINES[@]}" -eq 3 ]]
+[[ "${REQUEST_LINES[0]}" == "${SCENARIO}" ]]
+[[ "${REQUEST_LINES[1]}" == "${PLAN}" ]]
+[[ "${REQUEST_LINES[2]}" == acceptance ]]
+
+# Exercise the managed launcher with a controlled Warlock executable. The
+# one-shot request must become both the mission argument and startup-page
+# environment consumed by the in-process plugin.
+FAKE_AFSIM_SOURCE="${TEMP_ROOT}/afsim-source"
+FAKE_AFSIM_BUILD="${TEMP_ROOT}/afsim-build"
+FAKE_RESOURCES="${TEMP_ROOT}/resources"
+FAKE_REMOTE_ROOT="${TEMP_ROOT}/remote"
+WARLOCK_LOG="${TEMP_ROOT}/warlock.log"
+mkdir -p "${FAKE_AFSIM_SOURCE}" "${FAKE_AFSIM_BUILD}" \
+   "${FAKE_RESOURCES}/maps" "${TEMP_ROOT}/bin"
+cat >"${FAKE_AFSIM_BUILD}/warlock" <<'EOF'
+#!/usr/bin/env bash
+printf 'plan=%s\npage=%s\nmission=%s\n' \
+   "${NRM_AUTO_PLAN_FILE:-}" "${NRM_AUTO_OPEN_PAGE:-}" "${1:-}" \
+   >"${NRM_TEST_WARLOCK_LOG}"
+EOF
+chmod +x "${FAKE_AFSIM_BUILD}/warlock"
+cat >"${TEMP_ROOT}/bin/xdpyinfo" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "${TEMP_ROOT}/bin/xdpyinfo"
+
+PATH="${TEMP_ROOT}/bin:${PATH}" \
+AFSIM_SOURCE="${FAKE_AFSIM_SOURCE}" \
+AFSIM_BUILD="${FAKE_AFSIM_BUILD}" \
+AFSIM_RESOURCE_ROOT="${FAKE_RESOURCES}" \
+NRM_SOURCE="${ROOT}" \
+NRM_REMOTE_ROOT="${FAKE_REMOTE_ROOT}" \
+NRM_SWITCH_REQUEST_FILE="${REQUEST}" \
+NRM_OUTPUT_DIR="${TEMP_ROOT}/launcher-output" \
+NRM_TEST_WARLOCK_LOG="${WARLOCK_LOG}" \
+DISPLAY=:99 \
+"${LAUNCH_SCRIPT}"
+
+grep -qx "plan=${PLAN}" "${WARLOCK_LOG}"
+grep -qx 'page=acceptance' "${WARLOCK_LOG}"
+grep -qx "mission=${SCENARIO}" "${WARLOCK_LOG}"
+[[ ! -e "${REQUEST}" ]]
 
 # A failed restart must not leave a request that the next service start could
 # consume accidentally.

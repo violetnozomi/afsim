@@ -203,7 +203,9 @@ int main()
       assert(!effect.valid);
       assert(effect.reason == nrm::CapabilityReason::cENVIRONMENT_DATA_UNAVAILABLE);
    }
-   assert(HasReason(current, nrm::CapabilityReason::cENVIRONMENT_DATA_UNAVAILABLE));
+   // Missing optional environment domains remain visible as evidence, but do
+   // not invalidate an already observed current path.
+   assert(!HasReason(current, nrm::CapabilityReason::cENVIRONMENT_DATA_UNAVAILABLE));
    assert(snapshot.snapshotVersion == versionBefore);
    assert(snapshot.endpoints.size() == endpointCountBefore);
    assert(snapshot.links.size() == linkCountBefore);

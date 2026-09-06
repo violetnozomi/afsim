@@ -206,6 +206,31 @@ int main()
    assert(repository.LastLoadResult().reason ==
           nrm::ResourceDemandReason::cDUPLICATE_DEMAND_ID);
 
+   nrm::ResourceDemandRepository acceptanceRepository;
+   const std::string acceptancePath =
+      std::string(NRM_SOURCE_DIR) +
+      "/data/resource_demands/contract_acceptance_37node-r1.demand";
+   assert(acceptanceRepository.LoadFromFile(acceptancePath));
+   const nrm::ResourceDemandSet& acceptanceSet =
+      *acceptanceRepository.GetCurrentDemandSet();
+   assert(acceptanceSet.demandSetId == "contract-acceptance-37node-demands");
+   assert(acceptanceSet.demands.size() == 12);
+   bool hasLink11 = false;
+   bool hasLink16 = false;
+   bool hasSatcom = false;
+   bool hasCdl = false;
+   for (const nrm::ResourceDemand& demand : acceptanceSet.demands)
+   {
+      for (nrm::NetworkType network : demand.allowedNetworks)
+      {
+         hasLink11 = hasLink11 || network == nrm::NetworkType::cLINK11;
+         hasLink16 = hasLink16 || network == nrm::NetworkType::cLINK16;
+         hasSatcom = hasSatcom || network == nrm::NetworkType::cSATCOM;
+         hasCdl = hasCdl || network == nrm::NetworkType::cCDL;
+      }
+   }
+   assert(hasLink11 && hasLink16 && hasSatcom && hasCdl);
+
    const std::string files[] = {
       inputPath, roundTripPath, badMagic, unknown, trailing, invalidNumeric};
    for (const std::string& path : files) std::remove(path.c_str());

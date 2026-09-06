@@ -9,6 +9,8 @@ target_include_directories(NetworkResourceManager PRIVATE
 )
 
 target_sources(NetworkResourceManager PRIVATE
+   NrmAcceptanceDemoPanel.cpp
+   NrmAcceptanceDemoPanel.hpp
    NrmUiScale.cpp
    NrmUiScale.hpp
    NrmUiStyle.cpp
@@ -17,10 +19,19 @@ target_sources(NetworkResourceManager PRIVATE
    NrmUiText.hpp
    NrmCustomerJsonCodec.cpp
    NrmCustomerJsonCodec.hpp
+   NrmDemandDetailTabs.cpp
+   NrmDemandDetailTabs.hpp
+   NrmOperatorPresentation.cpp
+   NrmOperatorPresentation.hpp
+   NrmOperationalDetailTabs.cpp
+   NrmOperationalDetailTabs.hpp
    NrmPreacceptanceStatusMonitor.cpp
    NrmPreacceptanceStatusMonitor.hpp
+   NrmPlanScenarioBinding.cpp
+   NrmPlanScenarioBinding.hpp
    NrmSnapshotReporter.cpp
    NrmSnapshotReporter.hpp
+   NrmTacticalActivity.hpp
    NrmTacticalSelection.cpp
    NrmTacticalSelection.hpp
    NrmTacticalViewport.cpp

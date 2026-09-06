@@ -52,13 +52,23 @@ public:
          return recommendations;
       }
 
-      RecommendFrequency(aPlanPtr, aCandidatesPtr, recommendations[0]);
-      RecommendStation(aCandidatesPtr, recommendations[1]);
-      RecommendUnoccupied(RecommendationType::cCHANNEL, aCandidatesPtr,
-                          recommendations[2]);
-      RecommendSubnet(aDemand, aCandidatesPtr, recommendations[3]);
-      RecommendUnoccupied(RecommendationType::cTIMESLOT, aCandidatesPtr,
-                          recommendations[4]);
+      if (aCandidatesPtr == nullptr && aPlanPtr != nullptr)
+      {
+         // A separately supplied candidate set has higher authority. When it
+         // is absent, expose only resources explicitly present in the loaded
+         // plan as low-confidence suggestions; never invent an alternative.
+         RecommendFromPlan(aDemand, *aPlanPtr, recommendations);
+      }
+      else
+      {
+         RecommendFrequency(aPlanPtr, aCandidatesPtr, recommendations[0]);
+         RecommendStation(aCandidatesPtr, recommendations[1]);
+         RecommendUnoccupied(RecommendationType::cCHANNEL, aCandidatesPtr,
+                             recommendations[2]);
+         RecommendSubnet(aDemand, aCandidatesPtr, recommendations[3]);
+         RecommendUnoccupied(RecommendationType::cTIMESLOT, aCandidatesPtr,
+                             recommendations[4]);
+      }
       RecommendRoute(aMatch, recommendations[5]);
       return recommendations;
    }
@@ -158,6 +168,133 @@ private:
       std::ostringstream output;
       output << std::setprecision(17) << aValue;
       return output.str();
+   }
+
+   static bool NetworkAllowed(const ResourceDemand& aDemand,
+                              NetworkType aNetworkType)
+   {
+      return aDemand.allowedNetworks.empty() ||
+             std::find(aDemand.allowedNetworks.begin(),
+                       aDemand.allowedNetworks.end(), aNetworkType) !=
+                aDemand.allowedNetworks.end();
+   }
+
+   static bool ContainsMember(const NetworkPlanAllocation& aAllocation,
+                              const std::string& aPlatformId)
+   {
+      return std::find(aAllocation.memberPlatformIds.begin(),
+                       aAllocation.memberPlatformIds.end(), aPlatformId) !=
+             aAllocation.memberPlatformIds.end();
+   }
+
+   const NetworkPlanAllocation* FindPlanAllocation(
+      const ResourceDemand& aDemand,
+      const NetworkPlanDocument& aPlan) const
+   {
+      const NetworkPlanAllocation* selected = nullptr;
+      int selectedScore = -1;
+      for (const NetworkPlanAllocation& allocation : aPlan.allocations)
+      {
+         if (!allocation.enabled || !NetworkAllowed(aDemand, allocation.networkType))
+            continue;
+         const NetworkProfile* profile = FindProfile(allocation);
+         if (profile == nullptr ||
+             !NetworkProfileRepository::SupportsBusiness(*profile,
+                                                         aDemand.businessType))
+            continue;
+         const int score =
+            (ContainsMember(allocation, aDemand.sourcePlatform) ? 1 : 0) +
+            (ContainsMember(allocation, aDemand.destinationPlatform) ? 1 : 0);
+         if (selected == nullptr || score > selectedScore ||
+             (score == selectedScore &&
+              allocation.allocationId < selected->allocationId))
+         {
+            selected = &allocation;
+            selectedScore = score;
+         }
+      }
+      return selected;
+   }
+
+   static void SelectPlanValue(RecommendationType aType,
+                               const std::string& aValue,
+                               const NetworkPlanDocument& aPlan,
+                               const NetworkPlanAllocation& aAllocation,
+                               const NetworkProfile& aProfile,
+                               PlanningRecommendation& aRecommendation)
+   {
+      aRecommendation.status = RecommendationStatus::cAVAILABLE;
+      aRecommendation.candidateId =
+         "plan:" + aAllocation.allocationId + ":" + ToString(aType);
+      aRecommendation.value = aValue;
+      aRecommendation.rank = 1;
+      aRecommendation.reason = ResourceDemandReason::cNONE;
+      aRecommendation.source = aPlan.source;
+      // This is a documented plan-derived fallback, not a measured free-resource
+      // scan. Keep confidence low even when the source document says otherwise.
+      aRecommendation.confidence = Confidence::cLOW;
+      aRecommendation.evidence.push_back("candidateSource=LOADED_PLAN");
+      aRecommendation.evidence.push_back("allocationId=" +
+                                         aAllocation.allocationId);
+      aRecommendation.evidence.push_back("profileId=" + aProfile.profileId);
+   }
+
+   void RecommendFromPlan(
+      const ResourceDemand& aDemand,
+      const NetworkPlanDocument& aPlan,
+      std::vector<PlanningRecommendation>& aRecommendations) const
+   {
+      if (!mProfiles.Valid())
+      {
+         for (std::size_t index : {std::size_t(0), std::size_t(2),
+                                   std::size_t(3), std::size_t(4)})
+            aRecommendations[index].reason =
+               ResourceDemandReason::cPROFILE_CONFIG_INVALID;
+         aRecommendations[1].reason =
+            ResourceDemandReason::cCANDIDATE_DATA_UNAVAILABLE;
+         return;
+      }
+      const NetworkPlanAllocation* allocation =
+         FindPlanAllocation(aDemand, aPlan);
+      const NetworkProfile* profile =
+         allocation == nullptr ? nullptr : FindProfile(*allocation);
+      if (allocation == nullptr || profile == nullptr)
+      {
+         for (std::size_t index = 0; index < 5; ++index)
+            aRecommendations[index].reason =
+               ResourceDemandReason::cCANDIDATE_DATA_UNAVAILABLE;
+         return;
+      }
+
+      if (std::isfinite(allocation->frequencyHz) &&
+          allocation->frequencyHz > 0.0 &&
+          FrequencySupported(*profile, allocation->frequencyHz))
+      {
+         SelectPlanValue(RecommendationType::cFREQUENCY,
+                         Number(allocation->frequencyHz), aPlan, *allocation,
+                         *profile, aRecommendations[0]);
+      }
+      else
+      {
+         aRecommendations[0].reason =
+            ResourceDemandReason::cPROFILE_CONFIG_INVALID;
+      }
+
+      // A station recommendation requires an evaluated alternative path, which
+      // the plan document alone cannot prove.
+      aRecommendations[1].reason =
+         ResourceDemandReason::cCANDIDATE_DATA_UNAVAILABLE;
+
+      if (!allocation->channelId.empty())
+         SelectPlanValue(RecommendationType::cCHANNEL, allocation->channelId,
+                         aPlan, *allocation, *profile, aRecommendations[2]);
+      if (!allocation->subnetId.empty())
+         SelectPlanValue(RecommendationType::cSUBNET, allocation->subnetId,
+                         aPlan, *allocation, *profile, aRecommendations[3]);
+      if (!allocation->slotIds.empty() && !allocation->slotIds.front().empty())
+         SelectPlanValue(RecommendationType::cTIMESLOT,
+                         allocation->slotIds.front(), aPlan, *allocation,
+                         *profile, aRecommendations[4]);
    }
 
    static void Select(const PlanningResourceCandidate& aCandidate,

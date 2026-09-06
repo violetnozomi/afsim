@@ -1,0 +1,139 @@
+# NRM 37节点合同验收资源规划文件
+# 适用场景：test_mission/operational_strike_demo/interactive.txt
+# 规模口径：25个业务平台 + 12个跨域网关 = 37个协作平台。
+# 用途：合同验收演示中的四网资源分配、并发需求、动态变更和规划建议。
+# 加载入口：Warlock -> 网络资源管理器 -> 资源规划 -> 加载
+# NRM_SCENARIO "test_mission/operational_strike_demo/interactive.txt"
+NRM_NETWORK_PLAN_V1 "contract-acceptance-37node" 1 "demo-0.7.0" "nrm-contract-acceptance" "2026-08-29T14:30:00+08:00" DRAFT PARAMETERIZED_MODEL LOW 1 "" 0
+
+# Link-11北部协调资源池，同时纳入6个具有Link-11端点的跨域网关。
+ALLOCATION "l11-north" "nrm_link11_coordination" LINK11 "demo-link11-v1" 225000000 "L11-CH-N" "L11-NORTH" "controlled-polling" 1
+MEMBER "l11-north" "link11_control_station"
+MEMBER "l11-north" "link11_sensor_hub"
+MEMBER "l11-north" "link11_relay_north"
+MEMBER "l11-north" "link11_station_north"
+MEMBER "l11-north" "link11_air_relay"
+MEMBER "l11-north" "gw_l11_l16_forward"
+MEMBER "l11-north" "gw_l11_l16_reverse"
+MEMBER "l11-north" "gw_l11_satcom_forward"
+MEMBER "l11-north" "gw_l11_satcom_reverse"
+MEMBER "l11-north" "gw_l11_cdl_forward"
+MEMBER "l11-north" "gw_l11_cdl_reverse"
+SLOT "l11-north" "poll-n-01"
+SLOT "l11-north" "poll-n-02"
+SLOT "l11-north" "poll-n-03"
+
+# Link-11南部协调资源池。
+ALLOCATION "l11-south" "nrm_link11_coordination" LINK11 "demo-link11-v1" 225000000 "L11-CH-S" "L11-SOUTH" "controlled-polling" 1
+MEMBER "l11-south" "link11_control_station"
+MEMBER "l11-south" "link11_service_node"
+MEMBER "l11-south" "link11_relay_south"
+MEMBER "l11-south" "link11_station_south"
+SLOT "l11-south" "poll-s-01"
+SLOT "l11-south" "poll-s-02"
+SLOT "l11-south" "poll-s-03"
+
+# Link-16主战术资源池，同时纳入6个具有Link-16端点的跨域网关。
+ALLOCATION "l16-primary" "nrm_link16_tactical" LINK16 "demo-link16-v1" 1000000000 "L16-NPG-01" "L16-PRIMARY" "lowest-delay" 1
+MEMBER "l16-primary" "network_control_center"
+MEMBER "l16-primary" "airborne_relay"
+MEMBER "l16-primary" "mission_aircraft_1"
+MEMBER "l16-primary" "mission_aircraft_2"
+MEMBER "l16-primary" "relay_aircraft_1"
+MEMBER "l16-primary" "mobile_command"
+MEMBER "l16-primary" "gw_l11_l16_forward"
+MEMBER "l16-primary" "gw_l11_l16_reverse"
+MEMBER "l16-primary" "gw_l16_satcom_forward"
+MEMBER "l16-primary" "gw_l16_satcom_reverse"
+MEMBER "l16-primary" "gw_l16_cdl_forward"
+MEMBER "l16-primary" "gw_l16_cdl_reverse"
+SLOT "l16-primary" "slot-p-001"
+SLOT "l16-primary" "slot-p-002"
+SLOT "l16-primary" "slot-p-003"
+SLOT "l16-primary" "slot-p-004"
+
+# Link-16保障资源池。
+ALLOCATION "l16-support" "nrm_link16_tactical" LINK16 "demo-link16-v1" 1000000000 "L16-NPG-02" "L16-SUPPORT" "stable-relay" 1
+MEMBER "l16-support" "network_control_center"
+MEMBER "l16-support" "airborne_relay"
+MEMBER "l16-support" "relay_aircraft_2"
+MEMBER "l16-support" "spectrum_monitor_aircraft"
+MEMBER "l16-support" "support_aircraft"
+SLOT "l16-support" "slot-s-001"
+SLOT "l16-support" "slot-s-002"
+SLOT "l16-support" "slot-s-003"
+
+# 卫通主用资源池，同时纳入6个具有卫通端点的跨域网关。
+ALLOCATION "sat-primary" "nrm_satcom_command" SATCOM "demo-satcom-v1" 20000000000 "SAT-BEAM-01" "SAT-PRIMARY" "satellite-primary" 1
+MEMBER "sat-primary" "regional_command"
+MEMBER "sat-primary" "sat_relay_1"
+MEMBER "sat-primary" "network_control_center"
+MEMBER "sat-primary" "data_processing_center"
+MEMBER "sat-primary" "gw_l11_satcom_forward"
+MEMBER "sat-primary" "gw_l11_satcom_reverse"
+MEMBER "sat-primary" "gw_l16_satcom_forward"
+MEMBER "sat-primary" "gw_l16_satcom_reverse"
+MEMBER "sat-primary" "gw_satcom_cdl_forward"
+MEMBER "sat-primary" "gw_satcom_cdl_reverse"
+SLOT "sat-primary" "beam-primary"
+
+# 卫通备份资源池。
+ALLOCATION "sat-backup" "nrm_satcom_command" SATCOM "demo-satcom-v1" 20000000000 "SAT-BEAM-02" "SAT-BACKUP" "satellite-backup" 1
+MEMBER "sat-backup" "sat_relay_1"
+MEMBER "sat-backup" "sat_relay_2"
+MEMBER "sat-backup" "mobile_command"
+MEMBER "sat-backup" "backup_processing_center"
+SLOT "sat-backup" "beam-backup"
+
+# CDL主用高速资源池，同时纳入6个具有CDL端点的跨域网关。
+ALLOCATION "cdl-primary" "nrm_cdl_isr" CDL "demo-cdl-v1" 15000000000 "CDL-CH-01" "CDL-PRIMARY" "direct-high-rate" 1
+MEMBER "cdl-primary" "survey_uav_1"
+MEMBER "cdl-primary" "survey_uav_2"
+MEMBER "cdl-primary" "data_processing_center"
+MEMBER "cdl-primary" "gw_l11_cdl_forward"
+MEMBER "cdl-primary" "gw_l11_cdl_reverse"
+MEMBER "cdl-primary" "gw_l16_cdl_forward"
+MEMBER "cdl-primary" "gw_l16_cdl_reverse"
+MEMBER "cdl-primary" "gw_satcom_cdl_forward"
+MEMBER "cdl-primary" "gw_satcom_cdl_reverse"
+SLOT "cdl-primary" "channel-primary"
+
+# CDL备份高速资源池。
+ALLOCATION "cdl-backup" "nrm_cdl_isr" CDL "demo-cdl-v1" 15000000000 "CDL-CH-02" "CDL-BACKUP" "direct-backup" 1
+MEMBER "cdl-backup" "survey_uav_2"
+MEMBER "cdl-backup" "survey_uav_3"
+MEMBER "cdl-backup" "backup_processing_center"
+SLOT "cdl-backup" "channel-backup"
+
+# 12项并发业务需求，分别覆盖四种网络及主要合同业务类型。
+DEMAND "d01-l11-command" "COMMAND" "link11_control_station" "link11_station_north" 4096 1200 800 85
+DEMAND_NETWORK "d01-l11-command" LINK11
+DEMAND "d02-l11-track" "TRACK" "link11_sensor_hub" "link11_control_station" 8192 1800 1200 85
+DEMAND_NETWORK "d02-l11-track" LINK11
+DEMAND "d03-l11-service" "C2" "link11_control_station" "link11_station_south" 2048 1000 1000 85
+DEMAND_NETWORK "d03-l11-service" LINK11
+
+DEMAND "d04-l16-command" "COMMAND" "network_control_center" "mission_aircraft_1" 16384 64000 300 92
+DEMAND_NETWORK "d04-l16-command" LINK16
+DEMAND "d05-l16-track" "TRACK" "airborne_relay" "mission_aircraft_2" 65536 96000 500 90
+DEMAND_NETWORK "d05-l16-track" LINK16
+DEMAND "d06-l16-support" "TELEMETRY" "support_aircraft" "network_control_center" 131072 48000 800 88
+DEMAND_NETWORK "d06-l16-support" LINK16
+DEMAND "d07-l16-monitor" "NETWORK_MANAGEMENT" "spectrum_monitor_aircraft" "airborne_relay" 32768 16000 500 90
+DEMAND_NETWORK "d07-l16-monitor" LINK16
+
+DEMAND "d08-sat-command" "COMMAND" "regional_command" "network_control_center" 65536 128000 1200 90
+DEMAND_NETWORK "d08-sat-command" SATCOM
+DEMAND "d09-sat-file" "FILE" "data_processing_center" "backup_processing_center" 16000000 1000000 8000 85
+DEMAND_NETWORK "d09-sat-file" SATCOM
+
+DEMAND "d10-cdl-video-1" "ISR_VIDEO" "survey_uav_1" "data_processing_center" 60000000 8000000 2000 90
+DEMAND_NETWORK "d10-cdl-video-1" CDL
+DEMAND "d11-cdl-video-2" "ISR_VIDEO" "survey_uav_3" "backup_processing_center" 48000000 6000000 2500 88
+DEMAND_NETWORK "d11-cdl-video-2" CDL
+DEMAND "d12-cdl-file" "FILE" "survey_uav_2" "data_processing_center" 24000000 3000000 5000 85
+DEMAND_NETWORK "d12-cdl-file" CDL
+
+# 动态协同：保障飞机加入卫通备份网，南部服务站退出原Link-11子网。
+CHANGE "change-join-support-sat" JOIN "sat-backup" "support_aircraft"
+CHANGE "change-leave-l11-south" LEAVE "l11-south" "link11_station_south"

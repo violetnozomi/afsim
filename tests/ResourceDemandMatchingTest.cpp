@@ -310,6 +310,7 @@ int main()
       EvaluateOne(service, snapshot, satisfiedDemand);
    assert(query.calls == callsBeforeSatisfied + 1);
    assert(query.lastRequest.requiredBandwidthBps == 600.0);
+   assert(!query.lastRequest.allowParameterizedMetricFallback);
    assert(satisfied.status == nrm::DemandMatchStatus::cSATISFIED);
    assert(satisfied.checks.size() == 8);
    const nrm::RequirementItemType expectedOrder[] = {
@@ -333,6 +334,13 @@ int main()
    assert(satisfied.recommendations[0].type == nrm::RecommendationType::cFREQUENCY);
    assert(satisfied.recommendations[5].type == nrm::RecommendationType::cROUTE);
    assert(satisfied.recommendations[5].status == nrm::RecommendationStatus::cAVAILABLE);
+
+   nrm::ResourceDemand parameterizedDemand = satisfiedDemand;
+   parameterizedDemand.source = nrm::DataOrigin::cPARAMETERIZED_MODEL;
+   const nrm::ResourceDemandMatchResult parameterized =
+      EvaluateOne(service, snapshot, parameterizedDemand);
+   assert(query.lastRequest.allowParameterizedMetricFallback);
+   assert(parameterized.status == nrm::DemandMatchStatus::cSATISFIED);
 
    nrm::ResourceDemand isolated = Demand();
    isolated.minimumNetworkSize = 3;
@@ -506,6 +514,27 @@ int main()
           planFingerprintBefore);
    assert(immutableDemandSet.demands[0].demandId == demandIdBefore);
    assert(profiles.Profiles()[0].frequenciesHz == profileFrequenciesBefore);
+
+   // If no separate candidate file exists, use only explicit fields from the
+   // loaded plan for low-confidence resource suggestions.
+   const nrm::ResourceDemandBatchResult plannedCandidates = service.Evaluate(
+      snapshot, immutableDemandSet, &plan, nullptr);
+   const auto& plannedRecommendations =
+      plannedCandidates.results.front().recommendations;
+   assert(plannedRecommendations[0].status ==
+          nrm::RecommendationStatus::cAVAILABLE);
+   assert(plannedRecommendations[0].value == "1000000000");
+   assert(plannedRecommendations[2].status ==
+          nrm::RecommendationStatus::cAVAILABLE);
+   assert(plannedRecommendations[2].value == "channel-current");
+   assert(plannedRecommendations[3].status ==
+          nrm::RecommendationStatus::cAVAILABLE);
+   assert(plannedRecommendations[3].value == "subnet-current");
+   assert(plannedRecommendations[4].status ==
+          nrm::RecommendationStatus::cAVAILABLE);
+   assert(plannedRecommendations[4].value == "slot-current");
+   assert(plannedRecommendations[5].status ==
+          nrm::RecommendationStatus::cAVAILABLE);
 
    nrm::PlanningCandidateSet protectedCandidates = Candidates();
    protectedCandidates.candidates[0].interferenceCenterHz = 1010000000.0;

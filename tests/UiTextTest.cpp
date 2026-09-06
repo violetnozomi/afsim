@@ -10,10 +10,15 @@ int main()
    using WkNrm::UiText::TranslateListWithRaw;
    using WkNrm::UiText::NavigationEmptyState;
    using WkNrm::UiText::FormatAssessmentRouteHop;
+   using WkNrm::UiText::FormatPlanPathSource;
 
    assert(TranslateCode("REJECTED") == "已拒绝");
-   assert(TranslateCode("PARAMETERIZED_MODEL") == "参数化模型");
-   assert(TranslateCode("LOW") == "低");
+   assert(TranslateCode("AFSIM_INTERNAL") == "仿真实时数据");
+   assert(TranslateCode("CUSTOMER_MODULE") == "系统接口数据");
+   assert(TranslateCode("PARAMETERIZED_MODEL") == "参数化估算");
+   assert(TranslateCode("HIGH") == "高可信");
+   assert(TranslateCode("MEDIUM") == "一般可信");
+   assert(TranslateCode("LOW") == "参考级");
    assert(TranslateCode("L0_TOPOLOGY") == "L0 拓扑降级");
    assert(TranslateCode("bandwidthBps") == "链路带宽");
    assert(TranslateCode("RF_QUALITY_UNAVAILABLE") == "射频质量不可用");
@@ -46,7 +51,7 @@ int main()
    assert(TranslateCode("TIMESLOT") == "时隙");
    assert(TranslateCode("BEAM_CHANNEL") == "波束信道");
    assert(TranslateCode("FORWARDED") == "已转发");
-   assert(TranslateCode("REPLAY") == "回放数据");
+   assert(TranslateCode("REPLAY") == "历史回放数据");
    assert(TranslateCode("bit/s") == "比特/秒");
    assert(TranslateCode("percentage_point") == "百分点");
    assert(TranslateCode("NO_SAMPLES") == "暂无样本");
@@ -73,8 +78,15 @@ int main()
    assert(TranslateListWithRaw("NETWORK_PROFILE_CAPACITY,PDR_ESTIMATE") ==
           "网络配置容量（NETWORK_PROFILE_CAPACITY）、PDR估算（PDR_ESTIMATE）");
    assert(TranslateListWithRaw("") == "");
+   assert(TranslateCode("CUSTOMER_RULE_UNAVAILABLE") == "专项规则待配置");
    assert(NavigationEmptyState() ==
-          "当前场景未配置导航误差模型，或尚未收到甲方导航数据。");
+          "当前场景未配置导航误差模型，或尚未收到外部导航数据。");
+   assert(FormatPlanPathSource(false, false, false) == "不可用");
+   assert(FormatPlanPathSource(true, true, true) ==
+          "参数化候选模型 / 低置信度");
+   assert(FormatPlanPathSource(true, false, true) ==
+          "当前网络 / 参数补全（低置信度）");
+   assert(FormatPlanPathSource(true, false, false) == "当前网络");
 
    nrm::AssessmentRouteHop current;
    current.hopIndex = 1;

@@ -348,6 +348,15 @@ public:
       if (mHasCurrentPlan && mCurrentPlan.planId == parsed.planId &&
           mCurrentPlan.revision == parsed.revision)
       {
+         // Selecting the already-loaded file again is an idempotent UI action,
+         // not a revision conflict. The same identity with different content
+         // remains rejected below so revision semantics stay strict.
+         if (network_plan_detail::PlanContentFingerprint(mCurrentPlan) ==
+             network_plan_detail::PlanContentFingerprint(parsed))
+         {
+            mLastLoad = result;
+            return true;
+         }
          mLastLoad = network_plan_detail::Failure(
             PlanValidationReason::cDUPLICATE_PLAN_REVISION, aPath, "revision", &parsed);
          return false;

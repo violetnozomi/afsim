@@ -78,6 +78,16 @@ QPointF WkNrm::TacticalViewport::ViewToContent(const QPointF& aViewPoint) const
                       UiScale::Factor(mScalePercent);
 }
 
+QRectF WkNrm::TacticalViewport::FixedElementRect(
+   const QPointF& aContentCenter,
+   const QSizeF& aViewSize) const
+{
+   const QPointF viewCenter = ContentToView(aContentCenter);
+   return QRectF(viewCenter - QPointF(aViewSize.width() / 2.0,
+                                      aViewSize.height() / 2.0),
+                 aViewSize);
+}
+
 QTransform WkNrm::TacticalViewport::Transform() const
 {
    const qreal scaleFactor = UiScale::Factor(mScalePercent);

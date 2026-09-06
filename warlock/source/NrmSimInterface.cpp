@@ -13,6 +13,7 @@
 #include "WsfCommNetwork.hpp"
 #include "WsfCommNetworkManager.hpp"
 #include "WsfCommObserver.hpp"
+#include "WsfCommPhysicalLayer.hpp"
 #include "WsfCommResult.hpp"
 #include "WsfEnvironment.hpp"
 #include "WsfMessage.hpp"
@@ -152,10 +153,9 @@ void WkNrm::SimInterface::SimulationInitializing(const WsfSimulation& aSimulatio
    }
    mMessagesByNetwork.clear();
    mMetricsByNetwork.clear();
-   mMetricsByLink.clear();
+   mLinkMetrics.Clear();
    mRadioByLink.clear();
    mQueuedTimes.clear();
-   mTransmittedTimes.clear();
    mLastEndpointStates.clear();
    mLastLinkStates.clear();
    mLifecycleTracker.Clear();
@@ -202,6 +202,8 @@ void WkNrm::SimInterface::PublishSnapshot(const WsfSimulation& aSimulation, nrm:
 
 void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
 {
+   wsf::comm::NetworkManager* networkManager =
+      wsf::comm::NetworkManager::Find(aSimulation);
    mCallbacks.Add(WsfObserver::MessageQueued(&aSimulation)
                      .Connect([this](double             aSimTime,
                                      wsf::comm::Comm*   aCommPtr,
@@ -229,9 +231,9 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                  }
                               }));
    mCallbacks.Add(WsfObserver::MessageTransmitted(&aSimulation)
-                     .Connect([this](double             aSimTime,
-                                     wsf::comm::Comm*   aCommPtr,
-                                     const WsfMessage& aMessage)
+                     .Connect([this, networkManager](double             aSimTime,
+                                                     wsf::comm::Comm*   aCommPtr,
+                                                     const WsfMessage& aMessage)
                               {
                                  const std::uint64_t bits = static_cast<std::uint64_t>(
                                     std::max(0, aMessage.GetSizeBits()));
@@ -243,7 +245,56 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                     CountMessage(aCommPtr, &nrm::MessageStatistics::transmitted);
                                  }
                                  mQueuedTimes.erase(aMessage.GetSerialNumber());
-                                 mTransmittedTimes[aMessage.GetSerialNumber()] = aSimTime;
+                                 // WSF_COMM_NETWORK_GENERIC uses the guided medium and does
+                                 // not emit MessageDeliveryAttempt.  MessageTransmitted is the
+                                 // common physical-attempt event across guided, unguided and
+                                 // JTIDS comms; NextHopAddr is already resolved at this point.
+                                 if (aCommPtr != nullptr && networkManager != nullptr)
+                                 {
+                                    wsf::comm::Comm* receiverPtr =
+                                       networkManager->GetComm(aMessage.GetNextHopAddr());
+                                    if (receiverPtr != nullptr)
+                                    {
+                                       const std::string linkId =
+                                          LinkId(aCommPtr, receiverPtr);
+                                       mLinkMetrics.RecordDeliveryAttempt(
+                                          linkId,
+                                          aMessage.GetSerialNumber(),
+                                          aSimTime,
+                                          bits);
+                                       wsf::comm::PhysicalLayer* physicalLayer =
+                                          aCommPtr->GetProtocolStack().
+                                             GetLayer<wsf::comm::PhysicalLayer>();
+                                       if (physicalLayer != nullptr)
+                                       {
+                                          const double transferRate =
+                                             physicalLayer->GetTransferRate();
+                                          if (transferRate > 0.0)
+                                          {
+                                             SetDirectMetric(
+                                                mRadioByLink[linkId].bandwidthBps,
+                                                transferRate,
+                                                "bit/s",
+                                                aSimTime);
+                                          }
+                                       }
+                                    }
+                                 }
+                              }));
+   mCallbacks.Add(WsfObserver::MessageDeliveryAttempt(&aSimulation)
+                     .Connect([this](double             aSimTime,
+                                     wsf::comm::Comm*   aTransmitterPtr,
+                                     wsf::comm::Comm*   aReceiverPtr,
+                                     const WsfMessage& aMessage,
+                                     wsf::comm::Result& aResult)
+                              {
+                                 if (aTransmitterPtr == nullptr || aReceiverPtr == nullptr)
+                                 {
+                                    return;
+                                 }
+                                 const std::string linkId =
+                                    LinkId(aTransmitterPtr, aReceiverPtr);
+                                 UpdateLinkRadioState(linkId, aResult, aSimTime);
                               }));
    mCallbacks.Add(WsfObserver::MessageReceived(&aSimulation)
                      .Connect([this](double             aSimTime,
@@ -269,65 +320,15 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                                  {
                                     CountMessage(aReceiverPtr, &nrm::MessageStatistics::received);
                                  }
-                                 double transportDelayMs = -1.0;
-                                 const auto transmittedIt =
-                                    mTransmittedTimes.find(aMessage.GetSerialNumber());
-                                 if (transmittedIt != mTransmittedTimes.end())
-                                 {
-                                    transportDelayMs = 1000.0 * (aSimTime - transmittedIt->second);
-                                    mTransmittedTimes.erase(transmittedIt);
-                                 }
                                  const std::uint64_t bits = static_cast<std::uint64_t>(
                                     std::max(0, aMessage.GetSizeBits()));
                                  if (aTransmitterPtr != nullptr && aReceiverPtr != nullptr)
                                  {
                                     const std::string linkId =
                                        LinkId(aTransmitterPtr, aReceiverPtr);
-                                    nrm::RollingMetrics& linkMetrics = mMetricsByLink[linkId];
-                                    linkMetrics.SetTransmitObservationAvailable(false);
-                                    linkMetrics.RecordReceive(aSimTime, bits, transportDelayMs);
-                                    LinkRadioState& radio = mRadioByLink[linkId];
-                                    if (aResult.mDataRate > 0.0)
-                                    {
-                                       SetDirectMetric(
-                                          radio.bandwidthBps, aResult.mDataRate, "bit/s", aSimTime);
-                                    }
-                                    if (aResult.mRcvdPower > 0.0)
-                                    {
-                                       SetDirectMetric(radio.rssiDbm,
-                                                       10.0 * std::log10(aResult.mRcvdPower * 1000.0),
-                                                       "dBm", aSimTime);
-                                    }
-                                    if (aResult.mSignalToNoise > 0.0)
-                                    {
-                                       SetDirectMetric(radio.snrDb,
-                                                       10.0 * std::log10(aResult.mSignalToNoise),
-                                                       "dB", aSimTime);
-                                    }
-                                    if (aResult.mBitErrorRate >= 0.0)
-                                    {
-                                       SetDirectMetric(radio.ber, aResult.mBitErrorRate,
-                                                       "ratio", aSimTime);
-                                    }
-                                    if (aResult.mInterferencePower > 0.0)
-                                    {
-                                       SetDirectMetric(
-                                          radio.interferencePowerDbm,
-                                          10.0 * std::log10(aResult.mInterferencePower * 1000.0),
-                                          "dBm", aSimTime);
-                                    }
-                                    if (aResult.mInterferenceFactor >= 0.0)
-                                    {
-                                       SetDirectMetric(radio.interferenceFactorPercent,
-                                                       100.0 * aResult.mInterferenceFactor,
-                                                       "percent", aSimTime);
-                                    }
-                                    if (aResult.mAbsorptionFactor > 0.0)
-                                    {
-                                       SetDirectMetric(radio.atmosphericTransmittancePercent,
-                                                       100.0 * aResult.mAbsorptionFactor,
-                                                       "percent", aSimTime);
-                                    }
+                                    mLinkMetrics.RecordReceive(
+                                       linkId, aMessage.GetSerialNumber(), aSimTime, bits);
+                                    UpdateLinkRadioState(linkId, aResult, aSimTime);
                                  }
                               }));
    mCallbacks.Add(WsfObserver::MessageHop(&aSimulation)
@@ -364,6 +365,56 @@ void WkNrm::SimInterface::RegisterCallbacks(const WsfSimulation& aSimulation)
                               }));
 }
 
+void WkNrm::SimInterface::UpdateLinkRadioState(const std::string&       aLinkId,
+                                                const wsf::comm::Result& aResult,
+                                                double                   aSimTime)
+{
+   LinkRadioState& radio = mRadioByLink[aLinkId];
+   if (aResult.mDataRate > 0.0)
+   {
+      SetDirectMetric(radio.bandwidthBps, aResult.mDataRate, "bit/s", aSimTime);
+   }
+   if (aResult.mRcvdPower > 0.0)
+   {
+      SetDirectMetric(radio.rssiDbm,
+                      10.0 * std::log10(aResult.mRcvdPower * 1000.0),
+                      "dBm",
+                      aSimTime);
+   }
+   if (aResult.mSignalToNoise > 0.0)
+   {
+      SetDirectMetric(radio.snrDb,
+                      10.0 * std::log10(aResult.mSignalToNoise),
+                      "dB",
+                      aSimTime);
+   }
+   if (aResult.mBitErrorRate >= 0.0)
+   {
+      SetDirectMetric(radio.ber, aResult.mBitErrorRate, "ratio", aSimTime);
+   }
+   if (aResult.mInterferencePower > 0.0)
+   {
+      SetDirectMetric(radio.interferencePowerDbm,
+                      10.0 * std::log10(aResult.mInterferencePower * 1000.0),
+                      "dBm",
+                      aSimTime);
+   }
+   if (aResult.mInterferenceFactor >= 0.0)
+   {
+      SetDirectMetric(radio.interferenceFactorPercent,
+                      100.0 * aResult.mInterferenceFactor,
+                      "percent",
+                      aSimTime);
+   }
+   if (aResult.mAbsorptionFactor > 0.0)
+   {
+      SetDirectMetric(radio.atmosphericTransmittancePercent,
+                      100.0 * aResult.mAbsorptionFactor,
+                      "percent",
+                      aSimTime);
+   }
+}
+
 void WkNrm::SimInterface::CountMessage(wsf::comm::Comm*                         aCommPtr,
                                        std::uint64_t nrm::MessageStatistics::*aCounter)
 {
@@ -381,10 +432,7 @@ void WkNrm::SimInterface::PruneCorrelations(double aSimTime)
    {
       it = it->second <= oldestAllowed ? mQueuedTimes.erase(it) : std::next(it);
    }
-   for (auto it = mTransmittedTimes.begin(); it != mTransmittedTimes.end();)
-   {
-      it = it->second <= oldestAllowed ? mTransmittedTimes.erase(it) : std::next(it);
-   }
+   mLinkMetrics.Prune(aSimTime);
 }
 
 nrm::NetworkType WkNrm::SimInterface::GetNetworkType(const wsf::comm::Comm* aCommPtr)
@@ -775,12 +823,12 @@ void WkNrm::SimInterface::BuildResourceState(const WsfSimulation& aSimulation)
               link.interferenceFactorPercent.value >
                  interference.maximumFactorPercent.value))
             interference.maximumFactorPercent = link.interferenceFactorPercent;
-         const auto metricsIt = mMetricsByLink.find(link.linkId);
+         const nrm::RollingMetrics* metrics = mLinkMetrics.Find(link.linkId);
          for (double windowS : cWINDOWS_S)
          {
-            link.windows.emplace_back(metricsIt == mMetricsByLink.end()
+            link.windows.emplace_back(metrics == nullptr
                                          ? nrm::WindowMetrics()
-                                         : metricsIt->second.Snapshot(mSnapshot.simTime, windowS, capacityBps));
+                                         : metrics->Snapshot(mSnapshot.simTime, windowS, capacityBps));
             link.windows.back().windowS = windowS;
          }
 

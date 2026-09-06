@@ -113,6 +113,10 @@ public:
          primary = &current.selectedPath;
          result.selectedPathRank = current.selectedPathRank;
       }
+      else if (current.hasDiagnosticPath)
+      {
+         primary = &current.diagnosticPath;
+      }
       else
       {
          candidateSearched = true;
@@ -127,10 +131,6 @@ public:
          {
             primary = &candidate.selectedPath;
             result.selectedPathRank = candidate.selectedPathRank;
-         }
-         else if (current.hasDiagnosticPath)
-         {
-            primary = &current.diagnosticPath;
          }
          else if (candidate.hasDiagnosticPath)
          {
@@ -278,6 +278,11 @@ private:
             AddReason(aResult, AssessmentReason::cNETWORK_TYPE_UNKNOWN);
             continue;
          }
+         const NetworkProfile* fallbackProfile =
+            aTask.requireObservedCurrentMetrics ? nullptr
+                                                : mProfiles.Find(link.networkType);
+         const NetworkProfile* explicitMetricFallbackProfile =
+            aTask.allowParameterizedCurrentMetricFallback ? fallbackProfile : nullptr;
 
          ConstrainedEdge edge;
          edge.sourceId = link.sourceEndpointId;
@@ -304,18 +309,33 @@ private:
                link.distanceM.valid ? link.distanceM.confidence
                                     : EndpointDistanceConfidence(*source->second, *destination->second);
          }
-         const double delayMs = LinkDelayMs(link, !aTask.requireObservedCurrentMetrics);
+         const WindowMetrics* window = Window10s(link.windows);
+         const bool observedDelay =
+            window != nullptr && window->averageTransportDelayMs.valid &&
+            std::isfinite(window->averageTransportDelayMs.value) &&
+            window->averageTransportDelayMs.value >= 0.0;
+         const double delayMs =
+            LinkDelayMs(link, !aTask.requireObservedCurrentMetrics,
+                        explicitMetricFallbackProfile);
          if (delayMs >= 0.0)
          {
             edge.delayMs = delayMs;
             edge.delayValid = true;
-            const WindowMetrics* delayWindow = Window10s(link.windows);
-            edge.delayConfidence =
-               delayWindow != nullptr && delayWindow->averageTransportDelayMs.valid
-                  ? delayWindow->averageTransportDelayMs.confidence
-                  : edge.distanceConfidence;
+            if (observedDelay)
+            {
+               edge.delayConfidence = window->averageTransportDelayMs.confidence;
+            }
+            else if (explicitMetricFallbackProfile != nullptr)
+            {
+               edge.delayConfidence = explicitMetricFallbackProfile->confidence;
+               edge.delayUsesParameterizedModel = true;
+               edge.profileId = explicitMetricFallbackProfile->profileId;
+            }
+            else
+            {
+               edge.delayConfidence = edge.distanceConfidence;
+            }
          }
-         const WindowMetrics* window = Window10s(link.windows);
          if (window != nullptr)
          {
             const MetricValue<double>& ratio =
@@ -328,6 +348,17 @@ private:
                edge.pdrConfidence = ratio.confidence;
             }
          }
+         if (!edge.pdrValid && explicitMetricFallbackProfile != nullptr &&
+             std::isfinite(explicitMetricFallbackProfile->candidatePdrPercent) &&
+             explicitMetricFallbackProfile->candidatePdrPercent >= 0.0 &&
+             explicitMetricFallbackProfile->candidatePdrPercent <= 100.0)
+         {
+            edge.pdrPercent = explicitMetricFallbackProfile->candidatePdrPercent;
+            edge.pdrValid = true;
+            edge.pdrConfidence = explicitMetricFallbackProfile->confidence;
+            edge.pdrUsesParameterizedModel = true;
+            edge.profileId = explicitMetricFallbackProfile->profileId;
+         }
          if (link.bandwidthBps.valid && std::isfinite(link.bandwidthBps.value) &&
              link.bandwidthBps.value >= 0.0)
          {
@@ -336,18 +367,15 @@ private:
             edge.bandwidthValid = true;
             edge.bandwidthConfidence = link.bandwidthBps.confidence;
          }
-         else if (!aTask.requireObservedCurrentMetrics)
+         else if (fallbackProfile != nullptr)
          {
-            const NetworkProfile* profile = mProfiles.Find(link.networkType);
-            if (profile != nullptr)
-            {
-               edge.bandwidthBps =
-                  AdmissibleCapacityBps(aSnapshot, link.networkName,
-                                        profile->serviceCapacityBps);
-               edge.bandwidthValid = true;
-               edge.bandwidthConfidence = Confidence::cLOW;
-               edge.profileId = profile->profileId;
-            }
+            edge.bandwidthBps =
+               AdmissibleCapacityBps(aSnapshot, link.networkName,
+                                     fallbackProfile->serviceCapacityBps);
+            edge.bandwidthValid = true;
+            edge.bandwidthConfidence = fallbackProfile->confidence;
+            edge.bandwidthUsesParameterizedModel = true;
+            edge.profileId = fallbackProfile->profileId;
          }
          aAdjacency[edge.sourceId].push_back(edge);
          aCurrentEdgeKeys.insert(ConstrainedPathSelector::EdgeKey(edge));
@@ -415,6 +443,9 @@ private:
             edge.delayConfidence = Confidence::cLOW;
             edge.pdrConfidence = Confidence::cLOW;
             edge.bandwidthConfidence = Confidence::cLOW;
+            edge.delayUsesParameterizedModel = true;
+            edge.pdrUsesParameterizedModel = true;
+            edge.bandwidthUsesParameterizedModel = true;
             edge.distanceConfidence = EndpointDistanceConfidence(source, destination);
             edge.candidate = true;
             edge.profileId = profile->profileId;
@@ -604,7 +635,9 @@ private:
       return nullptr;
    }
 
-   static double LinkDelayMs(const LinkSnapshot& aLink, bool aAllowDistanceFallback)
+   static double LinkDelayMs(const LinkSnapshot& aLink,
+                             bool aAllowDistanceFallback,
+                             const NetworkProfile* aFallbackProfilePtr)
    {
       const WindowMetrics* window = Window10s(aLink.windows);
       if (window != nullptr && window->averageTransportDelayMs.valid &&
@@ -613,11 +646,19 @@ private:
       {
          return window->averageTransportDelayMs.value;
       }
-      return aAllowDistanceFallback && aLink.distanceM.valid &&
-                    std::isfinite(aLink.distanceM.value) &&
-                    aLink.distanceM.value >= 0.0
-                ? 1000.0 * aLink.distanceM.value / 299792458.0
-                : -1.0;
+      if (!aAllowDistanceFallback || !aLink.distanceM.valid ||
+          !std::isfinite(aLink.distanceM.value) || aLink.distanceM.value < 0.0)
+      {
+         return -1.0;
+      }
+      double delayMs = 1000.0 * aLink.distanceM.value / 299792458.0;
+      if (aFallbackProfilePtr != nullptr &&
+          std::isfinite(aFallbackProfilePtr->establishmentDelayMs) &&
+          aFallbackProfilePtr->establishmentDelayMs >= 0.0)
+      {
+         delayMs += aFallbackProfilePtr->establishmentDelayMs;
+      }
+      return delayMs;
    }
 
    static double EndpointDistanceM(const EndpointSnapshot& aSource,
@@ -761,10 +802,10 @@ private:
       if (aPath.delayValid)
       {
          SetMetric(aResult.predictedDelayMs, aPath.delayMs, "ms", aSnapshot,
-                   aPath.candidateEdgeCount > 0 ? DataOrigin::cPARAMETERIZED_MODEL
-                                                : DataOrigin::cDERIVED,
-                   aPath.candidateEdgeCount > 0 ? Confidence::cLOW
-                                                : aPath.delayConfidence);
+                   aPath.delayUsesParameterizedModel
+                      ? DataOrigin::cPARAMETERIZED_MODEL
+                      : DataOrigin::cDERIVED,
+                   aPath.delayConfidence);
       }
       else
       {
@@ -780,9 +821,10 @@ private:
       if (aPath.pdrValid)
       {
          SetMetric(aResult.estimatedPdrPercent, aPath.pdrPercent, "percent", aSnapshot,
-                   aPath.candidateEdgeCount > 0 ? DataOrigin::cPARAMETERIZED_MODEL
-                                                : DataOrigin::cESTIMATED,
-                   Confidence::cLOW);
+                   aPath.pdrUsesParameterizedModel
+                      ? DataOrigin::cPARAMETERIZED_MODEL
+                      : DataOrigin::cESTIMATED,
+                   aPath.pdrConfidence);
       }
       else
       {
@@ -790,18 +832,12 @@ private:
       }
       if (aPath.bandwidthValid)
       {
-         const bool parameterizedCapacity =
-            std::any_of(aPath.edges.begin(), aPath.edges.end(),
-                        [](const ConstrainedEdge* aEdge)
-                        {
-                           return !aEdge->profileId.empty();
-                        });
          SetMetric(aResult.bottleneckBandwidthBps, aPath.bottleneckBandwidthBps,
                    "bit/s", aSnapshot,
-                   parameterizedCapacity ? DataOrigin::cPARAMETERIZED_MODEL
-                                         : DataOrigin::cDERIVED,
-                   parameterizedCapacity ? Confidence::cLOW
-                                         : aPath.bandwidthConfidence);
+                   aPath.bandwidthUsesParameterizedModel
+                      ? DataOrigin::cPARAMETERIZED_MODEL
+                      : DataOrigin::cDERIVED,
+                   aPath.bandwidthConfidence);
       }
 
    }

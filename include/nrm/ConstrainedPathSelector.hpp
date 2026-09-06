@@ -28,10 +28,13 @@ struct ConstrainedEdge
    double distanceM = 0.0;
    bool delayValid = false;
    Confidence delayConfidence = Confidence::cLOW;
+   bool delayUsesParameterizedModel = false;
    bool pdrValid = false;
    Confidence pdrConfidence = Confidence::cLOW;
+   bool pdrUsesParameterizedModel = false;
    bool bandwidthValid = false;
    Confidence bandwidthConfidence = Confidence::cLOW;
+   bool bandwidthUsesParameterizedModel = false;
    bool distanceValid = false;
    Confidence distanceConfidence = Confidence::cLOW;
    bool candidate = false;
@@ -83,10 +86,13 @@ struct ConstrainedPath
    double maximumHopDistanceM = 0.0;
    bool delayValid = false;
    Confidence delayConfidence = Confidence::cLOW;
+   bool delayUsesParameterizedModel = false;
    bool pdrValid = false;
    Confidence pdrConfidence = Confidence::cLOW;
+   bool pdrUsesParameterizedModel = false;
    bool bandwidthValid = false;
    Confidence bandwidthConfidence = Confidence::cLOW;
+   bool bandwidthUsesParameterizedModel = false;
    bool distanceValid = false;
    Confidence distanceConfidence = Confidence::cLOW;
    bool feasible = false;
@@ -362,6 +368,8 @@ private:
          {
             path.delayMs += edge->delayMs;
             path.delayConfidence = MinConfidence(path.delayConfidence, edge->delayConfidence);
+            path.delayUsesParameterizedModel =
+               path.delayUsesParameterizedModel || edge->delayUsesParameterizedModel;
          }
          if (!edge->pdrValid || !std::isfinite(edge->pdrPercent) ||
              edge->pdrPercent < 0.0 || edge->pdrPercent > 100.0)
@@ -373,6 +381,8 @@ private:
             path.pdrPercent *=
                std::max(0.0, std::min(100.0, edge->pdrPercent)) / 100.0;
             path.pdrConfidence = MinConfidence(path.pdrConfidence, edge->pdrConfidence);
+            path.pdrUsesParameterizedModel =
+               path.pdrUsesParameterizedModel || edge->pdrUsesParameterizedModel;
          }
          if (!edge->bandwidthValid || !std::isfinite(edge->bandwidthBps) ||
              edge->bandwidthBps < 0.0)
@@ -385,6 +395,9 @@ private:
                std::min(path.bottleneckBandwidthBps, edge->bandwidthBps);
             path.bandwidthConfidence =
                MinConfidence(path.bandwidthConfidence, edge->bandwidthConfidence);
+            path.bandwidthUsesParameterizedModel =
+               path.bandwidthUsesParameterizedModel ||
+               edge->bandwidthUsesParameterizedModel;
          }
          if (!edge->distanceValid || !std::isfinite(edge->distanceM) || edge->distanceM < 0.0)
          {

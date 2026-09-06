@@ -108,6 +108,7 @@ struct AssessmentTask
    std::size_t              kShortestPaths       = 8;
    std::size_t              maximumHops          = 16;
    bool                     requireObservedCurrentMetrics = false;
+   bool                     allowParameterizedCurrentMetricFallback = false;
    bool                     requireDelayMetricForFeasibility = true;
    std::string              destinationPlatform;
    std::string              businessType;

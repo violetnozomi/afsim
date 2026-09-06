@@ -1,0 +1,35 @@
+# NRM 37节点合同验收需求匹配文件
+# 适用场景：test_mission/operational_strike_demo/interactive.txt
+# 配套规划：data/network_plans/contract_acceptance_37node-r1.nrm
+# 加载入口：Warlock -> 网络资源管理器 -> 需求匹配 -> 加载
+NRM_RESOURCE_DEMAND_V1 "contract-acceptance-37node-demands" 1 "demo-0.7.0" "nrm-contract-acceptance" "2026-08-29T14:30:00+08:00" PARAMETERIZED_MODEL LOW 1 "" 0
+
+# 格式：需求ID、任务阶段、业务类型、源平台、目的平台、载荷bit、业务流量bit/s、
+#       所需带宽bit/s、最大时延ms、最低PDR%、最大距离m、最小网络规模。
+DEMAND "d01-l11-command" "COMMAND_CONTROL" "COMMAND" "link11_control_station" "link11_station_north" 4096 800 1200 800 85 300000 2
+DEMAND_NETWORK "d01-l11-command" LINK11
+DEMAND "d02-l11-track" "SITUATION_SHARING" "TRACK" "link11_sensor_hub" "link11_control_station" 8192 1200 1800 1200 85 300000 3
+DEMAND_NETWORK "d02-l11-track" LINK11
+DEMAND "d03-l11-service" "COORDINATION" "C2" "link11_control_station" "link11_station_south" 2048 800 1000 1000 85 300000 2
+DEMAND_NETWORK "d03-l11-service" LINK11
+
+DEMAND "d04-l16-command" "COMMAND_CONTROL" "COMMAND" "network_control_center" "mission_aircraft_1" 16384 48000 64000 300 92 500000 4
+DEMAND_NETWORK "d04-l16-command" LINK16
+DEMAND "d05-l16-track" "SITUATION_SHARING" "TRACK" "airborne_relay" "mission_aircraft_2" 65536 64000 96000 500 90 500000 4
+DEMAND_NETWORK "d05-l16-track" LINK16
+DEMAND "d06-l16-support" "SUPPORT" "TELEMETRY" "support_aircraft" "network_control_center" 131072 32000 48000 800 88 500000 3
+DEMAND_NETWORK "d06-l16-support" LINK16
+DEMAND "d07-l16-monitor" "NETWORK_OPERATION" "NETWORK_MANAGEMENT" "spectrum_monitor_aircraft" "airborne_relay" 32768 12000 16000 500 90 500000 3
+DEMAND_NETWORK "d07-l16-monitor" LINK16
+
+DEMAND "d08-sat-command" "COMMAND_CONTROL" "COMMAND" "regional_command" "network_control_center" 65536 96000 128000 1200 90 45000000 3
+DEMAND_NETWORK "d08-sat-command" SATCOM
+DEMAND "d09-sat-file" "INFORMATION_DISTRIBUTION" "FILE" "data_processing_center" "backup_processing_center" 16000000 800000 1000000 8000 85 45000000 3
+DEMAND_NETWORK "d09-sat-file" SATCOM
+
+DEMAND "d10-cdl-video-1" "ISR_COLLECTION" "ISR_VIDEO" "survey_uav_1" "data_processing_center" 60000000 6000000 8000000 2000 90 250000 2
+DEMAND_NETWORK "d10-cdl-video-1" CDL
+DEMAND "d11-cdl-video-2" "ISR_COLLECTION" "ISR_VIDEO" "survey_uav_3" "backup_processing_center" 48000000 4500000 6000000 2500 88 250000 2
+DEMAND_NETWORK "d11-cdl-video-2" CDL
+DEMAND "d12-cdl-file" "INFORMATION_DISTRIBUTION" "FILE" "survey_uav_2" "data_processing_center" 24000000 2000000 3000000 5000 85 250000 2
+DEMAND_NETWORK "d12-cdl-file" CDL

@@ -1,0 +1,161 @@
+# Deterministic command-line validation for the interactive four-network PDR
+# profile.  It uses the same 37 cooperative platforms and real traffic source
+# as Warlock, but excludes the broader operational event workload so the
+# transmitted/received counts remain exact and reproducible.
+
+script_variables
+   Map<string,int> nrm_pdr_phase_tx = {};
+   Map<string,int> nrm_pdr_phase_rx = {};
+   Map<string,int> nrm_acceptance_link_tx = {};
+   Map<string,int> nrm_acceptance_link_rx = {};
+end_script_variables
+
+script string NrmPdrValidationPhase(string aType)
+   if (aType == "LINK11_LIVE_STATUS_HEALTHY" ||
+       aType == "LINK16_LIVE_TRACK_HEALTHY" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_HEALTHY" ||
+       aType == "SATCOM_LIVE_COMMAND_HEALTHY" ||
+       aType == "CDL_LIVE_ISR_HEALTHY") return "HEALTHY";
+   if (aType == "LINK11_LIVE_STATUS_DEGRADED" ||
+       aType == "LINK16_LIVE_TRACK_DEGRADED" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_DEGRADED" ||
+       aType == "SATCOM_LIVE_COMMAND_DEGRADED" ||
+       aType == "CDL_LIVE_ISR_DEGRADED") return "DEGRADED";
+   if (aType == "LINK11_LIVE_STATUS_STRESSED" ||
+       aType == "LINK16_LIVE_TRACK_STRESSED" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_STRESSED" ||
+       aType == "SATCOM_LIVE_COMMAND_STRESSED" ||
+       aType == "CDL_LIVE_ISR_STRESSED") return "STRESSED";
+   if (aType == "LINK11_LIVE_STATUS_RECOVERY" ||
+       aType == "LINK16_LIVE_TRACK_RECOVERY" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_RECOVERY" ||
+       aType == "SATCOM_LIVE_COMMAND_RECOVERY" ||
+       aType == "CDL_LIVE_ISR_RECOVERY") return "RECOVERY";
+   if (aType == "LINK11_LIVE_STATUS_STABILIZED" ||
+       aType == "LINK16_LIVE_TRACK_STABILIZED" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_STABILIZED" ||
+       aType == "SATCOM_LIVE_COMMAND_STABILIZED" ||
+       aType == "CDL_LIVE_ISR_STABILIZED") return "STABILIZED";
+   return "UNKNOWN";
+end_script
+
+script bool NrmIsAcceptanceProbe(string aType)
+   return aType == "LINK16_ACCEPTANCE_PROBE_HEALTHY" ||
+          aType == "LINK16_ACCEPTANCE_PROBE_DEGRADED" ||
+          aType == "LINK16_ACCEPTANCE_PROBE_STRESSED" ||
+          aType == "LINK16_ACCEPTANCE_PROBE_RECOVERY" ||
+          aType == "LINK16_ACCEPTANCE_PROBE_STABILIZED";
+end_script
+
+script string NrmPdrValidationNetwork(string aSource)
+   if (aSource == "link11_sensor_hub") return "LINK11";
+   if (aSource == "mission_aircraft_1") return "LINK16";
+   if (aSource == "regional_command") return "SATCOM";
+   if (aSource == "survey_uav_1") return "CDL";
+   return "UNKNOWN";
+end_script
+
+script void NrmPdrMessageTransmitted(WsfComm aXmtr, WsfMessage aMsg)
+   string phase = NrmPdrValidationPhase(aMsg.Type());
+   if (phase != "UNKNOWN" && NrmIsAcceptanceProbe(aMsg.Type()) &&
+       aXmtr.Platform().Name() == "airborne_relay")
+   {
+      if (nrm_acceptance_link_tx.Exists(phase))
+         nrm_acceptance_link_tx[phase] = nrm_acceptance_link_tx[phase] + 1;
+      else
+         nrm_acceptance_link_tx[phase] = 1;
+   }
+   string network = NrmPdrValidationNetwork(aXmtr.Platform().Name());
+   if (phase != "UNKNOWN" && network != "UNKNOWN")
+   {
+      string key = phase + ":" + network;
+      if (nrm_pdr_phase_tx.Exists(key))
+      {
+         nrm_pdr_phase_tx[key] = nrm_pdr_phase_tx[key] + 1;
+      }
+      else
+      {
+         nrm_pdr_phase_tx[key] = 1;
+      }
+   }
+end_script
+
+script void NrmPdrMessageReceived(WsfComm aXmtr,
+                                  WsfComm aRcvr,
+                                  WsfMessage aMsg,
+                                  WsfCommInteraction aResult)
+   string phase = NrmPdrValidationPhase(aMsg.Type());
+   if (phase != "UNKNOWN" && NrmIsAcceptanceProbe(aMsg.Type()) &&
+       aXmtr.Platform().Name() == "airborne_relay" &&
+       aRcvr.Platform().Name() == "spectrum_monitor_aircraft")
+   {
+      if (nrm_acceptance_link_rx.Exists(phase))
+         nrm_acceptance_link_rx[phase] = nrm_acceptance_link_rx[phase] + 1;
+      else
+         nrm_acceptance_link_rx[phase] = 1;
+   }
+   string network = NrmPdrValidationNetwork(aXmtr.Platform().Name());
+   if (phase != "UNKNOWN" && network != "UNKNOWN")
+   {
+      string key = phase + ":" + network;
+      if (nrm_pdr_phase_rx.Exists(key))
+      {
+         nrm_pdr_phase_rx[key] = nrm_pdr_phase_rx[key] + 1;
+      }
+      else
+      {
+         nrm_pdr_phase_rx[key] = 1;
+      }
+   }
+end_script
+
+script void NrmPrintAcceptanceLinkResult(string aPhase)
+   int tx = 0;
+   int rx = 0;
+   if (nrm_acceptance_link_tx.Exists(aPhase)) tx = nrm_acceptance_link_tx[aPhase];
+   if (nrm_acceptance_link_rx.Exists(aPhase)) rx = nrm_acceptance_link_rx[aPhase];
+   double pdr = -1.0;
+   if (tx > 0) pdr = 100.0 * (double)rx / (double)tx;
+   writeln("NRM_ACCEPTANCE_LINK_RESULT " + aPhase +
+           " tx=" + (string)tx + " rx=" + (string)rx +
+           " pdr=" + (string)pdr);
+end_script
+
+script void NrmPrintPdrPhaseResult(string aPhase, string aNetwork)
+   string key = aPhase + ":" + aNetwork;
+   int tx = 0;
+   int rx = 0;
+   if (nrm_pdr_phase_tx.Exists(key)) tx = nrm_pdr_phase_tx[key];
+   if (nrm_pdr_phase_rx.Exists(key)) rx = nrm_pdr_phase_rx[key];
+   double pdr = -1.0;
+   if (tx > 0) pdr = 100.0 * (double)rx / (double)tx;
+   writeln("NRM_PDR_PHASE_RESULT " + aPhase + " " + aNetwork +
+           " tx=" + (string)tx + " rx=" + (string)rx +
+           " pdr=" + (string)pdr);
+end_script
+
+observer
+   enable MESSAGE_TRANSMITTED NrmPdrMessageTransmitted
+   enable MESSAGE_RECEIVED NrmPdrMessageReceived
+end_observer
+
+include communications.txt
+include platform_types.txt
+include gateways.txt
+include laydown.txt
+include interactive_traffic.txt
+
+execute at_time 181.5 s absolute
+   Array<string> phases = {"HEALTHY", "DEGRADED", "STRESSED", "RECOVERY", "STABILIZED"};
+   Array<string> networks = {"LINK11", "LINK16", "SATCOM", "CDL"};
+   foreach (string phase in phases)
+   {
+      foreach (string network in networks)
+      {
+         NrmPrintPdrPhaseResult(phase, network);
+      }
+      NrmPrintAcceptanceLinkResult(phase);
+   }
+end_execute
+
+end_time 182 s

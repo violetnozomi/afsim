@@ -347,6 +347,46 @@ int main()
    assert(invalidMetric.overallStatus == nrm::PlanEvaluationStatus::cDATA_INVALID);
    assert(HasRecommendationContaining(invalidMetric.demands[0], "参数化"));
 
+   // Regression: a parameterized plan may use low-confidence profile values
+   // when an established current link has no observed bandwidth, delay, or
+   // PDR.  Customer-origin plans must remain strict for the same snapshot.
+   nrm::ResourceSnapshot missingObservedSnapshot = Snapshot();
+   missingObservedSnapshot.links[0].bandwidthBps.valid = false;
+   missingObservedSnapshot.links[0].windows[0].averageTransportDelayMs.valid = false;
+   missingObservedSnapshot.links[0].windows[0].deliveryRatioPercent.valid = false;
+   nrm::NetworkPlanDocument parameterizedPlan = Plan();
+   parameterizedPlan.source = nrm::DataOrigin::cPARAMETERIZED_MODEL;
+   for (nrm::NetworkPlanDemand& demand : parameterizedPlan.demands)
+      demand.maximumDelayMs = 25.0;
+   const nrm::NetworkPlanEvaluationResult parameterizedFallback =
+      service.Evaluate(missingObservedSnapshot, parameterizedPlan);
+   assert(parameterizedFallback.overallStatus == nrm::PlanEvaluationStatus::cPASS);
+   assert(parameterizedFallback.demands[0].status == nrm::PlanEvaluationStatus::cPASS);
+   assert(parameterizedFallback.demands[0].capability.pathAvailable);
+   assert(!parameterizedFallback.demands[0].capability.usesCandidate);
+   assert(parameterizedFallback.demands[0].capability.transmissionRateBps.origin ==
+          nrm::DataOrigin::cPARAMETERIZED_MODEL);
+   assert(parameterizedFallback.demands[0].capability.transmissionRateBps.confidence ==
+          nrm::Confidence::cLOW);
+   assert(parameterizedFallback.demands[0].capability.transmissionDelayMs.origin ==
+          nrm::DataOrigin::cPARAMETERIZED_MODEL);
+   assert(parameterizedFallback.demands[0].capability.transmissionDelayMs.confidence ==
+          nrm::Confidence::cLOW);
+   assert(parameterizedFallback.demands[0].capability.packetLossPercent.origin ==
+          nrm::DataOrigin::cPARAMETERIZED_MODEL);
+   assert(parameterizedFallback.demands[0].capability.packetLossPercent.confidence ==
+          nrm::Confidence::cLOW);
+   assert(std::find(parameterizedFallback.demands[0].capability.profileIds.begin(),
+                    parameterizedFallback.demands[0].capability.profileIds.end(),
+                    "demo-link16-v1") !=
+          parameterizedFallback.demands[0].capability.profileIds.end());
+
+   nrm::NetworkPlanDocument strictObservedPlan = Plan();
+   const nrm::NetworkPlanEvaluationResult strictObserved =
+      service.Evaluate(missingObservedSnapshot, strictObservedPlan);
+   assert(strictObserved.overallStatus == nrm::PlanEvaluationStatus::cDATA_INVALID);
+   assert(strictObserved.demands[0].status == nrm::PlanEvaluationStatus::cDATA_INVALID);
+
    nrm::ResourceSnapshot candidateSnapshot = snapshot;
    candidateSnapshot.links.clear();
    nrm::NetworkPlanDocument candidatePlan = Plan();

@@ -5,6 +5,7 @@
 
 #include "NrmUiScale.hpp"
 #include "NrmUiStyle.hpp"
+#include "NrmTacticalActivity.hpp"
 #include "NrmTacticalViewport.hpp"
 
 #include <cassert>
@@ -51,6 +52,27 @@ int main(int argc, char** argv)
    assert(ScalePixels(30, 150) == 45);
    assert(ScalePixels(7, 125) == 9);
 
+   nrm::LinkSnapshot quietLink;
+   quietLink.state = nrm::ResourceState::cONLINE;
+   nrm::WindowMetrics quietWindow;
+   quietWindow.windowS = 10.0;
+   quietLink.windows.push_back(quietWindow);
+   assert(!WkNrm::HasRecentLinkActivity(quietLink));
+
+   nrm::LinkSnapshot activeLink = quietLink;
+   activeLink.windows.front().deliveredBits = 4096;
+   activeLink.windows.front().messages.received = 1;
+   assert(WkNrm::HasRecentLinkActivity(activeLink));
+   assert(WkNrm::RecentLinkActivityCount({quietLink, activeLink}) == 1);
+
+   activeLink.state = nrm::ResourceState::cOFFLINE;
+   assert(!WkNrm::HasRecentLinkActivity(activeLink));
+
+   assert(std::abs(WkNrm::LinkActivityPhase(0, 0) - 0.0) < 0.0001);
+   assert(std::abs(WkNrm::LinkActivityPhase(20, 0) - 0.5) < 0.0001);
+   assert(std::abs(WkNrm::LinkActivityPhase(40, 0) - 0.0) < 0.0001);
+   assert(WkNrm::LinkActivityPhase(10, 1) != WkNrm::LinkActivityPhase(10, 0));
+
    WkNrm::TacticalViewport viewport;
    const QRectF plotRect(100.0, 80.0, 1000.0, 600.0);
    viewport.SetPlotRect(plotRect);
@@ -65,6 +87,28 @@ int main(int argc, char** argv)
                    viewport.ContentToView(contentPoint)) < 0.001);
    assert(Distance(viewport.ViewToContent(viewport.ContentToView(contentPoint)),
                    contentPoint) < 0.001);
+
+   // Topology zoom expands the distance between geographic positions, while
+   // node glyphs and labels retain their requested screen-space dimensions.
+   viewport.FitAll();
+   const QSizeF fixedElementSize(28.0, 20.0);
+   const QRectF elementAt100 = viewport.FixedElementRect(contentPoint, fixedElementSize);
+   const QPointF secondContentPoint(900.0, 450.0);
+   const qreal distanceAt100 =
+      Distance(viewport.ContentToView(contentPoint),
+               viewport.ContentToView(secondContentPoint));
+   viewport.SetScalePercent(200, anchor);
+   const QRectF elementAt200 = viewport.FixedElementRect(contentPoint, fixedElementSize);
+   const qreal distanceAt200 =
+      Distance(viewport.ContentToView(contentPoint),
+               viewport.ContentToView(secondContentPoint));
+   assert(std::abs(elementAt100.width() - 28.0) < 0.001);
+   assert(std::abs(elementAt100.height() - 20.0) < 0.001);
+   assert(std::abs(elementAt200.width() - 28.0) < 0.001);
+   assert(std::abs(elementAt200.height() - 20.0) < 0.001);
+   assert(Distance(elementAt200.center(), viewport.ContentToView(contentPoint)) < 0.001);
+   assert(std::abs(distanceAt200 - distanceAt100 * 2.0) < 0.001);
+
    const QPointF beforePan = viewport.ContentToView(contentPoint);
    const QPointF panDelta(-100.0, 50.0);
    viewport.PanBy(panDelta);

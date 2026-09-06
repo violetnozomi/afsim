@@ -1,0 +1,343 @@
+# Repeating four-network workload used only by the long-running Warlock entry.
+# Every pulse is a real AFSIM message.  The deterministic main.txt validation
+# intentionally does not include this file.
+
+# The receiver outages below are deterministic scenario events rather than UI
+# substitutions.  Each network uses an independent fixed-seed quality stream,
+# send cadence and payload jitter.  The result resembles sampled link traffic
+# without sacrificing repeatability for acceptance testing.  The broad phases
+# control only the quality trend; they do not prescribe an exact PDR:
+#   10-40 s healthy -> 40-80 s degraded -> 80-120 s stressed
+#   -> 120-150 s recovery -> 150-180 s stabilized.
+script_variables
+   int nrm_l11_message_sequence = 0;
+   int nrm_l16_message_sequence = 0;
+   int nrm_l16_acceptance_sequence = 0;
+   int nrm_sat_message_sequence = 0;
+   int nrm_cdl_message_sequence = 0;
+   int nrm_l11_quality_state = 421;
+   int nrm_l16_quality_state = 617;
+   int nrm_l16_acceptance_quality_state = 811;
+   int nrm_sat_quality_state = 193;
+   int nrm_cdl_quality_state = 739;
+   bool nrm_l11_receiver_outage = false;
+   bool nrm_l16_receiver_outage = false;
+   bool nrm_l16_acceptance_receiver_outage = false;
+   bool nrm_sat_receiver_outage = false;
+   bool nrm_cdl_receiver_outage = false;
+   double nrm_l11_restore_time = -1.0;
+   double nrm_l16_restore_time = -1.0;
+   double nrm_l16_acceptance_restore_time = -1.0;
+   double nrm_sat_restore_time = -1.0;
+   double nrm_cdl_restore_time = -1.0;
+end_script_variables
+
+execute at_time 1 s absolute
+   writeln("NRM_PDR_PROFILE LINK11 dynamic-quality");
+   writeln("NRM_PDR_PROFILE LINK16 dynamic-quality");
+   writeln("NRM_PDR_PROFILE SATCOM dynamic-quality");
+   writeln("NRM_PDR_PROFILE CDL dynamic-quality");
+end_execute
+
+script string NrmPdrPhaseAt(double aTime)
+   if (aTime < 40.0) return "HEALTHY";
+   if (aTime < 80.0) return "DEGRADED";
+   if (aTime < 120.0) return "STRESSED";
+   if (aTime < 150.0) return "RECOVERY";
+   return "STABILIZED";
+end_script
+
+# Thresholds are expressed against each network's prime-sized quality stream.
+# They intentionally differ by bearer: SATCOM is most sensitive, CDL least.
+script int NrmPdrLossThreshold(string aNetwork, string aPhase)
+   if (aNetwork == "LINK11")
+   {
+      if (aPhase == "HEALTHY") return 20;
+      if (aPhase == "DEGRADED") return 92;
+      if (aPhase == "STRESSED") return 238;
+      if (aPhase == "RECOVERY") return 76;
+      return 35;
+   }
+   if (aNetwork == "LINK16")
+   {
+      if (aPhase == "HEALTHY") return 20;
+      if (aPhase == "DEGRADED") return 49;
+      if (aPhase == "STRESSED") return 136;
+      if (aPhase == "RECOVERY") return 40;
+      return 55;
+   }
+   if (aNetwork == "SATCOM")
+   {
+      if (aPhase == "HEALTHY") return 17;
+      if (aPhase == "DEGRADED") return 160;
+      if (aPhase == "STRESSED") return 332;
+      if (aPhase == "RECOVERY") return 124;
+      return 43;
+   }
+   if (aPhase == "HEALTHY") return 15;
+   if (aPhase == "DEGRADED") return 25;
+   if (aPhase == "STRESSED") return 96;
+   if (aPhase == "RECOVERY") return 43;
+   return 8;
+end_script
+
+# The acceptance query link uses its own deterministic quality stream.  Its
+# percentages are deliberately non-round and change smoothly by phase so the
+# GUI demonstrates measured behavior rather than a permanently perfect link.
+script int NrmAcceptanceLossThreshold(string aPhase)
+   if (aPhase == "HEALTHY") return 16;
+   if (aPhase == "DEGRADED") return 97;
+   if (aPhase == "STRESSED") return 205;
+   if (aPhase == "RECOVERY") return 75;
+   return 34;
+end_script
+
+script string NrmPdrPhaseFromType(string aType)
+   if (aType == "LINK11_LIVE_STATUS_HEALTHY" ||
+       aType == "LINK16_LIVE_TRACK_HEALTHY" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_HEALTHY" ||
+       aType == "SATCOM_LIVE_COMMAND_HEALTHY" ||
+       aType == "CDL_LIVE_ISR_HEALTHY") return "HEALTHY";
+   if (aType == "LINK11_LIVE_STATUS_DEGRADED" ||
+       aType == "LINK16_LIVE_TRACK_DEGRADED" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_DEGRADED" ||
+       aType == "SATCOM_LIVE_COMMAND_DEGRADED" ||
+       aType == "CDL_LIVE_ISR_DEGRADED") return "DEGRADED";
+   if (aType == "LINK11_LIVE_STATUS_STRESSED" ||
+       aType == "LINK16_LIVE_TRACK_STRESSED" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_STRESSED" ||
+       aType == "SATCOM_LIVE_COMMAND_STRESSED" ||
+       aType == "CDL_LIVE_ISR_STRESSED") return "STRESSED";
+   if (aType == "LINK11_LIVE_STATUS_RECOVERY" ||
+       aType == "LINK16_LIVE_TRACK_RECOVERY" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_RECOVERY" ||
+       aType == "SATCOM_LIVE_COMMAND_RECOVERY" ||
+       aType == "CDL_LIVE_ISR_RECOVERY") return "RECOVERY";
+   if (aType == "LINK11_LIVE_STATUS_STABILIZED" ||
+       aType == "LINK16_LIVE_TRACK_STABILIZED" ||
+       aType == "LINK16_ACCEPTANCE_PROBE_STABILIZED" ||
+       aType == "SATCOM_LIVE_COMMAND_STABILIZED" ||
+       aType == "CDL_LIVE_ISR_STABILIZED") return "STABILIZED";
+   return "UNKNOWN";
+end_script
+
+execute at_time 10 s absolute
+   writeln("NRM_PDR_PHASE HEALTHY normal-operation");
+end_execute
+execute at_time 40 s absolute
+   writeln("NRM_PDR_PHASE DEGRADED weather-and-load-rising");
+end_execute
+execute at_time 80 s absolute
+   writeln("NRM_PDR_PHASE STRESSED interference-and-congestion-peak");
+end_execute
+execute at_time 120 s absolute
+   writeln("NRM_PDR_PHASE RECOVERY rerouting-and-load-shedding");
+end_execute
+execute at_time 150 s absolute
+   writeln("NRM_PDR_PHASE STABILIZED recovery-complete");
+end_execute
+
+execute at_interval_of 0.47 s
+   if (TIME_NOW >= 10.0 && TIME_NOW <= 180.0)
+   {
+      nrm_l11_message_sequence = nrm_l11_message_sequence + 1;
+      WsfMessage message = WsfMessage();
+      message.SetType("LINK11_LIVE_STATUS_" + NrmPdrPhaseAt(TIME_NOW));
+      message.SetSizeInBits(1200 + 160 * Math.Mod(nrm_l11_message_sequence * 7, 5));
+      WsfSimulation.FindPlatform("link11_sensor_hub").Comm("link11").SendMessage(
+         message, WsfSimulation.FindPlatform("link11_control_station").Comm("link11"));
+      if (Math.Mod(nrm_l11_message_sequence, 23) == 1)
+         writeln("NRM_OPERATIONAL LIVE_TRAFFIC LINK11");
+   }
+end_execute
+
+execute at_interval_of 0.43 s
+   if (TIME_NOW >= 10.0 && TIME_NOW <= 180.0)
+   {
+      nrm_l16_message_sequence = nrm_l16_message_sequence + 1;
+      WsfMessage message = WsfMessage();
+      message.SetType("LINK16_LIVE_TRACK_" + NrmPdrPhaseAt(TIME_NOW));
+      message.SetSizeInBits(4800 + 480 * Math.Mod(nrm_l16_message_sequence * 5, 7));
+      WsfSimulation.FindPlatform("mission_aircraft_1").Comm("link16").SendMessage(
+         message, WsfSimulation.FindPlatform("network_control_center").Comm("link16"));
+      if (Math.Mod(nrm_l16_message_sequence, 29) == 1)
+         writeln("NRM_OPERATIONAL LIVE_TRAFFIC LINK16");
+   }
+end_execute
+
+# Direct probe for the link used by the GUI capability/assessment example.
+# This closes the per-link metric lifecycle for
+# airborne_relay -> spectrum_monitor_aircraft.
+execute at_interval_of 0.59 s
+   if (TIME_NOW >= 10.0 && TIME_NOW <= 180.0)
+   {
+      nrm_l16_acceptance_sequence = nrm_l16_acceptance_sequence + 1;
+      WsfMessage message = WsfMessage();
+      message.SetType("LINK16_ACCEPTANCE_PROBE_" + NrmPdrPhaseAt(TIME_NOW));
+      message.SetSizeInBits(
+         3600 + 320 * Math.Mod(nrm_l16_acceptance_sequence * 11, 9));
+      WsfSimulation.FindPlatform("airborne_relay").Comm("link16").SendMessage(
+         message,
+         WsfSimulation.FindPlatform("spectrum_monitor_aircraft").Comm("link16"));
+   }
+end_execute
+
+execute at_interval_of 0.53 s
+   if (TIME_NOW >= 10.0 && TIME_NOW <= 180.0)
+   {
+      nrm_sat_message_sequence = nrm_sat_message_sequence + 1;
+      WsfMessage message = WsfMessage();
+      message.SetType("SATCOM_LIVE_COMMAND_" + NrmPdrPhaseAt(TIME_NOW));
+      message.SetSizeInBits(18000 + 2200 * Math.Mod(nrm_sat_message_sequence * 5, 7));
+      WsfSimulation.FindPlatform("regional_command").Comm("satcom").SendMessage(
+         message, WsfSimulation.FindPlatform("sat_relay_1").Comm("satcom"));
+      if (Math.Mod(nrm_sat_message_sequence, 19) == 1)
+         writeln("NRM_OPERATIONAL LIVE_TRAFFIC SATCOM");
+   }
+end_execute
+
+execute at_interval_of 0.31 s
+   if (TIME_NOW >= 10.0 && TIME_NOW <= 180.0)
+   {
+      nrm_cdl_message_sequence = nrm_cdl_message_sequence + 1;
+      WsfMessage message = WsfMessage();
+      message.SetType("CDL_LIVE_ISR_" + NrmPdrPhaseAt(TIME_NOW));
+      message.SetSizeInBits(320000 + 45000 * Math.Mod(nrm_cdl_message_sequence * 11, 9));
+      WsfSimulation.FindPlatform("survey_uav_1").Comm("cdl").SendMessage(
+         message, WsfSimulation.FindPlatform("data_processing_center").Comm("cdl"));
+      if (Math.Mod(nrm_cdl_message_sequence, 31) == 1)
+         writeln("NRM_OPERATIONAL LIVE_TRAFFIC CDL");
+   }
+end_execute
+
+# Apply loss at the actual AFSIM transmission callback rather than at the
+# original queue time.  Platform movement and route initialization can delay a
+# queued message, so this keeps each phase repeatable without inventing UI data.
+script void NrmPdrProfileMessageTransmitted(WsfComm aXmtr, WsfMessage aMsg)
+   string source = aXmtr.Platform().Name();
+   string phase = NrmPdrPhaseFromType(aMsg.Type());
+   if (source == "link11_sensor_hub" &&
+       (aMsg.Type() == "LINK11_LIVE_STATUS_HEALTHY" ||
+        aMsg.Type() == "LINK11_LIVE_STATUS_DEGRADED" ||
+        aMsg.Type() == "LINK11_LIVE_STATUS_STRESSED" ||
+        aMsg.Type() == "LINK11_LIVE_STATUS_RECOVERY" ||
+        aMsg.Type() == "LINK11_LIVE_STATUS_STABILIZED"))
+   {
+      nrm_l11_quality_state = Math.Mod(nrm_l11_quality_state * 37 + 17, 997);
+      bool drop = nrm_l11_quality_state < NrmPdrLossThreshold("LINK11", phase);
+      if (drop)
+      {
+         WsfSimulation.FindPlatform("link11_control_station").Comm("link11").TurnOff();
+         nrm_l11_receiver_outage = true;
+         nrm_l11_restore_time = TIME_NOW + 0.20;
+         writeln("NRM_PDR_FAULT " + phase + " LINK11 controlled-receiver-outage");
+      }
+   }
+   else if (source == "mission_aircraft_1" &&
+            (aMsg.Type() == "LINK16_LIVE_TRACK_HEALTHY" ||
+             aMsg.Type() == "LINK16_LIVE_TRACK_DEGRADED" ||
+             aMsg.Type() == "LINK16_LIVE_TRACK_STRESSED" ||
+             aMsg.Type() == "LINK16_LIVE_TRACK_RECOVERY" ||
+             aMsg.Type() == "LINK16_LIVE_TRACK_STABILIZED"))
+   {
+      nrm_l16_quality_state = Math.Mod(nrm_l16_quality_state * 53 + 29, 991);
+      bool drop = nrm_l16_quality_state < NrmPdrLossThreshold("LINK16", phase);
+      if (drop)
+      {
+         WsfSimulation.FindPlatform("network_control_center").Comm("link16").TurnOff();
+         nrm_l16_receiver_outage = true;
+         nrm_l16_restore_time = TIME_NOW + 0.20;
+         writeln("NRM_PDR_FAULT " + phase + " LINK16 controlled-receiver-outage");
+      }
+   }
+   else if (source == "airborne_relay" &&
+            (aMsg.Type() == "LINK16_ACCEPTANCE_PROBE_HEALTHY" ||
+             aMsg.Type() == "LINK16_ACCEPTANCE_PROBE_DEGRADED" ||
+             aMsg.Type() == "LINK16_ACCEPTANCE_PROBE_STRESSED" ||
+             aMsg.Type() == "LINK16_ACCEPTANCE_PROBE_RECOVERY" ||
+             aMsg.Type() == "LINK16_ACCEPTANCE_PROBE_STABILIZED"))
+   {
+      nrm_l16_acceptance_quality_state =
+         Math.Mod(nrm_l16_acceptance_quality_state * 47 + 23, 991);
+      bool drop = nrm_l16_acceptance_quality_state <
+                  NrmAcceptanceLossThreshold(phase);
+      if (drop)
+      {
+         WsfSimulation.FindPlatform("spectrum_monitor_aircraft").Comm("link16").TurnOff();
+         nrm_l16_acceptance_receiver_outage = true;
+         nrm_l16_acceptance_restore_time = TIME_NOW + 0.20;
+         writeln("NRM_PDR_FAULT " + phase +
+                 " LINK16 acceptance-link-receiver-outage");
+      }
+   }
+   else if (source == "regional_command" &&
+            (aMsg.Type() == "SATCOM_LIVE_COMMAND_HEALTHY" ||
+             aMsg.Type() == "SATCOM_LIVE_COMMAND_DEGRADED" ||
+             aMsg.Type() == "SATCOM_LIVE_COMMAND_STRESSED" ||
+             aMsg.Type() == "SATCOM_LIVE_COMMAND_RECOVERY" ||
+             aMsg.Type() == "SATCOM_LIVE_COMMAND_STABILIZED"))
+   {
+      nrm_sat_quality_state = Math.Mod(nrm_sat_quality_state * 61 + 11, 983);
+      bool drop = nrm_sat_quality_state < NrmPdrLossThreshold("SATCOM", phase);
+      if (drop)
+      {
+         WsfSimulation.FindPlatform("sat_relay_1").Comm("satcom").TurnOff();
+         nrm_sat_receiver_outage = true;
+         # 卫通还包含约119毫秒的星地传播时延，因此保持中断0.35秒。
+         nrm_sat_restore_time = TIME_NOW + 0.35;
+         writeln("NRM_PDR_FAULT " + phase + " SATCOM controlled-receiver-outage");
+      }
+   }
+   else if (source == "survey_uav_1" &&
+            (aMsg.Type() == "CDL_LIVE_ISR_HEALTHY" ||
+             aMsg.Type() == "CDL_LIVE_ISR_DEGRADED" ||
+             aMsg.Type() == "CDL_LIVE_ISR_STRESSED" ||
+             aMsg.Type() == "CDL_LIVE_ISR_RECOVERY" ||
+             aMsg.Type() == "CDL_LIVE_ISR_STABILIZED"))
+   {
+      nrm_cdl_quality_state = Math.Mod(nrm_cdl_quality_state * 43 + 31, 977);
+      bool drop = nrm_cdl_quality_state < NrmPdrLossThreshold("CDL", phase);
+      if (drop)
+      {
+         WsfSimulation.FindPlatform("data_processing_center").Comm("cdl").TurnOff();
+         nrm_cdl_receiver_outage = true;
+         nrm_cdl_restore_time = TIME_NOW + 0.20;
+         writeln("NRM_PDR_FAULT " + phase + " CDL controlled-receiver-outage");
+      }
+   }
+end_script
+
+observer
+   enable MESSAGE_TRANSMITTED NrmPdrProfileMessageTransmitted
+end_observer
+
+# Restore receivers after the 0.1-second quality probe has reached its delivery
+# time.  The controller changes real AFSIM comm state and is deterministic.
+execute at_interval_of 0.05 s
+   if (nrm_l11_receiver_outage && TIME_NOW >= nrm_l11_restore_time)
+   {
+      WsfSimulation.FindPlatform("link11_control_station").Comm("link11").TurnOn();
+      nrm_l11_receiver_outage = false;
+   }
+   if (nrm_l16_receiver_outage && TIME_NOW >= nrm_l16_restore_time)
+   {
+      WsfSimulation.FindPlatform("network_control_center").Comm("link16").TurnOn();
+      nrm_l16_receiver_outage = false;
+   }
+   if (nrm_l16_acceptance_receiver_outage &&
+       TIME_NOW >= nrm_l16_acceptance_restore_time)
+   {
+      WsfSimulation.FindPlatform("spectrum_monitor_aircraft").Comm("link16").TurnOn();
+      nrm_l16_acceptance_receiver_outage = false;
+   }
+   if (nrm_sat_receiver_outage && TIME_NOW >= nrm_sat_restore_time)
+   {
+      WsfSimulation.FindPlatform("sat_relay_1").Comm("satcom").TurnOn();
+      nrm_sat_receiver_outage = false;
+   }
+   if (nrm_cdl_receiver_outage && TIME_NOW >= nrm_cdl_restore_time)
+   {
+      WsfSimulation.FindPlatform("data_processing_center").Comm("cdl").TurnOn();
+      nrm_cdl_receiver_outage = false;
+   }
+end_execute

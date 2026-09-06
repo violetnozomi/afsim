@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
+#include <set>
 #include <sstream>
 #include <string>
 
@@ -231,7 +232,22 @@ int main()
    assert(repository.LastLoadResult().reason ==
           nrm::PlanValidationReason::cDUPLICATE_DEMAND_ID);
 
-   assert(!repository.LoadFromFile(planPath));
+   // Reopening the exact same file is an idempotent user operation. It must
+   // not be reported as a revision conflict or replace the current object.
+   assert(repository.LoadFromFile(planPath));
+   assert(repository.LastLoadResult().success);
+   assert(repository.LastLoadResult().reason == nrm::PlanValidationReason::cNONE);
+   assert(SemanticallyEqual(beforeFailedLoad, *repository.GetCurrentPlan()));
+
+   // Reusing the same identity for different content is still a hard conflict.
+   nrm::NetworkPlanDocument conflictingRevision = beforeFailedLoad;
+   conflictingRevision.allocations.front().frequencyHz += 1.0;
+   const std::string conflictingPath = root + "/plan-r1-conflict.nrm";
+   const nrm::PlanRepositoryResult conflictingSave =
+      nrm::NetworkPlanRepository::SaveDocumentAtomic(
+         conflictingRevision, conflictingPath, true);
+   assert(conflictingSave.success);
+   assert(!repository.LoadFromFile(conflictingPath));
    assert(repository.LastLoadResult().reason ==
           nrm::PlanValidationReason::cDUPLICATE_PLAN_REVISION);
    assert(SemanticallyEqual(beforeFailedLoad, *repository.GetCurrentPlan()));
@@ -297,6 +313,35 @@ int main()
    assert(complexResult.issues.size() == 1);
    assert(complexResult.issues.front().reason ==
           nrm::PlanValidationReason::cCUSTOMER_RULE_UNAVAILABLE);
+
+   // The contract-acceptance plan covers every platform in the operational
+   // scenario: 25 business platforms plus 12 cross-domain gateways.
+   nrm::NetworkPlanRepository acceptanceRepository;
+   const std::string acceptancePath =
+      std::string(NRM_SOURCE_DIR) +
+      "/data/network_plans/contract_acceptance_37node-r1.nrm";
+   assert(acceptanceRepository.LoadFromFile(acceptancePath));
+   const nrm::NetworkPlanDocument& acceptancePlan =
+      *acceptanceRepository.GetCurrentPlan();
+   assert(acceptancePlan.planId == "contract-acceptance-37node");
+   assert(acceptancePlan.allocations.size() == 8);
+   assert(acceptancePlan.demands.size() == 12);
+   assert(acceptancePlan.changes.size() == 2);
+   std::set<std::string> acceptanceMembers;
+   std::set<std::string> acceptanceGateways;
+   for (const nrm::NetworkPlanAllocation& allocation : acceptancePlan.allocations)
+   {
+      for (const std::string& member : allocation.memberPlatformIds)
+      {
+         acceptanceMembers.insert(member);
+         if (member.compare(0, 3, "gw_") == 0) acceptanceGateways.insert(member);
+      }
+   }
+   assert(acceptanceMembers.size() == 37);
+   assert(acceptanceGateways.size() == 12);
+   const nrm::PlanValidationResult acceptanceResult =
+      validator.Validate(sampleSnapshot, acceptancePlan);
+   assert(acceptanceResult.passed);
 
    const nrm::PlanValidationResult validResult =
       validator.Validate(validationSnapshot, ValidPlan());
@@ -396,8 +441,15 @@ int main()
    assert(HasIssue(validator.Validate(validationSnapshot, leaveNonMember),
                    nrm::PlanValidationReason::cNOT_MEMBER));
 
-   const std::string files[] = {planPath, roundTripPath, badMagic, unknownRecord,
-                                trailing, nonFinite, duplicateAllocation, duplicateDemand};
+   const std::string files[] = {planPath,
+                                roundTripPath,
+                                conflictingPath,
+                                badMagic,
+                                unknownRecord,
+                                trailing,
+                                nonFinite,
+                                duplicateAllocation,
+                                duplicateDemand};
    for (const std::string& path : files) std::remove(path.c_str());
    assert(rmdir(root.c_str()) == 0);
    return 0;

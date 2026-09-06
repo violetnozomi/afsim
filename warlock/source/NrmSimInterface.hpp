@@ -9,6 +9,7 @@
 #include "WkSimInterface.hpp"
 #include "nrm/MessageLifecycleTracker.hpp"
 #include "nrm/EnvironmentConfigRepository.hpp"
+#include "nrm/LinkMetricsRepository.hpp"
 #include "nrm/ResourceEventLedger.hpp"
 #include "nrm/RollingMetrics.hpp"
 
@@ -21,6 +22,7 @@ namespace comm
 {
 class Comm;
 class NetworkManager;
+class Result;
 } // namespace comm
 } // namespace wsf
 
@@ -54,6 +56,9 @@ private:
    void PublishSnapshot(const WsfSimulation& aSimulation, nrm::RuntimeState aState);
    void BuildResourceState(const WsfSimulation& aSimulation);
    void RegisterCallbacks(const WsfSimulation& aSimulation);
+   void UpdateLinkRadioState(const std::string& aLinkId,
+                             const wsf::comm::Result& aResult,
+                             double aSimTime);
    void CountMessage(wsf::comm::Comm* aCommPtr, std::uint64_t nrm::MessageStatistics::*aCounter);
    void PruneCorrelations(double aSimTime);
    static nrm::NetworkType GetNetworkType(const wsf::comm::Comm* aCommPtr);
@@ -65,12 +70,11 @@ private:
    nrm::ResourceSnapshot                         mSnapshot;
    std::map<std::string, nrm::MessageStatistics> mMessagesByNetwork;
    std::map<std::string, nrm::RollingMetrics>     mMetricsByNetwork;
-   std::map<std::string, nrm::RollingMetrics>     mMetricsByLink;
+   nrm::LinkMetricsRepository                     mLinkMetrics;
    std::map<std::string, LinkRadioState>          mRadioByLink;
    std::map<std::string, nrm::ResourceState>      mLastEndpointStates;
    std::map<std::string, nrm::ResourceState>      mLastLinkStates;
    std::map<unsigned int, double>                 mQueuedTimes;
-   std::map<unsigned int, double>                 mTransmittedTimes;
    double                                        mLastPublishTime = -1.0;
 };
 } // namespace WkNrm

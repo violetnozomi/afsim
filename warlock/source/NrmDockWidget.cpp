@@ -1,8 +1,11 @@
 #include "NrmDockWidget.hpp"
+#include "NrmDemandDetailTabs.hpp"
+#include "NrmOperationalDetailTabs.hpp"
 
 #include <cmath>
 #include <limits>
 #include <map>
+#include <set>
 #include <vector>
 
 #include <QAbstractItemView>
@@ -37,6 +40,9 @@
 
 #include "nrm/NetworkTypeUtils.hpp"
 #include "nrm/Version.hpp"
+#include "NrmAcceptanceDemoPanel.hpp"
+#include "NrmOperatorPresentation.hpp"
+#include "NrmPlanScenarioBinding.hpp"
 #include "NrmTacticalSelection.hpp"
 #include "NrmUiScale.hpp"
 #include "NrmUiStyle.hpp"
@@ -268,17 +274,6 @@ QString CurrentMissionPath()
    return QString();
 }
 
-QString BoundScenarioPath(const QString& aPlanPath)
-{
-   QFile binding(aPlanPath + ".scenario");
-   if (!binding.open(QIODevice::ReadOnly | QIODevice::Text)) return QString();
-   const QString value = QString::fromUtf8(binding.readLine()).trimmed();
-   if (value.isEmpty()) return QString();
-   const QFileInfo candidate(QDir::isAbsolutePath(value)
-                                ? value
-                                : QDir(QString::fromLocal8Bit(qgetenv("NRM_SOURCE"))).filePath(value));
-   return candidate.exists() ? candidate.canonicalFilePath() : QString();
-}
 } // namespace
 
 WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
@@ -297,9 +292,13 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mHopValuePtr(new QLabel(this))
    , mDiscardedValuePtr(new QLabel(this))
    , mNetworkTablePtr(nullptr)
+   , mMetricsSummaryTablePtr(nullptr)
    , mMetricsTablePtr(nullptr)
+   , mMetricsDetailTabsPtr(nullptr)
    , mEndpointTablePtr(nullptr)
+   , mActiveLinkTablePtr(nullptr)
    , mLinkTablePtr(nullptr)
+   , mLinkDetailTabsPtr(nullptr)
    , mEnvironmentTablePtr(nullptr)
    , mNavigationTablePtr(nullptr)
    , mSourceSelectorPtr(nullptr)
@@ -321,6 +320,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mCapabilityResultPtr(nullptr)
    , mPlanSummaryPtr(new QLabel(this))
    , mPlanOperationPtr(new QLabel(this))
+   , mPlanOverviewTablePtr(nullptr)
    , mPlanAllocationTablePtr(nullptr)
    , mPlanDemandTablePtr(nullptr)
    , mPlanIssueTablePtr(nullptr)
@@ -328,13 +328,19 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    , mPlanRecommendationTablePtr(nullptr)
    , mPlanDetailTabsPtr(nullptr)
    , mMainTabsPtr(nullptr)
+   , mAcceptanceDemoPanelPtr(nullptr)
+   , mAssessmentPagePtr(nullptr)
+   , mCapabilityPagePtr(nullptr)
    , mPlanPagePtr(nullptr)
+   , mPreacceptancePagePtr(nullptr)
    , mDemandSummaryPtr(new QLabel(this))
    , mDemandOperationPtr(new QLabel(this))
    , mDemandTablePtr(nullptr)
    , mDemandMatchTablePtr(nullptr)
    , mDemandGapTablePtr(nullptr)
+   , mDemandRecommendationSummaryTablePtr(nullptr)
    , mDemandRecommendationTablePtr(nullptr)
+   , mDemandDetailTabsPtr(nullptr)
    , mPreacceptanceStatusPtr(new QLabel(this))
    , mPreacceptanceTimePtr(new QLabel(this))
    , mPreacceptanceChecksPtr(new QLabel(this))
@@ -452,6 +458,15 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
       {QString::fromUtf8("类型"), QString::fromUtf8("网络"), QString::fromUtf8("模型"),
        QString::fromUtf8("成员数"), QString::fromUtf8("在线数"), QString::fromUtf8("链路数"),
        QString::fromUtf8("发送"), QString::fromUtf8("接收"), QString::fromUtf8("丢弃")}, tabsPtr);
+   mMetricsSummaryTablePtr = CreateTable(
+      {QString::fromUtf8("类型"), QString::fromUtf8("网络"),
+       QString::fromUtf8("运行状态"), QString::fromUtf8("10秒业务量"),
+       QString::fromUtf8("PDR"), QString::fromUtf8("在网率"),
+       QString::fromUtf8("传输时延"), QString::fromUtf8("参考带宽"),
+       QString::fromUtf8("参考占用率"), QString::fromUtf8("队列状态")},
+      tabsPtr);
+   mMetricsSummaryTablePtr->horizontalHeader()->setSectionResizeMode(
+      QHeaderView::Stretch);
    mMetricsTablePtr = CreateTable(
       {QString::fromUtf8("类型"), QString::fromUtf8("网络"), QString::fromUtf8("统计窗口"),
        QString::fromUtf8("吞吐量"), QString::fromUtf8("分组投递率（PDR）"), QString::fromUtf8("在网率"),
@@ -459,10 +474,23 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        QString::fromUtf8("队列占用率"), QString::fromUtf8("确认时延（ACK）"),
        QString::fromUtf8("往返时延（RTT）")},
       tabsPtr);
+   mMetricsDetailTabsPtr = new OperationalDetailTabs(tabsPtr);
+   mMetricsDetailTabsPtr->SetPages(
+      mMetricsSummaryTablePtr, mMetricsTablePtr,
+      QString::fromUtf8("运行摘要"), QString::fromUtf8("1/10/60秒技术明细"));
    mEndpointTablePtr =
       CreateTable({QString::fromUtf8("类型"), QString::fromUtf8("平台"), QString::fromUtf8("通信设备"),
                    QString::fromUtf8("地址"), QString::fromUtf8("职责"), QString::fromUtf8("状态"), QString::fromUtf8("纬度"),
                    QString::fromUtf8("经度"), QString::fromUtf8("高度")}, tabsPtr);
+   mActiveLinkTablePtr = CreateTable(
+      {QString::fromUtf8("类型"), QString::fromUtf8("源平台"),
+       QString::fromUtf8("目的平台"), QString::fromUtf8("当前状态"),
+       QString::fromUtf8("距离"), QString::fromUtf8("10秒业务量"),
+       QString::fromUtf8("参考带宽"), QString::fromUtf8("参考占用率"),
+       QString::fromUtf8("质量依据")},
+      tabsPtr);
+   mActiveLinkTablePtr->horizontalHeader()->setSectionResizeMode(
+      QHeaderView::Stretch);
    mLinkTablePtr = CreateTable(
       {QString::fromUtf8("类型"),
        QString::fromUtf8("源平台"),
@@ -482,6 +510,11 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        QString::fromUtf8("协议资源"),
        QString::fromUtf8("活动告警")},
       tabsPtr);
+   mLinkDetailTabsPtr = new OperationalDetailTabs(tabsPtr);
+   mLinkDetailTabsPtr->SetPages(
+      mActiveLinkTablePtr, mLinkTablePtr,
+      QString::fromUtf8("活动链路（最近10秒）"),
+      QString::fromUtf8("全部链路与技术字段"));
    mEnvironmentTablePtr = CreateTable(
       {QString::fromUtf8("环境域"), QString::fromUtf8("状态"),
        QString::fromUtf8("数据来源"), QString::fromUtf8("关键观测"),
@@ -497,6 +530,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        QString::fromUtf8("垂直1σ精度"), QString::fromUtf8("航向1σ精度"),
        QString::fromUtf8("更新时间")}, tabsPtr);
    QWidget* assessmentPagePtr = new QWidget(tabsPtr);
+   mAssessmentPagePtr = assessmentPagePtr;
    QVBoxLayout* assessmentLayoutPtr = new QVBoxLayout(assessmentPagePtr);
    QFormLayout* taskFormPtr = new QFormLayout();
    mSourceSelectorPtr = new QComboBox(assessmentPagePtr);
@@ -567,6 +601,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
            [this](int) { PublishAssessmentPlatforms(); });
 
    QWidget* capabilityPagePtr = new QWidget(tabsPtr);
+   mCapabilityPagePtr = capabilityPagePtr;
    QVBoxLayout* capabilityLayoutPtr = new QVBoxLayout(capabilityPagePtr);
    QFormLayout* capabilityFormPtr = new QFormLayout();
    mCapabilitySourceSelectorPtr = new QComboBox(capabilityPagePtr);
@@ -626,6 +661,11 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    planFileActionsPtr->addStretch();
    planLayoutPtr->addLayout(planFileActionsPtr);
 
+   mPlanOverviewTablePtr = CreateTable(
+      {QString::fromUtf8("网络类型"), QString::fromUtf8("资源用途"),
+       QString::fromUtf8("中心频率"), QString::fromUtf8("信道 / 波束"),
+       QString::fromUtf8("子网"), QString::fromUtf8("成员数量"),
+       QString::fromUtf8("路由方式"), QString::fromUtf8("状态")}, planPagePtr);
    mPlanAllocationTablePtr = CreateEditableTable(
       {QString::fromUtf8("分配编号"), QString::fromUtf8("网络"), QString::fromUtf8("类型"),
        QString::fromUtf8("配置模板"), QString::fromUtf8("频率（赫兹）"), QString::fromUtf8("信道"),
@@ -670,7 +710,8 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    mPlanRecommendationTablePtr->setColumnWidth(3, 620);
    mPlanDetailTabsPtr = new QTabWidget(planPagePtr);
    mPlanDetailTabsPtr->setDocumentMode(true);
-   mPlanDetailTabsPtr->addTab(mPlanAllocationTablePtr, QString::fromUtf8("资源分配"));
+   mPlanDetailTabsPtr->addTab(mPlanOverviewTablePtr, QString::fromUtf8("资源概览"));
+   mPlanDetailTabsPtr->addTab(mPlanAllocationTablePtr, QString::fromUtf8("配置明细"));
    mPlanDetailTabsPtr->addTab(mPlanDemandTablePtr, QString::fromUtf8("业务需求"));
    mPlanDetailTabsPtr->addTab(mPlanIssueTablePtr, QString::fromUtf8("校验问题"));
    mPlanDetailTabsPtr->addTab(mPlanEvaluationTablePtr, QString::fromUtf8("推演结果"));
@@ -739,24 +780,35 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
        QString::fromUtf8("最大距离（米）"), QString::fromUtf8("最小网络规模"),
        QString::fromUtf8("允许网络")},
       demandPagePtr);
-   demandLayoutPtr->addWidget(mDemandTablePtr);
    mDemandMatchTablePtr = CreateTable(
       {QString::fromUtf8("需求编号"), QString::fromUtf8("状态"), QString::fromUtf8("快照版本"),
        QString::fromUtf8("路径"), QString::fromUtf8("距离"), QString::fromUtf8("速率"),
        QString::fromUtf8("原因码")},
       demandPagePtr);
-   demandLayoutPtr->addWidget(mDemandMatchTablePtr);
    mDemandGapTablePtr = CreateTable(
       {QString::fromUtf8("需求编号"), QString::fromUtf8("约束项"), QString::fromUtf8("要求值"),
        QString::fromUtf8("当前值"), QString::fromUtf8("裕量"), QString::fromUtf8("原因码")},
       demandPagePtr);
-   demandLayoutPtr->addWidget(mDemandGapTablePtr);
+   mDemandRecommendationSummaryTablePtr = CreateTable(
+      {QString::fromUtf8("通信任务"), QString::fromUtf8("结论"),
+       QString::fromUtf8("建议资源"), QString::fromUtf8("建议路由"),
+       QString::fromUtf8("原因说明")}, demandPagePtr);
+   mDemandRecommendationSummaryTablePtr->horizontalHeader()->setSectionResizeMode(
+      QHeaderView::Stretch);
+   mDemandRecommendationSummaryTablePtr->horizontalHeader()->setSectionResizeMode(
+      1, QHeaderView::ResizeToContents);
+   mDemandRecommendationSummaryTablePtr->setHorizontalScrollBarPolicy(
+      Qt::ScrollBarAlwaysOff);
    mDemandRecommendationTablePtr = CreateTable(
       {QString::fromUtf8("需求编号"), QString::fromUtf8("建议类型"), QString::fromUtf8("状态"),
        QString::fromUtf8("候选对象"), QString::fromUtf8("建议值"), QString::fromUtf8("排序"),
        QString::fromUtf8("来源 / 置信度"), QString::fromUtf8("原因码"), QString::fromUtf8("依据")},
       demandPagePtr);
-   demandLayoutPtr->addWidget(mDemandRecommendationTablePtr);
+   mDemandDetailTabsPtr = new DemandDetailTabs(demandPagePtr);
+   mDemandDetailTabsPtr->SetPages(
+      mDemandTablePtr, mDemandMatchTablePtr, mDemandGapTablePtr,
+      mDemandRecommendationSummaryTablePtr, mDemandRecommendationTablePtr);
+   demandLayoutPtr->addWidget(mDemandDetailTabsPtr, 1);
 
    connect(loadDemandButtonPtr, &QPushButton::clicked,
            this, &DockWidget::LoadResourceDemands);
@@ -774,10 +826,13 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
                  QString::fromUtf8("草案：表格编辑尚未写入需求仓库，旧匹配结果已失效"));
               mDemandMatchTablePtr->setRowCount(0);
               mDemandGapTablePtr->setRowCount(0);
+              mDemandRecommendationSummaryTablePtr->setRowCount(0);
               mDemandRecommendationTablePtr->setRowCount(0);
+              mDemandDetailTabsPtr->ShowDemands();
            });
 
    QWidget* preacceptancePagePtr = new QWidget(tabsPtr);
+   mPreacceptancePagePtr = preacceptancePagePtr;
    QVBoxLayout* preacceptanceLayoutPtr = new QVBoxLayout(preacceptancePagePtr);
    QLabel* preacceptanceIntroPtr = new QLabel(
       QString::fromUtf8(
@@ -811,10 +866,49 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    preacceptanceLayoutPtr->addWidget(mPreacceptanceNoticePtr);
    preacceptanceLayoutPtr->addStretch();
 
+   mAcceptanceDemoPanelPtr = new AcceptanceDemoPanel(tabsPtr);
+   connect(mAcceptanceDemoPanelPtr,
+           &AcceptanceDemoPanel::StartScenarioRequested,
+           this,
+           &DockWidget::StartAcceptanceScenario);
+   connect(mAcceptanceDemoPanelPtr,
+           &AcceptanceDemoPanel::ShowOverviewRequested,
+           this,
+           [this]() { ShowAcceptanceTab(mNetworkTablePtr); });
+   connect(mAcceptanceDemoPanelPtr,
+           &AcceptanceDemoPanel::RunAssessmentRequested,
+           this,
+           &DockWidget::RunAcceptanceAssessment);
+   connect(mAcceptanceDemoPanelPtr,
+           &AcceptanceDemoPanel::RunCapabilityRequested,
+           this,
+           &DockWidget::RunAcceptanceCapability);
+   connect(mAcceptanceDemoPanelPtr,
+           &AcceptanceDemoPanel::ShowPlanRequested,
+           this,
+           &DockWidget::RunAcceptancePlan);
+   connect(mAcceptanceDemoPanelPtr,
+           &AcceptanceDemoPanel::ShowGatewayRequested,
+           this,
+           [this]() { ShowAcceptanceTab(mLinkDetailTabsPtr); });
+   connect(mAcceptanceDemoPanelPtr,
+           &AcceptanceDemoPanel::ShowNavigationRequested,
+           this,
+           [this]() { ShowAcceptanceTab(mNavigationTablePtr); });
+   connect(mAcceptanceDemoPanelPtr,
+           &AcceptanceDemoPanel::ShowEnvironmentRequested,
+           this,
+           [this]() { ShowAcceptanceTab(mEnvironmentTablePtr); });
+   connect(mAcceptanceDemoPanelPtr,
+           &AcceptanceDemoPanel::ShowPreacceptanceRequested,
+           this,
+           [this]() { ShowAcceptanceTab(mPreacceptancePagePtr); });
+
+   tabsPtr->addTab(mAcceptanceDemoPanelPtr, QString::fromUtf8("合同验收演示"));
    tabsPtr->addTab(mNetworkTablePtr, QString::fromUtf8("四网总览"));
-   tabsPtr->addTab(mMetricsTablePtr, QString::fromUtf8("窗口指标"));
+   tabsPtr->addTab(mMetricsDetailTabsPtr, QString::fromUtf8("窗口指标"));
    tabsPtr->addTab(mEndpointTablePtr, QString::fromUtf8("网络成员"));
-   tabsPtr->addTab(mLinkTablePtr, QString::fromUtf8("通信链路"));
+   tabsPtr->addTab(mLinkDetailTabsPtr, QString::fromUtf8("通信链路"));
    tabsPtr->addTab(mEnvironmentTablePtr, QString::fromUtf8("环境状态"));
    tabsPtr->addTab(mNavigationTablePtr, QString::fromUtf8("导航状态"));
    tabsPtr->addTab(assessmentPagePtr, QString::fromUtf8("任务评估"));
@@ -822,7 +916,7 @@ WkNrm::DockWidget::DockWidget(DataContainer& aData, QWidget* aParentPtr)
    tabsPtr->addTab(planPagePtr, QString::fromUtf8("资源规划"));
    tabsPtr->addTab(demandPagePtr, QString::fromUtf8("需求匹配"));
    tabsPtr->addTab(preacceptancePagePtr, QString::fromUtf8("预验收状态"));
-   tabsPtr->setCurrentWidget(assessmentPagePtr);
+   tabsPtr->setCurrentWidget(mAcceptanceDemoPanelPtr);
    rootLayoutPtr->addWidget(tabsPtr);
 
    setWidget(contentPtr);
@@ -877,6 +971,187 @@ void WkNrm::DockWidget::ShowNetworkPlan()
    if (mMainTabsPtr != nullptr && mPlanPagePtr != nullptr)
       mMainTabsPtr->setCurrentWidget(mPlanPagePtr);
    RefreshNetworkPlan();
+}
+
+void WkNrm::DockWidget::ShowAcceptanceDemo()
+{
+   ShowAcceptanceTab(mAcceptanceDemoPanelPtr);
+}
+
+void WkNrm::DockWidget::ShowAcceptanceTab(QWidget* aPagePtr)
+{
+   if (mMainTabsPtr != nullptr && aPagePtr != nullptr &&
+       mMainTabsPtr->indexOf(aPagePtr) >= 0)
+   {
+      mMainTabsPtr->setCurrentWidget(aPagePtr);
+   }
+}
+
+bool WkNrm::DockWidget::SetComboValue(QComboBox* aComboPtr, const QString& aValue)
+{
+   if (aComboPtr == nullptr)
+   {
+      return false;
+   }
+   const int index = aComboPtr->findData(aValue);
+   if (index < 0)
+   {
+      return false;
+   }
+   aComboPtr->setCurrentIndex(index);
+   return true;
+}
+
+void WkNrm::DockWidget::StartAcceptanceScenario()
+{
+   const QString sourceRoot = QString::fromLocal8Bit(qgetenv("NRM_SOURCE"));
+   if (sourceRoot.isEmpty())
+   {
+      mAcceptanceDemoPanelPtr->SetLaunchResult(
+         false, QString::fromUtf8("环境变量NRM_SOURCE未设置"));
+      return;
+   }
+
+   const QFileInfo scenarioInfo(
+      QDir(sourceRoot).filePath(AcceptanceDemoPanel::FixedScenarioPath()));
+   const QFileInfo planInfo(
+      QDir(sourceRoot).filePath(AcceptanceDemoPanel::FixedPlanPath()));
+   const QFileInfo switchScriptInfo(
+      QDir(sourceRoot).filePath(AcceptanceDemoPanel::FixedSwitchScriptPath()));
+   if (!scenarioInfo.exists() || !scenarioInfo.isFile())
+   {
+      mAcceptanceDemoPanelPtr->SetLaunchResult(
+         false, QString::fromUtf8("固定综合场景文件不存在"));
+      return;
+   }
+   if (!planInfo.exists() || !planInfo.isFile())
+   {
+      mAcceptanceDemoPanelPtr->SetLaunchResult(
+         false, QString::fromUtf8("固定资源规划文件不存在"));
+      return;
+   }
+   if (!switchScriptInfo.exists() || !switchScriptInfo.isFile() ||
+       !switchScriptInfo.isExecutable())
+   {
+      mAcceptanceDemoPanelPtr->SetLaunchResult(
+         false, QString::fromUtf8("固定场景切换脚本不存在或不可执行"));
+      return;
+   }
+
+   const QString scenarioPath = scenarioInfo.canonicalFilePath();
+   const QString planPath = planInfo.canonicalFilePath();
+   if (mPlanDirty)
+   {
+      mAcceptanceDemoPanelPtr->SetLaunchResult(
+         false, QString::fromUtf8("当前资源规划存在未保存编辑，请先保存或卸载"));
+      return;
+   }
+   const nrm::NetworkPlanDocument* activePlanPtr = mData.GetNetworkPlan();
+   if (activePlanPtr != nullptr &&
+       (activePlanPtr->planId != AcceptanceDemoPanel::FixedPlanId().toStdString() ||
+        activePlanPtr->revision !=
+           static_cast<std::uint64_t>(AcceptanceDemoPanel::FixedPlanRevision())))
+   {
+      mAcceptanceDemoPanelPtr->SetLaunchResult(
+         false, QString::fromUtf8("当前已加载其他资源规划，请先卸载后再启动固定演示"));
+      return;
+   }
+   if (CurrentMissionPath() == scenarioPath)
+   {
+      if (activePlanPtr == nullptr && !mData.LoadNetworkPlan(planPath.toStdString()))
+      {
+         mAcceptanceDemoPanelPtr->SetLaunchResult(
+            false, QString::fromUtf8("资源规划文件校验或加载失败"));
+         RefreshNetworkPlan();
+         return;
+      }
+      mPlanDirty = false;
+      RefreshNetworkPlan();
+      mAcceptanceDemoPanelPtr->SetLaunchResult(
+         true, QString::fromUtf8("当前已是固定综合场景，规划已自动加载"));
+      ShowAcceptanceDemo();
+      return;
+   }
+
+   const QString unit = QString("--unit=nrm-warlock-acceptance-%1-%2")
+                           .arg(QCoreApplication::applicationPid())
+                           .arg(QDateTime::currentMSecsSinceEpoch());
+   const bool started = QProcess::startDetached(
+      "systemd-run",
+      {"--quiet", "--user", "--collect", unit,
+       switchScriptInfo.canonicalFilePath(), scenarioPath, planPath,
+       QString::fromLatin1("acceptance")});
+   if (!started)
+   {
+      mAcceptanceDemoPanelPtr->SetLaunchResult(
+         false, QString::fromUtf8("无法提交Warlock场景切换请求，请检查用户systemd服务"));
+      return;
+   }
+   mAcceptanceDemoPanelPtr->SetLaunchResult(
+      true, QString::fromUtf8("正在重启Warlock并自动加载固定规划，请等待VNC窗口重新出现"));
+}
+
+void WkNrm::DockWidget::RunAcceptanceAssessment()
+{
+   const bool sourceReady = SetComboValue(
+      mSourceSelectorPtr, AcceptanceDemoPanel::FixedSourcePlatform());
+   const bool destinationReady =
+      SetComboValue(mDestinationSelectorPtr,
+                    AcceptanceDemoPanel::FixedDestinationPlatform());
+   const bool networkReady =
+      SetComboValue(mAllowedNetworkPtr, AcceptanceDemoPanel::FixedNetwork());
+   mBandwidthKbpsPtr->setValue(AcceptanceDemoPanel::FixedBandwidthKbps());
+   mMaximumDelayMsPtr->setValue(AcceptanceDemoPanel::FixedMaximumDelayMs());
+   mMinimumPdrPtr->setValue(AcceptanceDemoPanel::FixedMinimumPdrPercent());
+   ShowAcceptanceTab(mAssessmentPagePtr);
+   if (!sourceReady || !destinationReady || !networkReady)
+   {
+      mAssessmentResultPtr->setPlainText(QString::fromUtf8(
+         "固定验收平台或Link-16网络尚未进入当前快照，请先启动并等待综合场景初始化。"));
+      return;
+   }
+   PublishAssessmentPlatforms();
+   EvaluateTask();
+}
+
+void WkNrm::DockWidget::RunAcceptanceCapability()
+{
+   const bool sourceReady =
+      SetComboValue(mCapabilitySourceSelectorPtr,
+                    AcceptanceDemoPanel::FixedSourcePlatform());
+   const bool destinationReady =
+      SetComboValue(mCapabilityDestinationSelectorPtr,
+                    AcceptanceDemoPanel::FixedDestinationPlatform());
+   const bool networkReady =
+      SetComboValue(mCapabilityAllowedNetworkPtr,
+                    AcceptanceDemoPanel::FixedNetwork());
+   mCapabilityBandwidthKbpsPtr->setValue(
+      AcceptanceDemoPanel::FixedBandwidthKbps());
+   mCapabilityMaximumDelayMsPtr->setValue(
+      AcceptanceDemoPanel::FixedMaximumDelayMs());
+   mCapabilityMinimumPdrPtr->setValue(
+      AcceptanceDemoPanel::FixedMinimumPdrPercent());
+   ShowAcceptanceTab(mCapabilityPagePtr);
+   if (!sourceReady || !destinationReady || !networkReady)
+   {
+      mCapabilityResultPtr->setPlainText(QString::fromUtf8(
+         "固定验收平台或Link-16网络尚未进入当前快照，请先启动并等待综合场景初始化。"));
+      return;
+   }
+   QueryCapability();
+}
+
+void WkNrm::DockWidget::RunAcceptancePlan()
+{
+   ShowNetworkPlan();
+   if (!mData.HasNetworkPlan())
+   {
+      mPlanOperationPtr->setText(QString::fromUtf8(
+         "固定资源规划尚未加载，请先在合同验收演示页启动综合场景。"));
+      return;
+   }
+   ValidateNetworkPlan();
+   EvaluateNetworkPlan();
 }
 
 void WkNrm::DockWidget::RefreshPreacceptance(const PreacceptanceStatus& aStatus)
@@ -949,6 +1224,15 @@ void WkNrm::DockWidget::RefreshPreacceptance(const PreacceptanceStatus& aStatus)
    mPreacceptanceStatusPtr->setText(statusText);
    mPreacceptanceStatusPtr->setStyleSheet(
       QString("font-weight: bold; color: %1;").arg(statusColor));
+   if (mAcceptanceDemoPanelPtr != nullptr)
+   {
+      mAcceptanceDemoPanelPtr->SetPreacceptanceSummary(
+         statusText,
+         aStatus.passedTestCount,
+         aStatus.fixedTestCount,
+         aStatus.passedScenarioCount,
+         aStatus.fixedScenarioCount);
+   }
 }
 
 void WkNrm::DockWidget::EvaluateTask()
@@ -1114,9 +1398,15 @@ void WkNrm::DockWidget::QueryCapability()
    text += QString::fromUtf8("环境影响：\n");
    for (const nrm::EnvironmentEffect& effect : result.environmentEffects)
    {
+      const QString effectState =
+         effect.valid
+            ? QString::fromUtf8("有效")
+            : (effect.reason == nrm::CapabilityReason::cENVIRONMENT_DATA_UNAVAILABLE
+                  ? QString::fromUtf8("未配置（不参与当前实测路径判定）")
+                  : QString::fromUtf8("不可用"));
       text += QString::fromUtf8("- %1：%2［来源=%3，置信度=%4，原因=%5］\n")
                  .arg(DisplayCode(nrm::ToString(effect.domain)),
-                      effect.valid ? QString::fromUtf8("有效") : QString::fromUtf8("无效"),
+                      effectState,
                       DisplayCode(nrm::ToString(effect.origin)),
                       DisplayCode(nrm::ToString(effect.confidence)),
                       DisplayCode(nrm::ToString(effect.reason)));
@@ -1134,7 +1424,7 @@ void WkNrm::DockWidget::LoadNetworkPlan()
       return;
    const QString path = QFileDialog::getOpenFileName(
       this, QString::fromUtf8("加载资源规划文件"), QString(),
-      QString::fromUtf8("资源规划文件 (*.json *.nrm);;甲方JSON (*.json);;内部NRM规划 (*.nrm)"));
+      QString::fromUtf8("资源规划文件 (*.json *.nrm);;标准接口JSON (*.json);;内部NRM规划 (*.nrm)"));
    if (path.isEmpty()) return;
    mPlanDirty = false;
    bool planLoaded = false;
@@ -1146,7 +1436,7 @@ void WkNrm::DockWidget::LoadNetworkPlan()
                    result.envelope.schema == "nrm.customer.network_plan.v1" &&
                    mData.HasNetworkPlan();
       if (!result.valid && !result.errors.empty())
-         mPlanOperationPtr->setText(QString::fromUtf8("甲方JSON加载失败：%1 %2")
+         mPlanOperationPtr->setText(QString::fromUtf8("标准接口JSON加载失败：%1 %2")
             .arg(QString::fromStdString(result.errors.front().code),
                  QString::fromStdString(result.errors.front().path)));
    }
@@ -1157,7 +1447,8 @@ void WkNrm::DockWidget::LoadNetworkPlan()
 
    if (planLoaded)
    {
-      const QString scenario = BoundScenarioPath(path);
+      const QString scenario = ResolvePlanScenarioPath(
+         path, QString::fromLocal8Bit(qgetenv("NRM_SOURCE")));
       const QString current = CurrentMissionPath();
       if (!scenario.isEmpty() && scenario != current)
       {
@@ -1181,6 +1472,7 @@ void WkNrm::DockWidget::LoadNetworkPlan()
          return;
       }
       RefreshNetworkPlan();
+      mPlanDetailTabsPtr->setCurrentIndex(0);
       if (scenario.isEmpty())
       {
          mPlanOperationPtr->setText(
@@ -1237,7 +1529,7 @@ void WkNrm::DockWidget::ValidateNetworkPlan()
    if (!ApplyNetworkPlanEdits()) return;
    mData.ValidateNetworkPlan();
    RefreshNetworkPlan();
-   mPlanDetailTabsPtr->setCurrentIndex(2);
+   mPlanDetailTabsPtr->setCurrentIndex(3);
 }
 
 void WkNrm::DockWidget::EvaluateNetworkPlan()
@@ -1246,7 +1538,7 @@ void WkNrm::DockWidget::EvaluateNetworkPlan()
    mData.EvaluateNetworkPlan();
    RefreshNetworkPlan();
    mPlanDetailTabsPtr->setCurrentIndex(
-      mData.GetPlanEvaluation().overallStatus == nrm::PlanEvaluationStatus::cPASS ? 3 : 4);
+      mData.GetPlanEvaluation().overallStatus == nrm::PlanEvaluationStatus::cPASS ? 4 : 5);
 }
 
 void WkNrm::DockWidget::GenerateNetworkPlanPackage()
@@ -1370,6 +1662,7 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
             : QString::fromUtf8("原因=%1，字段=%2")
                  .arg(DisplayCode(nrm::ToString(operation.reason)),
                       DisplayCode(operation.field)));
+      mPlanOverviewTablePtr->setRowCount(0);
       mPlanAllocationTablePtr->setRowCount(0);
       mPlanDemandTablePtr->setRowCount(0);
       mPlanIssueTablePtr->setRowCount(0);
@@ -1378,7 +1671,7 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
       return;
    }
 
-   mPlanSummaryPtr->setText(
+   const QString planDetails =
       QString::fromUtf8("规划编号=%1 | 修订=%2 | 规划域=%3 | 状态=%4 | 来源=%5 | 置信度=%6 | 配置=%7")
          .arg(QString::fromStdString(planPtr->planId))
          .arg(planPtr->revision)
@@ -1386,7 +1679,15 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          .arg(DisplayCode(nrm::ToString(mData.GetNetworkPlanState())))
          .arg(DisplayCode(nrm::ToString(planPtr->source)))
          .arg(DisplayCode(nrm::ToString(planPtr->confidence)))
-         .arg(QString::fromStdString(planPtr->configVersion)));
+         .arg(QString::fromStdString(planPtr->configVersion));
+   mPlanSummaryPtr->setText(
+      QString::fromUtf8("当前方案：%1｜第%2版｜%3组网络资源｜%4项通信任务｜状态：%5")
+         .arg(DisplayCode(nrm::ToString(planPtr->planningDomain)))
+         .arg(planPtr->revision)
+         .arg(planPtr->allocations.size())
+         .arg(planPtr->demands.size())
+         .arg(DisplayCode(nrm::ToString(mData.GetNetworkPlanState()))));
+   mPlanSummaryPtr->setToolTip(planDetails);
 
    QString operationText;
    if (mData.HasDistributionPackage())
@@ -1428,16 +1729,52 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          .arg(coordination.revision)
          .arg(DisplayCode(nrm::ToString(coordination.reason)));
    }
-   mPlanOperationPtr->setText(operationText);
+   mPlanOperationPtr->setToolTip(operationText);
+   if (mData.HasPlanEvaluation())
+   {
+      std::size_t passed = 0;
+      std::size_t failed = 0;
+      std::size_t invalid = 0;
+      for (const nrm::PlanDemandEvaluation& evaluation :
+           mData.GetPlanEvaluation().demands)
+      {
+         if (evaluation.status == nrm::PlanEvaluationStatus::cPASS) ++passed;
+         else if (evaluation.status == nrm::PlanEvaluationStatus::cDATA_INVALID) ++invalid;
+         else ++failed;
+      }
+      mPlanOperationPtr->setText(
+         QString::fromUtf8("推演完成：%1项可执行，%2项需调整，%3项数据不足。详细原因请查看“推演结果”和“调整建议”。")
+            .arg(passed).arg(failed).arg(invalid));
+   }
+   else if (mData.HasDistributionPackage())
+   {
+      mPlanOperationPtr->setText(QString::fromUtf8("分发包已生成，详细路径见鼠标提示。"));
+   }
+   else
+   {
+      mPlanOperationPtr->setText(QString::fromUtf8("规划文件已加载，可先校验，再执行只读推演。"));
+   }
 
    const QSignalBlocker allocationBlocker(mPlanAllocationTablePtr);
    const QSignalBlocker demandBlocker(mPlanDemandTablePtr);
+   mPlanOverviewTablePtr->setRowCount(
+      static_cast<int>(planPtr->allocations.size()));
    mPlanAllocationTablePtr->setRowCount(
       static_cast<int>(planPtr->allocations.size()));
    for (std::size_t index = 0; index < planPtr->allocations.size(); ++index)
    {
       const int row = static_cast<int>(index);
       const nrm::NetworkPlanAllocation& allocation = planPtr->allocations[index];
+      const OperatorPresentation::PlanAllocationSummary overview =
+         OperatorPresentation::SummarizeAllocation(allocation);
+      SetTableText(mPlanOverviewTablePtr, row, 0, overview.networkType);
+      SetTableText(mPlanOverviewTablePtr, row, 1, overview.purpose);
+      SetTableText(mPlanOverviewTablePtr, row, 2, overview.frequency);
+      SetTableText(mPlanOverviewTablePtr, row, 3, overview.channelOrBeam);
+      SetTableText(mPlanOverviewTablePtr, row, 4, overview.subnet);
+      SetTableText(mPlanOverviewTablePtr, row, 5, overview.memberCount);
+      SetTableText(mPlanOverviewTablePtr, row, 6, overview.routePolicy);
+      SetTableText(mPlanOverviewTablePtr, row, 7, overview.state);
       SetTableText(mPlanAllocationTablePtr, row, 0,
                    QString::fromStdString(allocation.allocationId));
       SetTableText(mPlanAllocationTablePtr, row, 1,
@@ -1547,12 +1884,18 @@ void WkNrm::DockWidget::RefreshNetworkPlan()
          }
          SetTableText(mPlanEvaluationTablePtr, row, 3,
                       conflicts.isEmpty() ? QString::fromUtf8("—") : conflicts.join(", "));
+         const bool usesParameterizedMetrics =
+            evaluation.capability.transmissionRateBps.origin ==
+               nrm::DataOrigin::cPARAMETERIZED_MODEL ||
+            evaluation.capability.transmissionDelayMs.origin ==
+               nrm::DataOrigin::cPARAMETERIZED_MODEL ||
+            evaluation.capability.packetLossPercent.origin ==
+               nrm::DataOrigin::cPARAMETERIZED_MODEL;
          SetTableText(mPlanEvaluationTablePtr, row, 4,
-                      evaluation.capability.pathAvailable
-                         ? (evaluation.capability.usesCandidate
-                               ? QString::fromUtf8("参数化模型 / 低置信度")
-                               : QString::fromUtf8("当前网络"))
-                         : QString::fromUtf8("不可用"));
+                      QString::fromStdString(UiText::FormatPlanPathSource(
+                         evaluation.capability.pathAvailable,
+                         evaluation.capability.usesCandidate,
+                         usesParameterizedMetrics)));
          SetTableText(mPlanEvaluationTablePtr, row, 5,
                       MetricText(evaluation.capability.transmissionRateBps, 1));
          SetTableText(mPlanEvaluationTablePtr, row, 6,
@@ -1608,8 +1951,9 @@ void WkNrm::DockWidget::LoadResourceDemands()
       QString::fromUtf8("NRM需求文件 (*.nrm *.demand);;所有文件 (*)"));
    if (path.isEmpty()) return;
    mDemandDirty = false;
-   mData.LoadResourceDemands(path.toStdString());
+   const bool loaded = mData.LoadResourceDemands(path.toStdString());
    RefreshResourceDemands();
+   if (loaded) mDemandDetailTabsPtr->ShowDemands();
 }
 
 void WkNrm::DockWidget::UnloadResourceDemands()
@@ -1622,6 +1966,7 @@ void WkNrm::DockWidget::UnloadResourceDemands()
    mDemandDirty = false;
    mData.UnloadResourceDemands();
    RefreshResourceDemands();
+   mDemandDetailTabsPtr->ShowDemands();
 }
 
 void WkNrm::DockWidget::SaveResourceDemandRevision()
@@ -1652,6 +1997,18 @@ void WkNrm::DockWidget::EvaluateResourceDemands()
    if (!ApplyResourceDemandEdits()) return;
    mData.EvaluateResourceDemands();
    RefreshResourceDemands();
+   if (mData.HasDemandMatching())
+   {
+      const nrm::ResourceDemandBatchResult& batch = mData.GetDemandMatching();
+      const bool hasFailures =
+         batch.unsatisfiedCount > 0 || batch.dataInvalidCount > 0;
+      bool hasRecommendations = false;
+      for (const nrm::ResourceDemandMatchResult& result : batch.results)
+      {
+         hasRecommendations = hasRecommendations || !result.recommendations.empty();
+      }
+      mDemandDetailTabsPtr->ShowEvaluation(hasFailures, hasRecommendations);
+   }
 }
 
 bool WkNrm::DockWidget::ApplyResourceDemandEdits()
@@ -1777,11 +2134,12 @@ void WkNrm::DockWidget::RefreshResourceDemands()
       mDemandTablePtr->setRowCount(0);
       mDemandMatchTablePtr->setRowCount(0);
       mDemandGapTablePtr->setRowCount(0);
+      mDemandRecommendationSummaryTablePtr->setRowCount(0);
       mDemandRecommendationTablePtr->setRowCount(0);
       return;
    }
 
-   mDemandSummaryPtr->setText(
+   const QString demandDetails =
       QString::fromUtf8("需求集编号=%1 | 修订=%2 | 需求数=%3 | 请求来源=%4 | 关联编号=%5 | 来源=%6 | 置信度=%7 | 配置=%8")
          .arg(QString::fromStdString(setPtr->demandSetId))
          .arg(setPtr->revision)
@@ -1792,16 +2150,28 @@ void WkNrm::DockWidget::RefreshResourceDemands()
                                        ? setPtr->demandSetId : setPtr->correlationId))
          .arg(DisplayCode(nrm::ToString(setPtr->source)))
          .arg(DisplayCode(nrm::ToString(setPtr->confidence)))
-         .arg(QString::fromStdString(setPtr->configVersion)));
+         .arg(QString::fromStdString(setPtr->configVersion));
+   mDemandSummaryPtr->setText(
+      QString::fromUtf8("当前需求：%1项通信任务｜第%2版｜数据来源：%3｜置信度：%4")
+         .arg(setPtr->demands.size())
+         .arg(setPtr->revision)
+         .arg(DisplayCode(nrm::ToString(setPtr->source)))
+         .arg(DisplayCode(nrm::ToString(setPtr->confidence))));
+   mDemandSummaryPtr->setToolTip(demandDetails);
    const nrm::ResourceDemandRepositoryResult& operation =
       mData.GetDemandOperation();
-   mDemandOperationPtr->setText(
+   const QString operationDetails =
       operation.success
          ? QString::fromUtf8("操作=成功，路径=%1").arg(
               QString::fromStdString(operation.path))
          : QString::fromUtf8("原因=%1，字段=%2")
               .arg(DisplayCode(nrm::ToString(operation.reason)),
-                   DisplayCode(operation.field)));
+                   DisplayCode(operation.field));
+   mDemandOperationPtr->setToolTip(operationDetails);
+   mDemandOperationPtr->setText(
+      operation.success
+         ? QString::fromUtf8("需求文件已加载，可执行匹配。")
+         : operationDetails);
 
    const QSignalBlocker demandBlocker(mDemandTablePtr);
    mDemandTablePtr->setRowCount(static_cast<int>(setPtr->demands.size()));
@@ -1831,24 +2201,32 @@ void WkNrm::DockWidget::RefreshResourceDemands()
       SetTableText(mDemandTablePtr, row, 12, JoinNetworks(demand.allowedNetworks));
    }
 
-   if (!mData.HasDemandMatching())
+   if (!mData.HasDemandMatchingHistory())
    {
       mDemandMatchTablePtr->setRowCount(0);
       mDemandGapTablePtr->setRowCount(0);
+      mDemandRecommendationSummaryTablePtr->setRowCount(0);
       mDemandRecommendationTablePtr->setRowCount(0);
       return;
    }
 
    const nrm::ResourceDemandBatchResult& batch = mData.GetDemandMatching();
-   mDemandOperationPtr->setText(
-      QString::fromUtf8("匹配结果：总数=%1，满足=%2，不满足=%3，数据无效=%4，快照=%5；同类历史通过率=%6%（%7次）")
+   const QString batchDetails =
+      QString::fromUtf8("总数=%1，满足=%2，不满足=%3，数据无效=%4，结果快照=%5；同类历史通过率=%6%（%7次）")
          .arg(batch.totalCount)
          .arg(batch.satisfiedCount)
          .arg(batch.unsatisfiedCount)
          .arg(batch.dataInvalidCount)
          .arg(batch.snapshotVersion)
          .arg(mData.GetDemandFeedback().historicalPassRatioPercent, 0, 'f', 1)
-         .arg(mData.GetDemandFeedback().historySampleCount));
+         .arg(mData.GetDemandFeedback().historySampleCount);
+   mDemandOperationPtr->setToolTip(batchDetails);
+   mDemandOperationPtr->setText(
+      mData.HasDemandMatching()
+         ? QString::fromUtf8("匹配完成：共%1项，%2项满足，%3项需要调整，%4项数据不足。")
+              .arg(batch.totalCount).arg(batch.satisfiedCount)
+              .arg(batch.unsatisfiedCount).arg(batch.dataInvalidCount)
+         : QString::fromUtf8("上一轮结果已过期，仅供查看；请点击“执行匹配”更新。"));
    mDemandMatchTablePtr->setRowCount(static_cast<int>(batch.results.size()));
    int gapRows = 0;
    int recommendationRows = 0;
@@ -1859,6 +2237,20 @@ void WkNrm::DockWidget::RefreshResourceDemands()
       recommendationRows += static_cast<int>(result.recommendations.size());
    }
    mDemandGapTablePtr->setRowCount(gapRows);
+   const std::vector<OperatorPresentation::DemandRecommendationSummary> summaries =
+      OperatorPresentation::SummarizeDemandRecommendations(*setPtr, batch);
+   mDemandRecommendationSummaryTablePtr->setRowCount(
+      static_cast<int>(summaries.size()));
+   for (std::size_t index = 0; index < summaries.size(); ++index)
+   {
+      const int row = static_cast<int>(index);
+      const OperatorPresentation::DemandRecommendationSummary& summary = summaries[index];
+      SetTableText(mDemandRecommendationSummaryTablePtr, row, 0, summary.task);
+      SetTableText(mDemandRecommendationSummaryTablePtr, row, 1, summary.conclusion);
+      SetTableText(mDemandRecommendationSummaryTablePtr, row, 2, summary.resourceAdvice);
+      SetTableText(mDemandRecommendationSummaryTablePtr, row, 3, summary.routeAdvice);
+      SetTableText(mDemandRecommendationSummaryTablePtr, row, 4, summary.explanation);
+   }
    mDemandRecommendationTablePtr->setRowCount(recommendationRows);
 
    int gapRow = 0;
@@ -1929,6 +2321,27 @@ void WkNrm::DockWidget::Refresh()
 {
    const nrm::FrameworkSnapshot& snapshot = mData.GetSnapshot();
    RefreshNodeSelectors(snapshot);
+   if (mAcceptanceDemoPanelPtr != nullptr)
+   {
+      std::set<std::string> platforms;
+      for (const nrm::EndpointSnapshot& endpoint : snapshot.endpoints)
+      {
+         platforms.insert(endpoint.platformName.empty() ? endpoint.platformId
+                                                        : endpoint.platformName);
+      }
+      platforms.erase(std::string());
+      mAcceptanceDemoPanelPtr->SetResourceSummary(
+         static_cast<int>(snapshot.networks.size()),
+         static_cast<int>(platforms.size()),
+         static_cast<int>(snapshot.links.size()),
+         static_cast<int>(snapshot.gateways.size()));
+      mAcceptanceDemoPanelPtr->SetNavigationSummary(
+         static_cast<int>(snapshot.navigation.platforms.size()));
+      mAcceptanceDemoPanelPtr->SetEnvironmentSummary(
+         snapshot.environment.terrain.available,
+         snapshot.environment.weather.available,
+         snapshot.environment.interference.available);
+   }
    mVersionValuePtr->setText(nrm::cVERSION);
    mStateValuePtr->setText(RuntimeStateText(snapshot.runtimeState));
    mStateValuePtr->setStyleSheet(
@@ -1970,6 +2383,38 @@ void WkNrm::DockWidget::Refresh()
                    row,
                    8,
                    QString::number(network.messages.discarded + network.messages.routingFailed));
+   }
+
+   mMetricsSummaryTablePtr->setRowCount(
+      static_cast<int>(snapshot.networks.size()));
+   for (std::size_t index = 0; index < snapshot.networks.size(); ++index)
+   {
+      const nrm::NetworkSnapshot& network = snapshot.networks[index];
+      const WkNrm::OperatorPresentation::NetworkMetricSummary summary =
+         WkNrm::OperatorPresentation::SummarizeNetworkMetric(
+            network, mData.GetNetworkProfiles().Find(network.networkType));
+      const int row = static_cast<int>(index);
+      SetTableText(mMetricsSummaryTablePtr, row, 0, summary.networkType);
+      mMetricsSummaryTablePtr->item(row, 0)->setForeground(
+         QBrush(NetworkColor(summary.networkTypeValue)));
+      SetTableText(mMetricsSummaryTablePtr, row, 1, summary.networkName);
+      SetTableText(mMetricsSummaryTablePtr, row, 2, summary.health);
+      if (summary.health == QString::fromUtf8("正常"))
+         mMetricsSummaryTablePtr->item(row, 2)->setForeground(
+            QBrush(QColor(39, 174, 96)));
+      else if (summary.health == QString::fromUtf8("需关注"))
+         mMetricsSummaryTablePtr->item(row, 2)->setForeground(
+            QBrush(QColor(241, 196, 15)));
+      else
+         mMetricsSummaryTablePtr->item(row, 2)->setForeground(
+            QBrush(QColor(231, 76, 60)));
+      SetTableText(mMetricsSummaryTablePtr, row, 3, summary.throughput);
+      SetTableText(mMetricsSummaryTablePtr, row, 4, summary.pdr);
+      SetTableText(mMetricsSummaryTablePtr, row, 5, summary.onlineRatio);
+      SetTableText(mMetricsSummaryTablePtr, row, 6, summary.transportDelay);
+      SetTableText(mMetricsSummaryTablePtr, row, 7, summary.referenceBandwidth);
+      SetTableText(mMetricsSummaryTablePtr, row, 8, summary.referenceUtilization);
+      SetTableText(mMetricsSummaryTablePtr, row, 9, summary.queueState);
    }
 
    std::size_t metricsRowCount = 0;
@@ -2015,6 +2460,29 @@ void WkNrm::DockWidget::Refresh()
       SetTableText(mEndpointTablePtr, row, 6, MetricText(endpoint.latitudeDeg, 5));
       SetTableText(mEndpointTablePtr, row, 7, MetricText(endpoint.longitudeDeg, 5));
       SetTableText(mEndpointTablePtr, row, 8, MetricText(endpoint.altitudeM, 1));
+   }
+
+   const std::vector<WkNrm::OperatorPresentation::ActiveLinkSummary>
+      activeLinkSummaries = WkNrm::OperatorPresentation::SummarizeActiveLinks(
+         snapshot, mData.GetNetworkProfiles());
+   mActiveLinkTablePtr->setRowCount(
+      static_cast<int>(activeLinkSummaries.size()));
+   for (std::size_t index = 0; index < activeLinkSummaries.size(); ++index)
+   {
+      const WkNrm::OperatorPresentation::ActiveLinkSummary& summary =
+         activeLinkSummaries[index];
+      const int row = static_cast<int>(index);
+      SetTableText(mActiveLinkTablePtr, row, 0, summary.networkType);
+      mActiveLinkTablePtr->item(row, 0)->setForeground(
+         QBrush(NetworkColor(summary.networkTypeValue)));
+      SetTableText(mActiveLinkTablePtr, row, 1, summary.source);
+      SetTableText(mActiveLinkTablePtr, row, 2, summary.destination);
+      SetTableText(mActiveLinkTablePtr, row, 3, summary.state);
+      SetTableText(mActiveLinkTablePtr, row, 4, summary.distance);
+      SetTableText(mActiveLinkTablePtr, row, 5, summary.throughput);
+      SetTableText(mActiveLinkTablePtr, row, 6, summary.referenceBandwidth);
+      SetTableText(mActiveLinkTablePtr, row, 7, summary.referenceUtilization);
+      SetTableText(mActiveLinkTablePtr, row, 8, summary.quality);
    }
 
    mLinkTablePtr->setRowCount(static_cast<int>(snapshot.links.size()));

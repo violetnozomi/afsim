@@ -15,6 +15,7 @@ wsf_project_template(${PROJECT_NAME} PLUGIN
       include/nrm/TemporaryPathGuard.hpp
       include/nrm/NetworkTypeUtils.hpp
       include/nrm/RollingMetrics.hpp
+      include/nrm/LinkMetricsRepository.hpp
       include/nrm/MetricReason.hpp
       include/nrm/MessageLifecycleTypes.hpp
       include/nrm/MessageLifecycleTracker.hpp
@@ -91,11 +92,55 @@ add_executable(nrm_ui_scale_test EXCLUDE_FROM_ALL
    warlock/source/NrmUiStyle.cpp
 )
 target_include_directories(nrm_ui_scale_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
    ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
 )
 find_package(Qt5Widgets REQUIRED)
 target_link_libraries(nrm_ui_scale_test PRIVATE Qt5::Widgets)
 add_test(NAME nrm_ui_scale_test COMMAND nrm_ui_scale_test)
+
+add_executable(nrm_acceptance_demo_panel_test EXCLUDE_FROM_ALL
+   tests/AcceptanceDemoPanelTest.cpp
+   warlock/source/NrmAcceptanceDemoPanel.cpp
+)
+set_target_properties(nrm_acceptance_demo_panel_test PROPERTIES AUTOMOC ON)
+target_include_directories(nrm_acceptance_demo_panel_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+target_link_libraries(nrm_acceptance_demo_panel_test PRIVATE Qt5::Widgets)
+add_test(NAME nrm_acceptance_demo_panel_test COMMAND nrm_acceptance_demo_panel_test)
+
+add_executable(nrm_demand_detail_tabs_test EXCLUDE_FROM_ALL
+   tests/DemandDetailTabsTest.cpp
+   warlock/source/NrmDemandDetailTabs.cpp
+)
+target_include_directories(nrm_demand_detail_tabs_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+target_link_libraries(nrm_demand_detail_tabs_test PRIVATE Qt5::Widgets)
+add_test(NAME nrm_demand_detail_tabs_test COMMAND nrm_demand_detail_tabs_test)
+
+add_executable(nrm_operational_detail_tabs_test EXCLUDE_FROM_ALL
+   tests/OperationalDetailTabsTest.cpp
+   warlock/source/NrmOperationalDetailTabs.cpp
+)
+target_include_directories(nrm_operational_detail_tabs_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+target_link_libraries(nrm_operational_detail_tabs_test PRIVATE Qt5::Widgets)
+add_test(NAME nrm_operational_detail_tabs_test COMMAND nrm_operational_detail_tabs_test)
+
+add_executable(nrm_operator_presentation_test EXCLUDE_FROM_ALL
+   tests/OperatorPresentationTest.cpp
+   warlock/source/NrmOperatorPresentation.cpp
+   warlock/source/NrmUiText.cpp
+)
+target_include_directories(nrm_operator_presentation_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+target_link_libraries(nrm_operator_presentation_test PRIVATE Qt5::Widgets)
+add_test(NAME nrm_operator_presentation_test COMMAND nrm_operator_presentation_test)
 
 add_executable(nrm_tactical_selection_test EXCLUDE_FROM_ALL
    tests/TacticalSelectionTest.cpp
@@ -149,6 +194,13 @@ add_test(NAME nrm_gateway_policy_engine_test COMMAND nrm_gateway_policy_engine_t
 
 add_test(NAME nrm_operational_gateway_scenario_test
    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/OperationalGatewayScenarioTest.sh
+)
+
+add_test(NAME nrm_pdr_diversity_scenario_test
+   COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/PdrDiversityScenarioTest.sh
+)
+set_tests_properties(nrm_pdr_diversity_scenario_test PROPERTIES
+   ENVIRONMENT "AFSIM_BUILD=${CMAKE_BINARY_DIR}"
 )
 
 add_executable(nrm_concurrent_task_assessment_test EXCLUDE_FROM_ALL
@@ -213,6 +265,14 @@ target_include_directories(nrm_message_lifecycle_tracker_test PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 add_test(NAME nrm_message_lifecycle_tracker_test COMMAND nrm_message_lifecycle_tracker_test)
+
+add_executable(nrm_link_metrics_repository_test EXCLUDE_FROM_ALL
+   tests/LinkMetricsRepositoryTest.cpp
+)
+target_include_directories(nrm_link_metrics_repository_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+add_test(NAME nrm_link_metrics_repository_test COMMAND nrm_link_metrics_repository_test)
 
 add_executable(nrm_resource_event_ledger_test EXCLUDE_FROM_ALL
    tests/ResourceEventLedgerTest.cpp
@@ -287,6 +347,9 @@ add_executable(nrm_resource_demand_repository_test EXCLUDE_FROM_ALL
 )
 target_include_directories(nrm_resource_demand_repository_test PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_compile_definitions(nrm_resource_demand_repository_test PRIVATE
+   NRM_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_test(NAME nrm_resource_demand_repository_test
    COMMAND nrm_resource_demand_repository_test)
@@ -436,6 +499,17 @@ add_test(NAME nrm_effective_snapshot_assembler_test
    COMMAND nrm_effective_snapshot_assembler_test)
 
 find_package(Qt5Core REQUIRED)
+add_executable(nrm_plan_scenario_binding_test EXCLUDE_FROM_ALL
+   tests/PlanScenarioBindingTest.cpp
+   warlock/source/NrmPlanScenarioBinding.cpp
+)
+target_include_directories(nrm_plan_scenario_binding_test PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/warlock/source
+)
+target_link_libraries(nrm_plan_scenario_binding_test PRIVATE Qt5::Core)
+add_test(NAME nrm_plan_scenario_binding_test
+   COMMAND nrm_plan_scenario_binding_test)
+
 add_executable(nrm_customer_json_codec_test EXCLUDE_FROM_ALL
    tests/CustomerJsonCodecTest.cpp
    warlock/source/NrmCustomerJsonCodec.cpp
@@ -483,6 +557,11 @@ set(NRM_TEST_TARGETS
    nrm_framework_types_test
    nrm_ui_text_test
    nrm_ui_scale_test
+   nrm_acceptance_demo_panel_test
+   nrm_demand_detail_tabs_test
+   nrm_operational_detail_tabs_test
+   nrm_operator_presentation_test
+   nrm_plan_scenario_binding_test
    nrm_tactical_selection_test
    nrm_snapshot_reporter_test
    nrm_assessment_evaluator_test
@@ -491,6 +570,7 @@ set(NRM_TEST_TARGETS
    nrm_frequency_characteristic_test
    nrm_protocol_resource_model_test
    nrm_message_lifecycle_tracker_test
+   nrm_link_metrics_repository_test
    nrm_resource_event_ledger_test
    nrm_constrained_path_selector_test
    nrm_snapshot_reporter_recovery_test

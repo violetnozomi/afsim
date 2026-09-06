@@ -313,16 +313,31 @@ void MergeConcurrentAssessment(
 
 bool WkNrm::DataContainer::LoadNetworkPlan(const std::string& aPath)
 {
+   const nrm::NetworkPlanDocument* previousPlanPtr =
+      mPlanRepository.GetCurrentPlan();
+   const std::string previousFingerprint =
+      previousPlanPtr == nullptr
+         ? std::string()
+         : nrm::network_plan_detail::PlanContentFingerprint(*previousPlanPtr);
    const bool loaded = mPlanRepository.LoadFromFile(aPath);
    mPlanOperation = mPlanRepository.LastLoadResult();
    if (!loaded)
       mReporterPtr->ReportPlanError(mPlanOperation.reason, mPlanOperation.field);
    if (loaded)
    {
-      mHasPlanValidation = false;
-      mHasPlanEvaluation = false;
-      mHasDistributionPackage = false;
-      mHasDemandMatching = false;
+      const nrm::NetworkPlanDocument* currentPlanPtr =
+         mPlanRepository.GetCurrentPlan();
+      const bool planChanged =
+         previousPlanPtr == nullptr || currentPlanPtr == nullptr ||
+         previousFingerprint !=
+            nrm::network_plan_detail::PlanContentFingerprint(*currentPlanPtr);
+      if (planChanged)
+      {
+         mHasPlanValidation = false;
+         mHasPlanEvaluation = false;
+         mHasDistributionPackage = false;
+         mHasDemandMatching = false;
+      }
    }
    emit NetworkPlanChanged();
    return loaded;
@@ -336,7 +351,7 @@ bool WkNrm::DataContainer::LoadCustomerJson(const std::string& aPath)
    {
       mLastCustomerJsonResult = CustomerJsonDecodeResult();
       mLastCustomerJsonResult.errors.push_back(
-         {"FILE_OPEN_FAILED", "/", "无法打开甲方JSON文件"});
+         {"FILE_OPEN_FAILED", "/", "无法打开接口JSON文件"});
    }
    else
    {

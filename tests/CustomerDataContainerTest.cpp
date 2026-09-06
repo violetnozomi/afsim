@@ -140,6 +140,18 @@ int main(int argc, char** argv)
    data.GenerateNetworkPlanPackage(temporaryDirectory.path().toStdString());
    assert(data.HasDistributionPackage());
 
+   // Selecting an exported copy of the already active revision is a no-op:
+   // prior validation/evaluation evidence must remain visible in the UI.
+   const QString samePlanPath = temporaryDirectory.filePath("same-plan.nrm");
+   const nrm::PlanRepositoryResult samePlanSave =
+      nrm::NetworkPlanRepository::SaveDocumentAtomic(
+         *data.GetNetworkPlan(), samePlanPath.toStdString(), true);
+   assert(samePlanSave.success);
+   assert(data.LoadNetworkPlan(samePlanPath.toStdString()));
+   assert(data.HasPlanValidation());
+   assert(data.HasPlanEvaluation());
+   assert(data.HasDistributionPackage());
+
    QJsonObject demands = ReadFixture("resource-demand-request.example.json");
    demands.insert("messageId", "demands-e2e");
    RequireLoad(data, WriteMessage(temporaryDirectory, "demands.json", demands));
@@ -163,6 +175,8 @@ int main(int argc, char** argv)
    assert(!data.HasPlanEvaluation());
    assert(!data.HasDistributionPackage());
    assert(!data.HasDemandMatching());
+   assert(data.HasDemandMatchingHistory());
+   assert(!data.GetDemandMatching().results.empty());
 
    const std::uint64_t versionBeforeAfsim = data.GetSnapshot().snapshotVersion;
    nrm::ResourceSnapshot afsim;
@@ -197,5 +211,7 @@ int main(int argc, char** argv)
    assert(data.GetSnapshot().navigation.platforms.size() == 2);
    assert(data.GetSnapshot().environment.valid);
    assert(data.GetSnapshot().snapshotVersion > versionBeforeCustomerRefresh);
+   data.UnloadResourceDemands();
+   assert(!data.HasDemandMatchingHistory());
    return 0;
 }

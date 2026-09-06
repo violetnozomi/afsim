@@ -58,7 +58,10 @@ public:
       task.kShortestPaths = aRequest.kShortestPaths;
       task.maximumHops = aRequest.maximumHops;
       task.allowedNetworks = aRequest.allowedNetworks;
-      task.requireObservedCurrentMetrics = true;
+      task.requireObservedCurrentMetrics =
+         !aRequest.allowParameterizedMetricFallback;
+      task.allowParameterizedCurrentMetricFallback =
+         aRequest.allowParameterizedMetricFallback;
       task.requireDelayMetricForFeasibility = aRequest.maximumDelayMs > 0.0;
 
       const AssessmentResult assessment = mEvaluator.Evaluate(aSnapshot, task);
@@ -417,7 +420,11 @@ private:
          }
          NormalizeEnvironmentEffect(effect);
          aResult.environmentEffects.push_back(effect);
-         if (!effect.valid)
+         // Missing environment evidence is informational for a path whose
+         // communication metrics were observed directly.  It becomes a
+         // capability reason only when evaluating a parameterized candidate,
+         // where the absent environment could change feasibility.
+         if (!effect.valid && aResult.usesCandidate)
          {
             AddReason(aResult, CapabilityReason::cENVIRONMENT_DATA_UNAVAILABLE);
          }

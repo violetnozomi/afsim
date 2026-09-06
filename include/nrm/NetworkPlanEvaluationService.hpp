@@ -202,6 +202,8 @@ private:
       request.maximumDelayMs = aDemand.maximumDelayMs;
       request.minimumPdrPercent = aDemand.minimumPdrPercent;
       request.allowedNetworks = aDemand.allowedNetworks;
+      request.allowParameterizedMetricFallback =
+         aPlan.source == DataOrigin::cPARAMETERIZED_MODEL;
       if (request.allowedNetworks.empty())
       {
          std::set<NetworkType> allocatedTypes;

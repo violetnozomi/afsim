@@ -17,12 +17,17 @@ class QWidget;
 
 namespace WkNrm
 {
+class AcceptanceDemoPanel;
+class DemandDetailTabs;
+class OperationalDetailTabs;
+
 class DockWidget : public QDockWidget
 {
    Q_OBJECT
 
 public:
    explicit DockWidget(DataContainer& aData, QWidget* aParentPtr = nullptr);
+   void ShowAcceptanceDemo();
    void ShowNetworkPlan();
 
 public slots:
@@ -58,6 +63,12 @@ private:
    void RefreshNodeSelectors(const nrm::FrameworkSnapshot& aSnapshot);
    void PublishAssessmentPlatforms();
    void RefreshTacticalScaleControl();
+   void StartAcceptanceScenario();
+   void RunAcceptanceAssessment();
+   void RunAcceptanceCapability();
+   void RunAcceptancePlan();
+   void ShowAcceptanceTab(QWidget* aPagePtr);
+   static bool SetComboValue(QComboBox* aComboPtr, const QString& aValue);
    static QString RuntimeStateText(nrm::RuntimeState aState);
    static void SetTableText(QTableWidget* aTablePtr, int aRow, int aColumn, const QString& aText);
 
@@ -76,9 +87,13 @@ private:
    QLabel*        mHopValuePtr;
    QLabel*        mDiscardedValuePtr;
    QTableWidget*  mNetworkTablePtr;
+   QTableWidget*  mMetricsSummaryTablePtr;
    QTableWidget*  mMetricsTablePtr;
+   OperationalDetailTabs* mMetricsDetailTabsPtr;
    QTableWidget*  mEndpointTablePtr;
+   QTableWidget*  mActiveLinkTablePtr;
    QTableWidget*  mLinkTablePtr;
+   OperationalDetailTabs* mLinkDetailTabsPtr;
    QTableWidget*  mEnvironmentTablePtr;
    QTableWidget*  mNavigationTablePtr;
    QComboBox*      mSourceSelectorPtr;
@@ -100,6 +115,7 @@ private:
    QTextEdit*      mCapabilityResultPtr;
    QLabel*         mPlanSummaryPtr;
    QLabel*         mPlanOperationPtr;
+   QTableWidget*   mPlanOverviewTablePtr;
    QTableWidget*   mPlanAllocationTablePtr;
    QTableWidget*   mPlanDemandTablePtr;
    QTableWidget*   mPlanIssueTablePtr;
@@ -107,14 +123,20 @@ private:
    QTableWidget*   mPlanRecommendationTablePtr;
    QTabWidget*     mPlanDetailTabsPtr;
    QTabWidget*     mMainTabsPtr;
+   AcceptanceDemoPanel* mAcceptanceDemoPanelPtr;
+   QWidget*        mAssessmentPagePtr;
+   QWidget*        mCapabilityPagePtr;
    QWidget*        mPlanPagePtr;
+   QWidget*        mPreacceptancePagePtr;
    bool            mPlanDirty = false;
    QLabel*         mDemandSummaryPtr;
    QLabel*         mDemandOperationPtr;
    QTableWidget*   mDemandTablePtr;
    QTableWidget*   mDemandMatchTablePtr;
    QTableWidget*   mDemandGapTablePtr;
+   QTableWidget*   mDemandRecommendationSummaryTablePtr;
    QTableWidget*   mDemandRecommendationTablePtr;
+   DemandDetailTabs* mDemandDetailTabsPtr;
    bool            mDemandDirty = false;
    QLabel*         mPreacceptanceStatusPtr;
    QLabel*         mPreacceptanceTimePtr;

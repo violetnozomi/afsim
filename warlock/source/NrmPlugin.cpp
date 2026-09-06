@@ -24,8 +24,16 @@ WkNrm::Plugin::Plugin(const QString& aPluginName, size_t aUniqueId)
    if (!autoPlan.isEmpty())
    {
       mData.LoadNetworkPlan(autoPlan.constData());
-      mDockWidgetPtr->ShowNetworkPlan();
+      if (qgetenv("NRM_AUTO_OPEN_PAGE") == "acceptance")
+      {
+         mDockWidgetPtr->ShowAcceptanceDemo();
+      }
+      else
+      {
+         mDockWidgetPtr->ShowNetworkPlan();
+      }
       qunsetenv("NRM_AUTO_PLAN_FILE");
+      qunsetenv("NRM_AUTO_OPEN_PAGE");
    }
 
    QMainWindow* centralDockerPtr = wkfEnv.GetMainWindow()->centralWidget();
